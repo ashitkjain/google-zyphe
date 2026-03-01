@@ -11,8 +11,9 @@ interface OrientationRow {
     zpid: string;
     address: string;
     city: string;
-    mapZoomIn?: string;
-    mapZoomOut?: string;
+    mapZoomIn?: string;           // Radar close-up road map
+    mapZoomOut?: string;          // Radar wider-area road map
+    satelliteImageUrl?: string;   // Google satellite 2× (for orientation analysis)
     streetView?: string;
     orientationAI?: {
         final_orientation: string;
@@ -119,28 +120,34 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 }
             });
 
-            const built: OrientationRow[] = propSnap.docs.map(d => {
-                const p = d.data() as any;
-                return {
-                    zpid: d.id,
-                    address: p.address || d.id,
-                    city: p.city || 'Other',
-                    mapZoomIn: p.mapZoomIn || undefined,
-                    mapZoomOut: p.mapZoomOut || undefined,
-                    streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
-                    orientationAI: p.orientation_ai || null,
-                    orientationGeocoding: p.orientation_geocoding || null,
-                    finalOrientation:
-                        // 1. Neighborhood AI analysis (property_analyses_visual collection)
-                        visualOrientationMap[d.id] ||
-                        // 2. Satellitary-cached orientation (from our new caching)
-                        (p.orientation_ai?.final_orientation as string | undefined) ||
-                        null,
-                    coordinates: p.coordinates || undefined,
-                    orientationAssessment: orientationAssessmentMap[d.id] ?? [],
-                    status: 'idle' as const,
-                };
-            });
+            const built: OrientationRow[] = propSnap.docs
+                .filter(d => !(d.data() as any).deprecated) // Skip deprecated (sold/inactive) properties
+                .map(d => {
+                    const p = d.data() as any;
+                    return {
+                        zpid: d.id,
+                        address: p.address || d.id,
+                        city: p.city || 'Other',
+                        mapZoomIn: p.mapZoomIn || undefined,
+                        mapZoomOut: p.mapZoomOut || undefined,
+                        // Only use the satellite field — never fall back to mapZoomOut (which is a Radar road map)
+                        satelliteImageUrl: (p.satelliteImageUrl && p.satelliteImageUrl.includes('firebasestorage'))
+                            ? p.satelliteImageUrl : undefined,
+                        streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
+                        orientationAI: p.orientation_ai || null,
+                        orientationGeocoding: p.orientation_geocoding || null,
+                        finalOrientation:
+                            // 1. Neighborhood AI analysis (property_analyses_visual collection)
+                            visualOrientationMap[d.id] ||
+                            // 2. Satellitary-cached orientation (from our new caching)
+                            (p.orientation_ai?.final_orientation as string | undefined) ||
+                            null,
+                        coordinates: p.coordinates || undefined,
+                        orientationAssessment: orientationAssessmentMap[d.id] ?? [],
+                        status: 'idle' as const,
+                    };
+                });
+
             setRows(built);
 
             if (!activeCity && built.length > 0) {
@@ -150,9 +157,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 setActiveCity(sorted[0]?.[0] || null);
             }
 
-            // Background: cache satellite images for rows without one
+            // Background: pre-cache satellite images for rows that don't have one yet
             const toFetch = built.filter(
-                r => r.coordinates && (!r.mapZoomOut || !r.mapZoomOut.includes('firebasestorage'))
+                r => r.coordinates && !r.satelliteImageUrl
             );
             const CONCURRENCY = 10;
             for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
@@ -166,7 +173,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 row.coordinates!.longitude
                             );
                             setRows(prev => prev.map(r =>
-                                r.zpid === row.zpid ? { ...r, mapZoomOut: url } : r
+                                r.zpid === row.zpid ? { ...r, satelliteImageUrl: url } : r
                             ));
                         } catch (e) {
                             console.warn(`[OrientationAudit] Satellite cache failed for ${row.zpid}:`, e);
@@ -282,7 +289,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 ...r,
                 status: 'done',
                 // Update images with freshly downloaded versions
-                mapZoomOut: result.freshAerialUrl || r.mapZoomOut,
+                satelliteImageUrl: result.freshAerialUrl || r.satelliteImageUrl,
                 streetView: result.freshStreetViewUrl || r.streetView,
                 // Update orientation results
                 orientationAI: {
@@ -379,7 +386,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             row.coordinates!.longitude
                         );
                         setRows(prev => prev.map(r =>
-                            r.zpid === row.zpid ? { ...r, mapZoomOut: url } : r
+                            r.zpid === row.zpid ? { ...r, satelliteImageUrl: url } : r
                         ));
                     } catch (e) {
                         console.warn(`[OrientationAudit] Re-download failed for ${row.zpid}:`, e);
@@ -534,7 +541,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 { v: 'all' as OrientationAssessmentValue, label: 'All', bg: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-400' },
                             ]).map(({ v, label, bg, text, border, dot }) => {
                                 const count = assessmentCounts[v];
-                                const pct = assessedCount > 0 ? Math.round((count / assessedCount) * 100) : 0;
+                                const pct = filteredRows.length > 0 ? Math.round((count / filteredRows.length) * 100) : 0;
                                 return (
                                     <div
                                         key={v}
@@ -547,8 +554,14 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     </div>
                                 );
                             })}
-                            <div className="ml-auto flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                <span className="text-slate-600">{assessedCount}</span> / {filteredRows.length} assessed
+                            <div className="ml-auto flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                <span>
+                                    <span className="text-slate-600">{assessedCount}</span> / {filteredRows.length} assessed
+                                </span>
+                                <span className="text-slate-200">|</span>
+                                <span>
+                                    <span className="text-slate-600">{(Object.values(assessmentCounts) as number[]).reduce((a, b) => a + b, 0)}</span> total assessments
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -616,7 +629,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                         {/* Satellite */}
                                         <td className="p-5 text-center">
-                                            <MapThumb url={row.mapZoomOut} label="Satellite" orientations={{
+                                            <MapThumb url={row.satelliteImageUrl} label="Satellite" orientations={{
                                                 ...row,
                                                 selectedAssessment: row.orientationAssessment,
                                                 onSelectAssessment: (v) => {
@@ -675,8 +688,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                         </div>
                                                         {row.orientationAI.image_quality && row.orientationAI.image_quality !== 'clear' && (
                                                             <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${row.orientationAI.image_quality === 'blurry'
-                                                                    ? 'bg-slate-100 text-slate-400 border-slate-200'
-                                                                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                                                                ? 'bg-slate-100 text-slate-400 border-slate-200'
+                                                                : 'bg-amber-50 text-amber-600 border-amber-200'
                                                                 }`}>
                                                                 {row.orientationAI.image_quality}
                                                             </div>
@@ -922,8 +935,8 @@ function MapThumb({ url, label, orientations }: {
                                                         </span>
                                                         {orientations.orientationAI.image_quality && orientations.orientationAI.image_quality !== 'clear' && (
                                                             <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${orientations.orientationAI.image_quality === 'blurry'
-                                                                    ? 'bg-slate-400/20 text-slate-300'
-                                                                    : 'bg-amber-400/20 text-amber-300'
+                                                                ? 'bg-slate-400/20 text-slate-300'
+                                                                : 'bg-amber-400/20 text-amber-300'
                                                                 }`}>
                                                                 {orientations.orientationAI.image_quality}
                                                             </span>
@@ -1147,11 +1160,13 @@ function AssessmentDropdown({
                                 className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border ${ASSESSMENT_CHIP_COLOR[v]}`}
                             >
                                 {ASSESSMENT_OPTIONS.find(o => o.value === v)?.label}
-                                <button
-                                    type="button"
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); toggle(v); } }}
                                     onClick={e => { e.stopPropagation(); toggle(v); }}
-                                    className="ml-0.5 text-[7px] opacity-60 hover:opacity-100"
-                                >×</button>
+                                    className="ml-0.5 text-[7px] opacity-60 hover:opacity-100 cursor-pointer"
+                                >×</span>
                             </span>
                         ))}
                     </div>

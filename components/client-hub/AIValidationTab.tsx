@@ -2,8 +2,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllAuditors, sendInternalMessage } from '../../services/firebaseService';
+import { getDeprecatedProperties, restoreDeprecatedProperty } from '../../services/firebase/properties';
+import { getZipsForCity, getZipListings } from '../../services/firebase/cityData';
 import { PropertyData } from '../../types';
 import OrientationAuditTab from './OrientationAuditTab';
+
 
 interface PropertyValidationStatus extends PropertyData {
     hasCoreData: boolean;
@@ -28,7 +31,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
     const [userNames, setUserNames] = useState<Record<string, string>>({});
     const [allAuditors, setAllAuditors] = useState<{ uid: string, displayName: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions' | 'orientation'>('audits');
+    const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions' | 'orientation' | 'deprecated'>('audits');
+
     const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
     const [editingComment, setEditingComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
@@ -41,7 +45,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
         text: string;
     } | null>(null);
     const [sendingMessage, setSendingMessage] = useState(false);
+    const [deprecatedProperties, setDeprecatedProperties] = useState<any[]>([]);
+    const [activeDeprecatedCity, setActiveDeprecatedCity] = useState<string | null>(null);
+    const [restoringZpid, setRestoringZpid] = useState<string | null>(null);
     const pageSize = 20;
+
 
     const cityStats = useMemo(() => {
         const uniqueCities = Array.from(new Set(properties.map(p => p.city || 'Other')));
@@ -56,11 +64,10 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             };
         });
 
-        // Hide a city tab if it has below 5 properties
-        const filteredStats = stats.filter(stat => stat.total >= 5);
 
         // Sort by pending properties descending, then by name
-        return (filteredStats as { name: string, total: number, pending: number }[]).sort((a, b) => {
+        return (stats as { name: string, total: number, pending: number }[]).sort((a, b) => {
+
             if (b.pending !== a.pending) return b.pending - a.pending;
             return a.name.localeCompare(b.name);
         });
@@ -84,7 +91,10 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             // 1. Fetch properties
             const propertyQuery = query(collection(db, "properties"), orderBy("address", "asc"));
             const propertySnapshot = await getDocs(propertyQuery);
-            const rawProperties = propertySnapshot.docs.map(doc => ({ zpid: doc.id, ...doc.data() } as any));
+            const rawProperties = propertySnapshot.docs
+                .filter(doc => !(doc.data() as any).deprecated) // Skip deprecated (sold/inactive) properties
+                .map(doc => ({ zpid: doc.id, ...doc.data() } as any));
+
 
             // 2. Fetch Visual Analysis for interior check
             const visualSnapshot = await getDocs(collection(db, "property_analyses_visual"));
@@ -145,12 +155,19 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             });
 
             setProperties(mapped);
+
+            // 5. Fetch deprecated properties
+            const deprecated = await getDeprecatedProperties();
+            setDeprecatedProperties(deprecated.sort((a: any, b: any) =>
+                (a.address || '').localeCompare(b.address || '')
+            ));
         } catch (error) {
             console.error("Error fetching validation data:", error);
         } finally {
             setLoading(false);
         }
     };
+
 
     useEffect(() => {
         fetchData();
@@ -190,6 +207,101 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             count
         })).sort((a, b) => b.count - a.count);
     }, [assessments, userNames, reportStartDate, reportEndDate]);
+
+    // Grouped stats for the deprecated tab
+    const deprecatedCityStats = useMemo(() => {
+        const groups: Record<string, any[]> = {};
+        deprecatedProperties.forEach(p => {
+            const city = p.city || 'Other';
+            if (!groups[city]) groups[city] = [];
+            groups[city].push(p);
+        });
+        return Object.entries(groups)
+            .map(([name, props]) => ({ name, count: props.length }))
+            .sort((a, b) => b.count - a.count);
+    }, [deprecatedProperties]);
+
+    const filteredDeprecatedProperties = useMemo(() => {
+        if (!activeDeprecatedCity) return [];
+        return deprecatedProperties.filter(p => (p.city || 'Other') === activeDeprecatedCity);
+    }, [deprecatedProperties, activeDeprecatedCity]);
+
+    // Auto-select first deprecated city
+    useEffect(() => {
+        if (!activeDeprecatedCity && deprecatedCityStats.length > 0) {
+            setActiveDeprecatedCity(deprecatedCityStats[0].name);
+        }
+    }, [deprecatedCityStats, activeDeprecatedCity]);
+
+    const handleRestore = async (zpid: string) => {
+        setRestoringZpid(zpid);
+        try {
+            const result = await restoreDeprecatedProperty(zpid);
+            if (result.success) {
+                setDeprecatedProperties(prev => prev.filter(p => p.zpid !== zpid));
+            } else {
+                alert('Restore failed: ' + result.error);
+            }
+        } catch (e: any) {
+            alert('Restore failed: ' + e.message);
+        } finally {
+            setRestoringZpid(null);
+        }
+    };
+
+    const handleRestoreAll = async () => {
+        if (!activeDeprecatedCity || filteredDeprecatedProperties.length === 0) return;
+
+        setRestoringZpid('__all__');
+        try {
+            // 1. Look up all zip codes for this city
+            const zipsByState = await getZipsForCity(activeDeprecatedCity);
+            if (!zipsByState) {
+                alert(`No zip codes found for "${activeDeprecatedCity}" in the cache. Cannot determine which properties are still active.`);
+                return;
+            }
+
+            // 2. Collect all active ZPIDs from zip_listings_cache for those zips
+            const allZips = Object.values(zipsByState).flat();
+            const activeZpids = new Set<string>();
+            await Promise.all(allZips.map(async (zip) => {
+                const cached = await getZipListings(zip);
+                if (cached?.listings) {
+                    cached.listings.forEach((l: any) => {
+                        const id = String(l.property_id || l.listing_id || '');
+                        if (id) activeZpids.add(id);
+                    });
+                }
+            }));
+
+            // 3. Filter: only restore properties whose ZPID is in the active cache
+            const toRestore = filteredDeprecatedProperties.filter(p => activeZpids.has(String(p.zpid)));
+            const toLeave = filteredDeprecatedProperties.filter(p => !activeZpids.has(String(p.zpid)));
+
+            if (toRestore.length === 0) {
+                alert(`None of the ${filteredDeprecatedProperties.length} deprecated properties in ${activeDeprecatedCity} are currently in the zip listings cache. They appear to still be sold/inactive.`);
+                return;
+            }
+
+            if (!window.confirm(
+                `Found ${toRestore.length} of ${filteredDeprecatedProperties.length} deprecated properties active in the zip listings cache.
+
+` +
+                `Restoring ${toRestore.length} properties.
+` +
+                (toLeave.length > 0 ? `Leaving ${toLeave.length} properties deprecated (not in any active listing).` : '')
+            )) return;
+
+            // 4. Restore only the active ones
+            await Promise.all(toRestore.map(p => restoreDeprecatedProperty(p.zpid)));
+            const restoredZpids = new Set(toRestore.map(p => p.zpid));
+            setDeprecatedProperties(prev => prev.filter(p => !restoredZpids.has(p.zpid)));
+        } catch (e: any) {
+            alert('Restore all failed: ' + e.message);
+        } finally {
+            setRestoringZpid(null);
+        }
+    };
 
     const handleAssignAuditor = async (zpid: string, address: string, targetUserId: string, force: boolean = false) => {
         const existing = assessments[zpid];
@@ -345,6 +457,18 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                         >
                             <i className="fa-solid fa-satellite-dish mr-1.5 text-[10px]"></i>Orientation
                         </button>
+                        <button
+                            onClick={() => setActiveTab('deprecated')}
+                            className={`text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all flex items-center gap-2 ${activeTab === 'deprecated' ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            <i className="fa-solid fa-ban text-[10px]"></i>
+                            Deprecated
+                            {deprecatedProperties.length > 0 && (
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${activeTab === 'deprecated' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'}`}>
+                                    {deprecatedProperties.length}
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </div>
                 <button
@@ -412,9 +536,9 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                             return (
                                                 <tr key={prop.zpid} className={`group hover:bg-slate-50/50 transition-colors ${prop.isGrayedOut ? 'opacity-40' : ''}`}>
                                                     <td className="p-6">
-                                                        <button
+                                                        <div
                                                             onClick={() => handlePropertyClick(prop.address)}
-                                                            className="text-left group/link flex items-center gap-4"
+                                                            className="text-left group/link flex items-center gap-4 cursor-pointer"
                                                         >
                                                             <div className="w-16 h-12 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
                                                                 {prop.images?.[0] ? (
@@ -456,7 +580,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                                     <i className="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
                                                                 </div>
                                                             </div>
-                                                        </button>
+                                                        </div>
                                                     </td>
                                                     <td className="p-6">
                                                         <div className="flex justify-center">
@@ -780,6 +904,150 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                     </div>
                 </div>
             ) : null}
+
+            {activeTab === 'deprecated' && (
+                <div className="space-y-6">
+                    {/* City sub-tabs */}
+                    {deprecatedCityStats.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+                            <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6 border border-emerald-100">
+                                <i className="fa-solid fa-circle-check text-3xl text-emerald-400"></i>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-700 mb-2">No Deprecated Properties</h3>
+                            <p className="text-sm font-medium text-slate-400">All properties in Firestore are currently active.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Per-city tabs */}
+                            <div className="flex gap-3 overflow-x-auto pb-3 no-scrollbar">
+                                {deprecatedCityStats.map(stat => (
+                                    <button
+                                        key={stat.name}
+                                        onClick={() => setActiveDeprecatedCity(stat.name)}
+                                        className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl border transition-all whitespace-nowrap
+                                            ${activeDeprecatedCity === stat.name
+                                                ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-200 scale-[1.02]'
+                                                : 'bg-white border-slate-200 text-slate-500 hover:border-amber-300 hover:text-amber-600'}`}
+                                    >
+                                        <i className="fa-solid fa-ban text-[10px]"></i>
+                                        <span className="text-[11px] font-black uppercase tracking-widest">{stat.name} Deprecated</span>
+                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeDeprecatedCity === stat.name ? 'bg-white/20' : 'bg-amber-100 text-amber-700'}`}>
+                                            {stat.count}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Deprecated property table */}
+                            <div className="bg-white rounded-[2.5rem] border border-amber-100 shadow-sm overflow-hidden">
+                                <div className="px-8 py-5 border-b border-amber-50 bg-amber-50/40 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                                        <i className="fa-solid fa-ban text-amber-600 text-xs"></i>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-[11px] font-black text-amber-700 uppercase tracking-widest">{activeDeprecatedCity} Deprecated</div>
+                                        <div className="text-[10px] text-amber-600/70 font-medium mt-0.5">
+                                            {filteredDeprecatedProperties.length} properties marked as sold or no longer active
+                                        </div>
+                                    </div>
+                                    {filteredDeprecatedProperties.length > 0 && (
+                                        <button
+                                            onClick={handleRestoreAll}
+                                            disabled={restoringZpid === '__all__'}
+                                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 disabled:opacity-40 disabled:pointer-events-none shrink-0 shadow-sm"
+                                            title={`Restore all ${filteredDeprecatedProperties.length} properties in ${activeDeprecatedCity}`}
+                                        >
+                                            {restoringZpid === '__all__' ? (
+                                                <><i className="fa-solid fa-spinner animate-spin"></i><span>Restoring...</span></>
+                                            ) : (
+                                                <><i className="fa-solid fa-rotate-left"></i><span>Restore All ({filteredDeprecatedProperties.length})</span></>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-100">
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">City</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Deprecated On</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reason</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {filteredDeprecatedProperties.map(prop => (
+                                            <tr key={prop.zpid} className="group hover:bg-amber-50/30 transition-colors">
+                                                <td className="p-6">
+                                                    <div
+                                                        className="flex items-center gap-4 cursor-pointer group/link"
+                                                        onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(prop.address)}&zpid=${prop.zpid}`, '_blank')}
+                                                    >
+                                                        <div className="w-16 h-12 rounded-lg bg-amber-50 overflow-hidden shrink-0 border border-amber-100 flex items-center justify-center relative">
+                                                            {prop.images?.[0] ? (
+                                                                <img src={prop.images[0]} alt="" className="w-full h-full object-cover opacity-60" />
+                                                            ) : (
+                                                                <i className="fa-solid fa-house-circle-xmark text-amber-300 text-lg"></i>
+                                                            )}
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-amber-100/50">
+                                                                <i className="fa-solid fa-ban text-amber-400 text-sm"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-black text-slate-700 group-hover/link:text-amber-700 transition-colors leading-tight">
+                                                                {prop.address || prop.zpid}
+                                                            </div>
+                                                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">ZPID: {prop.zpid}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-6">
+                                                    <span className="text-xs font-bold text-slate-500">{prop.city || '–'}</span>
+                                                </td>
+                                                <td className="p-6">
+                                                    <div className="text-[11px] font-bold text-slate-500">
+                                                        {prop.deprecatedAt ? (() => {
+                                                            const d = prop.deprecatedAt;
+                                                            const date = d?.toDate ? d.toDate() : new Date(d);
+                                                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                                        })() : '–'}
+                                                    </div>
+                                                </td>
+                                                <td className="p-6">
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-lg">
+                                                        <i className="fa-solid fa-arrow-down text-[7px]"></i>
+                                                        {(prop.deprecatedReason || 'not_in_active_listings').replace(/_/g, ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="p-6 text-right">
+                                                    <button
+                                                        onClick={() => handleRestore(prop.zpid)}
+                                                        disabled={restoringZpid === prop.zpid}
+                                                        className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 disabled:opacity-40 disabled:pointer-events-none"
+                                                        title="Restore this property to active status"
+                                                    >
+                                                        {restoringZpid === prop.zpid ? (
+                                                            <i className="fa-solid fa-spinner animate-spin"></i>
+                                                        ) : (
+                                                            <><i className="fa-solid fa-rotate-left mr-1.5"></i>Restore</>
+                                                        )}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {filteredDeprecatedProperties.length === 0 && (
+                                    <div className="py-16 text-center opacity-40">
+                                        <i className="fa-solid fa-ban text-4xl text-amber-200 mb-3"></i>
+                                        <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No deprecated properties for this city</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             {activeTab === 'orientation' && (
                 <OrientationAuditTab isAdmin={userRole === 'admin'} />

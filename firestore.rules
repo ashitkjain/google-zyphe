@@ -16,7 +16,8 @@ service cloud.firestore {
         'deep_investment_research',
         'google_environmental_data',
         'ai_assessment',
-        'context_graph'
+        'context_graph',
+        'deprecated_properties'
       ];
       allow write: if request.auth != null && collectionName in [
         'properties', 
@@ -30,7 +31,8 @@ service cloud.firestore {
         'deep_investment_research',
         'google_environmental_data',
         'ai_assessment',
-        'context_graph'
+        'context_graph',
+        'deprecated_properties'
       ];
     }
 

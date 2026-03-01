@@ -132,6 +132,35 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                     )}
                     {propertyData ? (
                         <>
+                            {/* Deprecated banner — property is sold / no longer active in the market */}
+                            {propertyData.deprecated && (
+                                <div className="max-w-4xl mx-auto px-4 pt-4 animate-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center gap-3 px-5 py-4 bg-amber-50 border-2 border-amber-200 rounded-2xl shadow-sm">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                                            <i className="fa-solid fa-circle-exclamation text-amber-600 text-sm"></i>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[11px] font-black text-amber-700 uppercase tracking-widest">Deprecated Property</div>
+                                            <div className="text-xs font-medium text-amber-600 mt-0.5">
+                                                This property is no longer listed as active in the market. It may have been sold or de-listed.
+                                                {propertyData.deprecatedAt && (
+                                                    <span className="ml-2 opacity-60 font-mono text-[10px]">
+                                                        (flagged {(() => {
+                                                            const d = propertyData.deprecatedAt;
+                                                            const date = d?.toDate ? d.toDate() : new Date(d);
+                                                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                                        })()})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-200/60 rounded-xl border border-amber-300/40 shrink-0">
+                                            <i className="fa-solid fa-ban text-amber-600 text-[10px]"></i>
+                                            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Off Market</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <PropertyHeader
                                 data={propertyData}
                                 isFavorited={isFavorited}

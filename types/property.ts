@@ -139,8 +139,9 @@ export interface PropertyData {
         latitude: number;
         longitude: number;
     };
-    mapZoomIn?: string;
-    mapZoomOut?: string;
+    mapZoomIn?: string;          // Radar static map, zoom=20 — close-up neighbourhood for AI analysis
+    mapZoomOut?: string;         // Radar static map, zoom=15 — wider area context for AI analysis
+    satelliteImageUrl?: string;  // Google Maps Static satellite, zoom=20 scale=2 — for orientation AI
     listedDate?: string | number;
     comps?: PropertyComp[];
     priceHistory?: PriceHistoryItem[];
@@ -224,6 +225,8 @@ export interface PropertyData {
         orientation: string;
     } | null;
     orientation_computed_at?: any;
+    deprecated?: boolean;         // true = property is no longer active in the market
+    deprecatedAt?: any;           // serverTimestamp of when it was marked deprecated
 }
 
 export interface PropertyDetails {
@@ -266,8 +269,9 @@ export interface Tour {
 export interface PropertyAssets {
     zpid: string;
     images: string[];
-    mapZoomIn?: string;
-    mapZoomOut?: string;
-    streetView?: string;
+    mapZoomIn?: string;          // Radar close-up road map (Firebase Storage)
+    mapZoomOut?: string;         // Radar wider-area road map (Firebase Storage)
+    streetView?: string;         // Google Street View (Firebase Storage)
+    satelliteImageUrl?: string;  // Google Maps satellite 2× (Firebase Storage)
     lastVerified: any; // serverTimestamp
 }

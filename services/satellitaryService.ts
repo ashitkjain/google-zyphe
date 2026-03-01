@@ -83,10 +83,10 @@ export async function getOrCacheAerialSatelliteUrl(
     // uploadRemoteImageToStorage already does a getDownloadURL check before uploading
     const cachedUrl = await uploadRemoteImageToStorage(aerialUrl, storagePath);
 
-    // Persist the cached URL to Firestore so we can read it back without re-downloading
+    // Persist the cached URL to Firestore under its own dedicated field
     if (cachedUrl.includes('firebasestorage')) {
-        savePropertyToCloud(zpid, { mapZoomOut: cachedUrl } as any)
-            .catch(e => console.warn('[Satellitary] Failed to cache aerial URL to property doc:', e));
+        savePropertyToCloud(zpid, { satelliteImageUrl: cachedUrl } as any)
+            .catch(e => console.warn('[Satellitary] Failed to cache satellite URL to property doc:', e));
     }
 
     return cachedUrl;
@@ -118,8 +118,8 @@ export async function forceRefreshAerialSatelliteUrl(
     const freshUrl = await uploadRemoteImageToStorage(aerialUrl, storagePath);
 
     if (freshUrl.includes('firebasestorage')) {
-        savePropertyToCloud(zpid, { mapZoomOut: freshUrl } as any)
-            .catch(e => console.warn('[Satellitary] Failed to update aerial URL in property doc:', e));
+        savePropertyToCloud(zpid, { satelliteImageUrl: freshUrl } as any)
+            .catch(e => console.warn('[Satellitary] Failed to update satellite URL in property doc:', e));
     }
 
     return freshUrl;

@@ -1,4 +1,5 @@
-import { doc, setDoc, getDoc, serverTimestamp, query, collection, where, documentId, getDocs, getCountFromServer, limit } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, query, collection, where, documentId, getDocs, getCountFromServer, limit, deleteDoc } from "firebase/firestore";
+
 import {
     db,
     auth,
@@ -557,6 +558,7 @@ export interface PropertyStatusDetails {
         images: boolean;
         map: boolean;
         streetView: boolean;
+        satellite: boolean;  // Google satellite image (2× fidelity) cached in Firebase Storage
         timestamp: any;
         thumbnailUrl?: string;
     };
@@ -646,6 +648,7 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
                     images: imagesSecured,
                     map: !!data.mapZoomIn && data.mapZoomIn.includes('firebasestorage'),
                     streetView: !!data.streetView && data.streetView.includes('firebasestorage'),
+                    satellite: !!data.satelliteImageUrl && data.satelliteImageUrl.includes('firebasestorage'),
                     timestamp: data.lastVerified,
                     thumbnailUrl: imagesSecured ? data.images[0] : undefined
                 };
@@ -762,4 +765,194 @@ export const getProjectCollectionStats = async () => {
     }));
 
     return stats;
+};
+
+// ─── Deprecation Management ───────────────────────────────────────────────────
+
+/**
+ * Marks a property as deprecated by:
+ *  1. Writing the full property doc to `deprecated_properties/<zpid>`
+ *  2. Setting `deprecated: true` + `deprecatedAt` on the `properties/<zpid>` doc (in-place flag)
+ *
+ * We keep the doc in `properties` with the flag so existing code that already
+ * loaded it can still show the data — just with the deprecated badge.  The
+ * optional `deleteFromActive` flag removes it entirely from `properties` if you
+ * prefer hard removal (not recommended for audit trails).
+ */
+export const markPropertyAsDeprecated = async (
+    zpid: string,
+    reason?: string,
+    deleteFromActive: boolean = false
+): Promise<{ success: boolean; error?: string }> => {
+    if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
+    try {
+        // 1. Read current property data
+        const propRef = doc(db, 'properties', String(zpid));
+        const propSnap = await getDoc(propRef);
+        const propData = propSnap.exists() ? propSnap.data() : {};
+
+        // 2. Write to deprecated_properties collection (full snapshot)
+        const deprecatedRef = doc(db, 'deprecated_properties', String(zpid));
+        logFirestoreQuery('setDoc', 'deprecated_properties', { zpid });
+        await setDoc(deprecatedRef, {
+            ...sanitizeForFirestore(propData),
+            zpid: String(zpid),
+            deprecated: true,
+            deprecatedAt: serverTimestamp(),
+            deprecatedReason: reason || 'not_in_active_listings',
+        }, { merge: true });
+
+        if (deleteFromActive) {
+            // Hard-remove from active properties collection
+            logFirestoreQuery('deleteDoc', 'properties', { zpid });
+            await deleteDoc(propRef);
+        } else {
+            // Soft-flag: keep the doc but mark as deprecated
+            logFirestoreQuery('setDoc', 'properties', { zpid, deprecated: true });
+            await setDoc(propRef, {
+                deprecated: true,
+                deprecatedAt: serverTimestamp(),
+                deprecatedReason: reason || 'not_in_active_listings',
+            }, { merge: true });
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: handleFirestoreError(error, 'markPropertyAsDeprecated') as string };
+    }
+};
+
+/**
+ * Restores a deprecated property back to active status.
+ * Clears the `deprecated` flag from `properties` and removes from `deprecated_properties`.
+ */
+export const restoreDeprecatedProperty = async (zpid: string): Promise<{ success: boolean; error?: string }> => {
+    if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
+    try {
+        const propRef = doc(db, 'properties', String(zpid));
+        const deprecatedRef = doc(db, 'deprecated_properties', String(zpid));
+
+        logFirestoreQuery('setDoc', 'properties', { zpid, deprecated: false });
+        await setDoc(propRef, {
+            deprecated: false,
+            deprecatedAt: null,
+            deprecatedReason: null,
+        }, { merge: true });
+
+        logFirestoreQuery('deleteDoc', 'deprecated_properties', { zpid });
+        await deleteDoc(deprecatedRef);
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: handleFirestoreError(error, 'restoreDeprecatedProperty') as string };
+    }
+};
+
+/**
+ * Scans the `properties` collection filtered by city, cross-references against
+ * all active ZPIDs found in the `zip_listings_cache` for that city's zip codes,
+ * and marks any property NOT present in the listings cache as deprecated.
+ *
+ * Returns a summary object.
+ */
+export const runDeprecationSweep = async (
+    activeZpids: Set<string>,
+    scopedCities: Set<string>,          // Only deprecate properties from these cities
+    label: string = 'loaded listings',
+    onProgress?: (msg: string) => void
+): Promise<{ deprecated: string[]; skipped: string[]; errors: string[] }> => {
+    if (!db) return { deprecated: [], skipped: [], errors: ['Database not initialized'] };
+
+    const log = (msg: string) => {
+        if (onProgress) onProgress(msg);
+    };
+
+    // Normalise city names for case-insensitive comparison
+    const normalise = (s: string) => s.trim().toLowerCase();
+    const scopedNormalised = new Set(Array.from(scopedCities).map(normalise));
+
+    const deprecated: string[] = [];
+    const skipped: string[] = [];
+    const errors: string[] = [];
+
+    try {
+        log(`[Sweep] Scoped to cities: ${Array.from(scopedCities).join(', ')}`);
+        log(`[Sweep] Querying all properties in Firestore (${activeZpids.size} active ZPIDs from ${label})...`);
+        logFirestoreQuery('getDocs', 'properties', { label });
+        const snapshot = await getDocs(collection(db, 'properties'));
+
+        log(`[Sweep] Found ${snapshot.docs.length} total properties in Firestore.`);
+
+        const CHUNK_SIZE = 10;
+        const docs = snapshot.docs;
+
+        for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
+            const chunk = docs.slice(i, i + CHUNK_SIZE);
+            await Promise.all(chunk.map(async (d) => {
+                const zpid = d.id;
+                const data = d.data();
+
+                // ── SCOPE CHECK ──────────────────────────────────────────────
+                // Only evaluate properties whose city is in the loaded listings.
+                // Properties from other cities are completely ignored so we don't
+                // accidentally deprecate cities we never searched.
+                const propertyCity = normalise(data.city || '');
+                if (!scopedNormalised.has(propertyCity)) {
+                    // Not in scope — leave untouched
+                    return;
+                }
+
+                // Skip if already deprecated
+                if (data.deprecated === true) {
+                    skipped.push(zpid);
+                    return;
+                }
+
+                // Check primary zpid AND alternate_ids
+                const isActive = activeZpids.has(zpid) ||
+                    (data.alternate_ids && Array.isArray(data.alternate_ids) &&
+                        data.alternate_ids.some((alias: string) => activeZpids.has(String(alias))));
+
+                if (!isActive) {
+                    log(`[Sweep] Marking deprecated: ${data.address || zpid}`);
+                    const result = await markPropertyAsDeprecated(
+                        zpid,
+                        'not_in_active_listings',
+                        false
+                    );
+                    if (result.success) {
+                        deprecated.push(zpid);
+                    } else {
+                        errors.push(zpid);
+                    }
+                } else {
+                    skipped.push(zpid);
+                }
+            }));
+        }
+
+        log(`[Sweep] Complete. Deprecated: ${deprecated.length}, Active: ${skipped.length}, Errors: ${errors.length}.`);
+    } catch (error: any) {
+        const msg = handleFirestoreError(error, 'runDeprecationSweep') as string;
+        errors.push(msg);
+    }
+
+    return { deprecated, skipped, errors };
+};
+
+
+
+/**
+ * Fetches all documents from the `deprecated_properties` collection.
+ */
+export const getDeprecatedProperties = async (): Promise<any[]> => {
+    if (!db) return [];
+    try {
+        logFirestoreQuery('getDocs', 'deprecated_properties', {});
+        const snapshot = await getDocs(collection(db, 'deprecated_properties'));
+        return snapshot.docs.map(d => ({ zpid: d.id, ...d.data() }));
+    } catch (error) {
+        handleFirestoreError(error, 'getDeprecatedProperties');
+        return [];
+    }
 };

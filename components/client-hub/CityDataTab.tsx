@@ -8,7 +8,8 @@ import {
     getZipListings,
     removePropertyFromZipCache
 } from '../../services/firebase/cityData';
-import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis } from '../../services/firebase/properties';
+import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
+
 import { PropertyData } from '../../types';
 import { runFullIntelligencePipeline, runImageOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
@@ -52,6 +53,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [pipelineType, setPipelineType] = useState<'full' | 'images'>('full');
     const [deletionStatus, setDeletionStatus] = useState<{ address: string, tables: string[] } | null>(null);
     const [propertyStatuses, setPropertyStatuses] = useState<Record<string, PropertyStatusDetails>>({});
+    const [sweepRunning, setSweepRunning] = useState(false);
+    const [sweepResult, setSweepResult] = useState<{ deprecated: string[]; skipped: string[]; errors: string[] } | null>(null);
+
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -146,16 +150,35 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         });
     };
 
-    const selectAll = () => {
-        const visibleIds = Object.values(groupedListings)
+    // IDs visible in the current state-filtered view
+    const visibleIds = useMemo(() =>
+        new Set(Object.values(groupedListings)
             .flat()
-            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id));
+            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id))
+        ),
+        [groupedListings]);
 
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            visibleIds.forEach(id => next.add(id));
-            return next;
+    // How many selected IDs are actually visible right now — used for button counts
+    const visibleSelectedCount = useMemo(() =>
+        Array.from(selectedIds).filter(id => visibleIds.has(id)).length,
+        [selectedIds, visibleIds]);
+
+    // Number of unique cities among the visible-selected listings — for the City Research button
+    const visibleSelectedCitiesCount = useMemo(() => {
+        const cities = new Set<string>();
+        Object.values(groupedListings).flat().forEach((item: any) => {
+            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            if (selectedIds.has(id)) {
+                const city = item.location?.address?.city || 'Unknown';
+                cities.add(city);
+            }
         });
+        return cities.size;
+    }, [selectedIds, groupedListings]);
+
+    const selectAll = () => {
+        // Replace selection with only the currently-visible (state-filtered) listings
+        setSelectedIds(new Set(visibleIds));
     };
 
     const deselectAll = () => {
@@ -804,16 +827,55 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         navigator.clipboard.writeText(text);
     };
 
+    // ── Deprecation Sweep ────────────────────────────────────────────────────
+    const handleDeprecationSweep = async () => {
+        if (listings.length === 0) {
+            addLog('Please search and load listings first before running a deprecation sweep.');
+            return;
+        }
+
+        setSweepRunning(true);
+        setSweepResult(null);
+        addLog('Starting deprecation sweep...');
+
+        try {
+            // Collect ALL active ZPIDs + the unique city names from the currently-loaded listings.
+            // scopedCities ensures we ONLY deprecate properties from cities we actually searched —
+            // properties from other cities (e.g. Dublin when only Pleasanton is loaded) are left untouched.
+            const allActiveZpids = new Set<string>();
+            const scopedCities = new Set<string>();
+
+            listings.forEach(item => {
+                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id || '');
+                if (zpid) allActiveZpids.add(zpid);
+                const city = item.location?.address?.city || '';
+                if (city) scopedCities.add(city);
+            });
+
+            addLog(`[Sweep] ${allActiveZpids.size} active ZPIDs across cities: ${Array.from(scopedCities).join(', ')}`);
+            const result = await runDeprecationSweep(allActiveZpids, scopedCities, `${listings.length} listings`, addLog);
+
+            setSweepResult({ deprecated: result.deprecated, skipped: result.skipped, errors: result.errors });
+            addLog(`Sweep complete! Deprecated: ${result.deprecated.length}, Active: ${result.skipped.length}, Errors: ${result.errors.length}`);
+        } catch (e: any) {
+            addLog(`Sweep failed: ${e.message}`);
+        } finally {
+            setSweepRunning(false);
+        }
+    };
+
+
     // Table Row Component
     const ListingRow = ({ item }: { item: any, key?: any }) => {
         const itemId = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
         const isSelected = selectedIds.has(itemId);
         const isCached = cachedPropertyIds.has(itemId);
+        const isDeprecated = sweepResult?.deprecated.includes(itemId) ?? false;
 
         return (
             <tr
                 className={`transition-all duration-300 border-b border-slate-100 last:border-0 
-                    ${isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50'} 
+                    ${isDeprecated ? 'bg-amber-50/30 opacity-60' : isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50'} 
                     cursor-pointer`}
                 onClick={() => toggleSelection(itemId)}
             >
@@ -843,7 +905,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     <i className="fa-solid fa-image"></i>
                                 </div>
                             )}
-                            {isCached && (
+                            {isDeprecated && (
+                                <div className="absolute inset-0 bg-amber-100/60 flex items-center justify-center">
+                                    <i className="fa-solid fa-ban text-amber-600 text-base"></i>
+                                </div>
+                            )}
+                            {!isDeprecated && isCached && (
                                 <div className="absolute top-1 right-1 bg-emerald-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm">
                                     <i className="fa-solid fa-cloud"></i>
                                 </div>
@@ -861,10 +928,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 >
                                     {item.location?.address?.line || 'Unknown Address'}
                                 </button>
+                                {isDeprecated && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 text-amber-700 text-[8px] font-black uppercase tracking-widest rounded-lg">
+                                        <i className="fa-solid fa-ban text-[7px]"></i> Deprecated
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
                 </td>
+
                 <td className={`p-4 text-right font-medium text-slate-900`}>
                     ${item.list_price?.toLocaleString() || '--'}
                 </td>
@@ -964,14 +1037,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 </div>
                             )}
 
-                            {selectedIds.size > 0 && (
+                            {visibleSelectedCount > 0 && (
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={handleBulkSecureImages}
                                         className="px-6 py-3 bg-white border-2 border-slate-200 hover:border-indigo-400 hover:bg-slate-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group"
                                     >
                                         <i className="fa-solid fa-cloud-arrow-down text-indigo-500 group-hover:bounce"></i>
-                                        Secure Images ({selectedIds.size})
+                                        Secure Images ({visibleSelectedCount})
                                     </button>
                                     <button
                                         onClick={handleCityDeepResearch}
@@ -980,7 +1053,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         title="Run Deep Investment Research for the cities of selected properties"
                                     >
                                         <i className="fa-solid fa-microscope text-violet-500 group-hover:scale-110 transition-transform"></i>
-                                        City Research ({selectedIds.size})
+                                        City Research ({visibleSelectedCitiesCount} {visibleSelectedCitiesCount === 1 ? 'city' : 'cities'})
                                     </button>
                                     <button
                                         onClick={handleBulkIngest}
@@ -988,8 +1061,40 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
                                     >
                                         <i className="fa-solid fa-bolt-lightning group-hover:scale-125 transition-transform"></i>
-                                        Full Intel Suite ({selectedIds.size})
+                                        Full Intel Suite ({visibleSelectedCount})
                                     </button>
+                                </div>
+                            )}
+                            {/* Deprecation Sweep button — visible whenever listings are loaded */}
+                            {listings.length > 0 && (
+                                <div className="flex items-center gap-3 ml-auto">
+                                    <button
+                                        onClick={handleDeprecationSweep}
+                                        disabled={sweepRunning || loading}
+                                        className="px-6 py-3 bg-white border-2 border-rose-200 hover:border-rose-400 hover:bg-rose-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                        title="Compare properties in Firestore against the current zip listings cache and mark unlisted ones as deprecated"
+                                    >
+                                        {sweepRunning ? (
+                                            <><i className="fa-solid fa-spinner animate-spin text-rose-400"></i>Sweeping...</>
+                                        ) : (
+                                            <><i className="fa-solid fa-ban text-rose-400 group-hover:scale-110 transition-transform"></i>Deprecation Sweep</>
+                                        )}
+                                    </button>
+                                    {sweepResult && (
+                                        <div className="flex items-center gap-3 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-2xl animate-in fade-in">
+                                            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Sweep Result:</span>
+                                            <span className="text-[11px] font-black text-rose-700">{sweepResult.deprecated.length} deprecated</span>
+                                            <span className="text-slate-300">|</span>
+                                            <span className="text-[11px] font-semibold text-emerald-600">{sweepResult.skipped.length} active</span>
+                                            {sweepResult.errors.length > 0 && (
+                                                <><span className="text-slate-300">|</span>
+                                                    <span className="text-[11px] font-semibold text-amber-600">{sweepResult.errors.length} errors</span></>
+                                            )}
+                                            <button onClick={() => setSweepResult(null)} className="w-5 h-5 flex items-center justify-center text-rose-300 hover:text-rose-500 transition-colors ml-1">
+                                                <i className="fa-solid fa-xmark text-[10px]"></i>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </>
@@ -1237,11 +1342,64 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 </div>
                                                 <div>
                                                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">{groupKey}</h2>
-                                                    <div className="flex items-center gap-2 mt-1">
+                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{groupItems.length} Active Listings</span>
                                                         <span className="w-1 h-1 rounded-full bg-emerald-500"></span>
                                                         <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Market Live</span>
                                                     </div>
+                                                    {/* Cache stats */}
+                                                    {(() => {
+                                                        const total = groupItems.length;
+                                                        if (total === 0 || isCheckingCache) return null;
+                                                        const stats = groupItems.reduce((acc, item) => {
+                                                            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                                                            const s = propertyStatuses[id];
+                                                            if (!s) return acc;
+                                                            if (s.assets?.images) acc.images++;
+                                                            if (s.assets?.map) acc.maps++;
+                                                            if (s.assets?.streetView) acc.street++;
+                                                            if (s.assets?.satellite) acc.satellite++;
+                                                            if (s.visual) acc.ai++;
+                                                            if (s.property) acc.cached++;
+                                                            return acc;
+                                                        }, { images: 0, maps: 0, street: 0, satellite: 0, ai: 0, cached: 0 });
+
+                                                        const pill = (icon: string, label: string, count: number, color: string) => (
+                                                            <span key={label} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${count === total ? `bg-${color}-50 border-${color}-200 text-${color}-700` : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                <i className={`fa-solid ${icon} text-[8px]`}></i>
+                                                                {label}: {count}/{total}
+                                                            </span>
+                                                        );
+
+                                                        return (
+                                                            <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.images === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.images > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                    <i className="fa-solid fa-image text-[8px]"></i>
+                                                                    Images: {stats.images}/{total}
+                                                                </span>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.maps === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.maps > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                    <i className="fa-solid fa-map-location-dot text-[8px]"></i>
+                                                                    Radar Maps: {stats.maps}/{total}
+                                                                </span>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.street === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.street > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                    <i className="fa-solid fa-street-view text-[8px]"></i>
+                                                                    Street View: {stats.street}/{total}
+                                                                </span>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.satellite === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.satellite > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                    <i className="fa-solid fa-satellite text-[8px]"></i>
+                                                                    Satellite: {stats.satellite}/{total}
+                                                                </span>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.ai === total ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : stats.ai > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                    <i className="fa-solid fa-brain text-[8px]"></i>
+                                                                    AI Run: {stats.ai}/{total}
+                                                                </span>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.cached === total ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : stats.cached > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                    <i className="fa-solid fa-cloud text-[8px]"></i>
+                                                                    Cached: {stats.cached}/{total}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                             <button
