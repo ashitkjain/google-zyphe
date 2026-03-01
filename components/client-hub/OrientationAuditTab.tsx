@@ -35,6 +35,7 @@ interface OrientationRow {
     finalOrientation?: string | null;
     coordinates?: { latitude: number; longitude: number };
     orientationAssessment: OrientationAssessmentValue[];  // multi-select
+    assessedAt?: any;        // Firestore Timestamp of last orientation_assessment save
     geocodingNA?: boolean;   // true = geocoding ran but API returned no entrance data
     status: 'idle' | 'running' | 'refreshing' | 'done' | 'error';
     error?: string;
@@ -106,11 +107,14 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 if (fo) visualOrientationMap[d.id] = fo;
             });
 
-            // Build a zpid → orientation_assessment[] lookup from ai_assessment
+            // Build a zpid → orientation_assessment[] and assessedAt lookup from ai_assessment
             // Handles both old single-string format and new array format
             const orientationAssessmentMap: Record<string, OrientationAssessmentValue[]> = {};
+            const assessedAtMap: Record<string, any> = {};
             assessmentSnap.docs.forEach(d => {
-                const raw = (d.data() as any)?.orientation_assessment;
+                const data = d.data() as any;
+                const raw = data?.orientation_assessment;
+                if (data?.orientation_assessed_at) assessedAtMap[d.id] = data.orientation_assessed_at;
                 if (!raw) return;
                 if (Array.isArray(raw)) {
                     orientationAssessmentMap[d.id] = raw as OrientationAssessmentValue[];
@@ -144,6 +148,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             null,
                         coordinates: p.coordinates || undefined,
                         orientationAssessment: orientationAssessmentMap[d.id] ?? [],
+                        assessedAt: assessedAtMap[d.id] ?? null,
                         status: 'idle' as const,
                     };
                 });
@@ -567,7 +572,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[1100px]">
+                        <table className="w-full text-left border-collapse min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-100">
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
@@ -577,8 +582,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[130px]">Radar Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Satellite</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Geocoding Orientation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Orientation Assessment</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Last Assessed</th>
                                     {isAdmin && <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>}
                                 </tr>
                             </thead>
@@ -704,51 +709,49 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             )}
                                         </td>
 
-                                        {/* Geocoding orientation */}
-                                        <td className="p-5">
-                                            {row.orientationGeocoding ? (
-                                                <div className="space-y-1.5">
-                                                    <DirBadge
-                                                        label={row.orientationGeocoding.orientation}
-                                                        azimuth={row.orientationGeocoding.azimuth_degrees}
-                                                        color="bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                    />
-                                                    {row.orientationAI?.azimuth_degrees != null && (
-                                                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black border ${Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 22.5
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                            : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
-                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                : 'bg-rose-50 text-rose-700 border-rose-200'
-                                                            }`}>
-                                                            Δ {Math.round(Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)))}°
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : row.geocodingNA ? (
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-200">
-                                                        <i className="fa-solid fa-triangle-exclamation text-[8px]" />
-                                                        N/A
-                                                    </span>
-                                                    <span className="text-[8px] text-slate-400">No entrance data</span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-[10px] text-slate-300 font-bold">—</span>
-                                            )}
-                                        </td>
 
                                         {/* Orientation Assessment */}
                                         <td className="p-5">
                                             <AssessmentDropdown
                                                 value={row.orientationAssessment}
                                                 onChange={(next) => {
+                                                    const now = new Date();
                                                     setRows(prev => prev.map(r =>
-                                                        r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r
+                                                        r.zpid === row.zpid ? { ...r, orientationAssessment: next, assessedAt: now } : r
                                                     ));
                                                     saveOrientationAssessment(row.zpid, next)
                                                         .catch(e => console.error('[OrientationAudit] Failed to save assessment:', e));
                                                 }}
                                             />
+                                        </td>
+
+                                        {/* Last Assessed */}
+                                        <td className="p-5">
+                                            {row.assessedAt ? (() => {
+                                                const d = row.assessedAt instanceof Date
+                                                    ? row.assessedAt
+                                                    : row.assessedAt?.toDate?.() ?? new Date(row.assessedAt);
+                                                const diffMs = Date.now() - d.getTime();
+                                                const diffMins = Math.floor(diffMs / 60000);
+                                                const diffHrs = Math.floor(diffMins / 60);
+                                                const diffDays = Math.floor(diffHrs / 24);
+                                                const relative = diffMins < 1 ? 'just now'
+                                                    : diffMins < 60 ? `${diffMins}m ago`
+                                                        : diffHrs < 24 ? `${diffHrs}h ago`
+                                                            : diffDays < 7 ? `${diffDays}d ago`
+                                                                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                const fullDate = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                                return (
+                                                    <span
+                                                        title={fullDate}
+                                                        className="text-[10px] font-semibold text-slate-400 cursor-default whitespace-nowrap"
+                                                    >
+                                                        {relative}
+                                                    </span>
+                                                );
+                                            })() : (
+                                                <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                            )}
                                         </td>
 
                                         {/* Action — admin only */}

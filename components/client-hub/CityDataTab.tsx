@@ -11,7 +11,7 @@ import {
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
 
 import { PropertyData } from '../../types';
-import { runFullIntelligencePipeline, runImageOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
+import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth, STATE_MAP } from '../../services/firebase/config';
@@ -284,6 +284,66 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
 
         addLog(`Image Bulk Secure Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
+        setLoading(false);
+        if (successCount === targets.length) setSelectedIds(new Set());
+    };
+
+    const handleBulkPropertyData = async () => {
+        if (selectedIds.size === 0) return;
+        setLoading(true);
+        setError(null);
+        setViewMode('ingestion');
+        setPipelineType('images'); // reuse ingestion view
+        setIngestionReport(null);
+        addLog(`Starting Property Data pipeline (RapidAPI only, no images)...`);
+
+        const targets = listings.filter(l => {
+            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            return selectedIds.has(id);
+        });
+        addLog(`Processing ${targets.length} properties...`);
+
+        const newJobs: IngestionJob[] = targets.map(item => {
+            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
+            return { zpid: id, address: fullAddress, status: 'pending', progress: null };
+        });
+        setIngestionQueue(newJobs);
+
+        const CHUNK_SIZE = 2; // RapidAPI: 2 requests/sec max
+        const INTER_CHUNK_DELAY_MS = 1000; // 1s between chunks to stay within rate limit
+        let successCount = 0;
+
+        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
+            const chunk = targets.slice(i, i + CHUNK_SIZE);
+            addLog(`Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
+
+            const chunkPromises = chunk.map(async (item) => {
+                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const addrObj = item.location?.address;
+                const builtAddress = addrObj
+                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                    : (item.location?.address?.line || zpid);
+
+                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
+                try {
+                    await runPropertyDataOnlyPipeline(builtAddress, (progress) => {
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                    }, zpid, (msg) => addLog(`[${builtAddress}] ${msg}`));
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                    return true;
+                } catch (e: any) {
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
+                    return false;
+                }
+            });
+
+            const results = await Promise.all(chunkPromises);
+            successCount += results.filter(r => r === true).length;
+            if (i + CHUNK_SIZE < targets.length) await new Promise(r => setTimeout(r, INTER_CHUNK_DELAY_MS));
+        }
+
+        addLog(`Property Data Complete. ${successCount} / ${targets.length} saved.`);
         setLoading(false);
         if (successCount === targets.length) setSelectedIds(new Set());
     };
@@ -1045,6 +1105,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     >
                                         <i className="fa-solid fa-cloud-arrow-down text-indigo-500 group-hover:bounce"></i>
                                         Secure Images ({visibleSelectedCount})
+                                    </button>
+                                    <button
+                                        onClick={handleBulkPropertyData}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                        title="Fetch property specs & scores from RapidAPI only — no images, no AI"
+                                    >
+                                        <i className="fa-solid fa-database text-emerald-500 group-hover:scale-110 transition-transform"></i>
+                                        Property Data ({visibleSelectedCount})
                                     </button>
                                     <button
                                         onClick={handleCityDeepResearch}

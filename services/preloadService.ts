@@ -200,7 +200,7 @@ export const runFullIntelligencePipeline = async (
       const partialToSave = result2._reason === 'structural_array'
         ? { _structuralError: true, raw: result2.raw } as any
         : result2;
-      await saveVisualAnalysisToCloud(zpid, partialToSave, userId);
+      await saveVisualAnalysisToCloud(zpid, partialToSave);
       return null;
     };
 
@@ -520,6 +520,59 @@ export const runImageOnlyPipeline = async (
     return zpid;
   } catch (error: any) {
     onLog?.(`[Image Pipeline Error] ${error.message}`);
+    onProgress({ step: 'Error', status: 'error', message: error.message });
+    throw error;
+  }
+};
+
+/**
+ * Ultra-lean pipeline: fetches property data from RapidAPI (specs, price, scores)
+ * and saves it to Firestore. No images, no Firebase Storage, no AI.
+ * Use this to refresh/seed property records without burning image or AI quotas.
+ */
+export const runPropertyDataOnlyPipeline = async (
+  rawAddress: string,
+  onProgress: (p: PipelineProgress) => void,
+  providedZpid?: string,
+  onLog?: (msg: string) => void
+): Promise<string> => {
+  try {
+    // 1. Fetch property data + geocoding in parallel (RapidAPI + Radar)
+    onProgress({ step: 'Fetching', status: 'running', message: 'Fetching property data from RapidAPI...' });
+    const [radar, propData] = await Promise.all([
+      normalizeAddress(rawAddress, providedZpid),
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false, undefined, true /* skipImages */)
+    ]);
+
+    const zpid = propData.zpid || providedZpid;
+    if (!zpid) throw new Error('Could not resolve ZPID.');
+    onLog?.(`[Data] Resolved ${radar.formattedAddress} (ZPID: ${zpid})`);
+
+    // 2. Build alternate_ids
+    const alternate_ids = [...(propData.alternate_ids || [])];
+    if (providedZpid && providedZpid !== zpid && !alternate_ids.includes(providedZpid)) {
+      alternate_ids.push(providedZpid);
+    }
+
+    // 3. Save to Firestore — coordinates + property specs only, no images or maps
+    const dataToSave: Partial<PropertyData> = {
+      ...propData,
+      zpid,
+      feed_property_id: providedZpid,
+      alternate_ids,
+      address: radar.formattedAddress,
+      coordinates: radar.coordinates,
+      mapZoomIn: radar.mapZoomIn,    // Radar road map URLs (low-cost, no Storage upload)
+      mapZoomOut: radar.mapZoomOut,
+    };
+
+    await savePropertyToCloud(zpid, dataToSave as PropertyData);
+    onProgress({ step: 'Status', status: 'completed', message: 'Property data saved.' });
+    onLog?.(`[Data] Saved property data for ${zpid}`);
+
+    return zpid;
+  } catch (error: any) {
+    onLog?.(`[Data Pipeline Error] ${error.message}`);
     onProgress({ step: 'Error', status: 'error', message: error.message });
     throw error;
   }

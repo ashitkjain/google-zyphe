@@ -80,6 +80,7 @@ export const saveOrientationAssessment = async (
     const docRef = doc(db, COLLECTION_NAME, zpid);
     await setDoc(docRef, {
         orientation_assessment: value,
+        orientation_assessed_at: Timestamp.now(),  // dedicated timestamp — only set by human assessment
         last_update_date: Timestamp.now(),
     }, { merge: true });
 };

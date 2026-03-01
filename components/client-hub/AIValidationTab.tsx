@@ -135,24 +135,26 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             setUserNames(nameMap);
             setAllAuditors(auditorList);
 
-            // 4. Map and determine status
-            const mapped: PropertyValidationStatus[] = rawProperties.map(p => {
-                const visual = visualMap[p.zpid] as any;
+            // 4. Map and determine status — only include properties that have a visual analysis entry
+            const mapped: PropertyValidationStatus[] = rawProperties
+                .filter(p => !!visualMap[p.zpid])  // hide properties with no visual analysis
+                .map(p => {
+                    const visual = visualMap[p.zpid] as any;
 
-                const hasCoreData = !!((p.bedrooms !== undefined) && (p.bathrooms !== undefined) && p.description && p.price);
-                const hasInterior = !!visual?.home_interior;
+                    const hasCoreData = !!((p.bedrooms !== undefined) && (p.bathrooms !== undefined) && p.description && p.price);
+                    const hasInterior = !!visual?.home_interior;
 
-                const existing = assessmentMap[p.zpid];
+                    const existing = assessmentMap[p.zpid];
 
-                return {
-                    ...p,
-                    hasCoreData,
-                    hasInterior,
-                    assessment: existing?.assessment,
-                    comment: existing?.comment,
-                    isGrayedOut: !hasCoreData || !hasInterior
-                };
-            });
+                    return {
+                        ...p,
+                        hasCoreData,
+                        hasInterior,
+                        assessment: existing?.assessment,
+                        comment: existing?.comment,
+                        isGrayedOut: !hasCoreData || !hasInterior
+                    };
+                });
 
             setProperties(mapped);
 

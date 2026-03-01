@@ -184,6 +184,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const toolTabs: { id: HubTab; label: string; icon: string }[] = (isAuditor || isInvestor) ? [] : [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'calendar', label: 'Calendar', icon: 'fa-calendar-days' },
+        { id: 'distressed_finder', label: 'Distressed Finder', icon: 'fa-house-crack' },
         { id: 'lead_ingestion', label: 'Lead Ingestion', icon: 'fa-link' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },

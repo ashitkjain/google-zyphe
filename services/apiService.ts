@@ -852,7 +852,7 @@ export const fetchCrimeScore = async (
 };
 
 
-export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, forceEnvironment: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
+export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, forceEnvironment: boolean = false, onStep?: (step: string) => void, skipImages: boolean = false): Promise<PropertyData> => {
   const cacheKey = `data-full-${addressOrZpid}`;
   // if (ongoingRequests.has(cacheKey)) return ongoingRequests.get(cacheKey)!;
 
@@ -1083,10 +1083,12 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       mappedData.bikeScore = scores.bikeScore;
       mappedData.bikeScoreDesc = scores.bikeScoreDesc;
 
-      onStep?.("Fetching image gallery...");
-      if (!mappedData.images || mappedData.images.length === 0) {
-        const images = await fetchPropertyImages(mappedData.zpid);
-        mappedData.images = images;
+      if (!skipImages) {
+        onStep?.("Fetching image gallery...");
+        if (!mappedData.images || mappedData.images.length === 0) {
+          const images = await fetchPropertyImages(mappedData.zpid);
+          mappedData.images = images;
+        }
       }
 
       onStep?.("Fetching comparable sales...");

@@ -55,6 +55,7 @@ function buildAerialUrl(lat: number, lng: number): string {
         `&size=640x640` +
         `&scale=2` +
         `&maptype=satellite` +
+        `&markers=color:red%7Csize:mid%7C${lat},${lng}` +
         `&key=${MAPS_API_KEY}`
     );
 }
