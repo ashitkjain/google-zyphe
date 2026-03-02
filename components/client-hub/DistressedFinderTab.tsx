@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import React, { useState, useRef, useEffect } from 'react';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
 import { getZipsForCity, getZipListings, saveZipMetadataBatch } from '../../services/firebase/cityData';
 import { APP_CONFIG } from '../../config';
 import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
+import PropertyCompsTab from './PropertyCompsTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,9 +21,11 @@ interface DistressResult {
     rawText: string;
     description?: string;
     fromCache?: boolean;
-    isNew?: boolean;       // freshly analyzed in "Check for New" run
+    isNew?: boolean;
     analyzedAt?: Date;
     error?: string;
+    latitude?: number;
+    longitude?: number;
 }
 
 type ScanStatus = 'idle' | 'fetching_zips' | 'fetching_listings' | 'analyzing' | 'done' | 'error';
@@ -72,13 +75,33 @@ function toTitleCase(str: string): string {
     return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
 }
 
+/**
+ * Extract real city from a US address string by parsing the second-to-last comma-delimited segment.
+ * e.g. "3241 Monika Ln, Fairview, CA 94541 US" → "Fairview"
+ * Falls back to stored city if parsing fails.
+ */
+function cityFromAddress(address: string, fallback = ''): string {
+    if (!address) return fallback;
+    const parts = address.split(',').map(p => p.trim());
+    // Typical US format: ["Street", "City", "ST ZIP" or "ST ZIP Country"]
+    if (parts.length >= 3) {
+        const candidate = parts[parts.length - 2];
+        // Sanity check: should be 2–40 chars, not look like a zip or state-only string
+        if (candidate && candidate.length >= 2 && candidate.length <= 40 && !/^\d/.test(candidate)) {
+            return candidate;
+        }
+    }
+    return fallback;
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface DistressedFinderTabProps {
-    onNavigateToComps?: (address: string) => void;
+    onNavigateToComps?: (address: string) => void; // kept for backward-compat but no longer used
 }
 
-const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToComps }) => {
+const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
+    const [compsAddress, setCompsAddress] = useState<{ address: string; lat?: number; lng?: number } | null>(null);
     const [city, setCity] = useState('');
     const [status, setStatus] = useState<ScanStatus>('idle');
     const [checkingNew, setCheckingNew] = useState(false);
@@ -91,8 +114,28 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
     const [currentPage, setCurrentPage] = useState(1);
     const [activeCityTab, setActiveCityTab] = useState<string | null>(null);
     const [lastSearchedCity, setLastSearchedCity] = useState('');
+    const [availableCities, setAvailableCities] = useState<string[]>([]);
+    const [cityQuery, setCityQuery] = useState('');
+    const [showCitySuggestions, setShowCitySuggestions] = useState(false);
     const PAGE_SIZE = 20;
     const logsEndRef = useRef<HTMLDivElement>(null);
+
+    // On mount: fetch distinct real cities from distress_analysis (uses address parsing for accuracy)
+    useEffect(() => {
+        (async () => {
+            try {
+                const snap = await getDocs(collection(db, 'distress_analysis'));
+                const citySet = new Set<string>();
+                snap.docs.forEach(d => {
+                    const data = d.data() as any;
+                    // Use address-parsed city (same logic as display) for accurate city name
+                    const c = cityFromAddress(data.address ?? '', data.city ?? '');
+                    if (c) citySet.add(c);
+                });
+                setAvailableCities(Array.from(citySet).sort());
+            } catch { /* silent */ }
+        })();
+    }, []);
 
     const addLog = (msg: string) => {
         setLogs(prev => {
@@ -123,8 +166,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
     };
 
     // ── Mode 1: Load from cache (distress_analysis WHERE city == X) ──────────
-    const handleSearch = async () => {
-        const trimmedCity = toTitleCase(city.trim());
+    const handleSearch = async (cityOverride?: string) => {
+        const trimmedCity = toTitleCase((cityOverride ?? city).trim());
         if (!trimmedCity) return;
 
         setStatus('fetching_listings');
@@ -153,11 +196,15 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
 
             const loaded: DistressResult[] = snap.docs.map(d => {
                 const data = d.data() as any;
-                const propCity = data.city ?? trimmedCity;
+                const rawAddress = data.address ?? d.id;
+                // Use the actual city from the address string (authoritative)
+                // — the stored `city` field may be the search-query city (e.g. "Hayward")
+                //   even when the property is in a nearby city (e.g. "Fairview")
+                const propCity = cityFromAddress(rawAddress, data.city ?? trimmedCity);
                 const propState = data.state ?? '';
                 return {
                     zpid: d.id,
-                    address: data.address ?? d.id,
+                    address: rawAddress,
                     city: propCity,
                     state: propState,
                     cityKey: propState ? `${propCity}, ${propState}` : propCity,
@@ -169,6 +216,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
                     description: data.description ?? '',
                     fromCache: true,
                     analyzedAt: data.analyzed_at?.toDate?.() ?? undefined,
+                    latitude: data.latitude ?? undefined,
+                    longitude: data.longitude ?? undefined,
                 };
             });
 
@@ -307,6 +356,11 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
                             schema: DISTRESS_SCHEMA,
                         });
 
+                        // Extract subject lat/lng from the properties document
+                        const coords = data.coordinates;
+                        const latitude: number | undefined = coords?.latitude ?? undefined;
+                        const longitude: number | undefined = coords?.longitude ?? undefined;
+
                         await setDoc(cacheRef, {
                             distress_score: aiData.distress_score ?? 0,
                             primary_indicators: aiData.primary_indicators ?? [],
@@ -315,6 +369,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
                             address,
                             city: propCity,
                             state: propState,
+                            ...(latitude != null && { latitude }),
+                            ...(longitude != null && { longitude }),
                             analyzed_at: Timestamp.now(),
                         });
 
@@ -330,6 +386,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
                             fromCache: false,
                             isNew: true,
                             analyzedAt: new Date(),
+                            latitude,
+                            longitude,
                         });
                     } catch (e: any) {
                         addLog(`  ⚠️ AI failed for ${address}: ${e.message}`);
@@ -362,21 +420,35 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
         }
     };
 
-    // ── Derived display ───────────────────────────────────────────────────────
+    // ── Derived display — group by City, State ───────────────────────────────────
 
-    const cityTabs = Array.from(new Set(results.map(r => r.cityKey || r.city)))
-        .map(key => ({ key, count: results.filter(r => (r.cityKey || r.city) === key).length }))
+    // Build a "City, State" key for each result
+    const cityStateTabs = Array.from(new Set(results.map(r => {
+        const c = r.city || 'Unknown';
+        const s = r.state || '';
+        return s ? `${c}, ${s}` : c;
+    })))
+        .map(key => ({
+            key, count: results.filter(r => {
+                const c = r.city || 'Unknown';
+                const s = r.state || '';
+                return (s ? `${c}, ${s}` : c) === key;
+            }).length
+        }))
         .sort((a, b) => b.count - a.count);
 
-    const resolvedCityTab = activeCityTab && cityTabs.some(t => t.key === activeCityTab)
+    const resolvedCityStateTab = activeCityTab && cityStateTabs.some(t => t.key === activeCityTab)
         ? activeCityTab
-        : cityTabs[0]?.key ?? null;
+        : cityStateTabs[0]?.key ?? null;
 
     const filtered = results
-        .filter(r => (r.cityKey || r.city) === resolvedCityTab)
+        .filter(r => {
+            const c = r.city || 'Unknown';
+            const s = r.state || '';
+            return (s ? `${c}, ${s}` : c) === resolvedCityStateTab;
+        })
         .filter(r => r.distressScore >= filterScore)
         .sort((a, b) => {
-            // NEW items always float to top within the sort
             if (a.isNew && !b.isNew) return -1;
             if (!a.isNew && b.isNew) return 1;
             return sortBy === 'score' ? b.distressScore - a.distressScore : a.address.localeCompare(b.address);
@@ -394,338 +466,411 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToC
     return (
         <div className="max-w-7xl mx-auto py-12 px-6 space-y-8 animate-in fade-in duration-500">
 
-            {/* Header */}
-            <div>
-                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-                    <span className="w-10 h-10 bg-rose-100 rounded-2xl flex items-center justify-center">
-                        <i className="fa-solid fa-house-crack text-rose-600 text-sm" />
-                    </span>
-                    Find Distressed Properties
-                </h2>
-                <p className="text-[11px] text-slate-400 font-medium mt-1 ml-[52px]">
-                    Searches cached AI analysis by city. Use <strong>Check for New</strong> to scan RapidAPI listings and run Gemini on uncached properties.
-                </p>
-            </div>
+            {/* ── Inline Comps view ─────────────────────────────────── */}
+            {compsAddress && (
+                <div className="animate-in fade-in duration-300">
+                    <PropertyCompsTab
+                        initialAddress={compsAddress.address}
+                        onBack={() => setCompsAddress(null)}
+                        subjectLat={compsAddress.lat}
+                        subjectLng={compsAddress.lng}
+                    />
+                </div>
+            )}
 
-            {/* Search bar */}
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">City or Zip Code</label>
-                <div className="flex gap-3">
-                    <div className="relative flex-1">
-                        <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm" />
-                        <input
-                            type="text"
-                            value={city}
-                            onChange={e => setCity(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && !isRunning && handleSearch()}
-                            placeholder="e.g. Dublin, CA  or  94568"
-                            className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-slate-200 text-[13px] font-semibold text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent transition-all"
-                            disabled={isRunning || checkingNew}
-                        />
-                    </div>
+            {/* Hide main content while comps view is open */}
+            {compsAddress ? null : <>
 
-                    {/* Main submit */}
-                    <button
-                        onClick={handleSearch}
-                        disabled={!city.trim() || isRunning || checkingNew}
-                        className="px-8 py-3.5 bg-gradient-to-r from-rose-600 to-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-rose-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
-                    >
-                        {isRunning ? (
-                            <><i className="fa-solid fa-spinner animate-spin text-xs" /> Loading…</>
-                        ) : (
-                            <><i className="fa-solid fa-database text-xs" /> Load Cached</>
-                        )}
-                    </button>
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                        <span className="w-10 h-10 bg-rose-100 rounded-2xl flex items-center justify-center">
+                            <i className="fa-solid fa-house-crack text-rose-600 text-sm" />
+                        </span>
+                        Find Distressed Properties
+                    </h2>
+                    <p className="text-[11px] text-slate-400 font-medium mt-1 ml-[52px]">
+                        Searches cached AI analysis by city. Use <strong>Check for New</strong> to scan RapidAPI listings and run Gemini on uncached properties.
+                    </p>
+                </div>
 
-                    {/* Check for New */}
-                    {searched && (
+                {/* Search bar */}
+                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">City</label>
+                    <div className="flex gap-3">
+                        {/* Autocomplete city input */}
+                        <div className="relative flex-1">
+                            <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                value={cityQuery}
+                                onChange={e => {
+                                    setCityQuery(e.target.value);
+                                    setShowCitySuggestions(true);
+                                }}
+                                onFocus={() => setShowCitySuggestions(true)}
+                                onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && cityQuery.trim()) {
+                                        setShowCitySuggestions(false);
+                                        setCity(cityQuery.trim());
+                                        handleSearch(cityQuery.trim());
+                                    }
+                                    if (e.key === 'Escape') setShowCitySuggestions(false);
+                                }}
+                                placeholder="Search city…"
+                                disabled={isRunning || checkingNew}
+                                className="w-full pl-12 pr-4 py-3 bg-slate-100 border-2 border-transparent focus:bg-white focus:border-rose-400 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
+                            />
+                            {/* Suggestions dropdown */}
+                            {showCitySuggestions && availableCities.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                    <div className="px-4 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cities with Analysis</span>
+                                        <span className="text-[9px] text-slate-300 font-medium">{availableCities.filter(c => !cityQuery || c.toLowerCase().includes(cityQuery.toLowerCase())).length} results</span>
+                                    </div>
+                                    <div className="max-h-[220px] overflow-y-auto p-1.5">
+                                        {availableCities
+                                            .filter(c => !cityQuery || c.toLowerCase().includes(cityQuery.toLowerCase()))
+                                            .map(c => (
+                                                <button
+                                                    key={c}
+                                                    onMouseDown={() => {
+                                                        setCityQuery(c);
+                                                        setCity(c);
+                                                        setShowCitySuggestions(false);
+                                                        handleSearch(c);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-rose-50 text-slate-700 text-xs font-medium transition-colors flex items-center gap-3 group"
+                                                >
+                                                    <i className="fa-solid fa-location-dot text-slate-300 group-hover:text-rose-400 transition-colors text-[10px]" />
+                                                    {c}
+                                                </button>
+                                            ))
+                                        }
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Main submit */}
                         <button
-                            onClick={handleCheckForNew}
-                            disabled={checkingNew || isRunning}
-                            className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
+                            onClick={handleSearch}
+                            disabled={!city.trim() || isRunning || checkingNew}
+                            className="px-8 py-3.5 bg-gradient-to-r from-rose-600 to-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-rose-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
                         >
-                            {checkingNew ? (
-                                <><i className="fa-solid fa-spinner animate-spin text-xs" /> Scanning…</>
+                            {isRunning ? (
+                                <><i className="fa-solid fa-spinner animate-spin text-xs" /> Loading…</>
                             ) : (
-                                <><i className="fa-solid fa-radar text-xs" /> Check for New</>
+                                <><i className="fa-solid fa-database text-xs" /> Load Cached</>
                             )}
                         </button>
+
+                        {/* Check for New */}
+                        {searched && (
+                            <button
+                                onClick={handleCheckForNew}
+                                disabled={checkingNew || isRunning}
+                                className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
+                            >
+                                {checkingNew ? (
+                                    <><i className="fa-solid fa-spinner animate-spin text-xs" /> Scanning…</>
+                                ) : (
+                                    <><i className="fa-solid fa-radar text-xs" /> Check for New</>
+                                )}
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Progress bar */}
+                    {progress && checkingNew && (
+                        <div className="mt-4">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">AI Analysis — New Properties</span>
+                                <span className="text-[10px] font-mono text-slate-400">{progress.done} / {progress.total}</span>
+                            </div>
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-500"
+                                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                                />
+                            </div>
+                        </div>
                     )}
                 </div>
 
-                {/* Progress bar */}
-                {progress && checkingNew && (
-                    <div className="mt-4">
-                        <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">AI Analysis — New Properties</span>
-                            <span className="text-[10px] font-mono text-slate-400">{progress.done} / {progress.total}</span>
+                {/* Empty state */}
+                {searched && results.length === 0 && status === 'done' && !isRunning && !checkingNew && (
+                    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm py-16 text-center">
+                        <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-100 mb-4 block" />
+                        <p className="text-[13px] font-black text-slate-400">No cached analysis found for <span className="text-slate-700">"{lastSearchedCity}"</span></p>
+                        <p className="text-[10px] text-slate-300 font-medium mt-2">Click <strong className="text-indigo-500">Check for New</strong> above to scan listings and run AI analysis.</p>
+                    </div>
+                )}
+
+                {/* Summary stats */}
+                {results.length > 0 && (
+                    <div className="grid grid-cols-4 gap-4">
+                        <div className="bg-white rounded-[1.5rem] border border-slate-200 p-5 text-center">
+                            <div className="text-3xl font-black text-slate-900">{results.length}</div>
+                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Properties</div>
                         </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-500"
-                                style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                            />
+                        <div className="bg-rose-50 rounded-[1.5rem] border border-rose-200 p-5 text-center">
+                            <div className="text-3xl font-black text-rose-600">{highDistress}</div>
+                            <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1">High Distress (7-10)</div>
+                        </div>
+                        <div className="bg-amber-50 rounded-[1.5rem] border border-amber-200 p-5 text-center">
+                            <div className="text-3xl font-black text-amber-600">{medDistress}</div>
+                            <div className="text-[9px] font-black text-amber-400 uppercase tracking-widest mt-1">Medium (4-6)</div>
+                        </div>
+                        <div className="bg-indigo-50 rounded-[1.5rem] border border-indigo-200 p-5 text-center">
+                            <div className="text-3xl font-black text-indigo-600">{newCount}</div>
+                            <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">New This Run</div>
                         </div>
                     </div>
                 )}
-            </div>
 
-            {/* Empty state */}
-            {searched && results.length === 0 && status === 'done' && !isRunning && !checkingNew && (
-                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm py-16 text-center">
-                    <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-100 mb-4 block" />
-                    <p className="text-[13px] font-black text-slate-400">No cached analysis found for <span className="text-slate-700">"{lastSearchedCity}"</span></p>
-                    <p className="text-[10px] text-slate-300 font-medium mt-2">Click <strong className="text-indigo-500">Check for New</strong> above to scan listings and run AI analysis.</p>
-                </div>
-            )}
+                {/* Results */}
+                {results.length > 0 && (
+                    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
 
-            {/* Summary stats */}
-            {results.length > 0 && (
-                <div className="grid grid-cols-4 gap-4">
-                    <div className="bg-white rounded-[1.5rem] border border-slate-200 p-5 text-center">
-                        <div className="text-3xl font-black text-slate-900">{results.length}</div>
-                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Properties</div>
-                    </div>
-                    <div className="bg-rose-50 rounded-[1.5rem] border border-rose-200 p-5 text-center">
-                        <div className="text-3xl font-black text-rose-600">{highDistress}</div>
-                        <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1">High Distress (7-10)</div>
-                    </div>
-                    <div className="bg-amber-50 rounded-[1.5rem] border border-amber-200 p-5 text-center">
-                        <div className="text-3xl font-black text-amber-600">{medDistress}</div>
-                        <div className="text-[9px] font-black text-amber-400 uppercase tracking-widest mt-1">Medium (4-6)</div>
-                    </div>
-                    <div className="bg-indigo-50 rounded-[1.5rem] border border-indigo-200 p-5 text-center">
-                        <div className="text-3xl font-black text-indigo-600">{newCount}</div>
-                        <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">New This Run</div>
-                    </div>
-                </div>
-            )}
-
-            {/* Results */}
-            {results.length > 0 && (
-                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-
-                    {/* City tabs */}
-                    {cityTabs.length > 1 && (
-                        <div className="px-6 pt-5 flex items-center gap-2 flex-wrap border-b border-slate-100">
-                            {cityTabs.map(tab => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => { setActiveCityTab(tab.key); setCurrentPage(1); }}
-                                    className={`flex items-center gap-1.5 px-4 py-2 mb-[-1px] rounded-t-xl text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${resolvedCityTab === tab.key
-                                        ? 'border-rose-500 text-rose-600 bg-rose-50/60'
-                                        : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                >
-                                    {tab.key}
-                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${resolvedCityTab === tab.key ? 'bg-rose-100 text-rose-500' : 'bg-slate-100 text-slate-400'}`}>{tab.count}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Filter bar */}
-                    <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-center gap-4 flex-wrap">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filters</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-500">Min Score</span>
-                            <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
-                                {[1, 4, 7].map(score => (
+                        {/* State tabs — always show when we have results */}
+                        {cityStateTabs.length > 0 && (
+                            <div className="px-6 pt-5 flex items-center gap-2 flex-wrap border-b border-slate-100">
+                                {cityStateTabs.map(tab => (
                                     <button
-                                        key={score}
-                                        onClick={() => { setFilterScore(score); setCurrentPage(1); }}
-                                        className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterScore === score ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        key={tab.key}
+                                        onClick={() => { setActiveCityTab(tab.key); setCurrentPage(1); }}
+                                        className={`flex items-center gap-1.5 px-4 py-2.5 mb-[-1px] rounded-t-xl text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${resolvedCityStateTab === tab.key
+                                            ? 'border-rose-500 text-rose-600 bg-rose-50/60'
+                                            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                            }`}
                                     >
-                                        {score === 1 ? 'All' : score === 4 ? '4+' : '7+'}
+                                        <i className="fa-solid fa-location-dot text-[8px]" />
+                                        {tab.key}
+                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${resolvedCityStateTab === tab.key ? 'bg-rose-100 text-rose-500' : 'bg-slate-100 text-slate-400'
+                                            }`}>{tab.count}</span>
                                     </button>
                                 ))}
                             </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-500">Sort</span>
-                            <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
-                                {(['score', 'address'] as ('score' | 'address')[]).map(s => (
-                                    <button
-                                        key={s}
-                                        onClick={() => { setSortBy(s); setCurrentPage(1); }}
-                                        className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${sortBy === s ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        {s === 'score' ? 'Score' : 'Address'}
-                                    </button>
-                                ))}
+                        )}
+
+                        {/* Filter bar */}
+                        <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-center gap-4 flex-wrap">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filters</span>
+                            <div className="flex items-center gap-2">
+                                <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
+                                    {([{ score: 4, label: 'Medium' }, { score: 7, label: 'High' }, { score: 1, label: 'All' }] as { score: number; label: string }[]).map(({ score, label }) => (
+                                        <button
+                                            key={score}
+                                            onClick={() => { setFilterScore(score); setCurrentPage(1); }}
+                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterScore === score ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-slate-500">Sort</span>
+                                <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
+                                    {(['score', 'address'] as ('score' | 'address')[]).map(s => (
+                                        <button
+                                            key={s}
+                                            onClick={() => { setSortBy(s); setCurrentPage(1); }}
+                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${sortBy === s ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            {s === 'score' ? 'Score' : 'Address'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <span className="ml-auto text-[10px] font-bold text-slate-400">
+                                {filtered.length === 0 ? '0' : `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)}`} of {filtered.length}
+                            </span>
                         </div>
-                        <span className="ml-auto text-[10px] font-bold text-slate-400">
-                            {filtered.length === 0 ? '0' : `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)}`} of {filtered.length}
-                        </span>
-                    </div>
 
-                    {/* Cards */}
-                    <div className="divide-y divide-slate-100">
-                        {paginated.map(r => {
-                            const colors = scoreColor(r.distressScore);
-                            return (
-                                <div key={r.zpid} className={`p-6 hover:bg-slate-50/40 transition-colors ${r.isNew ? 'bg-indigo-50/30' : ''}`}>
-                                    <div className="flex items-start gap-5">
-                                        {/* Score ring */}
-                                        <div className={`flex-shrink-0 w-16 h-16 rounded-2xl border-2 ${colors.bg} ${colors.border} flex flex-col items-center justify-center`}>
-                                            <span className={`text-2xl font-black ${colors.text}`}>{r.distressScore}</span>
-                                            <span className={`text-[8px] font-black uppercase tracking-wide opacity-60 ${colors.text}`}>/10</span>
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-0.5">
-                                                        <a
-                                                            href={`https://www.zillow.com/homes/${r.zpid}_zpid/`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[13px] font-black text-slate-900 leading-tight hover:text-indigo-600 hover:underline transition-colors"
-                                                        >{r.address}</a>
-                                                        {r.isNew && (
-                                                            <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase tracking-wide flex items-center gap-1">
-                                                                <i className="fa-solid fa-sparkles text-[7px]" />New
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 flex-wrap">
-                                                        <span>{r.city} · {r.zpid}</span>
-                                                        {r.fromCache && !r.isNew && (
-                                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded text-[8px] font-black uppercase tracking-wide" title={r.analyzedAt ? `Analyzed ${r.analyzedAt.toLocaleDateString()}` : 'Cached'}>
-                                                                <i className="fa-solid fa-bolt text-[7px] mr-0.5" />Cached
-                                                            </span>
-                                                        )}
-                                                        {onNavigateToComps && (
-                                                            <button
-                                                                onClick={() => onNavigateToComps(r.address)}
-                                                                className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded text-[8px] font-black uppercase tracking-wide hover:bg-indigo-100 transition-colors flex items-center gap-1"
-                                                            >
-                                                                <i className="fa-solid fa-chart-bar text-[7px]" />Comps
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {/* Score bar */}
-                                                <div className="flex-shrink-0 w-24">
-                                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all duration-700 ${colors.bar}`}
-                                                            style={{ width: `${(r.distressScore / 10) * 100}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
+                        {/* Cards */}
+                        <div className="divide-y divide-slate-100">
+                            {paginated.map(r => {
+                                const colors = scoreColor(r.distressScore);
+                                return (
+                                    <div key={r.zpid} className={`p-6 hover:bg-slate-50/40 transition-colors ${r.isNew ? 'bg-indigo-50/30' : ''}`}>
+                                        <div className="flex items-start gap-5">
+                                            {/* Score ring */}
+                                            <div className={`flex-shrink-0 w-16 h-16 rounded-2xl border-2 ${colors.bg} ${colors.border} flex flex-col items-center justify-center`}>
+                                                <span className={`text-2xl font-black ${colors.text}`}>{r.distressScore}</span>
+                                                <span className={`text-[8px] font-black uppercase tracking-wide opacity-60 ${colors.text}`}>/10</span>
                                             </div>
 
-                                            {r.error ? (
-                                                <div className="mt-2 text-[10px] text-rose-500 font-bold">{r.error}</div>
-                                            ) : (
-                                                <div className="mt-3 space-y-3">
-                                                    {r.description && (
-                                                        <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</div>
-                                                            <p className="text-[10px] text-slate-600 leading-relaxed line-clamp-3">{r.description}</p>
-                                                        </div>
-                                                    )}
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                        <div>
-                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Primary Indicators</div>
-                                                            {r.primaryIndicators.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {r.primaryIndicators.map((ind, i) => (
-                                                                        <span key={i} className={`text-[9px] font-bold px-2 py-0.5 rounded-lg border ${colors.bg} ${colors.text} ${colors.border}`}>
-                                                                            {ind}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-[10px] text-slate-300 font-bold">None detected</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-0.5">
+                                                            <a
+                                                                href={`https://www.zillow.com/homes/${r.zpid}_zpid/`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-[13px] font-black text-slate-900 leading-tight hover:text-indigo-600 hover:underline transition-colors"
+                                                            >{r.address}</a>
+                                                            {r.isNew && (
+                                                                <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase tracking-wide flex items-center gap-1">
+                                                                    <i className="fa-solid fa-sparkles text-[7px]" />New
+                                                                </span>
                                                             )}
                                                         </div>
-                                                        <div>
-                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hidden Risks</div>
-                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{r.hiddenRisks || '—'}</p>
+                                                        <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 flex-wrap">
+                                                            <span>{r.city} · {r.zpid}</span>
+                                                            {r.fromCache && !r.isNew && (
+                                                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded text-[8px] font-black uppercase tracking-wide" title={r.analyzedAt ? `Analyzed ${r.analyzedAt.toLocaleDateString()}` : 'Cached'}>
+                                                                    <i className="fa-solid fa-bolt text-[7px] mr-0.5" />Cached
+                                                                </span>
+                                                            )}
+                                                            {r.distressScore >= 4 && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        let lat = r.latitude;
+                                                                        let lng = r.longitude;
+                                                                        // Fall back: look up from properties collection if distress_analysis
+                                                                        // was written before lat/lng caching was added
+                                                                        if (lat == null || lng == null) {
+                                                                            try {
+                                                                                const propSnap = await getDoc(doc(db, 'properties', r.zpid));
+                                                                                if (propSnap.exists()) {
+                                                                                    const coords = propSnap.data()?.coordinates;
+                                                                                    if (coords?.latitude != null) { lat = coords.latitude; lng = coords.longitude; }
+                                                                                }
+                                                                            } catch { /* non-fatal */ }
+                                                                        }
+                                                                        setCompsAddress({ address: r.address, lat, lng });
+                                                                    }}
+                                                                    className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded text-[8px] font-black uppercase tracking-wide hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                                                                >
+                                                                    <i className="fa-solid fa-chart-bar text-[7px]" />Comps
+                                                                </button>
+                                                            )}
                                                         </div>
-                                                        <div>
-                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Negotiation Leverage</div>
-                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{r.negotiationLeverage || '—'}</p>
+                                                    </div>
+                                                    {/* Score bar */}
+                                                    <div className="flex-shrink-0 w-24">
+                                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full transition-all duration-700 ${colors.bar}`}
+                                                                style={{ width: `${(r.distressScore / 10) * 100}%` }}
+                                                            />
                                                         </div>
                                                     </div>
                                                 </div>
-                                            )}
+
+                                                {r.error ? (
+                                                    <div className="mt-2 text-[10px] text-rose-500 font-bold">{r.error}</div>
+                                                ) : (
+                                                    <div className="mt-3 space-y-3">
+                                                        {r.description && (
+                                                            <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</div>
+                                                                <p className="text-[10px] text-slate-600 leading-relaxed line-clamp-3">{r.description}</p>
+                                                            </div>
+                                                        )}
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                            <div>
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Primary Indicators</div>
+                                                                {r.primaryIndicators.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {r.primaryIndicators.map((ind, i) => (
+                                                                            <span key={i} className={`text-[9px] font-bold px-2 py-0.5 rounded-lg border ${colors.bg} ${colors.text} ${colors.border}`}>
+                                                                                {ind}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-slate-300 font-bold">None detected</span>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hidden Risks</div>
+                                                                <p className="text-[10px] text-slate-600 leading-relaxed">{r.hiddenRisks || '—'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Negotiation Leverage</div>
+                                                                <p className="text-[10px] text-slate-600 leading-relaxed">{r.negotiationLeverage || '—'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+                                );
+                            })}
+                            {paginated.length === 0 && (
+                                <div className="py-16 text-center">
+                                    <i className="fa-solid fa-house-circle-check text-4xl text-slate-100 mb-3 block" />
+                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties match this filter</p>
                                 </div>
-                            );
-                        })}
-                        {paginated.length === 0 && (
-                            <div className="py-16 text-center">
-                                <i className="fa-solid fa-house-circle-check text-4xl text-slate-100 mb-3 block" />
-                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties match this filter</p>
+                            )}
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={safePage === 1}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                >
+                                    <i className="fa-solid fa-chevron-left text-[9px]" /> Prev
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                        .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+                                        .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                                            if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…');
+                                            acc.push(p);
+                                            return acc;
+                                        }, [])
+                                        .map((p, i) => p === '…' ? (
+                                            <span key={`ellipsis-${i}`} className="px-2 text-slate-300 text-[10px] font-bold">…</span>
+                                        ) : (
+                                            <button
+                                                key={p}
+                                                onClick={() => setCurrentPage(p as number)}
+                                                className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${safePage === p ? 'bg-rose-600 text-white shadow-md shadow-rose-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
+                                            >
+                                                {p}
+                                            </button>
+                                        ))}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={safePage === totalPages}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                >
+                                    Next <i className="fa-solid fa-chevron-right text-[9px]" />
+                                </button>
                             </div>
                         )}
                     </div>
+                )}
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                {/* Log console */}
+                {logs.length > 0 && (
+                    <div className="bg-slate-900 rounded-[2rem] overflow-hidden">
+                        <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scan Log</span>
                             <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={safePage === 1}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                onClick={() => setLogs([])}
+                                className="text-[9px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest transition-colors"
                             >
-                                <i className="fa-solid fa-chevron-left text-[9px]" /> Prev
-                            </button>
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
-                                    .reduce<(number | '…')[]>((acc, p, idx, arr) => {
-                                        if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…');
-                                        acc.push(p);
-                                        return acc;
-                                    }, [])
-                                    .map((p, i) => p === '…' ? (
-                                        <span key={`ellipsis-${i}`} className="px-2 text-slate-300 text-[10px] font-bold">…</span>
-                                    ) : (
-                                        <button
-                                            key={p}
-                                            onClick={() => setCurrentPage(p as number)}
-                                            className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${safePage === p ? 'bg-rose-600 text-white shadow-md shadow-rose-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
-                                        >
-                                            {p}
-                                        </button>
-                                    ))}
-                            </div>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={safePage === totalPages}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                            >
-                                Next <i className="fa-solid fa-chevron-right text-[9px]" />
+                                Clear
                             </button>
                         </div>
-                    )}
-                </div>
-            )}
-
-            {/* Log console */}
-            {logs.length > 0 && (
-                <div className="bg-slate-900 rounded-[2rem] overflow-hidden">
-                    <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scan Log</span>
-                        <button
-                            onClick={() => setLogs([])}
-                            className="text-[9px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest transition-colors"
-                        >
-                            Clear
-                        </button>
+                        <div className="p-5 h-48 overflow-y-auto font-mono text-[10px] text-emerald-400 space-y-1 custom-scrollbar">
+                            {logs.map((log, i) => <div key={i}>{log}</div>)}
+                            <div ref={logsEndRef} />
+                        </div>
                     </div>
-                    <div className="p-5 h-48 overflow-y-auto font-mono text-[10px] text-emerald-400 space-y-1 custom-scrollbar">
-                        {logs.map((log, i) => <div key={i}>{log}</div>)}
-                        <div ref={logsEndRef} />
-                    </div>
-                </div>
-            )}
+                )}
+            </> /* end main content */}
         </div>
     );
 };

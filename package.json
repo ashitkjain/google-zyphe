@@ -17,7 +17,7 @@
     "firebase": "^11.3.0",
     "lucide-react": "^0.564.0",
     "node-fetch": "^3.3.2",
-    "posthog-js": "^1.350.0",
+    "posthog-js": "^1.357.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "recharts": "^3.7.0"
