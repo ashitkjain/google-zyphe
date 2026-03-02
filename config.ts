@@ -70,5 +70,9 @@ export const APP_CONFIG = {
         // https://api.usa.gov/crime/fbi/sapi
         key: (import.meta as any).env?.VITE_FBI_CDE_API_KEY || 'isTsiVvQoZW3VCuwMzBcgHeqnLKDKEmuiCC4ZQD9',
         baseUrl: 'https://api.usa.gov/crime/fbi/sapi'
+    },
+    rentcast: {
+        key: '38f6f00236fc4a14b6d462cf97c611d6',
+        baseUrl: 'https://api.rentcast.io/v1'
     }
 };

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
 import { getZipsForCity, getZipListings, saveZipMetadataBatch } from '../../services/firebase/cityData';
 import { APP_CONFIG } from '../../config';
@@ -11,11 +11,17 @@ interface DistressResult {
     zpid: string;
     address: string;
     city: string;
+    state: string;
+    cityKey: string;
     distressScore: number;
     primaryIndicators: string[];
     hiddenRisks: string;
     negotiationLeverage: string;
     rawText: string;
+    description?: string;
+    fromCache?: boolean;
+    isNew?: boolean;       // freshly analyzed in "Check for New" run
+    analyzedAt?: Date;
     error?: string;
 }
 
@@ -61,16 +67,31 @@ function scoreColor(score: number) {
     return { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', bar: 'bg-emerald-400' };
 }
 
+/** Normalize city input to Title Case so Firestore equality matches regardless of how user typed it. */
+function toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const DistressedFinderTab: React.FC = () => {
+interface DistressedFinderTabProps {
+    onNavigateToComps?: (address: string) => void;
+}
+
+const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ onNavigateToComps }) => {
     const [city, setCity] = useState('');
     const [status, setStatus] = useState<ScanStatus>('idle');
+    const [checkingNew, setCheckingNew] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
     const [results, setResults] = useState<DistressResult[]>([]);
+    const [searched, setSearched] = useState(false); // whether a search has been run
     const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-    const [filterScore, setFilterScore] = useState(1); // min score to show
+    const [filterScore, setFilterScore] = useState(1);
     const [sortBy, setSortBy] = useState<'score' | 'address'>('score');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [activeCityTab, setActiveCityTab] = useState<string | null>(null);
+    const [lastSearchedCity, setLastSearchedCity] = useState('');
+    const PAGE_SIZE = 20;
     const logsEndRef = useRef<HTMLDivElement>(null);
 
     const addLog = (msg: string) => {
@@ -101,36 +122,87 @@ const DistressedFinderTab: React.FC = () => {
         return parts.join('\n') || 'No data available';
     };
 
+    // ── Mode 1: Load from cache (distress_analysis WHERE city == X) ──────────
     const handleSearch = async () => {
-        const trimmedCity = city.trim();
+        const trimmedCity = toTitleCase(city.trim());
         if (!trimmedCity) return;
 
-        setStatus('fetching_zips');
+        setStatus('fetching_listings');
         setLogs([]);
         setResults([]);
         setProgress(null);
-
-        addLog(`Starting distress scan for: ${trimmedCity}`);
+        setSearched(true);
+        setLastSearchedCity(trimmedCity);
+        setActiveCityTab(null);
+        setCurrentPage(1);
+        addLog(`Checking distress_analysis cache for: ${trimmedCity}...`);
 
         try {
-            // ── Step 1: Resolve zip codes ─────────────────────────────────────
+            // Query distress_analysis collection by city field
+            const q = query(
+                collection(db, 'distress_analysis'),
+                where('city', '==', trimmedCity)
+            );
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                addLog(`No cached results found for "${trimmedCity}". Click "Check for New" to run analysis.`);
+                setStatus('done');
+                return;
+            }
+
+            const loaded: DistressResult[] = snap.docs.map(d => {
+                const data = d.data() as any;
+                const propCity = data.city ?? trimmedCity;
+                const propState = data.state ?? '';
+                return {
+                    zpid: d.id,
+                    address: data.address ?? d.id,
+                    city: propCity,
+                    state: propState,
+                    cityKey: propState ? `${propCity}, ${propState}` : propCity,
+                    distressScore: data.distress_score ?? 0,
+                    primaryIndicators: data.primary_indicators ?? [],
+                    hiddenRisks: data.hidden_risks ?? '',
+                    negotiationLeverage: data.negotiation_leverage ?? '',
+                    rawText: '',
+                    description: data.description ?? '',
+                    fromCache: true,
+                    analyzedAt: data.analyzed_at?.toDate?.() ?? undefined,
+                };
+            });
+
+            loaded.sort((a, b) => b.distressScore - a.distressScore);
+            setResults(loaded);
+            addLog(`✅ Loaded ${loaded.length} cached results for "${trimmedCity}".`);
+            setStatus('done');
+        } catch (e: any) {
+            addLog(`❌ Error: ${e.message}`);
+            setStatus('error');
+        }
+    };
+
+    // ── Mode 2: Check for New ─────────────────────────────────────────────────
+    const handleCheckForNew = async () => {
+        const trimmedCity = toTitleCase(lastSearchedCity || city.trim());
+        if (!trimmedCity) return;
+        setCheckingNew(true);
+        setProgress(null);
+        addLog(`--- Checking for new properties in ${trimmedCity} ---`);
+
+        try {
+            // Step A: resolve zips
             let targetZips: string[] = [];
             const isPostal = /^\d{5}(-\d{4})?$/.test(trimmedCity);
-
             if (isPostal) {
                 targetZips = [trimmedCity];
-                addLog(`Direct zip code: ${trimmedCity}`);
             } else {
-                addLog(`Resolving zip codes for ${trimmedCity}...`);
                 const cachedGroups = await getZipsForCity(trimmedCity);
-                if (cachedGroups) {
-                    targetZips = Object.values(cachedGroups).flat();
-                    addLog(`Cache hit: ${targetZips.length} zip codes found`);
-                }
+                if (cachedGroups) targetZips = Object.values(cachedGroups).flat();
 
                 if (targetZips.length === 0) {
                     const zipConfig = APP_CONFIG.rapidapi.zipCodesApi;
-                    addLog(`Querying zip code registry...`);
+                    addLog(`Resolving zip codes via API...`);
                     const resp = await fetch(
                         `https://${zipConfig.host}${zipConfig.path}?q=${encodeURIComponent(trimmedCity)}`,
                         { headers: { 'X-RapidAPI-Key': zipConfig.key, 'X-RapidAPI-Host': zipConfig.host } }
@@ -150,29 +222,27 @@ const DistressedFinderTab: React.FC = () => {
                         await saveZipMetadataBatch(entries);
                         addLog(`Found ${targetZips.length} zip codes from API`);
                     }
+                } else {
+                    addLog(`Found ${targetZips.length} cached zip codes`);
                 }
             }
 
             if (targetZips.length === 0) {
-                addLog(`⚠️ No zip codes found for "${trimmedCity}". Try a different city name.`);
-                setStatus('error');
+                addLog(`⚠️ No zip codes found for "${trimmedCity}".`);
+                setCheckingNew(false);
                 return;
             }
 
-            // ── Step 2: Fetch listings per zip & check Firestore ──────────────
-            setStatus('fetching_listings');
+            // Step B: gather properties from zip listings (Firestore cached)
             const uniqueZips = [...new Set(targetZips)];
-            addLog(`Scanning ${uniqueZips.length} zip codes for active listings...`);
+            addLog(`Scanning ${uniqueZips.length} zip codes for listings...`);
 
-            const propertiesWithData: { zpid: string; address: string; city: string; data: any }[] = [];
+            const propertiesWithData: { zpid: string; address: string; city: string; state: string; data: any }[] = [];
+            const existingZpids = new Set(results.map(r => r.zpid));
 
             for (const zip of uniqueZips) {
                 const cache = await getZipListings(zip);
-                if (!cache?.listings?.length) {
-                    addLog(`  ${zip}: no cached listings`);
-                    continue;
-                }
-                addLog(`  ${zip}: ${cache.listings.length} listings — checking Firestore...`);
+                if (!cache?.listings?.length) continue;
 
                 for (const listing of cache.listings) {
                     const zpid = String(listing.property_id || listing.listing_id || listing.mls_id || listing.mls?.id || '');
@@ -185,30 +255,45 @@ const DistressedFinderTab: React.FC = () => {
                     const propData = snap.data();
                     const addr = propData.address || listing.location?.address?.line || zpid;
                     const propCity = propData.city || listing.location?.address?.city || trimmedCity;
-                    propertiesWithData.push({ zpid, address: addr, city: propCity, data: propData });
+                    const propState = propData.state || listing.location?.address?.state_code || '';
+                    propertiesWithData.push({ zpid, address: addr, city: propCity, state: propState, data: propData });
                 }
             }
 
-            if (propertiesWithData.length === 0) {
-                addLog(`⚠️ No properties with Firestore data found. Try running "Property Data" fetch first.`);
-                setStatus('done');
+            addLog(`Found ${propertiesWithData.length} properties total. Checking which are new...`);
+
+            // Step C: find those NOT already in distress_analysis
+            const newProperties: typeof propertiesWithData = [];
+            for (const prop of propertiesWithData) {
+                if (existingZpids.has(prop.zpid)) continue;
+                const cacheRef = doc(db, 'distress_analysis', prop.zpid);
+                const cacheSnap = await getDoc(cacheRef);
+                if (cacheSnap.exists()) {
+                    // Already cached but not in current results — add it silently
+                    existingZpids.add(prop.zpid);
+                } else {
+                    newProperties.push(prop);
+                }
+            }
+
+            if (newProperties.length === 0) {
+                addLog(`✅ No new properties found — all ${propertiesWithData.length} are already analyzed.`);
+                setCheckingNew(false);
                 return;
             }
 
-            addLog(`Found ${propertiesWithData.length} properties in Firestore. Starting AI analysis...`);
-
-            // ── Step 3: Analyze each property with Gemini ─────────────────────
-            setStatus('analyzing');
-            setProgress({ done: 0, total: propertiesWithData.length });
+            addLog(`Found ${newProperties.length} new properties. Running AI analysis...`);
             const userId = auth?.currentUser?.uid || 'unknown';
-            const analysisResults: DistressResult[] = [];
+            const newResults: DistressResult[] = [];
+            setProgress({ done: 0, total: newProperties.length });
 
             const CONCURRENCY = 3;
-            for (let i = 0; i < propertiesWithData.length; i += CONCURRENCY) {
-                const batch = propertiesWithData.slice(i, i + CONCURRENCY);
-                await Promise.allSettled(batch.map(async ({ zpid, address, city: propCity, data }) => {
-                    addLog(`  Analyzing: ${address}`);
+            for (let i = 0; i < newProperties.length; i += CONCURRENCY) {
+                const batch = newProperties.slice(i, i + CONCURRENCY);
+                await Promise.allSettled(batch.map(async ({ zpid, address, city: propCity, state: propState, data }) => {
                     const mlsText = buildMlsText(data);
+                    const cacheRef = doc(db, 'distress_analysis', zpid);
+                    addLog(`  Analyzing: ${address}`);
                     try {
                         const { data: aiData } = await executeGeminiRequest<any>({
                             model: FLASH_MODEL,
@@ -221,53 +306,94 @@ const DistressedFinderTab: React.FC = () => {
                             extractResultJson: true,
                             schema: DISTRESS_SCHEMA,
                         });
-                        analysisResults.push({
-                            zpid,
+
+                        await setDoc(cacheRef, {
+                            distress_score: aiData.distress_score ?? 0,
+                            primary_indicators: aiData.primary_indicators ?? [],
+                            hidden_risks: aiData.hidden_risks ?? '',
+                            negotiation_leverage: aiData.negotiation_leverage ?? '',
                             address,
                             city: propCity,
+                            state: propState,
+                            analyzed_at: Timestamp.now(),
+                        });
+
+                        newResults.push({
+                            zpid, address, city: propCity, state: propState,
+                            cityKey: propState ? `${propCity}, ${propState}` : propCity,
                             distressScore: aiData.distress_score ?? 0,
                             primaryIndicators: aiData.primary_indicators ?? [],
                             hiddenRisks: aiData.hidden_risks ?? '',
                             negotiationLeverage: aiData.negotiation_leverage ?? '',
+                            description: data.description || data.publicRemarks || data.remarks || '',
                             rawText: mlsText,
+                            fromCache: false,
+                            isNew: true,
+                            analyzedAt: new Date(),
                         });
                     } catch (e: any) {
                         addLog(`  ⚠️ AI failed for ${address}: ${e.message}`);
-                        analysisResults.push({
-                            zpid, address, city: propCity,
+                        newResults.push({
+                            zpid, address, city: propCity, state: propState,
+                            cityKey: propState ? `${propCity}, ${propState}` : propCity,
                             distressScore: 0, primaryIndicators: [],
                             hiddenRisks: '', negotiationLeverage: '',
-                            rawText: mlsText, error: e.message
+                            rawText: mlsText, isNew: true, error: e.message
                         });
                     }
                     setProgress(p => p ? { ...p, done: p.done + 1 } : null);
                 }));
-                // Brief pause between batches
-                if (i + CONCURRENCY < propertiesWithData.length) {
+                if (i + CONCURRENCY < newProperties.length) {
                     await new Promise(r => setTimeout(r, 500));
                 }
             }
 
-            // Sort by score descending
-            analysisResults.sort((a, b) => b.distressScore - a.distressScore);
-            setResults(analysisResults);
-            addLog(`✅ Analysis complete. ${analysisResults.length} properties scored.`);
-            setStatus('done');
+            // Merge new results into existing, new ones at top
+            setResults(prev => {
+                const merged = [...newResults, ...prev];
+                return merged;
+            });
+            addLog(`✅ Done. ${newResults.length} new properties analyzed.`);
+            setProgress(null);
         } catch (e: any) {
             addLog(`❌ Error: ${e.message}`);
-            setStatus('error');
+        } finally {
+            setCheckingNew(false);
         }
     };
 
+    // ── Derived display ───────────────────────────────────────────────────────
+
+    const cityTabs = Array.from(new Set(results.map(r => r.cityKey || r.city)))
+        .map(key => ({ key, count: results.filter(r => (r.cityKey || r.city) === key).length }))
+        .sort((a, b) => b.count - a.count);
+
+    const resolvedCityTab = activeCityTab && cityTabs.some(t => t.key === activeCityTab)
+        ? activeCityTab
+        : cityTabs[0]?.key ?? null;
+
     const filtered = results
+        .filter(r => (r.cityKey || r.city) === resolvedCityTab)
         .filter(r => r.distressScore >= filterScore)
-        .sort((a, b) => sortBy === 'score' ? b.distressScore - a.distressScore : a.address.localeCompare(b.address));
+        .sort((a, b) => {
+            // NEW items always float to top within the sort
+            if (a.isNew && !b.isNew) return -1;
+            if (!a.isNew && b.isNew) return 1;
+            return sortBy === 'score' ? b.distressScore - a.distressScore : a.address.localeCompare(b.address);
+        });
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(currentPage, totalPages);
+    const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
     const highDistress = results.filter(r => r.distressScore >= 7).length;
     const medDistress = results.filter(r => r.distressScore >= 4 && r.distressScore < 7).length;
+    const newCount = results.filter(r => r.isNew).length;
+    const isRunning = status !== 'idle' && status !== 'done' && status !== 'error';
 
     return (
         <div className="max-w-7xl mx-auto py-12 px-6 space-y-8 animate-in fade-in duration-500">
+
             {/* Header */}
             <div>
                 <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
@@ -277,7 +403,7 @@ const DistressedFinderTab: React.FC = () => {
                     Find Distressed Properties
                 </h2>
                 <p className="text-[11px] text-slate-400 font-medium mt-1 ml-[52px]">
-                    Analyzes MLS listing text stored in Firestore using Gemini AI to detect motivated sellers, as-is conditions, and financial distress signals.
+                    Searches cached AI analysis by city. Use <strong>Check for New</strong> to scan RapidAPI listings and run Gemini on uncached properties.
                 </p>
             </div>
 
@@ -291,71 +417,74 @@ const DistressedFinderTab: React.FC = () => {
                             type="text"
                             value={city}
                             onChange={e => setCity(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && status === 'idle' && handleSearch()}
+                            onKeyDown={e => e.key === 'Enter' && !isRunning && handleSearch()}
                             placeholder="e.g. Dublin, CA  or  94568"
                             className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-slate-200 text-[13px] font-semibold text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent transition-all"
-                            disabled={status !== 'idle' && status !== 'done' && status !== 'error'}
+                            disabled={isRunning || checkingNew}
                         />
                     </div>
+
+                    {/* Main submit */}
                     <button
                         onClick={handleSearch}
-                        disabled={!city.trim() || (status !== 'idle' && status !== 'done' && status !== 'error')}
+                        disabled={!city.trim() || isRunning || checkingNew}
                         className="px-8 py-3.5 bg-gradient-to-r from-rose-600 to-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-rose-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
                     >
-                        {(status !== 'idle' && status !== 'done' && status !== 'error') ? (
-                            <><i className="fa-solid fa-spinner animate-spin text-xs" /> Scanning…</>
+                        {isRunning ? (
+                            <><i className="fa-solid fa-spinner animate-spin text-xs" /> Loading…</>
                         ) : (
-                            <><i className="fa-solid fa-magnifying-glass-chart text-xs" /> Find Distressed</>
+                            <><i className="fa-solid fa-database text-xs" /> Load Cached</>
                         )}
                     </button>
+
+                    {/* Check for New */}
+                    {searched && (
+                        <button
+                            onClick={handleCheckForNew}
+                            disabled={checkingNew || isRunning}
+                            className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
+                        >
+                            {checkingNew ? (
+                                <><i className="fa-solid fa-spinner animate-spin text-xs" /> Scanning…</>
+                            ) : (
+                                <><i className="fa-solid fa-radar text-xs" /> Check for New</>
+                            )}
+                        </button>
+                    )}
                 </div>
 
-                {/* Progress */}
-                {progress && status === 'analyzing' && (
+                {/* Progress bar */}
+                {progress && checkingNew && (
                     <div className="mt-4">
                         <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">AI Analysis</span>
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">AI Analysis — New Properties</span>
                             <span className="text-[10px] font-mono text-slate-400">{progress.done} / {progress.total}</span>
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-gradient-to-r from-rose-500 to-orange-400 rounded-full transition-all duration-500"
+                                className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-500"
                                 style={{ width: `${(progress.done / progress.total) * 100}%` }}
                             />
                         </div>
                     </div>
                 )}
-
-                {/* Status steps */}
-                {status !== 'idle' && (
-                    <div className="mt-4 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest">
-                        {(['fetching_zips', 'fetching_listings', 'analyzing', 'done'] as ScanStatus[]).map((s, i) => {
-                            const labels = ['Zip Codes', 'Listings', 'AI Analysis', 'Complete'];
-                            const steps: ScanStatus[] = ['fetching_zips', 'fetching_listings', 'analyzing', 'done'];
-                            const sIdx = steps.indexOf(status);
-                            const thisIdx = i;
-                            const isDone = sIdx > thisIdx || status === 'done';
-                            const isActive = sIdx === thisIdx;
-                            return (
-                                <React.Fragment key={s}>
-                                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl transition-all ${isDone ? 'text-emerald-600 bg-emerald-50' : isActive ? 'text-rose-600 bg-rose-50' : 'text-slate-300 bg-slate-50'}`}>
-                                        <i className={`fa-solid text-[9px] ${isDone ? 'fa-check' : isActive ? 'fa-spinner animate-spin' : 'fa-circle-dot'}`} />
-                                        {labels[i]}
-                                    </div>
-                                    {i < 3 && <div className="w-4 h-px bg-slate-200" />}
-                                </React.Fragment>
-                            );
-                        })}
-                    </div>
-                )}
             </div>
+
+            {/* Empty state */}
+            {searched && results.length === 0 && status === 'done' && !isRunning && !checkingNew && (
+                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm py-16 text-center">
+                    <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-100 mb-4 block" />
+                    <p className="text-[13px] font-black text-slate-400">No cached analysis found for <span className="text-slate-700">"{lastSearchedCity}"</span></p>
+                    <p className="text-[10px] text-slate-300 font-medium mt-2">Click <strong className="text-indigo-500">Check for New</strong> above to scan listings and run AI analysis.</p>
+                </div>
+            )}
 
             {/* Summary stats */}
             {results.length > 0 && (
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                     <div className="bg-white rounded-[1.5rem] border border-slate-200 p-5 text-center">
                         <div className="text-3xl font-black text-slate-900">{results.length}</div>
-                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Properties Scanned</div>
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Properties</div>
                     </div>
                     <div className="bg-rose-50 rounded-[1.5rem] border border-rose-200 p-5 text-center">
                         <div className="text-3xl font-black text-rose-600">{highDistress}</div>
@@ -363,7 +492,11 @@ const DistressedFinderTab: React.FC = () => {
                     </div>
                     <div className="bg-amber-50 rounded-[1.5rem] border border-amber-200 p-5 text-center">
                         <div className="text-3xl font-black text-amber-600">{medDistress}</div>
-                        <div className="text-[9px] font-black text-amber-400 uppercase tracking-widest mt-1">Medium Distress (4-6)</div>
+                        <div className="text-[9px] font-black text-amber-400 uppercase tracking-widest mt-1">Medium (4-6)</div>
+                    </div>
+                    <div className="bg-indigo-50 rounded-[1.5rem] border border-indigo-200 p-5 text-center">
+                        <div className="text-3xl font-black text-indigo-600">{newCount}</div>
+                        <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">New This Run</div>
                     </div>
                 </div>
             )}
@@ -371,6 +504,26 @@ const DistressedFinderTab: React.FC = () => {
             {/* Results */}
             {results.length > 0 && (
                 <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+
+                    {/* City tabs */}
+                    {cityTabs.length > 1 && (
+                        <div className="px-6 pt-5 flex items-center gap-2 flex-wrap border-b border-slate-100">
+                            {cityTabs.map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => { setActiveCityTab(tab.key); setCurrentPage(1); }}
+                                    className={`flex items-center gap-1.5 px-4 py-2 mb-[-1px] rounded-t-xl text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${resolvedCityTab === tab.key
+                                        ? 'border-rose-500 text-rose-600 bg-rose-50/60'
+                                        : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    {tab.key}
+                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${resolvedCityTab === tab.key ? 'bg-rose-100 text-rose-500' : 'bg-slate-100 text-slate-400'}`}>{tab.count}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Filter bar */}
                     <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-center gap-4 flex-wrap">
                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filters</span>
@@ -380,7 +533,7 @@ const DistressedFinderTab: React.FC = () => {
                                 {[1, 4, 7].map(score => (
                                     <button
                                         key={score}
-                                        onClick={() => setFilterScore(score)}
+                                        onClick={() => { setFilterScore(score); setCurrentPage(1); }}
                                         className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterScore === score ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                     >
                                         {score === 1 ? 'All' : score === 4 ? '4+' : '7+'}
@@ -394,7 +547,7 @@ const DistressedFinderTab: React.FC = () => {
                                 {(['score', 'address'] as ('score' | 'address')[]).map(s => (
                                     <button
                                         key={s}
-                                        onClick={() => setSortBy(s)}
+                                        onClick={() => { setSortBy(s); setCurrentPage(1); }}
                                         className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${sortBy === s ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                     >
                                         {s === 'score' ? 'Score' : 'Address'}
@@ -402,15 +555,17 @@ const DistressedFinderTab: React.FC = () => {
                                 ))}
                             </div>
                         </div>
-                        <span className="ml-auto text-[10px] font-bold text-slate-400">{filtered.length} showing</span>
+                        <span className="ml-auto text-[10px] font-bold text-slate-400">
+                            {filtered.length === 0 ? '0' : `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)}`} of {filtered.length}
+                        </span>
                     </div>
 
                     {/* Cards */}
                     <div className="divide-y divide-slate-100">
-                        {filtered.map(r => {
+                        {paginated.map(r => {
                             const colors = scoreColor(r.distressScore);
                             return (
-                                <div key={r.zpid} className="p-6 hover:bg-slate-50/40 transition-colors">
+                                <div key={r.zpid} className={`p-6 hover:bg-slate-50/40 transition-colors ${r.isNew ? 'bg-indigo-50/30' : ''}`}>
                                     <div className="flex items-start gap-5">
                                         {/* Score ring */}
                                         <div className={`flex-shrink-0 w-16 h-16 rounded-2xl border-2 ${colors.bg} ${colors.border} flex flex-col items-center justify-center`}>
@@ -421,8 +576,35 @@ const DistressedFinderTab: React.FC = () => {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between gap-3">
                                                 <div>
-                                                    <div className="text-[13px] font-black text-slate-900 leading-tight">{r.address}</div>
-                                                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{r.city} · {r.zpid}</div>
+                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                        <a
+                                                            href={`https://www.zillow.com/homes/${r.zpid}_zpid/`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[13px] font-black text-slate-900 leading-tight hover:text-indigo-600 hover:underline transition-colors"
+                                                        >{r.address}</a>
+                                                        {r.isNew && (
+                                                            <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase tracking-wide flex items-center gap-1">
+                                                                <i className="fa-solid fa-sparkles text-[7px]" />New
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 flex-wrap">
+                                                        <span>{r.city} · {r.zpid}</span>
+                                                        {r.fromCache && !r.isNew && (
+                                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded text-[8px] font-black uppercase tracking-wide" title={r.analyzedAt ? `Analyzed ${r.analyzedAt.toLocaleDateString()}` : 'Cached'}>
+                                                                <i className="fa-solid fa-bolt text-[7px] mr-0.5" />Cached
+                                                            </span>
+                                                        )}
+                                                        {onNavigateToComps && (
+                                                            <button
+                                                                onClick={() => onNavigateToComps(r.address)}
+                                                                className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded text-[8px] font-black uppercase tracking-wide hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                                                            >
+                                                                <i className="fa-solid fa-chart-bar text-[7px]" />Comps
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 {/* Score bar */}
                                                 <div className="flex-shrink-0 w-24">
@@ -438,33 +620,36 @@ const DistressedFinderTab: React.FC = () => {
                                             {r.error ? (
                                                 <div className="mt-2 text-[10px] text-rose-500 font-bold">{r.error}</div>
                                             ) : (
-                                                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    {/* Primary Indicators */}
-                                                    <div>
-                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Primary Indicators</div>
-                                                        {r.primaryIndicators.length > 0 ? (
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {r.primaryIndicators.map((ind, i) => (
-                                                                    <span key={i} className={`text-[9px] font-bold px-2 py-0.5 rounded-lg border ${colors.bg} ${colors.text} ${colors.border}`}>
-                                                                        {ind}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-[10px] text-slate-300 font-bold">None detected</span>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Hidden Risks */}
-                                                    <div>
-                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hidden Risks</div>
-                                                        <p className="text-[10px] text-slate-600 leading-relaxed">{r.hiddenRisks || '—'}</p>
-                                                    </div>
-
-                                                    {/* Negotiation Leverage */}
-                                                    <div>
-                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Negotiation Leverage</div>
-                                                        <p className="text-[10px] text-slate-600 leading-relaxed">{r.negotiationLeverage || '—'}</p>
+                                                <div className="mt-3 space-y-3">
+                                                    {r.description && (
+                                                        <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</div>
+                                                            <p className="text-[10px] text-slate-600 leading-relaxed line-clamp-3">{r.description}</p>
+                                                        </div>
+                                                    )}
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        <div>
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Primary Indicators</div>
+                                                            {r.primaryIndicators.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {r.primaryIndicators.map((ind, i) => (
+                                                                        <span key={i} className={`text-[9px] font-bold px-2 py-0.5 rounded-lg border ${colors.bg} ${colors.text} ${colors.border}`}>
+                                                                            {ind}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-[10px] text-slate-300 font-bold">None detected</span>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hidden Risks</div>
+                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{r.hiddenRisks || '—'}</p>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Negotiation Leverage</div>
+                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{r.negotiationLeverage || '—'}</p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -473,13 +658,53 @@ const DistressedFinderTab: React.FC = () => {
                                 </div>
                             );
                         })}
-                        {filtered.length === 0 && (
+                        {paginated.length === 0 && (
                             <div className="py-16 text-center">
                                 <i className="fa-solid fa-house-circle-check text-4xl text-slate-100 mb-3 block" />
                                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties match this filter</p>
                             </div>
                         )}
                     </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={safePage === 1}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                            >
+                                <i className="fa-solid fa-chevron-left text-[9px]" /> Prev
+                            </button>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+                                    .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                                        if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…');
+                                        acc.push(p);
+                                        return acc;
+                                    }, [])
+                                    .map((p, i) => p === '…' ? (
+                                        <span key={`ellipsis-${i}`} className="px-2 text-slate-300 text-[10px] font-bold">…</span>
+                                    ) : (
+                                        <button
+                                            key={p}
+                                            onClick={() => setCurrentPage(p as number)}
+                                            className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${safePage === p ? 'bg-rose-600 text-white shadow-md shadow-rose-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
+                                        >
+                                            {p}
+                                        </button>
+                                    ))}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={safePage === totalPages}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                            >
+                                Next <i className="fa-solid fa-chevron-right text-[9px]" />
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 

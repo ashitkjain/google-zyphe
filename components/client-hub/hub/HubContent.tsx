@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HubTab } from './HubHeader';
 import ClientDetailsView from '../ClientDetailsView';
 import LeadsList from '../../leads/LeadsList';
@@ -33,6 +33,7 @@ import AIValidationTab from '../AIValidationTab';
 import MyZypheTab from '../MyZypheTab';
 import ContextGraphTab from '../ContextGraphTab';
 import DistressedFinderTab from '../DistressedFinderTab';
+import PropertyCompsTab from '../PropertyCompsTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -76,6 +77,13 @@ const HubContent: React.FC<HubContentProps> = ({
     refreshTasks, reminderRules, setReminderRules, onUpdateReminderRule, onSaveReminderRules,
     realtorProfile, handleUpdateProfile, onNavigate, userRole
 }) => {
+    const [compsAddress, setCompsAddress] = useState('');
+
+    const handleNavigateToComps = (address: string) => {
+        setCompsAddress(address);
+        setActiveTab('property_comps');
+    };
+
     return (
         <div className="flex-1 flex flex-col">
             {activeTab === 'explore' && exploreContent && (
@@ -166,7 +174,9 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {activeTab === 'calendar' && <ZypheCalendar realtorId={realtorId} leads={leads} tasks={tasks} />}
 
-            {activeTab === 'distressed_finder' && <DistressedFinderTab />}
+            {activeTab === 'distressed_finder' && <DistressedFinderTab onNavigateToComps={handleNavigateToComps} />}
+
+            {activeTab === 'property_comps' && <PropertyCompsTab initialAddress={compsAddress} />}
 
             {activeTab === 'creative_studio' && (
                 <div className="max-w-5xl mx-auto py-8"><CreativeStudioWidget /></div>
