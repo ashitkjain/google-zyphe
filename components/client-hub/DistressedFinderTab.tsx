@@ -32,6 +32,7 @@ interface DistressResult {
     listingSubTypes?: string[];
     renovationStrategy?: string;
     estimatedArvPremium?: number;
+    arvBreakdown?: { item: string; estimated_cost: number; value_add: number; roi_pct: number }[];
     bedrooms?: number;
     bathrooms?: number;
     livingArea?: number;
@@ -199,6 +200,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                 hiddenRisks: aiData.hidden_risks ?? '',
                 renovationStrategy: aiData.renovation_strategy || undefined,
                 estimatedArvPremium: aiData.estimated_arv_premium ?? undefined,
+                arvBreakdown: aiData.arv_breakdown ?? undefined,
                 analyzedAt: new Date(),
                 isNew: false,
             }));
@@ -261,6 +263,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                     longitude: data.longitude ?? undefined,
                     renovationStrategy: data.renovation_strategy || undefined,
                     estimatedArvPremium: data.estimated_arv_premium ?? undefined,
+                    arvBreakdown: data.arv_breakdown ?? undefined,
                 };
             }).filter(r => !r.state || SUPPORTED_STATES.includes(r.state));
 
@@ -542,6 +545,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                             hidden_risks: aiData.hidden_risks ?? '',
                             ...(aiData.renovation_strategy && { renovation_strategy: aiData.renovation_strategy }),
                             ...(aiData.estimated_arv_premium != null && { estimated_arv_premium: aiData.estimated_arv_premium }),
+                            ...(aiData.arv_breakdown && { arv_breakdown: aiData.arv_breakdown }),
                             address,
                             city: propCity,
                             state: propState,
@@ -560,6 +564,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                             hiddenRisks: aiData.hidden_risks ?? '',
                             renovationStrategy: aiData.renovation_strategy || undefined,
                             estimatedArvPremium: aiData.estimated_arv_premium ?? undefined,
+                            arvBreakdown: aiData.arv_breakdown ?? undefined,
                             description: data.description || data.publicRemarks || data.remarks || '',
                             propertyType: data.homeType ?? data.propertyType ?? data.property_type ?? undefined,
                             mlsName: data.attribution?.mlsName ?? undefined,
@@ -1178,26 +1183,46 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                 ) : (
                                                                     <span className="text-[12px] text-slate-300 font-bold">None detected</span>
                                                                 )}
-                                                            </div>
-                                                            <div>
-                                                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hidden Risks</div>
-                                                                <p className="text-[12px] text-slate-600 leading-relaxed">{r.hiddenRisks || '—'}</p>
-                                                            </div>
-                                                        </div>
 
-                                                        {/* Renovation Strategy */}
-                                                        {r.renovationStrategy && (
-                                                            <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50/60 to-teal-50/40 rounded-2xl border border-emerald-100">
-                                                                <div className="flex items-center gap-2 mb-2">
-                                                                    <i className="fa-solid fa-hammer text-emerald-600 text-[12px]" />
-                                                                    <span className="text-[11px] font-black text-emerald-700 uppercase tracking-widest">Renovation Strategy</span>
-                                                                    <span className="ml-auto text-[11px] font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-                                                                        Est. ARV Premium: {(r.estimatedArvPremium ?? 0) > 0 ? `+$${r.estimatedArvPremium!.toLocaleString()}` : '—'}
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-[12px] text-slate-700 leading-relaxed">{r.renovationStrategy}</p>
+                                                                {/* ARV Breakdown Table */}
+                                                                {r.arvBreakdown && r.arvBreakdown.length > 0 && (
+                                                                    <div className="mt-3 overflow-hidden rounded-xl border border-emerald-200/60">
+                                                                        <table className="w-full text-left">
+                                                                            <thead>
+                                                                                <tr className="bg-emerald-100/50">
+                                                                                    <th className="px-2 py-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest">Item</th>
+                                                                                    <th className="px-2 py-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right">Cost</th>
+                                                                                    <th className="px-2 py-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right">Value Add</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-emerald-100/40">
+                                                                                {r.arvBreakdown.map((b, i) => (
+                                                                                    <tr key={i} className="bg-white/60 hover:bg-emerald-50/40 transition-colors">
+                                                                                        <td className="px-2 py-1 text-[10px] font-bold text-slate-700">{b.item}</td>
+                                                                                        <td className="px-2 py-1 text-[10px] font-mono text-slate-500 text-right">${b.estimated_cost.toLocaleString()}</td>
+                                                                                        <td className="px-2 py-1 text-[10px] font-mono text-emerald-700 font-bold text-right">+${b.value_add.toLocaleString()}</td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        )}
+
+                                                            {/* Renovation Strategy */}
+                                                            {r.renovationStrategy && (
+                                                                <div className="p-3 bg-gradient-to-r from-emerald-50/60 to-teal-50/40 rounded-2xl border border-emerald-100">
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <i className="fa-solid fa-hammer text-emerald-600 text-[12px]" />
+                                                                        <span className="text-[11px] font-black text-emerald-700 uppercase tracking-widest">Renovation Strategy</span>
+                                                                        <span className="ml-auto text-[11px] font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                                                                            Est. ARV Premium: {(r.estimatedArvPremium ?? 0) > 0 ? `+$${r.estimatedArvPremium!.toLocaleString()}` : '—'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-[12px] text-slate-700 leading-relaxed">{r.renovationStrategy}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

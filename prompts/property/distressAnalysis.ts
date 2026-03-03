@@ -44,12 +44,16 @@ Step 4: JSON Output Requirement
 IMPORTANT — "estimated_arv_premium" explanation:
 This is the estimated dollar amount the property's After-Repair Value (ARV) would increase above its current list price if ALL suggested renovations were completed. Base this on local market comps and the ROI benchmarks from Step 1. For example, if a $400k home could gain $60k from a kitchen refresh and garage door replacement, return 60000. Always return a positive integer, never 0.
 
+IMPORTANT — "arv_breakdown" explanation:
+Provide an itemized breakdown of how you arrived at the estimated_arv_premium. Each item should include the renovation name, estimated cost, estimated value added to the home, and the ROI percentage. This makes the ARV estimate transparent and auditable. List each project as a separate object in the array.
+
 {
 "distress_score": <1-10>,
 "primary_indicators": ["<string>", ...],
 "hidden_risks": "<string>",
 "renovation_strategy": "<A coherent paragraph summarizing the full renovation strategy. Include what upgrades are already completed, what high-ROI fixes are suggested. Write this as a readable investment memo, not bullet fragments.>",
-"estimated_arv_premium": <number>
+"estimated_arv_premium": <number>,
+"arv_breakdown": [{"item": "<renovation name>", "estimated_cost": <number>, "value_add": <number>, "roi_pct": <number>}, ...]
 }
 
 MLS Data to Analyze:
@@ -63,6 +67,19 @@ export const DISTRESS_SCHEMA = {
         hidden_risks: { type: 'string' },
         renovation_strategy: { type: 'string' },
         estimated_arv_premium: { type: 'number' },
+        arv_breakdown: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    item: { type: 'string' },
+                    estimated_cost: { type: 'number' },
+                    value_add: { type: 'number' },
+                    roi_pct: { type: 'number' },
+                },
+                required: ['item', 'estimated_cost', 'value_add', 'roi_pct'],
+            },
+        },
     },
-    required: ['distress_score', 'primary_indicators', 'hidden_risks', 'renovation_strategy', 'estimated_arv_premium'],
+    required: ['distress_score', 'primary_indicators', 'hidden_risks', 'renovation_strategy', 'estimated_arv_premium', 'arv_breakdown'],
 };
