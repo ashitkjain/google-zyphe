@@ -203,6 +203,7 @@ export interface PropertyData {
         mlsName?: string;
         mlsId?: string;
     };
+    listingSubType?: Record<string, boolean> | null; // e.g. { is_bankOwned: true, is_foreclosure: true }
     streetView?: string;
     orientation_ai?: {
         final_orientation: string;

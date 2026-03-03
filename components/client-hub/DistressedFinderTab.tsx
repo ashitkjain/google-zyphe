@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, documentId, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
 import { getZipsForCity, getZipListings, saveZipMetadataBatch } from '../../services/firebase/cityData';
 import { APP_CONFIG } from '../../config';
@@ -20,12 +20,15 @@ interface DistressResult {
     negotiationLeverage: string;
     rawText: string;
     description?: string;
+    propertyType?: string;
+    mlsName?: string;
     fromCache?: boolean;
     isNew?: boolean;
     analyzedAt?: Date;
     error?: string;
     latitude?: number;
     longitude?: number;
+    listPrice?: number;
 }
 
 type ScanStatus = 'idle' | 'fetching_zips' | 'fetching_listings' | 'analyzing' | 'done' | 'error';
@@ -75,25 +78,6 @@ function toTitleCase(str: string): string {
     return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
 }
 
-/**
- * Extract real city from a US address string by parsing the second-to-last comma-delimited segment.
- * e.g. "3241 Monika Ln, Fairview, CA 94541 US" → "Fairview"
- * Falls back to stored city if parsing fails.
- */
-function cityFromAddress(address: string, fallback = ''): string {
-    if (!address) return fallback;
-    const parts = address.split(',').map(p => p.trim());
-    // Typical US format: ["Street", "City", "ST ZIP" or "ST ZIP Country"]
-    if (parts.length >= 3) {
-        const candidate = parts[parts.length - 2];
-        // Sanity check: should be 2–40 chars, not look like a zip or state-only string
-        if (candidate && candidate.length >= 2 && candidate.length <= 40 && !/^\d/.test(candidate)) {
-            return candidate;
-        }
-    }
-    return fallback;
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface DistressedFinderTabProps {
@@ -109,18 +93,22 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
     const [results, setResults] = useState<DistressResult[]>([]);
     const [searched, setSearched] = useState(false); // whether a search has been run
     const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-    const [filterScore, setFilterScore] = useState(1);
+    const [filterScore, setFilterScore] = useState(4); // default = Medium
     const [sortBy, setSortBy] = useState<'score' | 'address'>('score');
+    const [priceMin, setPriceMin] = useState<number | ''>('');
+    const [priceMax, setPriceMax] = useState<number | ''>('');
+    const [filterPropertyType, setFilterPropertyType] = useState('');
+    const [filterOnMLS, setFilterOnMLS] = useState<'all' | 'on' | 'off'>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [activeCityTab, setActiveCityTab] = useState<string | null>(null);
     const [lastSearchedCity, setLastSearchedCity] = useState('');
     const [availableCities, setAvailableCities] = useState<string[]>([]);
     const [cityQuery, setCityQuery] = useState('');
     const [showCitySuggestions, setShowCitySuggestions] = useState(false);
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 10;
     const logsEndRef = useRef<HTMLDivElement>(null);
 
-    // On mount: fetch distinct real cities from distress_analysis (uses address parsing for accuracy)
+    // On mount: fetch distinct cities from distress_analysis using the city field
     useEffect(() => {
         (async () => {
             try {
@@ -128,8 +116,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                 const citySet = new Set<string>();
                 snap.docs.forEach(d => {
                     const data = d.data() as any;
-                    // Use address-parsed city (same logic as display) for accurate city name
-                    const c = cityFromAddress(data.address ?? '', data.city ?? '');
+                    const c = data.city ?? '';
                     if (c) citySet.add(c);
                 });
                 setAvailableCities(Array.from(citySet).sort());
@@ -148,7 +135,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
     const buildMlsText = (propData: any): string => {
         const parts: string[] = [];
         if (propData.address) parts.push(`Address: ${propData.address}`);
-        if (propData.price) parts.push(`Price: $${propData.price?.toLocaleString()}`);
+        if (propData.listPrice ?? propData.price) parts.push(`Price: $${(propData.listPrice ?? propData.price)?.toLocaleString()}`);
         if (propData.beds) parts.push(`Beds: ${propData.beds}`);
         if (propData.baths) parts.push(`Baths: ${propData.baths}`);
         if (propData.sqft) parts.push(`Sqft: ${propData.sqft}`);
@@ -197,10 +184,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
             const loaded: DistressResult[] = snap.docs.map(d => {
                 const data = d.data() as any;
                 const rawAddress = data.address ?? d.id;
-                // Use the actual city from the address string (authoritative)
-                // — the stored `city` field may be the search-query city (e.g. "Hayward")
-                //   even when the property is in a nearby city (e.g. "Fairview")
-                const propCity = cityFromAddress(rawAddress, data.city ?? trimmedCity);
+                const propCity = data.city ?? trimmedCity;
                 const propState = data.state ?? '';
                 return {
                     zpid: d.id,
@@ -213,13 +197,36 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                     hiddenRisks: data.hidden_risks ?? '',
                     negotiationLeverage: data.negotiation_leverage ?? '',
                     rawText: '',
-                    description: data.description ?? '',
+                    description: '',        // filled below from properties
                     fromCache: true,
                     analyzedAt: data.analyzed_at?.toDate?.() ?? undefined,
                     latitude: data.latitude ?? undefined,
                     longitude: data.longitude ?? undefined,
                 };
             });
+
+            // ── Batch-enrich from properties collection (listPrice / propertyType / description)
+            // Firestore 'in' query limit is 30 — chunk accordingly
+            try {
+                const zpids = loaded.map(r => r.zpid);
+                const CHUNK = 30;
+                const propMap = new Map<string, any>();
+                for (let i = 0; i < zpids.length; i += CHUNK) {
+                    const chunk = zpids.slice(i, i + CHUNK);
+                    const propSnap = await getDocs(
+                        query(collection(db, 'properties'), where(documentId(), 'in', chunk))
+                    );
+                    propSnap.docs.forEach(d => propMap.set(d.id, d.data()));
+                }
+                loaded.forEach(r => {
+                    const pd = propMap.get(r.zpid);
+                    if (!pd) return;
+                    r.listPrice = pd.listPrice ?? pd.price ?? pd.list_price ?? undefined;
+                    r.propertyType = pd.homeType ?? pd.propertyType ?? pd.property_type ?? undefined;
+                    r.description = pd.description || pd.publicRemarks || pd.remarks || '';
+                    r.mlsName = pd.attribution?.mlsName ?? undefined;
+                });
+            } catch { /* non-fatal — display without enrichment */ }
 
             loaded.sort((a, b) => b.distressScore - a.distressScore);
             setResults(loaded);
@@ -382,12 +389,15 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             hiddenRisks: aiData.hidden_risks ?? '',
                             negotiationLeverage: aiData.negotiation_leverage ?? '',
                             description: data.description || data.publicRemarks || data.remarks || '',
+                            propertyType: data.homeType ?? data.propertyType ?? data.property_type ?? undefined,
+                            mlsName: data.attribution?.mlsName ?? undefined,
                             rawText: mlsText,
                             fromCache: false,
                             isNew: true,
                             analyzedAt: new Date(),
                             latitude,
                             longitude,
+                            listPrice: data.listPrice ?? data.price ?? data.list_price ?? undefined,
                         });
                     } catch (e: any) {
                         addLog(`  ⚠️ AI failed for ${address}: ${e.message}`);
@@ -448,11 +458,31 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
             return (s ? `${c}, ${s}` : c) === resolvedCityStateTab;
         })
         .filter(r => r.distressScore >= filterScore)
+        .filter(r => priceMin === '' || (r.listPrice != null && r.listPrice >= priceMin))
+        .filter(r => priceMax === '' || (r.listPrice != null && r.listPrice <= priceMax))
+        .filter(r => !filterPropertyType || r.propertyType === filterPropertyType)
+        .filter(r => {
+            if (filterOnMLS === 'on') return !!r.mlsName;
+            if (filterOnMLS === 'off') return !r.mlsName;
+            return true;
+        })
         .sort((a, b) => {
             if (a.isNew && !b.isNew) return -1;
             if (!a.isNew && b.isNew) return 1;
             return sortBy === 'score' ? b.distressScore - a.distressScore : a.address.localeCompare(b.address);
         });
+
+    // Unique property types from ALL results in active city tab (not just filtered)
+    const availablePropertyTypes = Array.from(new Set(
+        results
+            .filter(r => {
+                const c = r.city || 'Unknown';
+                const s = r.state || '';
+                return (s ? `${c}, ${s}` : c) === resolvedCityStateTab;
+            })
+            .map(r => r.propertyType)
+            .filter((t): t is string => !!t)
+    )).sort();
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const safePage = Math.min(currentPage, totalPages);
@@ -490,7 +520,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                         Find Distressed Properties
                     </h2>
                     <p className="text-[11px] text-slate-400 font-medium mt-1 ml-[52px]">
-                        Searches cached AI analysis by city. Use <strong>Check for New</strong> to scan RapidAPI listings and run Gemini on uncached properties.
+                        Searches cached AI analysis by city. Use <strong>Check for New</strong> to analyze new listings.
                     </p>
                 </div>
 
@@ -608,35 +638,126 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                     </div>
                 )}
 
-                {/* Summary stats */}
-                {results.length > 0 && (
-                    <div className="grid grid-cols-4 gap-4">
-                        <div className="bg-white rounded-[1.5rem] border border-slate-200 p-5 text-center">
-                            <div className="text-3xl font-black text-slate-900">{results.length}</div>
-                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Properties</div>
-                        </div>
-                        <div className="bg-rose-50 rounded-[1.5rem] border border-rose-200 p-5 text-center">
-                            <div className="text-3xl font-black text-rose-600">{highDistress}</div>
-                            <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1">High Distress (7-10)</div>
-                        </div>
-                        <div className="bg-amber-50 rounded-[1.5rem] border border-amber-200 p-5 text-center">
-                            <div className="text-3xl font-black text-amber-600">{medDistress}</div>
-                            <div className="text-[9px] font-black text-amber-400 uppercase tracking-widest mt-1">Medium (4-6)</div>
-                        </div>
-                        <div className="bg-indigo-50 rounded-[1.5rem] border border-indigo-200 p-5 text-center">
-                            <div className="text-3xl font-black text-indigo-600">{newCount}</div>
-                            <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">New This Run</div>
-                        </div>
-                    </div>
-                )}
 
                 {/* Results */}
                 {results.length > 0 && (
                     <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
 
-                        {/* State tabs — always show when we have results */}
+                        {/* Filter bar — above city tabs */}
+                        <div className="px-6 pt-5 pb-4 border-b border-slate-100 space-y-3">
+                            {/* Row 1: distress score + sort + count */}
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filters</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
+                                        {([{ score: 4, label: 'Medium' }, { score: 7, label: 'High' }, { score: 1, label: 'All' }] as { score: number; label: string }[]).map(({ score, label }) => (
+                                            <button
+                                                key={score}
+                                                onClick={() => { setFilterScore(score); setCurrentPage(1); }}
+                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterScore === score ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-slate-500">Sort</span>
+                                    <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
+                                        {(['score', 'address'] as ('score' | 'address')[]).map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={() => { setSortBy(s); setCurrentPage(1); }}
+                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${sortBy === s ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                {s === 'score' ? 'Score' : 'Address'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <span className="ml-auto text-[10px] font-bold text-slate-400">
+                                    {filtered.length === 0 ? '0' : `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)}`} of {filtered.length}
+                                </span>
+                            </div>
+
+                            {/* Row 2: price range + property type + on MLS */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                                {/* Price range */}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Price</span>
+                                    <div className="flex items-center gap-1">
+                                        <div className="relative">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">$</span>
+                                            <input
+                                                type="number"
+                                                placeholder="Min"
+                                                value={priceMin}
+                                                onChange={e => { setPriceMin(e.target.value === '' ? '' : Number(e.target.value)); setCurrentPage(1); }}
+                                                className="pl-4 pr-2 py-1 w-24 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                            />
+                                        </div>
+                                        <span className="text-[9px] text-slate-300 font-bold">–</span>
+                                        <div className="relative">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">$</span>
+                                            <input
+                                                type="number"
+                                                placeholder="Max"
+                                                value={priceMax}
+                                                onChange={e => { setPriceMax(e.target.value === '' ? '' : Number(e.target.value)); setCurrentPage(1); }}
+                                                className="pl-4 pr-2 py-1 w-24 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Property type */}
+                                {availablePropertyTypes.length > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</span>
+                                        <select
+                                            value={filterPropertyType}
+                                            onChange={e => { setFilterPropertyType(e.target.value); setCurrentPage(1); }}
+                                            className="px-2 py-1 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300 text-slate-700"
+                                        >
+                                            <option value="">All</option>
+                                            {availablePropertyTypes.map(t => (
+                                                <option key={t} value={t}>{t}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* On MLS toggle */}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">MLS</span>
+                                    <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
+                                        {([{ val: 'all', label: 'All' }, { val: 'on', label: 'On MLS' }, { val: 'off', label: 'Off MLS' }] as { val: 'all' | 'on' | 'off'; label: string }[]).map(({ val, label }) => (
+                                            <button
+                                                key={val}
+                                                onClick={() => { setFilterOnMLS(val); setCurrentPage(1); }}
+                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterOnMLS === val ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Clear extra filters */}
+                                {(priceMin !== '' || priceMax !== '' || filterPropertyType || filterOnMLS !== 'all') && (
+                                    <button
+                                        onClick={() => { setPriceMin(''); setPriceMax(''); setFilterPropertyType(''); setFilterOnMLS('all'); setCurrentPage(1); }}
+                                        className="text-[9px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-wide transition-colors"
+                                    >
+                                        <i className="fa-solid fa-xmark mr-1" />Clear
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* City / State tabs — below filters */}
                         {cityStateTabs.length > 0 && (
-                            <div className="px-6 pt-5 flex items-center gap-2 flex-wrap border-b border-slate-100">
+                            <div className="px-6 pt-4 flex items-center gap-2 flex-wrap border-b border-slate-100">
                                 {cityStateTabs.map(tab => (
                                     <button
                                         key={tab.key}
@@ -655,41 +776,6 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             </div>
                         )}
 
-                        {/* Filter bar */}
-                        <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-center gap-4 flex-wrap">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filters</span>
-                            <div className="flex items-center gap-2">
-                                <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
-                                    {([{ score: 4, label: 'Medium' }, { score: 7, label: 'High' }, { score: 1, label: 'All' }] as { score: number; label: string }[]).map(({ score, label }) => (
-                                        <button
-                                            key={score}
-                                            onClick={() => { setFilterScore(score); setCurrentPage(1); }}
-                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterScore === score ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            {label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-slate-500">Sort</span>
-                                <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
-                                    {(['score', 'address'] as ('score' | 'address')[]).map(s => (
-                                        <button
-                                            key={s}
-                                            onClick={() => { setSortBy(s); setCurrentPage(1); }}
-                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${sortBy === s ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            {s === 'score' ? 'Score' : 'Address'}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <span className="ml-auto text-[10px] font-bold text-slate-400">
-                                {filtered.length === 0 ? '0' : `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)}`} of {filtered.length}
-                            </span>
-                        </div>
-
                         {/* Cards */}
                         <div className="divide-y divide-slate-100">
                             {paginated.map(r => {
@@ -706,7 +792,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div>
-                                                        <div className="flex items-center gap-2 mb-0.5">
+                                                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                                             <a
                                                                 href={`https://www.zillow.com/homes/${r.zpid}_zpid/`}
                                                                 target="_blank"
@@ -719,6 +805,31 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                                 </span>
                                                             )}
                                                         </div>
+
+                                                        {/* ── Property summary strip ── */}
+                                                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                                            {r.listPrice != null && (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black">
+                                                                    <i className="fa-solid fa-tag text-[8px]" />
+                                                                    ${r.listPrice.toLocaleString()}
+                                                                </span>
+                                                            )}
+                                                            {r.propertyType && (
+                                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-200">
+                                                                    {r.propertyType}
+                                                                </span>
+                                                            )}
+                                                            {r.mlsName && (
+                                                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded-lg text-[10px] font-bold border border-indigo-100">
+                                                                    {r.mlsName}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {r.description && (
+                                                            <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-2 mb-1.5">{r.description}</p>
+                                                        )}
+
                                                         <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 flex-wrap">
                                                             <span>{r.city} · {r.zpid}</span>
                                                             {r.fromCache && !r.isNew && (
@@ -741,7 +852,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                                                     const pd = propSnap.data();
                                                                                     const coords = pd?.coordinates;
                                                                                     if (coords?.latitude != null) { lat = coords.latitude; lng = coords.longitude; }
-                                                                                    listPrice = pd?.price ?? pd?.listPrice ?? pd?.list_price ?? undefined;
+                                                                                    listPrice = pd?.listPrice ?? pd?.price ?? pd?.list_price ?? undefined;
                                                                                 }
                                                                             } catch { /* non-fatal */ }
                                                                         } else {
@@ -750,7 +861,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                                                 const propSnap = await getDoc(doc(db, 'properties', r.zpid));
                                                                                 if (propSnap.exists()) {
                                                                                     const pd = propSnap.data();
-                                                                                    listPrice = pd?.price ?? pd?.listPrice ?? pd?.list_price ?? undefined;
+                                                                                    listPrice = pd?.listPrice ?? pd?.price ?? pd?.list_price ?? undefined;
                                                                                 }
                                                                             } catch { /* non-fatal */ }
                                                                         }
@@ -778,12 +889,6 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                     <div className="mt-2 text-[10px] text-rose-500 font-bold">{r.error}</div>
                                                 ) : (
                                                     <div className="mt-3 space-y-3">
-                                                        {r.description && (
-                                                            <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</div>
-                                                                <p className="text-[10px] text-slate-600 leading-relaxed line-clamp-3">{r.description}</p>
-                                                            </div>
-                                                        )}
                                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                             <div>
                                                                 <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Primary Indicators</div>

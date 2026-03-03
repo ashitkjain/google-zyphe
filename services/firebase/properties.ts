@@ -58,7 +58,7 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
 
     try {
         const docRef = doc(db, "properties", String(zpid));
-        const sanitized = sanitizeForFirestore(data);
+        const sanitized = normalizePropertyFields(sanitizeForFirestore(data));
         logFirestoreQuery('setDoc', 'properties', { zpid });
 
         await setDoc(docRef, {
@@ -72,6 +72,59 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
         return { success: false, error: handleFirestoreError(error, "savePropertyToCloud") };
     }
 };
+
+/**
+ * Normalizes inconsistent field names before any write to the `properties` collection.
+ *
+ * The `properties` table is populated by multiple independent sources:
+ *   - RESO MLS API        → writes `price`      (from raw.ListPrice)
+ *   - Zillow/city scan    → writes `list_price`  (snake_case as-is)
+ *   - RapidAPI            → writes `price`       (sometimes both)
+ *   - Legacy ingestion    → writes `listPrice`   (camelCase)
+ *
+ * This function collapses all variants into a single canonical `price` field
+ * and removes the redundant aliases so reads never need a fallback chain.
+ */
+function normalizePropertyFields(doc: Record<string, any>): Record<string, any> {
+    const out = { ...doc };
+
+    // ── Price ──────────────────────────────────────────────────────────────────
+    // Canonical field: `listPrice`
+    // Aliases: price, list_price, ListPrice
+    const listPrice =
+        out.listPrice ??
+        out.price ??
+        out.list_price ??
+        out.ListPrice ??
+        null;
+
+    if (listPrice != null) {
+        out.listPrice = typeof listPrice === 'string' ? parseFloat(listPrice.replace(/[^0-9.]/g, '')) || listPrice : listPrice;
+    }
+    // Remove aliases so the doc stays clean
+    delete out.price;
+    delete out.list_price;
+    delete out.ListPrice;
+
+    // ── Square footage ─────────────────────────────────────────────────────────
+    // Canonical field: `squareFootage`
+    // Aliases: square_footage, sqft, LivingArea
+    const sqft =
+        out.squareFootage ??
+        out.square_footage ??
+        out.sqft ??
+        out.LivingArea ??
+        null;
+
+    if (sqft != null) {
+        out.squareFootage = typeof sqft === 'string' ? parseFloat(sqft) || sqft : sqft;
+    }
+    delete out.square_footage;
+    delete out.sqft;
+    delete out.LivingArea;
+
+    return out;
+}
 
 /**
  * Persists computed orientation results into the property document.

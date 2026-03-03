@@ -141,7 +141,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                 .map(p => {
                     const visual = visualMap[p.zpid] as any;
 
-                    const hasCoreData = !!((p.bedrooms !== undefined) && (p.bathrooms !== undefined) && p.description && p.price);
+                    const hasCoreData = !!((p.bedrooms !== undefined) && (p.bathrooms !== undefined) && p.description && (p.listPrice ?? p.price));
                     const hasInterior = !!visual?.home_interior;
 
                     const existing = assessmentMap[p.zpid];

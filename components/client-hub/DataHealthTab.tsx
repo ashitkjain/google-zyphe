@@ -74,7 +74,7 @@ const DataHealthTab: React.FC = () => {
                 const hasCoreData = (p.bedrooms !== undefined && p.bedrooms !== null) &&
                     (p.bathrooms !== undefined && p.bathrooms !== null) &&
                     !!p.description &&
-                    !!p.price;
+                    !!(p.listPrice ?? p.price);
 
                 // Deep Node Verification
                 const hasInterior = !!visual?.home_interior;

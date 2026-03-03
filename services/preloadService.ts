@@ -526,6 +526,89 @@ export const runImageOnlyPipeline = async (
 };
 
 /**
+ * RapidAPI + Radar only pipeline: fetches property specs (Zillow/RapidAPI) and
+ * geocoding (Radar) ONLY. Performs a targeted merge into the existing Firestore
+ * document — environmental data (solar, air quality, pollen, noise, street view),
+ * AI analysis, and images are NOT touched.
+ *
+ * Use this to refresh core property specs without re-running expensive APIs.
+ */
+export const runRapidAPIOnlyPipeline = async (
+  rawAddress: string,
+  onProgress: (p: PipelineProgress) => void,
+  providedZpid?: string,
+  onLog?: (msg: string) => void
+): Promise<string> => {
+  try {
+    onProgress({ step: 'Fetching', status: 'running', message: 'Fetching property specs from RapidAPI...' });
+
+    // Fetch RapidAPI data and Radar geocoding in parallel
+    const [radar, propData] = await Promise.all([
+      normalizeAddress(rawAddress, providedZpid),
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false, undefined, true /* skipImages */)
+    ]);
+
+    const zpid = propData.zpid || providedZpid;
+    if (!zpid) throw new Error('Could not resolve ZPID.');
+    onLog?.(`[RapidAPI] Resolved ${radar.formattedAddress} (ZPID: ${zpid})`);
+
+    // Build alternate_ids
+    const alternate_ids = [...(propData.alternate_ids || [])];
+    if (providedZpid && providedZpid !== zpid && !alternate_ids.includes(providedZpid)) {
+      alternate_ids.push(providedZpid);
+    }
+
+    // Fields that come purely from RapidAPI + Radar — safe to overwrite.
+    // Deliberately excludes: solarData, airQuality, pollen, noiseScore*, streetViewAnalysis,
+    // images, mapZoomIn, mapZoomOut, comps — so existing enriched data is preserved.
+    const rapidAPIFields: Partial<PropertyData> = {
+      zpid,
+      feed_property_id: providedZpid,
+      alternate_ids,
+      address: radar.formattedAddress,
+      coordinates: radar.coordinates,
+      city: propData.city,
+      state: propData.state,
+      zipCode: propData.zipCode,
+      homeStatus: propData.homeStatus,
+      homeType: propData.homeType,
+      listingSubType: (propData as any).listingSubType ?? undefined,
+      bedrooms: propData.bedrooms,
+      bathrooms: propData.bathrooms,
+      livingAreaValue: propData.livingAreaValue,
+      yearBuilt: propData.yearBuilt,
+      lotSize: propData.lotSize,
+      price: propData.price ?? undefined,
+      zestimate: propData.zestimate,
+      rentZestimate: propData.rentZestimate,
+      description: propData.description,
+      attribution: (propData as any).attribution ?? undefined,
+      schools: propData.schools,
+      windRiskScore: (propData as any).windRiskScore,
+      floodRiskScore: (propData as any).floodRiskScore,
+      fireRiskScore: (propData as any).fireRiskScore,
+      heatRiskScore: (propData as any).heatRiskScore,
+      annualHomeownersInsurance: propData.annualHomeownersInsurance,
+    };
+
+    // Strip undefined so Firestore merge doesn't delete existing values
+    const cleanFields = Object.fromEntries(
+      Object.entries(rapidAPIFields).filter(([, v]) => v !== undefined)
+    ) as Partial<PropertyData>;
+
+    await savePropertyToCloud(zpid, cleanFields);
+    onProgress({ step: 'Status', status: 'completed', message: 'RapidAPI property data refreshed.' });
+    onLog?.(`[RapidAPI] Saved property specs for ${zpid}`);
+
+    return zpid;
+  } catch (error: any) {
+    onLog?.(`[RapidAPI Pipeline Error] ${error.message}`);
+    onProgress({ step: 'Error', status: 'error', message: error.message });
+    throw error;
+  }
+};
+
+/**
  * Ultra-lean pipeline: fetches property data from RapidAPI (specs, price, scores)
  * and saves it to Firestore. No images, no Firebase Storage, no AI.
  * Use this to refresh/seed property records without burning image or AI quotas.

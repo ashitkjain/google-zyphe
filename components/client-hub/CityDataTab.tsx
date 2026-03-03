@@ -11,7 +11,7 @@ import {
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
 
 import { PropertyData } from '../../types';
-import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
+import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, runRapidAPIOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth, STATE_MAP } from '../../services/firebase/config';
@@ -55,6 +55,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [propertyStatuses, setPropertyStatuses] = useState<Record<string, PropertyStatusDetails>>({});
     const [sweepRunning, setSweepRunning] = useState(false);
     const [sweepResult, setSweepResult] = useState<{ deprecated: string[]; skipped: string[]; errors: string[] } | null>(null);
+    const [groupPages, setGroupPages] = useState<Record<string, number>>({});
+    const GROUP_PAGE_SIZE = 20;
 
 
     const availableStates = useMemo(() => {
@@ -66,6 +68,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         });
         return Array.from(states).sort();
     }, [listings]);
+
+    // Reset group pages when listings or state filter changes
+    React.useEffect(() => { setGroupPages({}); }, [listings, stateFilter]);
 
     // State Filter effect removed
     const zpidToAddressMap = useMemo(() => {
@@ -344,6 +349,66 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
 
         addLog(`Property Data Complete. ${successCount} / ${targets.length} saved.`);
+        setLoading(false);
+        if (successCount === targets.length) setSelectedIds(new Set());
+    };
+
+    const handleBulkRapidAPIData = async () => {
+        if (selectedIds.size === 0) return;
+        setLoading(true);
+        setError(null);
+        setViewMode('ingestion');
+        setPipelineType('images'); // reuse ingestion view
+        setIngestionReport(null);
+        addLog(`Starting Get Property Data pipeline (RapidAPI + Radar only, preserves enrichment data)...`);
+
+        const targets = listings.filter(l => {
+            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            return selectedIds.has(id);
+        });
+        addLog(`Processing ${targets.length} properties...`);
+
+        const newJobs: IngestionJob[] = targets.map(item => {
+            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
+            return { zpid: id, address: fullAddress, status: 'pending', progress: null };
+        });
+        setIngestionQueue(newJobs);
+
+        const CHUNK_SIZE = 2; // RapidAPI: 2 requests/sec max
+        const INTER_CHUNK_DELAY_MS = 1000;
+        let successCount = 0;
+
+        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
+            const chunk = targets.slice(i, i + CHUNK_SIZE);
+            addLog(`Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
+
+            const chunkPromises = chunk.map(async (item) => {
+                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const addrObj = item.location?.address;
+                const builtAddress = addrObj
+                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                    : (item.location?.address?.line || zpid);
+
+                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
+                try {
+                    await runRapidAPIOnlyPipeline(builtAddress, (progress) => {
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                    }, zpid, (msg) => addLog(`[${builtAddress}] ${msg}`));
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                    return true;
+                } catch (e: any) {
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
+                    return false;
+                }
+            });
+
+            const results = await Promise.all(chunkPromises);
+            successCount += results.filter(r => r === true).length;
+            if (i + CHUNK_SIZE < targets.length) await new Promise(r => setTimeout(r, INTER_CHUNK_DELAY_MS));
+        }
+
+        addLog(`Get Property Data Complete. ${successCount} / ${targets.length} saved.`);
         setLoading(false);
         if (successCount === targets.length) setSelectedIds(new Set());
     };
@@ -1113,7 +1178,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         title="Fetch property specs & scores from RapidAPI only — no images, no AI"
                                     >
                                         <i className="fa-solid fa-database text-emerald-500 group-hover:scale-110 transition-transform"></i>
-                                        Property Data ({visibleSelectedCount})
+                                        Full Property Data ({visibleSelectedCount})
+                                    </button>
+                                    <button
+                                        onClick={handleBulkRapidAPIData}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-white border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                        title="Fetch RapidAPI specs + Radar geocoding only — preserves solar, noise, pollen, street view & AI data"
+                                    >
+                                        <i className="fa-solid fa-bolt text-blue-500 group-hover:scale-110 transition-transform"></i>
+                                        Get Property Data ({visibleSelectedCount})
                                     </button>
                                     <button
                                         onClick={handleCityDeepResearch}
@@ -1401,106 +1475,155 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 )}
 
                                 {/* Location Groups */}
-                                {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => (
-                                    <div key={groupKey} className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-8">
-                                        {/* Header */}
-                                        <div className="p-8 border-b border-slate-50 bg-slate-50/20 flex items-center justify-between">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-inner">
-                                                    <i className="fa-solid fa-map-pin"></i>
-                                                </div>
-                                                <div>
-                                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">{groupKey}</h2>
-                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{groupItems.length} Active Listings</span>
-                                                        <span className="w-1 h-1 rounded-full bg-emerald-500"></span>
-                                                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Market Live</span>
+                                {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => {
+                                    const groupPage = groupPages[groupKey] ?? 1;
+                                    const totalGroupPages = Math.max(1, Math.ceil(groupItems.length / GROUP_PAGE_SIZE));
+                                    const safeGroupPage = Math.min(groupPage, totalGroupPages);
+                                    const paginatedItems = groupItems.slice(
+                                        (safeGroupPage - 1) * GROUP_PAGE_SIZE,
+                                        safeGroupPage * GROUP_PAGE_SIZE
+                                    );
+                                    const setGroupPage = (p: number) =>
+                                        setGroupPages(prev => ({ ...prev, [groupKey]: p }));
+
+                                    return (
+                                        <div key={groupKey} className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-8">
+                                            {/* Header */}
+                                            <div className="p-8 border-b border-slate-50 bg-slate-50/20 flex items-center justify-between">
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-inner">
+                                                        <i className="fa-solid fa-map-pin"></i>
                                                     </div>
-                                                    {/* Cache stats */}
-                                                    {(() => {
-                                                        const total = groupItems.length;
-                                                        if (total === 0 || isCheckingCache) return null;
-                                                        const stats = groupItems.reduce((acc, item) => {
-                                                            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
-                                                            const s = propertyStatuses[id];
-                                                            if (!s) return acc;
-                                                            if (s.assets?.images) acc.images++;
-                                                            if (s.assets?.map) acc.maps++;
-                                                            if (s.assets?.streetView) acc.street++;
-                                                            if (s.assets?.satellite) acc.satellite++;
-                                                            if (s.visual) acc.ai++;
-                                                            if (s.property) acc.cached++;
-                                                            return acc;
-                                                        }, { images: 0, maps: 0, street: 0, satellite: 0, ai: 0, cached: 0 });
+                                                    <div>
+                                                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">{groupKey}</h2>
+                                                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{groupItems.length} Active Listings</span>
+                                                            <span className="w-1 h-1 rounded-full bg-emerald-500"></span>
+                                                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Market Live</span>
+                                                        </div>
+                                                        {/* Cache stats */}
+                                                        {(() => {
+                                                            const total = groupItems.length;
+                                                            if (total === 0 || isCheckingCache) return null;
+                                                            const stats = groupItems.reduce((acc, item) => {
+                                                                const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                                                                const s = propertyStatuses[id];
+                                                                if (!s) return acc;
+                                                                if (s.assets?.images) acc.images++;
+                                                                if (s.assets?.map) acc.maps++;
+                                                                if (s.assets?.streetView) acc.street++;
+                                                                if (s.assets?.satellite) acc.satellite++;
+                                                                if (s.visual) acc.ai++;
+                                                                if (s.property) acc.cached++;
+                                                                return acc;
+                                                            }, { images: 0, maps: 0, street: 0, satellite: 0, ai: 0, cached: 0 });
 
-                                                        const pill = (icon: string, label: string, count: number, color: string) => (
-                                                            <span key={label} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${count === total ? `bg-${color}-50 border-${color}-200 text-${color}-700` : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                                                <i className={`fa-solid ${icon} text-[8px]`}></i>
-                                                                {label}: {count}/{total}
-                                                            </span>
-                                                        );
+                                                            const pill = (icon: string, label: string, count: number, color: string) => (
+                                                                <span key={label} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${count === total ? `bg-${color}-50 border-${color}-200 text-${color}-700` : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                    <i className={`fa-solid ${icon} text-[8px]`}></i>
+                                                                    {label}: {count}/{total}
+                                                                </span>
+                                                            );
 
-                                                        return (
-                                                            <div className="flex flex-wrap gap-1.5 mt-2.5">
-                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.images === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.images > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                                                    <i className="fa-solid fa-image text-[8px]"></i>
-                                                                    Images: {stats.images}/{total}
-                                                                </span>
-                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.maps === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.maps > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                                                    <i className="fa-solid fa-map-location-dot text-[8px]"></i>
-                                                                    Radar Maps: {stats.maps}/{total}
-                                                                </span>
-                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.street === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.street > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                                                    <i className="fa-solid fa-street-view text-[8px]"></i>
-                                                                    Street View: {stats.street}/{total}
-                                                                </span>
-                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.satellite === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.satellite > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                                                    <i className="fa-solid fa-satellite text-[8px]"></i>
-                                                                    Satellite: {stats.satellite}/{total}
-                                                                </span>
-                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.ai === total ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : stats.ai > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                                                    <i className="fa-solid fa-brain text-[8px]"></i>
-                                                                    AI Run: {stats.ai}/{total}
-                                                                </span>
-                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.cached === total ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : stats.cached > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                                                    <i className="fa-solid fa-cloud text-[8px]"></i>
-                                                                    Cached: {stats.cached}/{total}
-                                                                </span>
-                                                            </div>
-                                                        );
-                                                    })()}
+                                                            return (
+                                                                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.images === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.images > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                        <i className="fa-solid fa-image text-[8px]"></i>
+                                                                        Images: {stats.images}/{total}
+                                                                    </span>
+                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.maps === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.maps > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                        <i className="fa-solid fa-map-location-dot text-[8px]"></i>
+                                                                        Radar Maps: {stats.maps}/{total}
+                                                                    </span>
+                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.street === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.street > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                        <i className="fa-solid fa-street-view text-[8px]"></i>
+                                                                        Street View: {stats.street}/{total}
+                                                                    </span>
+                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.satellite === total ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stats.satellite > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                        <i className="fa-solid fa-satellite text-[8px]"></i>
+                                                                        Satellite: {stats.satellite}/{total}
+                                                                    </span>
+                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.ai === total ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : stats.ai > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                        <i className="fa-solid fa-brain text-[8px]"></i>
+                                                                        AI Run: {stats.ai}/{total}
+                                                                    </span>
+                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${stats.cached === total ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : stats.cached > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                                                        <i className="fa-solid fa-cloud text-[8px]"></i>
+                                                                        Cached: {stats.cached}/{total}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
                                                 </div>
+                                                <button
+                                                    onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
+                                                    className="px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+                                                >
+                                                    Copy Addresses
+                                                </button>
                                             </div>
-                                            <button
-                                                onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
-                                                className="px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
-                                            >
-                                                Copy Addresses
-                                            </button>
-                                        </div>
 
-                                        {/* Table */}
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left">
-                                                <thead>
-                                                    <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">
-                                                        <th className="p-6 w-20 text-center">Batch</th>
-                                                        <th className="p-6">Property</th>
-                                                        <th className="p-6 text-right">Market Price</th>
-                                                        <th className="p-6">Cache Status</th>
-                                                        <th className="p-6 text-center">Last Scan</th>
-                                                        <th className="p-6 text-right">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-50">
-                                                    {groupItems.map((item, idx) => (
-                                                        <ListingRow key={idx} item={item} />
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                            {/* Table */}
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left">
+                                                    <thead>
+                                                        <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">
+                                                            <th className="p-6 w-20 text-center">Batch</th>
+                                                            <th className="p-6">Property</th>
+                                                            <th className="p-6 text-right">Market Price</th>
+                                                            <th className="p-6">Cache Status</th>
+                                                            <th className="p-6 text-center">Last Scan</th>
+                                                            <th className="p-6 text-right">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-50">
+                                                        {paginatedItems.map((item, idx) => (
+                                                            <ListingRow key={idx} item={item} />
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Pagination */}
+                                            {totalGroupPages > 1 && (
+                                                <div className="px-8 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                        {(safeGroupPage - 1) * GROUP_PAGE_SIZE + 1}–{Math.min(safeGroupPage * GROUP_PAGE_SIZE, groupItems.length)} of {groupItems.length}
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => setGroupPage(Math.max(1, safeGroupPage - 1))}
+                                                            disabled={safeGroupPage === 1}
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[11px]"
+                                                        >
+                                                            <i className="fa-solid fa-chevron-left"></i>
+                                                        </button>
+                                                        {Array.from({ length: totalGroupPages }, (_, i) => i + 1).map(p => (
+                                                            <button
+                                                                key={p}
+                                                                onClick={() => setGroupPage(p)}
+                                                                className={`w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-black transition-all ${p === safeGroupPage
+                                                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                                                        : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                                                                    }`}
+                                                            >
+                                                                {p}
+                                                            </button>
+                                                        ))}
+                                                        <button
+                                                            onClick={() => setGroupPage(Math.min(totalGroupPages, safeGroupPage + 1))}
+                                                            disabled={safeGroupPage === totalGroupPages}
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[11px]"
+                                                        >
+                                                            <i className="fa-solid fa-chevron-right"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
                             !loading && !error && (

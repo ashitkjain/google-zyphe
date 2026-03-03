@@ -971,6 +971,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
           zpid: zpidStr,
           homeStatus: root.homeStatus,
           homeType: root.homeType,
+          listingSubType: root.listingSubType ?? null,
           livingAreaValue: extractNumericValue(root.livingAreaValue || root.livingArea),
           bedrooms: extractNumericValue(root.bedrooms),
           bathrooms: extractNumericValue(root.bathrooms),

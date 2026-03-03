@@ -12,7 +12,7 @@ export function buildMlsFactsBlock(property: PropertyData): string {
     if (property.address) lines.push(`• Address: ${property.address}`);
     if (property.homeType) lines.push(`• Property Type: ${property.homeType}`);
     if (property.homeStatus) lines.push(`• Listing Status: ${property.homeStatus}`);
-    if (property.price) lines.push(`• List Price: $${property.price.toLocaleString()}`);
+    if (property.listPrice ?? property.price) lines.push(`• List Price: $${(property.listPrice ?? property.price).toLocaleString()}`);
     if (property.bedrooms) lines.push(`• Bedrooms: ${property.bedrooms}`);
     if (property.bathrooms) lines.push(`• Bathrooms: ${property.bathrooms}`);
     if (property.livingAreaValue) lines.push(`• Living Area: ${property.livingAreaValue.toLocaleString()} sqft`);

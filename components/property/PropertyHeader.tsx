@@ -92,7 +92,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         <div className="flex items-center gap-4">
           <div className="text-right">
             <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">List Price</div>
-            <div className="text-3xl font-black text-indigo-600">{formatCurrency(data.price)}</div>
+            <div className="text-3xl font-black text-indigo-600">{formatCurrency(data.listPrice ?? data.price)}</div>
           </div>
           <button
             onClick={onRunAnalysis}

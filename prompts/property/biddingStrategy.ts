@@ -4,7 +4,7 @@ import { buildMlsFactsBlock } from "./mlsFacts";
 
 export const biddingStrategyPrompt = (property: PropertyData) => {
   const address = property.address;
-  const price = property.price ? `$${property.price.toLocaleString()}` : "Not listed";
+  const price = (property.listPrice ?? property.price) ? `$${(property.listPrice ?? property.price).toLocaleString()}` : "Not listed";
   const zestimate = property.zestimate ? `$${property.zestimate.toLocaleString()}` : "N/A";
   const homeType = property.homeType || "Property";
   const beds = property.bedrooms || "?";
