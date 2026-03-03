@@ -10,6 +10,14 @@
  */
 export const SUPPORTED_STATES: string[] = ['CA'];
 
+/**
+ * Maps full state names (lowercase) → abbreviation for SUPPORTED_STATES only.
+ * Used to match Firestore keys like "California" against SUPPORTED_STATES ['CA'].
+ */
+export const STATE_NAME_MAP: Record<string, string> = {
+    'california': 'CA',
+};
+
 export const APP_CONFIG = {
     caching: {
         visual_analysis: true,

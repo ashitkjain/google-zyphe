@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, documentId, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
 import { getZipsForCity, getZipListings, saveZipMetadataBatch, getCachedCities } from '../../services/firebase/cityData';
-import { APP_CONFIG, SUPPORTED_STATES } from '../../config';
+import { APP_CONFIG, SUPPORTED_STATES, STATE_NAME_MAP } from '../../config';
 import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
 import { DISTRESS_PROMPT, DISTRESS_SCHEMA } from '../../prompts/property/distressAnalysis';
 import PropertyCompsTab from './PropertyCompsTab';
@@ -36,6 +36,11 @@ interface DistressResult {
 
 type ScanStatus = 'idle' | 'fetching_zips' | 'fetching_listings' | 'analyzing' | 'done' | 'error';
 
+/** Format listing sub-type keys like 'is_foreclosure' → 'Foreclosure' */
+function subTypeLabel(key: string): string {
+    return key.replace(/^is_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function scoreColor(score: number) {
     if (score >= 7) return { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', bar: 'bg-rose-500' };
     if (score >= 4) return { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', bar: 'bg-amber-400' };
@@ -56,7 +61,7 @@ interface DistressedFinderTabProps {
 
 const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) => {
     const [compsAddress, setCompsAddress] = useState<{ address: string; lat?: number; lng?: number; listPrice?: number; bedrooms?: number; bathrooms?: number; sqft?: number; yearBuilt?: number; homeType?: string; lotSize?: number } | null>(null);
-    const [city, setCity] = useState('');
+    const [city, setCity] = useState('Hayward');
     const [status, setStatus] = useState<ScanStatus>('idle');
     const [checkingNew, setCheckingNew] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
@@ -79,7 +84,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
     const [activeCityTab, setActiveCityTab] = useState<string | null>(null);
     const [lastSearchedCity, setLastSearchedCity] = useState('');
     const [availableCities, setAvailableCities] = useState<string[]>([]);
-    const [cityQuery, setCityQuery] = useState('');
+    const [cityQuery, setCityQuery] = useState('Hayward');
     const [cityFilter, setCityFilter] = useState(''); // separate filter text — cleared on focus
     const [showCitySuggestions, setShowCitySuggestions] = useState(false);
     const [refreshingZpid, setRefreshingZpid] = useState<string | null>(null);
@@ -305,9 +310,13 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
             } else {
                 const cachedGroups = await getZipsForCity(trimmedCity);
                 if (cachedGroups) {
-                    // Only include zips from supported states
+                    // zipsByState keys may be full names (e.g. "California") — resolve via STATE_NAME_MAP
+                    const supportedUpper = SUPPORTED_STATES.map(s => s.toUpperCase());
                     targetZips = Object.entries(cachedGroups)
-                        .filter(([state]) => SUPPORTED_STATES.includes(state))
+                        .filter(([state]) => {
+                            const abbrev = STATE_NAME_MAP[state.toLowerCase()] || state.toUpperCase();
+                            return supportedUpper.includes(abbrev);
+                        })
                         .flatMap(([, zips]) => zips);
                 }
 
@@ -684,8 +693,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                     if (e.key === 'Escape') setShowCitySuggestions(false);
                                 }}
                                 placeholder="Enter city…"
-                                disabled={isRunning || checkingNew}
-                                className="w-full pl-12 pr-4 py-3 bg-slate-100 border-2 border-transparent focus:bg-white focus:border-rose-400 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
+                                disabled={true}
+                                className="w-full pl-12 pr-4 py-3 bg-slate-200 border-2 border-transparent rounded-2xl outline-none shadow-inner text-xs font-medium text-slate-500 cursor-not-allowed"
                             />
                             {/* Suggestions dropdown */}
                             {showCitySuggestions && availableCities.length > 0 && (
@@ -721,14 +730,14 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
 
                         {/* Load Cached */}
                         <button
-                            onClick={handleSearch}
+                            onClick={() => handleSearch()}
                             disabled={!city.trim() || isRunning || checkingNew}
                             className="px-8 py-3 bg-gradient-to-r from-rose-600 to-orange-500 text-white rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-lg shadow-rose-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5 shrink-0"
                         >
                             {isRunning ? (
                                 <><i className="fa-solid fa-spinner animate-spin text-xs" /> Loading…</>
                             ) : (
-                                <><i className="fa-solid fa-database text-xs" /> Load Cached</>
+                                <><i className="fa-solid fa-rocket text-xs" /> Go !!</>
                             )}
                         </button>
 
@@ -1064,12 +1073,19 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
 
                                                     </div>
 
-                                                    {/* Top-right: property type */}
-                                                    {r.propertyType && (
-                                                        <div className="flex-shrink-0 pt-0.5">
-                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-200 whitespace-nowrap">
-                                                                {r.propertyType}
-                                                            </span>
+                                                    {/* Top-right: property type + listing sub-types */}
+                                                    {(r.propertyType || (r.listingSubTypes && r.listingSubTypes.length > 0)) && (
+                                                        <div className="flex-shrink-0 pt-0.5 flex items-center gap-1 flex-wrap justify-end">
+                                                            {r.propertyType && (
+                                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-200 whitespace-nowrap">
+                                                                    {r.propertyType}
+                                                                </span>
+                                                            )}
+                                                            {r.listingSubTypes?.map((st, i) => (
+                                                                <span key={i} className="px-2 py-0.5 bg-violet-50 text-violet-700 rounded-lg text-[10px] font-bold border border-violet-200 whitespace-nowrap">
+                                                                    {subTypeLabel(st)}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     )}
                                                 </div>
