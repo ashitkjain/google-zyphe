@@ -823,51 +823,34 @@ export const getProjectCollectionStats = async () => {
 // ─── Deprecation Management ───────────────────────────────────────────────────
 
 /**
- * Marks a property as deprecated by:
- *  1. Writing the full property doc to `deprecated_properties/<zpid>`
- *  2. Setting `deprecated: true` + `deprecatedAt` on the `properties/<zpid>` doc (in-place flag)
- *
- * We keep the doc in `properties` with the flag so existing code that already
- * loaded it can still show the data — just with the deprecated badge.  The
- * optional `deleteFromActive` flag removes it entirely from `properties` if you
- * prefer hard removal (not recommended for audit trails).
+ * Moves a property from `properties` to `sold_or_unlisted_properties`.
+ * The full document is written to `sold_or_unlisted_properties/<zpid>` and
+ * then deleted from `properties`. Nothing is left behind in the active table.
  */
 export const markPropertyAsDeprecated = async (
     zpid: string,
-    reason?: string,
-    deleteFromActive: boolean = false
+    reason?: string
 ): Promise<{ success: boolean; error?: string }> => {
     if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
     try {
-        // 1. Read current property data
+        // 1. Read full property doc
         const propRef = doc(db, 'properties', String(zpid));
         const propSnap = await getDoc(propRef);
         const propData = propSnap.exists() ? propSnap.data() : {};
 
-        // 2. Write to deprecated_properties collection (full snapshot)
-        const deprecatedRef = doc(db, 'deprecated_properties', String(zpid));
-        logFirestoreQuery('setDoc', 'deprecated_properties', { zpid });
-        await setDoc(deprecatedRef, {
+        // 2. Write to sold_or_unlisted_properties (full snapshot + metadata)
+        const soldRef = doc(db, 'sold_or_unlisted_properties', String(zpid));
+        logFirestoreQuery('setDoc', 'sold_or_unlisted_properties', { zpid });
+        await setDoc(soldRef, {
             ...sanitizeForFirestore(propData),
             zpid: String(zpid),
-            deprecated: true,
-            deprecatedAt: serverTimestamp(),
-            deprecatedReason: reason || 'not_in_active_listings',
-        }, { merge: true });
+            movedAt: serverTimestamp(),
+            movedReason: reason || 'not_in_active_listings',
+        });
 
-        if (deleteFromActive) {
-            // Hard-remove from active properties collection
-            logFirestoreQuery('deleteDoc', 'properties', { zpid });
-            await deleteDoc(propRef);
-        } else {
-            // Soft-flag: keep the doc but mark as deprecated
-            logFirestoreQuery('setDoc', 'properties', { zpid, deprecated: true });
-            await setDoc(propRef, {
-                deprecated: true,
-                deprecatedAt: serverTimestamp(),
-                deprecatedReason: reason || 'not_in_active_listings',
-            }, { merge: true });
-        }
+        // 3. Hard-delete from active properties (true move, not a soft flag)
+        logFirestoreQuery('deleteDoc', 'properties', { zpid });
+        await deleteDoc(propRef);
 
         return { success: true };
     } catch (error: any) {
@@ -876,24 +859,31 @@ export const markPropertyAsDeprecated = async (
 };
 
 /**
- * Restores a deprecated property back to active status.
- * Clears the `deprecated` flag from `properties` and removes from `deprecated_properties`.
+ * Restores a sold/unlisted property back to active status.
+ * Reads the full doc from `sold_or_unlisted_properties`, writes it back to
+ * `properties`, then deletes it from `sold_or_unlisted_properties`.
  */
 export const restoreDeprecatedProperty = async (zpid: string): Promise<{ success: boolean; error?: string }> => {
     if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
     try {
+        const soldRef = doc(db, 'sold_or_unlisted_properties', String(zpid));
+        const soldSnap = await getDoc(soldRef);
+        if (!soldSnap.exists()) {
+            return { success: false, error: 'Document not found in sold_or_unlisted_properties' };
+        }
+
+        const soldData = soldSnap.data();
+        // Strip the move metadata fields before restoring
+        const { movedAt, movedReason, deprecated, deprecatedAt, deprecatedReason, ...restoredData } = soldData as any;
+
+        // Write full doc back to active properties
         const propRef = doc(db, 'properties', String(zpid));
-        const deprecatedRef = doc(db, 'deprecated_properties', String(zpid));
+        logFirestoreQuery('setDoc', 'properties', { zpid });
+        await setDoc(propRef, sanitizeForFirestore(restoredData));
 
-        logFirestoreQuery('setDoc', 'properties', { zpid, deprecated: false });
-        await setDoc(propRef, {
-            deprecated: false,
-            deprecatedAt: null,
-            deprecatedReason: null,
-        }, { merge: true });
-
-        logFirestoreQuery('deleteDoc', 'deprecated_properties', { zpid });
-        await deleteDoc(deprecatedRef);
+        // Delete from sold_or_unlisted_properties
+        logFirestoreQuery('deleteDoc', 'sold_or_unlisted_properties', { zpid });
+        await deleteDoc(soldRef);
 
         return { success: true };
     } catch (error: any) {
@@ -970,8 +960,7 @@ export const runDeprecationSweep = async (
                     log(`[Sweep] Marking deprecated: ${data.address || zpid}`);
                     const result = await markPropertyAsDeprecated(
                         zpid,
-                        'not_in_active_listings',
-                        false
+                        'not_in_active_listings'
                     );
                     if (result.success) {
                         deprecated.push(zpid);
@@ -996,13 +985,13 @@ export const runDeprecationSweep = async (
 
 
 /**
- * Fetches all documents from the `deprecated_properties` collection.
+ * Fetches all documents from the `sold_or_unlisted_properties` collection.
  */
 export const getDeprecatedProperties = async (): Promise<any[]> => {
     if (!db) return [];
     try {
-        logFirestoreQuery('getDocs', 'deprecated_properties', {});
-        const snapshot = await getDocs(collection(db, 'deprecated_properties'));
+        logFirestoreQuery('getDocs', 'sold_or_unlisted_properties', {});
+        const snapshot = await getDocs(collection(db, 'sold_or_unlisted_properties'));
         return snapshot.docs.map(d => ({ zpid: d.id, ...d.data() }));
     } catch (error) {
         handleFirestoreError(error, 'getDeprecatedProperties');

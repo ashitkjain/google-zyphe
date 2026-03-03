@@ -34,6 +34,7 @@ import MyZypheTab from '../MyZypheTab';
 import ContextGraphTab from '../ContextGraphTab';
 import DistressedFinderTab from '../DistressedFinderTab';
 import PropertyCompsTab from '../PropertyCompsTab';
+import SoldListingsTab from '../SoldListingsTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -193,6 +194,8 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'bulk_prefetch' && <BulkPrefetchTab />}
 
             {activeTab === 'city_data' && <CityDataTab onNavigate={onNavigate} />}
+
+            {activeTab === 'sold_listings' && <SoldListingsTab />}
 
             {activeTab === 'context_graph_builder' && <ContextGraphTab onNavigate={onNavigate} />}
 

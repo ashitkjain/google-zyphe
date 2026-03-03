@@ -988,7 +988,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
           description: root.description || "No description available.",
           images: Array.isArray(root.images) ? root.images : (Array.isArray(root.photos) ? root.photos : []),
           schools: Array.isArray(root.schools) ? root.schools : [],
-          listedDate: root.onMarketDate || root.listedDate || root.daysOnZillow || 0,
+          listedDate: root.datePosted || null,
           priceHistory: (Array.isArray(root.priceHistory) ? root.priceHistory : []).map((item: any) => ({
             date: item.date || "N/A",
             price: extractNumericValue(item.price),

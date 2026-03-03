@@ -90,6 +90,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             industry_case_studies: 'Case Studies', unit_economics: 'Unit Economics',
             premium_mls: 'Premium MLS', reminder_rules: 'Reminder Rules',
             my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
+            sold_listings: 'Sold Listings',
         };
         const label = PAGE_LABELS[activeTab] || activeTab;
         setCurrentPage(activeTab, label);          // sets super property on ALL future events
@@ -194,16 +195,15 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'sms_registration', label: 'SMS Registration', icon: 'fa-comment-sms' },
     ];
 
-    // Admin-only tools
     const adminTabs: { id: HubTab; label: string; icon: string }[] = isAdmin ? [
         { id: 'city_data', label: 'City Ingestion', icon: 'fa-city' },
+        { id: 'sold_listings', label: 'Sold Listings', icon: 'fa-house-circle-check' },
         { id: 'data_health', label: 'Data Health', icon: 'fa-heart-pulse' },
         { id: 'ai_validation', label: 'AI Validation', icon: 'fa-robot' },
         { id: 'reminder_rules', label: 'Reminder Rules', icon: 'fa-bell-concierge' },
         { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
         { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
         { id: 'context_graph_builder', label: 'Context Graph', icon: 'fa-diagram-project' },
-
     ] : [];
 
     // Investor tabs — visible to investors AND admins

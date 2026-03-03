@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
 import { APP_CONFIG } from '../../config';
-import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
-import { getZypheValuationPrompt, zypheValuationSchema } from '../../prompts/property/zypheValuation';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +77,12 @@ function pricePsf(price: number, sqft: number) {
     return `$${Math.round(price / sqft)}/sf`;
 }
 
+function fmtLotSize(sqft: number | undefined | null): string | null {
+    if (sqft == null || sqft <= 0) return null;
+    if (sqft >= 43560) return `${(sqft / 43560).toFixed(2)} ac`;
+    return `${sqft.toLocaleString()} sf lot`;
+}
+
 /** Haversine formula — returns distance in miles between two lat/lng points */
 function haversineDistanceMi(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 3958.8; // Earth radius in miles
@@ -92,6 +96,140 @@ function haversineDistanceMi(lat1: number, lng1: number, lat2: number, lng2: num
 }
 
 const SHOW_INITIAL = 6; // comps to show before "Show all"
+
+// ─── Bracket algorithm types ─────────────────────────────────────────────────
+
+interface BracketComp extends SaleComp {
+    daysSinceSale: number;
+    role: 'anchor' | 'inferior' | 'superior';
+    roleReason: string;
+    stepUsed: 1 | 2 | 3 | 4;
+}
+
+interface ZypheBracket {
+    anchors: BracketComp[];      // up to 3 best matches
+    inferior: BracketComp | null;
+    superior: BracketComp | null;
+    stepReached: 1 | 2 | 3 | 4;
+    anchorAvgPsf: number | null;
+    estimatedMin: number | null;
+    estimatedMax: number | null;
+    estimatedMid: number | null;
+}
+
+/**
+ * Pure algorithmic bracket engine.
+ * Steps 1-4 widen the net until we have ≥3 comps, then we classify
+ * anchors (best matches), inferior (-10% sqft or older), and
+ * superior (+10% sqft or premium).
+ */
+function computeZypheBracket(
+    allComps: SaleComp[],
+    subjectSqft?: number,
+    subjectLat?: number,
+    subjectLng?: number
+): ZypheBracket {
+    const today = Date.now();
+
+    // Attach derived fields to every comp
+    const enriched = allComps
+        .filter(c => c.lastSalePrice != null && c.lastSalePrice > 0)
+        .map(c => {
+            const saleDate = toDateSafe(c.lastSaleDate);
+            const daysSinceSale = saleDate ? Math.floor((today - saleDate.getTime()) / 86_400_000) : 9999;
+            const distMi = (subjectLat != null && subjectLng != null && c.latitude != null && c.longitude != null)
+                ? haversineDistanceMi(subjectLat, subjectLng, c.latitude, c.longitude)
+                : (c.distance ?? 9999);
+            return { ...c, daysSinceSale, distMi };
+        });
+
+    // Step thresholds: [maxMiles, maxDays]
+    const steps: [number, number, 1 | 2 | 3 | 4][] = [
+        [0.25, 90, 1],
+        [0.50, 180, 2],
+        [1.00, 365, 3],
+        [99, 365, 4],   // Step 4 = school district / any distance
+    ];
+
+    let candidates: typeof enriched = [];
+    let stepReached: 1 | 2 | 3 | 4 = 1;
+    for (const [maxMi, maxDays, step] of steps) {
+        candidates = enriched.filter(c => c.distMi <= maxMi && c.daysSinceSale <= maxDays);
+        stepReached = step;
+        if (candidates.length >= 3) break;
+    }
+    // If still < 3, use all enriched sorted by recency
+    if (candidates.length < 3) {
+        candidates = [...enriched].sort((a, b) => a.daysSinceSale - b.daysSinceSale);
+        stepReached = 4;
+    }
+
+    // Score for anchor: prefer close + recent + similar sqft
+    const scoredCandidates = candidates.map(c => {
+        const distScore = 1 / (1 + (c.distMi ?? 1));
+        const recencyScore = 1 / (1 + c.daysSinceSale / 30);
+        const sqftRatio = subjectSqft && c.squareFootage
+            ? 1 - Math.abs(c.squareFootage - subjectSqft) / subjectSqft
+            : 0.5;
+        return { ...c, score: distScore * 0.4 + recencyScore * 0.35 + sqftRatio * 0.25 };
+    }).sort((a, b) => b.score - a.score);
+
+    // Anchors: top 3 by score
+    const anchorRaw = scoredCandidates.slice(0, 3);
+    const usedIds = new Set(anchorRaw.map(c => c.id));
+
+    // Remaining pool for inferior/superior
+    const remaining = scoredCandidates.filter(c => !usedIds.has(c.id));
+
+    // Inferior: smaller (≤90% of subject sqft) OR oldest
+    let inferiorRaw = subjectSqft
+        ? remaining.filter(c => c.squareFootage != null && c.squareFootage <= subjectSqft * 0.9)
+            .sort((a, b) => (b.squareFootage ?? 0) - (a.squareFootage ?? 0))[0]  // largest of the smaller ones
+        : remaining.sort((a, b) => b.daysSinceSale - a.daysSinceSale)[0];         // oldest
+
+    // Superior: larger (≥110% of subject sqft) OR newest with highest price/sqft
+    let superiorRaw = subjectSqft
+        ? remaining.filter(c => c.squareFootage != null && c.squareFootage >= subjectSqft * 1.1)
+            .sort((a, b) => (a.squareFootage ?? 0) - (b.squareFootage ?? 0))[0]  // smallest of the larger ones
+        : remaining.sort((a, b) => a.daysSinceSale - b.daysSinceSale)[0];         // newest
+
+    // Anchor avg $/sf
+    const validPsf = anchorRaw
+        .filter(c => c.squareFootage && c.lastSalePrice)
+        .map(c => c.lastSalePrice! / c.squareFootage!);
+    const anchorAvgPsf = validPsf.length > 0 ? validPsf.reduce((a, b) => a + b, 0) / validPsf.length : null;
+
+    // Estimated range: anchor avg ±15%
+    const estimatedMid = anchorAvgPsf && subjectSqft ? Math.round(anchorAvgPsf * subjectSqft) : null;
+    const estimatedMin = estimatedMid ? Math.round(estimatedMid * 0.9) : null;
+    const estimatedMax = estimatedMid ? Math.round(estimatedMid * 1.1) : null;
+
+    const toBracketComp = (c: typeof enriched[0], role: BracketComp['role'], reason: string, step: 1 | 2 | 3 | 4): BracketComp =>
+        ({ ...c, role, roleReason: reason, stepUsed: step });
+
+    return {
+        anchors: anchorRaw.map((c, i) => toBracketComp(c, 'anchor',
+            i === 0 ? 'Closest match by distance, recency & size' :
+                i === 1 ? 'Second-best match' : 'Third anchor', stepReached)),
+        inferior: inferiorRaw
+            ? toBracketComp(inferiorRaw, 'inferior',
+                subjectSqft && inferiorRaw.squareFootage
+                    ? `${Math.round((1 - inferiorRaw.squareFootage / subjectSqft) * 100)}% smaller sqft`
+                    : 'Older sale, likely lower condition', stepReached)
+            : null,
+        superior: superiorRaw
+            ? toBracketComp(superiorRaw, 'superior',
+                subjectSqft && superiorRaw.squareFootage
+                    ? `${Math.round((superiorRaw.squareFootage / subjectSqft - 1) * 100)}% larger sqft`
+                    : 'Recent premium sale', stepReached)
+            : null,
+        stepReached,
+        anchorAvgPsf,
+        estimatedMin,
+        estimatedMax,
+        estimatedMid,
+    };
+}
 
 /**
  * Safely convert a value from Firestore that might be:
@@ -172,6 +310,7 @@ function CompCard({ comp }: { comp: SaleComp }) {
     const corrPct = Math.round((comp.correlation ?? 0) * 100);
     const corrColor = corrPct >= 80 ? 'text-emerald-600 bg-emerald-50' : corrPct >= 60 ? 'text-amber-600 bg-amber-50' : 'text-slate-500 bg-slate-100';
     const displayPrice = comp.lastSalePrice ?? null;
+    const lotLabel = fmtLotSize(comp.lotSize);
 
     return (
         <div className="p-5 border border-slate-100 rounded-[1.25rem] hover:border-slate-200 hover:shadow-sm transition-all bg-white group">
@@ -205,6 +344,7 @@ function CompCard({ comp }: { comp: SaleComp }) {
             <div className="flex items-center gap-3 text-[11px] text-slate-400 font-bold flex-wrap">
                 <span>{comp.bedrooms ?? '—'} bd · {comp.bathrooms ?? '—'} ba</span>
                 {comp.squareFootage && displayPrice ? <span>{pricePsf(displayPrice, comp.squareFootage)}</span> : null}
+                {lotLabel && <span><i className="fa-solid fa-expand text-[9px] mr-1" />{lotLabel}</span>}
                 {comp.daysOnMarket != null && <span>{comp.daysOnMarket} DOM</span>}
                 {comp.yearBuilt ? <span>Built {comp.yearBuilt}</span> : null}
                 {comp.lastSaleDate && (() => {
@@ -256,10 +396,16 @@ interface PropertyCompsTabProps {
     subjectLat?: number;
     subjectLng?: number;
     subjectListPrice?: number;
+    subjectBedrooms?: number;
+    subjectBathrooms?: number;
+    subjectSqft?: number;
+    subjectYearBuilt?: number;
+    subjectHomeType?: string;
+    subjectLotSize?: number;
 }
 
 
-const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = '', onBack, subjectLat, subjectLng, subjectListPrice }) => {
+const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = '', onBack, subjectLat, subjectLng, subjectListPrice, subjectBedrooms, subjectBathrooms, subjectSqft, subjectYearBuilt, subjectHomeType, subjectLotSize }) => {
     const [address, setAddress] = useState(initialAddress);
     const [bedrooms, setBedrooms] = useState('');
     const [bathrooms, setBathrooms] = useState('');
@@ -273,11 +419,9 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
     const [showAllSale, setShowAllSale] = useState(false);
     const [saleFilter, setSaleFilter] = useState<TimeFilter>(DEFAULT_FILTER);
 
-    // ── Zyphe Valuation state ────────────────────────────────────────────────
-    const [valuation, setValuation] = useState<any | null>(null);
-    const [valuationLoading, setValuationLoading] = useState(false);
-    const [valuationError, setValuationError] = useState<string | null>(null);
-    const [valuationCached, setValuationCached] = useState(false);
+    // ── Zyphe Bracket state ────────────────────────────────────────────────
+    const [bracket, setBracket] = useState<ZypheBracket | null>(null);
+    const [bracketLoading, setBracketLoading] = useState(false);
 
     const fetchComps = useCallback(async (addrOverride?: string) => {
         const trimmed = (addrOverride ?? address).trim();
@@ -441,7 +585,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
     return (
         <div className="max-w-7xl mx-auto pt-3 pb-8 px-6 space-y-5 animate-in fade-in duration-500">
 
-            {/* Header row: back button + title + address */}
+            {/* Header: back button + stacked address block */}
             <div className="flex items-start gap-4">
                 {onBack && (
                     <button
@@ -452,8 +596,11 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                         Back
                     </button>
                 )}
+
+                {/* Title block — grows to fill, stacks vertically */}
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    {/* Breadcrumb row */}
+                    <div className="flex items-center gap-2 mb-1.5">
                         <span className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i className="fa-solid fa-chart-bar text-indigo-600 text-[10px]" />
                         </span>
@@ -465,100 +612,90 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                             </span>
                         )}
                     </div>
+
+                    {/* Row 1: address + list price */}
                     <div className="flex items-baseline gap-3 flex-wrap">
-                        <h2 className="text-2xl font-black text-slate-900 leading-tight">{cached?.address ?? initialAddress}</h2>
+                        <h2 className="text-xl font-black text-slate-900 leading-tight">{cached?.address ?? initialAddress}</h2>
                         {subjectListPrice != null && (
-                            <span className="text-[13px] font-bold text-emerald-600">
+                            <span className="text-[13px] font-bold text-emerald-600 flex-shrink-0">
                                 Listed at ${subjectListPrice.toLocaleString()}
                             </span>
                         )}
                     </div>
+
+                    {/* Row 2: property detail pills (no label) */}
+                    {(subjectBedrooms != null || subjectBathrooms != null || subjectSqft != null || subjectYearBuilt != null || subjectHomeType || subjectLotSize != null) && (
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                            {subjectHomeType && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-[10px] font-bold text-indigo-700">
+                                    <i className="fa-solid fa-house text-[8px]" />
+                                    {subjectHomeType}
+                                </span>
+                            )}
+                            {subjectBedrooms != null && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
+                                    <i className="fa-solid fa-bed text-[8px] text-slate-400" />
+                                    {subjectBedrooms} bd
+                                </span>
+                            )}
+                            {subjectBathrooms != null && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
+                                    <i className="fa-solid fa-bath text-[8px] text-slate-400" />
+                                    {subjectBathrooms} ba
+                                </span>
+                            )}
+                            {subjectSqft != null && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
+                                    <i className="fa-solid fa-ruler-combined text-[8px] text-slate-400" />
+                                    {subjectSqft.toLocaleString()} sf
+                                </span>
+                            )}
+                            {subjectLotSize != null && fmtLotSize(subjectLotSize) && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
+                                    <i className="fa-solid fa-expand text-[8px] text-slate-400" />
+                                    {fmtLotSize(subjectLotSize)}
+                                </span>
+                            )}
+                            {subjectYearBuilt != null && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
+                                    <i className="fa-solid fa-calendar text-[8px] text-slate-400" />
+                                    Built {subjectYearBuilt}
+                                </span>
+                            )}
+                            {subjectListPrice != null && subjectSqft != null && subjectSqft > 0 && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-lg text-[10px] font-bold text-emerald-700">
+                                    <i className="fa-solid fa-tag text-[8px]" />
+                                    ${Math.round(subjectListPrice / subjectSqft)}/sf
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
+
                 {/* Zyphe Valuation button — only when comps are loaded */}
                 {saleComps.length > 0 && (
                     <button
-                        onClick={async () => {
-                            setValuationLoading(true);
-                            setValuationError(null);
-                            setValuation(null);
-                            setValuationCached(false);
+                        onClick={() => {
+                            if (bracketLoading) return;
+                            setBracketLoading(true);
                             try {
-                                const today = new Date();
-                                const todayISO = today.toISOString().split('T')[0];
-                                const addrParts = (cached?.address ?? '').split(',');
-                                const cityState = addrParts.slice(1, 3).join(',').trim();
-                                const zipCode = saleComps.find(c => c.zipCode)?.zipCode
-                                    ?? addrParts.find(p => /\d{5}/.test(p))?.trim().match(/\d{5}/)?.[0]
-                                    ?? '';
-
-                                // ── Check Firestore cache (7-day TTL) ───────
-                                const valCacheKey = cacheKey(cached?.address ?? '');
-                                const valCacheRef = doc(db, 'zyphe_valuations', valCacheKey);
-                                const valCacheSnap = await getDoc(valCacheRef);
-                                if (valCacheSnap.exists()) {
-                                    const cd = valCacheSnap.data();
-                                    const age = Date.now() - (cd.cachedAt?.toMillis?.() ?? 0);
-                                    if (age < 7 * 24 * 60 * 60 * 1000) { // 7 days
-                                        setValuation(cd.result);
-                                        setValuationCached(true);
-                                        return;
-                                    }
-                                }
-
-                                // ── Enrich comps with daysSinceSale ─────────
-                                const compsWithDays = saleComps.map(c => {
-                                    const saleDate = toDateSafe(c.lastSaleDate);
-                                    const daysSinceSale = saleDate
-                                        ? Math.floor((today.getTime() - saleDate.getTime()) / 86_400_000)
-                                        : 0;
-                                    return { ...c, daysSinceSale };
-                                });
-
-                                const prompt = getZypheValuationPrompt({
-                                    subjectAddress: cached?.address ?? '',
-                                    cityState,
-                                    zipCode,
-                                    today: todayISO,
-                                    subjectData: {
-                                        bedrooms: bedrooms ? Number(bedrooms) : undefined,
-                                        bathrooms: bathrooms ? Number(bathrooms) : undefined,
-                                        squareFootage: sqft ? Number(sqft) : undefined,
-                                        listPrice: subjectListPrice,
-                                    },
-                                    comps: compsWithDays,
-                                });
-                                const { data } = await executeGeminiRequest<any>({
-                                    model: FLASH_MODEL,
-                                    contents: prompt,
-                                    config: { temperature: 0.2 },
-                                    userId: 'comps-user',
-                                    zpid: valCacheKey,
-                                    address: cached?.address ?? '',
-                                    promptFilename: 'zypheValuation.ts',
-                                    extractResultJson: true,
-                                    schema: zypheValuationSchema,
-                                });
-
-                                // ── Write to Firestore cache ─────────────────
-                                await setDoc(valCacheRef, {
-                                    result: data,
-                                    address: cached?.address ?? '',
-                                    cachedAt: Timestamp.now(),
-                                });
-
-                                setValuation(data);
-                            } catch (e: any) {
-                                setValuationError(e.message ?? 'Valuation failed');
+                                const result = computeZypheBracket(
+                                    saleComps,
+                                    subjectSqft ?? (sqft ? Number(sqft) : undefined),
+                                    subjectLat,
+                                    subjectLng
+                                );
+                                setBracket(result);
                             } finally {
-                                setValuationLoading(false);
+                                setBracketLoading(false);
                             }
                         }}
-                        disabled={valuationLoading}
+                        disabled={bracketLoading}
                         className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-50"
                     >
-                        {valuationLoading
-                            ? <><i className="fa-solid fa-spinner animate-spin text-[9px]" />Valuing…</>
-                            : <><i className="fa-solid fa-wand-magic-sparkles text-[9px]" />Zyphe Valuation</>}
+                        {bracketLoading
+                            ? <><i className="fa-solid fa-spinner animate-spin text-[9px]" />Computing…</>
+                            : <><i className="fa-solid fa-scale-balanced text-[9px]" />Zyphe Valuation</>}
                     </button>
                 )}
             </div>
@@ -617,7 +754,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {visibleSale.map(c => <CompCard key={c.id} comp={c} />)}
+                                    {visibleSale.map(c => <React.Fragment key={c.id}><CompCard comp={c} /></React.Fragment>)}
                                 </div>
                             )}
                             {filteredSale.length > SHOW_INITIAL && (
@@ -631,131 +768,116 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                         </div>
                     )}
 
-                    {/* ── Zyphe Valuation Error ──────────────────────────── */}
-                    {valuationError && (
-                        <div className="bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 text-[12px] font-bold text-rose-600 flex items-center gap-3">
-                            <i className="fa-solid fa-circle-exclamation" />{valuationError}
-                        </div>
-                    )}
-
-                    {/* ── Zyphe Valuation Results ────────────────────────── */}
-                    {valuation && (
-                        <div className="border border-indigo-100 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-indigo-50/60 to-violet-50/60">
-                            {/* Header */}
-                            <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 flex items-center justify-between flex-wrap gap-3">
-                                <div className="flex items-center gap-2">
-                                    <i className="fa-solid fa-wand-magic-sparkles text-white text-sm" />
-                                    <span className="text-[13px] font-black text-white uppercase tracking-widest">Zyphe Valuation</span>
-                                    {valuationCached && (
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-white text-[9px] font-black">
-                                            <i className="fa-solid fa-database text-[8px] mr-1" />Cached
-                                        </span>
-                                    )}
+                    {/* ── Zyphe Bracket Results ──────────────────────────── */}
+                    {bracket && (() => {
+                        const BracketCard = ({ bc, accentColor, labelColor, iconClass, roleLabel }: {
+                            bc: BracketComp; accentColor: string; labelColor: string;
+                            iconClass: string; roleLabel: string;
+                        }) => {
+                            const psf = bc.squareFootage && bc.lastSalePrice
+                                ? `$${Math.round(bc.lastSalePrice / bc.squareFootage)}/sf` : null;
+                            const lotLabel = fmtLotSize(bc.lotSize);
+                            const saleD = toDateSafe(bc.lastSaleDate);
+                            return (
+                                <div className={`rounded-2xl border p-5 bg-white ${accentColor}`}>
+                                    <div className={`text-[9px] font-black uppercase tracking-widest mb-2 flex items-center gap-1.5 ${labelColor}`}>
+                                        <i className={iconClass} />{roleLabel}
+                                    </div>
+                                    <div className="text-[13px] font-black text-slate-800 leading-snug mb-1">{bc.formattedAddress}</div>
+                                    <div className="text-[10px] text-slate-400 mb-3">{bc.city}, {bc.state}</div>
+                                    <div className="text-2xl font-black text-slate-900 mb-1">
+                                        {bc.lastSalePrice ? `$${bc.lastSalePrice.toLocaleString()}` : '—'}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 text-[10px] text-slate-500 font-bold">
+                                        {bc.bedrooms != null && <span>{bc.bedrooms} bd</span>}
+                                        {bc.bathrooms != null && <span>{bc.bathrooms} ba</span>}
+                                        {bc.squareFootage != null && <span>{bc.squareFootage.toLocaleString()} sf</span>}
+                                        {lotLabel && <span>{lotLabel}</span>}
+                                        {psf && <span className="text-indigo-600">{psf}</span>}
+                                        {bc.yearBuilt && <span>Built {bc.yearBuilt}</span>}
+                                        {saleD && <span>Sold {saleD.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>}
+                                        {bc.distance != null && <span>{Number(bc.distance).toFixed(1)} mi</span>}
+                                    </div>
+                                    <div className="mt-3 pt-3 border-t border-slate-100 text-[10px] text-slate-400 italic">{bc.roleReason}</div>
                                 </div>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    <span className="px-3 py-1 bg-white/20 rounded-xl text-white text-[10px] font-black">
-                                        {valuation.confidence_score}% confidence
-                                    </span>
-                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black ${valuation.market_condition === "Seller's Market" ? 'bg-rose-500 text-white' :
-                                        valuation.market_condition === "Buyer's Market" ? 'bg-emerald-500 text-white' :
-                                            'bg-amber-400 text-white'
-                                        }`}>{valuation.market_condition}</span>
-                                    {valuation.median_dom != null && (
-                                        <span className="px-3 py-1 bg-white/20 rounded-xl text-white text-[10px] font-black">
-                                            {valuation.median_dom} DOM
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+                            );
+                        };
 
-                            <div className="p-6 space-y-5">
-                                {/* Local Trend banner */}
-                                {valuation.verified_local_trend && (
-                                    <div className="flex items-start gap-3 bg-slate-800 rounded-2xl px-4 py-3">
-                                        <i className="fa-solid fa-magnifying-glass-chart text-indigo-300 mt-0.5" />
-                                        <div>
-                                            <div className="text-[10px] font-black text-indigo-300 uppercase tracking-wide mb-0.5">
-                                                Verified Local Trend
-                                                {valuation.yoy_change_pct != null && (
-                                                    <span className={`ml-2 ${valuation.yoy_change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                        {valuation.yoy_change_pct >= 0 ? '+' : ''}{valuation.yoy_change_pct}% YoY
-                                                    </span>
-                                                )}
+                        return (
+                            <div className="border border-indigo-100 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-indigo-50/40 to-violet-50/40">
+                                {/* Header */}
+                                <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 flex items-center justify-between flex-wrap gap-3">
+                                    <div className="flex items-center gap-2">
+                                    </div>
+                                    {bracket.estimatedMid && (
+                                        <div className="text-right">
+                                            <div className="text-[10px] font-black text-indigo-200 uppercase tracking-wide">Estimated Range</div>
+                                            <div className="text-xl font-black text-white">
+                                                ${(bracket.estimatedMin ?? 0).toLocaleString()} – ${(bracket.estimatedMax ?? 0).toLocaleString()}
                                             </div>
-                                            <p className="text-[12px] text-slate-200">{valuation.verified_local_trend}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Value cards */}
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-1 bg-white rounded-2xl p-4 text-center border border-indigo-100">
-                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-1">Estimated Value</div>
-                                        <div className="text-2xl font-black text-indigo-700">${(valuation.estimated_value ?? 0).toLocaleString()}</div>
-                                        <div className="text-[10px] text-slate-400 mt-1">
-                                            ${(valuation.value_range_low ?? 0).toLocaleString()} – ${(valuation.value_range_high ?? 0).toLocaleString()}
-                                        </div>
-                                    </div>
-                                    <div className="bg-white rounded-2xl p-4 text-center border border-slate-100">
-                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-1">Comps Retained</div>
-                                        <div className="text-xl font-black text-slate-800">{valuation.comps_retained ?? '—'}</div>
-                                        {valuation.audit_log?.length > 0 && (
-                                            <div className="text-[10px] text-slate-400 mt-1">{valuation.audit_log.length} audited</div>
-                                        )}
-                                    </div>
-                                    <div className="bg-white rounded-2xl p-4 text-center border border-slate-100">
-                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-1">Confidence</div>
-                                        <div className="text-xl font-black text-slate-800">{valuation.confidence_score}%</div>
-                                    </div>
-                                </div>
-
-                                {/* Distress discount */}
-                                {valuation.distress_discount_applied && (
-                                    <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3">
-                                        <i className="fa-solid fa-triangle-exclamation text-rose-500 mt-0.5" />
-                                        <div>
-                                            <div className="text-[11px] font-black text-rose-700 uppercase tracking-wide">
-                                                Distress Discount Applied: -{valuation.distress_discount_pct}%
-                                            </div>
-                                            {valuation.distress_keywords_found?.length > 0 && (
-                                                <div className="text-[11px] text-rose-500 mt-0.5">
-                                                    Keywords: {valuation.distress_keywords_found.join(', ')}
+                                            {bracket.anchorAvgPsf && (
+                                                <div className="text-[10px] text-indigo-200">
+                                                    Anchor avg ${Math.round(bracket.anchorAvgPsf)}/sf
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* Expert Narrative */}
-                                <div className="bg-white rounded-2xl p-5 border border-slate-100">
-                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-3">Expert Narrative</div>
-                                    <p className="text-[12px] text-slate-700 leading-relaxed whitespace-pre-line">{valuation.expert_narrative}</p>
+                                    )}
                                 </div>
 
-                                {/* Audit Log */}
-                                {valuation.audit_log?.length > 0 && (
-                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-                                        <div className="text-[11px] font-black text-slate-500 uppercase tracking-wide mb-3">Audit Log</div>
-                                        <ul className="space-y-2">
-                                            {valuation.audit_log.map((entry: any, i: number) => (
-                                                <li key={i} className="flex items-start gap-2.5 text-[11px]">
-                                                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-md font-black uppercase text-[9px] ${entry.action === 'excluded' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-700'
-                                                        }`}>{entry.action}</span>
-                                                    <span className="text-slate-600 min-w-0">
-                                                        <span className="font-semibold text-slate-800">{entry.address}</span>
-                                                        {' — '}{entry.reason}
-                                                        {entry.adjustment_pct != null && (
-                                                            <span className="ml-1 text-amber-600 font-bold">({entry.adjustment_pct > 0 ? '+' : ''}{entry.adjustment_pct}%)</span>
-                                                        )}
-                                                    </span>
-                                                </li>
+                                <div className="p-6 space-y-6">
+                                    {/* Anchors */}
+                                    <div>
+                                        <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <i className="fa-solid fa-anchor text-indigo-400" />
+                                            Anchor Properties
+                                            <span className="text-[9px] font-semibold text-slate-400 normal-case tracking-normal">Best matches — drive the price estimate</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {bracket.anchors.map((bc, i) => (
+                                                <React.Fragment key={i}>
+                                                    <BracketCard bc={bc}
+                                                        accentColor="border-indigo-200"
+                                                        labelColor="text-indigo-500"
+                                                        iconClass="fa-solid fa-anchor text-[8px]"
+                                                        roleLabel={`Anchor ${i + 1}`}
+                                                    />
+                                                </React.Fragment>
                                             ))}
-                                        </ul>
+                                        </div>
                                     </div>
-                                )}
+
+                                    {/* Inferior / Superior bracket */}
+                                    {(bracket.inferior || bracket.superior) && (
+                                        <div>
+                                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                <i className="fa-solid fa-arrows-up-down text-slate-400" />
+                                                Price Bracket
+                                                <span className="text-[9px] font-semibold text-slate-400 normal-case tracking-normal">Floor &amp; ceiling context</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {bracket.inferior && (
+                                                    <BracketCard bc={bracket.inferior}
+                                                        accentColor="border-amber-200"
+                                                        labelColor="text-amber-600"
+                                                        iconClass="fa-solid fa-arrow-trend-down text-[8px]"
+                                                        roleLabel="Inferior (Floor)"
+                                                    />
+                                                )}
+                                                {bracket.superior && (
+                                                    <BracketCard bc={bracket.superior}
+                                                        accentColor="border-emerald-200"
+                                                        labelColor="text-emerald-600"
+                                                        iconClass="fa-solid fa-arrow-trend-up text-[8px]"
+                                                        roleLabel="Superior (Ceiling)"
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                 </div>
             )}

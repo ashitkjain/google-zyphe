@@ -662,16 +662,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     };
 
 
-    const fetchListings = async (zip: string, fallbackCity?: string, fallbackState?: string) => {
+    const fetchListings = async (zip: string, fallbackCity?: string, fallbackState?: string, forceRefresh = false) => {
         const config = APP_CONFIG.usHousingApi;
 
-        // 1. Check Cloud Cache first (Database)
-        try {
-            const cloudCached = await getZipListings(zip);
-            if (cloudCached && cloudCached.timestamp) {
-                const timestamp = cloudCached.timestamp.toDate?.()?.getTime() || cloudCached.timestamp;
-                // 24 hour TTL for listings
-                if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+        // 1. Cloud Cache (skip on force refresh)
+        if (!forceRefresh) {
+            try {
+                const cloudCached = await getZipListings(zip);
+                if (cloudCached && (cloudCached.listings?.length ?? 0) > 0) {
                     const cachedListings = (cloudCached.listings || []).map((item: any) => ({
                         ...item,
                         location: {
@@ -686,12 +684,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     addLog(`Cloud Cache Hit for Zip: ${zip} (${cachedListings.length} items)`);
                     return cachedListings;
                 }
+            } catch (e) {
+                console.warn('Cloud cache check failed', e);
             }
-        } catch (e) {
-            console.warn('Cloud cache check failed', e);
         }
 
-        // 2. Hybrid Network Request: Try RESO first if keys exist
+        // 2. RESO (if configured)
         const uid = auth?.currentUser?.uid;
         if (uid) {
             const profile = await getUserProfile(uid);
@@ -702,7 +700,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const resoListings = await searchResoProperties(resoConfig, zip);
                     if (resoListings && resoListings.length > 0) {
                         addLog(`RESO API Success: Found ${resoListings.length} listings.`);
-                        // Save to cache before returning
                         saveZipListings(zip, resoListings).catch(console.error);
                         return resoListings;
                     }
@@ -712,59 +709,73 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
         }
 
-        const url = `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale`;
-        addLog(`Fetching live data from (Fallback): ${url}`);
+        // 3. Paginated RapidAPI fallback
+        const baseUrl = `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale`;
+        addLog(`Fetching live data (paginated) for ${zip}…`);
+
+        const mapPage = (rawData: any[]) => rawData.map((item: any) => {
+            const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
+            const legacyAddr = legacyLoc.address || {};
+            const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
+            const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+            return {
+                ...item,
+                property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
+                location: {
+                    address: {
+                        line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
+                        city: legacyAddr.city || item.city || item.town || fallbackCity || 'Unknown City',
+                        state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
+                        postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
+                    }
+                },
+                list_price: numericPrice,
+                primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
+            };
+        });
 
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'X-RapidAPI-Key': config.key,
-                    'X-RapidAPI-Host': config.host
-                }
-            });
+            const allData: any[] = [];
 
-            if (!response.ok) {
-                const txt = await response.text();
-                addLog(`API Error for ${zip}: ${response.status} - ${txt}`);
+            // Page 1
+            const resp1 = await fetch(`${baseUrl}&page=1`, {
+                method: 'GET',
+                headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host }
+            });
+            if (!resp1.ok) {
+                const txt = await resp1.text();
+                addLog(`API Error for ${zip}: ${resp1.status} - ${txt}`);
                 return [];
             }
+            const result1 = await resp1.json();
+            const raw1 = Array.isArray(result1) ? result1 : (result1.props || result1.results || []);
+            const totalPages: number = result1.totalPages ?? result1.total_pages ?? 1;
+            allData.push(...raw1);
+            addLog(`  p1/${totalPages}: ${raw1.length} listings`);
 
-            const result = await response.json();
-            const rawData = Array.isArray(result) ? result : (result.props || result.results || []);
+            // Pages 2..N
+            for (let p = 2; p <= totalPages; p++) {
+                await new Promise(r => setTimeout(r, 1000));
+                const respN = await fetch(`${baseUrl}&page=${p}`, {
+                    method: 'GET',
+                    headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host }
+                });
+                if (!respN.ok) {
+                    addLog(`  p${p} error: ${respN.status} — stopping pagination`);
+                    break;
+                }
+                const resultN = await respN.json();
+                const rawN = Array.isArray(resultN) ? resultN : (resultN.props || resultN.results || []);
+                allData.push(...rawN);
+                addLog(`  p${p}/${totalPages}: ${rawN.length} listings`);
+            }
 
-            // Map to ensure UI consistency - status_type filter is already done by API
-            const data = rawData.map((item: any) => {
-                const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
-                const legacyAddr = legacyLoc.address || {};
+            const data = mapPage(allData);
+            addLog(`Live API returned ${data.length} total listings for ${zip} (${totalPages} page${totalPages !== 1 ? 's' : ''})`);
 
-                // Extract price safely
-                const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
-                const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
-
-                return {
-                    ...item,
-                    property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
-                    location: {
-                        address: {
-                            line: legacyAddr.line || item.address || item.streetAddress || item.full_address || "Unknown Address",
-                            city: legacyAddr.city || item.city || item.town || fallbackCity || "Unknown City",
-                            state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || "Unknown State",
-                            postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
-                        }
-                    },
-                    list_price: numericPrice,
-                    primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
-                };
-            });
-
-            addLog(`Live API returned ${data.length} listings for ${zip}`);
-
-            // 3. Save to Cloud Cache
             if (data.length > 0) {
                 saveZipListings(zip, data).catch(console.error);
             }
-
             return data;
         } catch (e: any) {
             addLog(`Fetch failed for ${zip}: ${e.message}`);
@@ -772,7 +783,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
-    const handleSearch = async () => {
+    const handleSearch = async (forceRefresh = false) => {
         if (!city) {
             setError('Please provide a City or Postal Code.');
             return;
@@ -917,7 +928,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             for (const zip of zipsToScan) {
                 const fallback = zipRegistry[zip];
-                const zipListings = await fetchListings(zip, fallback?.city, fallback?.state);
+                const zipListings = await fetchListings(zip, fallback?.city, fallback?.state, forceRefresh);
                 rawResults.push(...zipListings);
                 // Tiny delay to avoid rate triggers
                 await new Promise(r => setTimeout(r, 200));
@@ -1321,6 +1332,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 )}
                             </button>
                             <button
+                                onClick={() => handleSearch(true)}
+                                disabled={loading}
+                                title="Bypass cache and fetch fresh listings from RapidAPI"
+                                className="px-6 py-4 border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-rotate" />
+                                Force Refresh
+                            </button>
+                            <button
                                 onClick={async () => {
                                     if (!city) {
                                         addLog("Please enter a city name to warm.");
@@ -1604,8 +1624,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                                 key={p}
                                                                 onClick={() => setGroupPage(p)}
                                                                 className={`w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-black transition-all ${p === safeGroupPage
-                                                                        ? 'bg-indigo-600 text-white shadow-sm'
-                                                                        : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                                                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                                                    : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
                                                                     }`}
                                                             >
                                                                 {p}

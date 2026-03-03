@@ -45,7 +45,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
         text: string;
     } | null>(null);
     const [sendingMessage, setSendingMessage] = useState(false);
-    const [deprecatedProperties, setDeprecatedProperties] = useState<any[]>([]);
+    const [soldOrUnlistedProperties, setSoldOrUnlistedProperties] = useState<any[]>([]);
     const [activeDeprecatedCity, setActiveDeprecatedCity] = useState<string | null>(null);
     const [restoringZpid, setRestoringZpid] = useState<string | null>(null);
     const pageSize = 20;
@@ -158,9 +158,9 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
 
             setProperties(mapped);
 
-            // 5. Fetch deprecated properties
+            // 5. Fetch sold/unlisted properties
             const deprecated = await getDeprecatedProperties();
-            setDeprecatedProperties(deprecated.sort((a: any, b: any) =>
+            setSoldOrUnlistedProperties(deprecated.sort((a: any, b: any) =>
                 (a.address || '').localeCompare(b.address || '')
             ));
         } catch (error) {
@@ -210,10 +210,10 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
         })).sort((a, b) => b.count - a.count);
     }, [assessments, userNames, reportStartDate, reportEndDate]);
 
-    // Grouped stats for the deprecated tab
+    // Grouped stats for the sold/unlisted tab
     const deprecatedCityStats = useMemo(() => {
         const groups: Record<string, any[]> = {};
-        deprecatedProperties.forEach(p => {
+        soldOrUnlistedProperties.forEach(p => {
             const city = p.city || 'Other';
             if (!groups[city]) groups[city] = [];
             groups[city].push(p);
@@ -221,12 +221,12 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
         return Object.entries(groups)
             .map(([name, props]) => ({ name, count: props.length }))
             .sort((a, b) => b.count - a.count);
-    }, [deprecatedProperties]);
+    }, [soldOrUnlistedProperties]);
 
     const filteredDeprecatedProperties = useMemo(() => {
         if (!activeDeprecatedCity) return [];
-        return deprecatedProperties.filter(p => (p.city || 'Other') === activeDeprecatedCity);
-    }, [deprecatedProperties, activeDeprecatedCity]);
+        return soldOrUnlistedProperties.filter(p => (p.city || 'Other') === activeDeprecatedCity);
+    }, [soldOrUnlistedProperties, activeDeprecatedCity]);
 
     // Auto-select first deprecated city
     useEffect(() => {
@@ -240,7 +240,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
         try {
             const result = await restoreDeprecatedProperty(zpid);
             if (result.success) {
-                setDeprecatedProperties(prev => prev.filter(p => p.zpid !== zpid));
+                setSoldOrUnlistedProperties(prev => prev.filter(p => p.zpid !== zpid));
             } else {
                 alert('Restore failed: ' + result.error);
             }
@@ -297,7 +297,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             // 4. Restore only the active ones
             await Promise.all(toRestore.map(p => restoreDeprecatedProperty(p.zpid)));
             const restoredZpids = new Set(toRestore.map(p => p.zpid));
-            setDeprecatedProperties(prev => prev.filter(p => !restoredZpids.has(p.zpid)));
+            setSoldOrUnlistedProperties(prev => prev.filter(p => !restoredZpids.has(p.zpid)));
         } catch (e: any) {
             alert('Restore all failed: ' + e.message);
         } finally {
@@ -463,11 +463,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                             onClick={() => setActiveTab('deprecated')}
                             className={`text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all flex items-center gap-2 ${activeTab === 'deprecated' ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
-                            <i className="fa-solid fa-ban text-[10px]"></i>
-                            Deprecated
-                            {deprecatedProperties.length > 0 && (
+                            <i className="fa-solid fa-house-circle-xmark text-[10px]"></i>
+                            Sold / Unlisted
+                            {soldOrUnlistedProperties.length > 0 && (
                                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${activeTab === 'deprecated' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'}`}>
-                                    {deprecatedProperties.length}
+                                    {soldOrUnlistedProperties.length}
                                 </span>
                             )}
                         </button>
@@ -915,7 +915,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                             <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6 border border-emerald-100">
                                 <i className="fa-solid fa-circle-check text-3xl text-emerald-400"></i>
                             </div>
-                            <h3 className="text-xl font-black text-slate-700 mb-2">No Deprecated Properties</h3>
+                            <h3 className="text-xl font-black text-slate-700 mb-2">No Sold / Unlisted Properties</h3>
                             <p className="text-sm font-medium text-slate-400">All properties in Firestore are currently active.</p>
                         </div>
                     ) : (
@@ -931,8 +931,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                 ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-200 scale-[1.02]'
                                                 : 'bg-white border-slate-200 text-slate-500 hover:border-amber-300 hover:text-amber-600'}`}
                                     >
-                                        <i className="fa-solid fa-ban text-[10px]"></i>
-                                        <span className="text-[11px] font-black uppercase tracking-widest">{stat.name} Deprecated</span>
+                                        <i className="fa-solid fa-house-circle-xmark text-[10px]" />
+                                        <span className="text-[11px] font-black uppercase tracking-widest">{stat.name} — Sold/Unlisted</span>
                                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeDeprecatedCity === stat.name ? 'bg-white/20' : 'bg-amber-100 text-amber-700'}`}>
                                             {stat.count}
                                         </span>
@@ -947,7 +947,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                         <i className="fa-solid fa-ban text-amber-600 text-xs"></i>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-[11px] font-black text-amber-700 uppercase tracking-widest">{activeDeprecatedCity} Deprecated</div>
+                                        <div className="text-[11px] font-black text-amber-700 uppercase tracking-widest">{activeDeprecatedCity} — Sold / Unlisted</div>
                                         <div className="text-[10px] text-amber-600/70 font-medium mt-0.5">
                                             {filteredDeprecatedProperties.length} properties marked as sold or no longer active
                                         </div>
@@ -972,7 +972,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                         <tr className="bg-slate-50 border-b border-slate-100">
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">City</th>
-                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Deprecated On</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Marked On</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reason</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                                         </tr>
@@ -1042,7 +1042,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                 {filteredDeprecatedProperties.length === 0 && (
                                     <div className="py-16 text-center opacity-40">
                                         <i className="fa-solid fa-ban text-4xl text-amber-200 mb-3"></i>
-                                        <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No deprecated properties for this city</p>
+                                        <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No sold/unlisted properties for this city</p>
                                     </div>
                                 )}
                             </div>

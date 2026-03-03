@@ -175,3 +175,42 @@ export const removePropertyFromZipCache = async (zipCode: string, propertyId: st
         return { success: false, error: handleFirestoreError(error, "removePropertyFromZipCache") };
     }
 };
+
+// ─── Sold / Recently-Sold Listings Cache ──────────────────────────────────────
+
+/**
+ * Saves recently-sold listings for a zip code to `zip_sold_listings_cache`.
+ * Stores the full raw listing objects so the ingestion pipeline can use all fields.
+ */
+export const saveZipSoldListings = async (zipCode: string, listings: any[]) => {
+    if (!db) return { success: false, error: 'Database not initialized' };
+    try {
+        const docRef = doc(db, 'zip_sold_listings_cache', zipCode);
+        logFirestoreQuery('setDoc', 'zip_sold_listings_cache', { zipCode });
+        await setDoc(docRef, {
+            zipCode,
+            listings: sanitizeForFirestore(listings),
+            fetchedAt: serverTimestamp(),
+        });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: handleFirestoreError(error, 'saveZipSoldListings') };
+    }
+};
+
+/**
+ * Retrieves cached recently-sold listings for a zip code.
+ */
+export const getZipSoldListings = async (zipCode: string): Promise<{ zipCode: string; listings: any[]; fetchedAt?: any } | null> => {
+    if (!db) return null;
+    try {
+        const docRef = doc(db, 'zip_sold_listings_cache', zipCode);
+        logFirestoreQuery('getDoc', 'zip_sold_listings_cache', { zipCode });
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return null;
+        return snap.data() as any;
+    } catch (error: any) {
+        handleFirestoreError(error, 'getZipSoldListings');
+        return null;
+    }
+};
