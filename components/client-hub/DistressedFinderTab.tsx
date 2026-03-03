@@ -101,7 +101,7 @@ interface DistressedFinderTabProps {
 }
 
 const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
-    const [compsAddress, setCompsAddress] = useState<{ address: string; lat?: number; lng?: number } | null>(null);
+    const [compsAddress, setCompsAddress] = useState<{ address: string; lat?: number; lng?: number; listPrice?: number } | null>(null);
     const [city, setCity] = useState('');
     const [status, setStatus] = useState<ScanStatus>('idle');
     const [checkingNew, setCheckingNew] = useState(false);
@@ -474,6 +474,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                         onBack={() => setCompsAddress(null)}
                         subjectLat={compsAddress.lat}
                         subjectLng={compsAddress.lng}
+                        subjectListPrice={compsAddress.listPrice}
                     />
                 </div>
             )}
@@ -730,18 +731,30 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                                     onClick={async () => {
                                                                         let lat = r.latitude;
                                                                         let lng = r.longitude;
+                                                                        let listPrice: number | undefined;
                                                                         // Fall back: look up from properties collection if distress_analysis
                                                                         // was written before lat/lng caching was added
                                                                         if (lat == null || lng == null) {
                                                                             try {
                                                                                 const propSnap = await getDoc(doc(db, 'properties', r.zpid));
                                                                                 if (propSnap.exists()) {
-                                                                                    const coords = propSnap.data()?.coordinates;
+                                                                                    const pd = propSnap.data();
+                                                                                    const coords = pd?.coordinates;
                                                                                     if (coords?.latitude != null) { lat = coords.latitude; lng = coords.longitude; }
+                                                                                    listPrice = pd?.price ?? pd?.listPrice ?? pd?.list_price ?? undefined;
+                                                                                }
+                                                                            } catch { /* non-fatal */ }
+                                                                        } else {
+                                                                            // coords already known — still grab listPrice cheaply
+                                                                            try {
+                                                                                const propSnap = await getDoc(doc(db, 'properties', r.zpid));
+                                                                                if (propSnap.exists()) {
+                                                                                    const pd = propSnap.data();
+                                                                                    listPrice = pd?.price ?? pd?.listPrice ?? pd?.list_price ?? undefined;
                                                                                 }
                                                                             } catch { /* non-fatal */ }
                                                                         }
-                                                                        setCompsAddress({ address: r.address, lat, lng });
+                                                                        setCompsAddress({ address: r.address, lat, lng, listPrice });
                                                                     }}
                                                                     className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded text-[8px] font-black uppercase tracking-wide hover:bg-indigo-100 transition-colors flex items-center gap-1"
                                                                 >

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
 import { APP_CONFIG } from '../../config';
+import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
+import { getZypheValuationPrompt, zypheValuationSchema } from '../../prompts/property/zypheValuation';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +54,8 @@ interface SaleComp {
     correlation?: number;
     daysOnMarket?: number;
 }
+
+export type { SaleComp };
 
 interface CachedComps {
     valueEstimate: ValueEstimate | null;
@@ -117,7 +121,7 @@ interface TimeFilter {
     customTo?: string;
 }
 
-const DEFAULT_FILTER: TimeFilter = { preset: 'all' };
+const DEFAULT_FILTER: TimeFilter = { preset: '6months' };
 
 function filterCutoff(preset: TimePreset): Date | null {
     const now = new Date();
@@ -219,8 +223,6 @@ const PRESETS: { key: TimePreset; label: string }[] = [
     { key: 'week', label: 'Last Week' },
     { key: 'month', label: 'Last Month' },
     { key: '6months', label: 'Last 6 Mo' },
-    { key: 'all', label: 'All Time' },
-    { key: 'custom', label: 'Custom' },
 ];
 
 function TimeFilterBar({ value, onChange, accentColor }: {
@@ -229,38 +231,19 @@ function TimeFilterBar({ value, onChange, accentColor }: {
     accentColor: string; // tailwind bg class for active pill
 }) {
     return (
-        <div className="space-y-2">
-            <div className="flex flex-wrap gap-1.5">
-                {PRESETS.map(p => (
-                    <button
-                        key={p.key}
-                        onClick={() => onChange({ ...value, preset: p.key })}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${value.preset === p.key
-                            ? `${accentColor} text-white shadow-sm`
-                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                            }`}
-                    >
-                        {p.label}
-                    </button>
-                ))}
-            </div>
-            {value.preset === 'custom' && (
-                <div className="flex items-center gap-2 flex-wrap">
-                    <input
-                        type="date"
-                        value={value.customFrom ?? ''}
-                        onChange={e => onChange({ ...value, customFrom: e.target.value })}
-                        className="px-3 py-1.5 rounded-xl border border-slate-200 text-[11px] font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
-                    />
-                    <span className="text-[10px] font-bold text-slate-400">to</span>
-                    <input
-                        type="date"
-                        value={value.customTo ?? ''}
-                        onChange={e => onChange({ ...value, customTo: e.target.value })}
-                        className="px-3 py-1.5 rounded-xl border border-slate-200 text-[11px] font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
-                    />
-                </div>
-            )}
+        <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map(p => (
+                <button
+                    key={p.key}
+                    onClick={() => onChange({ ...value, preset: p.key })}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${value.preset === p.key
+                        ? `${accentColor} text-white shadow-sm`
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                >
+                    {p.label}
+                </button>
+            ))}
         </div>
     );
 }
@@ -272,10 +255,11 @@ interface PropertyCompsTabProps {
     onBack?: () => void;
     subjectLat?: number;
     subjectLng?: number;
+    subjectListPrice?: number;
 }
 
 
-const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = '', onBack, subjectLat, subjectLng }) => {
+const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = '', onBack, subjectLat, subjectLng, subjectListPrice }) => {
     const [address, setAddress] = useState(initialAddress);
     const [bedrooms, setBedrooms] = useState('');
     const [bathrooms, setBathrooms] = useState('');
@@ -288,6 +272,12 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
 
     const [showAllSale, setShowAllSale] = useState(false);
     const [saleFilter, setSaleFilter] = useState<TimeFilter>(DEFAULT_FILTER);
+
+    // ── Zyphe Valuation state ────────────────────────────────────────────────
+    const [valuation, setValuation] = useState<any | null>(null);
+    const [valuationLoading, setValuationLoading] = useState(false);
+    const [valuationError, setValuationError] = useState<string | null>(null);
+    const [valuationCached, setValuationCached] = useState(false);
 
     const fetchComps = useCallback(async (addrOverride?: string) => {
         const trimmed = (addrOverride ?? address).trim();
@@ -344,8 +334,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
 
             const params = new URLSearchParams({
                 address: trimmed,        // full address e.g. "27663 La Porte Ave, Hayward, CA 94545 US"
-                saleDateRange: '0:365',
-                radius: '5.0',
+                saleDateRange: '0:180',
+                radius: '1.0',
                 limit: '20',
             });
             console.log('[Comps] fetching:', `${base}/properties?${params}`);
@@ -475,8 +465,102 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                             </span>
                         )}
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 leading-tight">{cached?.address ?? initialAddress}</h2>
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                        <h2 className="text-2xl font-black text-slate-900 leading-tight">{cached?.address ?? initialAddress}</h2>
+                        {subjectListPrice != null && (
+                            <span className="text-[13px] font-bold text-emerald-600">
+                                Listed at ${subjectListPrice.toLocaleString()}
+                            </span>
+                        )}
+                    </div>
                 </div>
+                {/* Zyphe Valuation button — only when comps are loaded */}
+                {saleComps.length > 0 && (
+                    <button
+                        onClick={async () => {
+                            setValuationLoading(true);
+                            setValuationError(null);
+                            setValuation(null);
+                            setValuationCached(false);
+                            try {
+                                const today = new Date();
+                                const todayISO = today.toISOString().split('T')[0];
+                                const addrParts = (cached?.address ?? '').split(',');
+                                const cityState = addrParts.slice(1, 3).join(',').trim();
+                                const zipCode = saleComps.find(c => c.zipCode)?.zipCode
+                                    ?? addrParts.find(p => /\d{5}/.test(p))?.trim().match(/\d{5}/)?.[0]
+                                    ?? '';
+
+                                // ── Check Firestore cache (7-day TTL) ───────
+                                const valCacheKey = cacheKey(cached?.address ?? '');
+                                const valCacheRef = doc(db, 'zyphe_valuations', valCacheKey);
+                                const valCacheSnap = await getDoc(valCacheRef);
+                                if (valCacheSnap.exists()) {
+                                    const cd = valCacheSnap.data();
+                                    const age = Date.now() - (cd.cachedAt?.toMillis?.() ?? 0);
+                                    if (age < 7 * 24 * 60 * 60 * 1000) { // 7 days
+                                        setValuation(cd.result);
+                                        setValuationCached(true);
+                                        return;
+                                    }
+                                }
+
+                                // ── Enrich comps with daysSinceSale ─────────
+                                const compsWithDays = saleComps.map(c => {
+                                    const saleDate = toDateSafe(c.lastSaleDate);
+                                    const daysSinceSale = saleDate
+                                        ? Math.floor((today.getTime() - saleDate.getTime()) / 86_400_000)
+                                        : 0;
+                                    return { ...c, daysSinceSale };
+                                });
+
+                                const prompt = getZypheValuationPrompt({
+                                    subjectAddress: cached?.address ?? '',
+                                    cityState,
+                                    zipCode,
+                                    today: todayISO,
+                                    subjectData: {
+                                        bedrooms: bedrooms ? Number(bedrooms) : undefined,
+                                        bathrooms: bathrooms ? Number(bathrooms) : undefined,
+                                        squareFootage: sqft ? Number(sqft) : undefined,
+                                        listPrice: subjectListPrice,
+                                    },
+                                    comps: compsWithDays,
+                                });
+                                const { data } = await executeGeminiRequest<any>({
+                                    model: FLASH_MODEL,
+                                    contents: prompt,
+                                    config: { temperature: 0.2 },
+                                    userId: 'comps-user',
+                                    zpid: valCacheKey,
+                                    address: cached?.address ?? '',
+                                    promptFilename: 'zypheValuation.ts',
+                                    extractResultJson: true,
+                                    schema: zypheValuationSchema,
+                                });
+
+                                // ── Write to Firestore cache ─────────────────
+                                await setDoc(valCacheRef, {
+                                    result: data,
+                                    address: cached?.address ?? '',
+                                    cachedAt: Timestamp.now(),
+                                });
+
+                                setValuation(data);
+                            } catch (e: any) {
+                                setValuationError(e.message ?? 'Valuation failed');
+                            } finally {
+                                setValuationLoading(false);
+                            }
+                        }}
+                        disabled={valuationLoading}
+                        className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-50"
+                    >
+                        {valuationLoading
+                            ? <><i className="fa-solid fa-spinner animate-spin text-[9px]" />Valuing…</>
+                            : <><i className="fa-solid fa-wand-magic-sparkles text-[9px]" />Zyphe Valuation</>}
+                    </button>
+                )}
             </div>
 
             {/* Loading */}
@@ -546,6 +630,133 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                             )}
                         </div>
                     )}
+
+                    {/* ── Zyphe Valuation Error ──────────────────────────── */}
+                    {valuationError && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 text-[12px] font-bold text-rose-600 flex items-center gap-3">
+                            <i className="fa-solid fa-circle-exclamation" />{valuationError}
+                        </div>
+                    )}
+
+                    {/* ── Zyphe Valuation Results ────────────────────────── */}
+                    {valuation && (
+                        <div className="border border-indigo-100 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-indigo-50/60 to-violet-50/60">
+                            {/* Header */}
+                            <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 flex items-center justify-between flex-wrap gap-3">
+                                <div className="flex items-center gap-2">
+                                    <i className="fa-solid fa-wand-magic-sparkles text-white text-sm" />
+                                    <span className="text-[13px] font-black text-white uppercase tracking-widest">Zyphe Valuation</span>
+                                    {valuationCached && (
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-white text-[9px] font-black">
+                                            <i className="fa-solid fa-database text-[8px] mr-1" />Cached
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <span className="px-3 py-1 bg-white/20 rounded-xl text-white text-[10px] font-black">
+                                        {valuation.confidence_score}% confidence
+                                    </span>
+                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black ${valuation.market_condition === "Seller's Market" ? 'bg-rose-500 text-white' :
+                                        valuation.market_condition === "Buyer's Market" ? 'bg-emerald-500 text-white' :
+                                            'bg-amber-400 text-white'
+                                        }`}>{valuation.market_condition}</span>
+                                    {valuation.median_dom != null && (
+                                        <span className="px-3 py-1 bg-white/20 rounded-xl text-white text-[10px] font-black">
+                                            {valuation.median_dom} DOM
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="p-6 space-y-5">
+                                {/* Local Trend banner */}
+                                {valuation.verified_local_trend && (
+                                    <div className="flex items-start gap-3 bg-slate-800 rounded-2xl px-4 py-3">
+                                        <i className="fa-solid fa-magnifying-glass-chart text-indigo-300 mt-0.5" />
+                                        <div>
+                                            <div className="text-[10px] font-black text-indigo-300 uppercase tracking-wide mb-0.5">
+                                                Verified Local Trend
+                                                {valuation.yoy_change_pct != null && (
+                                                    <span className={`ml-2 ${valuation.yoy_change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                        {valuation.yoy_change_pct >= 0 ? '+' : ''}{valuation.yoy_change_pct}% YoY
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-[12px] text-slate-200">{valuation.verified_local_trend}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Value cards */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="col-span-1 bg-white rounded-2xl p-4 text-center border border-indigo-100">
+                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-1">Estimated Value</div>
+                                        <div className="text-2xl font-black text-indigo-700">${(valuation.estimated_value ?? 0).toLocaleString()}</div>
+                                        <div className="text-[10px] text-slate-400 mt-1">
+                                            ${(valuation.value_range_low ?? 0).toLocaleString()} – ${(valuation.value_range_high ?? 0).toLocaleString()}
+                                        </div>
+                                    </div>
+                                    <div className="bg-white rounded-2xl p-4 text-center border border-slate-100">
+                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-1">Comps Retained</div>
+                                        <div className="text-xl font-black text-slate-800">{valuation.comps_retained ?? '—'}</div>
+                                        {valuation.audit_log?.length > 0 && (
+                                            <div className="text-[10px] text-slate-400 mt-1">{valuation.audit_log.length} audited</div>
+                                        )}
+                                    </div>
+                                    <div className="bg-white rounded-2xl p-4 text-center border border-slate-100">
+                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-1">Confidence</div>
+                                        <div className="text-xl font-black text-slate-800">{valuation.confidence_score}%</div>
+                                    </div>
+                                </div>
+
+                                {/* Distress discount */}
+                                {valuation.distress_discount_applied && (
+                                    <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3">
+                                        <i className="fa-solid fa-triangle-exclamation text-rose-500 mt-0.5" />
+                                        <div>
+                                            <div className="text-[11px] font-black text-rose-700 uppercase tracking-wide">
+                                                Distress Discount Applied: -{valuation.distress_discount_pct}%
+                                            </div>
+                                            {valuation.distress_keywords_found?.length > 0 && (
+                                                <div className="text-[11px] text-rose-500 mt-0.5">
+                                                    Keywords: {valuation.distress_keywords_found.join(', ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Expert Narrative */}
+                                <div className="bg-white rounded-2xl p-5 border border-slate-100">
+                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-3">Expert Narrative</div>
+                                    <p className="text-[12px] text-slate-700 leading-relaxed whitespace-pre-line">{valuation.expert_narrative}</p>
+                                </div>
+
+                                {/* Audit Log */}
+                                {valuation.audit_log?.length > 0 && (
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                                        <div className="text-[11px] font-black text-slate-500 uppercase tracking-wide mb-3">Audit Log</div>
+                                        <ul className="space-y-2">
+                                            {valuation.audit_log.map((entry: any, i: number) => (
+                                                <li key={i} className="flex items-start gap-2.5 text-[11px]">
+                                                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-md font-black uppercase text-[9px] ${entry.action === 'excluded' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-700'
+                                                        }`}>{entry.action}</span>
+                                                    <span className="text-slate-600 min-w-0">
+                                                        <span className="font-semibold text-slate-800">{entry.address}</span>
+                                                        {' — '}{entry.reason}
+                                                        {entry.adjustment_pct != null && (
+                                                            <span className="ml-1 text-amber-600 font-bold">({entry.adjustment_pct > 0 ? '+' : ''}{entry.adjustment_pct}%)</span>
+                                                        )}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             )}
         </div>
