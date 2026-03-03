@@ -1035,7 +1035,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                     <div className="mt-2 text-[10px] text-rose-500 font-bold">{r.error}</div>
                                                 ) : (
                                                     <div className="mt-3 space-y-3">
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,_1fr)_minmax(0,_2fr)_minmax(0,_2fr)] gap-4">
                                                             <div>
                                                                 <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Primary Indicators</div>
                                                                 {r.primaryIndicators.length > 0 ? (
