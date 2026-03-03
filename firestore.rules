@@ -19,7 +19,8 @@ service cloud.firestore {
         'context_graph',
         'sold_or_unlisted_properties',
         'distress_analysis',
-        'zip_sold_listings_cache'
+        'zip_sold_listings_cache',
+        'deprecated_distressed_properties'
       ];
       allow write: if request.auth != null && collectionName in [
         'properties', 
@@ -36,7 +37,8 @@ service cloud.firestore {
         'context_graph',
         'sold_or_unlisted_properties',
         'distress_analysis',
-        'zip_sold_listings_cache'
+        'zip_sold_listings_cache',
+        'deprecated_distressed_properties'
       ];
     }
 

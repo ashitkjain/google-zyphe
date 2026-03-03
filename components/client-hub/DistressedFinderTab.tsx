@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, documentId, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { getZipsForCity, getZipListings, saveZipMetadataBatch } from '../../services/firebase/cityData';
-import { APP_CONFIG } from '../../config';
+import { getZipsForCity, getZipListings, saveZipMetadataBatch, getCachedCities } from '../../services/firebase/cityData';
+import { APP_CONFIG, SUPPORTED_STATES } from '../../config';
 import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
 import PropertyCompsTab from './PropertyCompsTab';
 
@@ -29,6 +29,7 @@ interface DistressResult {
     latitude?: number;
     longitude?: number;
     listPrice?: number;
+    listingSubTypes?: string[]; // truthy keys from listingSubType object e.g. ['is_foreclosure', 'is_bankOwned']
 }
 
 type ScanStatus = 'idle' | 'fetching_zips' | 'fetching_listings' | 'analyzing' | 'done' | 'error';
@@ -97,32 +98,38 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
     const [sortBy, setSortBy] = useState<'score' | 'address'>('score');
     const [priceMin, setPriceMin] = useState<number | ''>('');
     const [priceMax, setPriceMax] = useState<number | ''>('');
-    const [filterPropertyType, setFilterPropertyType] = useState('');
+    const [filterPropertyTypes, setFilterPropertyTypes] = useState<Set<string>>(new Set());
+    const [filterListingSubTypes, setFilterListingSubTypes] = useState<Set<string>>(new Set());
     const [filterOnMLS, setFilterOnMLS] = useState<'all' | 'on' | 'off'>('all');
+    const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+    const [showSubTypeDropdown, setShowSubTypeDropdown] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [activeCityTab, setActiveCityTab] = useState<string | null>(null);
     const [lastSearchedCity, setLastSearchedCity] = useState('');
     const [availableCities, setAvailableCities] = useState<string[]>([]);
     const [cityQuery, setCityQuery] = useState('');
+    const [cityFilter, setCityFilter] = useState(''); // separate filter text — cleared on focus
     const [showCitySuggestions, setShowCitySuggestions] = useState(false);
     const PAGE_SIZE = 10;
     const logsEndRef = useRef<HTMLDivElement>(null);
 
-    // On mount: fetch distinct cities from distress_analysis using the city field
+    // On mount: fetch cities from city_zip_cache filtered to SUPPORTED_STATES
     useEffect(() => {
-        (async () => {
-            try {
-                const snap = await getDocs(collection(db, 'distress_analysis'));
-                const citySet = new Set<string>();
-                snap.docs.forEach(d => {
-                    const data = d.data() as any;
-                    const c = data.city ?? '';
-                    if (c) citySet.add(c);
-                });
-                setAvailableCities(Array.from(citySet).sort());
-            } catch { /* silent */ }
-        })();
+        getCachedCities(SUPPORTED_STATES)
+            .then(setAvailableCities)
+            .catch(e => console.warn('getCachedCities failed:', e));
     }, []);
+
+    // Retry fetching cities on focus in case Firebase wasn't ready at mount
+    const handleCityInputFocus = () => {
+        setCityFilter('');   // clear filter so ALL cities appear on open
+        setShowCitySuggestions(true);
+        if (availableCities.length === 0) {
+            getCachedCities(SUPPORTED_STATES)
+                .then(setAvailableCities)
+                .catch(e => console.warn('getCachedCities retry failed:', e));
+        }
+    };
 
     const addLog = (msg: string) => {
         setLogs(prev => {
@@ -203,7 +210,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                     latitude: data.latitude ?? undefined,
                     longitude: data.longitude ?? undefined,
                 };
-            });
+            }).filter(r => !r.state || SUPPORTED_STATES.includes(r.state));
 
             // ── Batch-enrich from properties collection (listPrice / propertyType / description)
             // Firestore 'in' query limit is 30 — chunk accordingly
@@ -225,6 +232,11 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                     r.propertyType = pd.homeType ?? pd.propertyType ?? pd.property_type ?? undefined;
                     r.description = pd.description || pd.publicRemarks || pd.remarks || '';
                     r.mlsName = pd.attribution?.mlsName ?? undefined;
+                    // Extract truthy keys from listingSubType boolean flags
+                    const lst: Record<string, unknown> = pd.listingSubType ?? pd.listing_sub_type ?? pd.listingSubtype ?? {};
+                    r.listingSubTypes = Object.entries(lst)
+                        .filter(([, v]) => v === true)
+                        .map(([k]) => k);
                 });
             } catch { /* non-fatal — display without enrichment */ }
 
@@ -254,7 +266,12 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                 targetZips = [trimmedCity];
             } else {
                 const cachedGroups = await getZipsForCity(trimmedCity);
-                if (cachedGroups) targetZips = Object.values(cachedGroups).flat();
+                if (cachedGroups) {
+                    // Only include zips from supported states
+                    targetZips = Object.entries(cachedGroups)
+                        .filter(([state]) => SUPPORTED_STATES.includes(state))
+                        .flatMap(([, zips]) => zips);
+                }
 
                 if (targetZips.length === 0) {
                     const zipConfig = APP_CONFIG.rapidapi.zipCodesApi;
@@ -272,7 +289,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             state: x.stateCode || x.state || 'Unknown'
                         }));
                     }
-                    entries = entries.filter(e => e.zip);
+                    entries = entries.filter(e => e.zip && SUPPORTED_STATES.includes(e.state));
                     targetZips = entries.map(e => e.zip);
                     if (entries.length > 0) {
                         await saveZipMetadataBatch(entries);
@@ -293,30 +310,87 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
             const uniqueZips = [...new Set(targetZips)];
             addLog(`Scanning ${uniqueZips.length} zip codes for listings...`);
 
-            const propertiesWithData: { zpid: string; address: string; city: string; state: string; data: any }[] = [];
-            const existingZpids = new Set(results.map(r => r.zpid));
-
+            // Collect all candidate zpids + their listing metadata from cache
+            const candidateMap: Record<string, { address: string; city: string; state: string }> = {};
             for (const zip of uniqueZips) {
                 const cache = await getZipListings(zip);
                 if (!cache?.listings?.length) continue;
-
                 for (const listing of cache.listings) {
                     const zpid = String(listing.property_id || listing.listing_id || listing.mls_id || listing.mls?.id || '');
-                    if (!zpid) continue;
-
-                    const docRef = doc(db, 'properties', zpid);
-                    const snap = await getDoc(docRef);
-                    if (!snap.exists()) continue;
-
-                    const propData = snap.data();
-                    const addr = propData.address || listing.location?.address?.line || zpid;
-                    const propCity = propData.city || listing.location?.address?.city || trimmedCity;
-                    const propState = propData.state || listing.location?.address?.state_code || '';
-                    propertiesWithData.push({ zpid, address: addr, city: propCity, state: propState, data: propData });
+                    if (!zpid || candidateMap[zpid]) continue;
+                    candidateMap[zpid] = {
+                        address: listing.location?.address?.line || zpid,
+                        city: listing.location?.address?.city || trimmedCity,
+                        state: listing.location?.address?.state_code || '',
+                    };
                 }
             }
 
+            const allCandidateZpids = Object.keys(candidateMap);
+            addLog(`Found ${allCandidateZpids.length} unique listings across ${uniqueZips.length} zips. Checking which are ingested...`);
+
+            // Batch-fetch properties documents in chunks of 30 (Firestore 'in' limit)
+            const CHUNK = 30;
+            const propertiesWithData: { zpid: string; address: string; city: string; state: string; data: any }[] = [];
+            const existingZpids = new Set(results.map(r => r.zpid));
+
+            for (let i = 0; i < allCandidateZpids.length; i += CHUNK) {
+                const chunk = allCandidateZpids.slice(i, i + CHUNK);
+                const q = query(collection(db, 'properties'), where(documentId(), 'in', chunk));
+                const snap = await getDocs(q);
+                snap.forEach(docSnap => {
+                    const zpid = docSnap.id;
+                    const propData = docSnap.data();
+                    const meta = candidateMap[zpid];
+                    propertiesWithData.push({
+                        zpid,
+                        address: propData.address || meta.address,
+                        city: propData.city || meta.city,
+                        state: propData.state || meta.state,
+                        data: propData,
+                    });
+                });
+            }
+
             addLog(`Found ${propertiesWithData.length} properties total. Checking which are new...`);
+
+            // ── Deprecation sweep ────────────────────────────────────────────
+            // Any distress_analysis entry for this city that is no longer in the
+            // active zip listings cache gets moved to deprecated_distressed_properties.
+            const activeZpids = new Set(propertiesWithData.map(p => p.zpid));
+
+            const distressQuery = query(
+                collection(db, 'distress_analysis'),
+                where('city', '==', trimmedCity)
+            );
+            const distressSnap = await getDocs(distressQuery);
+
+            const deprecationBatch = writeBatch(db);
+            let deprecatedCount = 0; // hoisted so final log can reference it
+
+            for (const distressDoc of distressSnap.docs) {
+                const zpid = distressDoc.id;
+                if (!activeZpids.has(zpid)) {
+                    const deprecatedRef = doc(db, 'deprecated_distressed_properties', zpid);
+                    deprecationBatch.set(deprecatedRef, {
+                        ...distressDoc.data(),
+                        deprecated_at: Timestamp.now(),
+                        original_zpid: zpid,
+                    });
+                    deprecationBatch.delete(distressDoc.ref);
+                    deprecatedCount++;
+                    addLog(`  ↩ Deprecated: ${distressDoc.data().address || zpid}`);
+                }
+            }
+
+            if (deprecatedCount > 0) {
+                await deprecationBatch.commit();
+                addLog(`Deprecated ${deprecatedCount} stale propert${deprecatedCount === 1 ? 'y' : 'ies'} no longer in listings cache.`);
+                setResults(prev => prev.filter(r => activeZpids.has(r.zpid)));
+            } else {
+                addLog(`No stale properties to deprecate.`);
+            }
+            // ────────────────────────────────────────────────────────────────
 
             // Step C: find those NOT already in distress_analysis
             const newProperties: typeof propertiesWithData = [];
@@ -421,7 +495,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                 const merged = [...newResults, ...prev];
                 return merged;
             });
-            addLog(`✅ Done. ${newResults.length} new properties analyzed.`);
+            const deprecatedSuffix = deprecatedCount > 0 ? `, ${deprecatedCount} deprecated` : '';
+            addLog(`✅ Done. ${newResults.length} new properties analyzed${deprecatedSuffix}.`);
             setProgress(null);
         } catch (e: any) {
             addLog(`❌ Error: ${e.message}`);
@@ -460,7 +535,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
         .filter(r => r.distressScore >= filterScore)
         .filter(r => priceMin === '' || (r.listPrice != null && r.listPrice >= priceMin))
         .filter(r => priceMax === '' || (r.listPrice != null && r.listPrice <= priceMax))
-        .filter(r => !filterPropertyType || r.propertyType === filterPropertyType)
+        .filter(r => filterPropertyTypes.size === 0 || (r.propertyType != null && filterPropertyTypes.has(r.propertyType)))
+        .filter(r => filterListingSubTypes.size === 0 || (r.listingSubTypes ?? []).some(s => filterListingSubTypes.has(s)))
         .filter(r => {
             if (filterOnMLS === 'on') return !!r.mlsName;
             if (filterOnMLS === 'off') return !r.mlsName;
@@ -483,6 +559,22 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
             .map(r => r.propertyType)
             .filter((t): t is string => !!t)
     )).sort();
+
+    // Unique listing sub-types from ALL results in active city tab
+    const availableListingSubTypes: string[] = Array.from(new Set<string>(
+        results
+            .filter(r => {
+                const c = r.city || 'Unknown';
+                const s = r.state || '';
+                return (s ? `${c}, ${s}` : c) === resolvedCityStateTab;
+            })
+            .flatMap(r => r.listingSubTypes ?? [])
+            .filter((t): t is string => typeof t === 'string')
+    )).sort();
+
+    // Human-readable label for subtype keys
+    const subTypeLabel = (key: string) =>
+        key.replace(/^is_/, '').replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const safePage = Math.min(currentPage, totalPages);
@@ -542,9 +634,10 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                 value={cityQuery}
                                 onChange={e => {
                                     setCityQuery(e.target.value);
+                                    setCityFilter(e.target.value); // type to narrow
                                     setShowCitySuggestions(true);
                                 }}
-                                onFocus={() => setShowCitySuggestions(true)}
+                                onFocus={handleCityInputFocus}
                                 onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
                                 onKeyDown={e => {
                                     if (e.key === 'Enter' && cityQuery.trim()) {
@@ -562,17 +655,18 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             {showCitySuggestions && availableCities.length > 0 && (
                                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                                     <div className="px-4 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cities with Analysis</span>
-                                        <span className="text-[9px] text-slate-300 font-medium">{availableCities.filter(c => !cityQuery || c.toLowerCase().includes(cityQuery.toLowerCase())).length} results</span>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cities — {SUPPORTED_STATES.join(', ')}</span>
+                                        <span className="text-[9px] text-slate-300 font-medium">{availableCities.filter(c => !cityFilter || c.toLowerCase().includes(cityFilter.toLowerCase())).length} results</span>
                                     </div>
                                     <div className="max-h-[220px] overflow-y-auto p-1.5">
                                         {availableCities
-                                            .filter(c => !cityQuery || c.toLowerCase().includes(cityQuery.toLowerCase()))
+                                            .filter(c => !cityFilter || c.toLowerCase().includes(cityFilter.toLowerCase()))
                                             .map(c => (
                                                 <button
                                                     key={c}
                                                     onMouseDown={() => {
                                                         setCityQuery(c);
+                                                        setCityFilter(c);
                                                         setCity(c);
                                                         setShowCitySuggestions(false);
                                                         handleSearch(c);
@@ -716,20 +810,58 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                     </div>
                                 </div>
 
-                                {/* Property type */}
+                                {/* Home Type — multi-select dropdown */}
                                 {availablePropertyTypes.length > 0 && (
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</span>
-                                        <select
-                                            value={filterPropertyType}
-                                            onChange={e => { setFilterPropertyType(e.target.value); setCurrentPage(1); }}
-                                            className="px-2 py-1 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300 text-slate-700"
-                                        >
-                                            <option value="">All</option>
-                                            {availablePropertyTypes.map(t => (
-                                                <option key={t} value={t}>{t}</option>
-                                            ))}
-                                        </select>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Type</span>
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setShowTypeDropdown(p => !p)}
+                                                onBlur={() => setTimeout(() => setShowTypeDropdown(false), 150)}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${filterPropertyTypes.size > 0
+                                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                                    }`}
+                                            >
+                                                {filterPropertyTypes.size > 0 ? `${filterPropertyTypes.size} selected` : 'All'}
+                                                <i className={`fa-solid fa-chevron-${showTypeDropdown ? 'up' : 'down'} text-[8px]`} />
+                                            </button>
+                                            {showTypeDropdown && (
+                                                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[160px] py-1 overflow-hidden">
+                                                    {/* All option */}
+                                                    <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group border-b border-slate-100">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={filterPropertyTypes.size === 0}
+                                                            onChange={() => { setFilterPropertyTypes(new Set()); setCurrentPage(1); }}
+                                                            className="accent-indigo-600 w-3.5 h-3.5"
+                                                        />
+                                                        <span className="text-[10px] font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide">All</span>
+                                                    </label>
+                                                    {availablePropertyTypes.map(t => (
+                                                        <label
+                                                            key={t}
+                                                            className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={filterPropertyTypes.has(t)}
+                                                                onChange={() => {
+                                                                    setFilterPropertyTypes(prev => {
+                                                                        const next = new Set(prev);
+                                                                        if (next.has(t)) next.delete(t); else next.add(t);
+                                                                        return next;
+                                                                    });
+                                                                    setCurrentPage(1);
+                                                                }}
+                                                                className="accent-indigo-600 w-3.5 h-3.5"
+                                                            />
+                                                            <span className="text-[10px] font-semibold text-slate-700 group-hover:text-slate-900">{t}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
 
@@ -749,10 +881,61 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                     </div>
                                 </div>
 
+                                {/* Listing Subtype dropdown */}
+                                {availableListingSubTypes.length > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Subtype</span>
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setShowSubTypeDropdown(p => !p)}
+                                                onBlur={() => setTimeout(() => setShowSubTypeDropdown(false), 150)}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${filterListingSubTypes.size > 0
+                                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                                    }`}
+                                            >
+                                                {filterListingSubTypes.size > 0 ? `${filterListingSubTypes.size} selected` : 'All'}
+                                                <i className={`fa-solid fa-chevron-${showSubTypeDropdown ? 'up' : 'down'} text-[8px]`} />
+                                            </button>
+                                            {showSubTypeDropdown && (
+                                                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[170px] py-1 overflow-hidden">
+                                                    <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group border-b border-slate-100">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={filterListingSubTypes.size === 0}
+                                                            onChange={() => { setFilterListingSubTypes(new Set()); setCurrentPage(1); }}
+                                                            className="accent-indigo-600 w-3.5 h-3.5"
+                                                        />
+                                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">All</span>
+                                                    </label>
+                                                    {availableListingSubTypes.map(key => (
+                                                        <label key={key} className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={filterListingSubTypes.has(key)}
+                                                                onChange={() => {
+                                                                    setFilterListingSubTypes(prev => {
+                                                                        const next = new Set(prev);
+                                                                        if (next.has(key)) next.delete(key); else next.add(key);
+                                                                        return next;
+                                                                    });
+                                                                    setCurrentPage(1);
+                                                                }}
+                                                                className="accent-indigo-600 w-3.5 h-3.5"
+                                                            />
+                                                            <span className="text-[10px] font-semibold text-slate-700 group-hover:text-slate-900 capitalize">{subTypeLabel(key)}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Clear extra filters */}
-                                {(priceMin !== '' || priceMax !== '' || filterPropertyType || filterOnMLS !== 'all') && (
+                                {(priceMin !== '' || priceMax !== '' || filterPropertyTypes.size > 0 || filterListingSubTypes.size > 0 || filterOnMLS !== 'all') && (
                                     <button
-                                        onClick={() => { setPriceMin(''); setPriceMax(''); setFilterPropertyType(''); setFilterOnMLS('all'); setCurrentPage(1); }}
+                                        onClick={() => { setPriceMin(''); setPriceMax(''); setFilterPropertyTypes(new Set()); setFilterListingSubTypes(new Set()); setFilterOnMLS('all'); setCurrentPage(1); }}
                                         className="text-[9px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-wide transition-colors"
                                     >
                                         <i className="fa-solid fa-xmark mr-1" />Clear
@@ -776,7 +959,9 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                         <i className="fa-solid fa-location-dot text-[8px]" />
                                         {tab.key}
                                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${resolvedCityStateTab === tab.key ? 'bg-rose-100 text-rose-500' : 'bg-slate-100 text-slate-400'
-                                            }`}>{tab.count}</span>
+                                            }`}>
+                                            {resolvedCityStateTab === tab.key ? filtered.length : tab.count}
+                                        </span>
                                     </button>
                                 ))}
                             </div>

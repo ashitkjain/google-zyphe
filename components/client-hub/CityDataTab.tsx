@@ -1,12 +1,13 @@
 
-import React, { useState, useMemo } from 'react';
-import { APP_CONFIG } from '../../config';
+import React, { useState, useMemo, useEffect } from 'react';
+import { APP_CONFIG, SUPPORTED_STATES } from '../../config';
 import {
     saveZipMetadataBatch,
     getZipsForCity,
     saveZipListings,
     getZipListings,
-    removePropertyFromZipCache
+    removePropertyFromZipCache,
+    getCachedCities
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
 
@@ -57,6 +58,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [sweepResult, setSweepResult] = useState<{ deprecated: string[]; skipped: string[]; errors: string[] } | null>(null);
     const [groupPages, setGroupPages] = useState<Record<string, number>>({});
     const GROUP_PAGE_SIZE = 20;
+    const [availableCities, setAvailableCities] = useState<string[]>([]);
+    const [cityQuery, setCityQuery] = useState('');
+    const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+
+    // Load cities from city_zip_cache filtered to SUPPORTED_STATES on mount
+    useEffect(() => {
+        getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
+    }, []);
 
 
     const availableStates = useMemo(() => {
@@ -819,11 +828,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 cachedGroups = await getZipsForCity(normalizedCity);
 
                 if (cachedGroups) {
-                    const allCachedZips = Object.values(cachedGroups).flat();
-                    if (allCachedZips.length > 0) {
-                        const statesFound = Object.keys(cachedGroups).join(', ');
-                        addLog(`Cloud Cache Hit for City: ${normalizedCity}. Found ${allCachedZips.length} zips across [${statesFound}].`);
-                        targetZips = allCachedZips;
+                    // Only use zips from SUPPORTED_STATES
+                    const filteredZips = Object.entries(cachedGroups)
+                        .filter(([state]) => SUPPORTED_STATES.includes(state))
+                        .flatMap(([, zips]) => zips);
+                    if (filteredZips.length > 0) {
+                        const statesFound = Object.keys(cachedGroups)
+                            .filter(s => SUPPORTED_STATES.includes(s)).join(', ');
+                        addLog(`Cloud Cache Hit for City: ${normalizedCity}. Found ${filteredZips.length} zips across [${statesFound}].`);
+                        targetZips = filteredZips;
                     }
                 }
 
@@ -862,7 +875,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             }));
                         }
 
-                        foundEntries = foundEntries.filter(z => z.zip && typeof z.zip === 'string');
+                        foundEntries = foundEntries.filter(z => z.zip && typeof z.zip === 'string' && SUPPORTED_STATES.includes(z.state));
                         targetZips = foundEntries.map(z => z.zip);
 
                         if (foundEntries.length > 0) {
@@ -1303,14 +1316,59 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                         <div className="lg:col-span-7">
-                            <input
-                                type="text"
-                                value={city}
-                                onChange={(e) => setCity(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                placeholder="Aspen, CO or 81611..."
-                                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-sm shadow-inner"
-                            />
+                            <div className="relative">
+                                <i className="fa-solid fa-city absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm" />
+                                <input
+                                    type="text"
+                                    value={cityQuery}
+                                    onChange={(e) => {
+                                        setCityQuery(e.target.value);
+                                        setCity(e.target.value);
+                                        setShowCitySuggestions(true);
+                                    }}
+                                    onFocus={() => setShowCitySuggestions(true)}
+                                    onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && cityQuery.trim()) {
+                                            setShowCitySuggestions(false);
+                                            handleSearch();
+                                        }
+                                        if (e.key === 'Escape') setShowCitySuggestions(false);
+                                    }}
+                                    placeholder="Search city…"
+                                    disabled={loading}
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-sm shadow-inner disabled:opacity-50"
+                                />
+                                {showCitySuggestions && availableCities.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50">
+                                        <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cities — {SUPPORTED_STATES.join(', ')}</span>
+                                            <span className="text-[9px] text-slate-300 font-medium">
+                                                {availableCities.filter(c => !cityQuery || c.toLowerCase().includes(cityQuery.toLowerCase())).length} cities
+                                            </span>
+                                        </div>
+                                        <div className="max-h-[220px] overflow-y-auto p-1.5">
+                                            {availableCities
+                                                .filter(c => !cityQuery || c.toLowerCase().includes(cityQuery.toLowerCase()))
+                                                .map(c => (
+                                                    <button
+                                                        key={c}
+                                                        onMouseDown={() => {
+                                                            setCityQuery(c);
+                                                            setCity(c);
+                                                            setShowCitySuggestions(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-indigo-50 text-slate-700 text-xs font-medium transition-colors flex items-center gap-3 group"
+                                                    >
+                                                        <i className="fa-solid fa-location-dot text-slate-300 group-hover:text-indigo-400 transition-colors text-[10px]" />
+                                                        {c}
+                                                    </button>
+                                                ))
+                                            }
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="lg:col-span-5 flex gap-2">

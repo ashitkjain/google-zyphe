@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, getDocs, collection, writeBatch, serverTimestamp } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
@@ -212,5 +212,53 @@ export const getZipSoldListings = async (zipCode: string): Promise<{ zipCode: st
     } catch (error: any) {
         handleFirestoreError(error, 'getZipSoldListings');
         return null;
+    }
+};
+
+/**
+ * Returns all city names from city_zip_cache that have at least one zip
+ * in any of the provided supportedStates, sorted alphabetically.
+ * Uses case-insensitive state key comparison and also accepts full state names.
+ * Falls back to returning ALL cached cities if no supported-state match is found.
+ */
+export const getCachedCities = async (supportedStates: string[]): Promise<string[]> => {
+    if (!db) return [];
+    try {
+        const snap = await getDocs(collection(db, 'city_zip_cache'));
+        const allCities: string[] = [];
+        const matchedCities: string[] = [];
+
+        // Build a set of lowercase abbreviations AND common full-name variants
+        const STATE_NAME_MAP: Record<string, string> = {
+            ca: 'CA', california: 'CA', tx: 'TX', texas: 'TX',
+            az: 'AZ', arizona: 'AZ', nv: 'NV', nevada: 'NV',
+            or: 'OR', oregon: 'OR', wa: 'WA', washington: 'WA',
+            co: 'CO', colorado: 'CO', ut: 'UT', utah: 'UT',
+        };
+        const supportedNorm = new Set(supportedStates.map(s => s.toLowerCase()));
+
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            const cityName: string = data.city || docSnap.id;
+            const zipsByState: Record<string, string[]> = data.zipsByState || {};
+            allCities.push(cityName);
+
+            // Check each key in zipsByState against the supported states (case-insensitive + full name)
+            const matches = Object.keys(zipsByState).some(key => {
+                const keyLower = key.toLowerCase();
+                const normalized = STATE_NAME_MAP[keyLower] || key.toUpperCase();
+                return (
+                    supportedNorm.has(keyLower) ||
+                    supportedStates.includes(normalized)
+                ) && Array.isArray(zipsByState[key]) && zipsByState[key].length > 0;
+            });
+            if (matches) matchedCities.push(cityName);
+        });
+
+        return matchedCities.sort((a, b) => a.localeCompare(b));
+
+    } catch (error: any) {
+        handleFirestoreError(error, 'getCachedCities');
+        return [];
     }
 };

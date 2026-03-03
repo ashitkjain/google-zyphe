@@ -3,6 +3,13 @@
  * Application Configuration
  * Centrally manages feature flags and caching behaviors.
  */
+
+/**
+ * States the tool is currently enabled for.
+ * Zip resolution and city dropdowns are filtered to these state codes only.
+ */
+export const SUPPORTED_STATES: string[] = ['CA'];
+
 export const APP_CONFIG = {
     caching: {
         visual_analysis: true,
