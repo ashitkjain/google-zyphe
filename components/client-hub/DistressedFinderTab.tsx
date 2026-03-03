@@ -82,10 +82,11 @@ function toTitleCase(str: string): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface DistressedFinderTabProps {
-    onNavigateToComps?: (address: string) => void; // kept for backward-compat but no longer used
+    onNavigateToComps?: (address: string) => void;
+    isAdmin?: boolean;
 }
 
-const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
+const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) => {
     const [compsAddress, setCompsAddress] = useState<{ address: string; lat?: number; lng?: number; listPrice?: number; bedrooms?: number; bathrooms?: number; sqft?: number; yearBuilt?: number; homeType?: string; lotSize?: number } | null>(null);
     const [city, setCity] = useState('');
     const [status, setStatus] = useState<ScanStatus>('idle');
@@ -103,6 +104,9 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
     const [filterOnMLS, setFilterOnMLS] = useState<'all' | 'on' | 'off'>('all');
     const [showTypeDropdown, setShowTypeDropdown] = useState(false);
     const [showSubTypeDropdown, setShowSubTypeDropdown] = useState(false);
+    const [showMLSDropdown, setShowMLSDropdown] = useState(false);
+    const [expandedDescZpid, setExpandedDescZpid] = useState<string | null>(null);
+    const descHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [activeCityTab, setActiveCityTab] = useState<string | null>(null);
     const [lastSearchedCity, setLastSearchedCity] = useState('');
@@ -610,31 +614,27 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
             {/* Hide main content while comps view is open */}
             {compsAddress ? null : <>
 
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                {/* ── Title + Search row ──────────────────────────────── */}
+                <div className="flex items-center gap-4 flex-wrap">
+                    {/* Icon + title */}
+                    <div className="flex items-center gap-3 shrink-0">
                         <span className="w-10 h-10 bg-rose-100 rounded-2xl flex items-center justify-center">
                             <i className="fa-solid fa-house-crack text-rose-600 text-sm" />
                         </span>
-                        Find Distressed Properties
-                    </h2>
-                    <p className="text-[11px] text-slate-400 font-medium mt-1 ml-[52px]">
-                        Searches cached AI analysis by city. Use <strong>Check for New</strong> to analyze new listings.
-                    </p>
-                </div>
+                        <h2 className="text-xl font-black text-slate-900 whitespace-nowrap">Find Distressed Properties</h2>
+                    </div>
 
-                {/* Search bar */}
-                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">City</label>
-                    <div className="flex gap-3">
+                    {/* City autocomplete + buttons */}
+                    <div className="flex gap-3 flex-1 min-w-0">
                         {/* Autocomplete city input */}
-                        <div className="relative flex-1">
+                        <div className="relative flex-1 min-w-0">
                             <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                             <input
                                 type="text"
                                 value={cityQuery}
                                 onChange={e => {
                                     setCityQuery(e.target.value);
-                                    setCityFilter(e.target.value); // type to narrow
+                                    setCityFilter(e.target.value);
                                     setShowCitySuggestions(true);
                                 }}
                                 onFocus={handleCityInputFocus}
@@ -647,13 +647,13 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                     }
                                     if (e.key === 'Escape') setShowCitySuggestions(false);
                                 }}
-                                placeholder="Search city…"
+                                placeholder="Enter city…"
                                 disabled={isRunning || checkingNew}
                                 className="w-full pl-12 pr-4 py-3 bg-slate-100 border-2 border-transparent focus:bg-white focus:border-rose-400 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
                             />
                             {/* Suggestions dropdown */}
                             {showCitySuggestions && availableCities.length > 0 && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                <div onMouseDown={(e) => e.preventDefault()} className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                                     <div className="px-4 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cities — {SUPPORTED_STATES.join(', ')}</span>
                                         <span className="text-[9px] text-slate-300 font-medium">{availableCities.filter(c => !cityFilter || c.toLowerCase().includes(cityFilter.toLowerCase())).length} results</span>
@@ -683,11 +683,11 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             )}
                         </div>
 
-                        {/* Main submit */}
+                        {/* Load Cached */}
                         <button
                             onClick={handleSearch}
                             disabled={!city.trim() || isRunning || checkingNew}
-                            className="px-8 py-3.5 bg-gradient-to-r from-rose-600 to-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-rose-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
+                            className="px-8 py-3 bg-gradient-to-r from-rose-600 to-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-rose-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5 shrink-0"
                         >
                             {isRunning ? (
                                 <><i className="fa-solid fa-spinner animate-spin text-xs" /> Loading…</>
@@ -701,7 +701,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             <button
                                 onClick={handleCheckForNew}
                                 disabled={checkingNew || isRunning}
-                                className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5"
+                                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-200 hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2.5 shrink-0"
                             >
                                 {checkingNew ? (
                                     <><i className="fa-solid fa-spinner animate-spin text-xs" /> Scanning…</>
@@ -711,23 +711,23 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             </button>
                         )}
                     </div>
-
-                    {/* Progress bar */}
-                    {progress && checkingNew && (
-                        <div className="mt-4">
-                            <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">AI Analysis — New Properties</span>
-                                <span className="text-[10px] font-mono text-slate-400">{progress.done} / {progress.total}</span>
-                            </div>
-                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-500"
-                                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                                />
-                            </div>
-                        </div>
-                    )}
                 </div>
+
+                {/* Progress bar */}
+                {progress && checkingNew && (
+                    <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">AI Analysis — New Properties</span>
+                            <span className="text-[10px] font-mono text-slate-400">{progress.done} / {progress.total}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-500"
+                                style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Empty state */}
                 {searched && results.length === 0 && status === 'done' && !isRunning && !checkingNew && (
@@ -743,117 +743,75 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                 {results.length > 0 && (
                     <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
 
-                        {/* Filter bar — above city tabs */}
-                        <div className="px-6 pt-5 pb-4 border-b border-slate-100 space-y-3">
-                            {/* Row 1: distress score + sort + count */}
-                            <div className="flex items-center gap-4 flex-wrap">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filters</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
-                                        {([{ score: 4, label: 'Medium' }, { score: 7, label: 'High' }, { score: 1, label: 'All' }] as { score: number; label: string }[]).map(({ score, label }) => (
-                                            <button
-                                                key={score}
-                                                onClick={() => { setFilterScore(score); setCurrentPage(1); }}
-                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterScore === score ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                {label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-slate-500">Sort</span>
-                                    <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
-                                        {(['score', 'address'] as ('score' | 'address')[]).map(s => (
-                                            <button
-                                                key={s}
-                                                onClick={() => { setSortBy(s); setCurrentPage(1); }}
-                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${sortBy === s ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                {s === 'score' ? 'Score' : 'Address'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <span className="ml-auto text-[10px] font-bold text-slate-400">
-                                    {filtered.length === 0 ? '0' : `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)}`} of {filtered.length}
-                                </span>
-                            </div>
-
-                            {/* Row 2: price range + property type + on MLS */}
+                        {/* Filter bar — single row */}
+                        <div className="px-6 pt-5 pb-4 border-b border-slate-100">
                             <div className="flex items-center gap-3 flex-wrap">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Filters</span>
+
+                                {/* Distress score */}
+                                <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5 shrink-0">
+                                    {([{ score: 4, label: 'Medium' }, { score: 7, label: 'High' }, { score: 1, label: 'All' }] as { score: number; label: string }[]).map(({ score, label }) => (
+                                        <button
+                                            key={score}
+                                            onClick={() => { setFilterScore(score); setCurrentPage(1); }}
+                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterScore === score ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+
                                 {/* Price range */}
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1 shrink-0">
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Price</span>
-                                    <div className="flex items-center gap-1">
-                                        <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">$</span>
-                                            <input
-                                                type="number"
-                                                placeholder="Min"
-                                                value={priceMin}
-                                                onChange={e => { setPriceMin(e.target.value === '' ? '' : Number(e.target.value)); setCurrentPage(1); }}
-                                                className="pl-4 pr-2 py-1 w-24 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                                            />
-                                        </div>
-                                        <span className="text-[9px] text-slate-300 font-bold">–</span>
-                                        <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">$</span>
-                                            <input
-                                                type="number"
-                                                placeholder="Max"
-                                                value={priceMax}
-                                                onChange={e => { setPriceMax(e.target.value === '' ? '' : Number(e.target.value)); setCurrentPage(1); }}
-                                                className="pl-4 pr-2 py-1 w-24 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                                            />
-                                        </div>
+                                    <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">$</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Min"
+                                            value={priceMin}
+                                            onChange={e => { setPriceMin(e.target.value === '' ? '' : Number(e.target.value)); setCurrentPage(1); }}
+                                            className="pl-4 pr-2 py-1 w-20 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                        />
+                                    </div>
+                                    <span className="text-[9px] text-slate-300 font-bold">–</span>
+                                    <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">$</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Max"
+                                            value={priceMax}
+                                            onChange={e => { setPriceMax(e.target.value === '' ? '' : Number(e.target.value)); setCurrentPage(1); }}
+                                            className="pl-4 pr-2 py-1 w-20 text-[10px] font-bold bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                        />
                                     </div>
                                 </div>
 
-                                {/* Home Type — multi-select dropdown */}
+                                {/* Home Type dropdown */}
                                 {availablePropertyTypes.length > 0 && (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 shrink-0">
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Type</span>
                                         <div className="relative">
                                             <button
                                                 onClick={() => setShowTypeDropdown(p => !p)}
                                                 onBlur={() => setTimeout(() => setShowTypeDropdown(false), 150)}
-                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${filterPropertyTypes.size > 0
-                                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                                                    }`}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${filterPropertyTypes.size > 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
                                             >
                                                 {filterPropertyTypes.size > 0 ? `${filterPropertyTypes.size} selected` : 'All'}
                                                 <i className={`fa-solid fa-chevron-${showTypeDropdown ? 'up' : 'down'} text-[8px]`} />
                                             </button>
                                             {showTypeDropdown && (
                                                 <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[160px] py-1 overflow-hidden">
-                                                    {/* All option */}
                                                     <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group border-b border-slate-100">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={filterPropertyTypes.size === 0}
-                                                            onChange={() => { setFilterPropertyTypes(new Set()); setCurrentPage(1); }}
-                                                            className="accent-indigo-600 w-3.5 h-3.5"
-                                                        />
-                                                        <span className="text-[10px] font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide">All</span>
+                                                        <input type="checkbox" checked={filterPropertyTypes.size === 0} onChange={() => { setFilterPropertyTypes(new Set()); setCurrentPage(1); }} className="accent-indigo-600 w-3.5 h-3.5" />
+                                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">All</span>
                                                     </label>
                                                     {availablePropertyTypes.map(t => (
-                                                        <label
-                                                            key={t}
-                                                            className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group"
-                                                        >
+                                                        <label key={t} className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={filterPropertyTypes.has(t)}
-                                                                onChange={() => {
-                                                                    setFilterPropertyTypes(prev => {
-                                                                        const next = new Set(prev);
-                                                                        if (next.has(t)) next.delete(t); else next.add(t);
-                                                                        return next;
-                                                                    });
-                                                                    setCurrentPage(1);
-                                                                }}
+                                                                onChange={() => { setFilterPropertyTypes(prev => { const next = new Set(prev); if (next.has(t)) next.delete(t); else next.add(t); return next; }); setCurrentPage(1); }}
                                                                 className="accent-indigo-600 w-3.5 h-3.5"
                                                             />
                                                             <span className="text-[10px] font-semibold text-slate-700 group-hover:text-slate-900">{t}</span>
@@ -865,34 +823,43 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                     </div>
                                 )}
 
-                                {/* On MLS toggle */}
-                                <div className="flex items-center gap-1.5">
+                                {/* MLS dropdown */}
+                                <div className="flex items-center gap-1.5 shrink-0">
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">MLS</span>
-                                    <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
-                                        {([{ val: 'all', label: 'All' }, { val: 'on', label: 'On MLS' }, { val: 'off', label: 'Off MLS' }] as { val: 'all' | 'on' | 'off'; label: string }[]).map(({ val, label }) => (
-                                            <button
-                                                key={val}
-                                                onClick={() => { setFilterOnMLS(val); setCurrentPage(1); }}
-                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${filterOnMLS === val ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                {label}
-                                            </button>
-                                        ))}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowMLSDropdown(p => !p)}
+                                            onBlur={() => setTimeout(() => setShowMLSDropdown(false), 150)}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${filterOnMLS !== 'all' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
+                                        >
+                                            {filterOnMLS === 'all' ? 'All' : filterOnMLS === 'on' ? 'On MLS' : 'Off MLS'}
+                                            <i className={`fa-solid fa-chevron-${showMLSDropdown ? 'up' : 'down'} text-[8px]`} />
+                                        </button>
+                                        {showMLSDropdown && (
+                                            <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[120px] py-1 overflow-hidden">
+                                                {([{ val: 'all', label: 'All' }, { val: 'on', label: 'On MLS' }, { val: 'off', label: 'Off MLS' }] as { val: 'all' | 'on' | 'off'; label: string }[]).map(({ val, label }) => (
+                                                    <button
+                                                        key={val}
+                                                        onMouseDown={() => { setFilterOnMLS(val); setShowMLSDropdown(false); setCurrentPage(1); }}
+                                                        className={`w-full text-left px-3 py-2 text-[10px] font-semibold hover:bg-slate-50 transition-colors ${filterOnMLS === val ? 'text-indigo-600 font-black' : 'text-slate-700'}`}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* Listing Subtype dropdown */}
+                                {/* Listing Type dropdown */}
                                 {availableListingSubTypes.length > 0 && (
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Subtype</span>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Listing Type</span>
                                         <div className="relative">
                                             <button
                                                 onClick={() => setShowSubTypeDropdown(p => !p)}
                                                 onBlur={() => setTimeout(() => setShowSubTypeDropdown(false), 150)}
-                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${filterListingSubTypes.size > 0
-                                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                                                    }`}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${filterListingSubTypes.size > 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
                                             >
                                                 {filterListingSubTypes.size > 0 ? `${filterListingSubTypes.size} selected` : 'All'}
                                                 <i className={`fa-solid fa-chevron-${showSubTypeDropdown ? 'up' : 'down'} text-[8px]`} />
@@ -900,12 +867,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                             {showSubTypeDropdown && (
                                                 <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[170px] py-1 overflow-hidden">
                                                     <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer group border-b border-slate-100">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={filterListingSubTypes.size === 0}
-                                                            onChange={() => { setFilterListingSubTypes(new Set()); setCurrentPage(1); }}
-                                                            className="accent-indigo-600 w-3.5 h-3.5"
-                                                        />
+                                                        <input type="checkbox" checked={filterListingSubTypes.size === 0} onChange={() => { setFilterListingSubTypes(new Set()); setCurrentPage(1); }} className="accent-indigo-600 w-3.5 h-3.5" />
                                                         <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">All</span>
                                                     </label>
                                                     {availableListingSubTypes.map(key => (
@@ -913,14 +875,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                             <input
                                                                 type="checkbox"
                                                                 checked={filterListingSubTypes.has(key)}
-                                                                onChange={() => {
-                                                                    setFilterListingSubTypes(prev => {
-                                                                        const next = new Set(prev);
-                                                                        if (next.has(key)) next.delete(key); else next.add(key);
-                                                                        return next;
-                                                                    });
-                                                                    setCurrentPage(1);
-                                                                }}
+                                                                onChange={() => { setFilterListingSubTypes(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; }); setCurrentPage(1); }}
                                                                 className="accent-indigo-600 w-3.5 h-3.5"
                                                             />
                                                             <span className="text-[10px] font-semibold text-slate-700 group-hover:text-slate-900 capitalize">{subTypeLabel(key)}</span>
@@ -932,11 +887,11 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                     </div>
                                 )}
 
-                                {/* Clear extra filters */}
+                                {/* Clear filters */}
                                 {(priceMin !== '' || priceMax !== '' || filterPropertyTypes.size > 0 || filterListingSubTypes.size > 0 || filterOnMLS !== 'all') && (
                                     <button
                                         onClick={() => { setPriceMin(''); setPriceMax(''); setFilterPropertyTypes(new Set()); setFilterListingSubTypes(new Set()); setFilterOnMLS('all'); setCurrentPage(1); }}
-                                        className="text-[9px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-wide transition-colors"
+                                        className="text-[9px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-wide transition-colors shrink-0"
                                     >
                                         <i className="fa-solid fa-xmark mr-1" />Clear
                                     </button>
@@ -944,35 +899,19 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                             </div>
                         </div>
 
-                        {/* City / State tabs — below filters */}
-                        {cityStateTabs.length > 0 && (
-                            <div className="px-6 pt-4 flex items-center gap-2 flex-wrap border-b border-slate-100">
-                                {cityStateTabs.map(tab => (
-                                    <button
-                                        key={tab.key}
-                                        onClick={() => { setActiveCityTab(tab.key); setCurrentPage(1); }}
-                                        className={`flex items-center gap-1.5 px-4 py-2.5 mb-[-1px] rounded-t-xl text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${resolvedCityStateTab === tab.key
-                                            ? 'border-rose-500 text-rose-600 bg-rose-50/60'
-                                            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                            }`}
-                                    >
-                                        <i className="fa-solid fa-location-dot text-[8px]" />
-                                        {tab.key}
-                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${resolvedCityStateTab === tab.key ? 'bg-rose-100 text-rose-500' : 'bg-slate-100 text-slate-400'
-                                            }`}>
-                                            {resolvedCityStateTab === tab.key ? filtered.length : tab.count}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
 
                         {/* Cards */}
                         <div className="divide-y divide-slate-100">
                             {paginated.map(r => {
                                 const colors = scoreColor(r.distressScore);
                                 return (
-                                    <div key={r.zpid} className={`p-6 hover:bg-slate-50/40 transition-colors ${r.isNew ? 'bg-indigo-50/30' : ''}`}>
+                                    <div
+                                        key={r.zpid}
+                                        className={`relative p-6 hover:bg-slate-50/40 transition-colors ${r.isNew ? 'bg-indigo-50/30' : ''}`}
+                                        onMouseLeave={() => {
+                                            descHideTimer.current = setTimeout(() => setExpandedDescZpid(null), 150);
+                                        }}
+                                    >
                                         <div className="flex items-start gap-5">
                                             {/* Score ring */}
                                             <div className={`flex-shrink-0 w-16 h-16 rounded-2xl border-2 ${colors.bg} ${colors.border} flex flex-col items-center justify-center`}>
@@ -982,50 +921,24 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
 
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-3">
-                                                    <div>
-                                                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                    <div className="min-w-0 flex-1">
+                                                        {/* Title row: address · price · New · Comps */}
+                                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                             <a
                                                                 href={`https://www.zillow.com/homes/${r.zpid}_zpid/`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-[13px] font-black text-slate-900 leading-tight hover:text-indigo-600 hover:underline transition-colors"
                                                             >{r.address}</a>
-                                                            {r.isNew && (
-                                                                <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase tracking-wide flex items-center gap-1">
-                                                                    <i className="fa-solid fa-sparkles text-[7px]" />New
-                                                                </span>
-                                                            )}
-                                                        </div>
-
-                                                        {/* ── Property summary strip ── */}
-                                                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
                                                             {r.listPrice != null && (
-                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black">
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black shrink-0">
                                                                     <i className="fa-solid fa-tag text-[8px]" />
                                                                     ${r.listPrice.toLocaleString()}
                                                                 </span>
                                                             )}
-                                                            {r.propertyType && (
-                                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-200">
-                                                                    {r.propertyType}
-                                                                </span>
-                                                            )}
-                                                            {r.mlsName && (
-                                                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded-lg text-[10px] font-bold border border-indigo-100">
-                                                                    {r.mlsName}
-                                                                </span>
-                                                            )}
-                                                        </div>
-
-                                                        {r.description && (
-                                                            <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-2 mb-1.5">{r.description}</p>
-                                                        )}
-
-                                                        <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 flex-wrap">
-                                                            <span>{r.city} · {r.zpid}</span>
-                                                            {r.fromCache && !r.isNew && (
-                                                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded text-[8px] font-black uppercase tracking-wide" title={r.analyzedAt ? `Analyzed ${r.analyzedAt.toLocaleDateString()}` : 'Cached'}>
-                                                                    <i className="fa-solid fa-bolt text-[7px] mr-0.5" />Cached
+                                                            {r.isNew && (
+                                                                <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase tracking-wide flex items-center gap-1 shrink-0">
+                                                                    <i className="fa-solid fa-sparkles text-[7px]" />New
                                                                 </span>
                                                             )}
                                                             {r.distressScore >= 4 && (
@@ -1035,8 +948,6 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                                         let lng = r.longitude;
                                                                         let listPrice: number | undefined;
                                                                         let pd: any = null;
-                                                                        // Fall back: look up from properties collection if distress_analysis
-                                                                        // was written before lat/lng caching was added
                                                                         if (lat == null || lng == null) {
                                                                             try {
                                                                                 const propSnap = await getDoc(doc(db, 'properties', r.zpid));
@@ -1048,7 +959,6 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                                                 }
                                                                             } catch { /* non-fatal */ }
                                                                         } else {
-                                                                            // coords already known — still grab property details
                                                                             try {
                                                                                 const propSnap = await getDoc(doc(db, 'properties', r.zpid));
                                                                                 if (propSnap.exists()) {
@@ -1068,23 +978,58 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                                                                             lotSize: pd?.lotAreaValue ?? undefined,
                                                                         });
                                                                     }}
-                                                                    className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded text-[8px] font-black uppercase tracking-wide hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-violet-50 text-violet-600 border border-violet-200 rounded-lg text-[9px] font-black uppercase tracking-wide hover:bg-violet-100 hover:border-violet-300 transition-all shrink-0"
                                                                 >
-                                                                    <i className="fa-solid fa-chart-bar text-[7px]" />Comps
+                                                                    <i className="fa-solid fa-chart-bar text-[8px]" />Comps
                                                                 </button>
                                                             )}
                                                         </div>
-                                                    </div>
-                                                    {/* Score bar */}
-                                                    <div className="flex-shrink-0 w-24">
-                                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+
+                                                        {r.description && (
+                                                            <p
+                                                                className="text-[10px] text-slate-500 leading-relaxed line-clamp-2 cursor-default mb-1.5"
+                                                                onMouseEnter={() => {
+                                                                    if (descHideTimer.current) clearTimeout(descHideTimer.current);
+                                                                    setExpandedDescZpid(r.zpid);
+                                                                }}
+                                                            >
+                                                                {r.description}
+                                                            </p>
+                                                        )}
+
+                                                        {/* Full-card description overlay */}
+                                                        {expandedDescZpid === r.zpid && r.description && (
                                                             <div
-                                                                className={`h-full rounded-full transition-all duration-700 ${colors.bar}`}
-                                                                style={{ width: `${(r.distressScore / 10) * 100}%` }}
-                                                            />
-                                                        </div>
+                                                                className="absolute top-0 right-0 w-3/5 z-50 bg-white border border-slate-200 shadow-2xl rounded-[2rem] p-5"
+                                                                onMouseEnter={() => {
+                                                                    if (descHideTimer.current) clearTimeout(descHideTimer.current);
+                                                                }}
+                                                                onMouseLeave={() => {
+                                                                    descHideTimer.current = setTimeout(() => setExpandedDescZpid(null), 150);
+                                                                }}
+                                                            >
+                                                                <button
+                                                                    onClick={() => setExpandedDescZpid(null)}
+                                                                    className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-all"
+                                                                >
+                                                                    <i className="fa-solid fa-xmark text-[10px]" />
+                                                                </button>
+                                                                <p className="text-[12px] text-slate-700 leading-relaxed max-h-64 overflow-y-auto custom-scrollbar pr-6">{r.description}</p>
+                                                            </div>
+                                                        )}
+
                                                     </div>
+
+                                                    {/* Top-right: property type */}
+                                                    {r.propertyType && (
+                                                        <div className="flex-shrink-0 pt-0.5">
+                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-bold border border-slate-200 whitespace-nowrap">
+                                                                {r.propertyType}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
+
 
                                                 {r.error ? (
                                                     <div className="mt-2 text-[10px] text-rose-500 font-bold">{r.error}</div>
@@ -1171,8 +1116,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = () => {
                     </div>
                 )}
 
-                {/* Log console */}
-                {logs.length > 0 && (
+                {/* Log console — admin only */}
+                {isAdmin && logs.length > 0 && (
                     <div className="bg-slate-900 rounded-[2rem] overflow-hidden">
                         <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scan Log</span>

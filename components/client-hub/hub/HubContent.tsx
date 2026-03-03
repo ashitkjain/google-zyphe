@@ -175,7 +175,7 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {activeTab === 'calendar' && <ZypheCalendar realtorId={realtorId} leads={leads} tasks={tasks} />}
 
-            {activeTab === 'distressed_finder' && <DistressedFinderTab onNavigateToComps={handleNavigateToComps} />}
+            {activeTab === 'distressed_finder' && <DistressedFinderTab onNavigateToComps={handleNavigateToComps} isAdmin={userRole === 'admin'} />}
 
             {activeTab === 'property_comps' && <PropertyCompsTab initialAddress={compsAddress} />}
 
