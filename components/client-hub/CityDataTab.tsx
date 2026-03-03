@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { APP_CONFIG, SUPPORTED_STATES } from '../../config';
+import { APP_CONFIG, SUPPORTED_STATES, STATE_NAME_MAP } from '../../config';
 import {
     saveZipMetadataBatch,
     getZipsForCity,
     saveZipListings,
     getZipListings,
+    saveZipSoldListings,
     removePropertyFromZipCache,
     getCachedCities
 } from '../../services/firebase/cityData';
@@ -828,13 +829,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 cachedGroups = await getZipsForCity(normalizedCity);
 
                 if (cachedGroups) {
-                    // Only use zips from SUPPORTED_STATES
+                    // zipsByState keys may be full names (e.g. "California") — resolve via STATE_NAME_MAP
+                    const supportedUpper = SUPPORTED_STATES.map(s => s.toUpperCase());
+                    const resolveState = (s: string) => STATE_NAME_MAP[s.toLowerCase()] || s.toUpperCase();
                     const filteredZips = Object.entries(cachedGroups)
-                        .filter(([state]) => SUPPORTED_STATES.includes(state))
+                        .filter(([state]) => supportedUpper.includes(resolveState(state)))
                         .flatMap(([, zips]) => zips);
                     if (filteredZips.length > 0) {
                         const statesFound = Object.keys(cachedGroups)
-                            .filter(s => SUPPORTED_STATES.includes(s)).join(', ');
+                            .filter(s => supportedUpper.includes(resolveState(s))).join(', ');
                         addLog(`Cloud Cache Hit for City: ${normalizedCity}. Found ${filteredZips.length} zips across [${statesFound}].`);
                         targetZips = filteredZips;
                     }
@@ -1392,11 +1395,109 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             <button
                                 onClick={() => handleSearch(true)}
                                 disabled={loading}
-                                title="Bypass cache and fetch fresh listings from RapidAPI"
+                                title="Bypass cache and fetch fresh ForSale listings from RapidAPI"
                                 className="px-6 py-4 border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
                             >
                                 <i className="fa-solid fa-rotate" />
                                 Force Refresh
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!city) { addLog('Please enter a city name.'); return; }
+                                    setLoading(true);
+                                    const normalizedCity = city.trim();
+                                    addLog(`[Cache Refresh] Resolving zips for ${normalizedCity}...`);
+
+                                    // Resolve zips
+                                    const cachedGroups = await getZipsForCity(normalizedCity);
+                                    if (!cachedGroups) {
+                                        addLog('⚠ No zips found in city_zip_cache. Run ingestion first.');
+                                        setLoading(false);
+                                        return;
+                                    }
+                                    const supportedUpper = SUPPORTED_STATES.map(s => s.toUpperCase());
+                                    const resolveState = (s: string) => STATE_NAME_MAP[s.toLowerCase()] || s.toUpperCase();
+                                    const allZips = Object.entries(cachedGroups)
+                                        .filter(([state]) => supportedUpper.includes(resolveState(state)))
+                                        .flatMap(([, zips]) => zips);
+                                    const uniqueZips = [...new Set(allZips)];
+
+                                    if (uniqueZips.length === 0) {
+                                        addLog('⚠ No supported-state zips found.');
+                                        setLoading(false);
+                                        return;
+                                    }
+
+                                    const config = APP_CONFIG.usHousingApi;
+                                    addLog(`[Cache Refresh] Force-refreshing ${uniqueZips.length} zips (ForSale + RecentlySold)...`);
+
+                                    for (let i = 0; i < uniqueZips.length; i++) {
+                                        const zip = uniqueZips[i];
+                                        addLog(`  [${i + 1}/${uniqueZips.length}] Zip ${zip}...`);
+
+                                        // ForSale listings
+                                        try {
+                                            const allForSale: any[] = [];
+                                            let page = 1;
+                                            let totalPages = 1;
+                                            while (page <= totalPages) {
+                                                const resp = await fetch(
+                                                    `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale&page=${page}`,
+                                                    { headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host } }
+                                                );
+                                                if (!resp.ok) { addLog(`    ForSale p${page} error: ${resp.status}`); break; }
+                                                const result = await resp.json();
+                                                const items = Array.isArray(result) ? result : (result.props || result.results || []);
+                                                totalPages = result.totalPages ?? result.total_pages ?? 1;
+                                                allForSale.push(...items);
+                                                addLog(`    ForSale p${page}/${totalPages}: ${items.length}`);
+                                                page++;
+                                                if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
+                                            }
+                                            if (allForSale.length > 0) await saveZipListings(zip, allForSale);
+                                            addLog(`    ✓ ForSale: ${allForSale.length} saved`);
+                                        } catch (e: any) {
+                                            addLog(`    ⚠ ForSale error: ${e.message}`);
+                                        }
+
+                                        // RecentlySold listings
+                                        try {
+                                            const allSold: any[] = [];
+                                            let page = 1;
+                                            let totalPages = 1;
+                                            while (page <= totalPages) {
+                                                const resp = await fetch(
+                                                    `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=RecentlySold&soldInLast=6m&page=${page}`,
+                                                    { headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host } }
+                                                );
+                                                if (!resp.ok) { addLog(`    Sold p${page} error: ${resp.status}`); break; }
+                                                const result = await resp.json();
+                                                const items = Array.isArray(result) ? result : (result.props || result.results || []);
+                                                totalPages = result.totalPages ?? result.total_pages ?? 1;
+                                                allSold.push(...items);
+                                                addLog(`    Sold p${page}/${totalPages}: ${items.length}`);
+                                                page++;
+                                                if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
+                                            }
+                                            if (allSold.length > 0) await saveZipSoldListings(zip, allSold);
+                                            addLog(`    ✓ Sold: ${allSold.length} saved`);
+                                        } catch (e: any) {
+                                            addLog(`    ⚠ Sold error: ${e.message}`);
+                                        }
+
+                                        // Brief pause between zips
+                                        if (i < uniqueZips.length - 1) await new Promise(r => setTimeout(r, 500));
+                                    }
+
+                                    addLog(`[Cache Refresh] Done. All zip caches refreshed for ${normalizedCity}.`);
+                                    setLoading(false);
+                                }}
+                                disabled={loading || !city}
+                                title="Force refresh ForSale and RecentlySold zip listing caches for all zips in this city"
+                                className="px-6 py-4 border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-arrows-rotate" />
+                                Refresh Zip Listing Caches
                             </button>
                             <button
                                 onClick={async () => {

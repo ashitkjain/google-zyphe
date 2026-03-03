@@ -32,13 +32,22 @@ interface DistressResult {
     listingSubTypes?: string[];
     renovationStrategy?: string;
     estimatedArvPremium?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    livingArea?: number;
+    lotAreaValue?: number;
+    lotAreaUnit?: string;
 }
 
 type ScanStatus = 'idle' | 'fetching_zips' | 'fetching_listings' | 'analyzing' | 'done' | 'error';
 
 /** Format listing sub-type keys like 'is_foreclosure' → 'Foreclosure' */
 function subTypeLabel(key: string): string {
-    return key.replace(/^is_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const lower = key.toLowerCase();
+    if (lower.includes('fsba')) return 'Sale By Agent';
+    if (lower.includes('fsbo')) return 'Sale By Owner';
+    const stripped = key.replace(/^is_/i, '');
+    return stripped.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function scoreColor(score: number) {
@@ -73,7 +82,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
     const [priceMin, setPriceMin] = useState<number | ''>('');
     const [priceMax, setPriceMax] = useState<number | ''>('');
     const [filterPropertyTypes, setFilterPropertyTypes] = useState<Set<string>>(new Set());
-    const [filterListingSubTypes, setFilterListingSubTypes] = useState<Set<string>>(new Set());
+    const [filterListingSubTypes, setFilterListingSubTypes] = useState<Set<string>>(new Set(['is_FSBA']));
     const [filterOnMLS, setFilterOnMLS] = useState<'all' | 'on' | 'off'>('all');
     const [showTypeDropdown, setShowTypeDropdown] = useState(false);
     const [showSubTypeDropdown, setShowSubTypeDropdown] = useState(false);
@@ -275,13 +284,45 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                     r.propertyType = pd.homeType ?? pd.propertyType ?? pd.property_type ?? undefined;
                     r.description = pd.description || pd.publicRemarks || pd.remarks || '';
                     r.mlsName = pd.attribution?.mlsName ?? undefined;
-                    // Extract truthy keys from listingSubType boolean flags
-                    const lst: Record<string, unknown> = pd.listingSubType ?? pd.listing_sub_type ?? pd.listingSubtype ?? {};
-                    r.listingSubTypes = Object.entries(lst)
-                        .filter(([, v]) => v === true)
-                        .map(([k]) => k);
                 });
             } catch { /* non-fatal — display without enrichment */ }
+
+            // Enrich with specs from zip_listings_cache (bedrooms, bathrooms, livingArea, lot)
+            try {
+                // Resolve zips for this city so we can read zip_listings_cache
+                const cachedGroups = await getZipsForCity(trimmedCity);
+                const supportedUpper = SUPPORTED_STATES.map(s => s.toUpperCase());
+                const cityZips: string[] = cachedGroups
+                    ? Object.entries(cachedGroups)
+                        .filter(([state]) => supportedUpper.includes(STATE_NAME_MAP[state.toLowerCase()] || state.toUpperCase()))
+                        .flatMap(([, zips]) => zips)
+                    : [];
+
+                const zipListingsMap = new Map<string, any>();
+                for (const zip of cityZips) {
+                    const cache = await getZipListings(zip);
+                    if (!cache?.listings?.length) continue;
+                    for (const listing of cache.listings) {
+                        const zpid = String(listing.zpid || listing.property_id || listing.listing_id || '');
+                        if (zpid) zipListingsMap.set(zpid, listing);
+                    }
+                }
+                loaded.forEach(r => {
+                    const zl = zipListingsMap.get(r.zpid);
+                    if (!zl) return;
+                    r.bedrooms = zl.bedrooms ?? r.bedrooms ?? undefined;
+                    r.bathrooms = zl.bathrooms ?? r.bathrooms ?? undefined;
+                    r.livingArea = zl.livingArea ?? r.livingArea ?? undefined;
+                    r.lotAreaValue = zl.lotAreaValue ?? r.lotAreaValue ?? undefined;
+                    r.lotAreaUnit = zl.lotAreaUnit ?? r.lotAreaUnit ?? undefined;
+                    // Also pick up listingSubType from zip cache if not already set
+                    if (!r.listingSubTypes?.length) {
+                        const lst: Record<string, unknown> = zl.listingSubType ?? {};
+                        const truthy = Object.entries(lst).filter(([, v]) => v === true).map(([k]) => k);
+                        if (truthy.length > 0) r.listingSubTypes = truthy;
+                    }
+                });
+            } catch { /* non-fatal */ }
 
             loaded.sort((a, b) => b.distressScore - a.distressScore);
             setResults(loaded);
@@ -358,17 +399,23 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
             addLog(`Scanning ${uniqueZips.length} zip codes for listings...`);
 
             // Collect all candidate zpids + their listing metadata from cache
-            const candidateMap: Record<string, { address: string; city: string; state: string }> = {};
+            const candidateMap: Record<string, { address: string; city: string; state: string; bedrooms?: number; bathrooms?: number; livingArea?: number; lotAreaValue?: number; lotAreaUnit?: string; listingSubType?: Record<string, boolean> }> = {};
             for (const zip of uniqueZips) {
                 const cache = await getZipListings(zip);
                 if (!cache?.listings?.length) continue;
                 for (const listing of cache.listings) {
-                    const zpid = String(listing.property_id || listing.listing_id || listing.mls_id || listing.mls?.id || '');
+                    const zpid = String(listing.zpid || listing.property_id || listing.listing_id || listing.mls_id || listing.mls?.id || '');
                     if (!zpid || candidateMap[zpid]) continue;
                     candidateMap[zpid] = {
-                        address: listing.location?.address?.line || zpid,
+                        address: listing.location?.address?.line || listing.address || zpid,
                         city: listing.location?.address?.city || trimmedCity,
                         state: listing.location?.address?.state_code || '',
+                        bedrooms: listing.bedrooms ?? undefined,
+                        bathrooms: listing.bathrooms ?? undefined,
+                        livingArea: listing.livingArea ?? undefined,
+                        lotAreaValue: listing.lotAreaValue ?? undefined,
+                        lotAreaUnit: listing.lotAreaUnit ?? undefined,
+                        listingSubType: listing.listingSubType ?? undefined,
                     };
                 }
             }
@@ -503,6 +550,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                             analyzed_at: Timestamp.now(),
                         });
 
+                        const candidateMeta = candidateMap[zpid];
+
                         newResults.push({
                             zpid, address, city: propCity, state: propState,
                             cityKey: propState ? `${propCity}, ${propState}` : propCity,
@@ -521,6 +570,16 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                             latitude,
                             longitude,
                             listPrice: data.listPrice ?? data.price ?? data.list_price ?? undefined,
+                            bedrooms: candidateMeta?.bedrooms,
+                            bathrooms: candidateMeta?.bathrooms,
+                            livingArea: candidateMeta?.livingArea,
+                            lotAreaValue: candidateMeta?.lotAreaValue,
+                            lotAreaUnit: candidateMeta?.lotAreaUnit,
+                            listingSubTypes: (() => {
+                                const lst = candidateMeta?.listingSubType;
+                                if (!lst) return undefined;
+                                return Object.entries(lst).filter(([, v]) => v === true).map(([k]) => k);
+                            })(),
                         });
                     } catch (e: any) {
                         addLog(`  ⚠️ AI failed for ${address}: ${e.message}`);
@@ -842,7 +901,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                 onBlur={() => setTimeout(() => setShowTypeDropdown(false), 150)}
                                                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border transition-all ${filterPropertyTypes.size > 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
                                             >
-                                                {filterPropertyTypes.size > 0 ? `${filterPropertyTypes.size} selected` : 'All'}
+                                                {filterPropertyTypes.size > 0 ? Array.from(filterPropertyTypes).join(', ') : 'All'}
                                                 <i className={`fa-solid fa-chevron-${showTypeDropdown ? 'up' : 'down'} text-[9px]`} />
                                             </button>
                                             {showTypeDropdown && (
@@ -906,7 +965,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                 onBlur={() => setTimeout(() => setShowSubTypeDropdown(false), 150)}
                                                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border transition-all ${filterListingSubTypes.size > 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
                                             >
-                                                {filterListingSubTypes.size > 0 ? `${filterListingSubTypes.size} selected` : 'All'}
+                                                {filterListingSubTypes.size > 0 ? Array.from(filterListingSubTypes).map(s => subTypeLabel(String(s))).join(', ') : 'All'}
                                                 <i className={`fa-solid fa-chevron-${showSubTypeDropdown ? 'up' : 'down'} text-[9px]`} />
                                             </button>
                                             {showSubTypeDropdown && (
@@ -932,13 +991,13 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                     </div>
                                 )}
 
-                                {/* Clear filters */}
-                                {(priceMin !== '' || priceMax !== '' || filterPropertyTypes.size > 0 || filterListingSubTypes.size > 0 || filterOnMLS !== 'all') && (
+                                {/* Reset filters to defaults */}
+                                {(priceMin !== '' || priceMax !== '' || filterPropertyTypes.size > 0 || !(filterListingSubTypes.size === 1 && filterListingSubTypes.has('is_FSBA')) || filterOnMLS !== 'all') && (
                                     <button
-                                        onClick={() => { setPriceMin(''); setPriceMax(''); setFilterPropertyTypes(new Set()); setFilterListingSubTypes(new Set()); setFilterOnMLS('all'); setCurrentPage(1); }}
-                                        className="text-[10px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-wide transition-colors shrink-0"
+                                        onClick={() => { setPriceMin(''); setPriceMax(''); setFilterPropertyTypes(new Set()); setFilterListingSubTypes(new Set(['is_FSBA'])); setFilterOnMLS('all'); setCurrentPage(1); }}
+                                        className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-wide transition-colors shrink-0"
                                     >
-                                        <i className="fa-solid fa-xmark mr-1" />Clear
+                                        <i className="fa-solid fa-arrow-rotate-left" />Reset Filters
                                     </button>
                                 )}
                             </div>
@@ -992,6 +1051,15 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                             {r.isNew && (
                                                                 <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-wide flex items-center gap-1 shrink-0">
                                                                     <i className="fa-solid fa-sparkles text-[8px]" />New
+                                                                </span>
+                                                            )}
+                                                            {/* Beds / Baths / SqFt / Lot */}
+                                                            {(r.bedrooms || r.bathrooms || r.livingArea || r.lotAreaValue) && (
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-400 shrink-0">
+                                                                    {r.bedrooms != null && <span>{r.bedrooms} bd</span>}
+                                                                    {r.bathrooms != null && <><span className="text-slate-200">|</span><span>{r.bathrooms} ba</span></>}
+                                                                    {r.livingArea != null && <><span className="text-slate-200">|</span><span>{r.livingArea.toLocaleString()} sqft</span></>}
+                                                                    {r.lotAreaValue != null && <><span className="text-slate-200">|</span><span>{r.lotAreaValue} {r.lotAreaUnit || 'sqft'}</span></>}
                                                                 </span>
                                                             )}
                                                             {r.distressScore >= 4 && (
@@ -1074,20 +1142,21 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                     </div>
 
                                                     {/* Top-right: property type + listing sub-types */}
-                                                    {(r.propertyType || (r.listingSubTypes && r.listingSubTypes.length > 0)) && (
-                                                        <div className="flex-shrink-0 pt-0.5 flex items-center gap-1 flex-wrap justify-end">
-                                                            {r.propertyType && (
-                                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-200 whitespace-nowrap">
-                                                                    {r.propertyType}
-                                                                </span>
-                                                            )}
-                                                            {r.listingSubTypes?.map((st, i) => (
-                                                                <span key={i} className="px-2 py-0.5 bg-violet-50 text-violet-700 rounded-lg text-[10px] font-bold border border-violet-200 whitespace-nowrap">
-                                                                    {subTypeLabel(st)}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                    <div className="flex-shrink-0 pt-0.5 flex items-center gap-1 flex-wrap justify-end">
+                                                        {r.propertyType && (
+                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-200 whitespace-nowrap">
+                                                                {r.propertyType}
+                                                            </span>
+                                                        )}
+                                                        {(r.listingSubTypes && r.listingSubTypes.length > 0
+                                                            ? r.listingSubTypes
+                                                            : ['is_FSBA']
+                                                        ).map((st, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-violet-50 text-violet-700 rounded-lg text-[10px] font-bold border border-violet-200 whitespace-nowrap">
+                                                                {subTypeLabel(st)}
+                                                            </span>
+                                                        ))}
+                                                    </div>
                                                 </div>
 
 
