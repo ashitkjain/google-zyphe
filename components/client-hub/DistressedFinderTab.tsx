@@ -730,7 +730,10 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                         <span className="w-10 h-10 bg-rose-100 rounded-2xl flex items-center justify-center">
                             <i className="fa-solid fa-house-crack text-rose-600 text-sm" />
                         </span>
-                        <h2 className="text-xl font-black text-slate-900 whitespace-nowrap">Find Distressed Properties</h2>
+                        <div>
+                            <h2 className="text-xl font-black text-slate-900 whitespace-nowrap">Find Distressed Properties</h2>
+                            <p className="text-[10px] text-slate-400 font-medium">AI-generated suggestions — verify independently before making investment decisions.</p>
+                        </div>
                     </div>
 
                     {/* City autocomplete + buttons */}
