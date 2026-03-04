@@ -326,7 +326,7 @@ function CompCard({ comp }: { comp: SaleComp }) {
                 )}
             </div>
 
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-4 gap-2 mb-3">
                 <div className="text-center">
                     <div className="text-[15px] font-black text-slate-900">{fmt(displayPrice)}</div>
                     <div className="text-[8px] font-black text-slate-400 uppercase tracking-wide">Sale Price</div>
@@ -338,6 +338,12 @@ function CompCard({ comp }: { comp: SaleComp }) {
                 <div className="text-center">
                     <div className="text-[15px] font-black text-slate-700">{comp.distance != null ? `${Number(comp.distance).toFixed(1)} mi` : '—'}</div>
                     <div className="text-[8px] font-black text-slate-400 uppercase tracking-wide">Distance</div>
+                </div>
+                <div className="text-center">
+                    <div className="text-[15px] font-black text-slate-700">
+                        {(() => { const d = toDateSafe(comp.lastSaleDate); return d ? d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : '—'; })()}
+                    </div>
+                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-wide">Date Sold</div>
                 </div>
             </div>
 
@@ -402,10 +408,11 @@ interface PropertyCompsTabProps {
     subjectYearBuilt?: number;
     subjectHomeType?: string;
     subjectLotSize?: number;
+    preloadedComps?: SaleComp[];
 }
 
 
-const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = '', onBack, subjectLat, subjectLng, subjectListPrice, subjectBedrooms, subjectBathrooms, subjectSqft, subjectYearBuilt, subjectHomeType, subjectLotSize }) => {
+const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = '', onBack, subjectLat, subjectLng, subjectListPrice, subjectBedrooms, subjectBathrooms, subjectSqft, subjectYearBuilt, subjectHomeType, subjectLotSize, preloadedComps }) => {
     const [address, setAddress] = useState(initialAddress);
     const [bedrooms, setBedrooms] = useState('');
     const [bathrooms, setBathrooms] = useState('');
@@ -571,12 +578,24 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
 
     // Auto-fetch when navigated here with an initialAddress
     useEffect(() => {
+        if (preloadedComps && preloadedComps.length > 0) {
+            // Use preloaded comps from zip_sold_listings_cache — skip Rentcast entirely
+            setCached({
+                valueEstimate: {
+                    price: null as any, priceRangeLow: null as any, priceRangeHigh: null as any,
+                    latitude: null as any, longitude: null as any, listingType: null as any, comps: preloadedComps
+                },
+                queriedAt: new Date(),
+                address: initialAddress,
+            });
+            return;
+        }
         if (initialAddress) {
             setAddress(initialAddress);
             fetchComps(initialAddress);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialAddress]);
+    }, [initialAddress, preloadedComps]);
 
     const saleComps = cached?.valueEstimate?.comps ?? [];
     const filteredSale = applyDateFilter<SaleComp>(saleComps, saleFilter);

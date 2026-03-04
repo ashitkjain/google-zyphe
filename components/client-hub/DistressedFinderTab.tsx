@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, documentId, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { getZipsForCity, getZipListings, saveZipMetadataBatch, getCachedCities } from '../../services/firebase/cityData';
+import { getZipsForCity, getZipListings, saveZipMetadataBatch, getCachedCities, getZipSoldListings } from '../../services/firebase/cityData';
 import { APP_CONFIG, SUPPORTED_STATES, STATE_NAME_MAP } from '../../config';
 import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
 import { DISTRESS_PROMPT, DISTRESS_SCHEMA } from '../../prompts/property/distressAnalysis';
-import PropertyCompsTab from './PropertyCompsTab';
+import PropertyCompsTab, { SaleComp } from './PropertyCompsTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,7 @@ interface DistressedFinderTabProps {
 
 const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) => {
     const [compsAddress, setCompsAddress] = useState<{ address: string; lat?: number; lng?: number; listPrice?: number; bedrooms?: number; bathrooms?: number; sqft?: number; yearBuilt?: number; homeType?: string; lotSize?: number } | null>(null);
+    const [compsData, setCompsData] = useState<SaleComp[] | undefined>(undefined);
     const [city, setCity] = useState('Hayward');
     const [status, setStatus] = useState<ScanStatus>('idle');
     const [checkingNew, setCheckingNew] = useState(false);
@@ -89,7 +90,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
     const [showSubTypeDropdown, setShowSubTypeDropdown] = useState(false);
     const [showMLSDropdown, setShowMLSDropdown] = useState(false);
     const [expandedDescZpid, setExpandedDescZpid] = useState<string | null>(null);
-    const descHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [activeCityTab, setActiveCityTab] = useState<string | null>(null);
     const [lastSearchedCity, setLastSearchedCity] = useState('');
@@ -185,6 +186,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                 hidden_risks: aiData.hidden_risks ?? '',
                 ...(aiData.renovation_strategy && { renovation_strategy: aiData.renovation_strategy }),
                 ...(aiData.estimated_arv_premium != null && { estimated_arv_premium: aiData.estimated_arv_premium }),
+                ...(aiData.arv_breakdown && { arv_breakdown: aiData.arv_breakdown }),
                 address: r.address,
                 city: r.city,
                 state: r.state,
@@ -706,7 +708,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                 <div className="animate-in fade-in duration-300">
                     <PropertyCompsTab
                         initialAddress={compsAddress.address}
-                        onBack={() => setCompsAddress(null)}
+                        onBack={() => { setCompsAddress(null); setCompsData(undefined); }}
                         subjectLat={compsAddress.lat}
                         subjectLng={compsAddress.lng}
                         subjectListPrice={compsAddress.listPrice}
@@ -716,6 +718,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                         subjectYearBuilt={compsAddress.yearBuilt}
                         subjectHomeType={compsAddress.homeType}
                         subjectLotSize={compsAddress.lotSize}
+                        preloadedComps={compsData}
                     />
                 </div>
             )}
@@ -1020,9 +1023,6 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                     <div
                                         key={r.zpid}
                                         className={`relative p-6 hover:bg-slate-50/40 transition-colors ${r.isNew ? 'bg-indigo-50/30' : ''}`}
-                                        onMouseLeave={() => {
-                                            descHideTimer.current = setTimeout(() => setExpandedDescZpid(null), 150);
-                                        }}
                                     >
                                         <div className="flex items-start gap-5">
                                             {/* Score ring */}
@@ -1073,39 +1073,122 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                             {r.distressScore >= 4 && (
                                                                 <button
                                                                     onClick={async () => {
-                                                                        let lat = r.latitude;
-                                                                        let lng = r.longitude;
-                                                                        let listPrice: number | undefined;
-                                                                        let pd: any = null;
-                                                                        if (lat == null || lng == null) {
-                                                                            try {
-                                                                                const propSnap = await getDoc(doc(db, 'properties', r.zpid));
-                                                                                if (propSnap.exists()) {
-                                                                                    pd = propSnap.data();
-                                                                                    const coords = pd?.coordinates;
-                                                                                    if (coords?.latitude != null) { lat = coords.latitude; lng = coords.longitude; }
-                                                                                    listPrice = pd?.listPrice ?? pd?.price ?? pd?.list_price ?? undefined;
+                                                                        addLog(`🔍 Finding comps for ${r.address}...`);
+                                                                        try {
+                                                                            // 1. Get property data (zip, lat, lng, details)
+                                                                            let lat = r.latitude;
+                                                                            let lng = r.longitude;
+                                                                            let zipCode: string | undefined;
+                                                                            let listPrice: number | undefined;
+                                                                            let pd: any = null;
+
+                                                                            const propSnap = await getDoc(doc(db, 'properties', r.zpid));
+                                                                            if (propSnap.exists()) {
+                                                                                pd = propSnap.data();
+                                                                                const coords = pd?.coordinates;
+                                                                                if (coords?.latitude != null) { lat = coords.latitude; lng = coords.longitude; }
+                                                                                listPrice = pd?.listPrice ?? pd?.price ?? pd?.list_price ?? undefined;
+                                                                                zipCode = pd?.zipcode || pd?.zipCode || pd?.zip || pd?.postalCode || undefined;
+                                                                            }
+
+                                                                            // Try to extract zip from address if not in property doc
+                                                                            if (!zipCode) {
+                                                                                const zipMatch = r.address.match(/(\d{5})(?:\s|,|$)/);
+                                                                                if (zipMatch) zipCode = zipMatch[1];
+                                                                            }
+
+                                                                            if (!zipCode || lat == null || lng == null) {
+                                                                                addLog(`⚠️ Missing zip or coordinates for ${r.address}`);
+                                                                                return;
+                                                                            }
+
+                                                                            // 2. Fetch sold listings from cache for this zip
+                                                                            addLog(`  📦 Fetching sold listings for zip ${zipCode}...`);
+                                                                            const soldCache = await getZipSoldListings(zipCode);
+                                                                            if (!soldCache?.listings?.length) {
+                                                                                addLog(`⚠️ No sold listings cached for zip ${zipCode}`);
+                                                                                return;
+                                                                            }
+                                                                            addLog(`  Found ${soldCache.listings.length} sold listings in zip ${zipCode}`);
+
+                                                                            // 3. Haversine filter — keep ≤ 1.0 miles
+                                                                            const R = 3958.8;
+                                                                            const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+                                                                                const dLat = (lat2 - lat1) * Math.PI / 180;
+                                                                                const dLng = (lng2 - lng1) * Math.PI / 180;
+                                                                                const a = Math.sin(dLat / 2) ** 2 +
+                                                                                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                                                                                    Math.sin(dLng / 2) ** 2;
+                                                                                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                                                                            };
+
+                                                                            const nearbyComps: SaleComp[] = [];
+                                                                            for (const listing of soldCache.listings) {
+                                                                                const lLat = listing.latitude ?? listing.location?.address?.coordinate?.lat;
+                                                                                const lLng = listing.longitude ?? listing.location?.address?.coordinate?.lon;
+                                                                                if (lLat == null || lLng == null) continue;
+
+                                                                                const dist = haversine(lat, lng, lLat, lLng);
+                                                                                if (dist > 1.0) continue;
+
+                                                                                // Extract sold date from various field names
+                                                                                const rawDate = listing.dateSold || listing.lastSoldDate || listing.soldDate ||
+                                                                                    listing.date_sold || listing.sold_date || listing.contractDate || listing.closedDate || undefined;
+                                                                                let soldDateStr: string | undefined;
+                                                                                if (rawDate != null) {
+                                                                                    if (typeof rawDate === 'number') {
+                                                                                        // Unix timestamp: detect ms (>1e12) vs seconds
+                                                                                        const ms = rawDate > 1e12 ? rawDate : rawDate * 1000;
+                                                                                        soldDateStr = new Date(ms).toISOString();
+                                                                                    } else {
+                                                                                        soldDateStr = String(rawDate);
+                                                                                    }
                                                                                 }
-                                                                            } catch { /* non-fatal */ }
-                                                                        } else {
-                                                                            try {
-                                                                                const propSnap = await getDoc(doc(db, 'properties', r.zpid));
-                                                                                if (propSnap.exists()) {
-                                                                                    pd = propSnap.data();
-                                                                                    listPrice = pd?.listPrice ?? pd?.price ?? pd?.list_price ?? undefined;
-                                                                                }
-                                                                            } catch { /* non-fatal */ }
+
+                                                                                nearbyComps.push({
+                                                                                    id: String(listing.zpid || listing.property_id || listing.listing_id || listing.mls_id || Math.random()),
+                                                                                    formattedAddress: listing.location?.address?.line || listing.address || listing.streetAddress || '—',
+                                                                                    city: listing.location?.address?.city || listing.city || r.city,
+                                                                                    state: listing.location?.address?.state_code || listing.state || r.state,
+                                                                                    zipCode: listing.location?.address?.postal_code || listing.zipCode || zipCode,
+                                                                                    latitude: lLat,
+                                                                                    longitude: lLng,
+                                                                                    bedrooms: listing.bedrooms ?? listing.description?.beds ?? undefined,
+                                                                                    bathrooms: listing.bathrooms ?? listing.description?.baths ?? undefined,
+                                                                                    squareFootage: listing.livingArea ?? listing.description?.sqft ?? undefined,
+                                                                                    lotSize: listing.lotAreaValue ?? listing.lotSize ?? undefined,
+                                                                                    yearBuilt: listing.yearBuilt ?? undefined,
+                                                                                    lastSaleDate: soldDateStr,
+                                                                                    lastSalePrice: typeof (listing.price || listing.list_price || listing.lastSoldPrice || listing.soldPrice) === 'number' ? (listing.price || listing.list_price || listing.lastSoldPrice || listing.soldPrice) : undefined,
+                                                                                    distance: Math.round(dist * 10) / 10,
+                                                                                });
+                                                                            }
+
+                                                                            addLog(`  ✅ ${nearbyComps.length} sold properties within 1.0 mile`);
+
+                                                                            // 4. Save comp zpids to distress_analysis
+                                                                            if (nearbyComps.length > 0) {
+                                                                                const compZpids = nearbyComps.map(c => c.id);
+                                                                                const cacheRef = doc(db, 'distress_analysis', r.zpid);
+                                                                                await setDoc(cacheRef, { comps: compZpids }, { merge: true });
+                                                                                addLog(`  💾 Saved ${compZpids.length} comp zpids to cache`);
+                                                                            }
+
+                                                                            // 5. Open comps view with preloaded data
+                                                                            setCompsData(nearbyComps);
+                                                                            setCompsAddress({
+                                                                                address: r.address,
+                                                                                lat, lng, listPrice,
+                                                                                bedrooms: pd?.bedrooms ?? undefined,
+                                                                                bathrooms: pd?.bathrooms ?? undefined,
+                                                                                sqft: pd?.livingAreaValue ?? undefined,
+                                                                                yearBuilt: pd?.yearBuilt ?? undefined,
+                                                                                homeType: pd?.homeType ?? undefined,
+                                                                                lotSize: pd?.lotAreaValue ?? undefined,
+                                                                            });
+                                                                        } catch (e: any) {
+                                                                            addLog(`❌ Comps failed: ${e.message}`);
                                                                         }
-                                                                        setCompsAddress({
-                                                                            address: r.address,
-                                                                            lat, lng, listPrice,
-                                                                            bedrooms: pd?.bedrooms ?? undefined,
-                                                                            bathrooms: pd?.bathrooms ?? undefined,
-                                                                            sqft: pd?.livingAreaValue ?? undefined,
-                                                                            yearBuilt: pd?.yearBuilt ?? undefined,
-                                                                            homeType: pd?.homeType ?? undefined,
-                                                                            lotSize: pd?.lotAreaValue ?? undefined,
-                                                                        });
                                                                     }}
                                                                     className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-violet-50 text-violet-600 border border-violet-200 rounded-lg text-[10px] font-black uppercase tracking-wide hover:bg-violet-100 hover:border-violet-300 transition-all shrink-0"
                                                                 >
@@ -1114,29 +1197,26 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                             )}
                                                         </div>
 
+
                                                         {r.description && (
-                                                            <p
-                                                                className="text-[11px] text-slate-500 leading-relaxed line-clamp-2 cursor-default mb-1.5"
-                                                                onMouseEnter={() => {
-                                                                    if (descHideTimer.current) clearTimeout(descHideTimer.current);
-                                                                    setExpandedDescZpid(r.zpid);
-                                                                }}
-                                                            >
-                                                                {r.description}
-                                                            </p>
+                                                            <div className="mb-1.5">
+                                                                <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">
+                                                                    {r.description}
+                                                                </p>
+                                                                {r.description.length > 120 && (
+                                                                    <button
+                                                                        onClick={() => setExpandedDescZpid(r.zpid)}
+                                                                        className="text-[11px] text-indigo-500 font-bold hover:text-indigo-700 transition-colors mt-0.5"
+                                                                    >
+                                                                        See more
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         )}
 
                                                         {/* Full-card description overlay */}
                                                         {expandedDescZpid === r.zpid && r.description && (
-                                                            <div
-                                                                className="absolute top-0 right-0 w-3/5 z-50 bg-white border border-slate-200 shadow-2xl rounded-[2rem] p-5"
-                                                                onMouseEnter={() => {
-                                                                    if (descHideTimer.current) clearTimeout(descHideTimer.current);
-                                                                }}
-                                                                onMouseLeave={() => {
-                                                                    descHideTimer.current = setTimeout(() => setExpandedDescZpid(null), 150);
-                                                                }}
-                                                            >
+                                                            <div className="absolute top-0 right-0 w-3/5 z-50 bg-white border border-slate-200 shadow-2xl rounded-[2rem] p-5">
                                                                 <button
                                                                     onClick={() => setExpandedDescZpid(null)}
                                                                     className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-all"
@@ -1219,7 +1299,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                         <i className="fa-solid fa-hammer text-emerald-600 text-[12px]" />
                                                                         <span className="text-[11px] font-black text-emerald-700 uppercase tracking-widest">Renovation Strategy</span>
                                                                         <span className="ml-auto text-[11px] font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-                                                                            Est. ARV Premium: {(r.estimatedArvPremium ?? 0) > 0 ? `+$${r.estimatedArvPremium!.toLocaleString()}` : '—'}
+                                                                            Estimated ARV Upside: {(r.estimatedArvPremium ?? 0) > 0 ? `+$${r.estimatedArvPremium!.toLocaleString()}` : '—'}
                                                                         </span>
                                                                     </div>
                                                                     <p className="text-[12px] text-slate-700 leading-relaxed">{r.renovationStrategy}</p>

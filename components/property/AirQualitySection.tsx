@@ -10,11 +10,10 @@ interface Props {
 
 const AirQualitySection: React.FC<Props> = ({ data }) => {
     const aq = data.airQuality;
-    const pollen = data.pollen;
     const solar = data.solarData;
     const solarPotential = solar?.estimatedSolarProduction || (solar ? calculateSolarPotential(solar) : null);
 
-    if (!aq && !pollen && !solar) return null;
+    if (!aq && !solar) return null;
 
     const getAQIColor = (aqi: number) => {
         if (aqi <= 50) return 'text-emerald-500';
@@ -23,11 +22,6 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
         return 'text-rose-500';
     };
 
-    const getPollenColor = (score: number) => {
-        if (score <= 1) return 'text-emerald-500';
-        if (score <= 3) return 'text-amber-500';
-        return 'text-rose-600';
-    };
 
     const MetricItem: React.FC<{
         icon: string;
@@ -157,62 +151,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                     </div>
                 )}
 
-                {/* MODULE 2: ALLERGY & WELLNESS (POLLEN + AI ANALYSIS) */}
-                {pollen && (
-                    <div className="bg-slate-50/50 rounded-[2.5rem] border border-slate-100/80 overflow-hidden flex flex-col hover:bg-white transition-all duration-500 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 group">
-                        <div className="p-8">
-                            <div className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
-                                <i className="fa-solid fa-seedling text-[15px]"></i>
-                                Allergy & Wellness
-                            </div>
 
-                            <div className="grid grid-cols-1 gap-y-8">
-                                <MetricItem
-                                    icon="fa-chart-simple"
-                                    label="Allergy Risk"
-                                    value={`${pollen.score}/5 - ${pollen.category}`}
-                                    colorClass={getPollenColor(pollen.score)}
-                                />
-                                <MetricItem
-                                    icon="fa-calendar-days"
-                                    label="Seasonality window"
-                                    value={pollen.analysis?.seasonality_window || 'N/A'}
-                                />
-                                <MetricItem
-                                    icon="fa-dna"
-                                    label="Primary Triggers"
-                                    value={pollen.analysis?.primary_triggers?.join(', ') || pollen.dominantPollenType || 'Minimal'}
-                                />
-                            </div>
-                        </div>
-
-                        {/* AI Summary Sub-section */}
-                        {(pollen.analysis?.breathe_easy_summary || pollen.analysis?.maintenance_tip) && (
-                            <div className="mx-4 mb-4 space-y-3">
-                                {pollen.analysis.breathe_easy_summary && (
-                                    <div className="bg-white/50 rounded-[1.8rem] p-5 border border-slate-100">
-                                        <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                            <i className="fa-solid fa-lungs text-[11px]"></i>
-                                            Breathe Easy Summary
-                                        </div>
-                                        <p className="text-[12px] text-slate-600 font-medium leading-[1.6]">{pollen.analysis.breathe_easy_summary}</p>
-                                    </div>
-                                )}
-                                {pollen.analysis.maintenance_tip && (
-                                    <div className="bg-white/50 rounded-[1.8rem] p-5 border border-slate-100">
-                                        <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                            <i className="fa-solid fa-house-chimney-medical text-[11px]"></i>
-                                            Maintenance Insight
-                                        </div>
-                                        <p className="text-[12px] text-slate-600 font-medium leading-[1.6]">{pollen.analysis.maintenance_tip}</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="mt-auto p-4 bg-emerald-50/10 border-t border-emerald-100/10"></div>
-                    </div>
-                )}
 
                 {/* MODULE 3: SOLAR & STRUCTURAL DNA */}
                 {solar && (
