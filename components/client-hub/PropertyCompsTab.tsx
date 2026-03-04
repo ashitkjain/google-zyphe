@@ -341,9 +341,9 @@ function CompCard({ comp }: { comp: SaleComp }) {
                 </div>
                 <div className="text-center">
                     <div className="text-[15px] font-black text-slate-700">
-                        {(() => { const d = toDateSafe(comp.lastSaleDate); return d ? d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : '—'; })()}
+                        {(() => { const d = toDateSafe(comp.lastSaleDate); return d ? `${Math.floor((Date.now() - d.getTime()) / 86_400_000)}d` : '—'; })()}
                     </div>
-                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-wide">Date Sold</div>
+                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-wide">Days Ago</div>
                 </div>
             </div>
 
@@ -425,7 +425,17 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
 
     const [showAllSale, setShowAllSale] = useState(false);
     const [saleFilter, setSaleFilter] = useState<TimeFilter>(DEFAULT_FILTER);
+    const [openFilter, setOpenFilter] = useState<string | null>(null);
 
+    // ── Property filters ───────────────────────────────────────────────────
+    const [filterBeds, setFilterBeds] = useState<string>('any');
+    const [filterBaths, setFilterBaths] = useState<string>('any');
+    const [filterSqftMin, setFilterSqftMin] = useState('');
+    const [filterSqftMax, setFilterSqftMax] = useState('');
+    const [filterLotMin, setFilterLotMin] = useState('');
+    const [filterLotMax, setFilterLotMax] = useState('');
+    const [filterDaysMax, setFilterDaysMax] = useState('');
+    const [filterDistMax, setFilterDistMax] = useState('');
     // ── Zyphe Bracket state ────────────────────────────────────────────────
     const [bracket, setBracket] = useState<ZypheBracket | null>(null);
     const [bracketLoading, setBracketLoading] = useState(false);
@@ -598,8 +608,50 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
     }, [initialAddress, preloadedComps]);
 
     const saleComps = cached?.valueEstimate?.comps ?? [];
-    const filteredSale = applyDateFilter<SaleComp>(saleComps, saleFilter);
-    const visibleSale = showAllSale ? filteredSale : filteredSale.slice(0, SHOW_INITIAL);
+
+    // ── Apply all filters ────────────────────────────────────────────────
+    const fullyFiltered = (() => {
+        let items = applyDateFilter<SaleComp>(saleComps, saleFilter);
+        const today = Date.now();
+        const bedMin = filterBeds !== 'any' ? Number(filterBeds) : null;
+        const bathMin = filterBaths !== 'any' ? Number(filterBaths) : null;
+        const sqftMin = filterSqftMin ? Number(filterSqftMin) : null;
+        const sqftMax = filterSqftMax ? Number(filterSqftMax) : null;
+        const lotMin = filterLotMin ? Number(filterLotMin) : null;
+        const lotMax = filterLotMax ? Number(filterLotMax) : null;
+        const daysMax = filterDaysMax ? Number(filterDaysMax) : null;
+        const distMax = filterDistMax ? Number(filterDistMax) : null;
+
+        items = items.filter(c => {
+            if (bedMin != null && (c.bedrooms ?? 0) < bedMin) return false;
+            if (bathMin != null && (c.bathrooms ?? 0) < bathMin) return false;
+            if (sqftMin != null && (c.squareFootage ?? 0) < sqftMin) return false;
+            if (sqftMax != null && (c.squareFootage ?? 999999) > sqftMax) return false;
+            if (lotMin != null && (c.lotSize ?? 0) < lotMin) return false;
+            if (lotMax != null && (c.lotSize ?? 999999) > lotMax) return false;
+            if (distMax != null && (c.distance ?? 999) > distMax) return false;
+            if (daysMax != null) {
+                const d = toDateSafe(c.lastSaleDate);
+                if (d) {
+                    const daysSince = Math.floor((today - d.getTime()) / 86_400_000);
+                    if (daysSince > daysMax) return false;
+                }
+            }
+            return true;
+        });
+        return items;
+    })();
+
+    const hasActiveFilters = !!(filterBeds !== 'any' || filterBaths !== 'any' || filterSqftMin || filterSqftMax || filterLotMin || filterLotMax || filterDaysMax || filterDistMax);
+
+    const clearAllFilters = () => {
+        setFilterBeds('any'); setFilterBaths('any');
+        setFilterSqftMin(''); setFilterSqftMax('');
+        setFilterLotMin(''); setFilterLotMax('');
+        setFilterDaysMax(''); setFilterDistMax('');
+    };
+
+    const visibleSale = showAllSale ? fullyFiltered : fullyFiltered.slice(0, SHOW_INITIAL);
 
     return (
         <div className="max-w-7xl mx-auto pt-3 pb-8 px-6 space-y-5 animate-in fade-in duration-500">
@@ -758,30 +810,218 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                                 <div>
                                     <h3 className="text-[14px] font-black text-slate-900">Sale Comps</h3>
                                     <p className="text-[10px] text-slate-400 font-medium">
-                                        {filteredSale.length} of {saleComps.length} shown
+                                        {fullyFiltered.length} of {saleComps.length} shown
                                     </p>
                                 </div>
-                                <TimeFilterBar
-                                    value={saleFilter}
-                                    onChange={f => { setSaleFilter(f); setShowAllSale(false); }}
-                                    accentColor="bg-indigo-600"
-                                />
+                                <div className="flex items-center gap-2">
+                                    <TimeFilterBar
+                                        value={saleFilter}
+                                        onChange={f => { setSaleFilter(f); setShowAllSale(false); }}
+                                        accentColor="bg-indigo-600"
+                                    />
+                                </div>
                             </div>
-                            {filteredSale.length === 0 ? (
+                            {/* ── Filter Dropdowns Bar ──────────────────── */}
+                            <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                {/* Beds & Baths */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setOpenFilter(openFilter === 'beds' ? null : 'beds')}
+                                        className={`px-4 py-2 rounded-xl text-[12px] font-bold border transition-all flex items-center gap-2 ${filterBeds !== 'any' || filterBaths !== 'any'
+                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                            : openFilter === 'beds' ? 'bg-white border-slate-400 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        Beds & Baths{(filterBeds !== 'any' || filterBaths !== 'any') ? ' ·' : ''}
+                                        <i className={`fa-solid fa-chevron-down text-[8px] transition-transform ${openFilter === 'beds' ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {openFilter === 'beds' && (
+                                        <div className="absolute top-full left-0 mt-2 w-[320px] bg-white border border-slate-200 rounded-2xl shadow-lg p-4 z-30 space-y-4 animate-in fade-in duration-150">
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 mb-2 block">Bedrooms</label>
+                                                <div className="flex border border-slate-200 rounded-xl overflow-hidden">
+                                                    {['any', '1', '2', '3', '4', '5'].map(v => (
+                                                        <button key={v} onClick={() => setFilterBeds(v)}
+                                                            className={`flex-1 py-2 text-[12px] font-bold transition-all border-r border-slate-200 last:border-r-0 ${filterBeds === v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                                                                }`}
+                                                        >{v === 'any' ? 'Any' : `${v}+`}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 mb-2 block">Bathrooms</label>
+                                                <div className="flex border border-slate-200 rounded-xl overflow-hidden">
+                                                    {['any', '1', '1.5', '2', '3', '4'].map(v => (
+                                                        <button key={v} onClick={() => setFilterBaths(v)}
+                                                            className={`flex-1 py-2 text-[12px] font-bold transition-all border-r border-slate-200 last:border-r-0 ${filterBaths === v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                                                                }`}
+                                                        >{v === 'any' ? 'Any' : `${v}+`}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Sq Ft */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setOpenFilter(openFilter === 'sqft' ? null : 'sqft')}
+                                        className={`px-4 py-2 rounded-xl text-[12px] font-bold border transition-all flex items-center gap-2 ${filterSqftMin || filterSqftMax
+                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                            : openFilter === 'sqft' ? 'bg-white border-slate-400 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        Sq Ft{filterSqftMin || filterSqftMax ? ' ·' : ''}
+                                        <i className={`fa-solid fa-chevron-down text-[8px] transition-transform ${openFilter === 'sqft' ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {openFilter === 'sqft' && (
+                                        <div className="absolute top-full left-0 mt-2 w-[280px] bg-white border border-slate-200 rounded-2xl shadow-lg p-4 z-30 animate-in fade-in duration-150">
+                                            <label className="text-[10px] font-black text-slate-500 mb-2 block">Living Area (sqft)</label>
+                                            <div className="flex items-center gap-2">
+                                                <input type="number" placeholder="Min" value={filterSqftMin} onChange={e => setFilterSqftMin(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all" />
+                                                <span className="text-slate-300 font-bold">–</span>
+                                                <input type="number" placeholder="Max" value={filterSqftMax} onChange={e => setFilterSqftMax(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all" />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Lot Size */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setOpenFilter(openFilter === 'lot' ? null : 'lot')}
+                                        className={`px-4 py-2 rounded-xl text-[12px] font-bold border transition-all flex items-center gap-2 ${filterLotMin || filterLotMax
+                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                            : openFilter === 'lot' ? 'bg-white border-slate-400 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        Lot Size{filterLotMin || filterLotMax ? ' ·' : ''}
+                                        <i className={`fa-solid fa-chevron-down text-[8px] transition-transform ${openFilter === 'lot' ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {openFilter === 'lot' && (
+                                        <div className="absolute top-full left-0 mt-2 w-[280px] bg-white border border-slate-200 rounded-2xl shadow-lg p-4 z-30 animate-in fade-in duration-150">
+                                            <label className="text-[10px] font-black text-slate-500 mb-2 block">Lot Size (sqft)</label>
+                                            <div className="flex items-center gap-2">
+                                                <input type="number" placeholder="Min" value={filterLotMin} onChange={e => setFilterLotMin(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all" />
+                                                <span className="text-slate-300 font-bold">–</span>
+                                                <input type="number" placeholder="Max" value={filterLotMax} onChange={e => setFilterLotMax(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all" />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Days Sold */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setOpenFilter(openFilter === 'days' ? null : 'days')}
+                                        className={`px-4 py-2 rounded-xl text-[12px] font-bold border transition-all flex items-center gap-2 ${filterDaysMax
+                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                            : openFilter === 'days' ? 'bg-white border-slate-400 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        Days Sold{filterDaysMax ? ` ≤${filterDaysMax}d` : ''}
+                                        <i className={`fa-solid fa-chevron-down text-[8px] transition-transform ${openFilter === 'days' ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {openFilter === 'days' && (
+                                        <div className="absolute top-full left-0 mt-2 w-[200px] bg-white border border-slate-200 rounded-2xl shadow-lg p-4 z-30 animate-in fade-in duration-150">
+                                            <label className="text-[10px] font-black text-slate-500 mb-2 block">Max Days Since Sold</label>
+                                            <input type="number" placeholder="e.g. 180" value={filterDaysMax} onChange={e => setFilterDaysMax(e.target.value)}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Distance */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setOpenFilter(openFilter === 'dist' ? null : 'dist')}
+                                        className={`px-4 py-2 rounded-xl text-[12px] font-bold border transition-all flex items-center gap-2 ${filterDistMax
+                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                            : openFilter === 'dist' ? 'bg-white border-slate-400 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        Distance{filterDistMax ? ` ≤${filterDistMax}mi` : ''}
+                                        <i className={`fa-solid fa-chevron-down text-[8px] transition-transform ${openFilter === 'dist' ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {openFilter === 'dist' && (
+                                        <div className="absolute top-full left-0 mt-2 w-[200px] bg-white border border-slate-200 rounded-2xl shadow-lg p-4 z-30 animate-in fade-in duration-150">
+                                            <label className="text-[10px] font-black text-slate-500 mb-2 block">Max Distance (mi)</label>
+                                            <input type="number" step="0.1" placeholder="e.g. 0.5" value={filterDistMax} onChange={e => setFilterDistMax(e.target.value)}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Clear all */}
+                                {hasActiveFilters && (
+                                    <button
+                                        onClick={clearAllFilters}
+                                        className="px-3 py-2 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
+                                    >
+                                        Clear all
+                                    </button>
+                                )}
+                            </div>
+
+                            {fullyFiltered.length === 0 ? (
                                 <div className="py-8 text-center text-[11px] font-bold text-slate-400">
-                                    No sale comps in this date range.
+                                    No sale comps match the current filters.
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {visibleSale.map(c => <React.Fragment key={c.id}><CompCard comp={c} /></React.Fragment>)}
+                                <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="bg-slate-50 border-b border-slate-200">
+                                                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Address</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Price</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">$/SqFt</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Beds</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Baths</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Sq Ft</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Lot</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Dist</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Days Ago</th>
+                                                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Sold</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {visibleSale.map((c, idx) => {
+                                                const saleD = toDateSafe(c.lastSaleDate);
+                                                const daysAgo = saleD ? Math.floor((Date.now() - saleD.getTime()) / 86_400_000) : null;
+                                                const psf = c.squareFootage && c.lastSalePrice ? Math.round(c.lastSalePrice / c.squareFootage) : null;
+                                                return (
+                                                    <tr key={c.id} className={`border-b border-slate-100 hover:bg-indigo-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                                        <td className="px-4 py-3">
+                                                            <div className="text-[12px] font-bold text-slate-800 leading-snug truncate max-w-[240px]">{c.formattedAddress}</div>
+                                                            <div className="text-[10px] text-slate-400 font-medium">{c.city}, {c.state}</div>
+                                                        </td>
+                                                        <td className="px-3 py-3 text-[12px] font-black text-slate-900 text-right whitespace-nowrap">{fmt(c.lastSalePrice ?? null)}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-600 text-right whitespace-nowrap">{psf != null ? `$${psf}` : '—'}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-700 text-center">{c.bedrooms ?? '—'}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-700 text-center">{c.bathrooms ?? '—'}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-700 text-right whitespace-nowrap">{c.squareFootage?.toLocaleString() ?? '—'}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-600 text-right whitespace-nowrap">{fmtLotSize(c.lotSize) || '—'}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-700 text-right whitespace-nowrap">{c.distance != null ? `${Number(c.distance).toFixed(1)} mi` : '—'}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-700 text-right">{daysAgo != null ? `${daysAgo}d` : '—'}</td>
+                                                        <td className="px-3 py-3 text-[12px] font-bold text-slate-500 text-right whitespace-nowrap">{saleD ? saleD.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
-                            {filteredSale.length > SHOW_INITIAL && (
+                            {fullyFiltered.length > SHOW_INITIAL && (
                                 <button
                                     onClick={() => setShowAllSale(v => !v)}
                                     className="mt-4 w-full py-2.5 rounded-2xl border border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 transition-all"
                                 >
-                                    {showAllSale ? `Show less` : `Show all ${filteredSale.length} sale comps`}
+                                    {showAllSale ? `Show less` : `Show all ${fullyFiltered.length} sale comps`}
                                 </button>
                             )}
                         </div>
