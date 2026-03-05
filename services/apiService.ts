@@ -1285,3 +1285,60 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
 export const fetchPropertyData = async (address: string, forceRefresh: boolean = true): Promise<PropertyData> => {
   return fetchPropertyDataFull(address, false, false);
 };
+
+/**
+ * Lightweight property specs fetch — RapidAPI only. No Google APIs, no Gemini,
+ * no images, no environmental data. Returns core fields for comp enrichment.
+ */
+export const fetchPropertySpecs = async (zpid: string): Promise<Record<string, any> | null> => {
+  const url = `https://${RAPID_API_HOST}/property?zpid=${zpid}`;
+  const logId = await logAPICall({
+    user_id: auth?.currentUser?.uid || 'unknown',
+    zpid,
+    api_name: 'RapidAPI',
+    endpoint: 'property-specs',
+    params: { zpid },
+    status: 'pending'
+  });
+  const start = Date.now();
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': RAPID_API_HOST,
+        'x-rapidapi-key': RAPID_API_KEY,
+      },
+      cache: 'no-store'
+    });
+    if (!response.ok) {
+      await logAPICall({ user_id: auth?.currentUser?.uid || 'unknown', zpid, api_name: 'RapidAPI', endpoint: 'property-specs', params: { zpid }, status: 'failed', response_time_ms: Date.now() - start, error: `HTTP ${response.status}` });
+      return null;
+    }
+    const data = await response.json();
+    await logAPICall({ user_id: auth?.currentUser?.uid || 'unknown', zpid, api_name: 'RapidAPI', endpoint: 'property-specs', params: { zpid }, status: 'completed', response_time_ms: Date.now() - start });
+    const root = data.property || data.props || data;
+    const addrRoot = root.address || data.address;
+    return {
+      zpid,
+      address: formatAddress(addrRoot) || undefined,
+      city: addrRoot?.city,
+      state: addrRoot?.state,
+      zipCode: addrRoot?.zipcode || addrRoot?.zipCode,
+      homeStatus: root.homeStatus,
+      homeType: root.homeType,
+      bedrooms: extractNumericValue(root.bedrooms),
+      bathrooms: extractNumericValue(root.bathrooms),
+      livingAreaValue: extractNumericValue(root.livingAreaValue || root.livingArea),
+      yearBuilt: extractNumericValue(root.yearBuilt),
+      lotSize: safeStringify(root.resoFacts?.lotSize || root.lotSize) || undefined,
+      price: extractNumericValue(root.price || root.listPrice),
+      zestimate: extractNumericValue(root.zestimate),
+      rentZestimate: extractNumericValue(root.rentZestimate),
+      lastSoldDate: root.datePosted || null,
+      coordinates: root.longitude && root.latitude ? { latitude: root.latitude, longitude: root.longitude } : undefined,
+    };
+  } catch (e: any) {
+    console.warn(`[fetchPropertySpecs] ${zpid} failed:`, e.message);
+    return null;
+  }
+};

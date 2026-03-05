@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, documentId, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteField, Timestamp, collection, query, where, getDocs, documentId, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
 import { getZipsForCity, getZipListings, saveZipMetadataBatch, getCachedCities, getZipSoldListings } from '../../services/firebase/cityData';
 import { APP_CONFIG, SUPPORTED_STATES, STATE_NAME_MAP } from '../../config';
@@ -70,7 +70,7 @@ interface DistressedFinderTabProps {
 }
 
 const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) => {
-    const [compsAddress, setCompsAddress] = useState<{ address: string; lat?: number; lng?: number; listPrice?: number; bedrooms?: number; bathrooms?: number; sqft?: number; yearBuilt?: number; homeType?: string; lotSize?: number } | null>(null);
+    const [compsAddress, setCompsAddress] = useState<{ address: string; zpid?: string; monthlyRate?: number; zestimate?: number; lat?: number; lng?: number; listPrice?: number; bedrooms?: number; bathrooms?: number; sqft?: number; yearBuilt?: number; homeType?: string; lotSize?: number } | null>(null);
     const [compsData, setCompsData] = useState<SaleComp[] | undefined>(undefined);
     const [city, setCity] = useState('Hayward');
     const [status, setStatus] = useState<ScanStatus>('idle');
@@ -121,6 +121,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
     };
 
     const addLog = (msg: string) => {
+        console.log(`[DistressedFinder] ${msg}`);
         setLogs(prev => {
             const next = [...prev, `${new Date().toLocaleTimeString()} — ${msg}`];
             setTimeout(() => logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
@@ -709,6 +710,25 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                     <PropertyCompsTab
                         initialAddress={compsAddress.address}
                         onBack={() => { setCompsAddress(null); setCompsData(undefined); }}
+                        onRefresh={async () => {
+                            const zpid = compsAddress.zpid;
+                            console.log('[Comps Refresh] clicked, zpid:', zpid);
+                            if (!zpid) { console.log('[Comps Refresh] no zpid, aborting'); return; }
+                            // Delete existing comps from distress_analysis
+                            const cacheRef = doc(db, 'distress_analysis', zpid);
+                            console.log('[Comps Refresh] deleting comps fields from distress_analysis/', zpid);
+                            await setDoc(cacheRef, { comps: deleteField(), compsMonthlyRate: deleteField(), compsBestTier: deleteField() }, { merge: true });
+                            console.log('[Comps Refresh] deleted successfully');
+                            // Reset and re-trigger
+                            setCompsAddress(null);
+                            setCompsData(undefined);
+                            setTimeout(() => {
+                                const btn = document.querySelector(`[data-comps-zpid="${zpid}"]`) as HTMLButtonElement;
+                                console.log('[Comps Refresh] looking for button, found:', !!btn);
+                                if (btn) btn.click();
+                            }, 300);
+                        }}
+                        subjectZpid={compsAddress.zpid}
                         subjectLat={compsAddress.lat}
                         subjectLng={compsAddress.lng}
                         subjectListPrice={compsAddress.listPrice}
@@ -719,6 +739,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                         subjectHomeType={compsAddress.homeType}
                         subjectLotSize={compsAddress.lotSize}
                         preloadedComps={compsData}
+                        monthlyRate={compsAddress.monthlyRate}
+                        subjectZestimate={compsAddress.zestimate}
                     />
                 </div>
             )}
@@ -1072,9 +1094,47 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                             )}
                                                             {r.distressScore >= 4 && (
                                                                 <button
+                                                                    data-comps-zpid={r.zpid}
                                                                     onClick={async () => {
                                                                         addLog(`🔍 Finding comps for ${r.address}...`);
                                                                         try {
+                                                                            // 0. Check for cached full comps in distress_analysis
+                                                                            const daSnap = await getDoc(doc(db, 'distress_analysis', r.zpid));
+                                                                            const daData = daSnap.exists() ? daSnap.data() : null;
+                                                                            if (daData?.comps && Array.isArray(daData.comps) && daData.comps.length > 0 && typeof daData.comps[0] === 'object' && 'zestimate' in daData.comps[0]) {
+                                                                                addLog(`  ✅ Found ${daData.comps.length} cached comps`);
+                                                                                const cachedComps: SaleComp[] = daData.comps;
+                                                                                const propSnap = await getDoc(doc(db, 'properties', r.zpid));
+                                                                                const pd = propSnap.exists() ? propSnap.data() : null;
+                                                                                setCompsData(cachedComps);
+                                                                                setCompsAddress({
+                                                                                    address: r.address,
+                                                                                    zpid: r.zpid,
+                                                                                    lat: r.latitude,
+                                                                                    lng: r.longitude,
+                                                                                    listPrice: pd?.listPrice ?? pd?.price ?? undefined,
+                                                                                    monthlyRate: daData.compsMonthlyRate ?? undefined,
+                                                                                    zestimate: pd?.zestimate ?? undefined,
+                                                                                    bedrooms: pd?.bedrooms ?? undefined,
+                                                                                    bathrooms: pd?.bathrooms ?? undefined,
+                                                                                    sqft: pd?.livingAreaValue ?? undefined,
+                                                                                    yearBuilt: pd?.yearBuilt ?? undefined,
+                                                                                    homeType: pd?.homeType ?? undefined,
+                                                                                    lotSize: (() => {
+                                                                                        const raw = pd?.lotSize;
+                                                                                        if (typeof raw === 'number' && raw > 0) return raw;
+                                                                                        if (typeof raw === 'string') {
+                                                                                            const num = parseFloat(raw.replace(/,/g, ''));
+                                                                                            if (!isNaN(num) && num > 0) {
+                                                                                                return raw.toLowerCase().includes('acre') ? Math.round(num * 43560) : num;
+                                                                                            }
+                                                                                        }
+                                                                                        return undefined;
+                                                                                    })(),
+                                                                                });
+                                                                                return;
+                                                                            }
+
                                                                             // 1. Get property data (zip, lat, lng, details)
                                                                             let lat = r.latitude;
                                                                             let lng = r.longitude;
@@ -1083,8 +1143,10 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                             let pd: any = null;
 
                                                                             const propSnap = await getDoc(doc(db, 'properties', r.zpid));
+                                                                            console.log('[Comps] properties lookup zpid:', r.zpid, 'exists:', propSnap.exists());
                                                                             if (propSnap.exists()) {
                                                                                 pd = propSnap.data();
+                                                                                console.log('[Comps] pd.zestimate:', pd?.zestimate, 'type:', typeof pd?.zestimate);
                                                                                 const coords = pd?.coordinates;
                                                                                 if (coords?.latitude != null) { lat = coords.latitude; lng = coords.longitude; }
                                                                                 listPrice = pd?.listPrice ?? pd?.price ?? pd?.list_price ?? undefined;
@@ -1111,7 +1173,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                             }
                                                                             addLog(`  Found ${soldCache.listings.length} sold listings in zip ${zipCode}`);
 
-                                                                            // 3. Haversine filter — keep ≤ 1.0 miles
+                                                                            // 3. Parse all listings into comp candidates with distance + sale date
                                                                             const R = 3958.8;
                                                                             const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
                                                                                 const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -1122,69 +1184,357 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                                 return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
                                                                             };
 
-                                                                            const nearbyComps: SaleComp[] = [];
+                                                                            const subjectSqft = pd?.livingAreaValue ?? pd?.livingArea ?? r.livingArea ?? 0;
+                                                                            const subjectType = (pd?.homeType || pd?.propertyType || r.homeType || '').toString().toUpperCase().trim();
+                                                                            const now = Date.now();
+
+                                                                            // ── Time adjustment: calculate monthly appreciation rate ───────
+                                                                            // Use all sold listings in zip, past 6 months, IQR-filtered, median $/sqft per month
+                                                                            const sixMonthsAgo = now - 180 * 86_400_000;
+                                                                            const trendData: { monthIdx: number; psfMedian: number }[] = [];
+                                                                            const allPsf: number[] = [];
+
+                                                                            // Collect $/sqft for all listings with valid data (same property type as subject)
+                                                                            const psfByMonth = new Map<number, number[]>();
+                                                                            for (const listing of soldCache.listings) {
+                                                                                // Filter by property type — must match subject
+                                                                                if (subjectType) {
+                                                                                    const listingType = (listing.homeType || listing.propertyType || listing.description?.type || '').toString().toUpperCase().trim();
+                                                                                    if (listingType && listingType !== subjectType) continue;
+                                                                                }
+                                                                                const rawD = listing.dateSold || listing.lastSoldDate || listing.soldDate ||
+                                                                                    listing.date_sold || listing.sold_date || listing.contractDate || listing.closedDate;
+                                                                                if (!rawD) continue;
+                                                                                const dMs = typeof rawD === 'number' ? (rawD > 1e12 ? rawD : rawD * 1000) : new Date(String(rawD)).getTime();
+                                                                                if (isNaN(dMs) || dMs < sixMonthsAgo) continue;
+                                                                                const price = listing.price || listing.list_price || listing.lastSoldPrice || listing.soldPrice;
+                                                                                const sqft = listing.livingArea ?? listing.description?.sqft;
+                                                                                if (typeof price !== 'number' || typeof sqft !== 'number' || sqft <= 0 || price <= 0) continue;
+                                                                                const psf = price / sqft;
+                                                                                allPsf.push(psf);
+                                                                                // Group by month offset from today
+                                                                                const monthIdx = Math.floor((now - dMs) / (30.44 * 86_400_000));
+                                                                                if (!psfByMonth.has(monthIdx)) psfByMonth.set(monthIdx, []);
+                                                                                psfByMonth.get(monthIdx)!.push(psf);
+                                                                            }
+
+                                                                            // IQR filter on allPsf
+                                                                            let monthlyRate = 0;
+                                                                            let iqrLo = -Infinity;
+                                                                            let iqrHi = Infinity;
+                                                                            if (allPsf.length >= 5) {
+                                                                                allPsf.sort((a, b) => a - b);
+                                                                                const q1 = allPsf[Math.floor(allPsf.length * 0.25)];
+                                                                                const q3 = allPsf[Math.floor(allPsf.length * 0.75)];
+                                                                                const iqr = q3 - q1;
+                                                                                iqrLo = q1 - 1.5 * iqr;
+                                                                                iqrHi = q3 + 1.5 * iqr;
+
+                                                                                // Rebuild medians per month using only non-outlier data
+                                                                                for (const [mIdx, vals] of psfByMonth) {
+                                                                                    const clean = vals.filter(v => v >= iqrLo && v <= iqrHi);
+                                                                                    if (clean.length === 0) continue;
+                                                                                    clean.sort((a, b) => a - b);
+                                                                                    const med = clean[Math.floor(clean.length / 2)];
+                                                                                    trendData.push({ monthIdx: mIdx, psfMedian: med });
+                                                                                }
+
+                                                                                // Simple linear regression: psfMedian = a + b * monthIdx
+                                                                                // monthIdx 0 = this month, higher = older
+                                                                                // So negative slope means prices are rising
+                                                                                if (trendData.length >= 2) {
+                                                                                    const n = trendData.length;
+                                                                                    const sumX = trendData.reduce((s, d) => s + d.monthIdx, 0);
+                                                                                    const sumY = trendData.reduce((s, d) => s + d.psfMedian, 0);
+                                                                                    const sumXY = trendData.reduce((s, d) => s + d.monthIdx * d.psfMedian, 0);
+                                                                                    const sumXX = trendData.reduce((s, d) => s + d.monthIdx ** 2, 0);
+                                                                                    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX ** 2);
+                                                                                    const avgPsf = sumY / n;
+                                                                                    // slope is negative when prices rise (monthIdx increases into past)
+                                                                                    // monthly appreciation = -slope / avgPsf
+                                                                                    monthlyRate = avgPsf > 0 ? -slope / avgPsf : 0;
+                                                                                    // Cap at ±2%/month
+                                                                                    monthlyRate = Math.max(-0.02, Math.min(0.02, monthlyRate));
+                                                                                }
+                                                                            }
+                                                                            addLog(`  📈 Monthly appreciation rate: ${(monthlyRate * 100).toFixed(2)}%/mo (from ${allPsf.length} sales)`);
+
+                                                                            // ── Build all comps with distance, date, tier ────────────────
+                                                                            type RawComp = SaleComp & { daysAgo: number };
+                                                                            const allComps: RawComp[] = [];
+
+                                                                            // Pass 1: find nearby candidates with zpids
+                                                                            interface Candidate { listing: any; dist: number; zpid: string }
+                                                                            const candidates: Candidate[] = [];
                                                                             for (const listing of soldCache.listings) {
                                                                                 const lLat = listing.latitude ?? listing.location?.address?.coordinate?.lat;
                                                                                 const lLng = listing.longitude ?? listing.location?.address?.coordinate?.lon;
                                                                                 if (lLat == null || lLng == null) continue;
-
+                                                                                // Filter by property type early to avoid unnecessary RapidAPI calls
+                                                                                if (subjectType) {
+                                                                                    const compType = (listing.homeType || listing.propertyType || listing.description?.type || '').toString().toUpperCase().trim();
+                                                                                    if (compType && compType !== subjectType) continue;
+                                                                                }
                                                                                 const dist = haversine(lat, lng, lLat, lLng);
                                                                                 if (dist > 1.0) continue;
+                                                                                const zpid = String(listing.zpid || listing.property_id || listing.listing_id || listing.mls_id || '');
+                                                                                if (!zpid) continue;
+                                                                                candidates.push({ listing, dist, zpid });
+                                                                            }
+                                                                            addLog(`  📋 ${candidates.length} nearby candidates found, enriching...`);
 
-                                                                                // Extract sold date from various field names
-                                                                                const rawDate = listing.dateSold || listing.lastSoldDate || listing.soldDate ||
-                                                                                    listing.date_sold || listing.sold_date || listing.contractDate || listing.closedDate || undefined;
-                                                                                let soldDateStr: string | undefined;
-                                                                                if (rawDate != null) {
-                                                                                    if (typeof rawDate === 'number') {
-                                                                                        // Unix timestamp: detect ms (>1e12) vs seconds
-                                                                                        const ms = rawDate > 1e12 ? rawDate : rawDate * 1000;
-                                                                                        soldDateStr = new Date(ms).toISOString();
-                                                                                    } else {
-                                                                                        soldDateStr = String(rawDate);
+                                                                            // Pass 2: enrich each candidate from sold_or_unlisted_properties, properties, or RapidAPI
+                                                                            const enriched = new Map<string, any>();
+                                                                            // Step A: check sold_or_unlisted_properties — only accept entries with bedrooms data
+                                                                            const zpidsToEnrich = [...new Set(candidates.map(c => c.zpid))];
+                                                                            for (const zid of zpidsToEnrich) {
+                                                                                const soldSnap = await getDoc(doc(db, 'sold_or_unlisted_properties', zid));
+                                                                                if (soldSnap.exists()) {
+                                                                                    const d = soldSnap.data();
+                                                                                    if (d.bedrooms != null) {
+                                                                                        enriched.set(zid, d);
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            const countFromSoldCache = enriched.size;
+
+                                                                            // Step B: check properties collection for any still missing
+                                                                            const missingAfterSold = zpidsToEnrich.filter(z => !enriched.has(z));
+                                                                            if (missingAfterSold.length > 0) {
+                                                                                for (const zid of missingAfterSold) {
+                                                                                    const propSnap = await getDoc(doc(db, 'properties', zid));
+                                                                                    if (propSnap.exists()) {
+                                                                                        const d = propSnap.data();
+                                                                                        if (d.bedrooms != null) {
+                                                                                            enriched.set(zid, d);
+                                                                                            // Also save to sold_or_unlisted_properties for future lookups
+                                                                                            const stripUndef = (obj: any): any => {
+                                                                                                if (obj === null || obj === undefined) return null;
+                                                                                                if (Array.isArray(obj)) return obj.map(stripUndef);
+                                                                                                if (typeof obj === 'object' && !(obj instanceof Date)) {
+                                                                                                    return Object.fromEntries(
+                                                                                                        Object.entries(obj).filter(([, v]) => v !== undefined).map(([k, v]) => [k, stripUndef(v)])
+                                                                                                    );
+                                                                                                }
+                                                                                                return obj;
+                                                                                            };
+                                                                                            await setDoc(doc(db, 'sold_or_unlisted_properties', zid), stripUndef(d), { merge: true });
+                                                                                        }
                                                                                     }
                                                                                 }
 
-                                                                                nearbyComps.push({
-                                                                                    id: String(listing.zpid || listing.property_id || listing.listing_id || listing.mls_id || Math.random()),
-                                                                                    formattedAddress: listing.location?.address?.line || listing.address || listing.streetAddress || '—',
-                                                                                    city: listing.location?.address?.city || listing.city || r.city,
-                                                                                    state: listing.location?.address?.state_code || listing.state || r.state,
-                                                                                    zipCode: listing.location?.address?.postal_code || listing.zipCode || zipCode,
+                                                                            }
+
+                                                                            // Step C: fetch remaining from RapidAPI (2 per second)
+                                                                            const missing = zpidsToEnrich.filter(z => !enriched.has(z));
+                                                                            if (missing.length > 0) {
+
+                                                                                const { fetchPropertySpecs } = await import('../../services/apiService');
+                                                                                for (let mi = 0; mi < missing.length; mi += 2) {
+                                                                                    const batch = missing.slice(mi, mi + 2);
+                                                                                    await Promise.allSettled(
+                                                                                        batch.map(async (zid) => {
+                                                                                            try {
+                                                                                                const propData = await fetchPropertySpecs(zid);
+                                                                                                if (!propData) return;
+                                                                                                const stripUndef = (obj: any): any => {
+                                                                                                    if (obj === null || obj === undefined) return null;
+                                                                                                    if (Array.isArray(obj)) return obj.map(stripUndef);
+                                                                                                    if (typeof obj === 'object' && !(obj instanceof Date)) {
+                                                                                                        return Object.fromEntries(
+                                                                                                            Object.entries(obj)
+                                                                                                                .filter(([, v]) => v !== undefined)
+                                                                                                                .map(([k, v]) => [k, stripUndef(v)])
+                                                                                                        );
+                                                                                                    }
+                                                                                                    return obj;
+                                                                                                };
+                                                                                                const cleanData = stripUndef(propData);
+                                                                                                await setDoc(doc(db, 'sold_or_unlisted_properties', zid), cleanData, { merge: true });
+                                                                                                enriched.set(zid, propData);
+                                                                                            } catch (e: any) {
+                                                                                                console.warn(`[Comps] Failed to fetch ${zid}:`, e.message);
+                                                                                            }
+                                                                                        })
+                                                                                    );
+                                                                                    if (mi + 2 < missing.length) await new Promise(r => setTimeout(r, 1100));
+                                                                                }
+                                                                            }
+                                                                            const countFromProps = enriched.size - countFromSoldCache - missing.filter(z => enriched.has(z)).length;
+                                                                            const countFromApi = missing.filter(z => enriched.has(z)).length;
+                                                                            const countFailed = zpidsToEnrich.length - enriched.size;
+                                                                            addLog(`  ✅ Enriched ${enriched.size}/${zpidsToEnrich.length} — sold_cache: ${countFromSoldCache}, properties: ${countFromProps < 0 ? 0 : countFromProps}, RapidAPI: ${missing.length}${countFailed > 0 ? `, failed: ${countFailed}` : ''}`);
+
+                                                                            // Pass 3: build comps using enriched data
+                                                                            for (const { listing, dist, zpid: compZpid } of candidates) {
+                                                                                const e = enriched.get(compZpid); // enriched property data
+                                                                                const lLat = listing.latitude ?? listing.location?.address?.coordinate?.lat;
+                                                                                const lLng = listing.longitude ?? listing.location?.address?.coordinate?.lon;
+
+                                                                                // Use enriched data (authoritative) — only fall back to listing if no enriched data at all
+                                                                                const compBeds = e ? e.bedrooms : (listing.bedrooms ?? listing.description?.beds ?? undefined);
+                                                                                const compBaths = e ? e.bathrooms : (listing.bathrooms ?? listing.description?.baths ?? undefined);
+                                                                                const compSqft = e ? e.livingAreaValue : (listing.livingArea ?? listing.description?.sqft ?? undefined);
+                                                                                const compHomeType = (e?.homeType || listing.homeType || listing.propertyType || listing.description?.type || '').toString().toUpperCase().trim();
+
+                                                                                // Filter by property type — must match subject
+                                                                                if (subjectType && compHomeType && compHomeType !== subjectType) continue;
+
+                                                                                // Filter by bedrooms — must be within ±1 of subject
+                                                                                const subjectBeds = pd?.bedrooms;
+                                                                                if (subjectBeds != null && compBeds != null && Math.abs(compBeds - subjectBeds) > 1) continue;
+
+                                                                                // Extract sold date
+                                                                                const rawDate = listing.dateSold || listing.lastSoldDate || listing.soldDate ||
+                                                                                    listing.date_sold || listing.sold_date || listing.contractDate || listing.closedDate ||
+                                                                                    e?.lastSoldDate || undefined;
+                                                                                let soldDateStr: string | undefined;
+                                                                                let soldMs = 0;
+                                                                                if (rawDate != null) {
+                                                                                    if (typeof rawDate === 'number') {
+                                                                                        soldMs = rawDate > 1e12 ? rawDate : rawDate * 1000;
+                                                                                    } else {
+                                                                                        soldMs = new Date(String(rawDate)).getTime();
+                                                                                    }
+                                                                                    if (!isNaN(soldMs)) soldDateStr = new Date(soldMs).toISOString();
+                                                                                }
+                                                                                const daysAgo = soldMs > 0 ? Math.floor((now - soldMs) / 86_400_000) : 9999;
+
+                                                                                let salePrice = typeof (listing.price || listing.list_price || listing.lastSoldPrice || listing.soldPrice) === 'number'
+                                                                                    ? (listing.price || listing.list_price || listing.lastSoldPrice || listing.soldPrice)
+                                                                                    : (e?.price ?? undefined);
+
+                                                                                // For recent sales (≤60 days), flag as unverified if sold price diverges >10% from zestimate
+                                                                                // (sold prices often inaccurate before official recording — exclude from estimation)
+                                                                                let priceUnverified = false;
+                                                                                const compZestimate = e?.zestimate;
+                                                                                if (daysAgo <= 60 && typeof salePrice === 'number' && typeof compZestimate === 'number' && compZestimate > 0) {
+                                                                                    const pctDiff = Math.abs(salePrice - compZestimate) / compZestimate;
+                                                                                    if (pctDiff > 0.10) {
+                                                                                        priceUnverified = true;
+                                                                                    }
+                                                                                }
+
+                                                                                // Determine tier
+                                                                                const sqftPctDiff = subjectSqft > 0 && compSqft ? Math.abs(compSqft - subjectSqft) / subjectSqft : 1;
+                                                                                const compLotSize = e?.lotSize ?? listing.lotAreaValue ?? listing.lotSize ?? undefined;
+                                                                                const subjectLot = pd?.lotAreaValue ?? pd?.lotSize ?? 0;
+                                                                                const lotPctDiff = (typeof subjectLot === 'number' && subjectLot > 0 && typeof compLotSize === 'number' && compLotSize > 0)
+                                                                                    ? Math.abs(compLotSize - subjectLot) / subjectLot : 0;
+                                                                                let tier: number;
+                                                                                if (dist <= 0.25 && sqftPctDiff <= 0.10 && daysAgo <= 30) tier = 1;
+                                                                                else if (dist <= 0.50 && sqftPctDiff <= 0.15 && daysAgo <= 90) tier = 2;
+                                                                                else if (dist <= 0.75 && sqftPctDiff <= 0.20 && daysAgo <= 180) tier = 3;
+                                                                                else tier = 4;
+                                                                                // Lot size penalty: demote if comp lot >2x or <0.5x subject lot
+                                                                                if (typeof subjectLot === 'number' && subjectLot > 0 && typeof compLotSize === 'number' && compLotSize > 0) {
+                                                                                    if (compLotSize > subjectLot * 2 || compLotSize < subjectLot * 0.5) {
+                                                                                        tier = Math.min(tier + 1, 4);
+                                                                                    }
+                                                                                }
+
+                                                                                // Time-adjusted price
+                                                                                const monthsSince = daysAgo / 30.44;
+                                                                                const adjPrice = typeof salePrice === 'number'
+                                                                                    ? Math.round(salePrice * (1 + monthlyRate) ** monthsSince) : undefined;
+
+                                                                                // Flag as outlier if $/sqft is outside IQR bounds
+                                                                                const compPsf = (typeof salePrice === 'number' && compSqft && compSqft > 0) ? salePrice / compSqft : null;
+                                                                                const isOutlier = compPsf != null && (compPsf < iqrLo || compPsf > iqrHi);
+
+                                                                                allComps.push({
+                                                                                    id: compZpid,
+                                                                                    formattedAddress: e?.address || listing.location?.address?.line || listing.address || listing.streetAddress || '—',
+                                                                                    city: e?.city || listing.location?.address?.city || listing.city || r.city,
+                                                                                    state: e?.state || listing.location?.address?.state_code || listing.state || r.state,
+                                                                                    zipCode: e?.zipCode || listing.location?.address?.postal_code || listing.zipCode || zipCode,
                                                                                     latitude: lLat,
                                                                                     longitude: lLng,
-                                                                                    bedrooms: listing.bedrooms ?? listing.description?.beds ?? undefined,
-                                                                                    bathrooms: listing.bathrooms ?? listing.description?.baths ?? undefined,
-                                                                                    squareFootage: listing.livingArea ?? listing.description?.sqft ?? undefined,
-                                                                                    lotSize: listing.lotAreaValue ?? listing.lotSize ?? undefined,
-                                                                                    yearBuilt: listing.yearBuilt ?? undefined,
+                                                                                    bedrooms: compBeds,
+                                                                                    bathrooms: compBaths,
+                                                                                    squareFootage: compSqft,
+                                                                                    lotSize: e?.lotSize ?? listing.lotAreaValue ?? listing.lotSize ?? undefined,
+                                                                                    yearBuilt: e?.yearBuilt ?? listing.yearBuilt ?? undefined,
                                                                                     lastSaleDate: soldDateStr,
-                                                                                    lastSalePrice: typeof (listing.price || listing.list_price || listing.lastSoldPrice || listing.soldPrice) === 'number' ? (listing.price || listing.list_price || listing.lastSoldPrice || listing.soldPrice) : undefined,
-                                                                                    distance: Math.round(dist * 10) / 10,
+                                                                                    lastSalePrice: salePrice,
+                                                                                    distance: Math.round(dist * 100) / 100,
+                                                                                    tier,
+                                                                                    adjustedPrice: adjPrice,
+                                                                                    isOutlier,
+                                                                                    priceUnverified,
+                                                                                    zestimate: e?.zestimate ?? undefined,
+                                                                                    daysAgo,
                                                                                 });
                                                                             }
 
-                                                                            addLog(`  ✅ ${nearbyComps.length} sold properties within 1.0 mile`);
+                                                                            // ── If >10 comps, tighten by ±20% living area ──
+                                                                            if (allComps.length > 10 && subjectSqft > 0) {
+                                                                                const before = allComps.length;
+                                                                                const lo = subjectSqft * 0.8;
+                                                                                const hi = subjectSqft * 1.2;
+                                                                                const filtered = allComps.filter(c => !c.squareFootage || (c.squareFootage >= lo && c.squareFootage <= hi));
+                                                                                if (filtered.length >= 3) {
+                                                                                    allComps.length = 0;
+                                                                                    allComps.push(...filtered);
+                                                                                    addLog(`  🔍 Filtered ${before} → ${allComps.length} comps (±20% sqft of ${subjectSqft})`);
+                                                                                }
+                                                                            }
 
-                                                                            // 4. Save comp zpids to distress_analysis
+                                                                            // ── Tiered selection: find best 3 from tightest available tier ──
+                                                                            // Sort all by tier ASC, then distance ASC
+                                                                            allComps.sort((a, b) => a.tier! - b.tier! || a.distance! - b.distance!);
+
+                                                                            // Find the lowest tier that has ≥3 comps (cumulative)
+                                                                            let bestTierCutoff = 4;
+                                                                            let cumCount = 0;
+                                                                            for (let t = 1; t <= 4; t++) {
+                                                                                cumCount += allComps.filter(c => c.tier === t).length;
+                                                                                if (cumCount >= 3) { bestTierCutoff = t; break; }
+                                                                            }
+
+                                                                            // All comps up to bestTierCutoff are the "pool"; rest are still shown in table
+                                                                            const tierLabel = ['', 'Ideal', 'Strong', 'Good', 'Acceptable'];
+                                                                            addLog(`  🏠 Tier ${bestTierCutoff} (${tierLabel[bestTierCutoff]}): ${cumCount} comps found`);
+                                                                            addLog(`  ✅ ${allComps.length} total comps within 1.0 mile`);
+
+                                                                            // Cast back to SaleComp[] (drop daysAgo helper field)
+                                                                            const nearbyComps: SaleComp[] = allComps.map(({ daysAgo: _d, ...rest }) => rest);
+
+                                                                            // 4. Save full comps to distress_analysis (with tier, adjustedPrice, isOutlier)
                                                                             if (nearbyComps.length > 0) {
-                                                                                const compZpids = nearbyComps.map(c => c.id);
+                                                                                // Strip undefined values — Firestore rejects them
+                                                                                const compsClean = nearbyComps.map(c =>
+                                                                                    Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined))
+                                                                                );
                                                                                 const cacheRef = doc(db, 'distress_analysis', r.zpid);
-                                                                                await setDoc(cacheRef, { comps: compZpids }, { merge: true });
-                                                                                addLog(`  💾 Saved ${compZpids.length} comp zpids to cache`);
+                                                                                await setDoc(cacheRef, { comps: compsClean, compsMonthlyRate: monthlyRate, compsBestTier: bestTierCutoff }, { merge: true });
+                                                                                addLog(`  💾 Saved ${compsClean.length} full comps to cache`);
                                                                             }
 
                                                                             // 5. Open comps view with preloaded data
                                                                             setCompsData(nearbyComps);
                                                                             setCompsAddress({
                                                                                 address: r.address,
+                                                                                zpid: r.zpid,
                                                                                 lat, lng, listPrice,
+                                                                                monthlyRate,
+                                                                                zestimate: pd?.zestimate ?? undefined,
                                                                                 bedrooms: pd?.bedrooms ?? undefined,
                                                                                 bathrooms: pd?.bathrooms ?? undefined,
                                                                                 sqft: pd?.livingAreaValue ?? undefined,
                                                                                 yearBuilt: pd?.yearBuilt ?? undefined,
                                                                                 homeType: pd?.homeType ?? undefined,
-                                                                                lotSize: pd?.lotAreaValue ?? undefined,
+                                                                                lotSize: (() => {
+                                                                                    const raw = pd?.lotAreaValue ?? pd?.lotSize;
+                                                                                    if (typeof raw === 'number' && raw > 0) return raw;
+                                                                                    if (typeof raw === 'string') {
+                                                                                        const num = parseFloat(raw.replace(/,/g, ''));
+                                                                                        if (!isNaN(num) && num > 0) {
+                                                                                            return raw.toLowerCase().includes('acre') ? Math.round(num * 43560) : num;
+                                                                                        }
+                                                                                    }
+                                                                                    return undefined;
+                                                                                })(),
                                                                             });
                                                                         } catch (e: any) {
                                                                             addLog(`❌ Comps failed: ${e.message}`);
