@@ -1525,7 +1525,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                                 yearBuilt: pd?.yearBuilt ?? undefined,
                                                                                 homeType: pd?.homeType ?? undefined,
                                                                                 lotSize: (() => {
-                                                                                    const raw = pd?.lotAreaValue ?? pd?.lotSize;
+                                                                                    const raw = pd?.lotSize;
                                                                                     if (typeof raw === 'number' && raw > 0) return raw;
                                                                                     if (typeof raw === 'string') {
                                                                                         const num = parseFloat(raw.replace(/,/g, ''));
@@ -1540,9 +1540,9 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                             addLog(`❌ Comps failed: ${e.message}`);
                                                                         }
                                                                     }}
-                                                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-violet-50 text-violet-600 border border-violet-200 rounded-lg text-[10px] font-black uppercase tracking-wide hover:bg-violet-100 hover:border-violet-300 transition-all shrink-0"
+                                                                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-violet-50 text-violet-600 border border-violet-200 rounded-xl text-xs font-black uppercase tracking-wide hover:bg-violet-100 hover:border-violet-300 transition-all shrink-0"
                                                                 >
-                                                                    <i className="fa-solid fa-chart-bar text-[9px]" />Comps
+                                                                    <i className="fa-solid fa-chart-bar text-[11px]" />Comps
                                                                 </button>
                                                             )}
                                                         </div>
