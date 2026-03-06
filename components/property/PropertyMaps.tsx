@@ -1,6 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import Property3DMap from './Property3DMap';
+
+const ParcelPolygonMap = lazy(() => import('./ParcelPolygonMap'));
 
 interface Props {
   mapZoomIn?: string;
@@ -11,9 +13,12 @@ interface Props {
   };
   address?: string;
   solarData?: any;
+  parcelPolygon?: [number, number][];
+  parcelApn?: string;
+  parcelAreaSqft?: number;
 }
 
-const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, address, solarData }) => {
+const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, address, solarData, parcelPolygon, parcelApn, parcelAreaSqft }) => {
   const [expandedMap, setExpandedMap] = useState<string | null>(null);
   const [show3D, setShow3D] = useState(false);
 
@@ -76,14 +81,14 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div
             onClick={() => mapZoomOut && setExpandedMap(mapZoomOut)}
-            className={`rounded-3xl overflow-hidden border border-gray-100 shadow-sm h-48 md:h-64 bg-gray-50 group relative ${mapZoomOut ? 'cursor-zoom-in' : ''}`}
+            className={`rounded-3xl overflow-hidden border border-gray-100 shadow-sm aspect-square bg-gray-50 group relative ${mapZoomOut ? 'cursor-zoom-in' : ''}`}
           >
             {mapZoomOut ? (
               <>
                 <img
                   src={mapZoomOut}
                   alt="Neighborhood Map View"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000"
                 />
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100">Neighborhood View</div>
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
@@ -97,16 +102,57 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
 
           <div
             onClick={() => mapZoomIn && setExpandedMap(mapZoomIn)}
-            className={`rounded-3xl overflow-hidden border border-gray-100 shadow-sm h-48 md:h-64 bg-gray-50 group relative ${mapZoomIn ? 'cursor-zoom-in' : ''}`}
+            className={`rounded-3xl overflow-hidden border border-gray-100 shadow-sm aspect-square bg-gray-50 group relative ${mapZoomIn ? 'cursor-zoom-in' : ''}`}
           >
             {mapZoomIn ? (
               <>
                 <img
                   src={mapZoomIn}
                   alt="Property Map View"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000"
                 />
-                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100">Property Focus</div>
+                {/* Parcel polygon overlay on the zoom-in map */}
+                {parcelPolygon && parcelPolygon.length > 3 && coordinates && (() => {
+                  // Web Mercator projection: convert lon/lat to pixel on a zoom=20, 2048x2048 static map
+                  const zoom = 20;
+                  const mapW = 2048;
+                  const mapH = 2048;
+                  const scale = Math.pow(2, zoom) * 256; // total world pixels at this zoom
+                  const deg2rad = Math.PI / 180;
+
+                  // Center of the map in world pixel coords
+                  const cxWorld = ((coordinates.longitude + 180) / 360) * scale;
+                  const cyWorld = (1 - Math.log(Math.tan(deg2rad * coordinates.latitude) + 1 / Math.cos(deg2rad * coordinates.latitude)) / Math.PI) / 2 * scale;
+
+                  const points = parcelPolygon.map(([lon, lat]) => {
+                    const xWorld = ((lon + 180) / 360) * scale;
+                    const yWorld = (1 - Math.log(Math.tan(deg2rad * lat) + 1 / Math.cos(deg2rad * lat)) / Math.PI) / 2 * scale;
+                    // Pixel offset from center, then shift to SVG viewBox center
+                    const px = (xWorld - cxWorld) + mapW / 2;
+                    const py = (yWorld - cyWorld) + mapH / 2;
+                    return `${px},${py}`;
+                  }).join(' ');
+
+                  return (
+                    <svg
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                      viewBox={`0 0 ${mapW} ${mapH}`}
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      <polygon
+                        points={points}
+                        fill="rgba(99, 102, 241, 0.12)"
+                        stroke="#6366f1"
+                        strokeWidth="4"
+                        strokeDasharray="12 6"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  );
+                })()}
+                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100">
+                  Property Focus{parcelPolygon && parcelPolygon.length > 3 ? ' · Parcel' : ''}
+                </div>
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
                   <i className="fa-solid fa-magnifying-glass-plus text-white opacity-0 group-hover:opacity-100 transition-all scale-50 group-hover:scale-100 text-3xl drop-shadow-md"></i>
                 </div>

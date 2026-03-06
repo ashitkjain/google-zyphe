@@ -192,6 +192,15 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 coordinates={propertyData.coordinates}
                                 address={propertyData.address}
                                 solarData={propertyData.solarData}
+                                parcelPolygon={
+                                    (propertyData as any).parcelPolygon?.length > 3
+                                        ? (propertyData as any).parcelPolygon.map((pt: any) =>
+                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                        )
+                                        : undefined
+                                }
+                                parcelApn={(propertyData as any).parcelApn}
+                                parcelAreaSqft={(propertyData as any).parcelAreaSqft}
                             />
                             <ComplianceAttribution data={propertyData} />
                         </>
