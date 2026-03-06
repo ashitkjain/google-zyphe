@@ -642,6 +642,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
         ? activeCityTab
         : cityStateTabs[0]?.key ?? null;
 
+    const ALLOWED_PROPERTY_TYPES = ['single_family', 'single family', 'townhouse', 'townhome'];
+
     const filtered = results
         .filter(r => {
             const c = r.city || 'Unknown';
@@ -651,7 +653,12 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
         .filter(r => r.distressScore >= filterScore)
         .filter(r => priceMin === '' || (r.listPrice != null && r.listPrice >= priceMin))
         .filter(r => priceMax === '' || (r.listPrice != null && r.listPrice <= priceMax))
-        .filter(r => filterPropertyTypes.size === 0 || (r.propertyType != null && filterPropertyTypes.has(r.propertyType)))
+        .filter(r => {
+            if (filterPropertyTypes.size > 0) return r.propertyType != null && filterPropertyTypes.has(r.propertyType);
+            // "All" = only single family + townhome
+            const pt = (r.propertyType || '').toLowerCase();
+            return ALLOWED_PROPERTY_TYPES.some(a => pt.includes(a));
+        })
         .filter(r => filterListingSubTypes.size === 0 || (r.listingSubTypes ?? []).some(s => filterListingSubTypes.has(s)))
         .filter(r => {
             if (filterOnMLS === 'on') return !!r.mlsName;
@@ -673,7 +680,7 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                 return (s ? `${c}, ${s}` : c) === resolvedCityStateTab;
             })
             .map(r => r.propertyType)
-            .filter((t): t is string => !!t)
+            .filter((t): t is string => !!t && ALLOWED_PROPERTY_TYPES.some(a => t.toLowerCase().includes(a)))
     )).sort();
 
     // Unique listing sub-types from ALL results in active city tab
@@ -1038,21 +1045,20 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
 
 
                         {/* Cards */}
-                        <div className="divide-y divide-slate-100">
-                            {paginated.map(r => {
+                        <div className="divide-y divide-slate-300">
+                            {paginated.map((r, idx) => {
                                 const colors = scoreColor(r.distressScore);
+                                const serialNo = (safePage - 1) * PAGE_SIZE + idx + 1;
                                 return (
                                     <div
                                         key={r.zpid}
                                         className={`relative p-6 hover:bg-slate-50/40 transition-colors ${r.isNew ? 'bg-indigo-50/30' : ''}`}
                                     >
                                         <div className="flex items-start gap-5">
-                                            {/* Score ring */}
-                                            <div className={`flex-shrink-0 w-16 h-16 rounded-2xl border-2 ${colors.bg} ${colors.border} flex flex-col items-center justify-center`}>
-                                                <span className={`text-2xl font-black ${colors.text}`}>{r.distressScore}</span>
-                                                <span className={`text-[9px] font-black uppercase tracking-wide opacity-60 ${colors.text}`}>/10</span>
+                                            {/* Serial number */}
+                                            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                                <span className="text-[11px] font-black text-slate-400">{serialNo}</span>
                                             </div>
-
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="min-w-0 flex-1">
@@ -1090,6 +1096,12 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                     {r.bathrooms != null && <><span className="text-slate-200">|</span><span>{r.bathrooms} ba</span></>}
                                                                     {r.livingArea != null && <><span className="text-slate-200">|</span><span>{r.livingArea.toLocaleString()} sqft</span></>}
                                                                     {r.lotAreaValue != null && <><span className="text-slate-200">|</span><span>{r.lotAreaValue} {r.lotAreaUnit || 'sqft'}</span></>}
+                                                                </span>
+                                                            )}
+                                                            {r.analyzedAt && (
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-300 shrink-0">
+                                                                    <i className="fa-solid fa-clock text-[7px]" />
+                                                                    {new Date(r.analyzedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                                                 </span>
                                                             )}
                                                             {r.distressScore >= 4 && (
@@ -1648,11 +1660,8 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                                                                     <div className="flex items-center gap-2 mb-2">
                                                                         <i className="fa-solid fa-hammer text-emerald-600 text-[12px]" />
                                                                         <span className="text-[11px] font-black text-emerald-700 uppercase tracking-widest">Renovation Strategy</span>
-                                                                        <span className="ml-auto text-[11px] font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-                                                                            Estimated ARV Upside: {(r.estimatedArvPremium ?? 0) > 0 ? `+$${r.estimatedArvPremium!.toLocaleString()}` : '—'}
-                                                                        </span>
                                                                     </div>
-                                                                    <p className="text-[12px] text-slate-700 leading-relaxed">{r.renovationStrategy}</p>
+                                                                    <p className="text-[12px] text-slate-700 leading-relaxed whitespace-pre-line">{r.renovationStrategy}</p>
                                                                 </div>
                                                             )}
                                                         </div>

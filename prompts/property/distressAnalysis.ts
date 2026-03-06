@@ -51,7 +51,7 @@ Provide an itemized breakdown of how you arrived at the estimated_arv_premium. E
 "distress_score": <1-10>,
 "primary_indicators": ["<string>", ...],
 "hidden_risks": "<string>",
-"renovation_strategy": "<A coherent paragraph summarizing the full renovation strategy. Include what upgrades are already completed, what high-ROI fixes are suggested. Write this as a readable investment memo, not bullet fragments.>",
+"renovation_strategy": "<Format as two bullet-point sections:\n• UPGRADES ALREADY MADE: List each completed upgrade from the description as a bullet (e.g., • New roof (2024), • Updated kitchen with quartz countertops). If none mentioned, write '• None identified from listing'.\n• SUGGESTED UPGRADES: List each high-ROI renovation opportunity as a bullet with estimated impact (e.g., • Minor kitchen refresh — highest ROI at 113%, • ADU conversion — $2,500/mo rental potential). Focus on actionable, specific items.\nKeep each bullet concise — one line per item.>",
 "estimated_arv_premium": <number>,
 "arv_breakdown": [{"item": "<renovation name>", "estimated_cost": <number>, "value_add": <number>, "roi_pct": <number>}, ...]
 }

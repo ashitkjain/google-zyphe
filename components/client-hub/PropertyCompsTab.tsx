@@ -859,6 +859,10 @@ Return ONLY valid JSON with this schema (no markdown, no code fences):
                     })
                     .slice(0, 3);
                 if (finalComps.length > 0) {
+                    // Mark which comps are actually used in the average
+                    for (const fc of finalComps) {
+                        fc.zyphe_in_avg = true;
+                    }
                     const zypheAvgPsf = finalComps.reduce((sum: number, c: any) => sum + c.normalized_psf, 0) / finalComps.length;
                     const zypheValuation = typeof subjectSqft === 'number' ? Math.round(zypheAvgPsf * subjectSqft) : null;
                     normData.final_summary = {
@@ -1333,7 +1337,7 @@ Return ONLY valid JSON with this schema (no markdown, no code fences):
                                 <div className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1 mb-1">
                                     <i className="fa-solid fa-hammer text-[8px]" />Renovation Strategy
                                 </div>
-                                <p className="text-[11px] text-slate-700 leading-relaxed">{renovationStrategy}</p>
+                                <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-line">{renovationStrategy}</p>
                             </div>
                         )}
 
@@ -1437,14 +1441,14 @@ Return ONLY valid JSON with this schema (no markdown, no code fences):
                                                 ? 'border-orange-300 bg-gradient-to-br from-rose-50 via-white to-orange-50'
                                                 : ca.include_in_avg === false
                                                     ? 'border-red-200 bg-gradient-to-br from-rose-50/60 via-white to-pink-50/60 opacity-80'
-                                                    : ca.include_in_avg === true
+                                                    : ca.zyphe_in_avg
                                                         ? 'border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50'
                                                         : 'border-slate-200 bg-white'
                                                 }`}>
                                                 <div className="flex items-start justify-between mb-2">
                                                     <a href={`https://www.zillow.com/homedetails/${ca.zpid}_zpid/`} target="_blank" rel="noopener noreferrer" className="text-[12px] font-bold text-slate-800 leading-snug max-w-[60%] hover:text-indigo-600 hover:underline transition-colors">{ca.address}</a>
                                                     <div className="flex items-center gap-1 flex-wrap justify-end">
-                                                        {ca.zyphe_excluded ? <span className="text-[11px] font-bold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded">✗ Stat Outlier</span> : ca.include_in_avg === true && <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Top Comp</span>}
+                                                        {ca.zyphe_excluded ? <span className="text-[11px] font-bold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded">✗ Stat Outlier</span> : ca.zyphe_in_avg && <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Top Comp</span>}
                                                         {!ca.zyphe_excluded && ca.include_in_avg === false && <span className="text-[11px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">✗ Excluded</span>}
 
                                                         {ca.risk_flag && <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-1 rounded">⚠ Risk</span>}
