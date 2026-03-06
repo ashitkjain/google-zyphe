@@ -301,6 +301,598 @@ const PlatformHelpTab: React.FC = () => {
             topics: [
                 { id: 'profile', title: 'Updating your Profile', icon: 'fa-id-card', content: <div className="prose prose-slate"><h2>Updating your Profile</h2><p>Change your professional info, headshot, and branding settings.</p></div> }
             ]
+        },
+        {
+            id: 'investment_analysis',
+            title: 'Distressed Property Finder',
+            icon: 'fa-chart-line',
+            topics: [
+                {
+                    id: 'overview',
+                    title: 'Overview',
+                    icon: 'fa-layer-group',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-slate-900 text-white flex items-center justify-center text-3xl shadow-xl shadow-slate-200">
+                                    <i className="fa-solid fa-layer-group"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">How It All Works</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">End-to-End Pipeline</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 mb-12">
+                                <p className="text-slate-600 font-medium leading-relaxed mb-0">
+                                    Zyphe's Distressed Property Finder scans every active listing in a city, identifies properties with hidden distress signals, pulls recently sold comparables, normalizes them against public records, and produces a transparent ARV valuation — all in one automated workflow.
+                                </p>
+                            </section>
+
+                            <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
+                                <div className="space-y-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">1</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Scan & Detect Distress</div>
+                                            <p className="text-slate-900 text-xs leading-relaxed mb-0">We pull active listings across all zip codes in a city and run each through <strong>AI to detect financial distress, condition issues, seller motivation</strong>, and timing red flags from the MLS description.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-100"></div>
+
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">2</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Find & Tier Comparables</div>
+                                            <p className="text-slate-900 text-xs leading-relaxed mb-0">For each distressed property, we pull recently sold comps within 6 months and assign each a quality tier (1-4) based on distance, sqft variance, and recency.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-100"></div>
+
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">3</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Time-Adjust Prices</div>
+                                            <p className="text-slate-900 text-xs leading-relaxed mb-0">We calculate the local price change rate using <strong>IQR-filtered linear regression</strong> on monthly median $/sqft, then compound-adjust each comp's sale price forward to today's date.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-100"></div>
+
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">4</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Normalize Against Public Records</div>
+                                            <p className="text-slate-900 text-xs leading-relaxed mb-0">We verify listing data against <strong>county tax records and ArcGIS parcel polygons</strong>, detect phantom sqft from unpermitted additions, and calculate an adjusted $/sqft for each comp.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-100"></div>
+
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">5</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Remove Outliers (AI + Statistical)</div>
+                                            <p className="text-slate-900 text-xs leading-relaxed mb-0">We use <strong>AI to exclude distressed or unreliable comps</strong>, then apply a 20% median-deviation statistical filter to catch any remaining outliers.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-100"></div>
+
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">6</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Select Top 3 & Calculate ARV</div>
+                                            <p className="text-slate-900 text-xs leading-relaxed mb-0">The top 3 comps (ranked by tier, then distance) are averaged for $/sqft, then multiplied by the subject's square footage to produce the Zyphe ARV Estimate.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-100"></div>
+
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-teal-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">7</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Renovation Strategy & Cost Worksheet</div>
+                                            <p className="text-slate-900 text-xs leading-relaxed mb-0">We generate an itemized renovation plan with upgrades already made, suggested high-ROI improvements, estimated costs, and projected value-add for each property.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'distressed_properties',
+                    title: 'Finding Distressed Properties',
+                    icon: 'fa-house-crack',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-rose-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-rose-100">
+                                    <i className="fa-solid fa-house-crack"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Finding Distressed Properties</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">AI-Powered Distress Signal Detection</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-rose-50/50 rounded-[2.5rem] p-10 border border-rose-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-bullseye text-rose-500 text-sm"></i>
+                                    How It Works
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed">
+                                    Zyphe scans active listings across all zip codes in a city, then runs each property through an <strong>AI-powered distress analysis engine</strong> that reads the MLS listing description looking for hidden signals of seller motivation, deferred maintenance, and forced-sale conditions that most buyers miss.
+                                </p>
+                            </section>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-rose-600 pl-6">What We Analyze</h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center text-sm">
+                                            <i className="fa-solid fa-landmark"></i>
+                                        </div>
+                                        <h4 className="font-black text-slate-800">Financial Distress</h4>
+                                    </div>
+                                    <p className="text-slate-500 text-sm leading-relaxed">Short sales, REO/bank-owned, court-ordered sales, pre-foreclosure, auction language, and cash-only requirements.</p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center text-sm">
+                                            <i className="fa-solid fa-screwdriver-wrench"></i>
+                                        </div>
+                                        <h4 className="font-black text-slate-800">Condition Issues</h4>
+                                    </div>
+                                    <p className="text-slate-500 text-sm leading-relaxed">As-is sales, contractor/handyman specials, mold, foundation problems, fire damage, deferred maintenance, and teardown candidates.</p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-xl bg-purple-500 text-white flex items-center justify-center text-sm">
+                                            <i className="fa-solid fa-person-running"></i>
+                                        </div>
+                                        <h4 className="font-black text-slate-800">Seller Motivation</h4>
+                                    </div>
+                                    <p className="text-slate-500 text-sm leading-relaxed">"Must sell," relocating, estate/probate sales, quick-close language, "bring all offers" signals suggesting urgency.</p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-sm">
+                                            <i className="fa-solid fa-clock"></i>
+                                        </div>
+                                        <h4 className="font-black text-slate-800">Timing Red Flags</h4>
+                                    </div>
+                                    <p className="text-slate-500 text-sm leading-relaxed">Back-on-market (BOM), repeated price reductions, failed inspections, and high days-on-market relative to area median.</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-slate-900 rounded-[2.5rem] p-10 text-white mb-12 shadow-2xl overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
+                                <h3 className="text-xl font-black mb-6 relative z-10">Renovation Strategy & ARV Breakdown</h3>
+                                <div className="space-y-6 relative z-10">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-hammer text-emerald-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Upgrades Already Made</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">We identify completed renovations mentioned in the listing (new roof, updated kitchen, etc.) and categorize them as structural, systemic, or cosmetic.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-chart-bar text-indigo-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Suggested High-ROI Upgrades</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Based on 2026 renovation ROI benchmarks, we recommend specific projects: minor kitchen refresh (113% ROI), garage/entry doors (&gt;200% ROI), ADU conversions, and cosmetic updates.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-receipt text-amber-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Itemized Cost & Value-Add Table</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Each suggested renovation includes estimated cost, projected value added, and ROI percentage — giving you a clear investment worksheet per property.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
+                                    <i className="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-amber-900 font-black text-lg mb-2">Property Type Filtering</h4>
+                                    <p className="text-amber-800 text-sm font-medium leading-relaxed">
+                                        The distressed property finder focuses on <strong>Single Family</strong> and <strong>Townhome</strong> properties.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'comp_selection',
+                    title: 'Comp Selection & Analysis',
+                    icon: 'fa-magnifying-glass-chart',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-indigo-100">
+                                    <i className="fa-solid fa-magnifying-glass-chart"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Comp Selection & Analysis</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">How Zyphe Finds & Validates Comparables</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-indigo-50/50 rounded-[2.5rem] p-10 border border-indigo-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-database text-indigo-500 text-sm"></i>
+                                    Data Sourcing
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed">
+                                    Zyphe focuses on sales near the subject property in last 6 months. We create a tiered system to select top comparables.
+                                </p>
+                            </section>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-indigo-600 pl-6">The Tier System</h3>
+                            <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                                Every comparable is automatically assigned a <strong>quality tier</strong> based on how closely it matches the subject property's characteristics. Tiers 1-3 are eligible for valuation; Tier 4 comps are shown for reference only.
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
+                                <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-200 text-center">
+                                    <div className="text-2xl font-black text-emerald-700 mb-1">Tier 1</div>
+                                    <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">Ideal</div>
+                                    <p className="text-slate-600 text-[11px] leading-relaxed">Within <strong>0.25 mi</strong>, sqft within <strong>10%</strong> of subject, sold within <strong>30 days</strong>.</p>
+                                </div>
+                                <div className="bg-blue-50 p-5 rounded-2xl border border-blue-200 text-center">
+                                    <div className="text-2xl font-black text-blue-700 mb-1">Tier 2</div>
+                                    <div className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">Strong</div>
+                                    <p className="text-slate-600 text-[11px] leading-relaxed">Within <strong>0.50 mi</strong>, sqft within <strong>15%</strong> of subject, sold within <strong>90 days</strong>.</p>
+                                </div>
+                                <div className="bg-amber-50 p-5 rounded-2xl border border-amber-200 text-center">
+                                    <div className="text-2xl font-black text-amber-700 mb-1">Tier 3</div>
+                                    <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">Good</div>
+                                    <p className="text-slate-600 text-[11px] leading-relaxed">Within <strong>0.75 mi</strong>, sqft within <strong>20%</strong> of subject, sold within <strong>180 days</strong>.</p>
+                                </div>
+                                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 text-center">
+                                    <div className="text-2xl font-black text-slate-500 mb-1">Tier 4</div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Reference</div>
+                                    <p className="text-slate-600 text-[11px] leading-relaxed">Does not meet Tier 1-3 criteria. Shown for context only, excluded from valuation.</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-center gap-4 mb-12">
+                                <i className="fa-solid fa-circle-exclamation text-amber-500 text-sm"></i>
+                                <p className="text-amber-900 text-[11px] font-bold leading-relaxed mb-0">
+                                    <strong>Lot Size Penalty:</strong> If a comp's lot size is more than <strong>2×</strong> or less than <strong>0.5×</strong> the subject's lot, the comp is automatically <strong>demoted by one tier</strong>.
+                                </p>
+                            </div>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-indigo-600 pl-6">Time-Adjusted Pricing</h3>
+                            <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                                Comps that sold months ago may not reflect current market conditions. Zyphe uses <strong>linear regression</strong> with <strong>IQR outlier filtering</strong> to calculate the local price change rate and adjust each comp's sale price to today's value.
+                            </p>
+
+                            <div className="space-y-8 mb-12">
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">1.</span> Collect $/sqft Data Points
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        All nearby sold properties within the last 6 months are used to build a dataset of $/sqft values, grouped by the month they sold.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">2.</span> IQR Outlier Filter
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        We calculate the <strong>Interquartile Range (IQR)</strong> of all $/sqft values. Any data point below <strong>Q1 − 1.5 × IQR</strong> or above <strong>Q3 + 1.5 × IQR</strong> is removed as an outlier. This prevents distressed sales or luxury flips from skewing the trend.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">3.</span> Monthly Median Per-SqFt
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        After filtering, we calculate the <strong>median $/sqft</strong> for each month. The median (not average) is used to further reduce the impact of any remaining extreme values.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">4.</span> Linear Regression
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        A <strong>simple linear regression</strong> is fitted to the monthly medians to determine the slope — the rate at which $/sqft is changing over time. The monthly appreciation rate is calculated as <strong>−slope ÷ average $/sqft</strong>, capped at <strong>±2% per month</strong> to prevent extreme adjustments.
+                                    </p>
+                                </div>
+
+                                <div className="bg-indigo-50 p-8 rounded-[2rem] border border-indigo-200">
+                                    <h4 className="text-lg font-black text-indigo-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">5.</span> Apply to Each Comp
+                                    </h4>
+                                    <p className="text-indigo-800 text-sm leading-relaxed">
+                                        Each comp's sold price is adjusted forward to today using the formula: <strong>Adjusted Price = Sale Price × (1 + monthly rate) ^ months since sale</strong>. A comp that sold 3 months ago in a market appreciating at 0.5%/mo would be adjusted upward by ~1.5%.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-indigo-600 pl-6">AI-Powered Normalization</h3>
+
+                            <div className="space-y-8 mb-12">
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">1.</span> Tax Record Verification
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        For both the subject property and every comp, we look up county assessor and tax records and extract the official "Total Living Area" from public records and compare it to the listing square footage. This catches phantom sqft — where a listing inflates square footage beyond what tax records show.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">2.</span> ArcGIS Parcel Verification
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        In parallel, we query <strong>county ArcGIS parcel endpoints</strong> to retrieve the official parcel polygon for each property. This gives us the <strong>assessed lot area, APN,</strong> and parcel boundaries directly from county GIS data. We cross-reference the listing's lot size against the ArcGIS-reported parcel area (with <strong>cos²(lat) geodetic correction</strong> for Web Mercator distortion) to flag discrepancies — catching cases where a listing overstates or understates the actual lot size.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">3.</span> Phantom SqFt Detection
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        If the listing square footage exceeds the tax record square footage by more than <strong>10%</strong>, the comp is flagged with an <strong>"Unpermitted Utility"</strong> warning. This indicates the home may have unpermitted additions (converted garages, enclosed patios, etc.) that could affect valuation and financing.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">4.</span> Price-Per-Square-Foot Normalization
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        We calculate an <strong>adjusted $/sqft</strong> by dividing the sold price by the <strong>higher</strong> of the two square footage numbers (listing vs tax). This reflects the buyer's actual price for total utility. Using the higher number prevents artificially inflating the $/sqft when additional living space exists.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-indigo-600">5.</span> Feature Adjustments
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        We identify <strong>valuation-impacting features</strong> for each property: pools, views, ADUs, updated kitchens, fire damage, corner lots, solar panels, etc. Basic attributes (beds, baths, sqft, year built) are tracked separately and excluded from the feature list to avoid duplication.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <section className="bg-slate-900 rounded-[2.5rem] p-10 text-white mb-12 shadow-2xl overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
+                                <h3 className="text-xl font-black mb-6 relative z-10">Statistical Outlier Detection</h3>
+                                <div className="space-y-6 relative z-10">
+                                    <p className="text-slate-300 text-sm leading-relaxed">
+                                        After the normalization analysis, Zyphe applies an additional <strong>code-side statistical filter</strong> to catch any remaining outliers:
+                                    </p>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-calculator text-indigo-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Median Deviation Check</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">The median $/sqft is calculated across all AI-included comps. Any comp whose $/sqft deviates by more than <strong>20%</strong> from the median is automatically flagged as a <strong>"Stat Outlier"</strong> and excluded from the final average.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-shield-halved text-emerald-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Why Both AI + Statistical?</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">AI is excellent at qualitative judgments (condition, reliability), but deterministic code is more reliable for mathematical consistency checks. Combining both creates a robust, defensible valuation pipeline.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                    )
+                },
+                {
+                    id: 'zyphe_valuation',
+                    title: 'Zyphe ARV Valuation',
+                    icon: 'fa-dollar-sign',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-emerald-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-emerald-100">
+                                    <i className="fa-solid fa-dollar-sign"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Zyphe ARV Valuation</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">How We Calculate After-Repair Value</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-emerald-50/50 rounded-[2.5rem] p-10 border border-emerald-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-coins text-emerald-500 text-sm"></i>
+                                    The Valuation Formula
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                                    The Zyphe ARV estimate is calculated using a transparent, reproducible formula based on the top comparable sales:
+                                </p>
+                                <div className="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm">
+                                    <div className="font-black text-emerald-900 text-sm mb-4 uppercase tracking-widest text-center opacity-40">The Formula</div>
+                                    <div className="text-center text-xl md:text-2xl font-black text-slate-800 tracking-tight">
+                                        Avg $/sf × Subject SqFt = Zyphe ARV
+                                    </div>
+                                    <div className="h-px bg-slate-100 my-4"></div>
+                                    <div className="text-center text-sm text-slate-500">
+                                        Example: <span className="font-black text-emerald-700">$561/sf</span> × <span className="font-black text-slate-800">2,263 sf</span> = <span className="font-black text-emerald-700">$1,270,200</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-emerald-600 pl-6">How Top Comps Are Selected</h3>
+
+                            <div className="space-y-8 mb-12">
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-emerald-600">1.</span> Start with AI-Included Comps
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        We first recommend which comps should be included based on qualitative analysis — condition similarity, data reliability, and relevance to the subject property. Distressed comps and those with major condition differences are excluded.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-emerald-600">2.</span> Remove Statistical Outliers
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        Any comp whose normalized $/sqft deviates more than <strong>20%</strong> from the median of included comps is flagged as a statistical outlier and removed. This provides a second layer of protection against skewed data.
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                    <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                                        <span className="text-emerald-600">3.</span> Rank by Quality & Distance
+                                    </h4>
+                                    <p className="text-slate-500 text-sm leading-relaxed">
+                                        Remaining comps are sorted by <strong>tier</strong> (Ideal → Strong → Good) and then by <strong>distance</strong> (closest first) within each tier. This ensures the most comparable, nearest properties take priority.
+                                    </p>
+                                </div>
+
+                                <div className="bg-emerald-50 p-8 rounded-[2rem] border border-emerald-200">
+                                    <h4 className="text-lg font-black text-emerald-900 mb-4 flex items-center gap-3">
+                                        <span className="text-emerald-600">4.</span> Select Top 3 — The "Top Comp" Tag
+                                    </h4>
+                                    <p className="text-emerald-800 text-sm leading-relaxed">
+                                        Only the <strong>top 3</strong> comps (after outlier removal and tier ranking) are used in the final average. These comps receive the <strong>"✓ Top Comp"</strong> tag in the UI and their $/sqft values are averaged to produce the <strong>Zyphe Recommended Avg $/sf</strong>.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <section className="bg-slate-900 rounded-[2.5rem] p-10 text-white mb-12 shadow-2xl overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
+                                <h3 className="text-xl font-black mb-6 relative z-10">Understanding the Valuation Card</h3>
+                                <div className="space-y-6 relative z-10">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-sack-dollar text-emerald-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Zyphe ARV Estimate</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">The headline number: average $/sf of top 3 comps × subject sqft. The percentage below shows how this compares to the listing price (negative = potential upside).</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-table-list text-indigo-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Top Comp Addresses</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">The 3 comps used in the average are listed with their individual $/sqft, so you can see exactly which properties drove the valuation.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-hammer text-amber-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Remodel Cost & Value-Add Table</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Below the valuation, you'll see an itemized renovation worksheet showing each suggested upgrade with estimated cost and value added — straight from the distress analysis.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="bg-indigo-50 rounded-3xl p-8 border border-indigo-100 flex items-start gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
+                                    <i className="fa-solid fa-circle-info"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-indigo-900 font-black text-lg mb-2">Important Disclaimer</h4>
+                                    <p className="text-indigo-800 text-sm font-medium leading-relaxed">
+                                        The Zyphe ARV Estimate is an <strong>AI-generated suggestion</strong> based on available data and should be used as a starting point for your own due diligence. Always verify with a licensed appraiser, inspect the property in person, and confirm tax records with your county assessor before making investment decisions.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'land_utility',
+                    title: 'Land & Slope Analysis',
+                    icon: 'fa-mountain',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-teal-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-teal-100">
+                                    <i className="fa-solid fa-mountain"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Land & Slope Analysis</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Usable Lot Calculation & Parcel Validation</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-teal-50/50 rounded-[2.5rem] p-10 border border-teal-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-ruler-combined text-teal-500 text-sm"></i>
+                                    What We Calculate
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed">
+                                    For <strong>Single Family</strong> properties, Zyphe calculates the <strong>usable lot area</strong> by subtracting setback requirements, slope penalties, and zoning restrictions from the gross parcel area. This helps investors understand how much of the lot is actually buildable for ADUs, extensions, or landscaping.
+                                </p>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">ArcGIS Parcels</div>
+                                    <div className="text-xl font-black text-slate-800 mb-2">County Data</div>
+                                    <p className="text-slate-500 text-[11px] leading-relaxed">We query county ArcGIS endpoints (Alameda, Santa Clara, Contra Costa) to get official parcel boundaries, APN, and area — then apply cos²(lat) geodetic correction for Web Mercator distortion.</p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">USGS Elevation</div>
+                                    <div className="text-xl font-black text-slate-800 mb-2">Slope %</div>
+                                    <p className="text-slate-500 text-[11px] leading-relaxed">Elevation data from USGS is used to calculate slope grade. Slopes above 10% receive area penalties, reflecting that steep terrain reduces the usable buildable area.</p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">Setback Rules</div>
+                                    <div className="text-xl font-black text-slate-800 mb-2">State Reqs</div>
+                                    <p className="text-slate-500 text-[11px] leading-relaxed">State-required setbacks (front, side, rear property lines) are automatically subtracted from the gross lot area. Setback distances vary by state regulations.</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
+                                    <i className="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-amber-900 font-black text-lg mb-2">Townhome & Condo Note</h4>
+                                    <p className="text-amber-800 text-sm font-medium leading-relaxed">
+                                        Usable lot calculations are <strong>only shown for Single Family homes</strong>. For townhomes and condos, lot analysis is hidden since individual lot boundaries are typically shared or irrelevant for investment analysis.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            ]
         }
     ];
 
