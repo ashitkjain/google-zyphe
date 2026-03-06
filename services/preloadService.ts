@@ -654,8 +654,9 @@ export const runPropertyDataOnlyPipeline = async (
             parcelAreaSqft: result.areaSqft,
             parcelCounty: result.county,
             parcelCachedAt: new Date().toISOString(),
+            ...(result.buildingSqft ? { taxSqft: result.buildingSqft } : {}),
           };
-          onLog?.(`[Data] ${result.county} ArcGIS polygon: APN=${result.apn}, ${result.areaSqft}sqft, ${result.polygon.length} vertices`);
+          onLog?.(`[Data] ${result.county} ArcGIS polygon: APN=${result.apn}, ${result.areaSqft}sqft, ${result.polygon.length} vertices${result.buildingSqft ? `, bldg=${result.buildingSqft}sf` : ''}`);
         } else {
           onLog?.(`[Data] ArcGIS: no parcel found or county not supported at (${radar.coordinates.latitude.toFixed(4)}, ${radar.coordinates.longitude.toFixed(4)})`);
         }

@@ -24,6 +24,7 @@ export interface CountyParcelConfig {
     areaUnit: 'sqm' | 'acres';  // Area unit returned by the API
     outFields: string;          // Comma-separated fields to request
     addressField?: string;      // Optional situs address field
+    buildingSqftField?: string; // Optional field for building/living area sqft
 }
 
 /**
@@ -72,6 +73,7 @@ const COUNTY_BOUNDS: Array<{
                 areaUnit: 'acres',
                 outFields: 'APN,full_address_display,ACREAGE,BLDG_SQFT',
                 addressField: 'full_address_display',
+                buildingSqftField: 'BLDG_SQFT',
             },
         },
         // San Mateo and San Francisco use non-standard APIs (Socrata/Hub).
@@ -129,6 +131,7 @@ export async function fetchParcelFromCounty(
     apn: string;
     areaSqft: number;
     county: string;
+    buildingSqft?: number;
 } | null> {
     const config = getCountyParcelConfig(lat, lon);
     if (!config) return null;
@@ -162,8 +165,11 @@ export async function fetchParcelFromCounty(
         // Pass lat for Web Mercator cos²(lat) correction on sqm-based fields
         const areaSqft = toSqft(rawArea, config.areaUnit, lat);
         const apn = attrs[config.apnField] || '';
+        const buildingSqft = config.buildingSqftField
+            ? (attrs[config.buildingSqftField] ? Number(attrs[config.buildingSqftField]) : undefined)
+            : undefined;
 
-        return { polygon: ring, apn, areaSqft, county: config.county };
+        return { polygon: ring, apn, areaSqft, county: config.county, buildingSqft };
     } catch (e: any) {
         clearTimeout(timeout);
         console.warn(`[ArcGIS/${config.county}] Fetch failed:`, e.message);
