@@ -127,7 +127,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             {viewMode === 'main' && (
                 <div className="animate-in fade-in duration-500">
                     {searchBar && (
-                        <div className="max-w-4xl mx-auto pt-8 pb-4 px-4 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
+                        <div className="max-w-5xl mx-auto pt-4 pb-2 px-3 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
                             {searchBar}
                         </div>
                     )}
@@ -168,7 +168,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onToggleFavorite={onToggleFavorite}
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
                             />
-                            {propertyData && <ParcelValidationCard propertyData={propertyData} />}
                             <AirQualitySection data={propertyData} />
                             <StreetViewAnalysisSection
                                 data={propertyData}
@@ -176,7 +175,16 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 refreshing={environmentRefreshing}
                             />
                             <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
-                            <PropertyFacts facts={propertyData.resoFacts} />
+                            <div className="flex flex-col lg:flex-row gap-0">
+                                <div className="flex-1 min-w-0">
+                                    <PropertyFacts facts={propertyData.resoFacts} />
+                                </div>
+                                {propertyData && (
+                                    <div className="lg:w-[380px] shrink-0">
+                                        <ParcelValidationCard propertyData={propertyData} />
+                                    </div>
+                                )}
+                            </div>
                             {propertyData.description && <PropertyDescription description={propertyData.description} />}
                             <PropertyMaps
                                 mapZoomIn={propertyData.mapZoomIn}

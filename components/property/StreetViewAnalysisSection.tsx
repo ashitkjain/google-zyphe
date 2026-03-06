@@ -44,7 +44,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
     );
 
     return (
-        <div className="bg-white border-x border-slate-100 px-8 pt-0 pb-10 space-y-8">
+        <div className="bg-white border-x border-slate-100 px-5 pt-0 pb-4 space-y-4">
             <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest">
                 <div className="flex items-center">
                     <i className="fa-solid fa-eye mr-2 text-indigo-400"></i>

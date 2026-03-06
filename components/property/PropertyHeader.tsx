@@ -53,37 +53,37 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
   // Fix: Explicitly type MetricItem as React.FC to handle React-reserved props like 'key' in mapped components
   const MetricItem: React.FC<{ m: any }> = ({ m }) => (
-    <div className="flex items-start gap-3 group">
-      <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
-        <i className={`fa-solid ${m.icon} text-slate-300 text-[12px] group-hover:text-indigo-500 transition-colors`}></i>
+    <div className="flex items-start gap-2 group">
+      <div className="w-3.5 flex justify-center flex-shrink-0 mt-0.5">
+        <i className={`fa-solid ${m.icon} text-slate-300 text-[11px] group-hover:text-indigo-500 transition-colors`}></i>
       </div>
       <div className="flex flex-col gap-0.5">
-        <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">{m.label}</span>
-        <span className="text-[14px] font-normal text-slate-800 leading-[1.625]">{m.value || 'N/A'}</span>
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{m.label}</span>
+        <span className="text-[13px] font-normal text-slate-800 leading-snug">{m.value || 'N/A'}</span>
       </div>
     </div>
   );
 
   return (
-    <div className="bg-white p-8 md:p-10 md:pb-2 rounded-t-[2.5rem] border-x border-t border-slate-100 shadow-sm space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-8">
-        <div className="flex items-center gap-4">
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">{data.address || 'Property Details'}</h2>
+    <div className="bg-white p-5 md:p-6 md:pb-2 rounded-t-[1.5rem] border-x border-t border-slate-100 shadow-sm space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-50 pb-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">{data.address || 'Property Details'}</h2>
           <div className="flex items-center gap-2 ml-2">
             <button
               onClick={() => onToggleFavorite && onToggleFavorite()}
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm cursor-pointer ${isFavorited ? 'bg-rose-50 text-rose-500 border border-rose-100 shadow-rose-100' : 'bg-slate-50 text-slate-300 border border-slate-100 hover:text-rose-400 hover:bg-rose-50/50 hover:border-rose-200'}`}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-sm cursor-pointer ${isFavorited ? 'bg-rose-50 text-rose-500 border border-rose-100 shadow-rose-100' : 'bg-slate-50 text-slate-300 border border-slate-100 hover:text-rose-400 hover:bg-rose-50/50 hover:border-rose-200'}`}
               title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
             >
-              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-xl`}></i>
+              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-base`}></i>
             </button>
             {isFavorited && (
               <button
                 onClick={() => onToggleFavorite && onToggleFavorite()}
-                className="h-12 px-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer bg-slate-50 text-slate-400 border border-slate-100 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 group"
+                className="h-9 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer bg-slate-50 text-slate-400 border border-slate-100 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 group"
                 title="Remove from Favorites"
               >
-                <i className="fa-solid fa-trash-can text-lg"></i>
+                <i className="fa-solid fa-trash-can text-sm"></i>
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-rose-500">Remove from favorites</span>
               </button>
             )}
@@ -91,12 +91,12 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">List Price</div>
-            <div className="text-3xl font-black text-indigo-600">{formatCurrency(data.listPrice ?? data.price)}</div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">List Price</div>
+            <div className="text-2xl font-black text-indigo-600">{formatCurrency(data.listPrice ?? data.price)}</div>
           </div>
           <button
             onClick={onRunAnalysis}
-            className="hidden sm:block bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-indigo-800 transition-all active:scale-95"
+            className="hidden sm:block bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-indigo-800 transition-all active:scale-95"
           >
             View Visual AI Analysis
           </button>
@@ -105,170 +105,37 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
       <button
         onClick={onRunAnalysis}
-        className="sm:hidden w-full bg-indigo-700 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-xl"
+        className="sm:hidden w-full bg-indigo-700 text-white py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg"
       >
         View Visual AI Analysis
       </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Box 1: Physical Specifications */}
-        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
             <i className="fa-solid fa-house-chimney text-[13px]"></i>
             Physical Specifications
           </div>
-          <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+          <div className="grid grid-cols-2 gap-y-3 gap-x-3">
             {coreSpecs.map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>
 
         {/* Box 2: Value & Market Status */}
-        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
             <i className="fa-solid fa-chart-line text-[13px]"></i>
             Value & Market Status
           </div>
-          <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+          <div className="grid grid-cols-2 gap-y-3 gap-x-3">
             {financialSpecs.map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>
 
-        {/* Box 3: Mobility & Connectivity */}
-        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-route text-[13px]"></i>
-            Mobility & Connectivity
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
-            {[
-              { icon: 'fa-person-walking', label: 'Walk Score', value: data.walkScore ? `${data.walkScore}/100 (${data.walkScoreDesc || 'N/A'})` : 'N/A' },
-              { icon: 'fa-bus', label: 'Transit Score', value: data.transitScore ? `${data.transitScore}/100 (${data.transitScoreDesc || 'N/A'})` : 'N/A' },
-              { icon: 'fa-bicycle', label: 'Bike Score', value: data.bikeScore ? `${data.bikeScore}/100 (${data.bikeScoreDesc || 'N/A'})` : 'N/A' },
-            ].map((m, idx) => <MetricItem key={idx} m={m} />)}
-          </div>
-        </div>
-
-        {/* Box 3b: Neighbourhood Environment — Noise */}
-        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-shield-halved text-[13px]"></i>
-            Neighbourhood Environment
-          </div>
-          <div className="space-y-5">
-
-            {/* Noise Score */}
-            <div className="flex items-start gap-3 group">
-              <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
-                <i className="fa-solid fa-volume-xmark text-slate-300 text-[12px] group-hover:text-indigo-500 transition-colors"></i>
-              </div>
-              <div className="flex flex-col gap-2 flex-1">
-                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">Noise Level</span>
-                {data.noiseScore != null ? (() => {
-                  const pct = (s: number) => Math.max(0, Math.min(100, ((s - 0) / 100) * 100));
-                  const color = (s: number) => s >= 80 ? '#22c55e' : s >= 65 ? '#eab308' : '#f97316';
-                  const badge = (s: number) => s >= 80 ? 'bg-green-50 text-green-700' : s >= 65 ? 'bg-yellow-50 text-yellow-700' : 'bg-orange-50 text-orange-700';
-                  return (
-                    <div className="space-y-3">
-                      {/* Overall */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${pct(data.noiseScore!)}%`, background: color(data.noiseScore!) }} />
-                        </div>
-                        <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg whitespace-nowrap ${badge(data.noiseScore!)}`}>
-                          {data.noiseScore}/100 · {data.noiseScoreDesc ?? ''}
-                        </span>
-                      </div>
-                      {/* Sub-scores */}
-                      {[
-                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
-                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
-                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
-                      ].filter(s => s.score != null).map(({ label, score, desc }) => (
-                        <div key={label} className="flex items-center gap-2 pl-1">
-                          <span className="text-[10px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
-                          <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${pct(score!)}%`, background: color(score!) }} />
-                          </div>
-                          <span className="text-[10px] text-slate-500 w-12 text-right flex-shrink-0">{desc ?? score}</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })() : (
-                  <span className="text-[13px] font-normal text-slate-400 italic">N/A</span>
-                )}
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Box 3c: HOA / Association — only shown when hoa data exists */}
-        {data.hoa && (
-          <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-              <i className="fa-solid fa-building-columns text-[13px]"></i>
-              HOA / Association
-            </div>
-            <div className="space-y-4">
-              {/* Name + Fee */}
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">Association</span>
-                <span className="text-[14px] font-semibold text-slate-800">{data.hoa.name ?? 'N/A'}</span>
-                {data.hoa.fee && (
-                  <span className="text-[12px] text-indigo-600 font-bold">{data.hoa.fee}</span>
-                )}
-              </div>
-              {/* Phone */}
-              {data.hoa.phone && (
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-phone text-slate-300 text-[11px]"></i>
-                  <span className="text-[12px] text-slate-600">{data.hoa.phone}</span>
-                </div>
-              )}
-              {/* Fee includes */}
-              {data.hoa.feeIncludes && data.hoa.feeIncludes.length > 0 && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fee Includes</span>
-                  <span className="text-[12px] text-slate-600">{data.hoa.feeIncludes.join(' · ')}</span>
-                </div>
-              )}
-              {/* Amenity chips */}
-              {data.hoa.amenities && data.hoa.amenities.filter(a => a !== 'Other').length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {data.hoa.amenities.filter(a => a !== 'Other').map((amenity, i) => (
-                    <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
-                      {amenity}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Box 3d: Utilities & Climate */}
-        {(data.resoFacts?.heating || data.resoFacts?.cooling || data.resoFacts?.utilities || data.resoFacts?.sewer || data.resoFacts?.waterSource) && (
-          <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-              <i className="fa-solid fa-plug text-[13px]"></i>
-              Utilities & Climate
-            </div>
-            <div className="grid grid-cols-1 gap-y-5">
-              {[
-                { icon: 'fa-fire-flame-simple', label: 'Heating', value: data.resoFacts?.heating },
-                { icon: 'fa-snowflake', label: 'Cooling', value: data.resoFacts?.cooling },
-                { icon: 'fa-plug', label: 'Utilities', value: data.resoFacts?.utilities },
-                { icon: 'fa-faucet', label: 'Sewer', value: data.resoFacts?.sewer },
-                { icon: 'fa-droplet', label: 'Water Source', value: data.resoFacts?.waterSource },
-              ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
-            </div>
-          </div>
-        )}
-
-        {/* Box 4: Schools */}
-        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300 lg:col-span-2">
-          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+        {/* Box 3c: Schools */}
+        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300 lg:col-span-2">
+          <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
             <i className="fa-solid fa-graduation-cap text-[13px]"></i>
             Schools
           </div>
@@ -284,21 +151,86 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
-        {/* Box 5: Climate Risk Assessment */}
-        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-shield-halved text-[13px]"></i>
-            Climate Risk Assessment
+        {/* Box 3d: Utilities */}
+        {(data.resoFacts?.heating || data.resoFacts?.cooling || data.resoFacts?.utilities || data.resoFacts?.sewer || data.resoFacts?.waterSource) && (
+          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <i className="fa-solid fa-plug text-[13px]"></i>
+              Utilities
+            </div>
+            <div className="grid grid-cols-2 gap-y-3 gap-x-3">
+              {[
+                { icon: 'fa-fire-flame-simple', label: 'Heating', value: data.resoFacts?.heating },
+                { icon: 'fa-snowflake', label: 'Cooling', value: data.resoFacts?.cooling },
+                { icon: 'fa-plug', label: 'Utilities', value: data.resoFacts?.utilities },
+                { icon: 'fa-faucet', label: 'Sewer', value: data.resoFacts?.sewer },
+                { icon: 'fa-droplet', label: 'Water Source', value: data.resoFacts?.waterSource },
+              ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+        )}
+
+        {/* Box 4: Mobility & Connectivity */}
+        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+            <i className="fa-solid fa-route text-[13px]"></i>
+            Mobility & Connectivity
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-3">
             {[
-              { icon: 'fa-wind', label: 'Wind Risk', value: data.windRiskScore ? `${data.windRiskScore}/10` : 'N/A' },
-              { icon: 'fa-droplet', label: 'Flood Risk', value: data.floodRiskScore ? `${data.floodRiskScore}/10` : 'N/A' },
-              { icon: 'fa-fire', label: 'Fire Risk', value: data.fireRiskScore ? `${data.fireRiskScore}/10` : 'N/A' },
-              { icon: 'fa-temperature-high', label: 'Heat Risk', value: data.heatRiskScore ? `${data.heatRiskScore}/10` : 'N/A' },
+              { icon: 'fa-person-walking', label: 'Walk Score', value: data.walkScore ? `${data.walkScore}/100 (${data.walkScoreDesc || 'N/A'})` : 'N/A' },
+              { icon: 'fa-bus', label: 'Transit Score', value: data.transitScore ? `${data.transitScore}/100 (${data.transitScoreDesc || 'N/A'})` : 'N/A' },
+              { icon: 'fa-bicycle', label: 'Bike Score', value: data.bikeScore ? `${data.bikeScore}/100 (${data.bikeScoreDesc || 'N/A'})` : 'N/A' },
             ].map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>
+
+        {/* Box 5: HOA / Association — only shown when hoa data exists */}
+        {data.hoa && (
+          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300 lg:col-span-2">
+            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <i className="fa-solid fa-building-columns text-[13px]"></i>
+              HOA / Association
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              {/* Name */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">Association</span>
+                <span className="text-[13px] font-semibold text-slate-800">{data.hoa.name ?? 'N/A'}</span>
+              </div>
+              {/* Phone */}
+              {data.hoa.phone && (
+                <div className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-phone text-slate-300 text-[10px]"></i>
+                  <span className="text-[12px] text-slate-600">{data.hoa.phone}</span>
+                </div>
+              )}
+              {/* Fee */}
+              {data.hoa.fee && (
+                <span className="text-[12px] text-indigo-600 font-bold">· {data.hoa.fee}</span>
+              )}
+              {/* Fee includes */}
+              {data.hoa.feeIncludes && data.hoa.feeIncludes.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Includes</span>
+                  <span className="text-[12px] text-slate-600">{data.hoa.feeIncludes.join(' · ')}</span>
+                </div>
+              )}
+              {/* Amenity chips */}
+              {data.hoa.amenities && data.hoa.amenities.filter(a => a !== 'Other').length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {data.hoa.amenities.filter(a => a !== 'Other').map((amenity, i) => (
+                    <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
       </div>
 
 

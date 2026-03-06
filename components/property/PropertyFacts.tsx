@@ -154,7 +154,7 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
   };
 
   return (
-    <div className="bg-white px-8 md:px-10 py-8 border-x border-slate-100">
+    <div className="bg-white px-5 md:px-6 py-4 border-x border-slate-100">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-12">
         {categories.map((cat, idx) => {
           // Check if category has any visible items

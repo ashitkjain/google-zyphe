@@ -13,7 +13,7 @@ const PropertyDescription: React.FC<Props> = ({ description }) => {
     if (!description || description === "No description available.") return null;
 
     return (
-        <div className="bg-white px-8 md:px-10 py-10 border-x border-slate-100">
+        <div className="bg-white px-5 md:px-6 py-5 border-x border-slate-100">
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                 <span className="w-4 h-px bg-slate-200"></span>
                 MLS Property Description

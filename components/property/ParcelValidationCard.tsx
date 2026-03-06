@@ -297,7 +297,18 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 if (cancelled) return;
 
                 // ── Step 4: Run validation engine ──
-                const listedLot = (propertyData as any).lotSize || null;
+                const rawLot = (propertyData as any).lotSize;
+                const listedLot = (() => {
+                    if (rawLot == null) return null;
+                    if (typeof rawLot === 'number') return rawLot > 0 ? rawLot : null;
+                    const s = String(rawLot);
+                    const isAcres = /acre/i.test(s);
+                    const num = parseFloat(s.replace(/,/g, '').replace(/[^0-9.]/g, ''));
+                    if (isNaN(num) || num <= 0) return null;
+                    // If value looks like acres (has "acre" in text or < 10 assuming acres)
+                    if (isAcres || (num < 10 && !s.includes('sqft') && !s.includes('sq'))) return Math.round(num * 43560);
+                    return Math.round(num);
+                })();
                 const description = propertyData.description || null;
                 const listingSqft = propertyData.livingAreaValue || null;
 
@@ -485,7 +496,17 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
 
                 {/* Rules Run — checklist of all validation rules */}
                 {(() => {
-                    const listedLot = (propertyData as any).lotSize || null;
+                    const rawLotDisplay = (propertyData as any).lotSize;
+                    const listedLot = (() => {
+                        if (rawLotDisplay == null) return null;
+                        if (typeof rawLotDisplay === 'number') return rawLotDisplay > 0 ? rawLotDisplay : null;
+                        const s = String(rawLotDisplay);
+                        const isAcres = /acre/i.test(s);
+                        const num = parseFloat(s.replace(/,/g, '').replace(/[^0-9.]/g, ''));
+                        if (isNaN(num) || num <= 0) return null;
+                        if (isAcres || (num < 10 && !s.includes('sqft') && !s.includes('sq'))) return Math.round(num * 43560);
+                        return Math.round(num);
+                    })();
                     const listingSqft = propertyData.livingAreaValue || null;
 
                     const rules = [
@@ -560,11 +581,11 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                     );
                 })()}
 
-                {/* Flag Details — expanded findings */}
-                {displayFlags.length > 0 && (
+                {/* Flag Details — expanded findings (only alerts/warnings, info shown in Rules Evaluated) */}
+                {displayFlags.filter(f => f.severity !== 'info').length > 0 && (
                     <div className="px-4 pb-3 space-y-1.5">
                         <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Findings</div>
-                        {displayFlags.map((f, i) => (
+                        {displayFlags.filter(f => f.severity !== 'info').map((f, i) => (
                             <div key={i} className={`flex items-start gap-2 text-[11px] leading-relaxed px-3 py-2 rounded-xl ${f.severity === 'alert' ? 'bg-red-50/80 border border-red-200/80' :
                                 f.severity === 'warning' ? 'bg-amber-50/80 border border-amber-200/80' :
                                     'bg-white/60 border border-emerald-100'

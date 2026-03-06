@@ -22,7 +22,7 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
   const handleClose = () => setExpandedMap(null);
 
   return (
-    <div className="bg-white border-x border-b border-gray-100 px-8 py-10 shadow-sm rounded-b-[2.5rem] space-y-10">
+    <div className="bg-white border-x border-b border-gray-100 px-5 py-5 shadow-sm rounded-b-[1.5rem] space-y-5">
 
 
       {coordinates && (
