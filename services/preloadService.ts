@@ -637,9 +637,37 @@ export const runPropertyDataOnlyPipeline = async (
       alternate_ids.push(providedZpid);
     }
 
-    // 3. Save to Firestore — coordinates + property specs only, no images or maps
+    // 2b. Fetch ArcGIS parcel polygon (free, auto-routes to correct county)
+    let parcelData: Record<string, any> = {};
+    if (radar.coordinates?.latitude && radar.coordinates?.longitude) {
+      try {
+        const { fetchParcelFromCounty, polygonToFirestore } = await import('./arcgis/countyParcels');
+        const result = await fetchParcelFromCounty(
+          radar.coordinates.latitude,
+          radar.coordinates.longitude
+        );
+
+        if (result) {
+          parcelData = {
+            parcelPolygon: polygonToFirestore(result.polygon),
+            parcelApn: result.apn,
+            parcelAreaSqft: result.areaSqft,
+            parcelCounty: result.county,
+            parcelCachedAt: new Date().toISOString(),
+          };
+          onLog?.(`[Data] ${result.county} ArcGIS polygon: APN=${result.apn}, ${result.areaSqft}sqft, ${result.polygon.length} vertices`);
+        } else {
+          onLog?.(`[Data] ArcGIS: no parcel found or county not supported at (${radar.coordinates.latitude.toFixed(4)}, ${radar.coordinates.longitude.toFixed(4)})`);
+        }
+      } catch (e: any) {
+        onLog?.(`[Data] ArcGIS fetch skipped: ${e.message}`);
+      }
+    }
+
+    // 3. Save to Firestore — coordinates + property specs + parcel polygon
     const dataToSave: Partial<PropertyData> = {
       ...propData,
+      ...parcelData,
       zpid,
       feed_property_id: providedZpid,
       alternate_ids,
@@ -651,7 +679,7 @@ export const runPropertyDataOnlyPipeline = async (
 
     await savePropertyToCloud(zpid, dataToSave as PropertyData);
     onProgress({ step: 'Status', status: 'completed', message: 'Property data saved.' });
-    onLog?.(`[Data] Saved property data for ${zpid}`);
+    onLog?.(`[Data] Saved property data for ${zpid}${parcelData.parcelApn ? ` (APN: ${parcelData.parcelApn})` : ''}`);
 
     return zpid;
   } catch (error: any) {

@@ -10,6 +10,7 @@ import Logo from '../shared/Logo';
 import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
 import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import ComplianceAttribution from './ComplianceAttribution';
+import ParcelValidationCard from './ParcelValidationCard';
 
 import ChatInterface from '../shared/ChatInterface';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from '../../types';
@@ -167,6 +168,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onToggleFavorite={onToggleFavorite}
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
                             />
+                            {propertyData && <ParcelValidationCard propertyData={propertyData} />}
                             <AirQualitySection data={propertyData} />
                             <StreetViewAnalysisSection
                                 data={propertyData}

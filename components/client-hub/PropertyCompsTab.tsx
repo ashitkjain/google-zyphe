@@ -319,6 +319,7 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
     const [compAnalysisResult, setCompAnalysisResult] = useState<any>(null);
     const [compAnalysisError, setCompAnalysisError] = useState<string | null>(null);
     const [arvBreakdown, setArvBreakdown] = useState<{ item: string; estimated_cost: number; value_add: number; roi_pct: number }[] | null>(null);
+    const [renovationStrategy, setRenovationStrategy] = useState<string | null>(null);
 
 
     const fetchComps = useCallback(async (addrOverride?: string) => {
@@ -507,6 +508,11 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                 if (arvData && Array.isArray(arvData) && arvData.length > 0) {
                     setArvBreakdown(arvData);
                 }
+                // Load renovation strategy if present
+                const renStrat = daSnap.data()?.renovation_strategy;
+                if (renStrat && typeof renStrat === 'string') {
+                    setRenovationStrategy(renStrat);
+                }
             } catch { /* ignore */ }
         })();
     }, [subjectZpid]);
@@ -527,16 +533,78 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                 setCompAnalysisError('No eligible comps found (need tier 1-3, non-outlier)');
                 return;
             }
-            // Fetch descriptions
-            const descMap = new Map<string, string>();
+            // Enrich comp properties: check sold_or_unlisted_properties cache, fetch from RapidAPI if missing
+            const compDataMap = new Map<string, { description?: string; resoFacts?: any; homeType?: string }>();
+            const config = APP_CONFIG.usHousingApi;
             await Promise.all(eligible.map(async (c) => {
                 try {
+                    // 1. Check if property data is already cached
                     const snap = await getDoc(doc(db, 'sold_or_unlisted_properties', c.id));
-                    const d = snap.exists() ? snap.data() : null;
-                    if (d?.description && typeof d.description === 'string') {
-                        descMap.set(c.id, d.description.slice(0, 500));
+                    if (snap.exists()) {
+                        const d = snap.data();
+                        if (d?.description && typeof d.description === 'string') {
+                            compDataMap.set(c.id, { description: d.description.slice(0, 500), resoFacts: d.resoFacts, homeType: d.homeType || d.propertyType });
+                            return;
+                        }
                     }
-                } catch { /* ignore */ }
+
+                    // 2. Also check active properties cache
+                    const propSnap = await getDoc(doc(db, 'properties', c.id));
+                    if (propSnap.exists()) {
+                        const d = propSnap.data();
+                        if (d?.description && typeof d.description === 'string') {
+                            compDataMap.set(c.id, { description: d.description.slice(0, 500), resoFacts: d.resoFacts, homeType: d.homeType || d.propertyType });
+                            return;
+                        }
+                    }
+
+                    // 3. Fetch from RapidAPI and cache
+                    console.log(`[CompEnrich] Fetching property data for comp ${c.id} from RapidAPI...`);
+                    const url = `https://${config.host}/property?zpid=${c.id}`;
+                    const resp = await fetch(url, {
+                        method: 'GET',
+                        headers: { 'x-rapidapi-host': config.host, 'x-rapidapi-key': config.key },
+                        cache: 'no-store',
+                    });
+                    if (!resp.ok) {
+                        console.warn(`[CompEnrich] RapidAPI returned ${resp.status} for zpid ${c.id}`);
+                        return;
+                    }
+                    const data = await resp.json();
+                    const root = data.property || data.props || data;
+                    const addrRoot = root.address || data.address;
+                    const description = root.description || null;
+                    const resoFacts = root.resoFacts || null;
+
+                    // Cache to sold_or_unlisted_properties for future use
+                    const cacheData: any = {
+                        zpid: String(c.id),
+                        address: c.formattedAddress,
+                        city: addrRoot?.city || c.city,
+                        state: addrRoot?.state || c.state,
+                        description: description || null,
+                        homeType: root.homeType || null,
+                        bedrooms: root.bedrooms || c.bedrooms || null,
+                        bathrooms: root.bathrooms || c.bathrooms || null,
+                        livingAreaValue: root.livingAreaValue || root.livingArea || c.squareFootage || null,
+                        yearBuilt: root.yearBuilt || c.yearBuilt || null,
+                        lotSize: root.resoFacts?.lotSize || root.lotSize || null,
+                        lastSalePrice: c.lastSalePrice || null,
+                        lastSaleDate: c.lastSaleDate || null,
+                        zestimate: root.zestimate || null,
+                        resoFacts: resoFacts || null,
+                        cachedAt: Timestamp.now(),
+                        source: 'comp_enrichment',
+                    };
+                    await setDoc(doc(db, 'sold_or_unlisted_properties', c.id), cacheData, { merge: true });
+                    console.log(`[CompEnrich] ✅ Cached property data for ${c.formattedAddress}`);
+
+                    if (description) {
+                        compDataMap.set(c.id, { description: description.slice(0, 500), resoFacts, homeType: root.homeType || undefined });
+                    }
+                } catch (e: any) {
+                    console.warn(`[CompEnrich] Failed to enrich comp ${c.id}:`, e.message);
+                }
             }));
 
             const compsList = eligible.map(c => ({
@@ -544,6 +612,8 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                 city: c.city,
                 state: c.state,
                 zpid: c.id,
+                latitude: c.latitude,
+                longitude: c.longitude,
                 soldPrice: c.lastSalePrice,
                 soldDate: c.lastSaleDate,
                 listingSqFt: c.squareFootage,
@@ -554,15 +624,29 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                 distance: c.distance,
                 tier: c.tier,
                 zestimate: c.zestimate,
-                description: descMap.get(c.id) ?? null,
+                description: compDataMap.get(c.id)?.description ?? null,
+                homeType: c.propertyType || compDataMap.get(c.id)?.homeType || null,
             }));
+            // Fetch subject property description for feature extraction
+            let subjectDescription = '';
+            let subjectTaxSqft: number | undefined;
+            if (subjectZpid) {
+                try {
+                    const subjSnap = await getDoc(doc(db, 'properties', subjectZpid));
+                    if (subjSnap.exists()) {
+                        const subjData = subjSnap.data();
+                        subjectDescription = (subjData?.description || subjData?.homeDescription || '').slice(0, 600);
+                        subjectTaxSqft = subjData?.livingAreaValue || subjData?.livingArea || undefined;
+                    }
+                } catch { /* ignore */ }
+            }
 
             const subjectInfo = `${address}, ${subjectSqft ?? '?'} sqft, ${subjectBedrooms ?? '?'} bed, ${subjectBathrooms ?? '?'} bath, ${subjectHomeType ?? 'Single Family'}, Built ${subjectYearBuilt ?? '?'}, Listed at $${subjectListPrice?.toLocaleString() ?? '?'}, Lot ${subjectLotSize?.toLocaleString() ?? '?'} sqft`;
 
             const prompt = `Role: Senior Real Estate Data Architect for Zyphe.ai.
 Task: Normalize a list of ${eligible.length} comparables against official records.
 
-Subject Property: ${subjectInfo}
+Subject Property: ${subjectInfo}${subjectDescription ? `\nSubject Description: ${subjectDescription}` : ''}
 
 Comps Data:
 ${JSON.stringify(compsList, null, 2)}
@@ -602,51 +686,6 @@ Return ONLY valid JSON with this schema (no markdown, no code fences):
   ]
 }`;
 
-            // ── Land Utility Prompt (runs in parallel) ────────────────────────
-            const landPrompt = `Role: Senior Real Estate Appraiser and Land Use Architect for Zyphe.ai.
-Objective: Generate a normalized CMA for ${eligible.length} properties by verifying square footage integrity and estimating usable lot utility.
-
-Subject Property: ${subjectInfo}
-
-Comp List:
-${JSON.stringify(compsList, null, 2)}
-
-USABLE LOT ESTIMATION
-1. ZONING: Identify the Zoning District and search for the specific Setback and Lot Coverage requirements.
-2. TOPOGRAPHIC SLOPE ANALYSIS: For the Subject and each Comp:
-   a. Use Google Search to find the Elevation of the property address and the elevation of the street 100 feet behind it.
-      - Calculate Slope: Subtract the lower elevation from the higher elevation and divide by the distance (Rise/Run).
-       - Assign Category:
-        * Flat: < 5% grade (e.g., property sits on a flat bench).
-        * Moderate: 6-15% grade.
-        * Steep: 16-30% grade.
-        * Heavy: >= 30% grade (e.g., land drops sharply, legally unbuildable).
-      - In your output, state in the topography field: 'Inferred as [Category] based on [X] feet of elevation change over [Y] feet of lot depth.'
-      - NEVER return "Unknown" as the topography. Always infer using this method.
-      - IMPORTANT: Ignore marketing descriptions for topography. If the lot size is > 30,000 sq ft and the elevation change exceeds 20 feet over the first 100 feet of depth, classify strictly as Heavy Slope.
-   e. CROSS-CHECK: If a comp is within 0.5 miles of the subject and in the same hillside neighborhood, its slope should be SIMILAR to the subject unless there is clear evidence otherwise (e.g., the comp is on a flat plateau while the subject is on a hillside). Do NOT default to "Flat" without verifying via elevation data. A comp in the same hilly area as a Heavy-slope subject should NOT be reported as Flat unless you have specific elevation data proving it.
-
-Return ONLY valid JSON (no markdown, no code fences):
-{
-  "subject_audit": {
-    "tax_sqft": number or null,
-    "zoning_district": "string",
-    "topography": "string",
-    "slope_percent": number or null,
-    "slope_category": "Flat | Moderate | Steep | Heavy",
-    "topo_source_url": "string or null (URL used for topographic data)",
-    "notes": "string"
-  },
-  "properties": [
-    {
-      "address": "string",
-      "zpid": "string",
-      "lot_utility": {"gross_lot_sqft": number or null, "zoning_district": "string", "topography": "string", "slope_percent": number or null, "slope_category": "Flat | Moderate | Steep | Heavy", "topo_source_url": "string or null","notes": "string"},
-    }
-  ],
-  "confidence_score": number 1-10
-}`;
-
             console.log('[CompAnalysis] 🔄 Running normalization + land utility in parallel...');
             // Run both Gemini calls in parallel
             const [normResult, landResult] = await Promise.allSettled([
@@ -664,20 +703,11 @@ Return ONLY valid JSON (no markdown, no code fences):
                     address: address,
                     extractResultJson: true,
                 }),
-                executeGeminiRequest<any>({
-                    model: FLASH_MODEL,
-                    contents: landPrompt,
-                    config: {
-                        tools: [{ googleSearch: {} }],
-                        systemInstruction: 'You are a senior real estate appraiser and land use architect. Always return valid JSON. Use Google Search to find zoning districts, setback requirements, and assessor records.',
-                        maxOutputTokens: 8192,
-                    },
-                    userId: 'unknown',
-                    promptFilename: 'compLandUtility',
-                    zpid: subjectZpid,
-                    address: address,
-                    extractResultJson: true,
-                }),
+                // Land Utility — uses Gemini function calling with USGS/Google elevation tools
+                (async () => {
+                    const { executeLandUtilityAnalysis } = await import('../../prompts/property/landUtility');
+                    return executeLandUtilityAnalysis(eligible.length, subjectInfo, compsList, subjectZpid, address, subjectLat, subjectLng, subjectLotSize, subjectDescription, subjectTaxSqft);
+                })(),
             ]);
 
             // Process normalization result
@@ -688,6 +718,14 @@ Return ONLY valid JSON (no markdown, no code fences):
             if (landResult.status === 'rejected') console.warn('[CompAnalysis] Land utility failed:', landResult.reason);
 
             if (!normData && !landData) throw new Error('Both analysis calls failed');
+
+            // Helper: check if property type is single-family (lot calc only applies to SFR)
+            const isSingleFamily = (homeType: string | null | undefined): boolean => {
+                if (!homeType) return true; // assume SFR if unknown
+                const ht = homeType.toLowerCase();
+                const nonSFR = ['townhouse', 'townhome', 'condo', 'condominium', 'co-op', 'coop', 'apartment', 'multi', 'duplex', 'triplex', 'fourplex', 'manufactured', 'mobile'];
+                return !nonSFR.some(t => ht.includes(t));
+            };
 
             // Merge land utility data into normalization results by zpid
             // Calculate usable lot in code (not relying on Gemini)
@@ -738,7 +776,9 @@ Return ONLY valid JSON (no markdown, no code fences):
 
             const mergedComps = (normData.comp_analysis).map((ca: any) => {
                 const landComp = (landData?.properties ?? []).find((lp: any) => lp.zpid === ca.zpid || lp.address === ca.address);
-                const lotCalc = landComp?.lot_utility ? calcUsableLot(landComp.lot_utility.gross_lot_sqft, landComp.lot_utility.slope_category, landComp.lot_utility.slope_percent) : null;
+                const compHomeType = ca.homeType || compsList.find((cl: any) => cl.zpid === ca.zpid || cl.address === ca.address)?.homeType || null;
+                const sfOnly = isSingleFamily(compHomeType);
+                const lotCalc = (sfOnly && landComp?.lot_utility) ? calcUsableLot(landComp.lot_utility.gross_lot_sqft, landComp.lot_utility.slope_category, landComp.lot_utility.slope_percent) : null;
                 const lotUtil = landComp?.lot_utility ? {
                     ...landComp.lot_utility,
                     usable_sqft: lotCalc?.usable ?? null,
@@ -748,11 +788,13 @@ Return ONLY valid JSON (no markdown, no code fences):
                     ...ca,
                     lot_utility: lotUtil,
                     land_valuation: landComp?.valuation ?? null,
+                    _homeType: compHomeType,
                 };
             });
 
-            // Apply usable lot calc to subject audit too
-            const subjectLotCalc = calcUsableLot(subjectLotSize ?? null, landData?.subject_audit?.slope_category, landData?.subject_audit?.slope_percent);
+            // Apply usable lot calc to subject audit too (only for single-family)
+            const subjectIsSF = isSingleFamily(subjectHomeType);
+            const subjectLotCalc = subjectIsSF ? calcUsableLot(subjectLotSize ?? null, landData?.subject_audit?.slope_category, landData?.subject_audit?.slope_percent) : null;
             const normSubjectAudit = normData?.subject_audit;
             const landSubjectAudit = landData?.subject_audit;
             const subjectAudit = (landSubjectAudit || normSubjectAudit) ? {
@@ -842,8 +884,21 @@ Return ONLY valid JSON (no markdown, no code fences):
             // Cache to distress_analysis
             if (subjectZpid) {
                 try {
+                    // Firestore rejects `undefined` values — strip them before saving
+                    const sanitize = (obj: any): any => {
+                        if (obj === null || obj === undefined) return null;
+                        if (Array.isArray(obj)) return obj.map(sanitize);
+                        if (typeof obj === 'object') {
+                            const clean: any = {};
+                            for (const [k, v] of Object.entries(obj)) {
+                                if (v !== undefined) clean[k] = sanitize(v);
+                            }
+                            return clean;
+                        }
+                        return obj;
+                    };
                     await setDoc(doc(db, 'distress_analysis', subjectZpid), {
-                        compNormalization: merged,
+                        compNormalization: sanitize(merged),
                         compNormalizationAt: new Date().toISOString(),
                     }, { merge: true });
                 } catch (cacheErr) {
@@ -957,7 +1012,11 @@ Return ONLY valid JSON (no markdown, no code fences):
                                     compNormalizationAt: null,
                                 }, { merge: true }).catch(() => { });
                             }
-                            onRefresh();
+                            // Re-run analysis in-place (don't navigate away)
+                            const sc = cached?.valueEstimate?.comps ?? [];
+                            if (sc.length > 0) {
+                                runCompAnalysis(sc);
+                            }
                         }}
                         className="flex-shrink-0 mt-1 flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 hover:bg-slate-50 hover:border-slate-300 transition-all"
                     >
@@ -969,15 +1028,11 @@ Return ONLY valid JSON (no markdown, no code fences):
                 {/* Title block — grows to fill, stacks vertically */}
                 <div className="min-w-0 flex-1">
                     {/* Breadcrumb row */}
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i className="fa-solid fa-chart-bar text-indigo-600 text-xs" />
-                        </span>
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Property Comps</span>
+                    <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl px-4 py-2 mb-1.5">
+                        <i className="fa-solid fa-chart-bar text-white/80 text-sm" />
+                        <span className="text-xs font-black text-white uppercase tracking-widest">Property Comps</span>
                     </div>
                 </div>
-
-
             </div>
 
             {/* ── Unified Subject Property Card ─────────────────────────── */}
@@ -1014,13 +1069,27 @@ Return ONLY valid JSON (no markdown, no code fences):
                 }
 
                 const subjectAuditData = compAnalysisResult?.subject_audit;
-                const getLotCalcLocal = (grossSqft: number | null | undefined, slopeCategory: string | null | undefined, slopePct: number | null | undefined) => {
-                    if (typeof grossSqft !== 'number' || grossSqft <= 0) return null;
+                const parseNumLocal = (v: any): number => {
+                    if (typeof v === 'number') return v;
+                    if (typeof v === 'string') return parseFloat(v.replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0;
+                    return 0;
+                };
+                const parseLotSqftLocal = (v: any): number => {
+                    if (v == null) return 0;
+                    const isAcreStr = typeof v === 'string' && /acre/i.test(v);
+                    const num = parseNumLocal(v);
+                    if (num > 0 && (isAcreStr || num < 500)) return Math.round(num * 43560);
+                    return num;
+                };
+                const getLotCalcLocal = (rawGross: any, slopeCategory: string | null | undefined, rawSlope: any) => {
+                    const grossSqft = parseLotSqftLocal(rawGross);
+                    if (grossSqft <= 0) return null;
+                    const slopePct = parseNumLocal(rawSlope);
                     const cappedLot = Math.min(grossSqft, 30000);
                     const setbackDeduction = cappedLot <= 12000 ? cappedLot * 0.25 : 3000 + (cappedLot - 12000) * 0.01;
                     const afterSetback = grossSqft - setbackDeduction;
                     let slopeDeductionPct = 0;
-                    if (typeof slopePct === 'number') {
+                    if (slopePct > 0) {
                         if (slopePct > 30) slopeDeductionPct = 85;
                         else if (slopePct >= 16) slopeDeductionPct = 60;
                         else if (slopePct >= 6) slopeDeductionPct = 10;
@@ -1033,17 +1102,22 @@ Return ONLY valid JSON (no markdown, no code fences):
                     const slopeDeduction = afterSetback * (slopeDeductionPct / 100);
                     return { gross: Math.round(grossSqft), setback_deduction: Math.round(setbackDeduction), slope_deduction_pct: slopeDeductionPct, slope_deduction: Math.round(slopeDeduction), usable: Math.round(afterSetback - slopeDeduction) };
                 };
-                const subjectLotCalcLocal = subjectAuditData?.lot_calc ?? getLotCalcLocal(subjectLotSize ?? null, subjectAuditData?.slope_category, subjectAuditData?.slope_percent);
+                const subjectIsSFLocal = (() => {
+                    if (!subjectHomeType) return true;
+                    const ht = subjectHomeType.toLowerCase();
+                    const nonSFR = ['townhouse', 'townhome', 'condo', 'condominium', 'co-op', 'coop', 'apartment', 'multi', 'duplex', 'triplex', 'fourplex', 'manufactured', 'mobile'];
+                    return !nonSFR.some(t => ht.includes(t));
+                })();
+                const subjectLotCalcLocal = subjectIsSFLocal
+                    ? ((subjectAuditData?.lot_calc?.usable != null ? subjectAuditData.lot_calc : null) ?? getLotCalcLocal(subjectLotSize ?? null, subjectAuditData?.slope_category, subjectAuditData?.slope_percent))
+                    : null;
 
                 return (
                     <div className="rounded-2xl border-2 border-teal-200 bg-gradient-to-br from-teal-50 via-white to-emerald-50 p-5">
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs font-black text-teal-600 uppercase tracking-widest">Subject Property</span>
-                        </div>
-
-                        {/* Address row */}
+                        {/* Banner row: label + address + price */}
                         <div className="flex items-baseline gap-3 flex-wrap mb-2">
-                            <h2 className="text-lg font-black text-slate-900 leading-tight">{cached?.address ?? initialAddress}</h2>
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest bg-teal-500 px-2 py-0.5 rounded-md self-center">Subject Property</span>
+                            <a href={`https://www.zillow.com/homedetails/${subjectZpid}_zpid/`} target="_blank" rel="noopener noreferrer" className="text-lg font-black text-slate-900 leading-tight hover:text-teal-700 hover:underline transition-colors">{cached?.address ?? initialAddress}</a>
                             {subjectListPrice != null && (
                                 <span className="text-[13px] font-bold text-emerald-600">
                                     Listed at ${subjectListPrice.toLocaleString()}
@@ -1095,6 +1169,27 @@ Return ONLY valid JSON (no markdown, no code fences):
                                         </div>
                                     </div>
                                 )}
+                                {/* Validation Scorecard — Subject */}
+                                {subjectAuditData?.validation_flags?.length > 0 && (
+                                    <div className="mt-2 rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2 space-y-1.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                            <i className="fa-solid fa-shield-halved text-[8px]" />Verification from county parcel polygon data
+                                        </div>
+                                        {subjectAuditData.validation_flags.map((f: any, fi: number) => (
+                                            <div key={fi} className={`flex items-start gap-1.5 text-[10px] leading-tight px-1.5 py-1 rounded ${f.severity === 'alert' ? 'bg-red-50 border border-red-200' :
+                                                f.severity === 'warning' ? 'bg-amber-50 border border-amber-200' :
+                                                    'bg-emerald-50 border border-emerald-200'
+                                                }`}>
+                                                <span className="shrink-0 mt-0.5">{f.severity === 'alert' ? '🚨' : f.severity === 'warning' ? '⚠️' : '✅'}</span>
+                                                <span className={`font-semibold ${f.severity === 'alert' ? 'text-red-700' :
+                                                    f.severity === 'warning' ? 'text-amber-700' :
+                                                        'text-emerald-700'
+                                                    }`}>{f.finding}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
                             </div>
 
                             {/* ── Column 2: SqFt + Lot Analysis ── */}
@@ -1113,14 +1208,17 @@ Return ONLY valid JSON (no markdown, no code fences):
                                             <div className="text-teal-500 font-bold text-[10px]">Lot Area</div>
                                             <div className="font-black text-slate-700">{subjectLotSize ? `${subjectLotSize.toLocaleString()} sf` : '—'}</div>
                                         </div>
-                                        <div>
-                                            <div className="text-teal-500 font-bold text-[10px]">Usable Lot</div>
-                                            <div className="font-black text-teal-700">{(subjectLotCalcLocal?.usable ?? subjectAuditData.usable_lot) ? `${(subjectLotCalcLocal?.usable ?? subjectAuditData.usable_lot)?.toLocaleString()} sf` : '—'}</div>
-                                        </div>
+                                        {subjectIsSFLocal && (
+                                            <div>
+                                                <div className="text-teal-500 font-bold text-[10px]">Usable Lot</div>
+                                                <div className="font-black text-teal-700">{(subjectLotCalcLocal?.usable ?? subjectAuditData.usable_lot) ? `${(subjectLotCalcLocal?.usable ?? subjectAuditData.usable_lot)?.toLocaleString()} sf` : '—'}</div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 {subjectLotCalcLocal && (
                                     <div className="space-y-0.5 text-[11px] font-mono bg-white/60 rounded-lg p-2 border border-teal-100">
+                                        <div className="text-[9px] font-black text-teal-600 uppercase tracking-widest font-mono mb-1">Usable Lot Calculation</div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="w-11 text-right text-slate-400 font-bold text-[9px]">Slope</span>
                                             <span className={`font-bold ${subjectAuditData?.slope_category === 'Heavy' || subjectAuditData?.slope_category === 'Steep' ? 'text-red-600' : subjectAuditData?.slope_category === 'Moderate' ? 'text-amber-600' : 'text-slate-700'}`}>
@@ -1140,7 +1238,7 @@ Return ONLY valid JSON (no markdown, no code fences):
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="w-11 text-right text-amber-500 font-bold text-[9px]">−</span>
-                                            <span className="font-bold text-amber-600">{subjectLotCalcLocal.setback_deduction.toLocaleString()} setback</span>
+                                            <span className="font-bold text-amber-600">{subjectLotCalcLocal.setback_deduction.toLocaleString()} setback (state reqd)</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="w-11 text-right text-red-400 font-bold text-[9px]">−</span>
@@ -1152,13 +1250,14 @@ Return ONLY valid JSON (no markdown, no code fences):
                                         </div>
                                     </div>
                                 )}
+
                             </div>
 
                             {/* ── Column 3: Zyphe Valuation + Comps ── */}
                             <div className="space-y-1.5">
                                 {compAnalysisLoading && (
                                     <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-200 p-3 text-center">
-                                        <div className="text-3xl mb-1" style={{ animation: 'pulse 2s ease-in-out infinite' }}>🤚</div>
+                                        <div className="text-8xl mb-1" style={{ animation: 'pulse 2s ease-in-out infinite' }}>🤚</div>
                                         <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">AI analyzing…</div>
                                         <div className="flex justify-center gap-1 mt-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 animate-bounce" style={{ animationDelay: '0s' }} />
@@ -1181,19 +1280,13 @@ Return ONLY valid JSON (no markdown, no code fences):
                                             )}
                                         </div>
                                         {/* Calculation breakdown */}
-                                        <div className="mt-2 text-[10px] font-mono bg-white/70 rounded-lg p-2 border border-indigo-100 space-y-0.5">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-slate-400 font-bold">Avg $/sf</span>
-                                                <span className="font-black text-slate-700">${Math.round(avgAdjPsf!)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-slate-400 font-bold">×</span>
-                                                <span className="font-bold text-slate-600">{subjectSqft?.toLocaleString()} sf</span>
-                                            </div>
-                                            <div className="border-t border-indigo-100 pt-0.5 flex items-center gap-1.5">
-                                                <span className="text-indigo-500 font-bold">=</span>
-                                                <span className="font-black text-indigo-800">${zypheValue.toLocaleString()}</span>
-                                            </div>
+                                        <div className="mt-2 text-[10px] font-mono bg-white/70 rounded-lg px-2 py-1.5 border border-indigo-100 flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-slate-400 font-bold">Avg $/sf</span>
+                                            <span className="font-black text-slate-700">${Math.round(avgAdjPsf!)}</span>
+                                            <span className="text-slate-400 font-bold">×</span>
+                                            <span className="font-bold text-slate-600">{subjectSqft?.toLocaleString()} sf</span>
+                                            <span className="text-indigo-400 font-bold">=</span>
+                                            <span className="font-black text-indigo-800">${zypheValue.toLocaleString()}</span>
                                         </div>
                                         <div className="mt-2 space-y-0.5 border-t border-indigo-100 pt-1.5">
                                             {eligibleForVal.map((c, i) => {
@@ -1209,33 +1302,23 @@ Return ONLY valid JSON (no markdown, no code fences):
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                        </div>
-
-                        {/* AI Notes + ARV Breakdown — side by side */}
-                        {(subjectAuditData?.notes || (arvBreakdown && arvBreakdown.length > 0)) && (
-                            <div className="mt-3 flex gap-4 items-start">
-                                {/* Left: AI Notes */}
-                                {subjectAuditData?.notes && (
-                                    <div className="flex-1 min-w-0 text-[11px] text-slate-500 italic leading-relaxed border-t border-teal-100 pt-3">{subjectAuditData.notes}</div>
-                                )}
-                                {/* Right: ARV Breakdown Table */}
+                                {/* ARV Remodel Breakdown — compact inline */}
                                 {arvBreakdown && arvBreakdown.length > 0 && (
-                                    <div className="shrink-0 overflow-hidden rounded-xl border border-emerald-200/60">
-                                        <table className="text-left">
+                                    <div className="overflow-hidden rounded-lg border border-emerald-200/60">
+                                        <table className="text-left w-full">
                                             <thead>
                                                 <tr className="bg-emerald-100/50">
-                                                    <th className="px-3 py-1.5 text-[9px] font-black text-emerald-600 uppercase tracking-widest">Remodel</th>
-                                                    <th className="px-3 py-1.5 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right">Cost</th>
-                                                    <th className="px-3 py-1.5 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right">Value Add</th>
+                                                    <th className="px-2 py-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest">Remodel</th>
+                                                    <th className="px-2 py-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right">Cost</th>
+                                                    <th className="px-2 py-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right">Value Add</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-emerald-100/40">
                                                 {arvBreakdown.map((b, i) => (
                                                     <tr key={i} className="bg-white/60 hover:bg-emerald-50/40 transition-colors">
-                                                        <td className="px-3 py-1.5 text-[11px] font-bold text-slate-700">{b.item}</td>
-                                                        <td className="px-3 py-1.5 text-[11px] font-mono text-slate-500 text-right">${b.estimated_cost.toLocaleString()}</td>
-                                                        <td className="px-3 py-1.5 text-[11px] font-mono text-emerald-700 font-bold text-right">+${b.value_add.toLocaleString()}</td>
+                                                        <td className="px-2 py-1 text-[10px] font-bold text-slate-700">{b.item}</td>
+                                                        <td className="px-2 py-1 text-[10px] font-mono text-slate-500 text-right">${b.estimated_cost.toLocaleString()}</td>
+                                                        <td className="px-2 py-1 text-[10px] font-mono text-emerald-700 font-bold text-right">+${b.value_add.toLocaleString()}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -1243,7 +1326,17 @@ Return ONLY valid JSON (no markdown, no code fences):
                                     </div>
                                 )}
                             </div>
+                        </div>
+                        {/* Renovation Strategy — full width below grid */}
+                        {renovationStrategy && (
+                            <div className="mt-3 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-3">
+                                <div className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1 mb-1">
+                                    <i className="fa-solid fa-hammer text-[8px]" />Renovation Strategy
+                                </div>
+                                <p className="text-[11px] text-slate-700 leading-relaxed">{renovationStrategy}</p>
+                            </div>
                         )}
+
                     </div>
                 );
             })()}
@@ -1280,14 +1373,30 @@ Return ONLY valid JSON (no markdown, no code fences):
                         const comps = analysis?.comp_analysis ?? [];
                         const summary = analysis?.final_summary;
 
-                        // Compute lot calc at render time (handles cached data without lot_calc)
-                        const getLotCalc = (grossSqft: number | null | undefined, slopeCategory: string | null | undefined, slopePct: number | null | undefined) => {
-                            if (typeof grossSqft !== 'number' || grossSqft <= 0) return null;
+                        // Parse numeric values that may be strings with commas/units (e.g. "7,143 sqft", "28.8%")
+                        const parseNum = (v: any): number => {
+                            if (typeof v === 'number') return v;
+                            if (typeof v === 'string') return parseFloat(v.replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0;
+                            return 0;
+                        };
+                        // Parse lot size — auto-detect acres and convert to sqft
+                        const parseLotSqft = (v: any): number => {
+                            if (v == null) return 0;
+                            const isAcreStr = typeof v === 'string' && /acre/i.test(v);
+                            const num = parseNum(v);
+                            // If string says "acres" or value is suspiciously small (< 500), it's acres
+                            if (num > 0 && (isAcreStr || num < 500)) return Math.round(num * 43560);
+                            return num;
+                        };
+                        const getLotCalc = (rawGross: any, slopeCategory: string | null | undefined, rawSlope: any) => {
+                            const grossSqft = parseLotSqft(rawGross);
+                            if (grossSqft <= 0) return null;
+                            const slopePct = parseNum(rawSlope);
                             const cappedLot = Math.min(grossSqft, 30000);
                             const setbackDeduction = cappedLot <= 12000 ? cappedLot * 0.25 : 3000 + (cappedLot - 12000) * 0.01;
                             const afterSetback = grossSqft - setbackDeduction;
                             let slopeDeductionPct = 0;
-                            if (typeof slopePct === 'number') {
+                            if (slopePct > 0) {
                                 if (slopePct > 30) slopeDeductionPct = 85;
                                 else if (slopePct >= 16) slopeDeductionPct = 60;
                                 else if (slopePct >= 6) slopeDeductionPct = 10;
@@ -1324,9 +1433,16 @@ Return ONLY valid JSON (no markdown, no code fences):
                                     {/* Per-comp analysis */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {comps.map((ca: any, idx: number) => (
-                                            <div key={idx} className={`rounded-xl border p-4 bg-white ${ca.zyphe_excluded ? 'border-orange-400' : ca.risk_flag ? 'border-amber-300' : ca.include_in_avg === false ? 'border-red-200 opacity-70' : 'border-slate-200'}`}>
+                                            <div key={idx} className={`rounded-xl border-2 p-4 ${ca.zyphe_excluded
+                                                ? 'border-orange-300 bg-gradient-to-br from-rose-50 via-white to-orange-50'
+                                                : ca.include_in_avg === false
+                                                    ? 'border-red-200 bg-gradient-to-br from-rose-50/60 via-white to-pink-50/60 opacity-80'
+                                                    : ca.include_in_avg === true
+                                                        ? 'border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50'
+                                                        : 'border-slate-200 bg-white'
+                                                }`}>
                                                 <div className="flex items-start justify-between mb-2">
-                                                    <div className="text-[12px] font-bold text-slate-800 leading-snug max-w-[60%]">{ca.address}</div>
+                                                    <a href={`https://www.zillow.com/homedetails/${ca.zpid}_zpid/`} target="_blank" rel="noopener noreferrer" className="text-[12px] font-bold text-slate-800 leading-snug max-w-[60%] hover:text-indigo-600 hover:underline transition-colors">{ca.address}</a>
                                                     <div className="flex items-center gap-1 flex-wrap justify-end">
                                                         {ca.zyphe_excluded ? <span className="text-[11px] font-bold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded">✗ Stat Outlier</span> : ca.include_in_avg === true && <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Top Comp</span>}
                                                         {!ca.zyphe_excluded && ca.include_in_avg === false && <span className="text-[11px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">✗ Excluded</span>}
@@ -1334,6 +1450,23 @@ Return ONLY valid JSON (no markdown, no code fences):
                                                         {ca.risk_flag && <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-1 rounded">⚠ Risk</span>}
                                                     </div>
                                                 </div>
+                                                {/* Property attributes */}
+                                                {(() => {
+                                                    const sc = saleComps.find((s: any) => String(s.id) === String(ca.zpid));
+                                                    return sc ? (
+                                                        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                                                            {sc.propertyType && <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5"><i className="fa-solid fa-house text-[7px]" />{sc.propertyType}</span>}
+                                                            {sc.bedrooms != null && <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5"><i className="fa-solid fa-bed text-[7px]" />{sc.bedrooms} bd</span>}
+                                                            {sc.bathrooms != null && <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5"><i className="fa-solid fa-bath text-[7px]" />{sc.bathrooms} ba</span>}
+                                                            {sc.yearBuilt != null && <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5"><i className="fa-solid fa-calendar text-[7px]" />Built {sc.yearBuilt}</span>}
+                                                            {sc.lastSaleDate && (() => {
+                                                                const days = Math.round((Date.now() - new Date(sc.lastSaleDate).getTime()) / 86400000);
+                                                                return <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded flex items-center gap-0.5"><i className="fa-solid fa-clock text-[7px]" />Sold {days}d ago</span>;
+                                                            })()}
+                                                            {sc.distance != null && <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-0.5"><i className="fa-solid fa-location-dot text-[7px]" />{sc.distance.toFixed(1)} mi</span>}
+                                                        </div>
+                                                    ) : null;
+                                                })()}
                                                 {ca.zyphe_excluded && ca.zyphe_exclude_reason && (
                                                     <div className="text-xs text-orange-600 font-medium mb-2 italic">{ca.zyphe_exclude_reason}</div>
                                                 )}
@@ -1355,17 +1488,30 @@ Return ONLY valid JSON (no markdown, no code fences):
                                                         <div className="font-black text-emerald-700">{ca.normalized_psf ? `$${Math.round(ca.normalized_psf)}` : '—'}</div>
                                                     </div>
                                                     {ca.lot_utility && (() => {
-                                                        const compLotCalc = ca.lot_utility.lot_calc ?? getLotCalc(ca.lot_utility.gross_lot_sqft, ca.lot_utility.slope_category, ca.lot_utility.slope_percent);
+                                                        const compIsSF = (() => {
+                                                            const ht = (ca._homeType || saleComps.find((sc: any) => String(sc.id) === String(ca.zpid))?.propertyType || '').toLowerCase();
+                                                            if (!ht) return true;
+                                                            const nonSFR = ['townhouse', 'townhome', 'condo', 'condominium', 'co-op', 'coop', 'apartment', 'multi', 'duplex', 'triplex', 'fourplex', 'manufactured', 'mobile'];
+                                                            return !nonSFR.some((t: string) => ht.includes(t));
+                                                        })();
+                                                        const compLotCalc = compIsSF
+                                                            ? ((ca.lot_utility.lot_calc?.usable != null ? ca.lot_utility.lot_calc : null) ?? getLotCalc(ca.lot_utility.gross_lot_sqft, ca.lot_utility.slope_category, ca.lot_utility.slope_percent))
+                                                            : null;
                                                         return (
                                                             <>
                                                                 <div>
                                                                     <div className="text-teal-500 font-bold">Lot Area</div>
-                                                                    <div className="font-black text-slate-700">{ca.lot_utility.gross_lot_sqft ? `${ca.lot_utility.gross_lot_sqft.toLocaleString()} sf` : '—'}</div>
+                                                                    <div className="font-black text-slate-700">{parseLotSqft(ca.lot_utility.gross_lot_sqft) > 0 ? `${parseLotSqft(ca.lot_utility.gross_lot_sqft).toLocaleString()} sf` : '—'}</div>
+                                                                    {ca.lot_utility.arcgis_lot_sqft && ca.lot_utility.gross_lot_sqft && Math.abs(ca.lot_utility.arcgis_lot_sqft - ca.lot_utility.gross_lot_sqft) / ca.lot_utility.gross_lot_sqft > 0.05 && (
+                                                                        <div className="text-[9px] text-teal-400 font-semibold">Parcel Boundary: {ca.lot_utility.arcgis_lot_sqft.toLocaleString()} sf</div>
+                                                                    )}
                                                                 </div>
-                                                                <div>
-                                                                    <div className="text-teal-500 font-bold">Usable Lot</div>
-                                                                    <div className="font-black text-teal-700">{compLotCalc?.usable ? `${compLotCalc.usable.toLocaleString()} sf` : '—'}</div>
-                                                                </div>
+                                                                {compIsSF && (
+                                                                    <div>
+                                                                        <div className="text-teal-500 font-bold">Usable Lot</div>
+                                                                        <div className="font-black text-teal-700">{compLotCalc?.usable ? `${compLotCalc.usable.toLocaleString()} sf` : '—'}</div>
+                                                                    </div>
+                                                                )}
                                                             </>
                                                         );
                                                     })()}
@@ -1375,9 +1521,18 @@ Return ONLY valid JSON (no markdown, no code fences):
                                                 <div className="flex gap-4">
                                                     {/* Left: Vertical lot calc */}
                                                     {ca.lot_utility && (() => {
-                                                        const compLotCalc = ca.lot_utility.lot_calc ?? getLotCalc(ca.lot_utility.gross_lot_sqft, ca.lot_utility.slope_category, ca.lot_utility.slope_percent);
+                                                        const compIsSF2 = (() => {
+                                                            const ht = (ca._homeType || saleComps.find((sc: any) => String(sc.id) === String(ca.zpid))?.propertyType || '').toLowerCase();
+                                                            if (!ht) return true;
+                                                            const nonSFR = ['townhouse', 'townhome', 'condo', 'condominium', 'co-op', 'coop', 'apartment', 'multi', 'duplex', 'triplex', 'fourplex', 'manufactured', 'mobile'];
+                                                            return !nonSFR.some((t: string) => ht.includes(t));
+                                                        })();
+                                                        const compLotCalc = compIsSF2
+                                                            ? ((ca.lot_utility.lot_calc?.usable != null ? ca.lot_utility.lot_calc : null) ?? getLotCalc(ca.lot_utility.gross_lot_sqft, ca.lot_utility.slope_category, ca.lot_utility.slope_percent))
+                                                            : null;
                                                         return compLotCalc ? (
                                                             <div className="shrink-0 space-y-1 text-xs font-mono bg-teal-50/50 rounded-lg p-2 border border-teal-100">
+                                                                <div className="text-[9px] font-black text-teal-600 uppercase tracking-widest font-mono mb-1">Usable Lot Calculation</div>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="w-12 text-right text-slate-400 font-bold text-[10px]">Slope</span>
                                                                     <span className={`font-bold ${ca.lot_utility.slope_category === 'Heavy' || ca.lot_utility.slope_category === 'Steep' ? 'text-red-600' : ca.lot_utility.slope_category === 'Moderate' ? 'text-amber-600' : 'text-slate-700'}`}>
@@ -1391,7 +1546,7 @@ Return ONLY valid JSON (no markdown, no code fences):
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="w-12 text-right text-amber-500 font-bold text-[10px]">−</span>
-                                                                    <span className="font-bold text-amber-600">{compLotCalc.setback_deduction.toLocaleString()} setback</span>
+                                                                    <span className="font-bold text-amber-600">{compLotCalc.setback_deduction.toLocaleString()} setback (state reqd)</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="w-12 text-right text-red-400 font-bold text-[10px]">−</span>
@@ -1421,10 +1576,9 @@ Return ONLY valid JSON (no markdown, no code fences):
                                                     )}
                                                 </div>
 
-                                                {/* Notes from Gemini */}
-                                                {ca.lot_utility?.notes && (
-                                                    <div className="mt-2 text-[10px] text-slate-400 italic leading-relaxed border-t border-slate-100 pt-2">{ca.lot_utility.notes}</div>
-                                                )}
+
+
+
                                             </div>
                                         ))}
                                     </div>
