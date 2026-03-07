@@ -213,7 +213,7 @@ const Property3DMap: React.FC<Props> = ({ latitude, longitude, address }) => {
 
     return (
         <div
-            className="relative w-full h-[500px] shadow-2xl bg-slate-900 border border-slate-800"
+            className="relative w-full h-full shadow-2xl bg-slate-900 border border-slate-800"
             style={{ borderRadius: '1.5rem', clipPath: 'inset(0% round 1.5rem)' }}
         >
 
