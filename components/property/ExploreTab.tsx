@@ -167,6 +167,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 isFavorited={isFavorited}
                                 onToggleFavorite={onToggleFavorite}
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                parcelPolygon={
+                                    (propertyData as any).parcelPolygon?.length > 3
+                                        ? (propertyData as any).parcelPolygon.map((pt: any) =>
+                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                        )
+                                        : undefined
+                                }
                             />
                             <AirQualitySection data={propertyData} />
                             <StreetViewAnalysisSection

@@ -42,6 +42,8 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
     const [polygonVertices, setPolygonVertices] = useState<number | null>(null);
     const [slopeDisplay, setSlopeDisplay] = useState<{ percent: number; category: string; uphillDir: string } | null>(null);
 
+    const [showHelp, setShowHelp] = useState(false);
+
     const zpid = propertyData?.zpid;
     const lat = propertyData?.coordinates?.latitude;
     const lon = propertyData?.coordinates?.longitude;
@@ -393,22 +395,97 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
     const summaryIcon = alertCount > 0 ? '🚨' : warnCount > 0 ? '⚠️' : '✅';
 
     return (
-        <div className="px-2 pt-4 animate-in fade-in slide-in-from-top-2 duration-500">
+        <div className="px-2 pt-4 animate-in fade-in slide-in-from-top-2 duration-500 relative">
+            {/* Help Overlay */}
+            {showHelp && (
+                <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-md p-6 overflow-y-auto rounded-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                            <i className="fa-solid fa-circle-info text-indigo-600"></i>
+                        </div>
+                        <button onClick={() => setShowHelp(false)} className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors">
+                            <i className="fa-solid fa-xmark text-slate-400"></i>
+                        </button>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div>
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">The Ground Truth Engine</h3>
+                            <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                                Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                    <i className="fa-solid fa-database"></i> Data & Sources
+                                </div>
+                                <ul className="space-y-2">
+                                    <li className="text-[11px] text-slate-600 font-medium">
+                                        <span className="font-bold text-slate-800">Municipal ArcGIS:</span> Live county boundary data used to calculate true usable area.
+                                    </li>
+                                    <li className="text-[11px] text-slate-600 font-medium">
+                                        <span className="font-bold text-slate-800">USGS LiDAR:</span> National Map elevation profiles used for slope and solar analysis.
+                                    </li>
+                                    <li className="text-[11px] text-slate-600 font-medium">
+                                        <span className="font-bold text-slate-800">Tax Databases:</span> Verified historical records to validate living square footage.
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                    <i className="fa-solid fa-microchip"></i> Rules Evaluated
+                                </div>
+                                <ul className="space-y-2">
+                                    <li className="text-[11px] text-slate-600 font-medium">
+                                        <span className="font-bold text-slate-800">Lot Accuracy:</span> Flags differences {'>'}5% between listing and GIS boundaries.
+                                    </li>
+                                    <li className="text-[11px] text-slate-600 font-medium">
+                                        <span className="font-bold text-slate-800">Topography Scan:</span> Verifies "flat" claims vs actual terrain grade.
+                                    </li>
+                                    <li className="text-[11px] text-slate-600 font-medium">
+                                        <span className="font-bold text-slate-800">Solar Potential:</span> Checks roof orientation for true energy efficiency.
+                                    </li>
+                                    <li className="text-[11px] text-slate-600 font-medium">
+                                        <span className="font-bold text-slate-800">Permit Integrity:</span> Flags inconsistent living area potentially unpermitted.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="text-[9px] text-slate-400 font-medium italic pt-2">
+                            * Analysis is deterministic and relies on the latest public satellite and record updates.
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className={`rounded-2xl border bg-gradient-to-br ${summaryColor} overflow-hidden shadow-sm`}>
                 {/* Header */}
                 <div className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${alertCount > 0 ? 'bg-red-100' : warnCount > 0 ? 'bg-amber-100' : 'bg-emerald-100'
-                            }`}>
-                            <i className={`fa-solid fa-shield-halved text-sm ${alertCount > 0 ? 'text-red-600' : warnCount > 0 ? 'text-amber-600' : 'text-emerald-600'
-                                }`} />
-                        </div>
-                        <div>
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                Ground Truth
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${alertCount > 0 ? 'bg-red-100' : warnCount > 0 ? 'bg-amber-100' : 'bg-emerald-100'
+                                }`}>
+                                <i className={`fa-solid fa-shield-halved text-sm ${alertCount > 0 ? 'text-red-600' : warnCount > 0 ? 'text-amber-600' : 'text-emerald-700'
+                                    }`} />
                             </div>
-                            {apn && <div className="text-[10px] text-slate-400 font-mono mt-0.5">APN: {apn}</div>}
+                            <div>
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Ground Truth
+                                </div>
+                                {apn && <div className="text-[10px] text-slate-400 font-mono mt-0.5">APN: {apn}</div>}
+                            </div>
                         </div>
+
+                        <button
+                            onClick={() => setShowHelp(true)}
+                            className="w-8 h-8 rounded-full bg-white/40 hover:bg-white/80 border border-black/5 flex items-center justify-center transition-all group"
+                        >
+                            <i className="fa-solid fa-circle-question text-slate-400 group-hover:text-indigo-600 text-sm"></i>
+                        </button>
                     </div>
                 </div>
 

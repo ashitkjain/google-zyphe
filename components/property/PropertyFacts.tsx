@@ -85,17 +85,33 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
 
   const categories = [
     {
-      title: 'Interior',
-      items: [
-        { label: 'Interiors', value: facts.roomTypes, isComplex: true },
-        { label: 'Room Features', value: facts.roomFeatures, isComplex: true },
-        { label: 'Appliances', value: facts.appliances, isComplex: true },
-        { label: 'Basement', value: facts.basement, isComplex: true },
-        { label: 'Additional Features', value: features, isManualArray: true },
+      title: 'Interior Utilities',
+      isGrid: true,
+      sections: [
+        {
+          items: [
+            { label: 'Interiors', value: facts.roomTypes, isComplex: true },
+            { label: 'Room Features', value: facts.roomFeatures, isComplex: true },
+            { label: 'Appliances', value: facts.appliances, isComplex: true },
+            { label: 'Basement', value: facts.basement, isComplex: true },
+          ]
+        },
+        {
+          items: [
+            { label: 'Heating', value: facts.heating },
+            { label: 'Cooling', value: facts.cooling },
+            { label: 'Utilities', value: facts.utilities },
+            { label: 'Sewer', value: facts.sewer },
+            { label: 'Water Source', value: facts.waterSource },
+          ]
+        },
+        {
+          items: [
+            { label: 'Additional Features', value: features, isManualArray: true },
+          ]
+        }
       ]
-    },
-
-
+    }
   ];
 
   // Fix: Explicitly type FactItem as React.FC to handle React-reserved props like 'key' in mapped components
@@ -125,28 +141,31 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
 
     if (displayValues.length === 0 || (displayValues.length === 1 && displayValues[0].toLowerCase() === 'null')) return null;
 
+    const isStacked = item.label === 'Additional Features';
+
     return (
-      <div className="flex items-start gap-4 group mb-6 last:mb-0">
-        <div className="w-5 flex justify-center flex-shrink-0 mt-0.5">
-          <i className={`fa-solid ${getIcon(item.label)} text-slate-200 text-xs group-hover:text-indigo-500 transition-colors`}></i>
-        </div>
-        <div className="flex-1">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">{item.label}</span>
-            {displayValues.length === 1 && (
-              <span className="text-[14px] font-normal text-slate-800 leading-[1.625]">{displayValues[0]}</span>
-            )}
+      <div className={`flex ${isStacked ? 'flex-col items-start gap-2' : 'items-center gap-4'} py-2 border-b border-slate-50 last:border-0 group hover:bg-slate-50/50 transition-all rounded-lg px-2 -ml-2`}>
+        <div className="flex items-center gap-4">
+          <div className="w-6 flex justify-center flex-shrink-0">
+            <i className={`fa-solid ${getIcon(item.label)} text-slate-300 text-[13px] group-hover:text-indigo-500 transition-colors`}></i>
           </div>
-          {displayValues.length > 1 && (
-            <ul className="space-y-1 mt-1 ml-1">
-              {displayValues.map((val, vidx) => (
-                <li key={vidx} className="flex items-start gap-2 text-slate-800 font-normal text-[14px] leading-[1.625]">
-                  <span className="text-indigo-200 mt-1.5 flex-shrink-0 text-[10px]">•</span>
-                  <span>{val}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+
+          <div className={`${isStacked ? 'w-auto' : 'w-32'} flex-shrink-0`}>
+            <span className="text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] leading-none whitespace-nowrap">{item.label}</span>
+          </div>
+        </div>
+
+        <div className={`flex-1 min-w-0 ${isStacked ? 'w-full pl-10' : ''}`}>
+          <div className={`flex ${isStacked ? 'flex-col gap-2' : 'flex-wrap items-center gap-x-4 gap-y-1'}`}>
+            {displayValues.map((val, vidx) => (
+              <div key={vidx} className="flex items-start gap-3">
+                {(isStacked || vidx > 0) && (
+                  <div className={`w-1 h-1 rounded-full bg-slate-200 flex-shrink-0 ${isStacked ? 'mt-2' : ''}`} />
+                )}
+                <span className="text-[14px] font-normal text-slate-800 leading-relaxed">{val}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -154,27 +173,26 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
 
   return (
     <div className="bg-white px-5 md:px-6 py-4 border-x border-slate-100">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-12">
+      <div className="space-y-8">
         {categories.map((cat, idx) => {
-          // Check if category has any visible items
-          const hasVisibleItems = cat.items.some(item => {
-            const val = item.isManualArray ? item.value : parseComplexFact(item.value);
-            return Array.isArray(val) ? val.length > 0 : !!val;
-          });
-
-          if (!hasVisibleItems) return null;
-
-          return (
-            <div key={idx} className="space-y-6">
-              <div className="text-[11px] font-black text-indigo-600/60 uppercase tracking-[0.2em] flex items-center gap-3">
-                {cat.title}
-                <span className="flex-1 h-px bg-slate-100"></span>
+          if (cat.isGrid) {
+            return (
+              <div key={idx} className="space-y-6">
+                <div className="text-[11px] font-black text-indigo-600/60 uppercase tracking-[0.2em] flex items-center gap-3">
+                  {cat.title}
+                  <span className="flex-1 h-px bg-slate-100"></span>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {cat.sections?.map((section, sidx) => (
+                    <div key={sidx} className="pl-1">
+                      {section.items.map((item, iidx) => <FactItem key={iidx} item={item} />)}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="pl-1">
-                {cat.items.map((item, iidx) => <FactItem key={iidx} item={item} />)}
-              </div>
-            </div>
-          );
+            );
+          }
+          return null;
         })}
       </div>
     </div>

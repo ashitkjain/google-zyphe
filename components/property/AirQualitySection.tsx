@@ -33,14 +33,15 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
         colorClass?: string;
         helpText?: string;
         helpLink?: string;
-    }> = ({ icon, label, value, colorClass, helpText, helpLink }) => (
-        <div className="flex items-start gap-3 group relative">
+        isCritical?: boolean;
+    }> = ({ icon, label, value, colorClass, helpText, helpLink, isCritical }) => (
+        <div className={`flex items-start gap-3 group relative rounded-lg transition-colors ${isCritical ? 'bg-red-50/50 p-1.5 -m-1.5' : ''}`}>
             <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
-                <i className={`fa-solid ${icon} ${colorClass || 'text-slate-300'} text-[12px] group-hover:text-indigo-500 transition-colors`}></i>
+                <i className={`fa-solid ${icon} ${isCritical ? 'text-red-500' : (colorClass || 'text-slate-300')} text-[12px] group-hover:text-indigo-500 transition-colors`}></i>
             </div>
             <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">{label}</span>
+                    <span className={`text-[11px] font-black uppercase tracking-widest leading-none ${isCritical ? 'text-red-400' : 'text-gray-400'}`}>{label}</span>
                     {helpLink && (
                         <div className="group/tooltip relative inline-block">
                             <i className="fa-solid fa-circle-info text-[9px] text-slate-300 hover:text-indigo-500 cursor-help transition-colors"></i>
@@ -58,7 +59,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                         </div>
                     )}
                 </div>
-                <span className={`text-[14px] font-normal ${colorClass || 'text-slate-800'} leading-[1.625]`}>{value}</span>
+                <span className={`text-[14px] ${isCritical ? 'font-black text-red-600' : 'font-normal ' + (colorClass || 'text-slate-800')} leading-[1.625]`}>{value}</span>
             </div>
         </div>
     );
@@ -67,8 +68,10 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
     const getNoiseBadge = (s: number) => s >= 80 ? 'bg-green-50 text-green-700' : s >= 65 ? 'bg-yellow-50 text-yellow-700' : 'bg-orange-50 text-orange-700';
     const noisePct = (s: number) => Math.max(0, Math.min(100, ((s - 0) / 100) * 100));
 
+    const [isMolecularExpanded, setIsMolecularExpanded] = React.useState(false);
+
     return (
-        <div className="bg-white border-x border-slate-100 px-5 pt-0 pb-6">
+        <div className="bg-white border-x border-slate-100 px-5 pt-0 pb-3">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
 
                 {/* MODULE: POLLEN */}
@@ -81,18 +84,10 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-4 mb-4">
-                                {data.pollen.score != null && (
-                                    <MetricItem
-                                        icon="fa-gauge-high"
-                                        label="Score"
-                                        value={`${data.pollen.score}/5`}
-                                        colorClass={data.pollen.score >= 4 ? 'text-rose-500' : data.pollen.score >= 2 ? 'text-amber-500' : 'text-emerald-500'}
-                                    />
-                                )}
                                 {data.pollen.category && (
                                     <MetricItem
                                         icon="fa-leaf"
-                                        label="Level"
+                                        label="Current Level"
                                         value={data.pollen.category}
                                         colorClass={data.pollen.score != null && data.pollen.score >= 4 ? 'text-rose-500' : data.pollen.score != null && data.pollen.score >= 2 ? 'text-amber-500' : 'text-emerald-500'}
                                     />
@@ -144,7 +139,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                             )}
                         </div>
 
-                        <div className="mt-auto p-4 bg-slate-50/10 border-t border-slate-100/10"></div>
+
                     </div>
                 )}
 
@@ -159,10 +154,30 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                                     Climate Risk
                                 </div>
                                 <div className="grid grid-cols-2 gap-y-1.5 gap-x-3">
-                                    <MetricItem icon="fa-wind" label="Wind" value={data.windRiskScore ? `${data.windRiskScore}/10` : 'N/A'} />
-                                    <MetricItem icon="fa-droplet" label="Flood" value={data.floodRiskScore ? `${data.floodRiskScore}/10` : 'N/A'} />
-                                    <MetricItem icon="fa-fire" label="Fire" value={data.fireRiskScore ? `${data.fireRiskScore}/10` : 'N/A'} />
-                                    <MetricItem icon="fa-temperature-high" label="Heat" value={data.heatRiskScore ? `${data.heatRiskScore}/10` : 'N/A'} />
+                                    <MetricItem
+                                        icon="fa-wind"
+                                        label="Wind"
+                                        value={data.windRiskScore ? `${data.windRiskScore}/10` : 'N/A'}
+                                        isCritical={!!(data.windRiskScore && data.windRiskScore > 5)}
+                                    />
+                                    <MetricItem
+                                        icon="fa-droplet"
+                                        label="Flood"
+                                        value={data.floodRiskScore ? `${data.floodRiskScore}/10` : 'N/A'}
+                                        isCritical={!!(data.floodRiskScore && data.floodRiskScore > 5)}
+                                    />
+                                    <MetricItem
+                                        icon="fa-fire"
+                                        label="Fire"
+                                        value={data.fireRiskScore ? `${data.fireRiskScore}/10` : 'N/A'}
+                                        isCritical={!!(data.fireRiskScore && data.fireRiskScore > 5)}
+                                    />
+                                    <MetricItem
+                                        icon="fa-temperature-high"
+                                        label="Heat"
+                                        value={data.heatRiskScore ? `${data.heatRiskScore}/10` : 'N/A'}
+                                        isCritical={!!(data.heatRiskScore && data.heatRiskScore > 5)}
+                                    />
                                     {data.annualHomeownersInsurance && (
                                         <MetricItem icon="fa-shield-heart" label="Insurance" value={`$${data.annualHomeownersInsurance.toLocaleString()}/yr`} />
                                     )}
@@ -225,7 +240,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                                 />
                                 <MetricItem
                                     icon="fa-leaf"
-                                    label="Status"
+                                    label="Current Level"
                                     value={aq.category}
                                     colorClass={getAQIColor(aq.aqi)}
                                 />
@@ -244,27 +259,37 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
 
                         {/* Molecular Sub-section */}
                         {aq.pollutants && (
-                            <div className="mx-3 mb-3 bg-white/50 rounded-xl p-4 border border-slate-100">
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 px-1">
-                                    <i className="fa-solid fa-flask-vial text-[11px]"></i>
-                                    Molecular Breakdown
-                                </div>
-                                <div className="grid grid-cols-2 gap-y-3 gap-x-3">
-                                    {aq.pollutants.slice(0, 4).map((p, idx) => (
-                                        <MetricItem
-                                            key={idx}
-                                            icon={p.name.includes('CO') ? 'fa-cloud' : p.name.includes('PM') ? 'fa-smog' : 'fa-atom'}
-                                            label={p.name}
-                                            value={`${p.concentration.toFixed(1)} ${p.unit === 'PARTS_PER_BILLION' ? 'ppb' : 'µg/m³'}`}
-                                        />
-                                    ))}
-                                </div>
+                            <div className="mx-3 mb-3 bg-white/50 rounded-xl border border-slate-100 overflow-hidden">
+                                <button
+                                    onClick={() => setIsMolecularExpanded(!isMolecularExpanded)}
+                                    className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest p-4 pb-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <i className="fa-solid fa-flask-vial text-[11px]"></i>
+                                        Molecular Breakdown
+                                    </div>
+                                    <i className={`fa-solid fa-chevron-${isMolecularExpanded ? 'up' : 'down'} text-[9px] transition-transform`}></i>
+                                </button>
+                                {isMolecularExpanded && (
+                                    <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="grid grid-cols-2 gap-y-3 gap-x-3">
+                                            {aq.pollutants.slice(0, 4).map((p, idx) => (
+                                                <MetricItem
+                                                    key={idx}
+                                                    icon={p.name.includes('CO') ? 'fa-cloud' : p.name.includes('PM') ? 'fa-smog' : 'fa-atom'}
+                                                    label={p.name}
+                                                    value={`${p.concentration.toFixed(1)} ${p.unit === 'PARTS_PER_BILLION' ? 'ppb' : 'µg/m³'}`}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {/* AI Guidance footer */}
                         {aq.recommendations && (
-                            <div className="p-5 pt-3 bg-indigo-50/30 border-t border-indigo-100/30 space-y-3">
+                            <div className="p-5 pt-3 pb-4 bg-indigo-50/30 border-t border-indigo-100/30 space-y-3">
                                 <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                                     <i className="fa-solid fa-user-doctor text-[12px]"></i>
                                     Health Insights
@@ -364,7 +389,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                             </div>
                         )}
 
-                        <div className="mt-auto p-4 bg-slate-50/10 border-t border-slate-100/10"></div>
+
                     </div>
                 )}
 

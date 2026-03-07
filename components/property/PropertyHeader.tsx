@@ -8,6 +8,7 @@ interface Props {
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
   onRunAnalysis?: () => void;
+  parcelPolygon?: [number, number][];
 }
 
 const formatCurrency = (val?: number) => val ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val) : 'N/A';
@@ -36,7 +37,59 @@ const parseValue = (val: any) => {
   return String(val);
 };
 
-const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, onRunAnalysis }) => {
+const ParcelMap: React.FC<{ data: PropertyData; parcelPolygon?: [number, number][] }> = ({ data, parcelPolygon }) => {
+  if (!data.mapZoomIn) return null;
+
+  return (
+    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden h-full group relative cursor-zoom-in">
+      <img
+        src={data.mapZoomIn}
+        alt="Property Map View"
+        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+      />
+      {parcelPolygon && parcelPolygon.length > 3 && data.coordinates && (() => {
+        const zoom = 20;
+        const mapW = 2048;
+        const mapH = 2048;
+        const scale = Math.pow(2, zoom) * 256;
+        const deg2rad = Math.PI / 180;
+
+        const cxWorld = ((data.coordinates.longitude + 180) / 360) * scale;
+        const cyWorld = (1 - Math.log(Math.tan(deg2rad * data.coordinates.latitude) + 1 / Math.cos(deg2rad * data.coordinates.latitude)) / Math.PI) / 2 * scale;
+
+        const points = parcelPolygon.map(([lon, lat]) => {
+          const xWorld = ((lon + 180) / 360) * scale;
+          const yWorld = (1 - Math.log(Math.tan(deg2rad * lat) + 1 / Math.cos(deg2rad * lat)) / Math.PI) / 2 * scale;
+          const px = (xWorld - cxWorld) + mapW / 2;
+          const py = (yWorld - cyWorld) + mapH / 2;
+          return `${px},${py}`;
+        }).join(' ');
+
+        return (
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox={`0 0 ${mapW} ${mapH}`}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            <polygon
+              points={points}
+              fill="rgba(99, 102, 241, 0.12)"
+              stroke="#6366f1"
+              strokeWidth="4"
+              strokeDasharray="12 6"
+              strokeLinejoin="round"
+            />
+          </svg>
+        );
+      })()}
+      <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100">
+        Property · Parcel
+      </div>
+    </div>
+  );
+};
+
+const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, onRunAnalysis, parcelPolygon }) => {
   const [isDescExpanded, setIsDescExpanded] = React.useState(false);
 
   // Compute days on market dynamically from listedDate → today.
@@ -178,16 +231,25 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         View Visual AI Analysis
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_310px] gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_480px_340px] gap-3">
 
-        {/* Ground Truth — right column, spans all rows */}
-        <div className="lg:col-start-6 lg:row-start-1 lg:row-end-5">
-          <ParcelValidationCard propertyData={data} />
+        {/* Parcel Map — Column 5 */}
+        <div className="lg:col-start-5 lg:row-start-1 lg:row-end-5 group">
+          <div className="w-full aspect-square">
+            <ParcelMap data={data} parcelPolygon={parcelPolygon} />
+          </div>
+        </div>
+
+        {/* Ground Truth — Column 6 */}
+        <div className="lg:col-start-6 lg:row-start-1 lg:row-end-5 group">
+          <div className="w-full h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+            <ParcelValidationCard propertyData={data} />
+          </div>
         </div>
 
         {/* MLS Description — Spanning Box */}
         {data.description && data.description !== "No description available." && (
-          <div className="lg:col-span-5 bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="lg:col-span-4 bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
             <div className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
               <i className="fa-solid fa-align-left text-[11px]"></i>
               MLS Property Description
@@ -242,12 +304,15 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
                 {/* Amenity chips */}
                 {data.hoa.amenities && data.hoa.amenities.filter(a => a !== 'Other').length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {data.hoa.amenities.filter(a => a !== 'Other').map((amenity, i) => (
-                      <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        {amenity}
-                      </span>
-                    ))}
+                  <div className="w-full mt-2 pt-2 border-t border-slate-100/50">
+                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Amenities</div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {data.hoa.amenities.filter(a => a !== 'Other').map((amenity, i) => (
+                        <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {amenity}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -290,24 +355,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
-        {/* Box 3d: Utilities */}
-        {(data.resoFacts?.heating || data.resoFacts?.cooling || data.resoFacts?.utilities || data.resoFacts?.sewer || data.resoFacts?.waterSource) && (
-          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <i className="fa-solid fa-plug text-[13px]"></i>
-              Utilities
-            </div>
-            <div className="flex flex-col gap-3">
-              {[
-                { icon: 'fa-fire-flame-simple', label: 'Heating', value: data.resoFacts?.heating },
-                { icon: 'fa-snowflake', label: 'Cooling', value: data.resoFacts?.cooling },
-                { icon: 'fa-plug', label: 'Utilities', value: data.resoFacts?.utilities },
-                { icon: 'fa-faucet', label: 'Sewer', value: data.resoFacts?.sewer },
-                { icon: 'fa-droplet', label: 'Water Source', value: data.resoFacts?.waterSource },
-              ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
-            </div>
-          </div>
-        )}
 
         {/* Box 4: Mobility & Connectivity */}
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
