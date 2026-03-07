@@ -87,23 +87,11 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
     {
       title: 'Interior',
       items: [
-        { label: 'Rooms/Bathrooms', value: facts.roomTypes, isComplex: true },
+        { label: 'Interiors', value: facts.roomTypes, isComplex: true },
         { label: 'Room Features', value: facts.roomFeatures, isComplex: true },
         { label: 'Appliances', value: facts.appliances, isComplex: true },
         { label: 'Basement', value: facts.basement, isComplex: true },
         { label: 'Additional Features', value: features, isManualArray: true },
-      ]
-    },
-    {
-      title: 'Structural & Exterior',
-      items: [
-        { label: 'Architectural Style', value: facts.architecturalStyle },
-        { label: 'Construction Materials', value: facts.constructionMaterials, isComplex: true },
-        { label: 'Foundation', value: facts.foundationDetails, isComplex: true },
-        { label: 'Flooring', value: facts.flooring, isComplex: true },
-        { label: 'Roof Type', value: facts.roofType },
-        { label: 'Exterior Features', value: facts.exteriorFeatures, isComplex: true },
-        { label: 'Garage Capacity', value: facts.garageParkingCapacity },
       ]
     },
 
@@ -122,6 +110,17 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
           ? Object.entries(parsed).map(([k, v]) => `${k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: ${v}`)
           : parsed as string[])
         : (item.value === undefined || item.value === null || item.value === '' || item.value === 'null' ? [] : [String(item.value)]);
+
+      // Filter out redundant bedroom/bathroom info from "Interiors"
+      if (item.label === 'Interiors') {
+        const redundantRegex = /\d+(\.\d+)?\s*(bedrooms?|beds?|bathrooms?|baths?)(,?\s*)?/gi;
+        displayValues = displayValues.map(v => {
+          let cleaned = v.replace(redundantRegex, '').trim();
+          // Remove leading/trailing commas/punctuation
+          cleaned = cleaned.replace(/^,+|,+$/g, '').trim();
+          return cleaned;
+        }).filter(Boolean);
+      }
     }
 
     if (displayValues.length === 0 || (displayValues.length === 1 && displayValues[0].toLowerCase() === 'null')) return null;

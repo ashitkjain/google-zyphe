@@ -10,7 +10,7 @@ import Logo from '../shared/Logo';
 import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
 import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import ComplianceAttribution from './ComplianceAttribution';
-import ParcelValidationCard from './ParcelValidationCard';
+
 
 import ChatInterface from '../shared/ChatInterface';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from '../../types';
@@ -175,17 +175,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 refreshing={environmentRefreshing}
                             />
                             <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
-                            <div className="flex flex-col lg:flex-row gap-0">
-                                <div className="flex-1 min-w-0">
-                                    <PropertyFacts facts={propertyData.resoFacts} />
-                                </div>
-                                {propertyData && (
-                                    <div className="lg:w-[380px] shrink-0">
-                                        <ParcelValidationCard propertyData={propertyData} />
-                                    </div>
-                                )}
-                            </div>
-                            {propertyData.description && <PropertyDescription description={propertyData.description} />}
+                            <PropertyFacts facts={propertyData.resoFacts} />
+
                             <PropertyMaps
                                 mapZoomIn={propertyData.mapZoomIn}
                                 mapZoomOut={propertyData.mapZoomOut}

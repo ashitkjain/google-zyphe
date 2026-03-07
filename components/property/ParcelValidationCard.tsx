@@ -407,225 +407,225 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                 Ground Truth
                             </div>
-                            <div className="text-xs font-bold text-slate-600 mt-0.5 flex items-center gap-2">
-                                <span>{summaryIcon} {summaryText}</span>
-                            </div>
+                            {apn && <div className="text-[10px] text-slate-400 font-mono mt-0.5">APN: {apn}</div>}
                         </div>
-                    </div>
-                    {apn && <div className="text-[10px] text-slate-400 font-mono mt-1.5 ml-[46px]">APN: {apn}</div>}
-                    <div className="flex items-center gap-1.5 mt-2 ml-[46px]">
-                        {alertCount > 0 && <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">{alertCount} alert{alertCount > 1 ? 's' : ''}</span>}
-                        {warnCount > 0 && <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{warnCount} warning{warnCount > 1 ? 's' : ''}</span>}
-                        {infoCount > 0 && <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{infoCount} verified</span>}
                     </div>
                 </div>
 
-                {/* Parcel Data — polygon, slope, area, tax sqft */}
-                <div className="px-4 pb-2">
-                    <div className="grid grid-cols-1 gap-2">
-                        {/* Polygon info */}
-                        {(arcgisArea || polygonVertices) && (
-                            <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                                <i className="fa-solid fa-draw-polygon text-indigo-400 text-xs" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Parcel Polygon (ArcGIS)</div>
-                                    <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
-                                        {arcgisArea && (
-                                            <span>
-                                                {arcgisArea.toLocaleString()} sf
-                                                <span className="text-[10px] font-bold text-slate-400 ml-1">
-                                                    ({(arcgisArea / 43560).toFixed(2)} ac)
-                                                </span>
+            </div>
+
+            {/* Parcel Data — polygon, slope, area, tax sqft */}
+            <div className="px-4 pb-2">
+                <div className="grid grid-cols-1 gap-2">
+                    {/* Polygon info */}
+                    {(arcgisArea || polygonVertices) && (
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                            <i className="fa-solid fa-draw-polygon text-indigo-400 text-xs" />
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Parcel Polygon (ArcGIS)</div>
+                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
+                                    {arcgisArea && (
+                                        <span>
+                                            {arcgisArea.toLocaleString()} sf
+                                            <span className="text-[10px] font-bold text-slate-400 ml-1">
+                                                ({(arcgisArea / 43560).toFixed(2)} ac)
                                             </span>
-                                        )}
-                                        {polygonVertices && (
-                                            <span className="text-[10px] font-bold text-indigo-400">
-                                                {polygonVertices} vertices
-                                            </span>
-                                        )}
-                                    </div>
-                                    {countyName && (
-                                        <div className="text-[10px] font-medium text-slate-400 mt-0.5">{countyName} County</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Slope info */}
-                        {slopeDisplay && (
-                            <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                                <i className="fa-solid fa-mountain text-indigo-400 text-xs" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Slope (USGS Elevation)</div>
-                                    <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
-                                        <span>{slopeDisplay.percent}%</span>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${slopeDisplay.category === 'Heavy' || slopeDisplay.category === 'Steep'
-                                            ? 'bg-amber-100 text-amber-700'
-                                            : 'bg-emerald-100 text-emerald-700'
-                                            }`}>{slopeDisplay.category}</span>
-                                        <span className="text-[10px] font-bold text-slate-400">↑ {slopeDisplay.uphillDir}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Tax sqft */}
-                        {taxSqft ? (
-                            <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                                <i className="fa-solid fa-ruler-combined text-indigo-400 text-xs" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area (Tax Record)</div>
-                                    <div className="text-[12px] font-black text-slate-700 mt-0.5">
-                                        {taxSqft.toLocaleString()} sf
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50">
-                                <i className="fa-solid fa-ruler-combined text-slate-300 text-xs" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area (Tax Record)</div>
-                                    <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-                                        Run comp analysis to fetch tax records
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Rules Run — checklist of all validation rules */}
-                {(() => {
-                    const rawLotDisplay = (propertyData as any).lotSize;
-                    const listedLot = (() => {
-                        if (rawLotDisplay == null) return null;
-                        if (typeof rawLotDisplay === 'number') return rawLotDisplay > 0 ? rawLotDisplay : null;
-                        const s = String(rawLotDisplay);
-                        const isAcres = /acre/i.test(s);
-                        const num = parseFloat(s.replace(/,/g, '').replace(/[^0-9.]/g, ''));
-                        if (isNaN(num) || num <= 0) return null;
-                        if (isAcres || (num < 10 && !s.includes('sqft') && !s.includes('sq'))) return Math.round(num * 43560);
-                        return Math.round(num);
-                    })();
-                    const listingSqft = propertyData.livingAreaValue || null;
-
-                    const rules = [
-                        {
-                            id: 'lot_size',
-                            label: 'Lot Size vs County Parcel',
-                            ran: !!(listedLot && listedLot > 0 && arcgisArea && arcgisArea > 0),
-                            icon: 'fa-expand',
-                        },
-                        {
-                            id: 'slope_reality',
-                            label: 'Slope vs Description',
-                            ran: !!slopeDisplay,
-                            icon: 'fa-mountain',
-                        },
-                        {
-                            id: 'orientation',
-                            label: 'Orientation & Solar Check',
-                            ran: !!slopeDisplay,
-                            icon: 'fa-compass',
-                        },
-                        {
-                            id: 'living_sqft',
-                            label: 'Listing Sqft vs Tax Record',
-                            ran: !!(listingSqft && listingSqft > 0 && taxSqft && taxSqft > 0),
-                            icon: 'fa-ruler-combined',
-                        },
-                    ];
-
-                    // For each rule, find its outcome from flags
-                    const getOutcome = (ruleId: string) => {
-                        const matching = displayFlags.filter(f => f.check === ruleId || (ruleId === 'orientation' && (f.check === 'orientation' || f.check === 'solar_roi')));
-                        if (matching.length === 0) return null;
-                        if (matching.some(f => f.severity === 'alert')) return 'alert';
-                        if (matching.some(f => f.severity === 'warning')) return 'warning';
-                        return 'info';
-                    };
-
-                    return (
-                        <div className="px-4 pb-2">
-                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Rules Evaluated</div>
-                            <div className="grid grid-cols-1 gap-1">
-                                {rules.map(r => {
-                                    const outcome = r.ran ? getOutcome(r.id) : null;
-                                    return (
-                                        <div key={r.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] ${!r.ran ? 'bg-slate-50/60 border border-slate-100' :
-                                            outcome === 'alert' ? 'bg-red-50/60 border border-red-200/60' :
-                                                outcome === 'warning' ? 'bg-amber-50/60 border border-amber-200/60' :
-                                                    'bg-white/60 border border-emerald-100'
-                                            }`}>
-                                            <i className={`fa-solid ${r.icon} text-[10px] ${!r.ran ? 'text-slate-300' :
-                                                outcome === 'alert' ? 'text-red-500' :
-                                                    outcome === 'warning' ? 'text-amber-500' :
-                                                        'text-emerald-500'
-                                                }`} />
-                                            <span className={`font-semibold flex-1 ${!r.ran ? 'text-slate-400' : 'text-slate-600'
-                                                }`}>{r.label}</span>
-                                            {!r.ran ? (
-                                                <span className="text-[9px] font-bold text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">SKIPPED</span>
-                                            ) : outcome === 'alert' ? (
-                                                <span className="text-[9px] font-bold text-red-600 px-1.5 py-0.5 rounded bg-red-100">ALERT</span>
-                                            ) : outcome === 'warning' ? (
-                                                <span className="text-[9px] font-bold text-amber-600 px-1.5 py-0.5 rounded bg-amber-100">WARNING</span>
-                                            ) : (
-                                                <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded bg-emerald-100">PASS</span>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* Flag Details — expanded findings (only alerts/warnings, info shown in Rules Evaluated) */}
-                {displayFlags.filter(f => f.severity !== 'info').length > 0 && (
-                    <div className="px-4 pb-3 space-y-1.5">
-                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Findings</div>
-                        {displayFlags.filter(f => f.severity !== 'info').map((f, i) => (
-                            <div key={i} className={`flex items-start gap-2 text-[11px] leading-relaxed px-3 py-2 rounded-xl ${f.severity === 'alert' ? 'bg-red-50/80 border border-red-200/80' :
-                                f.severity === 'warning' ? 'bg-amber-50/80 border border-amber-200/80' :
-                                    'bg-white/60 border border-emerald-100'
-                                }`}>
-                                <span className="shrink-0 mt-0.5 text-sm">
-                                    {f.severity === 'alert' ? '🚨' : f.severity === 'warning' ? '⚠️' : '✅'}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className={`font-black uppercase text-[10px] tracking-wider ${f.severity === 'alert' ? 'text-red-700' :
-                                            f.severity === 'warning' ? 'text-amber-700' :
-                                                'text-emerald-700'
-                                            }`}>
-                                            {f.check.replace(/_/g, ' ')}
                                         </span>
-                                        {f.delta !== 'N/A' && (
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${f.severity === 'alert' ? 'bg-red-100 text-red-600' :
-                                                f.severity === 'warning' ? 'bg-amber-100 text-amber-600' :
-                                                    'bg-emerald-100 text-emerald-600'
-                                                }`}>{f.delta}</span>
-                                        )}
-                                    </div>
-                                    <div className="text-slate-600 mt-0.5 font-medium">{f.finding}</div>
-                                    {f.listed && f.measured && (
-                                        <div className="flex gap-3 mt-1 text-[10px] text-slate-400">
-                                            <span>Listed: <span className="font-semibold text-slate-500">{f.listed}</span></span>
-                                            <span>Measured: <span className="font-semibold text-slate-500">{f.measured}</span></span>
-                                        </div>
+                                    )}
+                                    {polygonVertices && (
+                                        <span className="text-[10px] font-bold text-indigo-400">
+                                            {polygonVertices} vertices
+                                        </span>
                                     )}
                                 </div>
+                                {countyName && (
+                                    <div className="text-[10px] font-medium text-slate-400 mt-0.5">{countyName} County</div>
+                                )}
                             </div>
-                        ))}
-                    </div>
-                )}
+                        </div>
+                    )}
 
-                {/* Footer */}
-                <div className="px-4 pb-3 pt-0">
-                    <div className="text-[9px] text-slate-400 flex items-center gap-3">
-                        <span className="ml-auto">Source: {countyName || 'County'} ArcGIS + USGS LiDAR</span>
+                    {/* Slope info */}
+                    {slopeDisplay && (
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                            <i className="fa-solid fa-mountain text-indigo-400 text-xs" />
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Slope (USGS Elevation)</div>
+                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
+                                    <span>{slopeDisplay.percent}%</span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${slopeDisplay.category === 'Heavy' || slopeDisplay.category === 'Steep'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                                        }`}>{slopeDisplay.category}</span>
+                                    <span className="text-[10px] font-bold text-slate-400">↑ {slopeDisplay.uphillDir}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tax sqft */}
+                    {taxSqft ? (
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                            <i className="fa-solid fa-ruler-combined text-indigo-400 text-xs" />
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area (Tax Record)</div>
+                                <div className="text-[12px] font-black text-slate-700 mt-0.5">
+                                    {taxSqft.toLocaleString()} sf
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50">
+                            <i className="fa-solid fa-ruler-combined text-slate-300 text-xs" />
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area (Tax Record)</div>
+                                <div className="text-[11px] font-medium text-slate-400 mt-0.5">
+                                    Run comp analysis to fetch tax records
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Rules Run — checklist of all validation rules */}
+            {(() => {
+                const rawLotDisplay = (propertyData as any).lotSize;
+                const listedLot = (() => {
+                    if (rawLotDisplay == null) return null;
+                    if (typeof rawLotDisplay === 'number') return rawLotDisplay > 0 ? rawLotDisplay : null;
+                    const s = String(rawLotDisplay);
+                    const isAcres = /acre/i.test(s);
+                    const num = parseFloat(s.replace(/,/g, '').replace(/[^0-9.]/g, ''));
+                    if (isNaN(num) || num <= 0) return null;
+                    if (isAcres || (num < 10 && !s.includes('sqft') && !s.includes('sq'))) return Math.round(num * 43560);
+                    return Math.round(num);
+                })();
+                const listingSqft = propertyData.livingAreaValue || null;
+
+                const rules = [
+                    {
+                        id: 'lot_size',
+                        label: 'Lot Size vs County Parcel',
+                        ran: !!(listedLot && listedLot > 0 && arcgisArea && arcgisArea > 0),
+                        icon: 'fa-expand',
+                    },
+                    {
+                        id: 'slope_reality',
+                        label: 'Slope vs Description',
+                        ran: !!slopeDisplay,
+                        icon: 'fa-mountain',
+                    },
+                    {
+                        id: 'orientation',
+                        label: 'Orientation & Solar Check',
+                        ran: !!slopeDisplay,
+                        icon: 'fa-compass',
+                    },
+                    {
+                        id: 'living_sqft',
+                        label: 'Listing Sqft vs Tax Record',
+                        ran: !!(listingSqft && listingSqft > 0 && taxSqft && taxSqft > 0),
+                        icon: 'fa-ruler-combined',
+                    },
+                ];
+
+                // For each rule, find its outcome from flags
+                const getOutcome = (ruleId: string) => {
+                    const matching = displayFlags.filter(f => f.check === ruleId || (ruleId === 'orientation' && (f.check === 'orientation' || f.check === 'solar_roi')));
+                    if (matching.length === 0) return null;
+                    if (matching.some(f => f.severity === 'alert')) return 'alert';
+                    if (matching.some(f => f.severity === 'warning')) return 'warning';
+                    return 'info';
+                };
+
+                return (
+                    <div className="px-4 pb-2">
+                        <div className="flex items-center justify-between mb-2 ml-1">
+                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rules Evaluated</div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-slate-600">{summaryIcon} {summaryText}</span>
+                                {alertCount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">{alertCount}!</span>}
+                                {warnCount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">{warnCount}!</span>}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1">
+                            {rules.map(r => {
+                                const outcome = r.ran ? getOutcome(r.id) : null;
+                                return (
+                                    <div key={r.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] ${!r.ran ? 'bg-slate-50/60 border border-slate-100' :
+                                        outcome === 'alert' ? 'bg-red-50/60 border border-red-200/60' :
+                                            outcome === 'warning' ? 'bg-amber-50/60 border border-amber-200/60' :
+                                                'bg-white/60 border border-emerald-100'
+                                        }`}>
+                                        <i className={`fa-solid ${r.icon} text-[10px] ${!r.ran ? 'text-slate-300' :
+                                            outcome === 'alert' ? 'text-red-500' :
+                                                outcome === 'warning' ? 'text-amber-500' :
+                                                    'text-emerald-500'
+                                            }`} />
+                                        <span className={`font-semibold flex-1 ${!r.ran ? 'text-slate-400' : 'text-slate-600'
+                                            }`}>{r.label}</span>
+                                        {!r.ran ? (
+                                            <span className="text-[9px] font-bold text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">SKIPPED</span>
+                                        ) : outcome === 'alert' ? (
+                                            <span className="text-[9px] font-bold text-red-600 px-1.5 py-0.5 rounded bg-red-100">ALERT</span>
+                                        ) : outcome === 'warning' ? (
+                                            <span className="text-[9px] font-bold text-amber-600 px-1.5 py-0.5 rounded bg-amber-100">WARNING</span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded bg-emerald-100">PASS</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
+                );
+            })()}
+
+            {/* Flag Details — expanded findings (only alerts/warnings, info shown in Rules Evaluated) */}
+            {displayFlags.filter(f => f.severity !== 'info').length > 0 && (
+                <div className="px-4 pb-3 space-y-1.5">
+                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Findings</div>
+                    {displayFlags.filter(f => f.severity !== 'info').map((f, i) => (
+                        <div key={i} className={`flex items-start gap-2 text-[11px] leading-relaxed px-3 py-2 rounded-xl ${f.severity === 'alert' ? 'bg-red-50/80 border border-red-200/80' :
+                            f.severity === 'warning' ? 'bg-amber-50/80 border border-amber-200/80' :
+                                'bg-white/60 border border-emerald-100'
+                            }`}>
+                            <span className="shrink-0 mt-0.5 text-sm">
+                                {f.severity === 'alert' ? '🚨' : f.severity === 'warning' ? '⚠️' : '✅'}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className={`font-black uppercase text-[10px] tracking-wider ${f.severity === 'alert' ? 'text-red-700' :
+                                        f.severity === 'warning' ? 'text-amber-700' :
+                                            'text-emerald-700'
+                                        }`}>
+                                        {f.check.replace(/_/g, ' ')}
+                                    </span>
+                                    {f.delta !== 'N/A' && (
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${f.severity === 'alert' ? 'bg-red-100 text-red-600' :
+                                            f.severity === 'warning' ? 'bg-amber-100 text-amber-600' :
+                                                'bg-emerald-100 text-emerald-600'
+                                            }`}>{f.delta}</span>
+                                    )}
+                                </div>
+                                <div className="text-slate-600 mt-0.5 font-medium">{f.finding}</div>
+                                {f.listed && f.measured && (
+                                    <div className="flex gap-3 mt-1 text-[10px] text-slate-400">
+                                        <span>Listed: <span className="font-semibold text-slate-500">{f.listed}</span></span>
+                                        <span>Measured: <span className="font-semibold text-slate-500">{f.measured}</span></span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Footer */}
+            <div className="px-4 pb-3 pt-0">
+                <div className="text-[9px] text-slate-400 flex items-center gap-3">
+                    <span className="ml-auto">Source: {countyName || 'County'} ArcGIS + USGS LiDAR</span>
                 </div>
             </div>
         </div>

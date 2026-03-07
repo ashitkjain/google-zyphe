@@ -163,6 +163,9 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                                     <MetricItem icon="fa-droplet" label="Flood" value={data.floodRiskScore ? `${data.floodRiskScore}/10` : 'N/A'} />
                                     <MetricItem icon="fa-fire" label="Fire" value={data.fireRiskScore ? `${data.fireRiskScore}/10` : 'N/A'} />
                                     <MetricItem icon="fa-temperature-high" label="Heat" value={data.heatRiskScore ? `${data.heatRiskScore}/10` : 'N/A'} />
+                                    {data.annualHomeownersInsurance && (
+                                        <MetricItem icon="fa-shield-heart" label="Insurance" value={`$${data.annualHomeownersInsurance.toLocaleString()}/yr`} />
+                                    )}
                                 </div>
                             </div>
                         </div>
