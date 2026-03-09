@@ -17,8 +17,8 @@ export interface GoogleEnvironmentalData {
     noiseLocalDesc?: string | null;
     noiseAirportScore?: number | null;
     noiseAirportDesc?: string | null;
-    crimeScore?: number | null;
-    crimeGrade?: string | null;
+    /** Google Places Nearby Search results. 30-day TTL — set when data is first fetched. */
+    neighborhoodPlaces?: any;
     lastUpdated?: any;
 }
 

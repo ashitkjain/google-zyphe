@@ -709,144 +709,131 @@ export const fetchNoiseScore = async (
 };
 
 
-// ─── Crime Score (FBI Crime Data Explorer — api.data.gov) ────────────────────
-// Free & unlimited — official UCR data from local law enforcement agencies.
-// Strategy: 1) find agency ORI for city/state, 2) fetch offense summary, 3) grade by crime rate.
-export const fetchCrimeScore = async (
+
+// ─── Neighborhood Places (Google Places API — Nearby Search) ─────────────────
+// Uses the new Places API with field masking (Basic SKU: $32/1K requests).
+// Returns grouped amenity counts and top venues for neighborhood context.
+export interface NearbyPlace {
+  name: string;
+  rating?: number;
+  userRatingCount?: number;
+  types?: string[];
+  primaryTypeDisplayName?: string;
+  priceLevel?: string;
+  googleMapsUri?: string;
+  distanceMeters?: number;
+}
+
+export interface NeighborhoodPlaces {
+  restaurants: NearbyPlace[];
+  groceries: NearbyPlace[];
+  parks: NearbyPlace[];
+  transit: NearbyPlace[];
+  fitness: NearbyPlace[];
+  schools: NearbyPlace[];
+  cafes: NearbyPlace[];
+  fetchedAt: number;
+}
+
+const PLACE_CATEGORY_QUERIES: { key: keyof Omit<NeighborhoodPlaces, 'fetchedAt'>; types: string[]; radius: number }[] = [
+  { key: 'restaurants', types: ['restaurant', 'food'], radius: 800 },
+  { key: 'groceries', types: ['grocery_store', 'supermarket'], radius: 1500 },
+  { key: 'parks', types: ['park', 'playground', 'hiking_area'], radius: 1200 },
+  { key: 'transit', types: ['subway_station', 'bus_station', 'light_rail_station', 'train_station'], radius: 1500 },
+  { key: 'fitness', types: ['gym', 'yoga_studio', 'fitness_center'], radius: 1500 },
+  { key: 'schools', types: ['school', 'primary_school', 'secondary_school'], radius: 2000 },
+  { key: 'cafes', types: ['cafe', 'coffee_shop'], radius: 800 },
+];
+
+export const fetchNearbyPlaces = async (
   lat: number,
   lng: number,
-  address: string,
   zpid?: string,
-  city?: string,
-  state?: string
-): Promise<{ score: number | null; grade: string | null } | null> => {
-  const { key, baseUrl } = APP_CONFIG.fbiCde;
-  if (!key) {
-    console.warn('[FBI CDE] No API key configured — skipping crime score.');
-    return null;
-  }
-  if (!city || !state) {
-    console.warn('[FBI CDE] Missing city or state — cannot look up agency ORI.');
-    return null;
-  }
+  address?: string
+): Promise<NeighborhoodPlaces | null> => {
+  const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchNearby';
+  // Basic field mask — name, id, types, rating, userRatingCount = Basic SKU ($32/1K)
+  const FIELD_MASK = 'places.displayName,places.types,places.rating,places.userRatingCount,places.priceLevel,places.googleMapsUri,places.primaryTypeDisplayName';
+
+  const logId = await logAPICall({
+    user_id: auth?.currentUser?.uid || 'unknown',
+    zpid,
+    address,
+    api_name: 'Google Places',
+    endpoint: 'searchNearby',
+    params: { lat, lng },
+    status: 'pending'
+  });
+  const start = Date.now();
 
   try {
-    // Step 1: Find the local police department ORI for this city/state
-    const agencyUrl = `${baseUrl}/api/agencies/byStateAbbr/${encodeURIComponent(state)}?api_key=${key}`;
-    const logId = await logAPICall({
-      user_id: auth?.currentUser?.uid || 'unknown',
-      zpid,
-      address,
-      api_name: 'FBI CDE',
-      endpoint: 'agencies/byStateAbbr',
-      params: { city, state },
-      status: 'pending'
-    });
-    const start = Date.now();
+    const categoryResults = await Promise.all(
+      PLACE_CATEGORY_QUERIES.map(async ({ key, types, radius }) => {
+        const body = {
+          includedTypes: types,
+          maxResultCount: 10,
+          locationRestriction: {
+            circle: {
+              center: { latitude: lat, longitude: lng },
+              radius
+            }
+          }
+        };
 
-    const agencyResp = await fetch(agencyUrl);
-    if (logId) {
-      updateAPICall(logId, {
-        status: agencyResp.ok ? 'completed' : 'failed',
-        response_time_ms: Date.now() - start,
-        error: agencyResp.ok ? undefined : `Status ${agencyResp.status}`
-      });
-    }
-    if (!agencyResp.ok) {
-      console.warn(`[FBI CDE] Agency lookup failed: ${agencyResp.status}`);
-      return null;
-    }
+        const res = await fetch(PLACES_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': MAPS_API_KEY,
+            'X-Goog-FieldMask': FIELD_MASK,
+          },
+          body: JSON.stringify(body),
+        });
 
-    const agencies: any[] = await agencyResp.json();
-    // Find the city's police dept (agency_type_name = "City")
-    const cityNorm = city.toLowerCase().trim();
-    const match = agencies.find((a: any) =>
-      a.city_name?.toLowerCase()?.trim() === cityNorm &&
-      (a.agency_type_name === 'City' || a.agency_type_name === 'Municipality')
-    ) || agencies.find((a: any) =>
-      a.city_name?.toLowerCase()?.trim() === cityNorm
+        if (!res.ok) {
+          console.warn(`[Places API] Failed for ${key}: ${res.status}`);
+          return { key, places: [] as NearbyPlace[] };
+        }
+
+        const data = await res.json();
+        const places: NearbyPlace[] = (data.places || []).slice(0, 5).map((p: any) => ({
+          name: p.displayName?.text || 'Unknown',
+          rating: p.rating,
+          userRatingCount: p.userRatingCount,
+          types: p.types,
+          primaryTypeDisplayName: p.primaryTypeDisplayName?.text,
+          priceLevel: p.priceLevel,
+          googleMapsUri: p.googleMapsUri,
+        }));
+        return { key, places };
+      })
     );
 
-    if (!match?.ori) {
-      console.warn(`[FBI CDE] No agency found for ${city}, ${state}`);
-      return null;
+    if (logId) {
+      updateAPICall(logId, { status: 'completed', response_time_ms: Date.now() - start });
     }
 
-    const ori = match.ori;
-    console.log(`[FBI CDE] Found ORI for ${city}, ${state}: ${ori}`);
+    const result: NeighborhoodPlaces = {
+      restaurants: [],
+      groceries: [],
+      parks: [],
+      transit: [],
+      fitness: [],
+      schools: [],
+      cafes: [],
+      fetchedAt: Date.now(),
+    };
 
-    // Step 2: Fetch summarized offenses for this agency (latest available year)
-    const offenseUrl = `${baseUrl}/api/summarized/agencies/${ori}/offenses?api_key=${key}`;
-    const offenseLogId = await logAPICall({
-      user_id: auth?.currentUser?.uid || 'unknown',
-      zpid,
-      address,
-      api_name: 'FBI CDE',
-      endpoint: 'summarized/agencies/offenses',
-      params: { ori },
-      status: 'pending'
-    });
-    const offenseStart = Date.now();
-
-    const offenseResp = await fetch(offenseUrl);
-    if (offenseLogId) {
-      updateAPICall(offenseLogId, {
-        status: offenseResp.ok ? 'completed' : 'failed',
-        response_time_ms: Date.now() - offenseStart,
-        error: offenseResp.ok ? undefined : `Status ${offenseResp.status}`
-      });
-    }
-    if (!offenseResp.ok) {
-      console.warn(`[FBI CDE] Offense fetch failed: ${offenseResp.status}`);
-      return null;
+    for (const { key, places } of categoryResults) {
+      (result as any)[key] = places;
     }
 
-    const offenseData = await offenseResp.json();
-    console.log('[FBI CDE] Offense data:', offenseData);
-
-    // offenseData.data is an array of yearly records; pick the most recent
-    const records: any[] = Array.isArray(offenseData?.data)
-      ? offenseData.data
-      : Array.isArray(offenseData)
-        ? offenseData
-        : [];
-
-    if (records.length === 0) {
-      console.warn('[FBI CDE] No offense records returned.');
-      return null;
+    return result;
+  } catch (e: any) {
+    if (logId) {
+      updateAPICall(logId, { status: 'failed', response_time_ms: Date.now() - start, error: e.message });
     }
-
-    // Sort descending by year and pick the latest
-    const latest = records.sort((a, b) => (b.data_year ?? 0) - (a.data_year ?? 0))[0];
-    const population: number = latest?.population ?? match?.population ?? 100000;
-    const violent: number = latest?.violent_crime ?? 0;
-    const property: number = latest?.property_crime ?? 0;
-    const totalCrimes = violent + property;
-
-    // Crimes per 1,000 residents
-    const ratePer1k = population > 0 ? (totalCrimes / population) * 1000 : 0;
-
-    // US national average ~≈ 25 crimes/1k (2022). Thresholds:
-    // < 10   → A+  97
-    // < 18   → A   88
-    // < 28   → B   74
-    // < 40   → C   58
-    // < 60   → D   42
-    // ≥ 60   → F   20
-    let grade: string;
-    let score: number;
-    if (ratePer1k < 10) { grade = 'A+'; score = 97; }
-    else if (ratePer1k < 18) { grade = 'A'; score = 88; }
-    else if (ratePer1k < 28) { grade = 'B'; score = 74; }
-    else if (ratePer1k < 40) { grade = 'C'; score = 58; }
-    else if (ratePer1k < 60) { grade = 'D'; score = 42; }
-    else { grade = 'F'; score = 20; }
-
-    console.log(`[FBI CDE] ${city}: rate=${ratePer1k.toFixed(1)}/1k → grade=${grade} score=${score}`);
-    return { score, grade };
-
-  } catch (e) {
-    console.error('[FBI CDE] Failed to fetch crime score:', e);
+    console.error('[Places API] Failed to fetch nearby places:', e);
     return null;
   }
 };
@@ -1075,32 +1062,58 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     }
 
     if (mappedData.zpid) {
-      onStep?.("Syncing mobility scores...");
-      const scores = await fetchScores(mappedData.zpid);
+      onStep?.("Loading property data...");
+
+      // Parallelise all independent data fetches so round-trips overlap.
+      const needsImages = !skipImages && (!mappedData.images || mappedData.images.length === 0);
+      const storageKeyForEnv = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
+      const coordsForPlaces = mappedData.coordinates;
+
+      // Cache guard for Google Places: skip if already fetched within 30 days.
+      // neighborhoodPlaces is now stored in google_environmental_data (not the properties doc).
+      // We pre-fetch the env doc here so we can check the TTL and reuse it as cachedEnvEarly.
+      const envDocForPlaces = storageKeyForEnv ? await getGoogleDataFromCloud(storageKeyForEnv).catch(() => null) : null;
+      const cachedPlaces = (envDocForPlaces as any)?.neighborhoodPlaces;
+      const placesCachedAt = cachedPlaces?.fetchedAt;
+      const placesFresh = placesCachedAt && (Date.now() - placesCachedAt) < 30 * 24 * 60 * 60 * 1000; // 30 days
+      const needsPlacesFetch = coordsForPlaces && !placesFresh;
+
+      const [scores, images, comps, nearbyPlaces] = await Promise.all([
+        fetchScores(mappedData.zpid),
+        needsImages ? fetchPropertyImages(mappedData.zpid) : Promise.resolve(mappedData.images ?? []),
+        fetchPropertyComps(mappedData.zpid),
+        needsPlacesFetch
+          ? fetchNearbyPlaces(coordsForPlaces!.latitude, coordsForPlaces!.longitude, mappedData.zpid, mappedData.address).catch(() => null)
+          : Promise.resolve(cachedPlaces ?? null),
+      ]);
+
+      // Reuse the already-fetched env doc (avoids a second Firestore read later).
+      const cachedEnvEarly = envDocForPlaces;
+
+
       mappedData.walkScore = scores.walkScore;
       mappedData.walkScoreDesc = scores.walkScoreDesc;
       mappedData.transitScore = scores.transitScore;
       mappedData.transitScoreDesc = scores.transitScoreDesc;
       mappedData.bikeScore = scores.bikeScore;
       mappedData.bikeScoreDesc = scores.bikeScoreDesc;
-
-      if (!skipImages) {
-        onStep?.("Fetching image gallery...");
-        if (!mappedData.images || mappedData.images.length === 0) {
-          const images = await fetchPropertyImages(mappedData.zpid);
-          mappedData.images = images;
-        }
-      }
-
-      onStep?.("Fetching comparable sales...");
-      const comps = await fetchPropertyComps(mappedData.zpid);
+      if (needsImages && images.length > 0) mappedData.images = images;
       mappedData.comps = comps;
+      // Serve POI data to the UI from whichever is fresher (new fetch or cached env doc).
+      const placesForUI = nearbyPlaces ?? cachedPlaces ?? null;
+      if (placesForUI) mappedData.neighborhoodPlaces = placesForUI;
 
-      if (mappedData.coordinates) {
-        // Moved environmental logic outside of ZPID check
+      // Fire-and-forget save — don't block the rest of the pipeline on a write.
+      // neighborhoodPlaces is now persisted to google_environmental_data, NOT the properties doc.
+      if (nearbyPlaces && needsPlacesFetch) {
+        saveGoogleDataToCloud(String(mappedData.zpid), { neighborhoodPlaces: nearbyPlaces })
+          .catch(e => console.warn('[fetchPropertyDataFull] Places save to env doc failed:', e));
       }
+      savePropertyToCloud(mappedData.zpid, mappedData).catch(e => console.warn('[fetchPropertyDataFull] Non-blocking save failed:', e));
 
-      await savePropertyToCloud(mappedData.zpid, mappedData);
+      // Hand off the pre-fetched env cache to the environmental block below.
+      (mappedData as any).__cachedEnvEarly = cachedEnvEarly;
+
     } // End of if (mappedData.zpid)
 
     // INDEPENDENT ENVIRONMENTAL CHECK:
@@ -1111,59 +1124,86 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       // We use ZPID if available, otherwise we generate a consistent key from the normalized address.
       const storageKey = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
 
-      let cachedEnvData: any = null;
-      if (storageKey) {
+      // Google Maps Platform Terms of Service Caching Limits (TTLs)
+      const TTL_SOLAR = 30 * 24 * 60 * 60 * 1000;      // 30 Days (Solar API)
+      const TTL_AIR_QUALITY = 24 * 60 * 60 * 1000;    // 24 Hours (Air Quality API - dynamic)
+      const TTL_POLLEN = 365 * 24 * 60 * 60 * 1000;        // 365 Days (Pollen API 'Today's Forecast' permitted cache)
+      const TTL_NOISE = 30 * 24 * 60 * 60 * 1000;       // 30 Days (HowLoud - stable)
+
+      const isCacheExpired = (lastUpdated: any, ttl: number) => {
+        if (!lastUpdated) return true;
+        const now = Date.now();
+        const updatedMs = lastUpdated.toMillis ? lastUpdated.toMillis() : new Date(lastUpdated).getTime();
+        return (now - updatedMs) > ttl;
+      };
+
+      // Re-use the env cache already fetched in parallel above (if available), otherwise fetch now.
+      let cachedEnvData: any = (mappedData as any).__cachedEnvEarly ?? null;
+      delete (mappedData as any).__cachedEnvEarly;
+      if (!cachedEnvData && storageKey) {
         try {
           console.log(`[EnvironmentalCache] Checking cache for key: ${storageKey}`);
           cachedEnvData = await getGoogleDataFromCloud(storageKey);
-          if (cachedEnvData) onStep?.("Loaded existing environmental data...");
         } catch (e) {
           console.warn("Failed to check cached environmental data", e);
         }
       }
+      if (cachedEnvData) onStep?.("Checking data freshness...");
 
-      // 1. Solar Data
-      if (cachedEnvData?.solarData && !forceEnvironment) {
-        mappedData.solarData = cachedEnvData.solarData;
-      } else {
-        onStep?.("Analyzing solar potential...");
-        mappedData.solarData = await fetchSolarData(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
+      const lat = mappedData.coordinates.latitude;
+      const lng = mappedData.coordinates.longitude;
+
+      // Determine which environmental data needs a fresh fetch vs is still valid from cache.
+      const needsSolar = !cachedEnvData?.solarData || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_SOLAR);
+      const needsAirQual = !cachedEnvData?.airQuality || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY);
+      const needsPollen = !cachedEnvData?.pollen?.analysis || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN);
+      const needsNoise = cachedEnvData?.noiseScore == null || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
+
+      if (needsSolar || needsAirQual || needsPollen || needsNoise) {
+        onStep?.("Fetching environmental data...");
       }
+
+      // Fire all missing fetches in parallel — each resolves independently.
+      const [freshSolar, freshAirQual, freshPollenRaw, freshNoise] = await Promise.all([
+        needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+        needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+        needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+        needsNoise ? fetchNoiseScore(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+      ]);
+
+      // 1. Solar
+      mappedData.solarData = needsSolar ? freshSolar : cachedEnvData.solarData;
 
       // 2. Air Quality
-      if (cachedEnvData?.airQuality && !forceEnvironment) {
-        mappedData.airQuality = cachedEnvData.airQuality;
-      } else {
-        onStep?.("Fetching air quality data...");
-        mappedData.airQuality = await fetchAirQuality(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
-      }
+      mappedData.airQuality = needsAirQual ? freshAirQual : cachedEnvData.airQuality;
 
-      // 3. Pollen
-      if (cachedEnvData?.pollen?.analysis && !forceEnvironment) {
-        mappedData.pollen = cachedEnvData.pollen;
-      } else {
-        onStep?.('Fetching pollen data...');
-        const pollenRaw = await fetchPollenData(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
-
-        if (pollenRaw) {
-          onStep?.('Analyzing allergy profile...');
+      // 3. Pollen — if fresh raw data arrived, run Gemini analysis on it
+      if (needsPollen) {
+        if (freshPollenRaw) {
           try {
             const userId = auth?.currentUser?.uid || 'unknown';
-            const pollenAnalysis = await analyzePollen(pollenRaw, mappedData, userId);
-            mappedData.pollen = {
-              ...pollenRaw,
-              analysis: pollenAnalysis.data
-            };
+            const pollenAnalysis = await analyzePollen(freshPollenRaw, mappedData, userId);
+            mappedData.pollen = { ...freshPollenRaw, analysis: pollenAnalysis.data };
           } catch (e) {
             console.warn('Pollen analysis failed, using raw data only:', e);
-            mappedData.pollen = pollenRaw;
+            mappedData.pollen = freshPollenRaw;
           }
         }
+      } else {
+        mappedData.pollen = cachedEnvData.pollen;
       }
 
-      // 4. Noise Score (HowLoud SoundScore) — cached 30 days
-      console.log('[HowLoud DEBUG] cachedEnvData.noiseScore:', cachedEnvData?.noiseScore, '| forceEnvironment:', forceEnvironment);
-      if (cachedEnvData?.noiseScore != null && !forceEnvironment) {
+      // 4. Noise
+      if (needsNoise && freshNoise) {
+        mappedData.noiseScore = freshNoise.score;
+        mappedData.noiseScoreDesc = freshNoise.description ?? undefined;
+        mappedData.noiseTrafficScore = freshNoise.trafficScore;
+        mappedData.noiseTrafficDesc = freshNoise.trafficDesc ?? undefined;
+        mappedData.noiseLocalScore = freshNoise.localScore;
+        mappedData.noiseLocalDesc = freshNoise.localDesc ?? undefined;
+        mappedData.noiseAirportScore = freshNoise.airportScore;
+        mappedData.noiseAirportDesc = freshNoise.airportDesc ?? undefined;
+      } else if (!needsNoise) {
         mappedData.noiseScore = cachedEnvData.noiseScore;
         mappedData.noiseScoreDesc = cachedEnvData.noiseScoreDesc;
         mappedData.noiseTrafficScore = cachedEnvData.noiseTrafficScore;
@@ -1172,24 +1212,6 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         mappedData.noiseLocalDesc = cachedEnvData.noiseLocalDesc;
         mappedData.noiseAirportScore = cachedEnvData.noiseAirportScore;
         mappedData.noiseAirportDesc = cachedEnvData.noiseAirportDesc;
-      } else {
-        onStep?.('Fetching noise score...');
-        const noise = await fetchNoiseScore(
-          mappedData.coordinates.latitude,
-          mappedData.coordinates.longitude,
-          mappedData.zpid,
-          mappedData.address
-        );
-        if (noise) {
-          mappedData.noiseScore = noise.score;
-          mappedData.noiseScoreDesc = noise.description ?? undefined;
-          mappedData.noiseTrafficScore = noise.trafficScore;
-          mappedData.noiseTrafficDesc = noise.trafficDesc ?? undefined;
-          mappedData.noiseLocalScore = noise.localScore;
-          mappedData.noiseLocalDesc = noise.localDesc ?? undefined;
-          mappedData.noiseAirportScore = noise.airportScore;
-          mappedData.noiseAirportDesc = noise.airportDesc ?? undefined;
-        }
       }
 
 
@@ -1241,6 +1263,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
 
+
       // Save back to cache (merge with existing)
       if (storageKey) {
         console.log(`[EnvironmentalCache] Saving data to cache key: ${storageKey}`);
@@ -1257,8 +1280,6 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
           noiseLocalDesc: mappedData.noiseLocalDesc ?? null,
           noiseAirportScore: mappedData.noiseAirportScore ?? null,
           noiseAirportDesc: mappedData.noiseAirportDesc ?? null,
-          crimeScore: mappedData.crimeScore ?? null,
-          crimeGrade: mappedData.crimeGrade ?? null,
           zpid: mappedData.zpid || storageKey
         });
       } else {

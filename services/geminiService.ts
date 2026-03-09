@@ -195,87 +195,115 @@ export const executeGeminiRequest = async <T>(
     request_sent_at: serverTimestamp()
   });
 
-  try {
-    // 1. WATCHDOG: Token Limit Enforcement (Hard limit: 50K total)
-    // Check input tokens first
-    const formattedContents = Array.isArray(contents)
-      ? contents
-      : (contents && typeof contents === 'object' && 'parts' in contents)
-        ? [contents]
-        : [{ parts: [{ text: String(contents) }] }];
-    const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
+  // Helper: sleep with jitter
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+  const isRateLimitError = (e: any) =>
+    e?.status === 429 ||
+    e?.code === 429 ||
+    String(e?.message || '').includes('429') ||
+    String(e?.message || '').toLowerCase().includes('resource_exhausted') ||
+    String(e?.message || '').toLowerCase().includes('resource exhausted');
 
-    const tokenCountResponse = await (ai.models as any).countTokens({
-      model,
-      contents: formattedContents,
-      systemInstruction: instructionPart
-    });
+  const MAX_RETRIES = 3;
+  let attempt = 0;
 
-    const inputTokens = tokenCountResponse.totalTokens;
-    const MAX_TOTAL_TOKENS = 50000; // 50K hard limit
+  while (true) {
+    try {
+      // 1. WATCHDOG: Token Limit Enforcement (Hard limit: 50K total)
+      // Check input tokens first
+      const formattedContents = Array.isArray(contents)
+        ? contents
+        : (contents && typeof contents === 'object' && 'parts' in contents)
+          ? [contents]
+          : [{ parts: [{ text: String(contents) }] }];
+      const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
 
-    if (inputTokens > MAX_TOTAL_TOKENS) {
-      throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
-    }
-
-    // 2. Adjust maxOutputTokens to ensure input + output <= 50K
-    const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
-    const finalConfig = {
-      ...config,
-      maxOutputTokens: Math.min(config?.maxOutputTokens || 8192, remainingTokens)
-    };
-
-    const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
-
-    if (schema && !hasSearchTool) {
-      finalConfig.responseMimeType = "application/json";
-      finalConfig.responseSchema = schema;
-    }
-
-    // 3. Perform Generation
-    const result = await (ai.models as any).generateContent({
-      model,
-      contents: formattedContents,
-      config: finalConfig,
-    });
-
-    const responseText = typeof result.text === 'function' ? result.text() : result.text;
-    const usage = calculateUsage(result, model);
-
-    // 4. Extract data first to catch parsing errors before marking as 'completed'
-    const data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
-
-    // 5. Update Log with success (NOW AWAITED)
-    if (logId) {
-      await updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: (result.usageMetadata as any),
-        estimated_cost: usage.cost,
-        ...extractMetadata(result)
+      const tokenCountResponse = await (ai.models as any).countTokens({
+        model,
+        contents: formattedContents,
+        systemInstruction: instructionPart
       });
-    }
 
-    return {
-      data,
-      usage,
-      rawResponse: result
-    };
-  } catch (error: any) {
-    if (logId) {
-      await updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || (typeof error === 'string' ? error : JSON.stringify(error)),
-        response_received_at: serverTimestamp()
+      const inputTokens = tokenCountResponse.totalTokens;
+      const MAX_TOTAL_TOKENS = 50000; // 50K hard limit
+
+      if (inputTokens > MAX_TOTAL_TOKENS) {
+        throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
+      }
+
+      // 2. Adjust maxOutputTokens to ensure input + output <= 50K
+      const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
+      const finalConfig = {
+        ...config,
+        maxOutputTokens: Math.min(config?.maxOutputTokens || 8192, remainingTokens)
+      };
+
+      const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
+
+      if (schema && !hasSearchTool) {
+        finalConfig.responseMimeType = "application/json";
+        finalConfig.responseSchema = schema;
+      }
+
+      // 3. Perform Generation
+      const result = await (ai.models as any).generateContent({
+        model,
+        contents: formattedContents,
+        config: finalConfig,
       });
-    }
 
-    if (error instanceof AiResponseError) throw error;
-    throw new AiResponseError(error.message || "AI Execution Error", "ERROR", contents);
+      const responseText = typeof result.text === 'function' ? result.text() : result.text;
+      const usage = calculateUsage(result, model);
+
+      // 4. Extract data first to catch parsing errors before marking as 'completed'
+      const data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
+
+      // 5. Update Log with success (NOW AWAITED)
+      if (logId) {
+        await updateLLMCall(logId, {
+          raw_response: responseText,
+          status: 'completed',
+          response_received_at: serverTimestamp(),
+          usage_metadata: (result.usageMetadata as any),
+          estimated_cost: usage.cost,
+          ...extractMetadata(result)
+        });
+      }
+
+      return {
+        data,
+        usage,
+        rawResponse: result
+      };
+    } catch (error: any) {
+      // Retry on 429 with exponential backoff + jitter
+      if (isRateLimitError(error) && attempt < MAX_RETRIES) {
+        attempt++;
+        const baseDelay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        const jitter = Math.random() * 1000;            // 0–1s extra jitter
+        const delay = baseDelay + jitter;
+        console.warn(`[Gemini] 429 rate limit hit (${promptFilename}), retrying in ${Math.round(delay / 1000)}s... (attempt ${attempt}/${MAX_RETRIES})`);
+        await sleep(delay);
+        continue; // retry
+      }
+
+      // Non-retryable error or out of retries
+      if (logId) {
+        await updateLLMCall(logId, {
+          raw_response: error.message,
+          status: 'failed',
+          error: error.stack || (typeof error === 'string' ? error : JSON.stringify(error)),
+          response_received_at: serverTimestamp()
+        });
+      }
+
+      if (error instanceof AiResponseError) throw error;
+      throw new AiResponseError(error.message || "AI Execution Error", "ERROR", contents);
+    }
   }
 };
+
+
 
 function extractMetadata(response: any) {
   const candidate = response.candidates?.[0];
@@ -400,7 +428,7 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
     urlToBase64(mapZoomOut)
   ]);
 
-  const prompt = getNeighborhoodAnalysisPrompt(property);
+  const prompt = getNeighborhoodAnalysisPrompt(property, (property as any).neighborhoodPlaces ?? undefined);
 
   return executeGeminiRequest<NeighborhoodAnalysis>({
     model: FLASH_MODEL,
@@ -420,6 +448,7 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
     imageUrls: [mapZoomIn, mapZoomOut]
   });
 };
+
 
 
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<CommunityPulseResult>> => {

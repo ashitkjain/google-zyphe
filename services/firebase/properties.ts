@@ -123,6 +123,13 @@ function normalizePropertyFields(doc: Record<string, any>): Record<string, any> 
     delete out.sqft;
     delete out.LivingArea;
 
+    // ── Moved Collections ──────────────────────────────────────────────────────
+    // The following fields have been moved to dedicated collections (like 
+    // google_environmental_data) to avoid the 1MB Firestore limit, but may still
+    // be present on the data object for frontend rendering. We strip them here 
+    // to keep the `properties` collection lean.
+    delete out.neighborhoodPlaces;
+
     return out;
 }
 

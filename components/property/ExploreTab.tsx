@@ -10,6 +10,7 @@ import Logo from '../shared/Logo';
 import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
 import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import ComplianceAttribution from './ComplianceAttribution';
+import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
 
 
 import ChatInterface from '../shared/ChatInterface';
@@ -176,6 +177,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 }
                             />
                             <AirQualitySection data={propertyData} />
+                            <NeighborhoodPlacesSection data={propertyData} />
                             <StreetViewAnalysisSection
                                 data={propertyData}
                                 onRefresh={onRefreshEnvironment}

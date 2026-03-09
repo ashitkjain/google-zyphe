@@ -39,10 +39,21 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
     const [countyName, setCountyName] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [taxSqft, setTaxSqft] = useState<number | null>(null);
+    const [taxSqftSource, setTaxSqftSource] = useState<string | null>(null);
     const [polygonVertices, setPolygonVertices] = useState<number | null>(null);
     const [slopeDisplay, setSlopeDisplay] = useState<{ percent: number; category: string; uphillDir: string } | null>(null);
 
     const [showHelp, setShowHelp] = useState(false);
+    const helpRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleHelpEnter = () => {
+        if (helpRef.current) clearTimeout(helpRef.current);
+        setShowHelp(true);
+    };
+    const handleHelpLeave = () => {
+        // Small delay so tooltip doesn't flicker when moving between button and panel
+        helpRef.current = setTimeout(() => setShowHelp(false), 100);
+    };
 
     const zpid = propertyData?.zpid;
     const lat = propertyData?.coordinates?.latitude;
@@ -96,6 +107,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 // Also check properties doc for cached tax sqft
                 if (!cachedTaxSqft && propData?.taxSqft) {
                     cachedTaxSqft = propData.taxSqft;
+                    if (!cancelled) setTaxSqftSource((propData as any).taxSqftSource || null);
                 }
                 if (!cancelled) setTaxSqft(cachedTaxSqft);
 
@@ -144,6 +156,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                 if (!cachedTaxSqft && result.buildingSqft && result.buildingSqft > 0) {
                                     cachedTaxSqft = result.buildingSqft;
                                     if (!cancelled) setTaxSqft(cachedTaxSqft);
+                                    if (!cancelled) setTaxSqftSource(`ArcGIS ${result.county}`);
                                 }
 
                                 // Cache polygon + taxSqft to properties doc
@@ -279,6 +292,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                             const taxData = (lookupResult as any).data;
                             cachedTaxSqft = taxData.tax_sqft;
                             if (!cancelled) setTaxSqft(cachedTaxSqft);
+                            if (!cancelled) setTaxSqftSource(taxData.source || 'Gemini Lookup');
                             console.log(`[ParcelValidation] Gemini tax lookup: ${cachedTaxSqft} sf (source: ${taxData.source}, confidence: ${taxData.confidence})`);
 
                             // Cache to properties doc
@@ -396,30 +410,37 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
 
     return (
         <div className="px-2 pt-4 animate-in fade-in slide-in-from-top-2 duration-500 relative">
-            {/* Help Overlay */}
+            {/* Help Overlay — hover-triggered, positioned relative to the ? button */}
             {showHelp && (
-                <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-md p-6 overflow-y-auto rounded-2xl animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center">
-                            <i className="fa-solid fa-circle-info text-indigo-600"></i>
+                <div
+                    className="absolute top-12 right-2 z-50 w-72 bg-white/98 backdrop-blur-md p-5 overflow-y-auto rounded-2xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
+                    onMouseEnter={handleHelpEnter}
+                    onMouseLeave={handleHelpLeave}
+                >
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                <i className="fa-solid fa-circle-info text-indigo-600 text-sm"></i>
+                            </div>
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">The Ground Truth Engine</h3>
                         </div>
-                        <button onClick={() => setShowHelp(false)} className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors">
-                            <i className="fa-solid fa-xmark text-slate-400"></i>
+                        <button
+                            onClick={() => setShowHelp(false)}
+                            className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors flex-shrink-0"
+                        >
+                            <i className="fa-solid fa-xmark text-slate-400 text-xs"></i>
                         </button>
                     </div>
 
-                    <div className="space-y-6">
-                        <div>
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">The Ground Truth Engine</h3>
-                            <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                                Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
-                            </p>
-                        </div>
+                    <div className="space-y-4">
+                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                            Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
+                        </p>
 
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 gap-3">
                             <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                                 <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                    <i className="fa-solid fa-database"></i> Data & Sources
+                                    <i className="fa-solid fa-database"></i> Data &amp; Sources
                                 </div>
                                 <ul className="space-y-2">
                                     <li className="text-[11px] text-slate-600 font-medium">
@@ -440,7 +461,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                 </div>
                                 <ul className="space-y-2">
                                     <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">Lot Accuracy:</span> Flags differences {'>'}5% between listing and GIS boundaries.
+                                        <span className="font-bold text-slate-800">Lot Accuracy:</span> Flags differences &gt;5% between listing and GIS boundaries.
                                     </li>
                                     <li className="text-[11px] text-slate-600 font-medium">
                                         <span className="font-bold text-slate-800">Topography Scan:</span> Verifies "flat" claims vs actual terrain grade.
@@ -455,7 +476,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                             </div>
                         </div>
 
-                        <div className="text-[9px] text-slate-400 font-medium italic pt-2">
+                        <div className="text-[9px] text-slate-400 font-medium italic">
                             * Analysis is deterministic and relies on the latest public satellite and record updates.
                         </div>
                     </div>
@@ -481,7 +502,8 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                         </div>
 
                         <button
-                            onClick={() => setShowHelp(true)}
+                            onMouseEnter={handleHelpEnter}
+                            onMouseLeave={handleHelpLeave}
                             className="w-8 h-8 rounded-full bg-white/40 hover:bg-white/80 border border-black/5 flex items-center justify-center transition-all group"
                         >
                             <i className="fa-solid fa-circle-question text-slate-400 group-hover:text-indigo-600 text-sm"></i>
@@ -549,6 +571,11 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                 <div className="text-[12px] font-black text-slate-700 mt-0.5">
                                     {taxSqft.toLocaleString()} sf
                                 </div>
+                                {taxSqftSource && (
+                                    <div className="text-[9px] text-slate-400 font-medium mt-0.5 truncate" title={taxSqftSource}>
+                                        {taxSqftSource}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (

@@ -112,6 +112,9 @@ export const runFullIntelligencePipeline = async (
     const cityStateKey = generateCityStateKey(city, state);
     onLog?.(`[Pipeline] Location context: ${city}, ${state} (Key: ${cityStateKey})`);
 
+    // Fetch existing visual analysis once for all sub-tasks
+    const visualCache = await getVisualAnalysisFromCloud(zpid);
+
     // Prepare Parallel Tasks
     const isAnalysisComplete = (res: any, imageCount: number = 0) => {
       if (!res) return { valid: false, missing: ["No data returned"] };
@@ -140,17 +143,15 @@ export const runFullIntelligencePipeline = async (
     };
 
     const visualTask = async () => {
-      const cached = await getVisualAnalysisFromCloud(zpid);
-
       // Cache validation: only hit if reasonably complete
-      if (cached) {
-        const check = isAnalysisComplete(cached, enrichedData.images?.length || 0);
+      if (visualCache) {
+        const check = isAnalysisComplete(visualCache, enrichedData.images?.length || 0);
         if (check.valid) {
-          const cachedImgCount = cached.image_by_image_analysis?.length || 0;
+          const cachedImgCount = visualCache.image_by_image_analysis?.length || 0;
           const currentImgCount = enrichedData.images?.length || 0;
           if (cachedImgCount >= currentImgCount) {
             onLog?.(`[Visual] Cache hit (${currentImgCount} images)`);
-            return cached;
+            return visualCache;
           }
         }
       }
@@ -205,6 +206,10 @@ export const runFullIntelligencePipeline = async (
     };
 
     const neighborhoodTask = async () => {
+      if (visualCache?.neighborhood) {
+        onLog?.(`[Spatial] Cache hit.`);
+        return visualCache.neighborhood;
+      }
       if (!assets.mapZoomIn || !assets.mapZoomOut) return null;
       onLog?.(`[Spatial] Mapping neighborhood...`);
       const res = await analyzeNeighborhood(assets.mapZoomIn, assets.mapZoomOut, enrichedData, userId);
@@ -637,9 +642,18 @@ export const runPropertyDataOnlyPipeline = async (
       alternate_ids.push(providedZpid);
     }
 
-    // 2b. Fetch ArcGIS parcel polygon (free, auto-routes to correct county)
+    // 2b. Fetch ArcGIS parcel polygon — skip if already cached in Firestore.
+    // propData comes from fetchPropertyDataFull which reads Firestore first,
+    // so parcelPolygon is populated if it was previously stored.
     let parcelData: Record<string, any> = {};
-    if (radar.coordinates?.latitude && radar.coordinates?.longitude) {
+    const hasPolygon = Array.isArray((propData as any).parcelPolygon) && (propData as any).parcelPolygon.length > 3;
+    let hasTaxSqft = !!(propData as any).taxSqft;
+    let resolvedApn: string | undefined = (propData as any).parcelApn;
+    let resolvedCounty: string | undefined = (propData as any).parcelCounty;
+
+    if (hasPolygon) {
+      onLog?.(`[Data] ArcGIS skipped — parcel polygon already cached (APN: ${resolvedApn || 'n/a'})`);
+    } else if (radar.coordinates?.latitude && radar.coordinates?.longitude) {
       try {
         const { fetchParcelFromCounty, polygonToFirestore } = await import('./arcgis/countyParcels');
         const result = await fetchParcelFromCounty(
@@ -648,15 +662,27 @@ export const runPropertyDataOnlyPipeline = async (
         );
 
         if (result) {
+          resolvedApn = result.apn;
+          resolvedCounty = result.county;
           parcelData = {
             parcelPolygon: polygonToFirestore(result.polygon),
             parcelApn: result.apn,
             parcelAreaSqft: result.areaSqft,
             parcelCounty: result.county,
             parcelCachedAt: new Date().toISOString(),
-            ...(result.buildingSqft ? { taxSqft: result.buildingSqft } : {}),
           };
-          onLog?.(`[Data] ${result.county} ArcGIS polygon: APN=${result.apn}, ${result.areaSqft}sqft, ${result.polygon.length} vertices${result.buildingSqft ? `, bldg=${result.buildingSqft}sf` : ''}`);
+
+          // Tier 2: ArcGIS buildingSqft → taxSqft
+          if (!hasTaxSqft && result.buildingSqft) {
+            parcelData.taxSqft = result.buildingSqft;
+            parcelData.taxSqftSource = `ArcGIS ${result.county}`;
+            parcelData.taxSqftConfidence = 'high';
+            parcelData.taxSqftCachedAt = new Date().toISOString();
+            hasTaxSqft = true;
+            onLog?.(`[Data] ${result.county} ArcGIS polygon: APN=${result.apn}, ${result.areaSqft}sqft, bldg=${result.buildingSqft}sf (saved as taxSqft)`);
+          } else {
+            onLog?.(`[Data] ${result.county} ArcGIS polygon: APN=${result.apn}, ${result.areaSqft}sqft${result.buildingSqft ? ` (taxSqft already cached, bldg=${result.buildingSqft}sf ignored)` : ', no buildingSqft from county'}`);
+          }
         } else {
           onLog?.(`[Data] ArcGIS: no parcel found or county not supported at (${radar.coordinates.latitude.toFixed(4)}, ${radar.coordinates.longitude.toFixed(4)})`);
         }
@@ -664,6 +690,58 @@ export const runPropertyDataOnlyPipeline = async (
         onLog?.(`[Data] ArcGIS fetch skipped: ${e.message}`);
       }
     }
+
+    // Tier 3: Gemini Search grounding fallback — only if taxSqft still missing after ArcGIS.
+    // Uses the taxRecordLookup prompt (Gemini Flash + Google Search) to infer from
+    // county assessor / Redfin / Zillow public facts records.
+    if (!hasTaxSqft && propData.address) {
+      try {
+        onLog?.(`[Data] taxSqft not found in cache or ArcGIS — running Gemini tax record lookup...`);
+        const { executeGeminiRequest, FLASH_MODEL } = await import('./geminiService');
+        const { TAX_RECORD_LOOKUP_PROMPT, TAX_RECORD_LOOKUP_SYSTEM_INSTRUCTION } = await import('../prompts/property/taxRecordLookup');
+
+        const prompt = TAX_RECORD_LOOKUP_PROMPT(
+          propData.address,
+          propData.city,
+          propData.state,
+          resolvedCounty,
+          resolvedApn,
+          propData.livingAreaValue ?? undefined,
+        );
+
+        const lookupPromise = executeGeminiRequest<any>({
+          model: FLASH_MODEL,
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            systemInstruction: TAX_RECORD_LOOKUP_SYSTEM_INSTRUCTION,
+            maxOutputTokens: 1024,
+          },
+          userId: 'preload-pipeline',
+          promptFilename: 'taxRecordLookup',
+          zpid,
+          address: propData.address,
+          extractResultJson: true,
+        });
+        // Race against a 20s timeout — don't block the save if Gemini is slow
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20000));
+        const lookupResult = await Promise.race([lookupPromise, timeoutPromise]);
+
+        if (lookupResult && (lookupResult as any).data?.tax_sqft > 0) {
+          const taxData = (lookupResult as any).data;
+          parcelData.taxSqft = taxData.tax_sqft;
+          parcelData.taxSqftSource = taxData.source || 'gemini-lookup';
+          parcelData.taxSqftConfidence = taxData.confidence || 'medium';
+          parcelData.taxSqftCachedAt = new Date().toISOString();
+          onLog?.(`[Data] Gemini tax lookup: ${taxData.tax_sqft} sf (source: ${taxData.source}, confidence: ${taxData.confidence})`);
+        } else {
+          onLog?.(`[Data] Gemini tax lookup: no result or timed out`);
+        }
+      } catch (e: any) {
+        onLog?.(`[Data] Gemini tax lookup failed: ${e.message}`);
+      }
+    }
+
 
     // 3. Save to Firestore — coordinates + property specs + parcel polygon
     const dataToSave: Partial<PropertyData> = {

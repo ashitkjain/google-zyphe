@@ -1,8 +1,48 @@
 import { Type } from "@google/genai";
 import { PropertyData } from "../../types";
 import { buildMlsFactsBlock } from "./mlsFacts";
+import type { NeighborhoodPlaces } from "../../services/apiService";
 
-export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
+/** Converts raw NeighborhoodPlaces data into a concise textual summary for Gemini. */
+const buildPlacesContextBlock = (places: NeighborhoodPlaces): string => {
+  const LABELS: Record<string, { label: string; radius: string }> = {
+    restaurants: { label: 'Restaurants', radius: '800m' },
+    cafes: { label: 'Cafes / Coffee', radius: '800m' },
+    groceries: { label: 'Grocery Stores', radius: '1.5km' },
+    parks: { label: 'Parks & Green Space', radius: '1.2km' },
+    transit: { label: 'Transit Stops', radius: '1.5km' },
+    fitness: { label: 'Gyms & Fitness', radius: '1.5km' },
+    schools: { label: 'Schools', radius: '2km' },
+  };
+
+  const lines: string[] = [];
+  for (const [key, { label, radius }] of Object.entries(LABELS)) {
+    const list = (places as any)[key] as { name: string; rating?: number }[];
+    if (!list || list.length === 0) {
+      lines.push(`  • ${label} (within ${radius}): None found`);
+      continue;
+    }
+    const topNames = list
+      .slice(0, 3)
+      .map(p => p.rating ? `${p.name} (⭐${p.rating.toFixed(1)})` : p.name)
+      .join(', ');
+    const more = list.length > 3 ? ` + ${list.length - 3} more` : '';
+    lines.push(`  • ${label} (within ${radius}): ${list.length} found — e.g. ${topNames}${more}`);
+  }
+
+  return `
+--- LIVE GOOGLE PLACES DATA (as of this analysis) ---
+The following amenity data was retrieved from the Google Places API for this exact location.
+Use it to ground your "nearby_amenities" and "overview" fields with specific, factual venue references.
+Do NOT contradict these counts or names in your response.
+
+${lines.join('\n')}
+--- END GOOGLE PLACES DATA ---`;
+};
+
+export const getNeighborhoodAnalysisPrompt = (property: PropertyData, places?: NeighborhoodPlaces) => {
+  const placesBlock = places ? buildPlacesContextBlock(places) : '';
+  return `
   You are an expert Spatial Analyst and Urban Planning Consultant. 
    
   I am providing you with two map images for the property at: ${property.address}.
@@ -10,6 +50,7 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
   - Image 2 (Zoom Out): A broader view of the neighborhood context.
 
   ${buildMlsFactsBlock(property)}
+  ${placesBlock}
 
   IMPORTANT RULE: You MUST treat every fact in the "KNOWN MLS / LISTING FACTS" block above as ground truth.
   Do NOT contradict or make assumptions that conflict with any of those values in your response — including the property description.
@@ -65,8 +106,9 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
 
   Return the response as a single JSON object matching the requested schema. 
   Ensure the "orientation" block includes your step-by-step reasoning in "orientation_explanation", explaining exactly how you arrived at the final direction based on the map visuals or property description.
-  Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery.
+  Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery${places ? ', enriched with the specific Google Places venue data provided above' : ''}.
 `;
+};
 
 export const neighborhoodAnalysisSchema = {
   type: Type.OBJECT,

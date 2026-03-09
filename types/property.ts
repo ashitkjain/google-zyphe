@@ -127,8 +127,6 @@ export interface PropertyData {
     noiseLocalDesc?: string;
     noiseAirportScore?: number | null;     // Airport noise contribution (0–100)
     noiseAirportDesc?: string;
-    crimeScore?: number | null;       // Numeric crime safety score
-    crimeGrade?: string;              // Letter grade A+ – F
     schools?: School[];
     nearbyHomes?: any[];
     homeInsights?: any;
@@ -181,6 +179,8 @@ export interface PropertyData {
         }[];
     };
     streetViewAnalysis?: StreetViewAnalysisResult;
+    neighborhoodPlaces?: import('../services/apiService').NeighborhoodPlaces;
+
     pollen?: {
         score: number;
         category: string;

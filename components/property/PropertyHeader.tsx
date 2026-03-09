@@ -231,7 +231,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         View Visual AI Analysis
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_480px_340px] gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_480px_306px] gap-3">
 
         {/* Parcel Map — Column 5 */}
         <div className="lg:col-start-5 lg:row-start-1 lg:row-end-5 group">
@@ -364,9 +364,21 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
           <div className="flex flex-col gap-3">
             {[
-              { icon: 'fa-person-walking', label: 'Walk', value: data.walkScore ? `${data.walkScore}/100` : 'N/A' },
-              { icon: 'fa-bus', label: 'Transit', value: data.transitScore ? `${data.transitScore}/100` : 'N/A' },
-              { icon: 'fa-bicycle', label: 'Bike', value: data.bikeScore ? `${data.bikeScore}/100` : 'N/A' },
+              {
+                icon: 'fa-person-walking',
+                label: 'Walk',
+                value: data.walkScore ? `${data.walkScore}/100${data.walkScoreDesc ? ` · ${data.walkScoreDesc}` : ''}` : 'N/A'
+              },
+              {
+                icon: 'fa-bus',
+                label: 'Transit',
+                value: data.transitScore ? `${data.transitScore}/100${data.transitScoreDesc ? ` · ${data.transitScoreDesc}` : ''}` : 'N/A'
+              },
+              {
+                icon: 'fa-bicycle',
+                label: 'Bike',
+                value: data.bikeScore ? `${data.bikeScore}/100${data.bikeScoreDesc ? ` · ${data.bikeScoreDesc}` : ''}` : 'N/A'
+              },
             ].map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>

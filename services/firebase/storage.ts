@@ -113,16 +113,27 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
     try {
         const storageRef = ref(storage, path);
 
-        // Optimization: Check if the file already exists in storage
+        // Optimization: Check if the file already exists in storage and is still valid
         try {
-            const existingURL = await getDownloadURL(storageRef);
-            if (existingURL) {
-                console.log(`[Storage] Skipping download; file already exists at: ${path}`);
+            const isGoogleSource = url.includes("maps.googleapis.com") || url.includes("google.com/maps");
+            const GOOGLE_MAPS_TTL = 30 * 24 * 60 * 60 * 1000; // 30 Days
+
+            const { getMetadata } = await import('firebase/storage');
+            const metadata = await getMetadata(storageRef);
+            const createdTime = new Date(metadata.timeCreated).getTime();
+            const age = Date.now() - createdTime;
+
+            if (isGoogleSource && age > GOOGLE_MAPS_TTL) {
+                console.log(`[Storage] Google Maps content is stale (${Math.round(age / 86400000)} days old). Re-downloading for compliance: ${path}`);
+                // Fall through to download and upload new version
+            } else {
+                const existingURL = await getDownloadURL(storageRef);
+                console.log(`[Storage] Returning cached file (${isGoogleSource ? `${Math.round(age / 86400000)}d old` : 'permanent'}): ${path}`);
                 return existingURL;
             }
         } catch (e) {
             // 404 = file not yet in Firebase Storage (expected cache miss). Proceeding to download & upload.
-            console.log(`[Storage] Not in Firebase Storage yet, downloading: ${path}`);
+            console.log(`[Storage] Cache miss, downloading: ${path}`);
         }
 
         // Fetch the image (with proxy fallback if direct fetch fails due to CORS/etc)

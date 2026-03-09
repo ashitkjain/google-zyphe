@@ -23,6 +23,7 @@ import { getPropertyStatusesBatch, PropertyStatusDetails } from '../../services/
 import { getUserProfile } from '../../services/firebase/user';
 import { searchResoProperties } from '../../services/resoService';
 import { formatAddress as centralFormatAddress } from '../../services/apiService';
+import { runCitySmokeTest, CitySmokeSummary, PropertySmokeResult } from '../../services/smokeTest';
 
 
 interface IngestionJob {
@@ -57,6 +58,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [propertyStatuses, setPropertyStatuses] = useState<Record<string, PropertyStatusDetails>>({});
     const [sweepRunning, setSweepRunning] = useState(false);
     const [sweepResult, setSweepResult] = useState<{ deprecated: string[]; skipped: string[]; errors: string[] } | null>(null);
+    const [smokeRunning, setSmokeRunning] = useState(false);
+    const [smokeProgress, setSmokeProgress] = useState<{ done: number; total: number } | null>(null);
+    const [smokeSummary, setSmokeSummary] = useState<CitySmokeSummary | null>(null);
+    const [smokeExpanded, setSmokeExpanded] = useState<Set<string>>(new Set());
+    const [smokeFilter, setSmokeFilter] = useState<'all' | 'failed' | 'warned'>('all');
     const [groupPages, setGroupPages] = useState<Record<string, number>>({});
     const GROUP_PAGE_SIZE = 20;
     const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -582,12 +588,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         // that run separately via the "Run City Research" button — not per-property ingestion.
 
 
-        const CHUNK_SIZE = 5;
+        const CHUNK_SIZE = 3; // 3 parallel properties × ~5 Gemini calls each = ~15 concurrent requests (safe limit)
         let successCount = 0;
 
         for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
             const chunk = targets.slice(i, i + CHUNK_SIZE);
-            addLog(`Phase 2: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
+            addLog(`Phase 2: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)} (${chunk.length} properties)...`);
 
             const chunkPromises = chunk.map(async (item, index) => {
                 const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
@@ -640,9 +646,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const partialCount = results.filter(r => r === 'partial').length;
             if (partialCount > 0) addLog(`${partialCount} properties completed with warnings (Visual AI needs retry).`);
 
-            // Short rest between chunks to stabilize Firebase storage and APIs
+            // Rest between chunks — give Gemini quota time to recover before next burst
             if (i + CHUNK_SIZE < targets.length) {
-                await new Promise(r => setTimeout(r, 2000));
+                addLog(`[System] Cooling down 5s before next batch...`);
+                await new Promise(r => setTimeout(r, 5000));
             }
         }
 
@@ -979,16 +986,41 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         navigator.clipboard.writeText(text);
     };
 
-    // ── Deprecation Sweep ────────────────────────────────────────────────────
+    // ── Smoke Test ────────────────────────────────────────────────────────────
+    const handleSmokeTest = async () => {
+        if (cachedPropertyIds.size === 0) {
+            addLog('Load listings and check cache first before running the smoke test.');
+            return;
+        }
+        setSmokeRunning(true);
+        setSmokeProgress(null);
+        setSmokeSummary(null);
+        setSmokeExpanded(new Set());
+        addLog(`Starting smoke test for ${cachedPropertyIds.size} cached properties...`);
+        try {
+            const zpids = Array.from(cachedPropertyIds) as string[];
+            const summary = await runCitySmokeTest(zpids, (done, total) => {
+                setSmokeProgress({ done, total });
+            });
+            setSmokeSummary(summary);
+            addLog(`Smoke test complete: ${summary.passedCount}/${summary.totalProperties} passed, ${summary.failedCount} with errors.`);
+        } catch (e: any) {
+            addLog(`Smoke test failed: ${e.message}`);
+        } finally {
+            setSmokeRunning(false);
+            setSmokeProgress(null);
+        }
+    };
+
     const handleDeprecationSweep = async () => {
         if (listings.length === 0) {
-            addLog('Please search and load listings first before running a deprecation sweep.');
+            addLog('Please search and load listings first before running Refresh Active Listings.');
             return;
         }
 
         setSweepRunning(true);
         setSweepResult(null);
-        addLog('Starting deprecation sweep...');
+        addLog('Starting Refresh Active Listings...');
 
         try {
             // Collect ALL active ZPIDs + the unique city names from the currently-loaded listings.
@@ -1008,9 +1040,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const result = await runDeprecationSweep(allActiveZpids, scopedCities, `${listings.length} listings`, addLog);
 
             setSweepResult({ deprecated: result.deprecated, skipped: result.skipped, errors: result.errors });
-            addLog(`Sweep complete! Deprecated: ${result.deprecated.length}, Active: ${result.skipped.length}, Errors: ${result.errors.length}`);
+            addLog(`Refresh complete! Off Market: ${result.deprecated.length}, Active: ${result.skipped.length}, Errors: ${result.errors.length}`);
         } catch (e: any) {
-            addLog(`Sweep failed: ${e.message}`);
+            addLog(`Refresh Active Listings failed: ${e.message}`);
         } finally {
             setSweepRunning(false);
         }
@@ -1235,31 +1267,56 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     </button>
                                 </div>
                             )}
-                            {/* Deprecation Sweep button — visible whenever listings are loaded */}
+                            {/* Refresh Active Listings + Smoke Test — visible whenever listings are loaded */}
                             {listings.length > 0 && (
                                 <div className="flex items-center gap-3 ml-auto">
+                                    {/* Smoke Test button — only when we have cached properties to test */}
+                                    {cachedPropertyIds.size > 0 && (
+                                        <button
+                                            onClick={handleSmokeTest}
+                                            disabled={smokeRunning || loading}
+                                            className="px-6 py-3 bg-white border-2 border-violet-200 hover:border-violet-400 hover:bg-violet-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                            title="Run completeness and sanity checks across all cached properties"
+                                        >
+                                            {smokeRunning ? (
+                                                <>
+                                                    <i className="fa-solid fa-spinner animate-spin text-violet-400"></i>
+                                                    {smokeProgress ? `Testing ${smokeProgress.done}/${smokeProgress.total}...` : 'Initializing...'}
+                                                </>
+                                            ) : (
+                                                <><i className="fa-solid fa-flask text-violet-400 group-hover:scale-110 transition-transform"></i>Smoke Test</>
+                                            )}
+                                        </button>
+                                    )}
+                                    {smokeSummary && !smokeRunning && (
+                                        <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-50 border border-violet-200 rounded-2xl animate-in fade-in">
+                                            <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Test:</span>
+                                            <span className="text-[11px] font-black text-emerald-600">{smokeSummary.passedCount} pass</span>
+                                            {smokeSummary.failedCount > 0 && (<><span className="text-slate-300">|</span><span className="text-[11px] font-black text-rose-600">{smokeSummary.failedCount} errors</span></>)}
+                                            <button onClick={() => setSmokeSummary(null)} className="w-5 h-5 flex items-center justify-center text-violet-300 hover:text-violet-500 transition-colors ml-1">
+                                                <i className="fa-solid fa-xmark text-[10px]"></i>
+                                            </button>
+                                        </div>
+                                    )}
                                     <button
                                         onClick={handleDeprecationSweep}
                                         disabled={sweepRunning || loading}
                                         className="px-6 py-3 bg-white border-2 border-rose-200 hover:border-rose-400 hover:bg-rose-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
-                                        title="Compare properties in Firestore against the current zip listings cache and mark unlisted ones as deprecated"
+                                        title="Compare properties in Firestore against current listings and mark unlisted ones as off market"
                                     >
                                         {sweepRunning ? (
-                                            <><i className="fa-solid fa-spinner animate-spin text-rose-400"></i>Sweeping...</>
+                                            <><i className="fa-solid fa-spinner animate-spin text-rose-400"></i>Refreshing...</>
                                         ) : (
-                                            <><i className="fa-solid fa-ban text-rose-400 group-hover:scale-110 transition-transform"></i>Deprecation Sweep</>
+                                            <><i className="fa-solid fa-arrows-rotate text-rose-400 group-hover:scale-110 transition-transform"></i>Refresh Active Listings</>
                                         )}
                                     </button>
                                     {sweepResult && (
                                         <div className="flex items-center gap-3 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-2xl animate-in fade-in">
-                                            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Sweep Result:</span>
-                                            <span className="text-[11px] font-black text-rose-700">{sweepResult.deprecated.length} deprecated</span>
+                                            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Result:</span>
+                                            <span className="text-[11px] font-black text-rose-700">{sweepResult.deprecated.length} off market</span>
                                             <span className="text-slate-300">|</span>
                                             <span className="text-[11px] font-semibold text-emerald-600">{sweepResult.skipped.length} active</span>
-                                            {sweepResult.errors.length > 0 && (
-                                                <><span className="text-slate-300">|</span>
-                                                    <span className="text-[11px] font-semibold text-amber-600">{sweepResult.errors.length} errors</span></>
-                                            )}
+                                            {sweepResult.errors.length > 0 && (<><span className="text-slate-300">|</span><span className="text-[11px] font-semibold text-amber-600">{sweepResult.errors.length} errors</span></>)}
                                             <button onClick={() => setSweepResult(null)} className="w-5 h-5 flex items-center justify-center text-rose-300 hover:text-rose-500 transition-colors ml-1">
                                                 <i className="fa-solid fa-xmark text-[10px]"></i>
                                             </button>
@@ -1817,6 +1874,126 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 </div>
                             )
                         )
+                    )}
+
+                    {/* ─── Smoke Test Results Panel ──────────────────────────────────────── */}
+                    {smokeSummary && (
+                        <div className="mt-8 bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-100/60 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-11 h-11 bg-violet-50 rounded-2xl flex items-center justify-center">
+                                        <i className="fa-solid fa-flask text-violet-500 text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black text-slate-900">Smoke Test Results</h3>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
+                                            {smokeSummary.totalProperties} properties · ran {smokeSummary.ranAt.toLocaleTimeString()}
+                                        </p>
+                                    </div>
+                                    {/* Summary pills */}
+                                    <div className="flex items-center gap-2 ml-4">
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                            <i className="fa-solid fa-circle-check text-[9px]"></i>{smokeSummary.passedCount} passed
+                                        </span>
+                                        {smokeSummary.failedCount > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                                <i className="fa-solid fa-circle-xmark text-[9px]"></i>{smokeSummary.failedCount} errors
+                                            </span>
+                                        )}
+                                        {smokeSummary.results.some(r => r.warnCount > 0) && (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                                <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>
+                                                {smokeSummary.results.reduce((s, r) => s + r.warnCount, 0)} warnings
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {/* Filter toggle */}
+                                    <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+                                        {(['all', 'failed', 'warned'] as const).map(f => (
+                                            <button key={f} onClick={() => setSmokeFilter(f)}
+                                                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${smokeFilter === f ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
+                                                {f === 'all' ? 'All' : f === 'failed' ? 'Errors Only' : 'With Warnings'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button onClick={() => setSmokeSummary(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                                        <i className="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Results table */}
+                            <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
+                                {smokeSummary.results
+                                    .filter(r => {
+                                        if (smokeFilter === 'failed') return !r.passed;
+                                        if (smokeFilter === 'warned') return r.warnCount > 0;
+                                        return true;
+                                    })
+                                    .sort((a, b) => b.errorCount - a.errorCount || b.warnCount - a.warnCount)
+                                    .map(result => {
+                                        const isExpanded = smokeExpanded.has(result.zpid);
+                                        return (
+                                            <div key={result.zpid} className="group">
+                                                {/* Row */}
+                                                <div
+                                                    className={`flex items-center gap-4 px-8 py-4 cursor-pointer hover:bg-slate-50/80 transition-colors ${result.errorCount > 0 ? 'bg-rose-50/20' : result.warnCount > 0 ? 'bg-amber-50/10' : ''}`}
+                                                    onClick={() => setSmokeExpanded(prev => {
+                                                        const next = new Set(prev);
+                                                        isExpanded ? next.delete(result.zpid) : next.add(result.zpid);
+                                                        return next;
+                                                    })}
+                                                >
+                                                    {/* Status icon */}
+                                                    <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${result.passed ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                        <i className={`fa-solid text-[11px] ${result.passed ? 'fa-circle-check' : 'fa-circle-xmark'}`}></i>
+                                                    </div>
+                                                    {/* Address */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-sm font-bold text-slate-900 truncate">{result.address}</div>
+                                                        <div className="text-[10px] text-slate-400 font-medium">{result.zpid}</div>
+                                                    </div>
+                                                    {/* Counts */}
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {result.errorCount > 0 && (
+                                                            <span className="px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 text-[9px] font-black uppercase rounded-lg">
+                                                                {result.errorCount} error{result.errorCount > 1 ? 's' : ''}
+                                                            </span>
+                                                        )}
+                                                        {result.warnCount > 0 && (
+                                                            <span className="px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-black uppercase rounded-lg">
+                                                                {result.warnCount} warn{result.warnCount > 1 ? 's' : ''}
+                                                            </span>
+                                                        )}
+                                                        {result.errorCount === 0 && result.warnCount === 0 && (
+                                                            <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase rounded-lg">clean</span>
+                                                        )}
+                                                        <i className={`fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-slate-300 text-[10px] ml-2`}></i>
+                                                    </div>
+                                                </div>
+                                                {/* Expanded checks */}
+                                                {isExpanded && (
+                                                    <div className="px-12 pb-5 pt-1 grid grid-cols-2 lg:grid-cols-3 gap-2 bg-slate-50/40 border-t border-slate-100 animate-in fade-in duration-200">
+                                                        {result.checks.map(check => (
+                                                            <div key={check.id}
+                                                                className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-[10px] ${check.passed ? 'bg-white border-slate-100 text-slate-600' : check.severity === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                                                                <i className={`fa-solid mt-0.5 text-[9px] shrink-0 ${check.passed ? 'fa-check text-emerald-500' : check.severity === 'error' ? 'fa-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'}`}></i>
+                                                                <div className="min-w-0">
+                                                                    <div className="font-black truncate">{check.label}</div>
+                                                                    {check.detail && <div className="font-medium opacity-70 truncate mt-0.5" title={check.detail}>{check.detail}</div>}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                }
+                            </div>
+                        </div>
                     )}
 
                     {/* Active Ingestion Jobs (Rich UI) */}

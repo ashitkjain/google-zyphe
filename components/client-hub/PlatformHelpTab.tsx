@@ -1,4 +1,161 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import {
+    SCHEMA_LAST_UPDATED,
+    FieldSource,
+    SchemaField,
+    CollectionSchema,
+    propertyCollections,
+    cityCollections,
+    crmCollections,
+    opsCollections,
+} from '../../docs/schemaDefinitions';
+
+// ── Schema rendering components ───────────────────────────────────────────────
+
+const SOURCE_COLORS: Record<FieldSource, string> = {
+    zillow: 'bg-blue-50 border-blue-200 text-blue-700',
+    reso: 'bg-cyan-50 border-cyan-200 text-cyan-700',
+    gemini: 'bg-violet-50 border-violet-200 text-violet-700',
+    arcgis: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    google: 'bg-amber-50 border-amber-200 text-amber-700',
+    radar: 'bg-sky-50 border-sky-200 text-sky-700',
+    manual: 'bg-slate-50 border-slate-200 text-slate-600',
+    system: 'bg-rose-50 border-rose-200 text-rose-700',
+    firebase: 'bg-orange-50 border-orange-200 text-orange-700',
+};
+const SOURCE_LABELS: Record<FieldSource, string> = {
+    zillow: 'Zillow', reso: 'RESO MLS', gemini: 'Gemini AI', arcgis: 'ArcGIS',
+    google: 'Google API', radar: 'Radar API', manual: 'Manual', system: 'System', firebase: 'Firebase',
+};
+
+const TypeBadge: React.FC<{ type: string }> = ({ type }) => (
+    <span className="font-mono text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{type}</span>
+);
+
+const SourceBadge: React.FC<{ source: FieldSource }> = ({ source }) => (
+    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${SOURCE_COLORS[source]}`}>
+        {SOURCE_LABELS[source]}
+    </span>
+);
+
+const SchemaFieldRow: React.FC<{ field: SchemaField; depth?: number; isLast?: boolean }> = ({ field, depth = 0, isLast = false }) => {
+    const [open, setOpen] = useState(false);
+    const hasChildren = field.children && field.children.length > 0;
+    return (
+        <div>
+            <div
+                className={`flex items-start gap-3 py-2 px-3 rounded-xl hover:bg-slate-50 transition-colors group ${hasChildren ? 'cursor-pointer' : ''}`}
+                style={{ paddingLeft: `${12 + depth * 20}px` }}
+                onClick={() => hasChildren && setOpen(o => !o)}
+            >
+                <span className="font-mono text-slate-300 text-[11px] select-none shrink-0 mt-0.5">
+                    {isLast ? '└──' : '├──'}
+                </span>
+                <span className={`font-mono text-[11px] font-bold shrink-0 ${hasChildren ? 'text-slate-800' : 'text-indigo-700'}`}>
+                    {field.name}
+                </span>
+                <TypeBadge type={field.type} />
+                {hasChildren && (
+                    <i className={`fa-solid fa-chevron-${open ? 'down' : 'right'} text-[8px] text-slate-300 mt-1 shrink-0`}></i>
+                )}
+                <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-slate-500 leading-relaxed">{field.description}</p>
+                    {field.usedBy && (
+                        <p className="text-[10px] text-slate-400 mt-0.5"><span className="font-bold">Used by:</span> {field.usedBy}</p>
+                    )}
+                </div>
+                <SourceBadge source={field.source} />
+            </div>
+            {hasChildren && open && (
+                <div className="animate-in fade-in duration-150">
+                    {field.children!.map((child, i) => (
+                        <SchemaFieldRow key={child.name} field={child} depth={depth + 1} isLast={i === field.children!.length - 1} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const CollectionBlock: React.FC<{ col: CollectionSchema }> = ({ col }) => {
+    const [open, setOpen] = useState(false);
+    return (
+        <div className="bg-white rounded-[1.5rem] border border-slate-200 overflow-hidden shadow-sm">
+            <button
+                onClick={() => setOpen(o => !o)}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors text-left"
+            >
+                <div className={`w-9 h-9 rounded-xl ${col.color} flex items-center justify-center shrink-0`}>
+                    <i className={`fa-solid ${col.icon} text-sm`}></i>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <span className="font-mono text-sm font-black text-slate-900">{col.name}</span>
+                    <span className="text-[10px] text-slate-400 ml-3">doc id: <span className="font-mono text-slate-500">{col.docId}</span></span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{col.description}</p>
+                </div>
+                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-slate-300 text-[10px] shrink-0`}></i>
+            </button>
+            {open && (
+                <div className="border-t border-slate-100 px-3 py-3 space-y-0.5 animate-in fade-in duration-200">
+                    <div className="px-3 py-1">
+                        <span className="font-mono text-[10px] text-slate-400">
+                            {col.name}/<span className="text-slate-300">{'{'}doc{'}'}</span>/
+                        </span>
+                    </div>
+                    {col.fields.map((f, i) => (
+                        <SchemaFieldRow key={f.name} field={f} isLast={i === col.fields.length - 1} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+/** Header block shown at top of every schema tier topic. */
+const SchemaPageHeader: React.FC<{
+    icon: string;
+    iconBg: string;
+    title: string;
+    subtitle: string;
+    onRefresh: () => void;
+    refreshing: boolean;
+}> = ({ icon, iconBg, title, subtitle, onRefresh, refreshing }) => (
+    <div className="flex items-start gap-4 mb-8">
+        <div className={`w-16 h-16 rounded-[2rem] ${iconBg} flex items-center justify-center text-3xl shadow-xl shrink-0`}>
+            <i className={`fa-solid ${icon}`}></i>
+        </div>
+        <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-black text-slate-900 mb-0.5">{title}</h1>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">{subtitle}</p>
+        </div>
+        {/* Refresh control */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+            <button
+                id="schema-refresh-btn"
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 transition-all text-[11px] font-bold disabled:opacity-50"
+                title="Refresh schema view"
+            >
+                <i className={`fa-solid fa-rotate-right text-[10px] ${refreshing ? 'animate-spin' : ''}`}></i>
+                {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+            <span className="text-[9px] text-slate-400 font-mono">
+                Last updated: <span className="text-slate-600 font-bold">{SCHEMA_LAST_UPDATED}</span>
+                <span className="ml-1 text-slate-300">· docs/schemaDefinitions.ts</span>
+            </span>
+        </div>
+    </div>
+);
+
+/** Source-badge legend row */
+const SourceLegend: React.FC = () => (
+    <div className="flex flex-wrap gap-2 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 self-center mr-2">Sources:</span>
+        {(Object.keys(SOURCE_LABELS) as FieldSource[]).map(s => <SourceBadge key={s} source={s} />)}
+    </div>
+);
+
 
 interface HelpTopic {
     id: string;
@@ -17,6 +174,16 @@ interface HelpCategory {
 const PlatformHelpTab: React.FC = () => {
     const [activeCategoryId, setActiveCategoryId] = useState('messaging');
     const [activeTopicId, setActiveTopicId] = useState('sms_registration');
+    const [schemaRefreshKey, setSchemaRefreshKey] = useState(0);
+    const [schemaRefreshing, setSchemaRefreshing] = useState(false);
+
+    const handleSchemaRefresh = useCallback(() => {
+        setSchemaRefreshing(true);
+        setTimeout(() => {
+            setSchemaRefreshKey(k => k + 1);
+            setSchemaRefreshing(false);
+        }, 400);
+    }, []);
 
     const categories: HelpCategory[] = [
         {
@@ -835,6 +1002,55 @@ const PlatformHelpTab: React.FC = () => {
                     )
                 },
                 {
+                    id: 'city_data',
+                    title: 'City & Market Analysis',
+                    icon: 'fa-city',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-indigo-100">
+                                    <i className="fa-solid fa-city"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">City & Market Analysis</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Macro Performance & Neighborhood Trends</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-indigo-50/50 rounded-[2.5rem] p-10 border border-indigo-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-chart-line text-indigo-500 text-sm"></i>
+                                    How We Score Cities
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed">
+                                    Zyphe aggregates data from MLS feeds, census records, and local policy databases to provide a comprehensive look at market health. Our <strong>Opportunity Score</strong> ($0-100$) factors in price-to-rent ratios, inventory velocity, and zoning flexibility.
+                                </p>
+                            </section>
+
+                            <div className="space-y-8">
+                                <div className="flex gap-6">
+                                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-indigo-600 shrink-0">
+                                        <i className="fa-solid fa-magnifying-glass-chart"></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900 mb-2">Deep Research Pipeline</h3>
+                                        <p className="text-slate-500 text-sm leading-relaxed">Triggering a Deep Research run initiates a 5-minute Gemini reasoning cycle that analyzes hundreds of listing descriptions to identify neighborhood-specific gentrification signals and investment "pockets".</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-6">
+                                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-teal-600 shrink-0">
+                                        <i className="fa-solid fa-bullseye"></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900 mb-2">Inventory Velocity</h3>
+                                        <p className="text-slate-500 text-sm leading-relaxed">We track the median "Days on Market" at the zip-code level. Cities with velocity increasing by more than 15% WoW are flagged with high-demand signals.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                },
+                {
                     id: 'land_utility',
                     title: 'Land & Slope Analysis',
                     icon: 'fa-mountain',
@@ -893,7 +1109,94 @@ const PlatformHelpTab: React.FC = () => {
                     )
                 }
             ]
-        }
+        },
+        {
+            id: 'db_schema',
+            title: 'Database Schema',
+            icon: 'fa-database',
+            topics: [
+                {
+                    id: 'schema_property',
+                    title: 'Property Intelligence',
+                    icon: 'fa-house',
+                    content: (
+                        <div key={schemaRefreshKey} className="max-w-none animate-in fade-in duration-300">
+                            <SchemaPageHeader
+                                icon="fa-house" iconBg="bg-indigo-600 text-white shadow-indigo-100"
+                                title="Property Intelligence Schema"
+                                subtitle="Tier 1 · 6 Collections · Keyed by zpid"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-3">
+                                {propertyCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'schema_city',
+                    title: 'City & Market Data',
+                    icon: 'fa-city',
+                    content: (
+                        <div key={schemaRefreshKey} className="max-w-none animate-in fade-in duration-300">
+                            <SchemaPageHeader
+                                icon="fa-city" iconBg="bg-teal-600 text-white shadow-teal-100"
+                                title="City & Market Data Schema"
+                                subtitle="Tier 2 · 6 Collections · Keyed by cityStateKey or zip"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-3">
+                                {cityCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'schema_crm',
+                    title: 'CRM & Transactions',
+                    icon: 'fa-users',
+                    content: (
+                        <div key={schemaRefreshKey} className="max-w-none animate-in fade-in duration-300">
+                            <SchemaPageHeader
+                                icon="fa-handshake" iconBg="bg-blue-600 text-white shadow-blue-100"
+                                title="CRM & Transactions Schema"
+                                subtitle="Tier 3 · 6 Collections · Keyed by auto-id or uid"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-3">
+                                {crmCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'schema_ops',
+                    title: 'Platform Operations',
+                    icon: 'fa-microchip',
+                    content: (
+                        <div key={schemaRefreshKey} className="max-w-none animate-in fade-in duration-300">
+                            <SchemaPageHeader
+                                icon="fa-microchip" iconBg="bg-violet-600 text-white shadow-violet-100"
+                                title="Platform Operations Schema"
+                                subtitle="Tier 4 · 5 Collections · Audit logs & Activity streams"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-3">
+                                {opsCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                }
+            ]
+        },
     ];
 
     const activeCategory = categories.find(c => c.id === activeCategoryId) || categories[1];
