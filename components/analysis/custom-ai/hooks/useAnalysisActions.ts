@@ -33,7 +33,6 @@ import {
     analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch,
     extractContextGraphFactors as aiExtractGraphFactors
 } from '../../../../services/geminiService';
-import { mapWidthInMeters } from '../../../../utils/poiDistance';
 import { APP_CONFIG } from '../../../../config';
 export const useAnalysisActions = (
     analysis: CustomAIAnalysisResult | null,
@@ -376,7 +375,6 @@ export const useAnalysisActions = (
     const handleReExtractContextGraph = () => handleExtractContextGraph(true);
 
     const handleRunNeighborhoodAnalysis = async () => {
-        console.log('[POI Debug] handleRunNeighborhoodAnalysis CALLED', { analysis: !!analysis, propertyData: !!propertyData, neighborhoodLoading });
         if (!analysis || !propertyData || neighborhoodLoading) return;
         if (!propertyData.mapZoomIn || !propertyData.mapZoomOut) {
             addLog('System', { type: 'error' }, { message: "Neighborhood Analysis failed: Zoom In/Out maps missing." });
@@ -418,41 +416,6 @@ export const useAnalysisActions = (
 
             if (!result || !result.overview) {
                 throw new Error("Invalid response received from AI analysis.");
-            }
-
-            // 3. Compute distances from visual_poi_positions returned by the same Gemini call
-            console.log('[POI Debug] visual_poi_positions:', result.visual_poi_positions);
-            console.log('[POI Debug] visual_poi:', result.visual_poi);
-            console.log('[POI Debug] coordinates:', propertyData.coordinates?.latitude);
-            if (result.visual_poi_positions?.length && propertyData.coordinates?.latitude) {
-                const ZOOM = 15;
-                const IMAGE_WIDTH = 1024;
-                const SCALE = 1;
-                const mapWidth = mapWidthInMeters(ZOOM, propertyData.coordinates.latitude, IMAGE_WIDTH, SCALE);
-                const metersPerPixel = mapWidth / 1000; // 1000 = normalized scale
-                const cx = 500; // property center on normalized scale
-                const cy = 500;
-
-                const distances: Record<string, number> = {};
-                for (const poi of result.visual_poi_positions) {
-                    const dx = (poi.center_x - cx) * metersPerPixel;
-                    const dy = (poi.center_y - cy) * metersPerPixel;
-                    distances[poi.name.toLowerCase().trim()] = Math.round(Math.sqrt(dx * dx + dy * dy));
-                }
-
-                console.log('[POI Debug] Computed distances:', distances);
-
-                if (Object.keys(distances).length > 0) {
-                    result.visual_poi_distances = distances;
-                    addLog('System', { type: 'info' }, {
-                        task: 'poi_distance_computed',
-                        zpid,
-                        count: Object.keys(distances).length,
-                        status: 'success'
-                    });
-                }
-            } else {
-                console.warn('[POI Debug] No visual_poi_positions returned by Gemini or no coordinates available');
             }
 
             const updatedAnalysis = { ...analysis, neighborhood: result };

@@ -28,10 +28,6 @@ export interface NeighborhoodAnalysis {
         community?: string[];
         others?: string[];
     },
-    /** Estimated distance in meters for each AI-extracted POI, keyed by lowercased name */
-    visual_poi_distances?: Record<string, number>;
-    /** Normalized center positions (0-1000 scale) for each POI from map image */
-    visual_poi_positions?: Array<{ name: string; center_y: number; center_x: number }>;
     map_labels?: string[];
     orientation?: {
         street_direction: string;

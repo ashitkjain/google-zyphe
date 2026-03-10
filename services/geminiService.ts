@@ -54,7 +54,6 @@ import { optimizePropertyForAi, optimizeVisualForAi } from "../utils/aiOptimizat
 
 import { getNeighborhoodDeepSearchPrompt, neighborhoodDeepSearchSchema } from "../prompts/property/neighborhoodDeepSearch";
 import { NeighborhoodDeepSearchResult } from "../types/ai";
-import { getPoiBoundingBoxPrompt, poiBoundingBoxSchema } from "../prompts/property/poiBoundingBox";
 
 // Use config for model selection
 export const FLASH_MODEL = APP_CONFIG.models.flash;
@@ -818,51 +817,6 @@ export const analyzeNeighborhoodDeepSearch = async (property: PropertyData, user
     promptFilename: "neighborhoodDeepSearch.ts",
     extractResultJson: true,
     schema: neighborhoodDeepSearchSchema
-  });
-};
-
-/**
- * POI Bounding Box Extraction
- *
- * Sends a single Radar map image to Gemini and asks it to return normalised
- * bounding-box coordinates (0–1000) for every visible POI label.
- * The caller can then convert pixel distance → real-world metres using
- * the utility in utils/poiDistance.ts.
- */
-export interface PoiBoundingBoxResult {
-  property_center: { y: number; x: number };
-  pois: Array<{
-    name: string;
-    category: string;
-    bounding_box: { ymin: number; xmin: number; ymax: number; xmax: number };
-    highlights?: string;
-  }>;
-}
-
-export const extractPoiBoundingBoxes = async (
-  mapImageUrl: string,
-  address: string,
-  userId: string = "unknown",
-  zpid?: string,
-): Promise<AIResponseWithUsage<PoiBoundingBoxResult>> => {
-  const img = await urlToBase64(mapImageUrl);
-  const prompt = getPoiBoundingBoxPrompt(address);
-
-  return executeGeminiRequest<PoiBoundingBoxResult>({
-    model: FLASH_MODEL,
-    contents: {
-      parts: [
-        { text: prompt },
-        { inlineData: { data: img.data, mimeType: img.mimeType } }
-      ]
-    },
-    userId,
-    zpid,
-    address,
-    promptFilename: "poiBoundingBox.ts",
-    extractResultJson: true,
-    schema: poiBoundingBoxSchema,
-    imageUrls: [mapImageUrl]
   });
 };
 

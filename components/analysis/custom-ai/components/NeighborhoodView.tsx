@@ -171,7 +171,7 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                         </div>
 
                         <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
-                            <NeighborhoodPlacesSection data={propertyData} visualPoi={data.visual_poi} mapLabels={data.map_labels} visualPoiDistances={data.visual_poi_distances} />
+                            <NeighborhoodPlacesSection data={propertyData} visualPoi={data.visual_poi} mapLabels={data.map_labels} />
                         </div>
                     </div>
                 </div>

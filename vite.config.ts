@@ -28,23 +28,22 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api_proxy/, '')
         },
       }
-    }
-  },
+    },
     plugins: [react()],
-      define: {
-    'process.env.MAPS_API_KEY': JSON.stringify(env.MAPS_API_KEY)
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, '.'),
+    define: {
+      'process.env.MAPS_API_KEY': JSON.stringify(env.MAPS_API_KEY)
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
       }
-  },
-  optimizeDeps: {
-    include: ['@google/genai']
-  },
-  build: {
-    rollupOptions: {
+    },
+    optimizeDeps: {
+      include: ['@google/genai']
+    },
+    build: {
+      rollupOptions: {
+      }
     }
-  }
-};
+  };
 });
