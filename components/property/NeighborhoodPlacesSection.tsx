@@ -7,6 +7,8 @@ interface Props {
     data: PropertyData;
     visualPoi?: NeighborhoodAnalysis['visual_poi'];
     mapLabels?: string[];
+    /** name (lowercased) → distance in meters, from bounding-box extraction */
+    visualPoiDistances?: Record<string, number>;
 }
 
 const CATEGORY_CONFIG: {
@@ -76,6 +78,9 @@ const PlaceRow: React.FC<{ place: NearbyPlace }> = ({ place }) => {
                         <>
                             <i className="fa-solid fa-brain text-indigo-400 text-[8px]" />
                             <span className="text-[8px] text-indigo-400 font-bold uppercase tracking-tight">AI Discovery</span>
+                            {distanceMiles && (
+                                <span className="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 rounded ml-0.5">~{distanceMiles} mi</span>
+                            )}
                         </>
                     ) : (
                         <>
@@ -143,7 +148,7 @@ const CategoryCard: React.FC<{
     );
 };
 
-const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels }) => {
+const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels, visualPoiDistances }) => {
     const [mode, setMode] = useState<'walk' | 'drive' | 'all'>('all');
     const rawPlaces = data.neighborhoodPlaces;
     if (!rawPlaces && !visualPoi && (!mapLabels || mapLabels.length === 0)) return null;
@@ -166,8 +171,12 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                     const normalized = name.toLowerCase().trim();
                     const alreadyKnown = collections[cat.key].some(p => p.name.toLowerCase().trim() === normalized);
                     if (!alreadyKnown) {
+                        // Look up estimated distance from bounding-box extraction
+                        const estDistMeters = visualPoiDistances?.[normalized];
+
                         collections[cat.key].push({
                             name,
+                            distanceMeters: estDistMeters,
                             primaryTypeDisplayName: 'AI Visual Discovery',
                             isAiExtracted: true
                         });

@@ -83,6 +83,10 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData, places?: N
       - PROHIBITED: Do NOT include street names, highway numbers, city/county names, or generic area descriptors in these categories.
      - EVERY single unique detected label from step 1 MUST be categorized into exactly one "visual_poi" field. No label should be left uncategorized.
      - Include these extracted names in the "map_labels" field as a raw list for verification.
+      - FOURTH, for EACH POI you categorized, also estimate its normalized center position on the "Zoom Out" map image.
+        Coordinates use a 0-1000 scale where [0,0] is the top-left corner and [1000,1000] is the bottom-right.
+        The property marker (center of the map) is approximately at [500, 500].
+        Return these in the "visual_poi_positions" array as objects with name, center_y, and center_x.
   8. AMENITIES: Identify retail, dining, HOA amenities and service clusters nearby. 
      IMPORTANT: If the Property Description indicates the home is part of an HOA or planned community, specifically include the list of HOA amenities (pools, clubhouses, fitness centers, etc.) in your response.
 
@@ -139,6 +143,19 @@ export const neighborhoodAnalysisSchema = {
         medical: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Dentists, Hospitals, Doctors, Clinics, etc." },
         community: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Places of worship, Police, Fire stations, Libraries, Community centers, etc." },
         others: { type: Type.ARRAY, items: { type: Type.STRING } }
+      }
+    },
+    visual_poi_positions: {
+      type: Type.ARRAY,
+      description: "Normalized center positions (0-1000 scale) for each visually extracted POI on the Zoom Out map. The property is at approximately [500, 500].",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING, description: "Exact POI name as listed in visual_poi" },
+          center_y: { type: Type.NUMBER, description: "Normalized Y coordinate (0=top, 1000=bottom)" },
+          center_x: { type: Type.NUMBER, description: "Normalized X coordinate (0=left, 1000=right)" }
+        },
+        required: ["name", "center_y", "center_x"]
       }
     }
   },
