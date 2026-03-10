@@ -169,8 +169,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onToggleFavorite={onToggleFavorite}
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
                                 parcelPolygon={
-                                    (propertyData as any).parcelPolygon?.length > 3
-                                        ? (propertyData as any).parcelPolygon.map((pt: any) =>
+                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                        ? propertyData.parcelPolygon.map((pt: any) =>
                                             Array.isArray(pt) ? pt : [pt.lon, pt.lat]
                                         )
                                         : undefined
@@ -193,14 +193,14 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 address={propertyData.address}
                                 solarData={propertyData.solarData}
                                 parcelPolygon={
-                                    (propertyData as any).parcelPolygon?.length > 3
-                                        ? (propertyData as any).parcelPolygon.map((pt: any) =>
+                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                        ? propertyData.parcelPolygon.map((pt: any) =>
                                             Array.isArray(pt) ? pt : [pt.lon, pt.lat]
                                         )
                                         : undefined
                                 }
-                                parcelApn={(propertyData as any).parcelApn}
-                                parcelAreaSqft={(propertyData as any).parcelAreaSqft}
+                                parcelApn={propertyData.parcelApn}
+                                parcelAreaSqft={propertyData.parcelAreaSqft}
                             />
                             <ComplianceAttribution data={propertyData} />
                         </>

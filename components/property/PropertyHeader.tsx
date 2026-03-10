@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { PropertyData } from '../../types';
 import ParcelValidationCard from './ParcelValidationCard';
+import StaticParcelMap from './StaticParcelMap';
 
 interface Props {
   data: PropertyData;
@@ -37,58 +37,6 @@ const parseValue = (val: any) => {
   return String(val);
 };
 
-const ParcelMap: React.FC<{ data: PropertyData; parcelPolygon?: [number, number][] }> = ({ data, parcelPolygon }) => {
-  if (!data.mapZoomIn) return null;
-
-  return (
-    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden h-full group relative cursor-zoom-in">
-      <img
-        src={data.mapZoomIn}
-        alt="Property Map View"
-        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-      />
-      {parcelPolygon && parcelPolygon.length > 3 && data.coordinates && (() => {
-        const zoom = 20;
-        const mapW = 2048;
-        const mapH = 2048;
-        const scale = Math.pow(2, zoom) * 256;
-        const deg2rad = Math.PI / 180;
-
-        const cxWorld = ((data.coordinates.longitude + 180) / 360) * scale;
-        const cyWorld = (1 - Math.log(Math.tan(deg2rad * data.coordinates.latitude) + 1 / Math.cos(deg2rad * data.coordinates.latitude)) / Math.PI) / 2 * scale;
-
-        const points = parcelPolygon.map(([lon, lat]) => {
-          const xWorld = ((lon + 180) / 360) * scale;
-          const yWorld = (1 - Math.log(Math.tan(deg2rad * lat) + 1 / Math.cos(deg2rad * lat)) / Math.PI) / 2 * scale;
-          const px = (xWorld - cxWorld) + mapW / 2;
-          const py = (yWorld - cyWorld) + mapH / 2;
-          return `${px},${py}`;
-        }).join(' ');
-
-        return (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox={`0 0 ${mapW} ${mapH}`}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <polygon
-              points={points}
-              fill="rgba(99, 102, 241, 0.12)"
-              stroke="#6366f1"
-              strokeWidth="4"
-              strokeDasharray="12 6"
-              strokeLinejoin="round"
-            />
-          </svg>
-        );
-      })()}
-      <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100">
-        Property · Parcel
-      </div>
-    </div>
-  );
-};
-
 const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, onRunAnalysis, parcelPolygon }) => {
   const [isDescExpanded, setIsDescExpanded] = React.useState(false);
 
@@ -114,8 +62,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
   })();
 
   const financialSpecs: any[] = [];
-
-
 
   return (
     <div className="bg-white p-5 md:p-6 md:pb-2 rounded-t-[1.5rem] border-x border-t border-slate-100 shadow-sm space-y-4">
@@ -236,7 +182,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         {/* Parcel Map — Column 5 */}
         <div className="lg:col-start-5 lg:row-start-1 lg:row-end-5 group">
           <div className="w-full aspect-square">
-            <ParcelMap data={data} parcelPolygon={parcelPolygon} />
+            <StaticParcelMap data={data} parcelPolygon={parcelPolygon} />
           </div>
         </div>
 
@@ -382,14 +328,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             ].map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>
-
-
-
-
       </div>
-
-
-
     </div>
   );
 };

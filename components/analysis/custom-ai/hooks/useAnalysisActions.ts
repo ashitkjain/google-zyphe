@@ -19,14 +19,17 @@ import {
     getDeepInvestmentResearchFromCloud,
     saveDeepInvestmentResearchToCloud,
     getContextGraphFromCloud,
-    saveContextGraphToCloud
+    saveContextGraphToCloud,
+    saveGoogleDataToCloud
 } from '../../../../services/firebaseService';
+import { fetchNearbyPlaces } from '../../../../services/apiService';
 import {
     analyzePropertyImages as aiAnalyzeImages,
     analyzeInvestmentResearch as aiAnalyzeInvestment,
     analyzeGeneralMarketIntelligence as aiAnalyzeMarket,
     analyzeBiddingStrategy as aiAnalyzeBidding,
     analyzeCommunityPulse as aiAnalyzePulse,
+    analyzeNeighborhood as aiAnalyzeNeighborhood,
     analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch,
     extractContextGraphFactors as aiExtractGraphFactors
 } from '../../../../services/geminiService';
@@ -47,14 +50,12 @@ export const useAnalysisActions = (
     const [biddingLoading, setBiddingLoading] = useState(false);
     const [pulseLoading, setPulseLoading] = useState(false);
     const [deepLoading, setDeepLoading] = useState(false);
+    const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
     useEffect(() => {
         let intervalId: any = null;
 
-        if (isInitialLoading || qualityLoading || investmentLoading || biddingLoading || pulseLoading || deepLoading) {
+        if (isInitialLoading || qualityLoading || investmentLoading || biddingLoading || pulseLoading || deepLoading || neighborhoodLoading || graphLoading) {
             // Reset timer when a new loading state starts
-            // But only if we are transitioning FROM a non-loading state to a loading state
-            // Actually, the handlers call setTimer(0) already.
-
             intervalId = setInterval(() => {
                 setTimer(prev => prev + 1);
             }, 1000);
@@ -65,7 +66,7 @@ export const useAnalysisActions = (
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isInitialLoading, qualityLoading, investmentLoading, biddingLoading, pulseLoading, deepLoading]);
+    }, [isInitialLoading, qualityLoading, investmentLoading, biddingLoading, pulseLoading, deepLoading, neighborhoodLoading]);
 
     const handleRunQualityAnalysis = async () => {
         if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {
@@ -373,6 +374,65 @@ export const useAnalysisActions = (
 
     const handleReExtractContextGraph = () => handleExtractContextGraph(true);
 
+    const handleRunNeighborhoodAnalysis = async () => {
+        if (!analysis || !propertyData || neighborhoodLoading) return;
+        if (!propertyData.mapZoomIn || !propertyData.mapZoomOut) {
+            addLog('System', { type: 'error' }, { message: "Neighborhood Analysis failed: Zoom In/Out maps missing." });
+            return;
+        }
+
+        setTimer(0);
+        setNeighborhoodLoading(true);
+
+        try {
+            // 1. Proactively refresh/unify nearby places (Google + Foursquare) to ensure the prompt has fresh context
+            addLog('Places Intelligence', { type: 'info' }, { task: 'places_refresh_start', zpid });
+            let places = propertyData.neighborhoodPlaces;
+            if (propertyData.coordinates?.latitude && propertyData.coordinates?.longitude) {
+                addLog('Local Search', { type: 'request' }, { task: 'refreshing_unified_places', zpid });
+                const freshPlaces = await fetchNearbyPlaces(
+                    propertyData.coordinates.latitude,
+                    propertyData.coordinates.longitude,
+                    zpid,
+                    propertyData.address,
+                    places,
+                    true // forceRefresh
+                );
+                if (freshPlaces) {
+                    places = freshPlaces;
+                    addLog('Local Search', { type: 'response' }, { task: 'refreshing_unified_places', status: 'success', venue_count: Object.values(freshPlaces).flat().length });
+                    // Persist to cloud environmental doc so UI sees it on next poll/refresh
+                    saveGoogleDataToCloud(String(zpid), { neighborhoodPlaces: freshPlaces })
+                        .catch(e => console.warn('[handleRunNeighborhoodAnalysis] Places save failed:', e));
+                } else {
+                    addLog('Local Search', { type: 'info' }, { task: 'refreshing_unified_places', status: 'no_update', message: 'Proceeding with cached places.' });
+                }
+            }
+
+            // 2. Trigger Gemini Visual Analysis
+            addLog('Gemini AI', { type: 'request' }, { task: 'neighborhood_analysis', zpid, model: APP_CONFIG.models.flash, message: "Synthesizing visual and place context..." });
+            const res = await aiAnalyzeNeighborhood(propertyData.mapZoomIn, propertyData.mapZoomOut, { ...propertyData, neighborhoodPlaces: places });
+            const result = res.data;
+
+            if (!result || !result.overview) {
+                throw new Error("Invalid response received from AI analysis.");
+            }
+
+            const updatedAnalysis = { ...analysis, neighborhood: result };
+            onUpdateAnalysis(updatedAnalysis);
+            addLog('Gemini AI', { type: 'response' }, { task: 'neighborhood_analysis', zpid, status: 'success' }, (res as any).usage);
+
+            if (zpid) {
+                await saveVisualAnalysisToCloud(zpid, updatedAnalysis);
+            }
+        } catch (err: any) {
+            console.error("Neighborhood Analysis Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Neighborhood Analysis Failed", error: err.message || err });
+        } finally {
+            setNeighborhoodLoading(false);
+        }
+    };
+
     return {
         timer,
         qualityLoading,
@@ -381,6 +441,7 @@ export const useAnalysisActions = (
         pulseLoading,
         deepLoading,
         graphLoading,
+        neighborhoodLoading,
         graphResult,
         handleRunQualityAnalysis,
         handleRunCommunityPulse,
@@ -389,5 +450,6 @@ export const useAnalysisActions = (
         handleRunDeepInvestmentResearch,
         handleExtractContextGraph,
         handleReExtractContextGraph,
+        handleRunNeighborhoodAnalysis,
     };
 };

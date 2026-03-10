@@ -83,5 +83,8 @@ export const APP_CONFIG = {
     rentcast: {
         key: '38f6f00236fc4a14b6d462cf97c611d6',
         baseUrl: 'https://api.rentcast.io/v1'
+    },
+    foursquare: {
+        key: (import.meta as any).env?.VITE_FOURSQUARE_API_KEY || 'fsq3_placeholder_key'
     }
 };

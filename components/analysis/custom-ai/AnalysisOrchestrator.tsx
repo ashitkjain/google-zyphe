@@ -174,7 +174,9 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         handleExtractContextGraph,
         handleReExtractContextGraph,
         graphLoading,
-        graphResult
+        graphResult,
+        neighborhoodLoading,
+        handleRunNeighborhoodAnalysis
     } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog, loading, comprehensiveResult);
 
     // Auto-trigger side effects when tabs change
@@ -210,6 +212,12 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             handleExtractContextGraph();
         }
     }, [activeTab, graphResult, graphLoading]);
+
+    useEffect(() => {
+        if (activeTab === 'neighborhood' && !analysis?.neighborhood && !neighborhoodLoading) {
+            handleRunNeighborhoodAnalysis();
+        }
+    }, [activeTab, analysis?.neighborhood, neighborhoodLoading]);
 
     const clearPreviewTimer = () => {
         if (previewTimerRef.current) {
@@ -311,13 +319,19 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     )}
                     {activeTab === 'neighborhood' && (
                         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            {!analysis.neighborhood ? (
+                            {neighborhoodLoading ? (
+                                <AnalysisLoading title="Spatial Intelligence..." subtitle="Decoding maps & local venues." timer={timer} address={propertyData?.address} icon="fa-map-location-dot" />
+                            ) : !analysis.neighborhood ? (
                                 <EmptyState section="Neighborhood" />
                             ) : (
                                 <NeighborhoodView
                                     data={analysis.neighborhood}
                                     mapZoomIn={propertyData?.mapZoomIn}
                                     mapZoomOut={propertyData?.mapZoomOut}
+                                    propertyData={propertyData}
+                                    onRefresh={handleRunNeighborhoodAnalysis}
+                                    isRefreshing={neighborhoodLoading}
+                                    timer={timer}
                                 />
                             )}
                         </section>

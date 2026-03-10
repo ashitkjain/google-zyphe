@@ -17,12 +17,38 @@ export interface NeighborhoodAnalysis {
         nearby_amenities: string;
         general: string;
     },
+    visual_poi?: {
+        dining?: string[];
+        shopping?: string[];
+        parks?: string[];
+        transit?: string[];
+        fitness?: string[];
+        schools?: string[];
+        medical?: string[];
+        community?: string[];
+        others?: string[];
+    },
+    map_labels?: string[];
     orientation?: {
         street_direction: string;
         home_position_relative_to_street: string;
         final_orientation: string;
         orientation_explanation: string;
     }
+}
+
+export interface NeighborhoodDeepSearchResult {
+    neighborhood_summary: string;
+    pois: Array<{
+        name: string;
+        type: string;
+        category: "dining" | "shopping" | "parks" | "transit" | "fitness" | "schools" | "medical" | "community" | "others";
+        distance_miles: number;
+        highlights?: string;
+    }>;
+    status?: 'running' | 'completed' | 'failed' | string;
+    lastRan?: any;
+    lastUpdated?: any;
 }
 
 export interface CommunityPulseSection {

@@ -52,6 +52,9 @@ import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi, optimizeVisualForAi } from "../utils/aiOptimization";
 
+import { getNeighborhoodDeepSearchPrompt, neighborhoodDeepSearchSchema } from "../prompts/property/neighborhoodDeepSearch";
+import { NeighborhoodDeepSearchResult } from "../types/ai";
+
 // Use config for model selection
 export const FLASH_MODEL = APP_CONFIG.models.flash;
 export const GEMINI_MODEL = FLASH_MODEL;
@@ -796,6 +799,25 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
     promptFilename: "leadTransformation.ts"
   });
   return data;
+};
+
+export const analyzeNeighborhoodDeepSearch = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodDeepSearchResult>> => {
+  const { address, city, state } = property;
+  const prompt = getNeighborhoodDeepSearchPrompt(address || "Subject Property", city || "", state || "");
+
+  console.log(`[Neighborhood Deep Search] Using Google Grounding for exhaustive discovery in ${city}...`);
+
+  return executeGeminiRequest<NeighborhoodDeepSearchResult>({
+    model: 'gemini-2.0-flash',
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.3 },
+    userId,
+    zpid: property.zpid,
+    address: property.address,
+    promptFilename: "neighborhoodDeepSearch.ts",
+    extractResultJson: true,
+    schema: neighborhoodDeepSearchSchema
+  });
 };
 
 import { getStreetViewAnalysisPrompt, streetViewAnalysisSchema } from "../prompts/property/streetViewAnalysis";

@@ -13,6 +13,7 @@ const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
 const RADAR_API_KEY = APP_CONFIG.radar.key;
 const MAPS_API_KEY = APP_CONFIG.maps.key;
+const FOURSQUARE_API_KEY = APP_CONFIG.foursquare.key;
 
 // In-memory deduplication for concurrent requests
 const ongoingRequests = new Map<string, Promise<any>>();
@@ -722,44 +723,78 @@ export interface NearbyPlace {
   priceLevel?: string;
   googleMapsUri?: string;
   distanceMeters?: number;
+  isAiExtracted?: boolean;
+  source?: 'google' | 'foursquare';
 }
 
-export interface NeighborhoodPlaces {
-  restaurants: NearbyPlace[];
-  groceries: NearbyPlace[];
+export interface NeighborhoodCategorySet {
+  dining: NearbyPlace[];
+  shopping: NearbyPlace[];
   parks: NearbyPlace[];
   transit: NearbyPlace[];
   fitness: NearbyPlace[];
   schools: NearbyPlace[];
-  cafes: NearbyPlace[];
-  fetchedAt: number;
+  medical?: NearbyPlace[];
+  community?: NearbyPlace[];
+  others?: NearbyPlace[];
 }
 
-const PLACE_CATEGORY_QUERIES: { key: keyof Omit<NeighborhoodPlaces, 'fetchedAt'>; types: string[]; radius: number }[] = [
-  { key: 'restaurants', types: ['restaurant', 'food'], radius: 800 },
-  { key: 'groceries', types: ['grocery_store', 'supermarket'], radius: 1500 },
-  { key: 'parks', types: ['park', 'playground', 'hiking_area'], radius: 1200 },
-  { key: 'transit', types: ['subway_station', 'bus_station', 'light_rail_station', 'train_station'], radius: 1500 },
-  { key: 'fitness', types: ['gym', 'yoga_studio', 'fitness_center'], radius: 1500 },
-  { key: 'schools', types: ['school', 'primary_school', 'secondary_school'], radius: 2000 },
-  { key: 'cafes', types: ['cafe', 'coffee_shop'], radius: 800 },
-];
+export interface NeighborhoodPlaces extends NeighborhoodCategorySet {
+  walkable: NeighborhoodCategorySet;
+  drivable: NeighborhoodCategorySet;
+  fetchedAt: number;
+  sources?: string[];
+  isUnified?: boolean;
+}
+
+const PLACE_CATEGORY_QUERIES: {
+  key: keyof Omit<NeighborhoodPlaces, 'fetchedAt'>;
+  types: string[];
+  radius: number
+}[] = [
+    { key: 'dining', types: ['restaurant', 'cafe', 'bakery'], radius: 1500 },
+    { key: 'shopping', types: ['shopping_mall', 'supermarket', 'grocery_store'], radius: 5000 },
+    { key: 'parks', types: ['park', 'playground', 'hiking_area'], radius: 5000 },
+    { key: 'transit', types: ['transit_station', 'parking', 'electric_vehicle_charging_station'], radius: 5000 },
+    { key: 'fitness', types: ['gym'], radius: 5000 },
+    { key: 'schools', types: ['school', 'primary_school'], radius: 3000 },
+    { key: 'medical', types: ['hospital'], radius: 5000 },
+    { key: 'community', types: ['library', 'police', 'fire_station', 'bank'], radius: 5000 },
+    { key: 'others', types: ['stadium', 'night_club', 'liquor_store'], radius: 5000 },
+  ];
+
+
+const calculateHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371e3; // meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
 
 export const fetchNearbyPlaces = async (
   lat: number,
   lng: number,
   zpid?: string,
-  address?: string
+  address?: string,
+  existingData?: NeighborhoodPlaces | null,
+  forceRefresh: boolean = false
 ): Promise<NeighborhoodPlaces | null> => {
   const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchNearby';
-  // Basic field mask — name, id, types, rating, userRatingCount = Basic SKU ($32/1K)
-  const FIELD_MASK = 'places.displayName,places.types,places.rating,places.userRatingCount,places.priceLevel,places.googleMapsUri,places.primaryTypeDisplayName';
+  const FIELD_MASK = 'places.displayName,places.types,places.rating,places.userRatingCount,places.priceLevel,places.googleMapsUri,places.primaryTypeDisplayName,places.location';
 
   const logId = await logAPICall({
     user_id: auth?.currentUser?.uid || 'unknown',
     zpid,
     address,
-    api_name: 'Google Places',
+    api_name: 'Dual-Mode Google Places (Walk/Drive)',
     endpoint: 'searchNearby',
     params: { lat, lng },
     status: 'pending'
@@ -767,65 +802,137 @@ export const fetchNearbyPlaces = async (
   const start = Date.now();
 
   try {
-    const categoryResults = await Promise.all(
-      PLACE_CATEGORY_QUERIES.map(async ({ key, types, radius }) => {
-        const body = {
-          includedTypes: types,
-          maxResultCount: 10,
+    const [walkRes, driveRes] = await Promise.all([
+      // 1. Walkable POIs: Primary focus on proximity
+      fetch(PLACES_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': MAPS_API_KEY!,
+          'X-Goog-FieldMask': FIELD_MASK,
+        },
+        body: JSON.stringify({
+          includedTypes: [
+            "cafe", "bakery", "restaurant", "park", "playground",
+            "hiking_area", "school", "primary_school", "library",
+            "gym", "grocery_store", "bank"
+          ],
+          maxResultCount: 20,
           locationRestriction: {
-            circle: {
-              center: { latitude: lat, longitude: lng },
-              radius
-            }
-          }
-        };
-
-        const res = await fetch(PLACES_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': MAPS_API_KEY,
-            'X-Goog-FieldMask': FIELD_MASK,
+            circle: { center: { latitude: lat, longitude: lng }, radius: 1500.0 }
           },
-          body: JSON.stringify(body),
+          rankPreference: "DISTANCE"
+        })
+      }).catch(() => null),
+
+      // 2. Drivable POIs: Focus on major amenities and infrastructure
+      fetch(PLACES_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': MAPS_API_KEY!,
+          'X-Goog-FieldMask': FIELD_MASK,
+        },
+        body: JSON.stringify({
+          includedTypes: [
+            "supermarket", "shopping_mall", "hospital", "police",
+            "fire_station", "transit_station", "parking", "electric_vehicle_charging_station",
+            "stadium", "night_club", "liquor_store"
+          ],
+          maxResultCount: 20,
+          locationRestriction: {
+            circle: { center: { latitude: lat, longitude: lng }, radius: 5000.0 }
+          }
+        })
+      }).catch(() => null)
+    ]);
+
+    const processPlaces = async (res: Response | null) => {
+      if (!res || !res.ok) return [];
+      const data = await res.json();
+      return (data.places || []).map((p: any) => ({
+        name: p.displayName?.text || 'Unknown',
+        rating: p.rating,
+        userRatingCount: p.userRatingCount,
+        types: p.types || [],
+        primaryTypeDisplayName: p.primaryTypeDisplayName?.text,
+        priceLevel: p.priceLevel,
+        googleMapsUri: p.googleMapsUri,
+        source: 'google',
+        location: p.location,
+        distanceMeters: p.location ? calculateHaversineDistance(lat, lng, p.location.latitude, p.location.longitude) : undefined
+      }));
+    };
+
+    const walkPlaces = await processPlaces(walkRes as Response);
+    const drivePlacesRaw = await processPlaces(driveRes as Response);
+
+    // Deduplicate: If it's in walk, remove from drive
+    const walkNames = new Set(walkPlaces.map(p => p.name.toLowerCase().trim()));
+    const drivePlaces = drivePlacesRaw.filter(p => !walkNames.has(p.name.toLowerCase().trim()));
+
+    // Consolidate raw data for the bucketing logic (top-level union)
+    const rawGooglePlaces: NearbyPlace[] = [...walkPlaces, ...drivePlaces];
+
+    const createCategorySet = (places: NearbyPlace[]): NeighborhoodCategorySet => {
+      const set: NeighborhoodCategorySet = {
+        dining: [], shopping: [], parks: [], transit: [], fitness: [], schools: [],
+        medical: [], community: [], others: []
+      };
+
+      const seenGlobal = new Set<string>(); // Prevent same place in multiple categories
+
+      // Match specific categories first
+      PLACE_CATEGORY_QUERIES.filter(q => q.key !== 'others').forEach(({ key, types, radius }) => {
+        const bucket: NearbyPlace[] = [];
+        places.forEach(p => {
+          const normalized = p.name.toLowerCase().trim();
+          if (seenGlobal.has(normalized)) return;
+
+          const isWithinRadius = (p.distanceMeters || 0) <= radius;
+          if (!isWithinRadius) return;
+
+          const pTypes = (p.types || []).map(t => t.toLowerCase());
+          const matchesGoogle = types.some(t => pTypes.includes(t.toLowerCase())) ||
+            (key === 'community' && pTypes.includes('establishment') && (p.name.toLowerCase().includes('church') || p.name.toLowerCase().includes('hall')));
+
+          if (matchesGoogle) {
+            seenGlobal.add(normalized);
+            bucket.push(p);
+          }
         });
+        (set as any)[key] = bucket.slice(0, 15);
+      });
 
-        if (!res.ok) {
-          console.warn(`[Places API] Failed for ${key}: ${res.status}`);
-          return { key, places: [] as NearbyPlace[] };
+      // Catch-all for 'others' (things not matched above)
+      const othersBucket: NearbyPlace[] = [];
+      places.forEach(p => {
+        const normalized = p.name.toLowerCase().trim();
+        if (seenGlobal.has(normalized)) return;
+
+        const othersQuery = PLACE_CATEGORY_QUERIES.find(q => q.key === 'others');
+        const radius = othersQuery?.radius || 5000;
+        if ((p.distanceMeters || 0) <= radius) {
+          seenGlobal.add(normalized);
+          othersBucket.push(p);
         }
+      });
+      set.others = othersBucket.slice(0, 15);
 
-        const data = await res.json();
-        const places: NearbyPlace[] = (data.places || []).slice(0, 5).map((p: any) => ({
-          name: p.displayName?.text || 'Unknown',
-          rating: p.rating,
-          userRatingCount: p.userRatingCount,
-          types: p.types,
-          primaryTypeDisplayName: p.primaryTypeDisplayName?.text,
-          priceLevel: p.priceLevel,
-          googleMapsUri: p.googleMapsUri,
-        }));
-        return { key, places };
-      })
-    );
+      return set;
+    };
+
+    const result: NeighborhoodPlaces = {
+      ...createCategorySet(rawGooglePlaces),
+      walkable: createCategorySet(walkPlaces),
+      drivable: createCategorySet(drivePlaces),
+      fetchedAt: Date.now(),
+      sources: ["google"],
+      isUnified: true
+    };
 
     if (logId) {
       updateAPICall(logId, { status: 'completed', response_time_ms: Date.now() - start });
-    }
-
-    const result: NeighborhoodPlaces = {
-      restaurants: [],
-      groceries: [],
-      parks: [],
-      transit: [],
-      fitness: [],
-      schools: [],
-      cafes: [],
-      fetchedAt: Date.now(),
-    };
-
-    for (const { key, places } of categoryResults) {
-      (result as any)[key] = places;
     }
 
     return result;
@@ -1073,17 +1180,23 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       // neighborhoodPlaces is now stored in google_environmental_data (not the properties doc).
       // We pre-fetch the env doc here so we can check the TTL and reuse it as cachedEnvEarly.
       const envDocForPlaces = storageKeyForEnv ? await getGoogleDataFromCloud(storageKeyForEnv).catch(() => null) : null;
-      const cachedPlaces = (envDocForPlaces as any)?.neighborhoodPlaces;
+      const cachedPlaces = (envDocForPlaces as any)?.neighborhoodPlaces as NeighborhoodPlaces | undefined;
       const placesCachedAt = cachedPlaces?.fetchedAt;
       const placesFresh = placesCachedAt && (Date.now() - placesCachedAt) < 30 * 24 * 60 * 60 * 1000; // 30 days
-      const needsPlacesFetch = coordsForPlaces && !placesFresh;
+
+      // TRIGGER LOGIC: 
+      // 1. Missing data? Fetch.
+      // 2. Stale data (>30d)? Fetch.
+      // 3. User forced refresh? Fetch.
+      // 4. Legacy Data (Missing Foursquare integration flag)? Fetch.
+      const needsPlacesFetch = coordsForPlaces && (!placesFresh || forceEnvironment || !cachedPlaces?.isUnified);
 
       const [scores, images, comps, nearbyPlaces] = await Promise.all([
         fetchScores(mappedData.zpid),
         needsImages ? fetchPropertyImages(mappedData.zpid) : Promise.resolve(mappedData.images ?? []),
         fetchPropertyComps(mappedData.zpid),
         needsPlacesFetch
-          ? fetchNearbyPlaces(coordsForPlaces!.latitude, coordsForPlaces!.longitude, mappedData.zpid, mappedData.address).catch(() => null)
+          ? fetchNearbyPlaces(coordsForPlaces!.latitude, coordsForPlaces!.longitude, mappedData.zpid, mappedData.address, cachedPlaces, forceEnvironment).catch(() => null)
           : Promise.resolve(cachedPlaces ?? null),
       ]);
 

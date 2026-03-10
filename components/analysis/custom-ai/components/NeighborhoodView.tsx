@@ -1,17 +1,31 @@
 import React from 'react';
-import { CustomAIAnalysisResult } from '../../../../types';
+import { CustomAIAnalysisResult, PropertyData } from '../../../../types';
 import { EmptyState } from './CommonComponents';
+import AirQualitySection from '../../../property/AirQualitySection';
+import NeighborhoodPlacesSection from '../../../property/NeighborhoodPlacesSection';
+import StaticParcelMap from '../../../property/StaticParcelMap';
 
 interface NeighborhoodViewProps {
     data: CustomAIAnalysisResult['neighborhood'];
     mapZoomIn?: string;
     mapZoomOut?: string;
+    propertyData?: PropertyData;
+    onRefresh?: () => void;
+    isRefreshing?: boolean;
+    timer?: number;
 }
 
-export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoomIn, mapZoomOut }) => {
-    const [selectedMap, setSelectedMap] = React.useState<{ url: string, title: string } | null>(null);
+export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoomIn, mapZoomOut, propertyData, onRefresh, isRefreshing, timer }) => {
+    const [selectedMap, setSelectedMap] = React.useState<{ url: string, title: string, isZoomIn?: boolean } | null>(null);
 
     if (!data?.overview) return <EmptyState section="Neighborhood" />;
+
+    // Normalize parcelPolygon for use with StaticParcelMap
+    const parcelPolygon = React.useMemo(() => {
+        const raw = propertyData?.parcelPolygon;
+        if (!raw || !Array.isArray(raw) || raw.length < 3) return undefined;
+        return raw.map((pt: any) => Array.isArray(pt) ? pt : [pt.lon, pt.lat]) as [number, number][];
+    }, [propertyData]);
 
     return (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
@@ -22,21 +36,29 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-4">
                         {mapZoomIn && (
                             <div
-                                onClick={() => setSelectedMap({ url: mapZoomIn, title: 'Property Close-up Map' })}
+                                onClick={() => setSelectedMap({ url: mapZoomIn, title: 'Property Close-up Map', isZoomIn: true })}
                                 className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video cursor-zoom-in active:scale-[0.98] transition-all"
                             >
-                                <img src={mapZoomIn} alt="Property Close-up Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
+                                {propertyData ? (
+                                    <StaticParcelMap
+                                        data={propertyData}
+                                        parcelPolygon={parcelPolygon}
+                                        className="w-full h-full"
+                                    />
+                                ) : (
+                                    <img src={mapZoomIn} alt="Property Close-up Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                )}
+                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20 z-10">
                                     <i className="fa-solid fa-map mr-2" /> Close-up View
                                 </div>
-                                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300">
+                                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300 z-10">
                                     <i className="fa-solid fa-magnifying-glass-plus text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </div>
                         )}
                         {mapZoomOut && (
                             <div
-                                onClick={() => setSelectedMap({ url: mapZoomOut, title: 'Neighborhood Map' })}
+                                onClick={() => setSelectedMap({ url: mapZoomOut, title: 'Neighborhood Map', isZoomIn: false })}
                                 className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video cursor-zoom-in active:scale-[0.98] transition-all"
                             >
                                 <img src={mapZoomOut} alt="Neighborhood Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -53,9 +75,43 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
 
                 {/* ── Overview ───────────────────────────────── */}
                 <div className="space-y-4">
-                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD CONTEXT</div>
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD CONTEXT</div>
+                        {onRefresh && (
+                            <button
+                                onClick={onRefresh}
+                                disabled={isRefreshing}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest ${isRefreshing ? 'bg-indigo-50 text-indigo-400' : 'bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-100 shadow-sm'}`}
+                            >
+                                <i className={`fa-solid fa-rotate ${isRefreshing ? 'animate-spin' : ''}`} />
+                                {isRefreshing ? `Refreshing (${timer}s)...` : 'Refresh Insight'}
+                            </button>
+                        )}
+                    </div>
                     <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.625]">{data.overview}</p>
                 </div>
+
+                {/* ── Extracted Labels (Visual Evidence) ─────── */}
+                {data.map_labels && data.map_labels.length > 0 && (
+                    <div className="bg-slate-50/50 rounded-[2rem] p-6 border border-slate-100">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">
+                                <i className="fa-solid fa-tags" />
+                            </div>
+                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Visual Map Evidence (Direct Text Extraction)</div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {data.map_labels.map((label, i) => (
+                                <span key={i} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 shadow-sm">
+                                    {label}
+                                </span>
+                            ))}
+                        </div>
+                        <p className="mt-4 text-[10px] text-slate-400 font-medium italic">
+                            * These labels were identified by AI from the "Neighborhood View" map and filtered to exclude street names.
+                        </p>
+                    </div>
+                )}
 
                 {/* ── Neighborhood features grid ─────────────── */}
                 {data.neighborhood_features && (
@@ -96,6 +152,31 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                 )}
             </div>
 
+            {/* ── Environmental Intelligence ────────────────── */}
+            {propertyData && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+                    <div className="flex items-center gap-4 pt-12">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-lg shadow-indigo-100">
+                            <i className="fa-solid fa-microchip" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Environmental Intelligence</h1>
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Google Environmental APIs & Local Context</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+                            <AirQualitySection data={propertyData} />
+                        </div>
+
+                        <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+                            <NeighborhoodPlacesSection data={propertyData} visualPoi={data.visual_poi} mapLabels={data.map_labels} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── Lightbox Modal ─────────────────────────────── */}
             {selectedMap && (
                 <div
@@ -117,7 +198,13 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                             <div className="text-sm font-black text-white">{selectedMap.title}</div>
                         </div>
                         <div className="flex-1 flex items-center justify-center bg-slate-50 overflow-auto">
-                            <img src={selectedMap.url} alt={selectedMap.title} className="max-w-full max-h-full object-contain shadow-sm" />
+                            {selectedMap.isZoomIn && propertyData ? (
+                                <div className="w-full h-full max-w-4xl max-h-[80vh] aspect-square">
+                                    <StaticParcelMap data={propertyData} parcelPolygon={parcelPolygon} />
+                                </div>
+                            ) : (
+                                <img src={selectedMap.url} alt={selectedMap.title} className="max-w-full max-h-full object-contain shadow-sm" />
+                            )}
                         </div>
                     </div>
                 </div>

@@ -228,6 +228,9 @@ export interface PropertyData {
     orientation_computed_at?: any;
     deprecated?: boolean;         // true = property is no longer active in the market
     deprecatedAt?: any;           // serverTimestamp of when it was marked deprecated
+    parcelPolygon?: [number, number][] | { lon: number, lat: number }[];
+    parcelApn?: string;
+    parcelAreaSqft?: number;
 }
 
 export interface PropertyDetails {
