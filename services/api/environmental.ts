@@ -46,7 +46,8 @@ export const fetchSolarData = async (lat: number, lng: number, zpid?: string, ad
             carbonOffsetFactorKgPerMwh,
             wholeRoofStats,
             panelCapacityWatts,
-            solarPanels
+            solarPanels,
+            financialAnalyses
         } = data.solarPotential;
 
         const solarDataLean = {
@@ -61,10 +62,65 @@ export const fetchSolarData = async (lat: number, lng: number, zpid?: string, ad
 
         const production = calculateSolarPotential(solarDataLean);
 
+        // Extract the default financial analysis (U.S. only)
+        let financialAnalysis: any = undefined;
+        if (financialAnalyses && Array.isArray(financialAnalyses) && financialAnalyses.length > 0) {
+            // Find the one marked as defaultBill, or fall back to the first entry
+            const defaultFA = financialAnalyses.find((fa: any) => fa.defaultBill) || financialAnalyses[0];
+            if (defaultFA) {
+                const cashSavings = defaultFA.cashPurchaseSavings;
+                const leaseSavings = defaultFA.leasingSavings;
+                const financedSavings = defaultFA.financedPurchaseSavings;
+                financialAnalysis = {
+                    monthlyBill: defaultFA.monthlyBill?.units ? Number(defaultFA.monthlyBill.units) : undefined,
+                    // Remaining bill after solar
+                    remainingLifetimeCostBill: defaultFA.financialDetails?.remainingLifetimeCost?.units
+                        ? Number(defaultFA.financialDetails.remainingLifetimeCost.units) : undefined,
+                    // Cost of electricity without solar over lifetime
+                    costOfElectricityWithoutSolar: defaultFA.financialDetails?.costOfElectricityWithoutSolar?.units
+                        ? Number(defaultFA.financialDetails.costOfElectricityWithoutSolar.units) : undefined,
+                    // Cash purchase
+                    cashPurchase: cashSavings ? {
+                        outOfPocketCost: cashSavings.outOfPocketCost?.units ? Number(cashSavings.outOfPocketCost.units) : undefined,
+                        upfrontCost: cashSavings.upfrontCost?.units ? Number(cashSavings.upfrontCost.units) : undefined,
+                        rebateValue: cashSavings.rebateValue?.units ? Number(cashSavings.rebateValue.units) : undefined,
+                        paybackYears: cashSavings.paybackYears ?? undefined,
+                        savings: {
+                            savingsYear1: cashSavings.savings?.savingsYear1?.units ? Number(cashSavings.savings.savingsYear1.units) : undefined,
+                            savingsYear20: cashSavings.savings?.savingsYear20?.units ? Number(cashSavings.savings.savingsYear20.units) : undefined,
+                            savingsLifetime: cashSavings.savings?.savingsLifetime?.units ? Number(cashSavings.savings.savingsLifetime.units) : undefined,
+                            presentValueOfSavingsYear20: cashSavings.savings?.presentValueOfSavingsYear20?.units ? Number(cashSavings.savings.presentValueOfSavingsYear20.units) : undefined,
+                        }
+                    } : undefined,
+                    // Lease option
+                    lease: leaseSavings ? {
+                        leasesAllowed: leaseSavings.leasesAllowed,
+                        annualLeasingCost: leaseSavings.annualLeasingCost?.units ? Number(leaseSavings.annualLeasingCost.units) : undefined,
+                        savings: {
+                            savingsYear1: leaseSavings.savings?.savingsYear1?.units ? Number(leaseSavings.savings.savingsYear1.units) : undefined,
+                            savingsYear20: leaseSavings.savings?.savingsYear20?.units ? Number(leaseSavings.savings.savingsYear20.units) : undefined,
+                            savingsLifetime: leaseSavings.savings?.savingsLifetime?.units ? Number(leaseSavings.savings.savingsLifetime.units) : undefined,
+                        }
+                    } : undefined,
+                    // Financed purchase
+                    financed: financedSavings ? {
+                        annualLoanPayment: financedSavings.annualLoanPayment?.units ? Number(financedSavings.annualLoanPayment.units) : undefined,
+                        loanInterestRate: financedSavings.loanInterestRate,
+                        savings: {
+                            savingsYear1: financedSavings.savings?.savingsYear1?.units ? Number(financedSavings.savings.savingsYear1.units) : undefined,
+                            savingsYear20: financedSavings.savings?.savingsYear20?.units ? Number(financedSavings.savings.savingsYear20.units) : undefined,
+                            savingsLifetime: financedSavings.savings?.savingsLifetime?.units ? Number(financedSavings.savings.savingsLifetime.units) : undefined,
+                        }
+                    } : undefined,
+                };
+            }
+        }
+
         return {
             maxSunshineHoursPerYear,
             carbonOffsetFactorKgPerMwh,
             estimatedSolarProduction: production,
+            financialAnalysis,
             wholeRoofStats: wholeRoofStats ? {
                 areaMeters2: wholeRoofStats.areaMeters2,
                 sunshineQuantiles: wholeRoofStats.sunshineQuantiles,

@@ -458,6 +458,378 @@ const PlatformHelpTab: React.FC = () => {
                             </section>
                         </div>
                     )
+                },
+                {
+                    id: 'context_graph',
+                    title: 'Context Graph',
+                    icon: 'fa-diagram-project',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-violet-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-violet-100">
+                                    <i className="fa-solid fa-diagram-project"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Context Graph</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">75 Decision Factors · Hybrid Extraction</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-violet-50/50 rounded-[2.5rem] p-10 border border-violet-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-brain text-violet-500 text-sm"></i>
+                                    What is the Context Graph?
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed mb-0">
+                                    The Context Graph is a structured representation of <strong>75 buyer-relevant decision factors</strong> extracted from every property. It combines data from <strong>12+ APIs</strong>, <strong>AI-driven analysis</strong>, and <strong>computed heuristics</strong> into a standardized format that powers property comparison, search tags, and recommendation engines.
+                                </p>
+                            </section>
+
+                            {/* Architecture */}
+                            <section className="bg-slate-900 rounded-[2.5rem] p-10 text-white mb-12 shadow-2xl overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
+                                <h3 className="text-xl font-black mb-6 relative z-10">Hybrid Extraction Architecture</h3>
+                                <div className="space-y-6 relative z-10">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-microchip text-emerald-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">22 Pre-Computed Factors <span className="text-emerald-400 text-[10px] font-mono ml-2">zero AI tokens</span></div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Extracted deterministically from structured property data — MLS fields, API responses, and computed formulas. These are guaranteed accurate and free.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-wand-magic-sparkles text-violet-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">53 AI-Extracted Factors <span className="text-violet-400 text-[10px] font-mono ml-2">Gemini 2.0 Flash</span></div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Inferred by Gemini from visual analysis, descriptions, deep research, and community data. The AI prompt explicitly skips pre-computed IDs to avoid redundant work.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-code-merge text-amber-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Merge & Override</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Pre-computed factors always take precedence over AI output. The merged result is sorted by factor ID for consistent ordering.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Factor Categories */}
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">All 75 Decision Factors</h3>
+
+                            {/* Financial & Market */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-dollar-sign text-emerald-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Financial & Market (1–10)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 1, name: 'Price Bracket', source: 'MLS price / Zestimate', method: 'Pre-computed', how: 'Classified as Entry (<$800K), Mid ($800K–$1.5M), or Luxury (>$1.5M)' },
+                                        { id: 2, name: 'HOA Friction', source: 'RESO feesAndDues', method: 'Pre-computed', how: 'Extracts monthly amount and flags High (>$500) vs Low' },
+                                        { id: 3, name: 'Insurance Risk', source: 'Climate risk scores', method: 'AI', how: 'Flags if fireRiskScore ≥ 7 or high-risk zone mentioned' },
+                                        { id: 4, name: 'True Carrying Cost', source: 'Price + tax + HOA + insurance', method: 'Pre-computed', how: 'Monthly mortgage (7%, 30yr) + taxes/12 + HOA + insurance/12' },
+                                        { id: 5, name: 'Seller Motivation', source: 'Price history + DOM', method: 'Pre-computed', how: 'High if price cuts detected OR daysOnMarket > 90' },
+                                        { id: 6, name: 'ADU / House-Hacking', source: 'Description + deep research', method: 'AI', how: 'Scans for "guest house", "basement", "ADU", "cottage"' },
+                                        { id: 7, name: 'STR Viability', source: 'Investment analysis', method: 'Pre-computed', how: 'Combines zoning legality + occupancy rate + ADR' },
+                                        { id: 8, name: 'Long-Term Rental Yield', source: 'Rent Zestimate + price', method: 'Pre-computed', how: '(rentZestimate × 12) / price as gross yield %' },
+                                        { id: 9, name: 'Historical Appreciation', source: 'Deep research + market data', method: 'AI', how: 'YoY and 5-year price growth trends from macro indicators' },
+                                        { id: 10, name: 'Listing Urgency', source: 'Description + price history', method: 'Pre-computed', how: 'Flags "Hot Home", "Multiple Offers", or back-on-market' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg ${f.method === 'Pre-computed' ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'} flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${f.method === 'Pre-computed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>{f.method}</span>
+                                                    <span className="text-[9px] text-slate-400">{f.source}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Structural & Size */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-ruler-combined text-blue-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Structural & Size (11–20)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 11, name: 'Property Typology', source: 'homeType', method: 'Pre-computed', how: 'Maps Zillow type to Single Family, Condo, Townhouse, etc.' },
+                                        { id: 12, name: 'Bedroom Count', source: 'bedrooms', method: 'Pre-computed', how: 'Direct extraction with BR tag' },
+                                        { id: 13, name: 'Bathroom Ratio', source: 'bathrooms', method: 'Pre-computed', how: 'Splits into full + half bath count' },
+                                        { id: 14, name: 'Usable Square Footage', source: 'livingAreaValue', method: 'Pre-computed', how: 'Classified as Compact (<1,500), Mid-Size, Spacious, or Estate' },
+                                        { id: 15, name: 'Lot Size', source: 'lotSize', method: 'Pre-computed', how: 'Direct lot size string' },
+                                        { id: 16, name: 'Single-Story Living', source: 'RESO + room highlights', method: 'AI', how: 'Checks for stairs, multi-floor room labels, or "Single Story"' },
+                                        { id: 17, name: 'Dedicated Home Office', source: 'Room types + description', method: 'AI', how: 'Scans for Den, Office, Library, Study mentions' },
+                                        { id: 18, name: 'Garage & Parking', source: 'RESO garageParkingCapacity', method: 'Pre-computed', how: 'Extracts numeric car count' },
+                                        { id: 19, name: 'Foundation & Storage', source: 'RESO facts', method: 'AI', how: 'Identifies Basement, Crawl Space, or Slab' },
+                                        { id: 20, name: 'Construction Era', source: 'yearBuilt', method: 'Pre-computed', how: 'Pre-War (<1945), Mid-Century, 80s-90s, 2000s, New Build (>2015)' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg ${f.method === 'Pre-computed' ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'} flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${f.method === 'Pre-computed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>{f.method}</span>
+                                                    <span className="text-[9px] text-slate-400">{f.source}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Interior Design & Visual */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-paint-roller text-amber-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Interior Design & Visual (21–30)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 21, name: 'Move-In Readiness', how: 'Turn-key if renovated/new, Mint if well-maintained, Needs Work if fixer' },
+                                        { id: 22, name: 'Renovation Upside', how: 'High if condition is cosmetic-only but structural era is good' },
+                                        { id: 23, name: 'Architectural Style', how: 'Mediterranean, Craftsman, Modern — from visual AI or listing data' },
+                                        { id: 24, name: 'Natural Light', how: 'Inferred from lighting description, skylights, large windows, south-facing' },
+                                        { id: 25, name: 'Open-Concept Flow', how: 'Checks for "Open concept" or "Vaulted" in interior analysis' },
+                                        { id: 26, name: 'Kitchen Profile', how: 'Caliber (Chef\'s / Standard) + materials (Quartz, Gas range, etc.)' },
+                                        { id: 27, name: 'Bathroom Profile', how: 'Luxury level (Spa-like) + finishes (Tile, Soaking tub, etc.)' },
+                                        { id: 28, name: 'Flooring Material', how: 'Direct from RESO flooring field (Hardwood, Tile, Carpet)' },
+                                        { id: 29, name: 'Ceiling Volume', how: '"High/Vaulted" if mentioned in description or spatial flow analysis' },
+                                        { id: 30, name: 'Interior Finishes', how: 'Wall colors, trim (crown molding), window treatments' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg ${f.id === 28 ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'} flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${f.id === 28 ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>{f.id === 28 ? 'Pre-computed' : 'AI'}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Outdoor & Lot */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-tree text-green-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Outdoor & Lot (31–40)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 31, name: 'Fenced Yard', how: 'Checks RESO fencing field or backyard analysis' },
+                                        { id: 32, name: 'Outdoor Entertainment', how: 'Pool, Spa, Patio, Deck, Outdoor Kitchen from exterior analysis' },
+                                        { id: 33, name: 'Privacy Level', how: 'From Street View privacy rating or visual analysis' },
+                                        { id: 34, name: 'Curb Appeal', how: 'From Street View curb appeal score (1-10)' },
+                                        { id: 35, name: 'Topography', how: 'Flat vs Hillside from neighborhood analysis or description' },
+                                        { id: 36, name: 'View Quality', how: 'Hills, City Lights, Water, or None' },
+                                        { id: 37, name: 'Street Noise / Traffic', how: 'Quiet (cul-de-sac), Moderate (through), High (arterial)' },
+                                        { id: 38, name: 'Visual Clutter', how: 'Overhead wires, messy neighbors from Street View analysis' },
+                                        { id: 39, name: 'Usable Yard Space', how: '"Large Level Yard" vs "Steep" vs "Compact"' },
+                                        { id: 40, name: 'Xeriscape / Low Maintenance', how: 'Drought-tolerant or synthetic turf mentioned' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className="w-6 h-6 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-[10px] font-black shrink-0">{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200">AI</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Location & Community */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-location-dot text-rose-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Location & Community (41–45)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 41, name: 'School Quality (Max)', method: 'Pre-computed', how: 'Highest rating from schools array (e.g., 9/10)' },
+                                        { id: 42, name: 'Commute Convenience', method: 'AI', how: 'Proximity to highways or transit hubs from neighborhood' },
+                                        { id: 43, name: 'Walkability', method: 'Pre-computed', how: 'Direct from Walk Score — "Walkable" if > 70' },
+                                        { id: 44, name: 'Greenery Proximity', method: 'AI', how: '"Park adjacent" or "Near trails" from neighborhood' },
+                                        { id: 45, name: 'Sidewalk Continuity', method: 'AI', how: 'From Street View family safety or pedestrian infra' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg ${f.method === 'Pre-computed' ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'} flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${f.method === 'Pre-computed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>{f.method}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Advanced Intelligence */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-flask text-indigo-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Advanced Intelligence (51–70)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 51, name: 'Vastu / Feng Shui', method: 'Pre-computed', how: 'Home orientation (N/S/E/W) from satellite analysis' },
+                                        { id: 52, name: 'Asthma / Respiratory', method: 'Pre-computed', how: 'AQI index + category from Google Air Quality API' },
+                                        { id: 53, name: 'Pollen Sensitivity', method: 'AI', how: 'Triggers like Oak, Grass from Google Pollen API analysis' },
+                                        { id: 54, name: 'Family-Friendly', method: 'AI', how: 'Composite: Cul-de-sac + Sidewalks + Backyard + Good Schools' },
+                                        { id: 55, name: 'Renewable Potential', method: 'Pre-computed', how: 'Solar kWh/yr from Google Solar API — High/Med/Low tier' },
+                                        { id: 56, name: 'EV Readiness', method: 'AI', how: 'Looks for 240V, Level 2, or EV charger mentions' },
+                                        { id: 57, name: 'Work-From-Home Score', method: 'AI', how: 'Dedicated office + Fiber/high-speed internet mentions' },
+                                        { id: 58, name: 'Multi-Gen Utility', method: 'AI', how: 'Downstairs bed/bath or separate entry for in-laws' },
+                                        { id: 59, name: 'Laundry Logistics', method: 'Pre-computed', how: 'Indoor/Separate Room vs Garage from RESO laundryFeatures' },
+                                        { id: 60, name: 'Water / Air Systems', method: 'AI', how: 'Softeners, RO filters, or zoned HVAC mentioned' },
+                                        { id: 61, name: 'Security Infra', method: 'AI', how: 'Gated, security system, or cameras from listing' },
+                                        { id: 62, name: 'Digital Presentation', method: 'AI', how: 'Quality of staging and photos — "Hidden Gems" detection' },
+                                        { id: 63, name: 'Solar ROI Obstructors', method: 'AI', how: 'Large trees or neighbors blocking roof sunshine' },
+                                        { id: 64, name: 'Job Hub Connectivity', method: 'AI', how: 'Proximity to major corporate campuses (Google, Apple)' },
+                                        { id: 65, name: 'Upcoming Dev Impact', method: 'AI', how: 'New construction, transit projects from deep research' },
+                                        { id: 66, name: 'Soil / Geo Consistency', method: 'AI', how: 'Soil type or liquefaction risk from deep research' },
+                                        { id: 67, name: 'Luxury Finish Level', method: 'AI', how: 'Crown molding, wide plank floors, designer fixtures' },
+                                        { id: 68, name: 'Backyard Potential', method: 'AI', how: 'Room for ADU or pool if not already present' },
+                                        { id: 69, name: 'Streetscape Aesthetic', method: 'AI', how: 'Underground vs overhead utilities from Street View' },
+                                        { id: 70, name: 'Market Momentum', method: 'AI', how: 'Appreciating, cooling, or flat from deep research signals' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg ${f.method === 'Pre-computed' ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'} flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${f.method === 'Pre-computed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>{f.method}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Community & Market Intelligence */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-users text-teal-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Community & Market Intelligence (71–75)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 71, name: 'Development Maturity', method: 'AI', how: 'Classifies as New Build, Established, Transitional, or Gentrifying' },
+                                        { id: 72, name: 'Resident Complaints', method: 'AI', how: 'Top 1-2 recurring complaints from community pulse data' },
+                                        { id: 73, name: 'Satisfaction Drivers', method: 'AI', how: 'Top 1-2 things residents love from community pulse data' },
+                                        { id: 74, name: 'Perceived Safety', method: 'AI', how: 'Resident-reported safety sentiment — Very Safe to Concerns' },
+                                        { id: 75, name: 'Market Velocity (DOM)', method: 'Pre-computed', how: 'Median DOM classified as Fast (<14d), Moderate (14-30), Slow (>30)' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg ${f.method === 'Pre-computed' ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'} flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${f.method === 'Pre-computed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>{f.method}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Data Sources */}
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">Data Sources</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+                                {[
+                                    { icon: 'fa-house', label: 'Zillow / MLS', desc: 'Price, beds, baths, sqft, lot, year, description, schools, Walk Score', color: 'bg-blue-50 border-blue-100 text-blue-600' },
+                                    { icon: 'fa-solar-panel', label: 'Google Solar API', desc: 'Panel-level production, sunshine hours, roof area, financial analysis', color: 'bg-yellow-50 border-yellow-100 text-yellow-600' },
+                                    { icon: 'fa-wind', label: 'Google Air Quality', desc: 'AQI, pollutant concentrations, health recommendations', color: 'bg-emerald-50 border-emerald-100 text-emerald-600' },
+                                    { icon: 'fa-seedling', label: 'Google Pollen API', desc: 'Pollen types, severity, seasonal triggers', color: 'bg-green-50 border-green-100 text-green-600' },
+                                    { icon: 'fa-volume-low', label: 'HowLoud SoundScore', desc: 'Traffic, local, and airport noise scores', color: 'bg-sky-50 border-sky-100 text-sky-600' },
+                                    { icon: 'fa-street-view', label: 'Google Street View', desc: 'Curb appeal, privacy, safety, visual clutter, streetscape', color: 'bg-orange-50 border-orange-100 text-orange-600' },
+                                    { icon: 'fa-camera', label: 'Visual AI Analysis', desc: 'Interior design, room-by-room quality, condition assessment', color: 'bg-violet-50 border-violet-100 text-violet-600' },
+                                    { icon: 'fa-users', label: 'Community Pulse', desc: 'Resident sentiment, safety, complaints, lifestyle satisfaction', color: 'bg-rose-50 border-rose-100 text-rose-600' },
+                                    { icon: 'fa-chart-line', label: 'Deep Investment Research', desc: 'Macro indicators, market dynamics, zoning, risk factors', color: 'bg-indigo-50 border-indigo-100 text-indigo-600' },
+                                    { icon: 'fa-map', label: 'Google Places API', desc: 'Nearby POIs: dining, shopping, parks, transit, fitness, schools', color: 'bg-amber-50 border-amber-100 text-amber-600' },
+                                    { icon: 'fa-compass', label: 'Satellite Orientation', desc: 'Building facing direction for Vastu / Feng Shui', color: 'bg-teal-50 border-teal-100 text-teal-600' },
+                                    { icon: 'fa-fire', label: 'Climate Risk Data', desc: 'Wind, flood, fire, and heat risk scores (0-10)', color: 'bg-red-50 border-red-100 text-red-600' },
+                                ].map((s, i) => (
+                                    <div key={i} className={`p-4 rounded-2xl border ${s.color}`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <i className={`fa-solid ${s.icon} text-[12px]`}></i>
+                                            <span className="text-[12px] font-black">{s.label}</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 leading-relaxed mb-0">{s.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Output Format */}
+                            <section className="bg-emerald-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden mb-12">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full translate-x-1/4 -translate-y-1/4 blur-3xl"></div>
+                                <h3 className="text-xl font-black mb-6 relative z-10">Output Format</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                                    <div className="p-6 bg-white/5 rounded-3xl border border-white/10">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-sm">
+                                                <i className="fa-solid fa-tags"></i>
+                                            </div>
+                                            <div className="font-bold text-lg">Tags</div>
+                                        </div>
+                                        <p className="text-emerald-100 text-xs leading-relaxed">
+                                            Each factor produces <span className="text-white font-black">1–3 short labels</span> like "Chef's Kitchen", "Turn-key", "High Solar Yield" — used as search facets and comparison dimensions.
+                                        </p>
+                                    </div>
+                                    <div className="p-6 bg-white/5 rounded-3xl border border-white/10">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-sm">
+                                                <i className="fa-solid fa-gauge-high"></i>
+                                            </div>
+                                            <div className="font-bold text-lg">Confidence</div>
+                                        </div>
+                                        <p className="text-indigo-100 text-xs leading-relaxed">
+                                            Every factor carries a confidence level: <span className="text-white font-black">High</span> (directly from data), <span className="text-white font-black">Medium</span> (inferred), or <span className="text-white font-black">Low</span> (insufficient data).
+                                        </p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
+                                    <i className="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-amber-900 font-black text-lg mb-2">Future: Graph Search</h4>
+                                    <p className="text-amber-800 text-sm font-medium leading-relaxed">
+                                        The Context Graph taxonomy is designed for eventual <strong>natural-language property search</strong> — e.g., "Show me turn-key homes with chef's kitchens near top-rated schools with low climate risk." The tag system enables faceted filtering across all 75 dimensions.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
                 }
             ]
         },

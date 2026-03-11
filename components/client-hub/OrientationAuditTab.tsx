@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, computeGeocodingAzimuth } from '../../services/satellitaryService';
-import { savePropertyOrientationToCloud } from '../../services/firebase/properties';
+import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze } from '../../services/satellitaryService';
+
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
@@ -28,15 +28,10 @@ interface OrientationRow {
         buyer_pro?: string;
         buyer_con?: string;
     } | null;
-    orientationGeocoding?: {
-        azimuth_degrees: number;
-        orientation: string;
-    } | null;
     finalOrientation?: string | null;
     coordinates?: { latitude: number; longitude: number };
     orientationAssessment: OrientationAssessmentValue[];  // multi-select
     assessedAt?: any;        // Firestore Timestamp of last orientation_assessment save
-    geocodingNA?: boolean;   // true = geocoding ran but API returned no entrance data
     status: 'idle' | 'running' | 'refreshing' | 'done' | 'error';
     error?: string;
 }
@@ -83,8 +78,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [activeCity, setActiveCity] = useState<string | null>(null);
     const [batchRunning, setBatchRunning] = useState(false);
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
-    const [geocodeBatchRunning, setGeocodeBatchRunning] = useState(false);
-    const [geocodeBatchProgress, setGeocodeBatchProgress] = useState<{ done: number; total: number } | null>(null);
     const [redownloadRunning, setRedownloadRunning] = useState(false);
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -139,7 +132,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             ? p.satelliteImageUrl : undefined,
                         streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
                         orientationAI: p.orientation_ai || null,
-                        orientationGeocoding: p.orientation_geocoding || null,
                         finalOrientation:
                             // 1. Neighborhood AI analysis (property_analyses_visual collection)
                             visualOrientationMap[d.id] ||
@@ -211,7 +203,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     // Running tally: how many filteredRows include each assessment option
     const assessmentCounts = useMemo(() => {
         const counts: Record<OrientationAssessmentValue, number> = {
-            radar_map: 0, satellite: 0, geocode: 0, none: 0, all: 0,
+            radar_map: 0, satellite: 0, none: 0, all: 0,
         };
         for (const row of filteredRows) {
             for (const v of row.orientationAssessment) {
@@ -260,9 +252,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     buyer_pro: result.buyer_pro,
                     buyer_con: result.buyer_con,
                 },
-                orientationGeocoding: result.geocoding_entrance_available && result.geocoding_azimuth_degrees != null
-                    ? { azimuth_degrees: result.geocoding_azimuth_degrees, orientation: result.geocoding_orientation! }
-                    : r.orientationGeocoding,
                 mapZoomIn: r.mapZoomIn || result.aerial_url,
                 streetView: r.streetView || result.street_view_url || undefined,
             } : r));
@@ -310,9 +299,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     buyer_pro: result.buyer_pro,
                     buyer_con: result.buyer_con,
                 },
-                orientationGeocoding: result.geocoding_entrance_available && result.geocoding_azimuth_degrees != null
-                    ? { azimuth_degrees: result.geocoding_azimuth_degrees, orientation: result.geocoding_orientation! }
-                    : r.orientationGeocoding,
             } : r));
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
@@ -334,44 +320,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         setBatchProgress(null);
     };
 
-    // ── Batch geocoding orientation (no Gemini) ────────────────────────────────
-    const handleBatchGeocode = async () => {
-        const targets = filteredRows.filter(r => r.coordinates);
-        if (targets.length === 0) return;
-        setGeocodeBatchRunning(true);
-        setGeocodeBatchProgress({ done: 0, total: targets.length });
-        const CONCURRENCY = 10;
-        for (let i = 0; i < targets.length; i += CONCURRENCY) {
-            const batch = targets.slice(i, i + CONCURRENCY);
-            await Promise.allSettled(
-                batch.map(async row => {
-                    try {
-                        const geo = await computeGeocodingAzimuth(
-                            row.coordinates!.latitude,
-                            row.coordinates!.longitude
-                        );
-                        if (geo) {
-                            savePropertyOrientationToCloud(
-                                row.zpid,
-                                null,
-                                { azimuth_degrees: geo.azimuth, orientation: geo.orientation }
-                            ).catch(e => console.warn('[OrientationAudit] Geocode cache write failed:', e));
-                            setRows(prev => prev.map(r =>
-                                r.zpid === row.zpid
-                                    ? { ...r, orientationGeocoding: { azimuth_degrees: geo.azimuth, orientation: geo.orientation } }
-                                    : r
-                            ));
-                        }
-                    } catch (e) {
-                        console.warn(`[OrientationAudit] Geocode failed for ${row.zpid}:`, e);
-                    }
-                })
-            );
-            setGeocodeBatchProgress({ done: Math.min(i + CONCURRENCY, targets.length), total: targets.length });
-        }
-        setGeocodeBatchRunning(false);
-        setGeocodeBatchProgress(null);
-    };
 
     // ── Force re-download satellite images ────────────────────────────────────
     const handleRedownloadSatellites = async () => {
@@ -428,27 +376,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         </button>
                     )}
 
-                    {/* Geocode All — admin only */}
-                    {isAdmin && (
-                        <button
-                            onClick={handleBatchGeocode}
-                            disabled={geocodeBatchRunning || batchRunning || redownloadRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                            title="Run geocoding orientation for all properties in this city (no AI, fast)"
-                        >
-                            {geocodeBatchRunning ? (
-                                <>
-                                    <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                    {geocodeBatchProgress ? `${geocodeBatchProgress.done}/${geocodeBatchProgress.total}` : 'Geocoding…'}
-                                </>
-                            ) : (
-                                <>
-                                    <i className="fa-solid fa-location-crosshairs text-xs" />
-                                    Geocode All
-                                </>
-                            )}
-                        </button>
-                    )}
 
                     {/* Re-download satellites — admin only */}
                     {isAdmin && (
@@ -476,7 +403,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     {isAdmin && (
                         <button
                             onClick={handleBatchRun}
-                            disabled={batchRunning || geocodeBatchRunning || redownloadRunning || loading || filteredRows.length === 0}
+                            disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
                             className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                         >
                             {batchRunning ? (
@@ -518,9 +445,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             {batchProgress && (
                 <ProgressBar label="Calculating satellite orientations…" progress={batchProgress} />
             )}
-            {geocodeBatchProgress && (
-                <ProgressBar label="Geocoding orientations…" progress={geocodeBatchProgress} />
-            )}
+
             {redownloadProgress && (
                 <ProgressBar label="Re-downloading satellite images…" progress={redownloadProgress} />
             )}
@@ -811,10 +736,6 @@ interface OrientationSummary {
         buyer_pro?: string;
         buyer_con?: string;
     } | null;
-    orientationGeocoding?: {
-        azimuth_degrees: number;
-        orientation: string;
-    } | null;
     selectedAssessment?: OrientationAssessmentValue[];  // multi-select array
     onSelectAssessment?: (v: OrientationAssessmentValue) => void;
 }
@@ -858,7 +779,7 @@ function MapThumb({ url, label, orientations }: {
 
                         {/* Orientation panel */}
                         {orientations && (
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 gap-3">
 
                                 {/* Radar Map */}
                                 {(() => {
@@ -1013,55 +934,10 @@ function MapThumb({ url, label, orientations }: {
                                     );
                                 })()}
 
-                                {/* Geocoding */}
-                                {(() => {
-                                    const isSelected = (orientations.selectedAssessment ?? []).includes('geocode');
-                                    const hasData = !!orientations.orientationGeocoding;
-                                    return (
-                                        <button
-                                            onClick={() => hasData && orientations.onSelectAssessment?.('geocode')}
-                                            disabled={!hasData || !orientations.onSelectAssessment}
-                                            title={hasData ? 'Set assessment to Geocode' : 'No geocoding orientation available'}
-                                            className={`text-left rounded-2xl p-4 border transition-all ${isSelected
-                                                ? 'bg-emerald-400/40 border-emerald-300 ring-2 ring-emerald-300 shadow-lg scale-[1.02]'
-                                                : hasData && orientations.onSelectAssessment
-                                                    ? 'bg-emerald-500/20 border-emerald-400/20 hover:bg-emerald-500/30 hover:border-emerald-300/40 cursor-pointer'
-                                                    : 'bg-emerald-500/10 border-emerald-400/10 opacity-50 cursor-not-allowed'
-                                                }`}
-                                        >
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="text-[9px] font-black text-emerald-300 uppercase tracking-widest">Geocoding</div>
-                                                {isSelected && <i className="fa-solid fa-check text-[10px] text-emerald-200" />}
-                                            </div>
-                                            {orientations.orientationGeocoding ? (
-                                                <>
-                                                    <div className="text-sm font-black text-white leading-tight">
-                                                        {orientations.orientationGeocoding.orientation}
-                                                    </div>
-                                                    <div className="text-[10px] text-emerald-300 font-mono mt-0.5">
-                                                        {orientations.orientationGeocoding.azimuth_degrees}°
-                                                    </div>
-                                                    {orientations.orientationAI?.azimuth_degrees != null && (
-                                                        <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-1.5 inline-block ${Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 22.5
-                                                            ? 'bg-emerald-400/30 text-emerald-300'
-                                                            : Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 45
-                                                                ? 'bg-amber-400/30 text-amber-300'
-                                                                : 'bg-rose-400/30 text-rose-300'
-                                                            }`}>
-                                                            Δ {Math.round(Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)))}° vs AI
-                                                        </div>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <div className="text-[11px] text-white/30 font-bold">—</div>
-                                            )}
-                                        </button>
-                                    );
-                                })()}
 
                                 {/* None / All row */}
                                 {orientations.onSelectAssessment && (
-                                    <div className="col-span-3 flex gap-2 mt-1">
+                                    <div className="col-span-2 flex gap-2 mt-1">
                                         {(['none', 'all'] as OrientationAssessmentValue[]).map(v => {
                                             const isSelected = (orientations.selectedAssessment ?? []).includes(v);
                                             return (
@@ -1107,7 +983,6 @@ function MapThumb({ url, label, orientations }: {
 const ASSESSMENT_OPTIONS: { value: OrientationAssessmentValue; label: string }[] = [
     { value: 'radar_map', label: 'Radar Map' },
     { value: 'satellite', label: 'Satellite' },
-    { value: 'geocode', label: 'Geocode' },
     { value: 'none', label: 'None' },
     { value: 'all', label: 'All' },
 ];
@@ -1115,7 +990,6 @@ const ASSESSMENT_OPTIONS: { value: OrientationAssessmentValue; label: string }[]
 const ASSESSMENT_CHIP_COLOR: Record<OrientationAssessmentValue, string> = {
     radar_map: 'bg-amber-100  text-amber-700  border-amber-200',
     satellite: 'bg-blue-100   text-blue-700   border-blue-200',
-    geocode: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     none: 'bg-rose-100   text-rose-700   border-rose-200',
     all: 'bg-violet-100 text-violet-700 border-violet-200',
 };

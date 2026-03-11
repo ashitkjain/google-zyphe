@@ -218,54 +218,8 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                         </div>
                     </div>
 
-                    {/* Geocoding API — entrance-based azimuth */}
-                    <div className={`rounded-[2.5rem] border overflow-hidden p-6 md:p-8 ${result.geocoding_entrance_available ? 'bg-white border-emerald-100 shadow-sm shadow-emerald-500/5' : 'bg-slate-50 border-slate-100'}`}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${result.geocoding_entrance_available ? 'bg-emerald-50' : 'bg-slate-100'}`}>
-                                <i className={`fa-solid fa-location-crosshairs text-sm ${result.geocoding_entrance_available ? 'text-emerald-500' : 'text-slate-400'}`}></i>
-                            </div>
-                            <div>
-                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Geocoding API — Entrance Azimuth</div>
-                                <div className="text-[10px] text-slate-400 font-medium">Computed from building centroid → preferred entrance (atan2 bearing formula)</div>
-                            </div>
-                        </div>
 
-                        {result.geocoding_entrance_available && result.geocoding_azimuth_degrees != null ? (
-                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                                {/* Mini compass */}
-                                <CompassRose azimuth={result.geocoding_azimuth_degrees} />
-                                <div className="flex flex-col gap-2">
-                                    <div>
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Direction</div>
-                                        <div className="text-2xl font-black text-emerald-600">{result.geocoding_orientation}</div>
-                                        <div className="text-[13px] text-slate-500 font-semibold">{result.geocoding_azimuth_degrees}°</div>
-                                    </div>
-                                    {result.azimuth_degrees != null && (
-                                        <div className="mt-1">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">vs AI Estimate</div>
-                                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-black border ${Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees) <= 22.5
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                : Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees) <= 45
-                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
-                                                }`}>
-                                                <i className={`fa-solid ${Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees) <= 22.5
-                                                    ? 'fa-circle-check' : 'fa-circle-exclamation'
-                                                    } text-xs`}></i>
-                                                {Math.round(Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees))}° delta from AI
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-[12px] text-slate-400 font-semibold flex items-center gap-2">
-                                <i className="fa-solid fa-circle-xmark text-slate-300"></i>
-                                No entrance data returned by Geocoding API for this address.
-                                <span className="text-slate-300">(BUILDING_AND_ENTRANCES coverage may be limited here)</span>
-                            </div>
-                        )}
-                    </div>
+
 
                     {/* Source images */}
                     <div className={`grid ${result.aerial_only_mode ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 md:grid-cols-2'} gap-6`}>

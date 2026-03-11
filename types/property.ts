@@ -157,6 +157,41 @@ export interface PropertyData {
             annualKwh: number;
             carbonOffsetTons: number;
         };
+        financialAnalysis?: {
+            monthlyBill?: number;
+            remainingLifetimeCostBill?: number;
+            costOfElectricityWithoutSolar?: number;
+            cashPurchase?: {
+                outOfPocketCost?: number;
+                upfrontCost?: number;
+                rebateValue?: number;
+                paybackYears?: number;
+                savings?: {
+                    savingsYear1?: number;
+                    savingsYear20?: number;
+                    savingsLifetime?: number;
+                    presentValueOfSavingsYear20?: number;
+                };
+            };
+            lease?: {
+                leasesAllowed?: boolean;
+                annualLeasingCost?: number;
+                savings?: {
+                    savingsYear1?: number;
+                    savingsYear20?: number;
+                    savingsLifetime?: number;
+                };
+            };
+            financed?: {
+                annualLoanPayment?: number;
+                loanInterestRate?: number;
+                savings?: {
+                    savingsYear1?: number;
+                    savingsYear20?: number;
+                    savingsLifetime?: number;
+                };
+            };
+        };
         wholeRoofStats?: {
             areaMeters2?: number;
             sunshineQuantiles?: number[];
@@ -221,11 +256,7 @@ export interface PropertyData {
         buyer_con?: string;
         orientation_highlights?: string;
     } | null;
-    orientation_geocoding?: {
-        azimuth_degrees: number;
-        orientation: string;
-    } | null;
-    orientation_computed_at?: any;
+
     deprecated?: boolean;         // true = property is no longer active in the market
     deprecatedAt?: any;           // serverTimestamp of when it was marked deprecated
     parcelPolygon?: [number, number][] | { lon: number, lat: number }[];

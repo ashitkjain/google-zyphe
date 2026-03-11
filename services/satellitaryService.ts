@@ -37,10 +37,6 @@ export interface SatellitaryResult {
     aerial_url: string;               // Public URL of satellite image used
     street_view_url: string;          // Public URL of street view used (empty string if none)
     aerial_only_mode: boolean;        // true when no street view was available
-    // Geocoding API — entrance-based precise azimuth (null if no entrance data)
-    geocoding_azimuth_degrees: number | null;
-    geocoding_orientation: string | null;      // e.g. "Northeast"
-    geocoding_entrance_available: boolean;     // true when Geocoding API had entrance data
 }
 
 /**
@@ -210,100 +206,7 @@ export async function forceRefreshAllImagesAndAnalyze(
 }
 
 
-// ─── Geocoding Azimuth (entrance-based precise bearing) ───────────────────────
 
-/**
- * Converts a bearing in degrees (0–360) to a cardinal/intercardinal compass label.
- */
-function bearingToOrientation(deg: number): string {
-    const dirs = [
-        'North', 'North-Northeast', 'Northeast', 'East-Northeast',
-        'East', 'East-Southeast', 'Southeast', 'South-Southeast',
-        'South', 'South-Southwest', 'Southwest', 'West-Southwest',
-        'West', 'West-Northwest', 'Northwest', 'North-Northwest',
-    ];
-    const idx = Math.round(deg / 22.5) % 16;
-    return dirs[idx];
-}
-
-/**
- * TypeScript port of the Python `calculate_home_orientation` function.
- *
- * Calls Google Geocoding API with extra_computations=BUILDING_AND_ENTRANCES
- * which returns entrance locations for the parcel. The bearing from the building
- * centroid to the PREFERRED entrance is the direction the front faces.
- *
- * Formula: atan2(sin(Δlon)·cos(lat2), cos(lat1)·sin(lat2) − sin(lat1)·cos(lat2)·cos(Δlon))
- * This is the standard forward azimuth calculation (spherical Earth approximation).
- *
- * Returns null if the Geocoding API returns no entrance data.
- */
-export async function computeGeocodingAzimuth(
-    lat: number,
-    lng: number,
-    _address?: string   // kept for API compatibility but unused — latlng is always more precise
-): Promise<{ azimuth: number; orientation: string } | null> {
-    try {
-        // BUILDING_AND_ENTRANCES only works with latlng (reverse geocoding).
-        // Forward address= queries don't return entrance data.
-        const url =
-            `https://maps.googleapis.com/maps/api/geocode/json` +
-            `?latlng=${lat},${lng}` +
-            `&extra_computations=BUILDING_AND_ENTRANCES` +
-            `&key=${MAPS_API_KEY}`;
-
-        const response = await fetch(url);
-        const geocodeResult = await response.json();
-
-        if (!response.ok || geocodeResult.status !== 'OK') {
-            console.warn('[Satellitary/Geocoding] Non-OK status:', geocodeResult.status);
-            return null;
-        }
-
-        const result = geocodeResult.results?.[0];
-        if (!result) return null;
-
-        // 1. Building centroid
-        const center = result.geometry?.location;
-        if (!center?.lat || !center?.lng) return null;
-        const lat1 = center.lat;
-        const lon1 = center.lng;
-
-        // 2. Preferred entrance (falls back to first entrance)
-        const entrances: any[] = result.entrances ?? [];
-        const preferred = entrances.find(
-            (e: any) => Array.isArray(e.entrance_tags) && e.entrance_tags.includes('PREFERRED')
-        ) ?? entrances[0] ?? null;
-
-        if (!preferred?.location?.lat || !preferred?.location?.lng) {
-
-            return null;
-        }
-
-        const lat2 = preferred.location.lat;
-        const lon2 = preferred.location.lng;
-
-        // 3. Bearing formula (atan2) — same as the Python original
-        const dLonRad = (lon2 - lon1) * (Math.PI / 180);
-        const lat1Rad = lat1 * (Math.PI / 180);
-        const lat2Rad = lat2 * (Math.PI / 180);
-
-        const y = Math.sin(dLonRad) * Math.cos(lat2Rad);
-        const x =
-            Math.cos(lat1Rad) * Math.sin(lat2Rad) -
-            Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLonRad);
-
-        const bearingRad = Math.atan2(y, x);
-        const azimuth = Math.round(((bearingRad * (180 / Math.PI)) + 360) % 360 * 100) / 100;
-
-
-        return { azimuth, orientation: bearingToOrientation(azimuth) };
-
-    } catch (e: any) {
-        console.warn('[Satellitary/Geocoding] Failed to compute entrance azimuth:', e.message);
-        return null;
-    }
-}
 
 /**
  * Build the Street View Static API URL for the given coordinates.
@@ -334,10 +237,7 @@ function buildStreetViewUrl(lat: number, lng: number, heading?: number | null): 
  * Heading resolution order:
  *   1. meta.heading — when the API includes it directly.
  *   2. Computed bearing from panorama location → property location — the camera
- *      is on the street and aimed at the property, so the forward azimuth from
- *      the pano position (meta.location) to (propertyLat, propertyLng) gives
- *      us the precise camera heading using the same spherical-Earth formula
- *      already used by computeGeocodingAzimuth.
+ *      us the precise camera heading using the standard spherical-Earth atan2 formula.
  *
  * Returns null ONLY when Street View is genuinely unavailable (status !== 'OK').
  */
@@ -431,15 +331,13 @@ export async function runSatellitaryAnalysis(
 
 
 
-    // ── 2. Fetch base64 images + geocoding azimuth in parallel ────────────────
+    // ── 2. Fetch base64 images in parallel ─────────────────────────────────────
     const aerialB64Promise = urlToBase64(aerialUrl);
     const streetB64Promise = streetViewUrl ? urlToBase64(streetViewUrl) : Promise.resolve(null);
-    const geocodingAzimuthPromise = computeGeocodingAzimuth(lat, lng, address);
 
-    const [aerialB64, streetB64, geocodingResult] = await Promise.all([
+    const [aerialB64, streetB64] = await Promise.all([
         aerialB64Promise,
         streetB64Promise,
-        geocodingAzimuthPromise,
     ]);
 
     const usesDualImage = !!streetB64;
@@ -457,7 +355,7 @@ export async function runSatellitaryAnalysis(
         parts.push({ inlineData: { data: streetB64.data, mimeType: streetB64.mimeType } });
     }
 
-    const { data } = await executeGeminiRequest<Omit<SatellitaryResult, 'aerial_url' | 'street_view_url' | 'aerial_only_mode' | 'geocoding_azimuth_degrees' | 'geocoding_orientation' | 'geocoding_entrance_available'>>({
+    const { data } = await executeGeminiRequest<Omit<SatellitaryResult, 'aerial_url' | 'street_view_url' | 'aerial_only_mode'>>({
         model: FLASH_MODEL,
         contents: { parts },
         config: { temperature: 0.2 },
@@ -488,9 +386,6 @@ export async function runSatellitaryAnalysis(
             aerial_url: aerialUrl,
             street_view_url: streetViewUrl ?? '',
             aerial_only_mode: !usesDualImage,
-            geocoding_azimuth_degrees: geocodingResult?.azimuth ?? null,
-            geocoding_orientation: geocodingResult?.orientation ?? null,
-            geocoding_entrance_available: !!geocodingResult,
         };
     }
 
@@ -508,9 +403,6 @@ export async function runSatellitaryAnalysis(
         aerial_url: aerialUrl,
         street_view_url: streetViewUrl ?? '',
         aerial_only_mode: !usesDualImage,
-        geocoding_azimuth_degrees: geocodingResult?.azimuth ?? null,
-        geocoding_orientation: geocodingResult?.orientation ?? null,
-        geocoding_entrance_available: !!geocodingResult,
     };
 
     // ── 4. Cache results to Firestore (fire-and-forget) ───────────────────────
@@ -532,8 +424,7 @@ export async function runSatellitaryAnalysis(
                 buyer_pro: result.buyer_pro,
                 buyer_con: result.buyer_con,
                 orientation_highlights: result.orientation_highlights,
-            },
-            geocodingResult ? { azimuth_degrees: geocodingResult.azimuth, orientation: geocodingResult.orientation } : null
+            }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }
 

@@ -373,52 +373,127 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
 
                                 {/* Metrics grid - collapsible */}
                                 {isSolarExpanded && (
-                                    <div className="grid grid-cols-2 gap-2 mt-3">
-                                        {solarPotential ? (
-                                            <>
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-layer-group text-[10px] text-slate-300"></i>
+                                    <>
+                                        <div className="grid grid-cols-2 gap-2 mt-3">
+                                            {solarPotential ? (
+                                                <>
+                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                        <i className="fa-solid fa-layer-group text-[10px] text-slate-300"></i>
+                                                        <div className="min-w-0">
+                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Capacity</div>
+                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{solarPotential.estimatedPanels} Panels</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                        <i className="fa-solid fa-earth-americas text-[10px] text-emerald-400"></i>
+                                                        <div className="min-w-0">
+                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">CO₂ Offset</div>
+                                                            <div className="text-[12px] font-black text-emerald-600 leading-none">{solarPotential.carbonOffsetTons} t/yr</div>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 col-span-2">
+                                                    <i className="fa-solid fa-leaf text-[10px] text-slate-300"></i>
                                                     <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Capacity</div>
-                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{solarPotential.estimatedPanels} Panels</div>
+                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Offset Constant</div>
+                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.carbonOffsetFactorKgPerMwh || 0)} kg/MWh</div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-earth-americas text-[10px] text-emerald-400"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">CO₂ Offset</div>
-                                                        <div className="text-[12px] font-black text-emerald-600 leading-none">{solarPotential.carbonOffsetTons} t/yr</div>
+                                            )}
+                                            {solar.wholeRoofStats && (
+                                                <>
+                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                        <i className="fa-solid fa-up-right-and-down-left-from-center text-[8px] text-slate-300"></i>
+                                                        <div className="min-w-0">
+                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Surface</div>
+                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.wholeRoofStats.areaMeters2 || 0)} m²</div>
+                                                        </div>
                                                     </div>
+                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                        <i className="fa-solid fa-vector-square text-[8px] text-slate-300"></i>
+                                                        <div className="min-w-0">
+                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Footprint</div>
+                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.wholeRoofStats.groundAreaMeters2 || 0)} m²</div>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* Financial Analysis */}
+                                        {solar.financialAnalysis && (solar.financialAnalysis.monthlyBill || solar.financialAnalysis.cashPurchase) && (
+                                            <div className="mt-3 pt-3 border-t border-slate-200/80">
+                                                <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-piggy-bank text-[10px]"></i>
+                                                    Financial Analysis
                                                 </div>
-                                            </>
-                                        ) : (
-                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 col-span-2">
-                                                <i className="fa-solid fa-leaf text-[10px] text-slate-300"></i>
-                                                <div className="min-w-0">
-                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Offset Constant</div>
-                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.carbonOffsetFactorKgPerMwh || 0)} kg/MWh</div>
-                                                </div>
+
+                                                {/* Before / After bills */}
+                                                {solar.financialAnalysis.monthlyBill != null && (
+                                                    <div className="grid grid-cols-2 gap-2 mb-2">
+                                                        <div className="p-2.5 bg-red-50/60 rounded-lg border border-red-100/60">
+                                                            <div className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-0.5">Before Solar</div>
+                                                            <div className="text-[15px] font-black text-red-600">${solar.financialAnalysis.monthlyBill.toLocaleString()}<span className="text-[10px] font-normal text-red-400">/mo</span></div>
+                                                        </div>
+                                                        {solar.financialAnalysis.costOfElectricityWithoutSolar != null && solar.financialAnalysis.remainingLifetimeCostBill != null && (
+                                                            <div className="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-100/60">
+                                                                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">After Solar</div>
+                                                                <div className="text-[15px] font-black text-emerald-600">
+                                                                    ${Math.round(solar.financialAnalysis.remainingLifetimeCostBill / 240).toLocaleString()}<span className="text-[10px] font-normal text-emerald-400">/mo est.</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Key financial metrics */}
+                                                {solar.financialAnalysis.cashPurchase && (
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {solar.financialAnalysis.cashPurchase.paybackYears != null && (
+                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                <i className="fa-solid fa-clock-rotate-left text-[10px] text-amber-400"></i>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Payback</div>
+                                                                    <div className="text-[13px] font-black text-amber-600 leading-snug">{solar.financialAnalysis.cashPurchase.paybackYears} years</div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {solar.financialAnalysis.cashPurchase.savings?.savingsYear20 != null && (
+                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                <i className="fa-solid fa-chart-line text-[10px] text-emerald-400"></i>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">20-Year Savings</div>
+                                                                    <div className="text-[13px] font-black text-emerald-600 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}</div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {solar.financialAnalysis.cashPurchase.upfrontCost != null && (
+                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                <i className="fa-solid fa-receipt text-[10px] text-indigo-400"></i>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">System Cost</div>
+                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.upfrontCost.toLocaleString()}</div>
+                                                                    {solar.financialAnalysis.cashPurchase.rebateValue != null && solar.financialAnalysis.cashPurchase.rebateValue > 0 && (
+                                                                        <div className="text-[10px] text-emerald-500 font-semibold">incl. ${solar.financialAnalysis.cashPurchase.rebateValue.toLocaleString()} rebate</div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {solar.financialAnalysis.cashPurchase.savings?.savingsYear1 != null && (
+                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                <i className="fa-solid fa-calendar-check text-[10px] text-slate-300"></i>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Year 1 Savings</div>
+                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}</div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
-                                        {solar.wholeRoofStats && (
-                                            <>
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-up-right-and-down-left-from-center text-[8px] text-slate-300"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Surface</div>
-                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.wholeRoofStats.areaMeters2 || 0)} m²</div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-vector-square text-[8px] text-slate-300"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Footprint</div>
-                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.wholeRoofStats.groundAreaMeters2 || 0)} m²</div>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
+                                    </>
                                 )}
                             </div>
                         </div>
