@@ -201,6 +201,15 @@ export interface DeepInvestmentResearchResult {
     lastUpdated?: any;
 }
 
+export interface DeepResearchInsights {
+    executive_summary: string;
+    median_price_range: string;
+    ppsf_benchmark: string;
+    months_of_supply: string;
+    dom_range: string;
+    risk_tags: string[];
+}
+
 export interface GeneralMarketIntelligenceResult {
     market_dynamics: {
         historical_appreciation: string;

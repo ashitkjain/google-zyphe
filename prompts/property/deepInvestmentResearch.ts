@@ -11,18 +11,21 @@ export const getDeepInvestmentResearchPrompt = (property: PropertyData) => `
   ## Required Analysis Modules:
   1. **Macroeconomic Indicators**: Institutional focus on Innovation Corridors, major regional employers (e.g. Biotech, Life Sciences), and Return-to-Office (RTO) impact on the local economy.
   2. **Real Estate Market Dynamics**: Quantitative snapshot including Median Price, Price per Square Foot benchmarks, Months of Supply, and Days on Market (DOM) velocity. Mention "Seller Discretionary Concessions".
-  3. **Financial Pro-Forma**: A detailed numerical P&L for a representative single-family asset (Gross Income, Taxes, Insurance, Maintenance, Management, NOI, and Cap Rate).
-  4. **Value-Add Strategy (The Alpha)**: Specific focus on Accessory Dwelling Unit (ADU) intensification and cosmetic rehabilitation potential.
-  5. **School Intelligence**: Arbitrage between algorithmic ratings (GreatSchools) and actual academic proficiency/matriculation performance.
-  6. **Local Risks & Insurance**: The insurability crisis (FAIR Plan), specific environmental zones (Dam Inundation, High Fire Severity), and regulatory growth caps.
-  7. **Regional Grid**: Comparative analysis with exactly 3-4 neighboring or competing markets (e.g. for Pleasanton, compare Dublin, San Ramon, Livermore).
-  8. **Investment Scenarios**: Explicitly model the "Base Case" (Soft Landing), "Bear Case" (Stagflation), and "Bull Case" (AI/Innovation Boom).
+  3. **Value-Add Strategy (The Alpha)**: Specific focus on Accessory Dwelling Unit (ADU) intensification and cosmetic rehabilitation potential.
+  4. **School Intelligence**: Arbitrage between algorithmic ratings (GreatSchools) and actual academic proficiency/matriculation performance.
+  5. **Local Risks & Insurance**: The insurability crisis (FAIR Plan), specific environmental zones (Dam Inundation, High Fire Severity), and regulatory growth caps.
+  6. **Regional Grid**: Comparative analysis with exactly 3-4 neighboring or competing markets (e.g. for Pleasanton, compare Dublin, San Ramon, Livermore).
+  7. **Investment Scenarios**: Explicitly model the "Base Case" (Soft Landing), "Bear Case" (Stagflation), and "Bull Case" (AI/Innovation Boom).
+  8. **Financial Pro-Forma**: A detailed numerical P&L for a representative single-family asset (Gross Income, Taxes, Insurance, Maintenance, Management, NOI, and Cap Rate).
   
   ## Output Constraint:
   You MUST return a JSON object with a "structured_report" field matching the specified schema. 
   
   CRITICAL - CONTENT FIELD:
-  The "content" field MUST contain the full high-fidelity Markdown memorandum (at least 1500 words). It should start with a Executive Summary, follow with detailed analysis of the property and market, and end with Sources. 
+  The "content" field MUST contain the full high-fidelity Markdown memorandum (at least 1500 words). 
+  - Start with "## Executive Summary" as a markdown H2 heading (NOT "Executive Summary & Leading Paragraph").
+  - Immediately follow with 3-5 key bullet points summarizing the investment thesis. Do NOT include a trailing summary paragraph after the bullet points.
+  - Then proceed with detailed analysis sections using ## headings, and end with Sources. 
   
   CRITICAL - SOURCE MAPPING:
   In the "citations" field of the structured report, you MUST provide a mapping for every [cite: N] used in the content. Include the "id" (e.g. "1"), "name" (e.g. "NAR 2024 Market Report"), and "url" if available.

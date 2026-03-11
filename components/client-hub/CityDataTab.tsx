@@ -453,7 +453,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             try {
                 const userId = auth?.currentUser?.uid || 'unknown';
                 addLog(`[Deep Research] Starting for ${city}, ${state}...`);
-                await runCityDeepResearch(city, state, userId, addLog);
+                await runCityDeepResearch(city, state, userId, addLog, true);
                 addLog(`[Deep Research] Complete for ${city}, ${state}.`);
             } catch (e: any) {
                 addLog(`[Deep Research] Failed for ${city}: ${e.message}`);

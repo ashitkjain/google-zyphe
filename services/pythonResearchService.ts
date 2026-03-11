@@ -19,27 +19,35 @@ export const executePythonDeepResearch = async <T>(
     const { userId = 'unknown', zpid, address, promptFilename = 'python-deep-research' } = options;
     const schemaStr = JSON.stringify(schema);
 
-    // Create initial log entry for transparent usage tracking
+    // Create initial log entry BEFORE the fetch — truncate payload to prevent Firestore size issues
     let logId: string | null = null;
+    const requestSentAt = new Date();
     try {
+        console.log(`[executePythonDeepResearch] Creating LLM call event BEFORE fetch...`);
         logId = await logLLMCall({
             user_id: userId,
             zpid: zpid || 'city-level',
             address: address || 'Global',
             prompt_filename: promptFilename,
             llm_name: 'deep-research-pro-preview',
-            raw_payload: { query, schema_hint: schemaStr },
+            raw_payload: {
+                query: query.substring(0, 2000) + (query.length > 2000 ? '... [TRUNCATED]' : ''),
+                schema_hint: '[SCHEMA_OMITTED_FOR_SIZE]'
+            },
             raw_response: null,
-            status: 'pending'
-        });
+            status: 'pending',
+            request_sent_at: requestSentAt
+        } as any);
+        console.log(`[executePythonDeepResearch] LLM call event created: ${logId} (status: pending)`);
     } catch (e) {
-        console.warn("[executePythonDeepResearch] Failed to log start:", e);
+        console.error("[executePythonDeepResearch] FAILED to create LLM call event:", e);
     }
 
     // Cloud Run URL set via VITE_DEEP_RESEARCH_URL env var; falls back to localhost for local dev
     const serviceUrl = import.meta.env.VITE_DEEP_RESEARCH_URL || 'http://localhost:5001';
 
     try {
+        console.log(`[executePythonDeepResearch] Sending fetch to ${serviceUrl}/research...`);
         const response = await fetch(`${serviceUrl}/research`, {
             method: 'POST',
             headers: {
@@ -67,9 +75,10 @@ export const executePythonDeepResearch = async <T>(
         const result = await response.json();
 
         if (logId) {
+            console.log(`[executePythonDeepResearch] Updating LLM call event ${logId} → completed`);
             await updateLLMCall(logId, {
                 status: 'completed',
-                raw_response: JSON.stringify(result.data),
+                raw_response: JSON.stringify(result.data).substring(0, 5000),
                 response_received_at: new Date(),
                 usage_metadata: {
                     totalTokenCount: 0,

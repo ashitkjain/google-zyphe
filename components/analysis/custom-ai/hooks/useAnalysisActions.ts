@@ -253,27 +253,60 @@ export const useAnalysisActions = (
     };
 
 
-    const handleRunDeepInvestmentResearch = async () => {
+    const handleRunDeepInvestmentResearch = async (forceRefresh = false) => {
         if (!analysis || !propertyData || deepLoading) return;
 
+        setTimer(0);
         setDeepLoading(true);
+        addLog('System', { type: 'info' }, { task: 'deep_investment_research', zpid, action: forceRefresh ? 'force_refresh' : 'load' });
+
         try {
             const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
             const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
             const cityStateKey = generateCityStateKey(city, state);
 
-            if (!cityStateKey) return;
-
-            const deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
-            if (deepData) {
-                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'deep_investment_research', location: cityStateKey });
-                onUpdateAnalysis({ ...analysis, deep_investment_research: deepData });
-            } else {
-                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'deep_investment_research', location: cityStateKey });
-                // No data — UI will show "Not Available". Run City Research in Market Discovery to generate it.
+            if (!cityStateKey) {
+                addLog('System', { type: 'error' }, { message: 'Cannot generate city-state key', city, state });
+                return;
             }
+
+            // 1. Check cache first (skip if force refresh)
+            if (!forceRefresh) {
+                addLog('Cloud Cache', { type: 'request' }, { task: 'deep_investment_research', location: cityStateKey });
+                const deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
+                if (deepData && deepData.structured_report) {
+                    addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'deep_investment_research', location: cityStateKey, hasStructuredReport: !!deepData.structured_report });
+                    onUpdateAnalysis({ ...analysis, deep_investment_research: deepData });
+                    return;
+                }
+                addLog('Cloud Cache', { type: 'info' }, { status: deepData ? 'Hit (missing structured_report — re-running)' : 'Miss', task: 'deep_investment_research', location: cityStateKey });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Bypassed', task: 'deep_investment_research', reason: 'Force refresh' });
+            }
+
+            // 2. Run actual AI deep research
+            addLog('Gemini AI', { type: 'request' }, { task: 'deep_investment_research', location: cityStateKey, model: 'deep-research-pro-preview' });
+            const deepRes = await aiAnalyzeDeepResearch(propertyData, 'unknown', cityStateKey, (msg) => {
+                addLog('System', { type: 'info' }, { message: msg });
+            });
+
+            addLog('Gemini AI', { type: 'response' }, {
+                task: 'deep_investment_research',
+                location: cityStateKey,
+                hasStructuredReport: !!deepRes.data?.structured_report,
+                contentLength: deepRes.data?.content?.length || 0
+            }, deepRes.usage);
+
+            // 3. Save to Firestore
+            await saveDeepInvestmentResearchToCloud(cityStateKey, deepRes.data);
+            addLog('Cloud Cache', { type: 'info' }, { task: 'deep_investment_research_saved', location: cityStateKey });
+
+            // 4. Update UI
+            onUpdateAnalysis({ ...analysis, deep_investment_research: deepRes.data });
+
         } catch (err: any) {
-            console.error("Deep Investment Research load failed:", err);
+            console.error("Deep Investment Research Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Deep Investment Research Failed", error: err.message || err });
         } finally {
             setDeepLoading(false);
         }

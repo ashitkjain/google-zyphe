@@ -409,7 +409,8 @@ export const runCityDeepResearch = async (
   city: string,
   state: string,
   userId: string = 'unknown',
-  onLog?: (msg: string) => void
+  onLog?: (msg: string) => void,
+  forceRefresh: boolean = false
 ): Promise<void> => {
   const { analyzeDeepInvestmentResearch } = await import('./geminiService.ts');
   const cityStateKey = generateCityStateKey(city, state);
@@ -418,16 +419,21 @@ export const runCityDeepResearch = async (
     return;
   }
 
-  // Check cache first
-  const cached = await getDeepInvestmentResearchFromCloud(cityStateKey);
-  const hasContent = cached && (
-    cached.status === 'completed' ||
-    !!(cached as any).content ||
-    !!(cached as any).structured_report
-  );
-  if (hasContent && cached?.status !== 'running') {
-    onLog?.(`[Deep Research] Already completed for ${cityStateKey}. Skipping.`);
-    return;
+  // Check cache first — skip if forceRefresh
+  if (!forceRefresh) {
+    const cached = await getDeepInvestmentResearchFromCloud(cityStateKey);
+    const hasStructuredData = cached && cached.structured_report && (
+      cached.status === 'completed' || !!(cached as any).content
+    );
+    if (hasStructuredData && cached?.status !== 'running') {
+      onLog?.(`[Deep Research] Already completed for ${cityStateKey} (with structured_report). Skipping.`);
+      return;
+    }
+    if (cached && !cached.structured_report) {
+      onLog?.(`[Deep Research] Found legacy data for ${cityStateKey} (missing structured_report). Re-running...`);
+    }
+  } else {
+    onLog?.(`[Deep Research] Force refresh — bypassing cache for ${cityStateKey}`);
   }
 
   onLog?.(`[Deep Research] Starting for ${cityStateKey}...`);
@@ -435,6 +441,31 @@ export const runCityDeepResearch = async (
     const dummyProp = { city, state, address: `${city}, ${state}` } as PropertyData;
     const res = await analyzeDeepInvestmentResearch(dummyProp, userId, cityStateKey, onLog);
     await saveDeepInvestmentResearchToCloud(cityStateKey, res.data);
+    onLog?.(`[Deep Research] Report saved for ${cityStateKey}. Extracting key insights...`);
+
+    // Extract key insights from the report using Flash
+    try {
+      const { extractDeepResearchInsights } = await import('./geminiService.ts');
+      const reportContent = res.data?.content || '';
+      if (reportContent.length > 200) {
+        const insightsRes = await extractDeepResearchInsights(reportContent, userId, cityStateKey);
+        if (insightsRes.data) {
+          // Save insights to the same Firestore document
+          const { doc: firestoreDoc, setDoc: firestoreSetDoc } = await import('firebase/firestore');
+          const { db } = await import('./firebase/config');
+          if (db) {
+            const docRef = firestoreDoc(db, "deep_investment_research", cityStateKey);
+            await firestoreSetDoc(docRef, { key_insights: insightsRes.data }, { merge: true });
+            onLog?.(`[Deep Research] Key insights extracted and saved for ${cityStateKey}.`);
+          }
+        }
+      } else {
+        onLog?.(`[Deep Research] Report content too short for insights extraction.`);
+      }
+    } catch (insightErr: any) {
+      onLog?.(`[Deep Research] Insights extraction failed (non-blocking): ${insightErr.message}`);
+    }
+
     onLog?.(`[Deep Research] Complete for ${cityStateKey}.`);
   } catch (e: any) {
     onLog?.(`[Deep Research] Failed for ${cityStateKey}: ${e.message}`);

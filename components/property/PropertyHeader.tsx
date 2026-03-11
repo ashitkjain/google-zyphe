@@ -10,6 +10,7 @@ interface Props {
   onRunAnalysis?: () => void;
   parcelPolygon?: [number, number][];
   designStyle?: { style?: string; reasoning?: string } | null;
+  marketDynamics?: { summary?: string; details?: string[] } | null;
 }
 
 const formatCurrency = (val?: number) => val ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val) : 'N/A';
@@ -38,7 +39,7 @@ const parseValue = (val: any) => {
   return String(val);
 };
 
-const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, onRunAnalysis, parcelPolygon, designStyle }) => {
+const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, onRunAnalysis, parcelPolygon, designStyle, marketDynamics }) => {
   const [isDescExpanded, setIsDescExpanded] = React.useState(false);
 
   // Compute days on market dynamically from listedDate → today.
@@ -248,16 +249,25 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
 
-          {/* Design Philosophy (from Visual AI) */}
-          {designStyle?.style && (
+          {/* Real Estate Dynamics (from Deep Investment Research) */}
+          {marketDynamics && (marketDynamics.summary || (marketDynamics.details && marketDynamics.details.length > 0)) && (
             <div className="mt-3 pt-3 border-t border-slate-100">
               <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                <i className="fa-solid fa-palette text-[13px]"></i>
-                Design Philosophy
+                <i className="fa-solid fa-chart-line text-[13px]"></i>
+                Real Estate Dynamics
               </div>
-              <span className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>
-              {designStyle.reasoning && (
-                <p className="text-[13px] text-slate-700 leading-relaxed font-normal">{designStyle.reasoning}</p>
+              {marketDynamics.summary && (
+                <p className="text-[13px] text-slate-700 leading-relaxed font-normal mb-2">{marketDynamics.summary}</p>
+              )}
+              {marketDynamics.details && marketDynamics.details.length > 0 && (
+                <ul className="flex flex-col gap-1.5">
+                  {marketDynamics.details.map((detail, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0 mt-[6px]"></div>
+                      <span className="text-[12px] text-slate-600 leading-relaxed">{detail}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}

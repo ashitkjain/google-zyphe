@@ -11,6 +11,7 @@ import {
   PropertySpecificInvestmentResult,
   GeneralMarketIntelligenceResult,
   DeepInvestmentResearchResult,
+  DeepResearchInsights,
   BiddingStrategyResult,
   LeadReactivationResult,
   AIResponseWithUsage,
@@ -25,6 +26,7 @@ import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
 import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
 import { getDeepInvestmentResearchPrompt, deepInvestmentResearchSchema } from "../prompts/property/deepInvestmentResearch";
+import { getDeepResearchInsightsPrompt, deepResearchInsightsSchema } from "../prompts/property/deepResearchInsights";
 import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
 import { precomputeDataFactors, PRECOMPUTED_FACTOR_IDS } from "../utils/contextGraphPrecompute";
@@ -676,6 +678,26 @@ export const analyzeDeepInvestmentResearch = async (property: PropertyData, user
     data,
     usage
   };
+};
+
+/**
+ * Extracts key market insights from a deep investment research report.
+ * Uses Flash for speed (~1s) and cost (~$0.001).
+ */
+export const extractDeepResearchInsights = async (reportContent: string, userId: string = "unknown", cityStateKey?: string): Promise<AIResponseWithUsage<DeepResearchInsights>> => {
+  const prompt = getDeepResearchInsightsPrompt(reportContent);
+
+  return executeGeminiRequest<DeepResearchInsights>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { temperature: 0.1 },
+    userId,
+    zpid: cityStateKey || 'city-level',
+    address: cityStateKey || 'Global',
+    promptFilename: "deepResearchInsights.ts",
+    extractResultJson: true,
+    schema: deepResearchInsightsSchema
+  });
 };
 
 export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {

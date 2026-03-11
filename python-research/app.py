@@ -142,11 +142,15 @@ DO NOT return any text outside of the JSON block.
 
                 # Deep Research might have multiple outputs; we want the final synthesis
                 # Search backwards for the first valid JSON we can find
+                parsed_result = None
+                raw_text = None
+
                 for output in reversed(status_check.outputs):
                     if not hasattr(output, 'text') or not output.text:
                         continue
                         
                     text = output.text
+                    raw_text = text  # Keep track of last text for fallback
                     
                     # Extraction logic
                     json_str = None
@@ -164,15 +168,33 @@ DO NOT return any text outside of the JSON block.
                             parsed = json.loads(json_str)
                             # Ensure it's a dictionary and has the required field if schema_hint was provided
                             if isinstance(parsed, dict) and (not schema_hint or "content" in parsed):
-                                # Merge grounding URLs into citations
-                                parsed = merge_urls_into_citations(parsed, url_map)
-                                return jsonify({"data": parsed, "status": "success"})
+                                parsed_result = parsed
+                                break
                         except:
                             continue
                 
-                # If no JSON found in any output, return the last text as-is
-                last_text = status_check.outputs[-1].text if status_check.outputs else "No output"
-                return jsonify({"data": {"content": last_text}, "status": "fallback_text"})
+                # If no JSON found, use the raw text as content
+                if not parsed_result:
+                    last_text = status_check.outputs[-1].text if status_check.outputs else "No output"
+                    parsed_result = {"content": last_text}
+
+                # Post-process: If structured_report is missing, use Flash to extract it
+                if schema_hint and (not parsed_result.get('structured_report') or not parsed_result['structured_report'].get('market_dynamics')):
+                    print("[post-process] structured_report missing or incomplete — extracting with Flash...")
+                    try:
+                        structured = structurize_with_flash(parsed_result.get('content', ''), schema_hint)
+                        if structured:
+                            # Keep original content, overlay structured data
+                            parsed_result['structured_report'] = structured.get('structured_report', structured)
+                            print(f"[post-process] Flash extraction successful. Keys: {list(parsed_result.get('structured_report', {}).keys())}")
+                        else:
+                            print("[post-process] Flash extraction returned None")
+                    except Exception as e:
+                        print(f"[post-process] Flash extraction failed: {e}")
+
+                # Merge grounding URLs into citations
+                parsed_result = merge_urls_into_citations(parsed_result, url_map)
+                return jsonify({"data": parsed_result, "status": "success"})
                     
             elif status_check.status in ["failed", "cancelled"]:
                 return jsonify({"error": f"Research {status_check.status}"}), 500
@@ -184,6 +206,53 @@ DO NOT return any text outside of the JSON block.
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def structurize_with_flash(content: str, schema_hint: str) -> dict | None:
+    """
+    Uses Gemini Flash to extract structured data from unstructured deep research content.
+    This is cheap and fast (~0.5s, ~$0.001).
+    """
+    if not content or len(content) < 100:
+        return None
+
+    prompt = f"""Extract structured data from the following investment research report.
+
+RESEARCH REPORT:
+{content[:30000]}
+
+OUTPUT SCHEMA (return ONLY a JSON object matching this schema):
+{schema_hint}
+
+RULES:
+- Extract all data points from the report into the appropriate schema fields
+- For "summary" fields, write a concise 1-2 sentence summary
+- For "details" arrays, extract 3-5 key bullet points as strings
+- For numerical fields (purchase_price, gross_rent, noi, cap_rate, etc.), extract the actual numbers
+- For chart_data, extract any time-series or comparative data mentioned
+- Return ONLY the JSON object, no markdown formatting
+"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "temperature": 0.1,
+                "max_output_tokens": 8192
+            }
+        )
+        
+        text = response.text
+        if not text:
+            return None
+
+        parsed = json.loads(text)
+        return parsed
+    except Exception as e:
+        print(f"[structurize_with_flash] Error: {e}")
+        return None
 
 if __name__ == '__main__':
     # Cloud Run sets PORT=8080; locally defaults to 5001

@@ -377,7 +377,9 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     )}
                     {activeTab === 'deep_research' && (
                         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            {!analysis.deep_investment_research ? (
+                            {deepLoading ? (
+                                <AnalysisLoading title="Running Deep Research..." subtitle="Analyzing macroeconomic indicators, market dynamics, and pro-forma." timer={timer} address={propertyData?.address} icon="fa-microscope" />
+                            ) : !analysis.deep_investment_research ? (
                                 <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
                                     <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center">
                                         <i className="fa-solid fa-microscope text-2xl text-violet-300"></i>
@@ -386,12 +388,29 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                         <p className="text-slate-800 font-black text-lg tracking-tight">City Research Not Available</p>
                                         <p className="text-slate-400 text-sm mt-1 max-w-xs">
                                             Deep Investment Research for this city hasn't been run yet.
-                                            Use the <span className="font-black text-violet-600">City Research</span> button in the Market Discovery tab to generate it.
                                         </p>
                                     </div>
+                                    <button
+                                        onClick={() => handleRunDeepInvestmentResearch(true)}
+                                        className="px-5 py-2.5 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-play text-xs"></i>
+                                        Run Deep Research
+                                    </button>
                                 </div>
                             ) : (
-                                <DeepInvestmentView data={analysis.deep_investment_research} />
+                                <div>
+                                    <div className="flex justify-end mb-3">
+                                        <button
+                                            onClick={() => handleRunDeepInvestmentResearch(true)}
+                                            className="px-3 py-1.5 text-[11px] font-bold text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-100 transition-colors flex items-center gap-1.5"
+                                        >
+                                            <i className="fa-solid fa-rotate text-[10px]"></i>
+                                            Re-run
+                                        </button>
+                                    </div>
+                                    <DeepInvestmentView data={analysis.deep_investment_research} />
+                                </div>
                             )}
                         </section>
                     )}
