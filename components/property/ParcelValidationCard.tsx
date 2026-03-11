@@ -410,76 +410,28 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
 
     return (
         <div className="px-2 pt-4 animate-in fade-in slide-in-from-top-2 duration-500 relative">
-            {/* Help Overlay — hover-triggered, positioned relative to the ? button */}
+
+            {/* Help tooltip */}
             {showHelp && (
                 <div
-                    className="absolute top-12 right-2 z-50 w-72 bg-white/98 backdrop-blur-md p-5 overflow-y-auto rounded-2xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
+                    className="absolute top-12 right-2 z-50 w-64 bg-white/98 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
                     onMouseEnter={handleHelpEnter}
                     onMouseLeave={handleHelpLeave}
                 >
-                    <div className="flex items-center justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                                <i className="fa-solid fa-circle-info text-indigo-600 text-sm"></i>
-                            </div>
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">The Ground Truth Engine</h3>
-                        </div>
-                        <button
-                            onClick={() => setShowHelp(false)}
-                            className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors flex-shrink-0"
-                        >
-                            <i className="fa-solid fa-xmark text-slate-400 text-xs"></i>
-                        </button>
-                    </div>
-
-                    <div className="space-y-4">
-                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                            Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
-                        </p>
-
-                        <div className="grid grid-cols-1 gap-3">
-                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                    <i className="fa-solid fa-database"></i> Data &amp; Sources
-                                </div>
-                                <ul className="space-y-2">
-                                    <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">Municipal ArcGIS:</span> Live county boundary data used to calculate true usable area.
-                                    </li>
-                                    <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">USGS LiDAR:</span> National Map elevation profiles used for slope and solar analysis.
-                                    </li>
-                                    <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">Tax Databases:</span> Verified historical records to validate living square footage.
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                    <i className="fa-solid fa-microchip"></i> Rules Evaluated
-                                </div>
-                                <ul className="space-y-2">
-                                    <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">Lot Accuracy:</span> Flags differences &gt;5% between listing and GIS boundaries.
-                                    </li>
-                                    <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">Topography Scan:</span> Verifies "flat" claims vs actual terrain grade.
-                                    </li>
-                                    <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">Solar Potential:</span> Checks roof orientation for true energy efficiency.
-                                    </li>
-                                    <li className="text-[11px] text-slate-600 font-medium">
-                                        <span className="font-bold text-slate-800">Permit Integrity:</span> Flags inconsistent living area potentially unpermitted.
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-
-                        <div className="text-[9px] text-slate-400 font-medium italic">
-                            * Analysis is deterministic and relies on the latest public satellite and record updates.
-                        </div>
-                    </div>
+                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Data Sources</div>
+                    <ul className="space-y-1.5 text-[11px] text-slate-600">
+                        <li><span className="font-bold text-slate-800">Municipal ArcGIS:</span> County boundary data</li>
+                        <li><span className="font-bold text-slate-800">USGS LiDAR:</span> Elevation & slope analysis</li>
+                        <li><span className="font-bold text-slate-800">Tax Records:</span> Living area verification</li>
+                    </ul>
+                    <div className="border-t border-slate-100 my-2.5"></div>
+                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Rules Checked</div>
+                    <ul className="space-y-1.5 text-[11px] text-slate-600">
+                        <li><span className="font-bold text-slate-800">Lot Accuracy:</span> Listed vs GIS lot size (&gt;5%)</li>
+                        <li><span className="font-bold text-slate-800">Slope Reality:</span> "Flat" claims vs terrain grade</li>
+                        <li><span className="font-bold text-slate-800">Solar/Orientation:</span> Roof direction & energy potential</li>
+                        <li><span className="font-bold text-slate-800">Permit Integrity:</span> Listing sqft vs tax record</li>
+                    </ul>
                 </div>
             )}
 

@@ -75,39 +75,12 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
 
     return (
         <div className="bg-white border-x border-slate-100 px-6 pt-0 pb-6">
-            <div className={`grid grid-cols-1 gap-3 ${data.hoa ? 'lg:[grid-template-columns:0.5fr_0.5fr_0.28fr_0.45fr_0.45fr_0.6fr]' : 'lg:[grid-template-columns:0.5fr_0.28fr_0.45fr_0.45fr_0.6fr]'}`}>
+            <div className={`grid grid-cols-1 gap-3 ${data.hoa ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
 
-                {/* MODULE: SCHOOLS */}
-                <div className="flex flex-col gap-3">
-                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                        <div className="p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                                    <i className="fa-solid fa-graduation-cap text-blue-600 text-[11px]"></i>
-                                </div>
-                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
-                            </div>
-                            <div className="space-y-2">
-                                {data.schools?.slice(0, 3).map((s, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                        <i className="fa-solid fa-school-flag text-[10px] text-slate-300"></i>
-                                        <div className="min-w-0">
-                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider truncate">{s.name}</div>
-                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{s.rating}/10 · {s.distance} mi</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {(!data.schools || data.schools.length === 0) && (
-                                    <p className="text-[11px] text-slate-400 font-normal">No school data available.</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 {/* MODULE: HOA */}
                 {data.hoa && (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                             <div className="p-4">
                                 <div className="flex items-center gap-2 mb-3">
@@ -162,7 +135,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
 
 
                 {/* MODULE: ORIENTATION */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                     {/* Orientation */}
                     {(data as any).orientation_ai && (data as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                         const sat = (data as any).orientation_ai;
@@ -228,7 +201,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                 </div>
 
                 {/* MODULE: MOBILITY + NOISE (stacked) */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                         <div className="p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -310,7 +283,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                 </div>
 
                 {/* MODULE: CLIMATE RISK + SOLAR (stacked) */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                     {/* Climate Risk */}
                     {hasClimate && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
@@ -371,24 +344,23 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                                         </div>
                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">Solar</span>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-3 text-[12px]">
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Sunshine</span>
-                                                <span className="font-black text-slate-700">{Math.round(solar.maxSunshineHoursPerYear || 0).toLocaleString()} hrs/yr</span>
-                                            </div>
-                                            {solarPotential && (
-                                                <>
-                                                    <div className="w-px h-6 bg-slate-200"></div>
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Production</span>
-                                                        <span className="font-black text-indigo-600">{solarPotential.annualKwh.toLocaleString()} kWh</span>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                        <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-300 ${isSolarExpanded ? 'rotate-180' : ''}`}></i>
+                                    <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-300 ${isSolarExpanded ? 'rotate-180' : ''}`}></i>
+                                </div>
+                                {/* Sunshine + Production row */}
+                                <div className="flex items-center gap-3 mt-2 text-[12px]">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Sunshine</span>
+                                        <span className="font-black text-slate-700">{Math.round(solar.maxSunshineHoursPerYear || 0).toLocaleString()} hrs/yr</span>
                                     </div>
+                                    {solarPotential && (
+                                        <>
+                                            <div className="w-px h-6 bg-slate-200"></div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Production</span>
+                                                <span className="font-black text-indigo-600">{solarPotential.annualKwh.toLocaleString()} kWh</span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Expand/collapse hint */}
@@ -453,8 +425,8 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                     )}
                 </div>
 
-                {/* MODULE: AIR QUALITY + POLLEN (stacked) */}
-                <div className="flex flex-col gap-3">
+                {/* MODULE: AIR QUALITY */}
+                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                     {aq && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden flex flex-col shadow-sm">
                             <div className="p-3">
@@ -557,8 +529,10 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                             )}
                         </div>
                     )}
+                </div>
 
-                    {/* POLLEN */}
+                {/* MODULE: POLLEN */}
+                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                     {hasPollen && data.pollen && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                             <div className="p-3">

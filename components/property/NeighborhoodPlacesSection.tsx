@@ -97,6 +97,8 @@ const CategoryCard: React.FC<{
     const [expanded, setExpanded] = useState(false);
     const visible = expanded ? places : places.slice(0, 4);
 
+    if (places.length === 0) return null;
+
     return (
         <div className={`rounded-xl border ${borderColor} ${bgColor} p-2.5 flex flex-col gap-1.5 self-start`}>
             {/* Title & Badge */}
@@ -109,22 +111,16 @@ const CategoryCard: React.FC<{
                 </div>
             </div>
 
-            {places.length === 0 ? (
-                <p className="text-[11px] text-slate-400 font-medium italic">No results found</p>
-            ) : (
-                <>
-                    <div className="divide-y divide-slate-50">
-                        {visible.map((place, i) => <PlaceRow key={i} place={place} />)}
-                    </div>
-                    {places.length > 4 && (
-                        <button
-                            onClick={() => setExpanded(!expanded)}
-                            className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors mt-1 self-start"
-                        >
-                            {expanded ? '▲ Show less' : `▼ +${places.length - 4} more`}
-                        </button>
-                    )}
-                </>
+            <div className="divide-y divide-slate-50">
+                {visible.map((place, i) => <PlaceRow key={i} place={place} />)}
+            </div>
+            {places.length > 4 && (
+                <button
+                    onClick={() => setExpanded(!expanded)}
+                    className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors mt-1 self-start"
+                >
+                    {expanded ? '▲ Show less' : `▼ +${places.length - 4} more`}
+                </button>
             )}
         </div>
     );

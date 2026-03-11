@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PropertyHeader from './PropertyHeader';
 import PropertyImages from './PropertyImages';
 import PropertyFacts from './PropertyFacts';
@@ -65,6 +65,33 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     onRefreshEnvironment,
     environmentRefreshing
 }) => {
+    // Fetch design_style from cloud cache if customAnalysis is not loaded
+    const [cachedDesignStyle, setCachedDesignStyle] = useState<{ style?: string; reasoning?: string } | null>(null);
+
+    useEffect(() => {
+        if (customAnalysis?.home_interior?.design_style) {
+            setCachedDesignStyle(null); // customAnalysis is authoritative, clear cache
+            return;
+        }
+        if (!propertyData?.zpid) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const { getVisualAnalysisFromCloud } = await import('../../services/firebase/properties');
+                const cached = await getVisualAnalysisFromCloud(String(propertyData.zpid));
+                if (!cancelled && cached?.home_interior?.design_style) {
+                    setCachedDesignStyle(cached.home_interior.design_style);
+                }
+            } catch (e) {
+                // Silently ignore — design philosophy is non-critical
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [propertyData?.zpid, customAnalysis]);
+
+    const designStyle = customAnalysis?.home_interior?.design_style || cachedDesignStyle || null;
+
     // Determine if the property is actively listed for sale
     const isForSale = !propertyData || !propertyData.homeStatus ||
         propertyData.homeStatus.toUpperCase().includes('FOR_SALE');
@@ -168,6 +195,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 isFavorited={isFavorited}
                                 onToggleFavorite={onToggleFavorite}
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                designStyle={designStyle}
                                 parcelPolygon={
                                     propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
                                         ? propertyData.parcelPolygon.map((pt: any) =>

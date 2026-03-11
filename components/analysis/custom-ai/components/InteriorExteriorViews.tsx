@@ -127,36 +127,27 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
     }
 
     return (
-        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-10">
-            {sections.map((section, si) => (
-                <div key={si}>
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="h-px flex-1 bg-gray-100" />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">{section.label}</span>
-                        <div className="h-px flex-1 bg-gray-100" />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {section.rooms.map((room, idx) => (
-                            <div key={idx} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="w-12 h-12 bg-gray-50 rounded-[1.25rem] flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                        <i className={`fa-solid ${roomIcon(room.room_name)} text-xl`}></i>
-                                    </div>
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">{room.floor || 'N/A'}</span>
-                                </div>
-                                <h4 className="font-black text-gray-900 text-2xl mb-4 tracking-tight">{room.room_name}</h4>
-                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625] mb-6">{room.description}</p>
-                                {room.potential_improvements && (
-                                    <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto">
-                                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3">Strategic Enhancement</div>
-                                        <p className="text-gray-500 text-[14px] font-sans font-normal italic leading-[1.625]">"{room.potential_improvements}"</p>
-                                    </div>
-                                )}
+        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {sorted.map((room, idx) => (
+                    <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className={`fa-solid ${roomIcon(room.room_name)} text-lg`}></i>
                             </div>
-                        ))}
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">{room.floor || 'N/A'}</span>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">{room.room_name}</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed mb-4">{room.description}</p>
+                        {room.potential_improvements && (
+                            <div className="pt-4 border-t border-gray-100 bg-gray-50 -mx-6 -mb-6 px-6 py-4 rounded-b-2xl mt-auto">
+                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2">Strategic Enhancement</div>
+                                <p className="text-gray-500 text-[13px] font-sans font-normal italic leading-relaxed">"{room.potential_improvements}"</p>
+                            </div>
+                        )}
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </section>
     );
 };
