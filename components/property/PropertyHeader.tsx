@@ -21,7 +21,7 @@ const MetricItem: React.FC<{ m: any }> = ({ m }) => (
     </div>
     <div className="flex flex-col gap-0.5 min-w-0">
       <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none truncate">{m.label}</span>
-      <span className="text-[13px] font-normal text-slate-800 leading-snug line-clamp-2">{m.value || 'N/A'}</span>
+      <span className="text-[13px] font-normal text-slate-800 leading-snug">{m.value || 'N/A'}</span>
     </div>
   </div>
 );
@@ -177,17 +177,17 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         View Visual AI Analysis
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_480px_306px] gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_480px_306px] gap-3">
 
-        {/* Parcel Map — Column 5 */}
-        <div className="lg:col-start-5 lg:row-start-1 lg:row-end-5 group">
+        {/* Parcel Map — Column 4 */}
+        <div className="lg:col-start-4 lg:row-start-1 lg:row-end-5 group">
           <div className="w-full aspect-square">
             <StaticParcelMap data={data} parcelPolygon={parcelPolygon} />
           </div>
         </div>
 
-        {/* Ground Truth — Column 6 */}
-        <div className="lg:col-start-6 lg:row-start-1 lg:row-end-5 group">
+        {/* Ground Truth — Column 5 */}
+        <div className="lg:col-start-5 lg:row-start-1 lg:row-end-5 group">
           <div className="w-full h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
             <ParcelValidationCard propertyData={data} />
           </div>
@@ -195,7 +195,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
         {/* MLS Description — Spanning Box */}
         {data.description && data.description !== "No description available." && (
-          <div className="lg:col-span-4 bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="lg:col-span-3 bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
             <div className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
               <i className="fa-solid fa-align-left text-[11px]"></i>
               MLS Property Description
@@ -216,73 +216,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         )}
 
-        {/* Combined HOA Box */}
-        {(financialSpecs.length > 0 || data.hoa) && (
-          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <i className="fa-solid fa-building-columns text-[13px]"></i>
-              HOA
-            </div>
 
-            {financialSpecs.length > 0 && (
-              <div className="grid grid-cols-2 gap-y-3 gap-x-3 mb-4">
-                {financialSpecs.map((m, idx) => <MetricItem key={idx} m={m} />)}
-              </div>
-            )}
-
-            {data.hoa && (
-              <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 ${financialSpecs.length > 0 ? 'pt-4 border-t border-slate-100/50' : ''}`}>
-                {/* Name */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-semibold text-slate-800">{data.hoa.name ?? 'Association N/A'}</span>
-                </div>
-                {/* Phone */}
-                {data.hoa.phone && (
-                  <div className="flex items-center gap-1.5">
-                    <i className="fa-solid fa-phone text-slate-300 text-[10px]"></i>
-                    <span className="text-[12px] text-slate-600">{data.hoa.phone}</span>
-                  </div>
-                )}
-                {/* Fee */}
-                {data.hoa.fee && (
-                  <span className="text-[12px] text-indigo-600 font-bold">· {data.hoa.fee}</span>
-                )}
-
-                {/* Amenity chips */}
-                {data.hoa.amenities && data.hoa.amenities.filter(a => a !== 'Other').length > 0 && (
-                  <div className="w-full mt-2 pt-2 border-t border-slate-100/50">
-                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Amenities</div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {data.hoa.amenities.filter(a => a !== 'Other').map((amenity, i) => (
-                        <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
-                          {amenity}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Schools — stacked vertically, single column */}
-        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-            <i className="fa-solid fa-graduation-cap text-[13px]"></i>
-            Schools
-          </div>
-          <div className="flex flex-col gap-3">
-            {data.schools?.slice(0, 3).map((s, idx) => (
-              <MetricItem key={idx} m={{
-                icon: 'fa-school-flag',
-                label: s.name,
-                value: `${s.rating}/10 · ${s.distance} mi`
-              }} />
-            ))}
-            {(!data.schools || data.schools.length === 0) && <p className="text-[11px] text-slate-400 font-normal">No school data available for this area.</p>}
-          </div>
-        </div>
 
         {/* Structural & Exterior */}
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
@@ -301,32 +235,79 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
-
-        {/* Box 4: Mobility & Connectivity */}
+        {/* Interior */}
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
           <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-            <i className="fa-solid fa-route text-[13px]"></i>
-            Mobility
+            <i className="fa-solid fa-couch text-[13px]"></i>
+            Interior
           </div>
           <div className="flex flex-col gap-3">
             {[
-              {
-                icon: 'fa-person-walking',
-                label: 'Walk',
-                value: data.walkScore ? `${data.walkScore}/100${data.walkScoreDesc ? ` · ${data.walkScoreDesc}` : ''}` : 'N/A'
-              },
-              {
-                icon: 'fa-bus',
-                label: 'Transit',
-                value: data.transitScore ? `${data.transitScore}/100${data.transitScoreDesc ? ` · ${data.transitScoreDesc}` : ''}` : 'N/A'
-              },
-              {
-                icon: 'fa-bicycle',
-                label: 'Bike',
-                value: data.bikeScore ? `${data.bikeScore}/100${data.bikeScoreDesc ? ` · ${data.bikeScoreDesc}` : ''}` : 'N/A'
-              },
-            ].map((m, idx) => <MetricItem key={idx} m={m} />)}
+              { icon: 'fa-fire-flame-simple', label: 'Heating', value: parseValue(data.resoFacts?.heating) },
+              { icon: 'fa-snowflake', label: 'Cooling', value: parseValue(data.resoFacts?.cooling) },
+              { icon: 'fa-blender', label: 'Appliances', value: parseValue(data.resoFacts?.appliances) },
+              { icon: 'fa-arrow-down-wide-short', label: 'Basement', value: parseValue(data.resoFacts?.basement) },
+            ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
+        </div>
+
+        {/* Utilities + Additional Features (stacked in one card) */}
+        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+            <i className="fa-solid fa-plug text-[13px]"></i>
+            Utilities
+          </div>
+          <div className="flex flex-col gap-3">
+            {[
+              { icon: 'fa-plug', label: 'Utilities', value: parseValue(data.resoFacts?.utilities) },
+              { icon: 'fa-faucet', label: 'Sewer', value: parseValue(data.resoFacts?.sewer) },
+              { icon: 'fa-droplet', label: 'Water Source', value: parseValue(data.resoFacts?.waterSource) },
+            ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
+          </div>
+
+          {/* Additional Features (lower half) */}
+          {(() => {
+            const parseComplexFact = (val: any): string[] => {
+              if (!val) return [];
+              if (typeof val === 'string') {
+                if (val.startsWith('[')) {
+                  try { return JSON.parse(val).filter(Boolean); } catch { return [val]; }
+                }
+                return val.split(',').map((s: string) => s.trim()).filter(Boolean);
+              }
+              if (Array.isArray(val)) return val.filter(Boolean).map(String);
+              return [String(val)];
+            };
+            const getFeature = (label: string, value: any) => {
+              const vals = parseComplexFact(value);
+              if (!vals.length || (vals.length === 1 && vals[0].toLowerCase() === 'null')) return null;
+              const cleanLabel = label.replace(/Features/gi, '').trim();
+              return `${cleanLabel}: ${vals.join(', ')}`;
+            };
+            const features = [
+              getFeature('Fireplace Features', data.resoFacts?.fireplaceFeatures),
+              getFeature('Lot Features', data.resoFacts?.lotFeatures),
+              getFeature('Security Features', data.resoFacts?.securityFeatures),
+              getFeature('Window Features', data.resoFacts?.windowFeatures),
+              getFeature('Laundry Features', data.resoFacts?.laundryFeatures),
+              getFeature('Fencing', data.resoFacts?.fencing),
+            ].filter(Boolean) as string[];
+            if (!features.length) return null;
+            return (
+              <>
+                <div className="border-t border-slate-200/80 my-3"></div>
+                <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                  <i className="fa-solid fa-list-check text-[13px]"></i>
+                  Additional Features
+                </div>
+                <div className="flex flex-col gap-3">
+                  {features.map((f, idx) => (
+                    <MetricItem key={idx} m={{ icon: 'fa-circle-check', label: f.split(':')[0], value: f.split(':').slice(1).join(':').trim() }} />
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>

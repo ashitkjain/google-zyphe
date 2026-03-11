@@ -176,8 +176,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         : undefined
                                 }
                             />
-                            <AirQualitySection data={propertyData} />
-                            <NeighborhoodPlacesSection data={propertyData} />
+                            <AirQualitySection data={propertyData} neighborhoodOverview={customAnalysis?.neighborhood?.overview} />
+                            <NeighborhoodPlacesSection data={propertyData} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
                             <StreetViewAnalysisSection
                                 data={propertyData}
                                 onRefresh={onRefreshEnvironment}

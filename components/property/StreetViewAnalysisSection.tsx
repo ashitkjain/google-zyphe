@@ -48,7 +48,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
             <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest">
                 <div className="flex items-center">
                     <i className="fa-solid fa-eye mr-2 text-indigo-400"></i>
-                    AI Neighborhood Forensics
+                    Google Street View AI
                 </div>
                 <div className="flex items-center gap-4">
                     {onRefresh && (

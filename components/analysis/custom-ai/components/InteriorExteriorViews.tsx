@@ -12,7 +12,7 @@ export const InteriorView: React.FC<InteriorViewProps> = ({ data }) => {
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
                 <div className="space-y-4">
-                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">SUMMARY</div>
+                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">OVERVIEW</div>
                     <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.625]">{data.overall_description}</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-12 border-t border-gray-100">

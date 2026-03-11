@@ -31,52 +31,10 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
 
-                {/* ── Map thumbnails ─────────────────────────── */}
-                {(mapZoomIn || mapZoomOut) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-4">
-                        {mapZoomIn && (
-                            <div
-                                onClick={() => setSelectedMap({ url: mapZoomIn, title: 'Property Close-up Map', isZoomIn: true })}
-                                className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video cursor-zoom-in active:scale-[0.98] transition-all"
-                            >
-                                {propertyData ? (
-                                    <StaticParcelMap
-                                        data={propertyData}
-                                        parcelPolygon={parcelPolygon}
-                                        className="w-full h-full"
-                                    />
-                                ) : (
-                                    <img src={mapZoomIn} alt="Property Close-up Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                )}
-                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20 z-10">
-                                    <i className="fa-solid fa-map mr-2" /> Close-up View
-                                </div>
-                                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300 z-10">
-                                    <i className="fa-solid fa-magnifying-glass-plus text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                            </div>
-                        )}
-                        {mapZoomOut && (
-                            <div
-                                onClick={() => setSelectedMap({ url: mapZoomOut, title: 'Neighborhood Map', isZoomIn: false })}
-                                className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video cursor-zoom-in active:scale-[0.98] transition-all"
-                            >
-                                <img src={mapZoomOut} alt="Neighborhood Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
-                                    <i className="fa-solid fa-earth-americas mr-2" /> Neighborhood View
-                                </div>
-                                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300">
-                                    <i className="fa-solid fa-magnifying-glass-plus text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
                 {/* ── Overview ───────────────────────────────── */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between gap-4">
-                        <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD CONTEXT</div>
+                        <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">OVERVIEW</div>
                         {onRefresh && (
                             <button
                                 onClick={onRefresh}
@@ -91,31 +49,50 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                     <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.625]">{data.overview}</p>
                 </div>
 
-                {/* ── Extracted Labels (Visual Evidence) ─────── */}
-                {data.map_labels && data.map_labels.length > 0 && (
-                    <div className="bg-slate-50/50 rounded-[2rem] p-6 border border-slate-100">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">
-                                <i className="fa-solid fa-tags" />
+                {mapZoomIn && (
+                    <div className="pt-4">
+                        <div
+                            onClick={() => setSelectedMap({ url: mapZoomIn, title: 'Property Close-up Map', isZoomIn: true })}
+                            className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video cursor-zoom-in active:scale-[0.98] transition-all"
+                        >
+                            {propertyData ? (
+                                <StaticParcelMap
+                                    data={propertyData}
+                                    parcelPolygon={parcelPolygon}
+                                    className="w-full h-full"
+                                />
+                            ) : (
+                                <img src={mapZoomIn} alt="Property Close-up Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                            )}
+                            <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20 z-10">
+                                <i className="fa-solid fa-map mr-2" /> Close-up View
                             </div>
-                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Visual Map Evidence (Direct Text Extraction)</div>
+                            <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300 z-10">
+                                <i className="fa-solid fa-magnifying-glass-plus text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            {data.map_labels.map((label, i) => (
-                                <span key={i} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 shadow-sm">
-                                    {label}
-                                </span>
-                            ))}
-                        </div>
-                        <p className="mt-4 text-[10px] text-slate-400 font-medium italic">
-                            * These labels were identified by AI from the "Neighborhood View" map and filtered to exclude street names.
-                        </p>
                     </div>
                 )}
+
+                {/* ── Extracted Labels (Visual Evidence) — HIDDEN ─────── */}
 
                 {/* ── Neighborhood features grid ─────────────── */}
                 {data.neighborhood_features && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
+                        {/* Row 1: General, Amenities, Nature & Greenery */}
+                        <div className="space-y-3">
+                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">General</div>
+                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.general}</p>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Amenities</div>
+                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.nearby_amenities}</p>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Nature & Greenery</div>
+                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.proximity_to_greenery_and_water}</p>
+                        </div>
+                        {/* Row 2: Streets, Pedestrian, Topography */}
                         <div className="space-y-3">
                             <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Street & Traffic</div>
                             <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.street_layout_and_traffic}</p>
@@ -125,28 +102,17 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                             <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.sidewalks_and_pedestrian_infra}</p>
                         </div>
                         <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Nature & Greenery</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.proximity_to_greenery_and_water}</p>
+                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Topography</div>
+                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.topography}</p>
                         </div>
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Amenities</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.nearby_amenities}</p>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Development</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.development_patterns}</p>
-                        </div>
+                        {/* Row 3: Density, Development */}
                         <div className="space-y-3">
                             <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Density</div>
                             <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.neighborhood_density}</p>
                         </div>
                         <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Topography</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.topography}</p>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">General</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.general}</p>
+                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Development</div>
+                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.development_patterns}</p>
                         </div>
                     </div>
                 )}
@@ -170,8 +136,26 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                             <AirQualitySection data={propertyData} />
                         </div>
 
-                        <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
-                            <NeighborhoodPlacesSection data={propertyData} visualPoi={data.visual_poi} mapLabels={data.map_labels} />
+                        <div className="flex flex-col lg:flex-row gap-6">
+                            {mapZoomOut && (
+                                <div className="lg:w-[340px] flex-shrink-0">
+                                    <div
+                                        onClick={() => setSelectedMap({ url: mapZoomOut, title: 'Neighborhood Map', isZoomIn: false })}
+                                        className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative cursor-zoom-in active:scale-[0.98] transition-all sticky top-4 h-full min-h-[300px]"
+                                    >
+                                        <img src={mapZoomOut} alt="Neighborhood Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                        <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                                            <i className="fa-solid fa-earth-americas mr-1.5" /> Neighborhood
+                                        </div>
+                                        <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300">
+                                            <i className="fa-solid fa-magnifying-glass-plus text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0 bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+                                <NeighborhoodPlacesSection data={propertyData} visualPoi={data.visual_poi} mapLabels={data.map_labels} />
+                            </div>
                         </div>
                     </div>
                 </div>

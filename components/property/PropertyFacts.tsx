@@ -83,36 +83,7 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
     getGroupedFeatureValue('Fencing', facts.fencing),
   ].filter(Boolean) as string[];
 
-  const categories = [
-    {
-      title: 'Interior Utilities',
-      isGrid: true,
-      sections: [
-        {
-          items: [
-            { label: 'Interiors', value: facts.roomTypes, isComplex: true },
-            { label: 'Room Features', value: facts.roomFeatures, isComplex: true },
-            { label: 'Appliances', value: facts.appliances, isComplex: true },
-            { label: 'Basement', value: facts.basement, isComplex: true },
-          ]
-        },
-        {
-          items: [
-            { label: 'Heating', value: facts.heating },
-            { label: 'Cooling', value: facts.cooling },
-            { label: 'Utilities', value: facts.utilities },
-            { label: 'Sewer', value: facts.sewer },
-            { label: 'Water Source', value: facts.waterSource },
-          ]
-        },
-        {
-          items: [
-            { label: 'Additional Features', value: features, isManualArray: true },
-          ]
-        }
-      ]
-    }
-  ];
+  const categories: any[] = [];
 
   // Fix: Explicitly type FactItem as React.FC to handle React-reserved props like 'key' in mapped components
   const FactItem: React.FC<{ item: any }> = ({ item }) => {

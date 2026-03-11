@@ -35,48 +35,24 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
           Maps
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Column 1: Neighborhood View */}
+        {/* Google 3D Map (disabled by default, click to open overlay) */}
+        {coordinates && (
           <div
-            onClick={() => mapZoomOut && setExpandedMap(mapZoomOut)}
-            className={`rounded-2xl overflow-hidden border border-gray-100 shadow-sm aspect-square bg-gray-50 group relative ${mapZoomOut ? 'cursor-zoom-in' : ''}`}
+            className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm aspect-[3/1] bg-slate-900 group relative cursor-pointer"
+            onClick={() => setShow3DOverlay(true)}
           >
-            {mapZoomOut ? (
-              <>
-                <img
-                  src={mapZoomOut}
-                  alt="Neighborhood Map View"
-                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000"
-                />
-                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100">Neighborhood</div>
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
-                  <i className="fa-solid fa-magnifying-glass-plus text-white opacity-0 group-hover:opacity-100 transition-all scale-50 group-hover:scale-100 text-2xl drop-shadow-md"></i>
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400 italic text-xs font-medium">Neighborhood map not available</div>
-            )}
-          </div>
-
-          {/* Column 2: Google 3D Map (disabled by default, click to open overlay) */}
-          {coordinates && (
-            <div
-              className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm aspect-square bg-slate-900 group relative cursor-pointer"
-              onClick={() => setShow3DOverlay(true)}
-            >
-              <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-[url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&q=80&w=400')] bg-cover bg-center"></div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10 transition-transform group-hover:scale-105 duration-700">
-                <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center mb-3">
-                  <i className="fa-brands fa-google text-lg"></i>
-                </div>
-                <h4 className="text-xs font-black tracking-tight mb-1">3D Satellite</h4>
-                <p className="text-white/50 text-[8px] font-bold uppercase tracking-widest">Click to Launch</p>
+            <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-[url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&q=80&w=400')] bg-cover bg-center"></div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10 transition-transform group-hover:scale-105 duration-700">
+              <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center mb-3">
+                <i className="fa-brands fa-google text-lg"></i>
               </div>
-              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-900 to-transparent"></div>
-              <div className="absolute top-2.5 left-2.5 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white/80 border border-white/10">3D Map</div>
+              <h4 className="text-xs font-black tracking-tight mb-1">3D Satellite</h4>
+              <p className="text-white/50 text-[8px] font-bold uppercase tracking-widest">Click to Launch</p>
             </div>
-          )}
-        </div>
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-900 to-transparent"></div>
+            <div className="absolute top-2.5 left-2.5 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white/80 border border-white/10">3D Map</div>
+          </div>
+        )}
       </div>
 
       {/* Expanded Static Map Overlay */}
