@@ -29,6 +29,7 @@ interface Props {
     loading: boolean;
     onBack: () => void;
     onRefresh: () => void;
+    onFullRefresh?: () => void;
     onRunComprehensive: () => void;
     comprehensiveResult: ComprehensiveAnalysisResult | null;
     mapUrl?: string;
@@ -49,6 +50,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     loading,
     onBack,
     onRefresh,
+    onFullRefresh,
     onRunComprehensive,
     comprehensiveResult,
     mapUrl,
@@ -277,6 +279,15 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                         </button>
                     ))}
                 </div>
+                {userRole === 'admin' && (
+                    <button
+                        onClick={onFullRefresh}
+                        className="ml-auto text-xs font-black text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-widest flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-indigo-50"
+                    >
+                        <i className="fa-solid fa-sync"></i>
+                        Full Refresh
+                    </button>
+                )}
             </div>
 
             {/* Content Area */}

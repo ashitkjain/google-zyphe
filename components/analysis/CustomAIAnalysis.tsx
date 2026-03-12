@@ -10,6 +10,7 @@ interface Props {
   loading: boolean;
   onBack: () => void;
   onRefresh: () => void;
+  onFullRefresh?: () => void;
   onRunComprehensive: () => void;
   comprehensiveResult: ComprehensiveAnalysisResult | null;
   mapUrl?: string;

@@ -29,12 +29,13 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
 
   Instructions:
   Persona: Act as a knowledgeable and unbiased real estate analyst.
-  Narrative Style: Write in a flowing, descriptive paragraph style in a compelling tone that engages a potential buyer. Avoid bullet points or lists in the main sections.
+  Narrative Style: Write in a flowing, descriptive paragraph style in a compelling tone, avoiding subjective praise, that engages a potential buyer. Avoid bullet points or lists in the main sections.
   Data Integration: Synthesize all provided data (property details, images, map analysis) with information you gather from your online searches. It is important to not miss important details.
   No Duplication: Ensure that each section contains unique and distinct content. Do not repeat the same information across different headings.
   Numerical Ranges: When showing ranges, use the format "3-5" or "$25-$35," not "35" or "$2535."
   Citations: Do not include citations like [1] or [3] in the final output.
   Avoid putting days count (like days on market) that would make a few days old generated report inaccurate.
+  Interior Objectivity: When summarizing interiors, maintain a neutral, factual but compelling tone. Avoid all marketing fluff or subjective praise.
   
   To complete this task, you must use your internal search tools to find the necessary data. 
   Prioritize authoritative and recent sources.
@@ -61,10 +62,10 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
     "strategic_insights": "A dedicated paragraph of 'Strategic Forensics'. Correlate carry-cost coverage (projected STR/LTR revenue vs. property taxes/insurance), the modernization gap for future ROI. Highlight the 'Investment Thesis' of this home by combining financial, physical, and market data.",
     "risks_considerations": "Write a paragraph highlighting any concerns regarding: Location (Crime rate, noise, environmental hazards, lack of essential services, zoning or future development changes), Property Condition (Age and state of roof, foundation, plumbing/electrical, HVAC, outdated layout, accessibility issues, storage/parking limits, energy inefficiency), Financial (Overpricing compared to comps, high property taxes, HOA fees/restrictions, rental market volatility, low appreciation potential, high insurance costs), Infrastructure (limited transit, long distance to hubs, noise pollution), Legal/Compliance (Title disputes, unpermitted work, restrictive ordinances), Any other risk factors mentioned in the provided information. Use **bold** for critical risk factors and warning items.",
     "interior_summary": {
-      "interior_summary": "Neutral, factual summary of the overall home interior (2-3 sentences), focusing on layout and spatial flow. CRITICAL: NO SALESY LANGUAGE.",
-      "rooms_summary": "Neutral, factual summary of the individual rooms and spaces (2-3 sentences). CRITICAL: NO SALESY LANGUAGE.",
-      "vibe": "Objective description of the aesthetic atmosphere and physical character.",
-      "objective_tags": ["purely", "descriptive", "tags", "like", "hardwood-floors"]
+      "interior_summary": "Neutral, factual summary of the overall home interior (4-5 objective sentences), focusing on layout, spatial flow, and material consistency. CRITICAL: Avoid all sales-oriented language, marketing fluff, or subjective adjectives like 'stunning' or 'gorgeous'.",
+      "rooms_summary": "Neutral, factual summary of the individual identifiable rooms and spaces (4-5 objective sentences), focusing on the character, features, and functionality. CRITICAL: Avoid subjective or salesy language.",
+      "vibe": "Objective description of the aesthetic atmosphere and physical character using neutral terminology (e.g., 'minimalist and utilitarian', 'traditional with heavy ornamentation').",
+      "objective_tags": ["Purely descriptive, objective tags such as 'hardwood-floors', 'recessed-lighting', 'vaulted-ceilings', 'stainless-appliances'."]
     }
   }
   `;

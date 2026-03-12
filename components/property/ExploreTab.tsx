@@ -28,7 +28,7 @@ interface ExploreTabProps {
     imagesLoading: boolean;
     isFavorited: boolean;
     onToggleFavorite: () => void;
-    onRunCustomAnalysis: (force?: boolean) => void;
+    onRunCustomAnalysis: (force?: boolean) => Promise<any>;
     customAnalysis: CustomAIAnalysisResult | null;
     customAnalysisLoading: boolean;
     onRunComprehensive: (force?: boolean) => void;
@@ -98,7 +98,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [compReportTab, setCompReportTab] = useState<number>(0);
     const [cachedVisualAnalysis, setCachedVisualAnalysis] = useState<CustomAIAnalysisResult | null>(null);
     const [interiorSummary, setInteriorSummary] = useState<any | null>(null);
-    const [isRefreshingInterior, setIsRefreshingInterior] = useState(false);
 
     useEffect(() => {
         if (!propertyData?.zpid) return;
@@ -206,31 +205,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         return () => { cancelled = true; };
     }, [propertyData?.zpid, customAnalysis]);
 
-    const handleRefreshInterior = async () => {
-        if (!propertyData?.zpid) return;
 
-        const visualContext = customAnalysis || cachedVisualAnalysis;
-        if (!visualContext) {
-            // If no visual context at all, we must run visual AI first
-            onRunCustomAnalysis(false);
-            return;
-        }
 
-        setIsRefreshingInterior(true);
-        try {
-            const { analyzeInteriorSummary } = await import('../../services/geminiService');
-            const { saveInteriorSummaryToCloud } = await import('../../services/firebase/properties');
-
-            const res = await analyzeInteriorSummary(visualContext, 'user', propertyData.zpid, propertyData.address);
-            if (res.data) {
-                setInteriorSummary(res.data);
-                await saveInteriorSummaryToCloud(propertyData.zpid, res.data);
-            }
-        } catch (e) {
-            console.error('[ExploreTab] Failed to refresh interior summary:', e);
-        } finally {
-            setIsRefreshingInterior(false);
-        }
+    const handleFullRefresh = async () => {
+        await onRunCustomAnalysis(true);
+        // handleRunComprehensive(true) is automatically triggered by onRunCustomAnalysis(true) in App.tsx
+        // Interior analysis is now merged into the comprehensive analysis prompt.
     };
 
     const designStyle = customAnalysis?.home_interior?.design_style || cachedDesignStyle || null;
@@ -516,14 +496,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                     </div>
                                                                     <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Interiors</h3>
                                                                 </div>
-                                                                <button
-                                                                    disabled={isRefreshingInterior}
-                                                                    onClick={handleRefreshInterior}
-                                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-indigo-600 text-slate-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50"
-                                                                >
-                                                                    <i className={`fa-solid fa-rotate ${isRefreshingInterior ? 'animate-spin' : ''}`}></i>
-                                                                    {isRefreshingInterior ? 'Analyzing...' : 'Refresh'}
-                                                                </button>
+
                                                             </div>
 
                                                             {!currentInteriorSummary ? (
@@ -533,13 +506,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                     </div>
                                                                     <div className="text-center">
                                                                         <div className="text-[12px] font-bold text-slate-500">No interior analysis found</div>
-                                                                        <button
-                                                                            onClick={handleRefreshInterior}
-                                                                            disabled={isRefreshingInterior}
-                                                                            className="mt-2 text-[11px] font-black text-indigo-600 hover:text-indigo-700 underline underline-offset-4 uppercase tracking-wider decoration-2 disabled:opacity-50"
-                                                                        >
-                                                                            Run Intelligence Analysis
-                                                                        </button>
+
                                                                     </div>
                                                                 </div>
                                                             ) : (
@@ -995,6 +962,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 loading={customAnalysisLoading}
                                 onBack={() => setActiveTab('property-data')}
                                 onRefresh={() => onRunCustomAnalysis(true)}
+                                onFullRefresh={handleFullRefresh}
                                 onRunComprehensive={() => { setActiveTab('comprehensive'); onRunComprehensive(false); }}
                                 comprehensiveResult={comprehensiveAnalysis}
                                 hasImages={(propertyData?.images?.length || 0) > 0}

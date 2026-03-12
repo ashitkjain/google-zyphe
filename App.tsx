@@ -716,12 +716,14 @@ const App: React.FC = () => {
         // Pass local result directly since setCustomAnalysis is async and may not have propagated yet
         handleRunComprehensive(true, result);
       }
+      return result;
     } catch (err: any) {
       const logContent = err instanceof AiResponseError
         ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
         : err;
       addLog('Gemini AI', { type: 'error' }, logContent);
       setError("AI analysis failed. Check logs for details.");
+      return null;
     } finally {
       setCustomAnalysisLoading(false);
     }
