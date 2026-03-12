@@ -10,6 +10,7 @@ import {
   runBackgroundCityResearch,
   AiResponseError
 } from './geminiService.ts';
+import { runSatellitaryAnalysis } from './satellitaryService.ts';
 import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
@@ -298,17 +299,37 @@ export const runFullIntelligencePipeline = async (
       return null;
     };
 
+    const orientationTask = async () => {
+      if (enrichedData.orientation_ai && enrichedData.orientation_ai.orientation_highlights) {
+        onLog?.(`[Orientation] Cache hit.`);
+        return enrichedData.orientation_ai;
+      }
+      if (!enrichedData.coordinates?.latitude || !enrichedData.coordinates?.longitude) return null;
+      onLog?.(`[Orientation] Determining sun orientation...`);
+      const res = await runSatellitaryAnalysis(
+        enrichedData.coordinates.latitude,
+        enrichedData.coordinates.longitude,
+        enrichedData.streetViewAnalysis?.imageUrl || enrichedData.streetView || null,
+        userId,
+        zpid,
+        address
+      );
+      onLog?.(`[Orientation] Analysis complete.`);
+      return res;
+    };
+
 
     // Execute AI Tasks Parallelized for maximum speed
     // Visual, Spatial, Regional (city-level cache reads), and Property Investment run simultaneously.
     // Deep Research is NOT included here — it runs separately via prefetchCityIntelligence (city-level).
     onLog?.(`[Pipeline] Launching parallel AI evaluation suite...`);
-    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence] = await Promise.all([
+    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, orientationData] = await Promise.all([
       visualTask(),
       neighborhoodTask(),
       pulseTask(),
       propInvTask(),
-      marketIntTask()
+      marketIntTask(),
+      orientationTask()
     ]);
 
     // Track which subtasks had issues
@@ -332,6 +353,7 @@ export const runFullIntelligencePipeline = async (
       community_pulse: communityPulse,
       property_investment: investmentSpecific,
       general_market_intelligence: marketIntelligence,
+      orientation_ai: orientationData,
       // Deep Research is loaded from cache if available (set by prefetchCityIntelligence)
       deep_investment_research: cityStateKey ? await getDeepInvestmentResearchFromCloud(cityStateKey) : null
     };

@@ -347,6 +347,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                     description,
                     listingSqft: listingSqft || undefined,
                     taxSqft: cachedTaxSqft || undefined,
+                    orientationAi: propertyData.orientation_ai,
                 });
 
                 if (cancelled) return;
@@ -708,6 +709,7 @@ function runValidation(opts: {
     description?: string | null;
     listingSqft?: number;
     taxSqft?: number;
+    orientationAi?: any;
 }): ValidationFlag[] {
     const flags: ValidationFlag[] = [];
 
@@ -782,39 +784,44 @@ function runValidation(opts: {
         }
 
         // CHECK 3: Orientation / Solar
-        const backyardDir = OPPOSITE_DIR[opts.uphillDir] || opts.uphillDir;
-        const isSouthFacing = ['S', 'SE', 'SW'].includes(backyardDir);
-        const isNorthFacing = ['N', 'NE', 'NW'].includes(backyardDir);
+        const orientation = opts.orientationAi?.final_orientation;
+        const backyardDir = opts.orientationAi?.backyard_orientation;
 
-        const claimsSunny = /\b(sunny|sun-filled|sun[\s-]*drenched|bright backyard|solar|south.?facing)\b/i.test(desc);
-        const claimsSolar = /\b(solar ready|solar panels|solar potential|solar roof)\b/i.test(desc);
+        // Only run if we have high-confidence visual orientation data
+        if (orientation && backyardDir) {
+            const isSouthFacingBackyard = backyardDir.toLowerCase().includes('south');
+            const isNorthFacingBackyard = backyardDir.toLowerCase().includes('north');
 
-        if (claimsSunny && isNorthFacing) {
-            flags.push({
-                check: 'orientation', severity: 'warning',
-                listed: 'Description claims sunny/bright',
-                measured: `Backyard faces ${backyardDir} (shaded)`,
-                delta: 'N/A',
-                finding: `Listing promotes "sunny" but backyard faces ${backyardDir} — a shaded orientation in the Northern Hemisphere. Expect limited direct sunlight, especially in winter.`,
-            });
-        } else if (isSouthFacing) {
-            flags.push({
-                check: 'orientation', severity: 'info',
-                listed: claimsSunny ? 'Description confirms sunny' : 'Not mentioned',
-                measured: `Backyard faces ${backyardDir} (south-facing)`,
-                delta: 'N/A',
-                finding: 'South-facing backyard confirmed. Optimal for natural light and solar potential.',
-            });
-        }
+            const claimsSunny = /\b(sunny|sun-filled|sun[\s-]*drenched|bright backyard|solar|south.?facing)\b/i.test(desc);
+            const claimsSolar = /\b(solar ready|solar panels|solar potential|solar roof)\b/i.test(desc);
 
-        if (claimsSolar && isNorthFacing) {
-            flags.push({
-                check: 'solar_roi', severity: 'alert',
-                listed: 'Description claims solar potential',
-                measured: `Primary rear exposure faces ${backyardDir}`,
-                delta: 'N/A',
-                finding: `Listing promotes solar but rear roof pitch likely faces ${backyardDir}. Solar panel efficiency could be 30–50% below optimal south-facing installations.`,
-            });
+            if (claimsSunny && isNorthFacingBackyard) {
+                flags.push({
+                    check: 'orientation', severity: 'warning',
+                    listed: 'Description claims sunny/bright',
+                    measured: `Backyard faces ${backyardDir} (shaded)`,
+                    delta: 'N/A',
+                    finding: `Listing promotes "sunny" but backyard faces ${backyardDir} — a shaded orientation in the Northern Hemisphere. Expect limited direct sunlight, especially in winter.`,
+                });
+            } else if (isSouthFacingBackyard) {
+                flags.push({
+                    check: 'orientation', severity: 'info',
+                    listed: claimsSunny ? 'Description confirms sunny' : 'Not mentioned',
+                    measured: `Backyard faces ${backyardDir} (south-facing)`,
+                    delta: 'N/A',
+                    finding: 'South-facing backyard confirmed. Optimal for natural light and solar potential.',
+                });
+            }
+
+            if (claimsSolar && isNorthFacingBackyard) {
+                flags.push({
+                    check: 'solar_roi', severity: 'alert',
+                    listed: 'Description claims solar potential',
+                    measured: `Primary rear exposure faces ${backyardDir}`,
+                    delta: 'N/A',
+                    finding: `Listing promotes solar but rear roof pitch faces ${backyardDir}. Solar panel efficiency could be 30–50% below optimal south-facing installations.`,
+                });
+            }
         }
 
     } // end slope-data guard

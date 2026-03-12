@@ -16,9 +16,15 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
   Additional context:
   1. property information ${PROPERTY_DETAILS}, 
   2. image analysis - ${VISUAL_ANALYSIS}, and 
-  3. online research. 
+  3. online research.
+     
+  IMPORTANT: Look for a field named 'orientation_ai' in the property data. If present, it contains ground-truth visual analysis of the home's orientation:
+  - 'final_orientation': The direction the FRONT of the house faces.
+  - 'backyard_orientation': The direction the BACKYARD faces.
+  Use these fields EXCLUSIVELY for your conclusions about sun exposure, solar potential, and yard light. Do NOT guess or hallucinate orientations that contradict these fields.
 
-  ### STRATEGIC FORENSICS (NEW DIRECTIVE)
+  TASK:
+### STRATEGIC FORENSICS (NEW DIRECTIVE)
   While maintaining the high detail requested in the sections below, you must also act as a Senior Real Estate Strategist to "mine" the data for deep correlations:
   - Financial Velocity: Cross-reference recent Price History with Market Days-on-Market to signal seller motivation or leverage.
   - Modernization Potential: Compare the Year Built and visual finishes against neighborhood growth trends to identify "Value-Add" or equity-building potential.
