@@ -28,15 +28,10 @@ const ParcelPolygonMap: React.FC<ParcelPolygonMapProps> = ({ polygon, center, ap
                 attributionControl: false,
             });
 
-            // Satellite tiles from Esri
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            // Road map tiles (Alidade Smooth)
+            L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
                 maxZoom: 20,
-            }).addTo(leafletMap.current);
-
-            // Light labels overlay
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 20,
-                opacity: 0.6,
+                attribution: '&copy; Stadia Maps, &copy; OpenStreetMap'
             }).addTo(leafletMap.current);
         }
 

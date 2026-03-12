@@ -77,43 +77,31 @@ const StaticParcelMap: React.FC<StaticParcelMapProps> = ({ data, parcelPolygon, 
                 >
                     <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
                     <div
-                        className="relative max-w-5xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
+                        className="relative max-w-5xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
                         style={{ maxHeight: '90vh' }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
                             onClick={() => setIsExpanded(false)}
-                            className="absolute top-4 right-4 z-20 w-10 h-10 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
+                            className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
                         >
                             <i className="fa-solid fa-xmark text-lg"></i>
                         </button>
 
-                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center relative">
+                        {/* Top white border */}
+                        <div className="h-16 bg-white w-full flex-shrink-0" />
+
+                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center relative p-4">
                             <img
                                 src={data.mapZoomIn}
                                 alt="Expanded Property Map"
-                                className="max-w-full max-h-[75vh] w-auto h-auto object-contain"
+                                className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl"
                             />
                             {renderParcelOverlay(2048, 2048)}
                         </div>
 
-                        <div className="bg-white px-6 py-4 border-t border-slate-100 flex justify-between items-center flex-shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-                                    <i className="fa-solid fa-map-location-dot text-indigo-600 text-sm"></i>
-                                </div>
-                                <div>
-                                    <div className="text-slate-900 font-black text-sm tracking-tight">Property · Parcel Map</div>
-                                    <div className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{data.address}</div>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setIsExpanded(false)}
-                                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg active:scale-95"
-                            >
-                                Close
-                            </button>
-                        </div>
+                        {/* Bottom white border */}
+                        <div className="h-16 bg-white w-full flex-shrink-0" />
                     </div>
                 </div>
             )}

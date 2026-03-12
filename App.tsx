@@ -72,7 +72,7 @@ import { useInactivitySignout } from './hooks/useInactivitySignout';
 import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation' | 'context_graph';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation' | 'context_graph';
 
 // Initialize PostHog immediately (synchronous) so it's ready before any events fire
 initPostHog();
@@ -170,8 +170,8 @@ const App: React.FC = () => {
           return;
         }
 
-        if (path === '/guides' || path === '/knowledge' || path === '/') {
-          setViewMode((path === '/guides' || path === '/knowledge') ? 'knowledge_center' : 'main');
+        if (path === '/guides' || path.startsWith('/knowledge') || path === '/') {
+          setViewMode((path === '/guides' || path.startsWith('/knowledge')) ? 'knowledge_center' : 'main');
           return;
         }
       }
@@ -198,6 +198,13 @@ const App: React.FC = () => {
         }
       } else if (path === '/legal-disclaimer' || path === '/terms' || path === '/privacy') {
         setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : path === '/terms' ? 'terms' : 'privacy');
+      } else if (path.startsWith('/knowledge') || path === '/guides') {
+        // /knowledge/context-graph → open the Context Graph technical paper tab
+        if (path === '/knowledge/context-graph') {
+          setViewMode('technical_papers_context_graph');
+        } else {
+          setViewMode('knowledge_center');
+        }
       } else {
         setViewMode('main');
       }
@@ -253,6 +260,8 @@ const App: React.FC = () => {
       path = (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'admin') ? '/realtor' : '/';
     } else if (newMode === 'context_graph') {
       path = `/realtor/context-graph${contextGraphZpid ? `?zpid=${contextGraphZpid}` : ''}`;
+    } else if (newMode === 'technical_papers_context_graph') {
+      path = '/knowledge/context-graph';
     } else {
       path = `/realtor/${newMode}`;
     }

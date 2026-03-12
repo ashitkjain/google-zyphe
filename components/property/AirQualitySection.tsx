@@ -157,7 +157,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                             </div>
                         </div>
                     )}
-                    <div className="text-[9px] text-slate-400 font-medium mt-2 text-right">Source: Loudscore, Google Places, Walkscore</div>
+
                 </div>
 
                 {/* MODULE: CLIMATE RISK + SOLAR (stacked) */}
@@ -569,6 +569,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
 
 
             </div>
+            <div className="text-[9px] text-slate-400 font-medium mt-1 text-right">Source: Loudscore, Google Places, Walkscore</div>
         </div>
     );
 };

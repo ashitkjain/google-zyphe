@@ -401,7 +401,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                             <button
                                                 onClick={() => {
                                                     setActiveTab?.('technical_papers_context_graph');
-                                                    onNavigate?.('technical_papers_context_graph', '/realtor/technical_papers_context_graph');
+                                                    onNavigate?.('technical_papers_context_graph', '/knowledge/context-graph');
                                                 }}
                                                 className="text-indigo-600 font-black hover:underline underline-offset-4"
                                             >

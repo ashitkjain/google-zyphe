@@ -142,6 +142,8 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
     );
   };
 
+  if (categories.length === 0) return null;
+
   return (
     <div className="bg-white px-5 md:px-6 py-4 border-x border-slate-100">
       <div className="space-y-8">

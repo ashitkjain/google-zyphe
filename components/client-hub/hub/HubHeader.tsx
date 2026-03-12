@@ -141,7 +141,7 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                                                             onClick={() => {
                                                                 setActiveTab('technical_papers_context_graph');
                                                                 setIsInvestorOpen(false);
-                                                                if (onNavigate) onNavigate('technical_papers_context_graph', '');
+                                                                if (onNavigate) onNavigate('technical_papers_context_graph', '/knowledge/context-graph');
                                                             }}
                                                             className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_papers_context_graph' ? 'text-indigo-600' : 'text-slate-500'}`}
                                                         >

@@ -90,6 +90,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [cachedNeighborhoodOverview, setCachedNeighborhoodOverview] = useState<string | null>(null);
     const [cachedVisualPoi, setCachedVisualPoi] = useState<NeighborhoodAnalysis['visual_poi'] | null>(null);
     const [cachedMapLabels, setCachedMapLabels] = useState<string[] | null>(null);
+    const [groundTruthMapTab, setGroundTruthMapTab] = useState<'parcel' | 'satellite'>('parcel');
+    const [isSatelliteExpanded, setIsSatelliteExpanded] = useState(false);
 
     useEffect(() => {
         if (customAnalysis) {
@@ -288,14 +290,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             </div>
                         )}
 
-                        {/* ── Search Bar + Property Header in one row ── */}
+                        {/* ── Property Header (left) + Search Bar (right) in one row ── */}
                         <div className="bg-white px-5 py-3 md:px-6 rounded-t-[1.5rem] border-x border-t border-slate-100 shadow-sm">
                             <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                                {searchBar && (
-                                    <div className="lg:w-[420px] xl:w-[480px] shrink-0">
-                                        {searchBar}
-                                    </div>
-                                )}
                                 <div className="flex-1 min-w-0">
                                     <PropertyHeader
                                         data={propertyData}
@@ -314,6 +311,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         }
                                     />
                                 </div>
+                                {searchBar && (
+                                    <div className="lg:w-[380px] xl:w-[420px] shrink-0">
+                                        {searchBar}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -609,17 +611,104 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             </div>
                                         </div>
                                         {/* Parcel Map + Validation side by side */}
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1">
-                                            <div className="w-full aspect-square">
-                                                <StaticParcelMap data={propertyData} parcelPolygon={
-                                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                                        ? propertyData.parcelPolygon.map((pt: any) =>
-                                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                                        )
-                                                        : undefined
-                                                } />
+                                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 flex-1">
+                                            <div className="lg:col-span-3 aspect-square flex flex-col">
+                                                {/* Tabs — only show if satellite image exists */}
+                                                {propertyData.satelliteImageUrl && (
+                                                    <div className="flex items-center gap-1 mb-2">
+                                                        <button
+                                                            onClick={() => setGroundTruthMapTab('parcel')}
+                                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'parcel'
+                                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                                }`}
+                                                        >
+                                                            <i className="fa-solid fa-map text-[9px]"></i>
+                                                            Parcel
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setGroundTruthMapTab('satellite')}
+                                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'satellite'
+                                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                                }`}
+                                                        >
+                                                            <i className="fa-solid fa-satellite text-[9px]"></i>
+                                                            Satellite
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {/* Map content */}
+                                                <div className="flex-1 min-h-0 relative">
+                                                    {groundTruthMapTab === 'parcel' ? (
+                                                        <StaticParcelMap data={propertyData} parcelPolygon={
+                                                            propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                                ? propertyData.parcelPolygon.map((pt: any) =>
+                                                                    Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                                )
+                                                                : undefined
+                                                        } />
+                                                    ) : (
+                                                        <>
+                                                            <div
+                                                                className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden h-full relative group cursor-pointer"
+                                                                onClick={() => setIsSatelliteExpanded(true)}
+                                                            >
+                                                                <img
+                                                                    src={propertyData.satelliteImageUrl}
+                                                                    alt="Satellite View"
+                                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                                                                />
+                                                                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100 z-10">
+                                                                    Satellite View
+                                                                </div>
+                                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                                                                        <i className="fa-solid fa-expand text-slate-700 text-sm"></i>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Expanded Satellite Overlay */}
+                                                            {isSatelliteExpanded && (
+                                                                <div
+                                                                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
+                                                                    onClick={() => setIsSatelliteExpanded(false)}
+                                                                >
+                                                                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
+                                                                    <div
+                                                                        className="relative max-w-5xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
+                                                                        style={{ maxHeight: '90vh' }}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <button
+                                                                            onClick={() => setIsSatelliteExpanded(false)}
+                                                                            className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
+                                                                        >
+                                                                            <i className="fa-solid fa-xmark text-lg"></i>
+                                                                        </button>
+
+                                                                        {/* Top white border */}
+                                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
+
+                                                                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center relative p-4">
+                                                                            <img
+                                                                                src={propertyData.satelliteImageUrl}
+                                                                                alt="Expanded Satellite View"
+                                                                                className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl"
+                                                                            />
+                                                                        </div>
+
+                                                                        {/* Bottom white border */}
+                                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="w-full h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                                            <div className="lg:col-span-2 h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
                                                 <ParcelValidationCard propertyData={propertyData} />
                                             </div>
                                         </div>
@@ -694,6 +783,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                 {!propertyData && !loading && (
                     <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
+                        {searchBar && (
+                            <div className="w-full max-w-2xl mx-auto">
+                                {searchBar}
+                            </div>
+                        )}
                         <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">

@@ -259,25 +259,7 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                         />
                     ))}
 
-                    {/* HOA Amenities */}
-                    {data.hoa?.amenities && data.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
-                        <div className="bg-white rounded-2xl border border-indigo-100 overflow-hidden shadow-sm">
-                            <div className="px-4 py-3 bg-indigo-50/50 border-b border-indigo-100 flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                    <i className="fa-solid fa-building-columns text-indigo-600 text-[10px]"></i>
-                                </div>
-                                <span className="text-[11px] font-black uppercase tracking-widest text-indigo-600">HOA Amenities</span>
-                                <span className="ml-auto text-[10px] font-bold text-indigo-400">{data.hoa.amenities.filter((a: string) => a !== 'Other').length}</span>
-                            </div>
-                            <div className="p-3 flex flex-wrap gap-1.5">
-                                {data.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
-                                    <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                        {amenity}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+
                 </div>
             )}
 
@@ -289,40 +271,30 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                 >
                     <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-xl"></div>
                     <div
-                        className="relative max-w-6xl w-full bg-white rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col"
+                        className="relative max-w-6xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col"
                         style={{ maxHeight: '90vh' }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
                             onClick={() => setExpandedMap(null)}
-                            className="absolute top-6 right-6 z-20 w-12 h-12 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
+                            className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
                         >
-                            <i className="fa-solid fa-xmark text-xl"></i>
+                            <i className="fa-solid fa-xmark text-lg"></i>
                         </button>
-                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center p-2">
+
+                        {/* Top white border */}
+                        <div className="h-16 bg-white w-full flex-shrink-0" />
+
+                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center p-4">
                             <img
                                 src={expandedMap}
                                 alt="Expanded Map View"
                                 className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl shadow-lg"
                             />
                         </div>
-                        <div className="bg-white px-10 py-8 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
-                                    <i className="fa-solid fa-map-location-dot text-indigo-600 text-xl"></i>
-                                </div>
-                                <div>
-                                    <div className="text-slate-900 font-black text-xl tracking-tight">Neighborhood Map</div>
-                                    {address && <div className="text-slate-400 text-xs font-bold uppercase tracking-widest">{address}</div>}
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setExpandedMap(null)}
-                                className="px-10 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95"
-                            >
-                                CLOSE
-                            </button>
-                        </div>
+
+                        {/* Bottom white border */}
+                        <div className="h-16 bg-white w-full flex-shrink-0" />
                     </div>
                 </div>
             )}

@@ -53,6 +53,45 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
             <div className="absolute top-2.5 left-2.5 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white/80 border border-white/10">3D Map</div>
           </div>
         )}
+        {/* Neighborhood Maps Grid */}
+        {(mapZoomIn || mapZoomOut) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {mapZoomIn && (
+              <div
+                className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm aspect-video bg-slate-50 group relative cursor-pointer"
+                onClick={() => setExpandedMap(mapZoomIn)}
+              >
+                <img src={mapZoomIn} alt="Zoomed In Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors" />
+                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 border border-slate-100">
+                  Property View
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm border border-slate-200 flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                    <i className="fa-solid fa-magnifying-glass-plus text-slate-600"></i>
+                  </div>
+                </div>
+              </div>
+            )}
+            {mapZoomOut && (
+              <div
+                className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm aspect-video bg-slate-50 group relative cursor-pointer"
+                onClick={() => setExpandedMap(mapZoomOut)}
+              >
+                <img src={mapZoomOut} alt="Zoomed Out Map" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors" />
+                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 border border-slate-100">
+                  Wider Area
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm border border-slate-200 flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                    <i className="fa-solid fa-magnifying-glass-plus text-slate-600"></i>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Expanded Static Map Overlay */}
@@ -64,18 +103,21 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
           <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-xl"></div>
 
           <div
-            className="relative max-w-6xl w-full bg-white rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col"
+            className="relative max-w-6xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col"
             style={{ maxHeight: '90vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={handleClose}
-              className="absolute top-6 right-6 z-20 w-12 h-12 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
+              className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
             >
-              <i className="fa-solid fa-xmark text-xl"></i>
+              <i className="fa-solid fa-xmark text-lg"></i>
             </button>
 
-            <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center p-2">
+            {/* Top white border */}
+            <div className="h-16 bg-white w-full flex-shrink-0" />
+
+            <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center p-4">
               <img
                 src={expandedMap}
                 alt="Expanded Map View"
@@ -83,23 +125,8 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
               />
             </div>
 
-            <div className="bg-white px-10 py-8 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
-                  <i className="fa-solid fa-map-location-dot text-indigo-600 text-xl"></i>
-                </div>
-                <div>
-                  <div className="text-slate-900 font-black text-xl tracking-tight">Intelligence Map Context</div>
-                  <div className="text-slate-400 text-xs font-bold uppercase tracking-widest">{address}</div>
-                </div>
-              </div>
-              <button
-                onClick={handleClose}
-                className="px-10 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95"
-              >
-                CLOSE
-              </button>
-            </div>
+            {/* Bottom white border */}
+            <div className="h-16 bg-white w-full flex-shrink-0" />
           </div>
         </div>
       )}
