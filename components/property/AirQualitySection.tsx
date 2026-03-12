@@ -75,63 +75,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
 
     return (
         <div className="bg-white border-x border-slate-100 px-6 pt-0 pb-6">
-            <div className={`grid grid-cols-1 gap-3 ${data.hoa ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
-
-
-                {/* MODULE: HOA */}
-                {data.hoa && (
-                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                            <div className="p-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                        <i className="fa-solid fa-building-columns text-indigo-600 text-[11px]"></i>
-                                    </div>
-                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">HOA</span>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                        <i className="fa-solid fa-building text-[10px] text-slate-300"></i>
-                                        <div className="min-w-0">
-                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Association</div>
-                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{data.hoa.name ?? 'N/A'}</div>
-                                        </div>
-                                    </div>
-                                    {data.hoa.fee && (
-                                        <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                            <i className="fa-solid fa-dollar-sign text-[10px] text-indigo-400"></i>
-                                            <div className="min-w-0">
-                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Fee</div>
-                                                <div className="text-[13px] font-black text-indigo-600 leading-none">{data.hoa.fee}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {data.hoa.phone && (
-                                        <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                            <i className="fa-solid fa-phone text-[10px] text-slate-300"></i>
-                                            <div className="min-w-0">
-                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Phone</div>
-                                                <div className="text-[13px] font-normal text-slate-800 leading-snug">{data.hoa.phone}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                {data.hoa.amenities && data.hoa.amenities.filter(a => a !== 'Other').length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-slate-100">
-                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Amenities</div>
-                                        <div className="flex flex-wrap gap-1">
-                                            {data.hoa.amenities.filter(a => a !== 'Other').map((amenity, i) => (
-                                                <span key={i} className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                                    {amenity}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
 
 
                 {/* MODULE: NEIGHBORHOOD OVERVIEW */}
@@ -146,6 +90,18 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                                     <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
                                 </div>
                                 <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
+                                {data.hoa?.amenities && data.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-slate-100">
+                                        <div className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-2">HOA Amenities</div>
+                                        <div className="flex flex-wrap gap-1">
+                                            {data.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
+                                                <span key={i} className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                    {amenity}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

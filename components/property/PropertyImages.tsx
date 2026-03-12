@@ -96,10 +96,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                 View All {totalCount}
               </button>
             )}
-            <span className={`text-sm font-bold px-4 py-1.5 rounded-full border shadow-sm ${isOffMarket ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'
-              }`}>
-              {isOffMarket ? 'Data Restricted' : `${totalCount} Photos`}
-            </span>
+
+
           </div>
         </div>
 

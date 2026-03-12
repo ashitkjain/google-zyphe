@@ -97,22 +97,6 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                     <i className="fa-solid fa-eye mr-2 text-indigo-400"></i>
                     Google Street View AI
                 </div>
-                <div className="flex items-center gap-4">
-                    {onRefresh && (
-                        <button
-                            onClick={onRefresh}
-                            disabled={refreshing}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 transition-all group ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <i className={`fa-solid fa-arrows-rotate text-[10px] ${refreshing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}></i>
-                            <span className="text-[9px] font-black uppercase tracking-widest">{refreshing ? 'Analyzing...' : 'Re-analyze'}</span>
-                        </button>
-                    )}
-                    <div className="flex items-center gap-2">
-                        <span className="text-black font-bold text-[10px]">VISUAL INTELLIGENCE SCAN</span>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></span>
-                    </div>
-                </div>
             </div>
 
             {/* Stacked Layout — image on top, analysis below */}

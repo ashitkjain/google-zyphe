@@ -66,60 +66,34 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
   // ── Details-only section ──────────────────────────────────────────
   if (section === 'details') {
     return (
-      <div className="bg-white p-5 md:p-6 md:pb-2 rounded-[1.5rem] border border-slate-100 shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_480px_306px] gap-3">
+      <div className="bg-white p-5 md:p-6 md:pb-2 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-3">
 
-          {/* Ground Truth Engine intro — spans map + Ground Truth columns */}
-          <div className="lg:col-start-4 lg:col-span-2 flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
-            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-              <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
+        {/* MLS Description — full width */}
+        {data.description && data.description !== "No description available." && (
+          <div className="bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+            <div className="text-[13px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <i className="fa-solid fa-align-left text-[11px]"></i>
+              MLS Property Description
             </div>
-            <div className="min-w-0">
-              <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">The Ground Truth Engine</div>
-              <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
-                Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
+            <div className="relative">
+              <p className={`text-[13px] text-slate-700 leading-relaxed font-normal whitespace-pre-wrap ${!isDescExpanded && data.description.length > 300 ? 'line-clamp-3' : ''}`}>
+                {data.description}
               </p>
+              {data.description.length > 300 && (
+                <button
+                  onClick={() => setIsDescExpanded(!isDescExpanded)}
+                  className="mt-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors"
+                >
+                  {isDescExpanded ? 'Show Less' : 'Read Full Description'}
+                </button>
+              )}
             </div>
           </div>
+        )}
 
-          {/* Parcel Map — Column 4 */}
-          <div className="lg:col-start-4 lg:row-start-2 lg:row-end-6 group">
-            <div className="w-full aspect-square">
-              <StaticParcelMap data={data} parcelPolygon={parcelPolygon} />
-            </div>
-          </div>
+        {/* Detail cards — masonry columns layout */}
+        <div className="columns-1 lg:columns-3 gap-3 [&>*]:break-inside-avoid [&>*]:mb-3">
 
-          {/* Ground Truth — Column 5 */}
-          <div className="lg:col-start-5 lg:row-start-2 lg:row-end-6 group">
-            <div className="w-full h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-              <ParcelValidationCard propertyData={data} />
-            </div>
-          </div>
-
-          {/* MLS Description — Row 1, spanning columns 1-3 */}
-          {data.description && data.description !== "No description available." && (
-            <div className="lg:col-start-1 lg:col-span-3 lg:row-start-1 bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-              <div className="text-[13px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                <i className="fa-solid fa-align-left text-[11px]"></i>
-                MLS Property Description
-              </div>
-              <div className="relative">
-                <p className={`text-[13px] text-slate-700 leading-relaxed font-normal whitespace-pre-wrap ${!isDescExpanded && data.description.length > 300 ? 'line-clamp-3' : ''}`}>
-                  {data.description}
-                </p>
-                {data.description.length > 300 && (
-                  <button
-                    onClick={() => setIsDescExpanded(!isDescExpanded)}
-                    className="mt-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors"
-                  >
-                    {isDescExpanded ? 'Show Less' : 'Read Full Description'}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Structural & Exterior */}
           <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
             <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
               <i className="fa-solid fa-house-chimney text-[13px]"></i>
@@ -158,6 +132,21 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               </div>
             )}
           </div>
+
+          {/* HOA */}
+          {data.hoa && (
+            <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+              <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                <i className="fa-solid fa-building-columns text-[13px]"></i>
+                HOA
+              </div>
+              <div className="flex flex-col gap-3">
+                <MetricItem m={{ icon: 'fa-building', label: 'Association', value: data.hoa.name ?? 'N/A' }} />
+                {data.hoa.fee && <MetricItem m={{ icon: 'fa-dollar-sign', label: 'Fee', value: data.hoa.fee }} />}
+                {data.hoa.phone && <MetricItem m={{ icon: 'fa-phone', label: 'Phone', value: data.hoa.phone }} />}
+              </div>
+            </div>
+          )}
 
           {/* Interior */}
           <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
@@ -240,27 +229,28 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             );
           })()}
 
-          {/* Schools */}
-          {data.schools && data.schools.length > 0 && (
-            <div className="lg:col-span-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-              <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                <i className="fa-solid fa-graduation-cap text-[13px]"></i>
-                Schools
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {data.schools.slice(0, 3).map((s: any, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                    <i className="fa-solid fa-school-flag text-[10px] text-slate-300"></i>
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider truncate">{s.name}</div>
-                      <div className="text-[13px] font-normal text-slate-800 leading-snug">{s.rating}/10 · {s.distance} mi</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Schools — full width */}
+        {data.schools && data.schools.length > 0 && (
+          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <i className="fa-solid fa-graduation-cap text-[13px]"></i>
+              Schools
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {data.schools.slice(0, 3).map((s: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                  <i className="fa-solid fa-school-flag text-[10px] text-slate-300"></i>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider truncate">{s.name}</div>
+                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{s.rating}/10 · {s.distance} mi</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

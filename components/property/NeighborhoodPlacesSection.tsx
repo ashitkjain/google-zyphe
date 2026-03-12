@@ -258,6 +258,26 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                             places={collections[cat.key] || []}
                         />
                     ))}
+
+                    {/* HOA Amenities */}
+                    {data.hoa?.amenities && data.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
+                        <div className="bg-white rounded-2xl border border-indigo-100 overflow-hidden shadow-sm">
+                            <div className="px-4 py-3 bg-indigo-50/50 border-b border-indigo-100 flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                    <i className="fa-solid fa-building-columns text-indigo-600 text-[10px]"></i>
+                                </div>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-indigo-600">HOA Amenities</span>
+                                <span className="ml-auto text-[10px] font-bold text-indigo-400">{data.hoa.amenities.filter((a: string) => a !== 'Other').length}</span>
+                            </div>
+                            <div className="p-3 flex flex-wrap gap-1.5">
+                                {data.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
+                                    <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                        {amenity}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

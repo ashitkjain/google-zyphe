@@ -12,6 +12,8 @@ import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
 import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import ComplianceAttribution from './ComplianceAttribution';
 import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
+import StaticParcelMap from './StaticParcelMap';
+import ParcelValidationCard from './ParcelValidationCard';
 
 
 import ChatInterface from '../shared/ChatInterface';
@@ -295,43 +297,72 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             />
 
                             <div className="flex flex-col gap-2.5">
-                                {/* Street View + Property Images — side by side */}
-                                {(propertyData.streetViewAnalysis?.isImageryAvailable !== false || (propertyData.images && propertyData.images.length > 0)) && (
-                                    <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
-                                        {propertyData.images && propertyData.images.length > 0 && (
-                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                                <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
-                                            </div>
-                                        )}
-                                        {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
-                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                                <StreetViewAnalysisSection
-                                                    data={propertyData}
-                                                    onRefresh={onRefreshEnvironment}
-                                                    refreshing={environmentRefreshing}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                {/* Property Images + MLS Details — side by side */}
+                                <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
+                                    {propertyData.images && propertyData.images.length > 0 && (
+                                        <div className="rounded-2xl overflow-hidden">
+                                            <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
+                                        </div>
+                                    )}
+                                    <PropertyHeader
+                                        data={propertyData}
+                                        isFavorited={isFavorited}
+                                        onToggleFavorite={onToggleFavorite}
+                                        onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                        designStyle={designStyle}
+                                        marketDynamics={marketDynamics}
+                                        section="details"
+                                        parcelPolygon={
+                                            propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                ? propertyData.parcelPolygon.map((pt: any) =>
+                                                    Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                )
+                                                : undefined
+                                        }
+                                    />
+                                </div>
 
-                                {/* MLS Description, Exterior, Interior, Ground Truth */}
-                                <PropertyHeader
-                                    data={propertyData}
-                                    isFavorited={isFavorited}
-                                    onToggleFavorite={onToggleFavorite}
-                                    onRunAnalysis={() => onRunCustomAnalysis(false)}
-                                    designStyle={designStyle}
-                                    marketDynamics={marketDynamics}
-                                    section="details"
-                                    parcelPolygon={
-                                        propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                            ? propertyData.parcelPolygon.map((pt: any) =>
-                                                Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                            )
-                                            : undefined
-                                    }
-                                />
+                                {/* Street View + Ground Truth Engine — side by side */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                                    {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
+                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                            <StreetViewAnalysisSection
+                                                data={propertyData}
+                                                onRefresh={onRefreshEnvironment}
+                                                refreshing={environmentRefreshing}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3">
+                                        {/* Ground Truth Engine intro */}
+                                        <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
+                                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                                <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">The Ground Truth Engine</div>
+                                                <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
+                                                    Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {/* Parcel Map + Validation side by side */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1">
+                                            <div className="w-full aspect-square">
+                                                <StaticParcelMap data={propertyData} parcelPolygon={
+                                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                        ? propertyData.parcelPolygon.map((pt: any) =>
+                                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                        )
+                                                        : undefined
+                                                } />
+                                            </div>
+                                            <div className="w-full h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                                                <ParcelValidationCard propertyData={propertyData} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 {/* Horizontal Insight Strip — 4 cards in a row */}
                                 {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai) && (
                                     <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
