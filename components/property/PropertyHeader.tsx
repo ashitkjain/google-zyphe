@@ -257,9 +257,9 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
   // ── Top section (address + tags + buttons) ────────────────────────
   return (
-    <div className="bg-white p-5 md:p-6 md:pb-2 rounded-t-[1.5rem] border-x border-t border-slate-100 shadow-sm space-y-4">
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 border-b border-slate-50 pb-4">
-        <div className="space-y-2">
+    <div>
+      <div className="flex flex-col gap-1">
+        <div className="space-y-1">
           <div className="flex items-center gap-3">
             <a
               href={data.zpid ? `https://www.zillow.com/homedetails/${data.zpid}_zpid/` : '#'}
@@ -267,7 +267,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               rel="noopener noreferrer"
               className="group/address"
             >
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight group-hover/address:text-indigo-600 transition-colors">
+              <h2 className="text-lg font-black text-slate-900 tracking-tight group-hover/address:text-indigo-600 transition-colors leading-none">
                 {data.address || 'Property Details'}
                 <i className="fa-solid fa-arrow-up-right-from-square text-[12px] ml-2 opacity-0 group-hover/address:opacity-100 transition-all"></i>
               </h2>
@@ -347,23 +347,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             )}
           </div>
         </div>
-
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onRunAnalysis}
-            className="hidden sm:block bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-indigo-800 transition-all active:scale-95"
-          >
-            View Visual AI Analysis
-          </button>
-        </div>
       </div>
-
-      <button
-        onClick={onRunAnalysis}
-        className="sm:hidden w-full bg-indigo-700 text-white py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg"
-      >
-        View Visual AI Analysis
-      </button>
     </div>
   );
 };

@@ -68,6 +68,20 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     onRefreshEnvironment,
     environmentRefreshing
 }) => {
+    // Internal tab state — syncs with external viewMode
+    type InternalTab = 'property-data' | 'visual-ai' | 'comprehensive';
+    const mapViewToTab = (vm: string): InternalTab => {
+        if (vm === 'visual-report') return 'visual-ai';
+        if (vm === 'comprehensive-report') return 'comprehensive';
+        return 'property-data';
+    };
+    const [activeTab, setActiveTab] = useState<InternalTab>(mapViewToTab(viewMode));
+
+    // Sync external viewMode changes to internal tab
+    React.useEffect(() => {
+        setActiveTab(mapViewToTab(viewMode));
+    }, [viewMode]);
+
     // Fetch design_style, market dynamics, and LTR from cloud cache if customAnalysis is not loaded
     const [cachedDesignStyle, setCachedDesignStyle] = useState<{ style?: string; reasoning?: string } | null>(null);
     const [cachedMarketDynamics, setCachedMarketDynamics] = useState<{ summary?: string; details?: string[] } | null>(null);
@@ -241,62 +255,104 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
     return (
         <>
-            {viewMode === 'main' && (
-                <div className="animate-in fade-in duration-500 px-5">
-                    {searchBar && (
-                        <div className="max-w-5xl mx-auto pt-4 pb-2 px-3 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
-                            {searchBar}
-                        </div>
-                    )}
-                    {propertyData ? (
-                        <>
-                            {/* Deprecated banner — property is sold / no longer active in the market */}
-                            {propertyData.deprecated && (
-                                <div className="max-w-4xl mx-auto px-4 pt-4 animate-in slide-in-from-top-2 duration-300">
-                                    <div className="flex items-center gap-3 px-5 py-4 bg-amber-50 border-2 border-amber-200 rounded-2xl shadow-sm">
-                                        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                                            <i className="fa-solid fa-circle-exclamation text-amber-600 text-sm"></i>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-[11px] font-black text-amber-700 uppercase tracking-widest">Deprecated Property</div>
-                                            <div className="text-xs font-medium text-amber-600 mt-0.5">
-                                                This property is no longer listed as active in the market. It may have been sold or de-listed.
-                                                {propertyData.deprecatedAt && (
-                                                    <span className="ml-2 opacity-60 font-mono text-[10px]">
-                                                        (flagged {(() => {
-                                                            const d = propertyData.deprecatedAt;
-                                                            const date = d?.toDate ? d.toDate() : new Date(d);
-                                                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                                                        })()})
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-200/60 rounded-xl border border-amber-300/40 shrink-0">
-                                            <i className="fa-solid fa-ban text-amber-600 text-[10px]"></i>
-                                            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Off Market</span>
+            <div className="animate-in fade-in duration-500 px-5">
+                {propertyData && (
+                    <>
+                        {/* Deprecated banner */}
+                        {propertyData.deprecated && (
+                            <div className="max-w-4xl mx-auto px-4 pt-4 animate-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-3 px-5 py-4 bg-amber-50 border-2 border-amber-200 rounded-2xl shadow-sm">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                                        <i className="fa-solid fa-circle-exclamation text-amber-600 text-sm"></i>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-[11px] font-black text-amber-700 uppercase tracking-widest">Deprecated Property</div>
+                                        <div className="text-xs font-medium text-amber-600 mt-0.5">
+                                            This property is no longer listed as active in the market. It may have been sold or de-listed.
+                                            {propertyData.deprecatedAt && (
+                                                <span className="ml-2 opacity-60 font-mono text-[10px]">
+                                                    (flagged {(() => {
+                                                        const d = propertyData.deprecatedAt;
+                                                        const date = d?.toDate ? d.toDate() : new Date(d);
+                                                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                                    })()})
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-200/60 rounded-xl border border-amber-300/40 shrink-0">
+                                        <i className="fa-solid fa-ban text-amber-600 text-[10px]"></i>
+                                        <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Off Market</span>
+                                    </div>
                                 </div>
-                            )}
-                            <PropertyHeader
-                                data={propertyData}
-                                isFavorited={isFavorited}
-                                onToggleFavorite={onToggleFavorite}
-                                onRunAnalysis={() => onRunCustomAnalysis(false)}
-                                designStyle={designStyle}
-                                marketDynamics={marketDynamics}
-                                section="top"
-                                parcelPolygon={
-                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                        ? propertyData.parcelPolygon.map((pt: any) =>
-                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                        )
-                                        : undefined
-                                }
-                            />
+                            </div>
+                        )}
 
+                        {/* ── Search Bar + Property Header in one row ── */}
+                        <div className="bg-white px-5 py-3 md:px-6 rounded-t-[1.5rem] border-x border-t border-slate-100 shadow-sm">
+                            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                                {searchBar && (
+                                    <div className="lg:w-[420px] xl:w-[480px] shrink-0">
+                                        {searchBar}
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <PropertyHeader
+                                        data={propertyData}
+                                        isFavorited={isFavorited}
+                                        onToggleFavorite={onToggleFavorite}
+                                        onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                        designStyle={designStyle}
+                                        marketDynamics={marketDynamics}
+                                        section="top"
+                                        parcelPolygon={
+                                            propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                ? propertyData.parcelPolygon.map((pt: any) =>
+                                                    Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                )
+                                                : undefined
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Tab Navigation Bar ── */}
+                        <div className="bg-white border-x border-b border-slate-100 px-6 py-3 flex items-center gap-3 overflow-x-auto">
+                            {([
+                                { key: 'property-data' as InternalTab, label: 'Property Data', icon: 'fa-database' },
+                                { key: 'visual-ai' as InternalTab, label: 'Visual AI Analysis', icon: 'fa-eye' },
+                                { key: 'comprehensive' as InternalTab, label: 'Comprehensive Report', icon: 'fa-file-lines' },
+                            ]).map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => {
+                                        setActiveTab(tab.key);
+                                        if (tab.key === 'visual-ai') onRunCustomAnalysis(false);
+                                        if (tab.key === 'comprehensive') onRunComprehensive(false);
+                                    }}
+                                    className={`flex items-center gap-2.5 px-7 py-3.5 rounded-2xl text-sm font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === tab.key
+                                        ? 'bg-gradient-to-r from-indigo-700 to-slate-900 text-white shadow-xl shadow-indigo-300/40'
+                                        : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                                        }`}
+                                >
+                                    <i className={`fa-solid ${tab.icon} text-sm`}></i>
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* ── Tab Content ── */}
+                        {activeTab === 'property-data' && (
                             <div className="flex flex-col gap-2.5">
+                                {/* MLS Data heading */}
+                                <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-database text-indigo-600 text-[11px]"></i>
+                                    </div>
+                                    <span className="text-lg font-black text-slate-900 tracking-tight">MLS Data</span>
+                                </div>
+
                                 {/* Property Images + MLS Details — side by side */}
                                 <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
                                     {propertyData.images && propertyData.images.length > 0 && (
@@ -322,51 +378,24 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     />
                                 </div>
 
-                                {/* Street View + Ground Truth Engine — side by side */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-                                    {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
-                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                            <StreetViewAnalysisSection
-                                                data={propertyData}
-                                                onRefresh={onRefreshEnvironment}
-                                                refreshing={environmentRefreshing}
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3">
-                                        {/* Ground Truth Engine intro */}
-                                        <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
-                                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                                                <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">The Ground Truth Engine</div>
-                                                <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
-                                                    Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {/* Parcel Map + Validation side by side */}
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1">
-                                            <div className="w-full aspect-square">
-                                                <StaticParcelMap data={propertyData} parcelPolygon={
-                                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                                        ? propertyData.parcelPolygon.map((pt: any) =>
-                                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                                        )
-                                                        : undefined
-                                                } />
-                                            </div>
-                                            <div className="w-full h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-                                                <ParcelValidationCard propertyData={propertyData} />
-                                            </div>
-                                        </div>
+                                {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex) && (
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                        <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} />
                                     </div>
+                                )}
+
+                                {/* AI Insights heading */}
+                                <div className="flex items-center gap-2 mt-6 mb-2">
+                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-brain text-indigo-600 text-[11px]"></i>
+                                    </div>
+                                    <span className="text-lg font-black text-slate-900 tracking-tight">AI Insights</span>
                                 </div>
-                                {/* Horizontal Insight Strip — 4 cards in a row */}
-                                {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai) && (
+
+                                {/* Horizontal Insight Strip — 5 cards in a row */}
+                                {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview) && (
                                     <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
 
                                             {/* Front Orientation */}
                                             {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
@@ -423,6 +452,35 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     </div>
                                                 );
                                             })()}
+
+                                            {/* Neighborhood Overview */}
+                                            {neighborhoodOverview && (
+                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                                                                    <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
+                                                                </div>
+                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
+                                                            </div>
+                                                            <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
+                                                            {propertyData.hoa?.amenities && propertyData.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
+                                                                <div className="mt-3 pt-3 border-t border-slate-100">
+                                                                    <div className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-2">HOA Amenities</div>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {propertyData.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
+                                                                            <span key={i} className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                                                {amenity}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {designStyle?.style && (
                                                 <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                                                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
@@ -526,11 +584,47 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     </div>
                                 )}
 
-                                {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex) && (
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} />
+                                {/* Street View + Ground Truth Engine — side by side */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                                    {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
+                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                            <StreetViewAnalysisSection
+                                                data={propertyData}
+                                                onRefresh={onRefreshEnvironment}
+                                                refreshing={environmentRefreshing}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3">
+                                        {/* Ground Truth Engine intro */}
+                                        <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
+                                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                                <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">The Ground Truth Engine</div>
+                                                <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
+                                                    Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {/* Parcel Map + Validation side by side */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1">
+                                            <div className="w-full aspect-square">
+                                                <StaticParcelMap data={propertyData} parcelPolygon={
+                                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                        ? propertyData.parcelPolygon.map((pt: any) =>
+                                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                        )
+                                                        : undefined
+                                                } />
+                                            </div>
+                                            <div className="w-full h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                                                <ParcelValidationCard propertyData={propertyData} />
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
+                                </div>
                                 {(propertyData.neighborhoodPlaces) && (
                                     <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                         <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
@@ -564,60 +658,62 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 )}
                                 <ComplianceAttribution data={propertyData} />
                             </div>
-                        </>
-                    ) : (
-                        <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
-                            <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
+                        )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-                                {[
-                                    { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
-                                    { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
-                                    { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
-                                ].map((item, i) => (
-                                    <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
-                                        <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                                            <i className={`fa-solid ${item.icon} text-2xl`}></i>
-                                        </div>
-                                        <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
-                                        <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
+                        {activeTab === 'visual-ai' && (
+                            <CustomAIAnalysis
+                                analysis={customAnalysis}
+                                loading={customAnalysisLoading}
+                                onBack={() => setActiveTab('property-data')}
+                                onRefresh={() => onRunCustomAnalysis(true)}
+                                onRunComprehensive={() => { setActiveTab('comprehensive'); onRunComprehensive(false); }}
+                                comprehensiveResult={comprehensiveAnalysis}
+                                hasImages={(propertyData?.images?.length || 0) > 0}
+                                userRole={userRole}
+                                propertyImages={propertyData?.images}
+                                zpid={propertyData?.zpid}
+                                propertyData={propertyData}
+                                onUpdateAnalysis={onUpdateAnalysis}
+                                addLog={addLog}
+                                isFavorited={isFavorited}
+                                onToggleFavorite={onToggleFavorite}
+                            />
+                        )}
+
+                        {activeTab === 'comprehensive' && (
+                            <ComprehensiveAnalysis
+                                analysis={comprehensiveAnalysis}
+                                loading={comprehensiveLoading}
+                                onBack={() => setActiveTab('visual-ai')}
+                                isFavorited={isFavorited}
+                                onToggleFavorite={onToggleFavorite}
+                            />
+                        )}
+                    </>
+                )}
+
+                {!propertyData && !loading && (
+                    <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
+                        <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                            {[
+                                { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
+                                { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
+                                { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
+                            ].map((item, i) => (
+                                <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
+                                    <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                                        <i className={`fa-solid ${item.icon} text-2xl`}></i>
                                     </div>
-                                ))}
-                            </div>
+                                    <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
+                                    <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
+                                </div>
+                            ))}
                         </div>
-                    )}
-                </div>
-            )}
-
-            {viewMode === 'visual-report' && (
-                <CustomAIAnalysis
-                    analysis={customAnalysis}
-                    loading={customAnalysisLoading}
-                    onBack={() => setViewMode('main')}
-                    onRefresh={() => onRunCustomAnalysis(true)}
-                    onRunComprehensive={() => onRunComprehensive(false)}
-                    comprehensiveResult={comprehensiveAnalysis}
-                    hasImages={(propertyData?.images?.length || 0) > 0}
-                    userRole={userRole}
-                    propertyImages={propertyData?.images}
-                    zpid={propertyData?.zpid}
-                    propertyData={propertyData}
-                    onUpdateAnalysis={onUpdateAnalysis}
-                    addLog={addLog}
-                    isFavorited={isFavorited}
-                    onToggleFavorite={onToggleFavorite}
-                />
-            )}
-
-            {viewMode === 'comprehensive-report' && (
-                <ComprehensiveAnalysis
-                    analysis={comprehensiveAnalysis}
-                    loading={comprehensiveLoading}
-                    onBack={() => setViewMode('visual-report')}
-                    isFavorited={isFavorited}
-                    onToggleFavorite={onToggleFavorite}
-                />
-            )}
+                    </div>
+                )}
+            </div>
 
             {propertyData && (
                 <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />
