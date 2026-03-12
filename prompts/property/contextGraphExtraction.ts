@@ -53,10 +53,44 @@ export const buildGraphExtractionContext = (
         risksAndConsiderations: comprehensive.risks_considerations,
     } : null;
 
+    // Parcel Validation — measured slope, ArcGIS lot, validation flags
+    const parcelValidation = (property as any).parcelValidation ? {
+        slopePercent: (property as any).parcelValidation.slopePercent,
+        slopeCategory: (property as any).parcelValidation.slopeCategory,
+        uphillDir: (property as any).parcelValidation.uphillDir,
+        flags: ((property as any).parcelValidation.flags ?? []).map((f: any) => ({
+            check: f.check, severity: f.severity, finding: f.finding,
+        })),
+    } : null;
+
+    // Measured parcel data from ArcGIS (root-level fields)
+    const parcelData = (property as any).parcelAreaSqft ? {
+        arcgisAreaSqft: (property as any).parcelAreaSqft,
+        parcelApn: (property as any).parcelApn,
+        parcelCounty: (property as any).parcelCounty,
+    } : null;
+
+    // Orientation from satellite AI analysis
+    const orientationAI = (property as any).orientation_ai ? {
+        final_orientation: (property as any).orientation_ai.final_orientation,
+        azimuth_degrees: (property as any).orientation_ai.azimuth_degrees,
+        confidence: (property as any).orientation_ai.confidence,
+        feng_shui_vastu: (property as any).orientation_ai.feng_shui_vastu,
+        buyer_pro: (property as any).orientation_ai.buyer_pro,
+        buyer_con: (property as any).orientation_ai.buyer_con,
+    } : null;
+
+    // Tax sqft (from ArcGIS or Gemini lookup)
+    const taxSqft = (property as any).taxSqft ?? null;
+
     return {
         property: optimizedProperty,
         visualAnalysis: optimizedVisual,
         narrativeReport: narrative,
+        parcelValidation,
+        parcelData,
+        orientationAI,
+        taxSqft,
     };
 };
 

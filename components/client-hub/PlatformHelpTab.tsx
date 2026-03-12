@@ -830,6 +830,196 @@ const PlatformHelpTab: React.FC = () => {
                             </div>
                         </div>
                     )
+                },
+                {
+                    id: 'land_utility',
+                    title: 'Land & Slope Analysis',
+                    icon: 'fa-mountain',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-teal-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-teal-100">
+                                    <i className="fa-solid fa-mountain"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Land & Slope Analysis</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Measured Slope · Usable Lot Calculation · Parcel Validation</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-teal-50/50 rounded-[2.5rem] p-10 border border-teal-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-ruler-combined text-teal-500 text-sm"></i>
+                                    What We Calculate
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed">
+                                    For <strong>Single Family</strong> properties, Zyphe calculates the <strong>usable lot area</strong> by subtracting setback requirements, slope penalties, and zoning restrictions from the gross parcel area. This helps investors understand how much of the lot is actually buildable for ADUs, extensions, or landscaping.
+                                </p>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">ArcGIS Parcels</div>
+                                    <div className="text-xl font-black text-slate-800 mb-2">County Data</div>
+                                    <p className="text-slate-500 text-[11px] leading-relaxed">We query county ArcGIS endpoints (Alameda, Santa Clara, Contra Costa) to get official parcel boundaries, APN, and area — then apply cos²(lat) geodetic correction for Web Mercator distortion.</p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">USGS Elevation</div>
+                                    <div className="text-xl font-black text-slate-800 mb-2">Slope %</div>
+                                    <p className="text-slate-500 text-[11px] leading-relaxed">Elevation data from USGS 3DEP (1-meter resolution) is sampled at multiple points to calculate slope grade. Slopes above 6% receive usable-area penalties.</p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">Setback Rules</div>
+                                    <div className="text-xl font-black text-slate-800 mb-2">State Reqs</div>
+                                    <p className="text-slate-500 text-[11px] leading-relaxed">State-required setbacks (front, side, rear property lines) are automatically subtracted from the gross lot area. Setback distances vary by state regulations.</p>
+                                </div>
+                            </div>
+
+                            {/* Measured Slope Methodology */}
+                            <section className="bg-indigo-50/50 rounded-[2.5rem] p-10 border border-indigo-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                                    <i className="fa-solid fa-chart-line text-indigo-500 text-sm"></i>
+                                    How Slope Is Measured
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                                    Slope is <strong>not AI-estimated</strong> — it is calculated deterministically from real USGS topographic data using the <strong>National Map Elevation Point Query Service</strong> (EPQS), which provides surveyed elevation at ~1m resolution from the 3D Elevation Program.
+                                </p>
+                                <div className="space-y-4">
+                                    <div className="flex gap-4 items-start">
+                                        <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-xs font-black shrink-0">1</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">8-Point Elevation Scout</div>
+                                            <p className="text-slate-500 text-[12px] leading-relaxed">We sample elevation at 8 cardinal/intercardinal points (N, NE, E, SE, S, SW, W, NW) placed <strong>100 feet</strong> from the property pin. Each point uses the USGS EPQS API with cos(lat) longitude correction for geodetic accuracy.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-4 items-start">
+                                        <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-xs font-black shrink-0">2</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Pin Elevation Query</div>
+                                            <p className="text-slate-500 text-[12px] leading-relaxed">The property's exact elevation is queried separately from USGS EPQS.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-4 items-start">
+                                        <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-xs font-black shrink-0">3</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Steepest Direction & Delta</div>
+                                            <p className="text-slate-500 text-[12px] leading-relaxed">The highest elevation among the 8 scouts is identified as the <strong>uphill direction</strong>. The elevation delta is: <code className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[11px] font-bold">Δ = |highest_scout_elevation − pin_elevation|</code></p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-4 items-start">
+                                        <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-xs font-black shrink-0">4</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 text-sm mb-1">Slope Percentage</div>
+                                            <p className="text-slate-500 text-[12px] leading-relaxed">Slope is calculated as: <code className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[11px] font-bold">slope% = (Δ ÷ depth) × 100</code> where depth is the lot depth (from polygon or 150ft fallback). The opposite of the uphill direction indicates the <strong>backyard facing direction</strong>.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Slope Categories */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+                                <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 text-center">
+                                    <div className="text-3xl font-black text-emerald-600 mb-1">&lt; 5%</div>
+                                    <div className="text-[11px] font-black text-emerald-700 uppercase tracking-widest mb-1">Flat</div>
+                                    <div className="text-[10px] text-emerald-600 font-semibold">0% slope deduction</div>
+                                </div>
+                                <div className="bg-amber-50 p-5 rounded-2xl border border-amber-100 text-center">
+                                    <div className="text-3xl font-black text-amber-600 mb-1">6–15%</div>
+                                    <div className="text-[11px] font-black text-amber-700 uppercase tracking-widest mb-1">Moderate</div>
+                                    <div className="text-[10px] text-amber-600 font-semibold">10% slope deduction</div>
+                                </div>
+                                <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100 text-center">
+                                    <div className="text-3xl font-black text-orange-600 mb-1">16–30%</div>
+                                    <div className="text-[11px] font-black text-orange-700 uppercase tracking-widest mb-1">Steep</div>
+                                    <div className="text-[10px] text-orange-600 font-semibold">60% slope deduction</div>
+                                </div>
+                                <div className="bg-rose-50 p-5 rounded-2xl border border-rose-100 text-center">
+                                    <div className="text-3xl font-black text-rose-600 mb-1">&gt; 30%</div>
+                                    <div className="text-[11px] font-black text-rose-700 uppercase tracking-widest mb-1">Heavy</div>
+                                    <div className="text-[10px] text-rose-600 font-semibold">85% slope deduction</div>
+                                </div>
+                            </div>
+
+                            {/* Usable Lot Formula */}
+                            <section className="bg-slate-900 rounded-[2.5rem] p-10 mb-12">
+                                <h2 className="text-xl font-black text-white mb-6 flex items-center gap-3">
+                                    <i className="fa-solid fa-calculator text-teal-400 text-sm"></i>
+                                    Usable Lot Formula
+                                </h2>
+                                <div className="space-y-3 text-sm font-mono">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-slate-400 w-4 text-right">1.</span>
+                                        <span className="text-slate-300">Setback = <span className="text-teal-400">lot ≤ 12k sf → 25%</span> · <span className="text-amber-400">lot &gt; 12k sf → 3000 + (excess × 1%)</span></span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-slate-400 w-4 text-right">2.</span>
+                                        <span className="text-slate-300">After Setback = <span className="text-white font-bold">Gross − Setback Deduction</span></span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-slate-400 w-4 text-right">3.</span>
+                                        <span className="text-slate-300">Slope Deduction = <span className="text-white font-bold">After Setback × Slope%</span></span>
+                                    </div>
+                                    <div className="flex items-center gap-3 pt-2 border-t border-slate-700">
+                                        <span className="text-teal-400 w-4 text-right">=</span>
+                                        <span className="text-teal-300 font-bold text-base">Usable Lot = After Setback − Slope Deduction</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* 4 Parcel Validation Checks */}
+                            <section className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                                    <i className="fa-solid fa-shield-halved text-slate-500 text-sm"></i>
+                                    4 Parcel Validation Checks
+                                </h2>
+                                <p className="text-slate-500 font-medium leading-relaxed mb-6">
+                                    These checks run automatically when viewing a property and cross-reference listing claims against measured data:
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xl">📏</span>
+                                            <div className="font-black text-slate-800 text-sm">Check 1: Lot Size</div>
+                                        </div>
+                                        <p className="text-slate-500 text-[11px] leading-relaxed">Compares listed lot sqft vs ArcGIS parcel area. Flags discrepancies &gt;5% as warning, &gt;15% as alert (possible easement, right-of-way, or measurement error).</p>
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xl">⛰️</span>
+                                            <div className="font-black text-slate-800 text-sm">Check 2: Slope vs Description</div>
+                                        </div>
+                                        <p className="text-slate-500 text-[11px] leading-relaxed">If description claims "flat" but measured slope is &gt;8%, flags a warning. If &gt;15%, flags an alert. Also flags steep slopes (&gt;25%) not disclosed in listing text.</p>
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xl">☀️</span>
+                                            <div className="font-black text-slate-800 text-sm">Check 3: Orientation / Solar</div>
+                                        </div>
+                                        <p className="text-slate-500 text-[11px] leading-relaxed">If listing claims "sunny" but backyard faces north, flags a warning. Confirms south-facing backyards as optimal. Alerts on solar claims with north-facing rear exposures (30–50% efficiency loss).</p>
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xl">📐</span>
+                                            <div className="font-black text-slate-800 text-sm">Check 4: Living Sqft vs Tax Records</div>
+                                        </div>
+                                        <p className="text-slate-500 text-[11px] leading-relaxed">Compares listing sqft against county tax records. Discrepancy &gt;10% is a warning, &gt;20% alert (possible unpermitted addition or garage conversion).</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
+                                    <i className="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-amber-900 font-black text-lg mb-2">Townhome & Condo Note</h4>
+                                    <p className="text-amber-800 text-sm font-medium leading-relaxed">
+                                        Usable lot calculations are <strong>only shown for Single Family homes</strong>. For townhomes and condos, lot analysis is hidden since individual lot boundaries are typically shared or irrelevant for investment analysis.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
                 }
             ]
         },
@@ -1417,64 +1607,6 @@ const PlatformHelpTab: React.FC = () => {
                                         <h3 className="text-lg font-black text-slate-900 mb-2">Inventory Velocity</h3>
                                         <p className="text-slate-500 text-sm leading-relaxed">We track the median "Days on Market" at the zip-code level. Cities with velocity increasing by more than 15% WoW are flagged with high-demand signals.</p>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                },
-                {
-                    id: 'land_utility',
-                    title: 'Land & Slope Analysis',
-                    icon: 'fa-mountain',
-                    content: (
-                        <div className="prose prose-slate max-w-none">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="w-16 h-16 rounded-[2rem] bg-teal-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-teal-100">
-                                    <i className="fa-solid fa-mountain"></i>
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Land & Slope Analysis</h1>
-                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Usable Lot Calculation & Parcel Validation</p>
-                                </div>
-                            </div>
-
-                            <section className="bg-teal-50/50 rounded-[2.5rem] p-10 border border-teal-100 mb-12">
-                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
-                                    <i className="fa-solid fa-ruler-combined text-teal-500 text-sm"></i>
-                                    What We Calculate
-                                </h2>
-                                <p className="text-slate-600 font-medium leading-relaxed">
-                                    For <strong>Single Family</strong> properties, Zyphe calculates the <strong>usable lot area</strong> by subtracting setback requirements, slope penalties, and zoning restrictions from the gross parcel area. This helps investors understand how much of the lot is actually buildable for ADUs, extensions, or landscaping.
-                                </p>
-                            </section>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">ArcGIS Parcels</div>
-                                    <div className="text-xl font-black text-slate-800 mb-2">County Data</div>
-                                    <p className="text-slate-500 text-[11px] leading-relaxed">We query county ArcGIS endpoints (Alameda, Santa Clara, Contra Costa) to get official parcel boundaries, APN, and area — then apply cos²(lat) geodetic correction for Web Mercator distortion.</p>
-                                </div>
-                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">USGS Elevation</div>
-                                    <div className="text-xl font-black text-slate-800 mb-2">Slope %</div>
-                                    <p className="text-slate-500 text-[11px] leading-relaxed">Elevation data from USGS is used to calculate slope grade. Slopes above 10% receive area penalties, reflecting that steep terrain reduces the usable buildable area.</p>
-                                </div>
-                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                    <div className="text-teal-600 font-black text-[10px] uppercase tracking-widest mb-2">Setback Rules</div>
-                                    <div className="text-xl font-black text-slate-800 mb-2">State Reqs</div>
-                                    <p className="text-slate-500 text-[11px] leading-relaxed">State-required setbacks (front, side, rear property lines) are automatically subtracted from the gross lot area. Setback distances vary by state regulations.</p>
-                                </div>
-                            </div>
-
-                            <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
-                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
-                                    <i className="fa-solid fa-lightbulb"></i>
-                                </div>
-                                <div>
-                                    <h4 className="text-amber-900 font-black text-lg mb-2">Townhome & Condo Note</h4>
-                                    <p className="text-amber-800 text-sm font-medium leading-relaxed">
-                                        Usable lot calculations are <strong>only shown for Single Family homes</strong>. For townhomes and condos, lot analysis is hidden since individual lot boundaries are typically shared or irrelevant for investment analysis.
-                                    </p>
                                 </div>
                             </div>
                         </div>

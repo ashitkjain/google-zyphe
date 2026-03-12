@@ -1,7 +1,7 @@
 /**
  * Context Graph Pre-computation
  *
- * Computes the 22 pure-data factors directly from property fields,
+ * Computes the 23 pure-data factors directly from property fields,
  * without any AI call. The AI prompt is then told to skip these IDs
  * and only fill in the remaining factors.
  *
@@ -186,18 +186,49 @@ function factor14_sqft(p: PropertyData): ExtractedFactor {
     const sqft = p.livingAreaValue;
     if (sqft == null) return { id: 14, name: 'Usable Square Footage', value: 'Data not available', confidence: 'low', tags: [] };
     const tier = sqft < 1500 ? 'Compact' : sqft < 2500 ? 'Mid-Size' : sqft < 4000 ? 'Spacious' : 'Estate';
+
+    // Flag discrepancy vs tax records
+    const taxSqft = (p as any).taxSqft;
+    let discrepancy = '';
+    if (taxSqft && taxSqft > 0) {
+        const pctDiff = ((sqft - taxSqft) / taxSqft) * 100;
+        if (Math.abs(pctDiff) > 10) {
+            discrepancy = ` ⚠️ ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(0)}% vs tax record (${taxSqft.toLocaleString()} sf)`;
+        }
+    }
     return {
         id: 14, name: 'Usable Square Footage',
-        value: `${sqft.toLocaleString()} sq ft`,
+        value: `${sqft.toLocaleString()} sq ft${discrepancy}`,
         confidence: 'high',
-        tags: [`${sqft.toLocaleString()} sqft`, tier]
+        tags: [`${sqft.toLocaleString()} sqft`, tier, ...(discrepancy ? ['Sqft Discrepancy'] : [])]
     };
 }
 
 function factor15_lotSize(p: PropertyData): ExtractedFactor {
     const lot = p.lotSize;
     if (!lot) return { id: 15, name: 'Lot Size', value: 'Data not available', confidence: 'low', tags: [] };
-    return { id: 15, name: 'Lot Size', value: lot, confidence: 'high', tags: [lot] };
+
+    // Enrich with ArcGIS measured area if available
+    const arcgisSqft = (p as any).parcelAreaSqft;
+    let measured = '';
+    if (arcgisSqft && arcgisSqft > 0) {
+        const lotNum = parseFloat(String(lot).replace(/[^0-9.]/g, ''));
+        // lotSize is often in text like "5,200 sqft" or "0.12 acres"
+        if (lotNum > 0 && lotNum < 50) {
+            // Likely acres — convert to sqft for comparison
+            const lotSqft = lotNum * 43560;
+            const pctDiff = ((lotSqft - arcgisSqft) / arcgisSqft) * 100;
+            if (Math.abs(pctDiff) > 5) {
+                measured = ` (ArcGIS: ${arcgisSqft.toLocaleString()} sqft, ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(0)}% diff)`;
+            }
+        } else if (lotNum > 0) {
+            const pctDiff = ((lotNum - arcgisSqft) / arcgisSqft) * 100;
+            if (Math.abs(pctDiff) > 5) {
+                measured = ` (ArcGIS: ${arcgisSqft.toLocaleString()} sqft, ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(0)}% diff)`;
+            }
+        }
+    }
+    return { id: 15, name: 'Lot Size', value: `${lot}${measured}`, confidence: 'high', tags: [lot] };
 }
 
 function factor18_garage(p: PropertyData): ExtractedFactor {
@@ -260,14 +291,22 @@ function factor43_walkability(p: PropertyData): ExtractedFactor {
 }
 
 function factor51_vastu(p: PropertyData): ExtractedFactor {
-    const visual = (p as any).visual_analysis;
-    const orientation = visual?.neighborhood?.orientation?.final_orientation;
+    // Read from orientation_ai (satellite analysis) — the authoritative source
+    const orientationAI = (p as any).orientation_ai;
+    const orientation = orientationAI?.final_orientation;
     if (!orientation) return { id: 51, name: 'Vastu / Feng Shui Readiness', value: 'Data not available', confidence: 'low', tags: [] };
-    const favorable = ['North', 'East', 'North-East'].includes(orientation);
+
+    const favorable = ['North', 'East', 'North-East', 'Northeast'].includes(orientation);
+    const confidence = orientationAI.confidence ?? 'medium';
+    const vastuNote = orientationAI.feng_shui_vastu || '';
+
+    let value = `${orientation}-facing${favorable ? ' (favorable)' : ''}`;
+    if (vastuNote) value += ` — ${vastuNote}`;
+
     return {
         id: 51, name: 'Vastu / Feng Shui Readiness',
-        value: `${orientation}-facing${favorable ? ' (favorable)' : ''}`,
-        confidence: 'high',
+        value,
+        confidence,
         tags: [`${orientation}-Facing`, favorable ? 'Vastu Favorable' : 'Vastu Neutral']
     };
 }
@@ -280,6 +319,37 @@ function factor52_airQuality(p: PropertyData): ExtractedFactor {
         value: `AQI ${aq.aqi} — ${aq.category}`,
         confidence: 'high',
         tags: [aq.category, `AQI ${aq.aqi}`]
+    };
+}
+
+function factor54_topography(p: PropertyData): ExtractedFactor {
+    const pv = (p as any).parcelValidation;
+    const slopePercent = pv?.slopePercent;
+    const slopeCategory = pv?.slopeCategory;
+    const uphillDir = pv?.uphillDir;
+
+    if (slopePercent == null || !slopeCategory) {
+        return { id: 54, name: 'Topography & Elevation', value: 'Data not available', confidence: 'low', tags: [] };
+    }
+
+    const OPPOSITE: Record<string, string> = { N: 'S', NE: 'SW', E: 'W', SE: 'NW', S: 'N', SW: 'NE', W: 'E', NW: 'SE' };
+    const backyardDir = uphillDir ? (OPPOSITE[uphillDir] || uphillDir) : null;
+    const isSouthFacing = backyardDir ? ['S', 'SE', 'SW'].includes(backyardDir) : false;
+
+    let value = `${slopePercent}% slope (${slopeCategory})`;
+    if (uphillDir) value += `, uphill ${uphillDir}`;
+    if (backyardDir) value += `, backyard faces ${backyardDir}`;
+
+    const tags: string[] = [slopeCategory, `${slopePercent}% Slope`];
+    if (slopePercent > 15) tags.push('Steep — Foundation Cost Impact');
+    if (isSouthFacing) tags.push('South-Facing Backyard');
+    if (slopePercent < 5) tags.push('Flat Lot');
+
+    return {
+        id: 54, name: 'Topography & Elevation',
+        value,
+        confidence: 'high',
+        tags
     };
 }
 
@@ -350,7 +420,7 @@ function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedF
 // ── Main Export ────────────────────────────────────────────────────
 
 /**
- * Pre-computes all 22 pure-data factors from property fields.
+ * Pre-computes all 23 pure-data factors from property fields.
  * Returns a map of factorId → ExtractedFactor for fast merging.
  */
 export function precomputeDataFactors(
@@ -378,6 +448,7 @@ export function precomputeDataFactors(
         factor43_walkability(property),
         factor51_vastu(property),
         factor52_airQuality(property),
+        factor54_topography(property),
         factor55_solar(property),
         factor59_laundry(property),
         factor75_marketVelocity(visual),
@@ -389,4 +460,4 @@ export function precomputeDataFactors(
 }
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 51, 52, 55, 59, 75];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 51, 52, 54, 55, 59, 75];

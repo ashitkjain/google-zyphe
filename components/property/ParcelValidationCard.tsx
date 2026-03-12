@@ -80,7 +80,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                         setFlags(propData.parcelValidation.flags);
                         setArcgisArea(propData.parcelAreaSqft || null);
                         setApn(propData.parcelApn || null);
-                        setTaxSqft(propData.parcelValidation.taxSqft || null);
+                        setTaxSqft(propData.taxSqft || null);
                         setCountyName(propData.parcelCounty || null);
                         if (propData.parcelPolygon?.length) setPolygonVertices(propData.parcelPolygon.length);
                         if (propData.parcelValidation.slopePercent != null) {
@@ -350,7 +350,6 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                             slopePercent,
                             slopeCategory,
                             uphillDir,
-                            taxSqft: cachedTaxSqft || null,
                             cachedAt: new Date().toISOString(),
                         },
                     }, { merge: true });
