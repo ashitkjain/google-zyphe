@@ -227,7 +227,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     return (
         <>
             {viewMode === 'main' && (
-                <div className="animate-in fade-in duration-500">
+                <div className="animate-in fade-in duration-500 px-5">
                     {searchBar && (
                         <div className="max-w-5xl mx-auto pt-4 pb-2 px-3 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
                             {searchBar}
@@ -280,158 +280,188 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 }
                             />
 
-                            {/* Horizontal Insight Strip — 4 cards in a row */}
-                            {(designStyle || keyInsights || ltrAnalysis || neighborhoodOverview) && (
-                                <div className="max-w-[1400px] mx-auto px-2 -mt-1">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div className="flex flex-col gap-2.5">
+                                {/* Horizontal Insight Strip — 4 cards in a row */}
+                                {(designStyle || keyInsights || ltrAnalysis || neighborhoodOverview) && (
+                                    <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
-                                        {/* Design Philosophy */}
-                                        {designStyle?.style && (
-                                            <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                    <div className="p-4">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                <i className="fa-solid fa-palette text-indigo-600 text-[11px]"></i>
+                                            {/* Design Philosophy */}
+                                            {designStyle?.style && (
+                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                                    <i className="fa-solid fa-palette text-indigo-600 text-[11px]"></i>
+                                                                </div>
+                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Design Philosophy</span>
                                                             </div>
-                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Design Philosophy</span>
+                                                            <span className="inline-block bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>
+                                                            {designStyle.reasoning && (
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed">{designStyle.reasoning}</p>
+                                                            )}
                                                         </div>
-                                                        <span className="inline-block bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>
-                                                        {designStyle.reasoning && (
-                                                            <p className="text-[13px] text-slate-600 leading-relaxed line-clamp-3">{designStyle.reasoning}</p>
-                                                        )}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {/* Market Insights */}
-                                        {keyInsights && (
-                                            <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                    <div className="p-4">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                                                                <i className="fa-solid fa-microscope text-violet-600 text-[11px]"></i>
-                                                            </div>
-                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
-                                                        </div>
-                                                        {keyInsights.executive_summary && keyInsights.executive_summary !== 'N/A' && (
-                                                            <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic line-clamp-2">{keyInsights.executive_summary}</p>
-                                                        )}
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            {[
-                                                                { label: 'Median', value: keyInsights.median_price_range },
-                                                                { label: 'PPSF', value: keyInsights.ppsf_benchmark },
-                                                                { label: 'Supply', value: keyInsights.months_of_supply },
-                                                                { label: 'DOM', value: keyInsights.dom_range },
-                                                            ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
-                                                                <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
-                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
-                                                                    </div>
+                                            {/* Market Insights */}
+                                            {keyInsights && (
+                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+                                                                    <i className="fa-solid fa-microscope text-violet-600 text-[11px]"></i>
                                                                 </div>
-                                                            ))}
-                                                        </div>
-                                                        {keyInsights.risk_tags && keyInsights.risk_tags.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1.5 mt-3">
-                                                                {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
-                                                                    <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
-                                                                        <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
-                                                                        {tag}
-                                                                    </span>
+                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
+                                                            </div>
+                                                            {keyInsights.executive_summary && keyInsights.executive_summary !== 'N/A' && (
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
+                                                            )}
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                {[
+                                                                    { label: 'Median', value: keyInsights.median_price_range },
+                                                                    { label: 'PPSF', value: keyInsights.ppsf_benchmark },
+                                                                    { label: 'Supply', value: keyInsights.months_of_supply },
+                                                                    { label: 'DOM', value: keyInsights.dom_range },
+                                                                ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
+                                                                    <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
+                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
+                                                                        </div>
+                                                                    </div>
                                                                 ))}
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Long Term Rental */}
-                                        {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
-                                            <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                    <div className="p-4">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                                <i className="fa-solid fa-house-circle-check text-emerald-600 text-[11px]"></i>
-                                                            </div>
-                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            {ltrAnalysis.monthly_rent && (
-                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                    <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
-                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                            {ltrAnalysis.vacancy_rate && (
-                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                    <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
-                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
-                                                                    </div>
+                                                            {keyInsights.risk_tags && keyInsights.risk_tags.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                                                    {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
+                                                                        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
+                                                                            <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
+                                                                            {tag}
+                                                                        </span>
+                                                                    ))}
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {/* Neighborhood Overview */}
-                                        {neighborhoodOverview && (
-                                            <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                    <div className="p-4">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
+                                            {/* Long Term Rental */}
+                                            {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
+                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                                    <i className="fa-solid fa-house-circle-check text-emerald-600 text-[11px]"></i>
+                                                                </div>
+                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
                                                             </div>
-                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
+                                                            <div className="space-y-2">
+                                                                {ltrAnalysis.monthly_rent && (
+                                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                        <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
+                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {ltrAnalysis.vacancy_rate && (
+                                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                        <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
+                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <p className="text-[13px] text-slate-600 leading-relaxed line-clamp-5">{neighborhoodOverview}</p>
                                                     </div>
                                                 </div>
+                                            )}
+
+                                            {/* Neighborhood Overview */}
+                                            {neighborhoodOverview && (
+                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                                                                    <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
+                                                                </div>
+                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
+                                                            </div>
+                                                            <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex) && (
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                        <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} />
+                                    </div>
+                                )}
+                                {(propertyData.neighborhoodPlaces) && (
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                        <NeighborhoodPlacesSection data={propertyData} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
+                                    </div>
+                                )}
+                                {/* Street View + Property Images — side by side */}
+                                {(propertyData.streetViewAnalysis?.isImageryAvailable !== false || (propertyData.images && propertyData.images.length > 0)) && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                                        {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
+                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                <StreetViewAnalysisSection
+                                                    data={propertyData}
+                                                    onRefresh={onRefreshEnvironment}
+                                                    refreshing={environmentRefreshing}
+                                                />
+                                            </div>
+                                        )}
+                                        {propertyData.images && propertyData.images.length > 0 && (
+                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                            )}
-
-                            <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} />
-                            <NeighborhoodPlacesSection data={propertyData} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
-                            <StreetViewAnalysisSection
-                                data={propertyData}
-                                onRefresh={onRefreshEnvironment}
-                                refreshing={environmentRefreshing}
-                            />
-                            <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
-                            <PropertyFacts facts={propertyData.resoFacts} />
-
-                            <PropertyMaps
-                                mapZoomIn={propertyData.mapZoomIn}
-                                mapZoomOut={propertyData.mapZoomOut}
-                                coordinates={propertyData.coordinates}
-                                address={propertyData.address}
-                                solarData={propertyData.solarData}
-                                parcelPolygon={
-                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                        ? propertyData.parcelPolygon.map((pt: any) =>
-                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                        )
-                                        : undefined
-                                }
-                                parcelApn={propertyData.parcelApn}
-                                parcelAreaSqft={propertyData.parcelAreaSqft}
-                            />
-                            <ComplianceAttribution data={propertyData} />
+                                )}
+                                {propertyData.resoFacts && (
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                        <PropertyFacts facts={propertyData.resoFacts} />
+                                    </div>
+                                )}
+                                {(propertyData.mapZoomIn || propertyData.mapZoomOut || propertyData.coordinates) && (
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                        <PropertyMaps
+                                            mapZoomIn={propertyData.mapZoomIn}
+                                            mapZoomOut={propertyData.mapZoomOut}
+                                            coordinates={propertyData.coordinates}
+                                            address={propertyData.address}
+                                            solarData={propertyData.solarData}
+                                            parcelPolygon={
+                                                propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                    ? propertyData.parcelPolygon.map((pt: any) =>
+                                                        Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                    )
+                                                    : undefined
+                                            }
+                                            parcelApn={propertyData.parcelApn}
+                                            parcelAreaSqft={propertyData.parcelAreaSqft}
+                                        />
+                                    </div>
+                                )}
+                                <ComplianceAttribution data={propertyData} />
+                            </div>
                         </>
                     ) : (
                         <div className="max-w-4xl mx-auto py-6 text-center space-y-12">

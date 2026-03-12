@@ -154,11 +154,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 <i className="fa-solid fa-clock text-[7px] text-slate-400" />DOM: {computedDaysOnMarket}
               </span>
             )}
-            {data.rentZestimate && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-600">
-                <i className="fa-solid fa-hand-holding-dollar text-[7px] text-slate-400" />Rent: {formatCurrency(data.rentZestimate)}/mo
-              </span>
-            )}
+
+
           </div>
         </div>
 

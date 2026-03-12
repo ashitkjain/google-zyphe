@@ -164,10 +164,23 @@ export const getUserViewHistory = async (uid: string, maxItems = 6) => {
     if (!db) return [];
     try {
         const historyCol = collection(db, "users", uid, "viewHistory");
-        const q = query(historyCol, orderBy("timestamp", "desc"), limit(maxItems));
+        // Fetch a few extra to account for deprecated items we'll filter out
+        const q = query(historyCol, orderBy("timestamp", "desc"), limit(maxItems + 10));
         logFirestoreQuery('getDocs', 'users/viewHistory', { uid, limit: maxItems });
         const snap = await getDocs(q);
-        return snap.docs.map(doc => doc.data());
+        const items = snap.docs.map(d => d.data());
+
+        // Batch-check properties for deprecated status
+        const checks = await Promise.all(
+            items.map(async (item) => {
+                if (!item.zpid) return false;
+                try {
+                    const propSnap = await getDoc(doc(db!, 'properties', String(item.zpid)));
+                    return propSnap.exists() && propSnap.data()?.deprecated === true;
+                } catch { return false; }
+            })
+        );
+        return items.filter((_, i) => !checks[i]).slice(0, maxItems);
     } catch (error) {
         handleFirestoreError(error, "getUserViewHistory");
         return [];
@@ -211,7 +224,19 @@ export const getUserFavorites = async (uid: string, maxItems = 100) => {
         const q = query(favCol, orderBy("timestamp", "desc"), limit(maxItems));
         logFirestoreQuery('getDocs', 'users/favorites', { uid, limit: maxItems });
         const snap = await getDocs(q);
-        return snap.docs.map(doc => doc.data());
+        const items = snap.docs.map(d => d.data());
+
+        // Batch-check properties for deprecated status
+        const checks = await Promise.all(
+            items.map(async (item) => {
+                if (!item.zpid) return false;
+                try {
+                    const propSnap = await getDoc(doc(db!, 'properties', String(item.zpid)));
+                    return propSnap.exists() && propSnap.data()?.deprecated === true;
+                } catch { return false; }
+            })
+        );
+        return items.filter((_, i) => !checks[i]);
     } catch (error) {
         handleFirestoreError(error, "getUserFavorites");
         return [];

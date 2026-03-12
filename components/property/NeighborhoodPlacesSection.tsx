@@ -189,6 +189,14 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
 
     return (
         <div className="px-6 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Section Title */}
+            <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <i className="fa-solid fa-map-location-dot text-indigo-600 text-[11px]"></i>
+                </div>
+                <span className="text-lg font-black text-slate-900 tracking-tight">What's Nearby</span>
+            </div>
+
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
 

@@ -75,6 +75,16 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 const propSnap = await getDoc(doc(db, 'properties', String(zpid)));
                 const propData = propSnap.exists() ? propSnap.data() : null;
 
+                // ── Early exit: no record or property no longer on sale ──
+                if (!propData) {
+                    if (!cancelled) setLoading(false);
+                    return;
+                }
+                if (propData.deprecated) {
+                    if (!cancelled) setLoading(false);
+                    return;
+                }
+
                 if (propData?.parcelValidation?.flags?.length > 0 && propData?.parcelValidation?.cachedAt) {
                     if (!cancelled) {
                         setFlags(propData.parcelValidation.flags);
