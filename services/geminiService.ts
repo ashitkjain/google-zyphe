@@ -28,6 +28,7 @@ import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } f
 import { getDeepInvestmentResearchPrompt, deepInvestmentResearchSchema } from "../prompts/property/deepInvestmentResearch";
 import { getDeepResearchInsightsPrompt, deepResearchInsightsSchema } from "../prompts/property/deepResearchInsights";
 import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
+import { getInteriorSummaryPrompt, interiorSummarySchema } from "../prompts/property/interiorSummary";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
 import { precomputeDataFactors, PRECOMPUTED_FACTOR_IDS } from "../utils/contextGraphPrecompute";
 
@@ -636,6 +637,21 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
     promptFilename: "comprehensiveAnalysis.ts",
     extractResultJson: true,
     schema: comprehensiveAnalysisSchema
+  });
+};
+
+export const analyzeInteriorSummary = async (visual: CustomAIAnalysisResult, userId: string = "unknown", zpid?: string, address?: string): Promise<AIResponseWithUsage<any>> => {
+  const prompt = getInteriorSummaryPrompt(visual.home_interior, visual.room_highlights || []);
+  return executeGeminiRequest<any>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { temperature: 0.1 },
+    userId,
+    zpid,
+    address,
+    promptFilename: "interiorSummary.ts",
+    extractResultJson: true,
+    schema: interiorSummarySchema
   });
 };
 

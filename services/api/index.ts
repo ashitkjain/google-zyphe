@@ -21,7 +21,7 @@ export { fetchNearbyPlaces } from './places';
 export { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } from './environmental';
 
 // Property data (scores, comps, images, specs)
-export { fetchScores, fetchPropertyComps, fetchPropertyImages, fetchPropertySpecs } from './property';
+export { fetchScores, fetchPropertyImages, fetchPropertySpecs } from './property';
 
 // Full property pipeline
 export { fetchPropertyDataFull, fetchPropertyData } from './propertyDataFull';

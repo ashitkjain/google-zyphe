@@ -363,7 +363,14 @@ export interface ComprehensiveAnalysisResult {
     };
     strategic_insights: string;
     risks_considerations: string;
+    interior_summary?: {
+        interior_summary: string;
+        rooms_summary: string;
+        vibe: string;
+        objective_tags: string[];
+    };
 }
+
 
 export interface PollenAnalysisResult {
     primary_triggers: string[];

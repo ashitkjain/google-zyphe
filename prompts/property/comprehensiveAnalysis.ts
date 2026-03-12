@@ -58,7 +58,13 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
       "climate_resilience": "Using the provided climate risk scores, insurance recommendations, existing knowledge and your search results, write a short paragraph indicating whether the home lies within a FEMA flood zone, wildfire-prone area, or has earthquake risk. Discuss how these risks might affect insurance premiums and highlight any resilience features the home may possess. Evaluate the long-term climate stability of the region. Use **bold** for key highlights like risk scores, zone designations, and resilience features."
     },
     "strategic_insights": "A dedicated paragraph of 'Strategic Forensics'. Correlate carry-cost coverage (projected STR/LTR revenue vs. property taxes/insurance), the modernization gap for future ROI. Highlight the 'Investment Thesis' of this home by combining financial, physical, and market data.",
-    "risks_considerations": "Write a paragraph highlighting any concerns regarding: Location (Crime rate, noise, environmental hazards, lack of essential services, zoning or future development changes), Property Condition (Age and state of roof, foundation, plumbing/electrical, HVAC, outdated layout, accessibility issues, storage/parking limits, energy inefficiency), Financial (Overpricing compared to comps, high property taxes, HOA fees/restrictions, rental market volatility, low appreciation potential, high insurance costs), Infrastructure (limited transit, long distance to hubs, noise pollution), Legal/Compliance (Title disputes, unpermitted work, restrictive ordinances), Any other risk factors mentioned in the provided information. Use **bold** for critical risk factors and warning items."
+    "risks_considerations": "Write a paragraph highlighting any concerns regarding: Location (Crime rate, noise, environmental hazards, lack of essential services, zoning or future development changes), Property Condition (Age and state of roof, foundation, plumbing/electrical, HVAC, outdated layout, accessibility issues, storage/parking limits, energy inefficiency), Financial (Overpricing compared to comps, high property taxes, HOA fees/restrictions, rental market volatility, low appreciation potential, high insurance costs), Infrastructure (limited transit, long distance to hubs, noise pollution), Legal/Compliance (Title disputes, unpermitted work, restrictive ordinances), Any other risk factors mentioned in the provided information. Use **bold** for critical risk factors and warning items.",
+    "interior_summary": {
+      "interior_summary": "Neutral, factual summary of the overall home interior (2-3 sentences), focusing on layout and spatial flow. CRITICAL: NO SALESY LANGUAGE.",
+      "rooms_summary": "Neutral, factual summary of the individual rooms and spaces (2-3 sentences). CRITICAL: NO SALESY LANGUAGE.",
+      "vibe": "Objective description of the aesthetic atmosphere and physical character.",
+      "objective_tags": ["purely", "descriptive", "tags", "like", "hardwood-floors"]
+    }
   }
   `;
 };
@@ -89,7 +95,20 @@ export const comprehensiveAnalysisSchema = {
       ]
     },
     strategic_insights: { type: Type.STRING },
-    risks_considerations: { type: Type.STRING }
+    risks_considerations: { type: Type.STRING },
+    interior_summary: {
+      type: Type.OBJECT,
+      properties: {
+        interior_summary: { type: Type.STRING },
+        rooms_summary: { type: Type.STRING },
+        vibe: { type: Type.STRING },
+        objective_tags: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      },
+      required: ["interior_summary", "rooms_summary", "vibe", "objective_tags"]
+    }
   },
-  required: ["summary", "detailed_analysis", "strategic_insights", "risks_considerations"]
+  required: ["summary", "detailed_analysis", "strategic_insights", "risks_considerations", "interior_summary"]
 };

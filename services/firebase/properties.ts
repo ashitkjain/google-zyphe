@@ -257,7 +257,7 @@ export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: C
             ...sanitizeForFirestore(analysis),
             zpid: String(zpid), // Explicitly include zpid as key field
             timestamp: serverTimestamp()
-        });
+        }, { merge: true });
         return true;
     } catch (error) {
         return handleFirestoreError(error, "saveComprehensiveAnalysisToCloud");
@@ -337,6 +337,39 @@ export const getPropertyInvestmentFromCloud = async (zpid: string): Promise<Prop
         return docSnap.exists() ? (docSnap.data() as PropertySpecificInvestmentResult) : null;
     } catch (error) {
         handleFirestoreError(error, "getPropertyInvestmentFromCloud");
+        return null;
+    }
+};
+
+export const saveInteriorSummaryToCloud = async (zpid: string, summary: any) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    try {
+        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
+        logFirestoreQuery('setDoc', 'property_analyses_comprehensive', { zpid });
+        await setDoc(docRef, {
+            interior_summary: sanitizeForFirestore(summary),
+            zpid: String(zpid),
+            timestamp: serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveInteriorSummaryToCloud") as string };
+    }
+};
+
+export const getInteriorSummaryFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db || !zpid) return null;
+    try {
+        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
+        logFirestoreQuery('getDoc', 'property_analyses_comprehensive', { zpid });
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data() as ComprehensiveAnalysisResult;
+            return data.interior_summary || null;
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, "getInteriorSummaryFromCloud");
         return null;
     }
 };

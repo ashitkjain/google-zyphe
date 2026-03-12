@@ -90,21 +90,15 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [cachedNeighborhoodOverview, setCachedNeighborhoodOverview] = useState<string | null>(null);
     const [cachedVisualPoi, setCachedVisualPoi] = useState<NeighborhoodAnalysis['visual_poi'] | null>(null);
     const [cachedMapLabels, setCachedMapLabels] = useState<string[] | null>(null);
+    const [cachedComprehensiveAnalysis, setCachedComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
     const [groundTruthMapTab, setGroundTruthMapTab] = useState<'parcel' | 'satellite'>('parcel');
     const [isSatelliteExpanded, setIsSatelliteExpanded] = useState(false);
+    const [compReportTab, setCompReportTab] = useState<number>(0);
+    const [cachedVisualAnalysis, setCachedVisualAnalysis] = useState<CustomAIAnalysisResult | null>(null);
+    const [interiorSummary, setInteriorSummary] = useState<any | null>(null);
+    const [isRefreshingInterior, setIsRefreshingInterior] = useState(false);
 
     useEffect(() => {
-        if (customAnalysis) {
-            console.log('[ExploreTab Cache] customAnalysis is loaded, skipping cache fetch');
-            setCachedDesignStyle(null);
-            setCachedMarketDynamics(null);
-            setCachedLtrAnalysis(null);
-            setCachedKeyInsights(null);
-            setCachedNeighborhoodOverview(null);
-            setCachedVisualPoi(null);
-            setCachedMapLabels(null);
-            return;
-        }
         if (!propertyData?.zpid) return;
 
         let cancelled = false;
@@ -113,7 +107,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 const {
                     getVisualAnalysisFromCloud,
                     getPropertyInvestmentFromCloud,
-                    getDeepInvestmentResearchFromCloud
+                    getDeepInvestmentResearchFromCloud,
+                    getInteriorSummaryFromCloud
                 } = await import('../../services/firebase/properties');
                 const { generateCityStateKey } = await import('../../services/firebase/config');
 
@@ -126,10 +121,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                     cityStateKey
                 });
 
-                const [visualCache, investmentCache, deepResearchCache] = await Promise.all([
+                const [visualCache, investmentCache, deepResearchCache, interiorCache] = await Promise.all([
                     getVisualAnalysisFromCloud(String(propertyData.zpid)),
                     getPropertyInvestmentFromCloud(String(propertyData.zpid)),
-                    cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null)
+                    cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
+                    getInteriorSummaryFromCloud(String(propertyData.zpid))
                 ]);
 
                 console.log('[ExploreTab Cache] hasDeepResearch:', !!deepResearchCache);
@@ -141,8 +137,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                 if (cancelled) return;
 
-                if (visualCache?.home_interior?.design_style) {
-                    setCachedDesignStyle(visualCache.home_interior.design_style);
+                if (visualCache) {
+                    setCachedVisualAnalysis(visualCache);
+                    if (visualCache.home_interior?.design_style) {
+                        setCachedDesignStyle(visualCache.home_interior.design_style);
+                    }
                 }
                 if (visualCache?.neighborhood?.overview) {
                     setCachedNeighborhoodOverview(visualCache.neighborhood.overview);
@@ -158,7 +157,20 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 }
                 if ((deepResearchCache as any)?.key_insights) {
                     setCachedKeyInsights((deepResearchCache as any).key_insights);
-                } else if (deepResearchCache?.content && deepResearchCache.content.length > 200 && cityStateKey) {
+                }
+
+                // Also fetch comprehensive analysis if not in full view mode
+                try {
+                    const { getComprehensiveAnalysisFromCloud } = await import('../../services/firebase/properties');
+                    const compCache = await getComprehensiveAnalysisFromCloud(String(propertyData.zpid));
+                    if (compCache && !cancelled) {
+                        setCachedComprehensiveAnalysis(compCache);
+                    }
+                } catch (ce) {
+                    console.warn('[ExploreTab Cache] Comprehensive analysis fetch failed:', ce);
+                }
+
+                if (!((deepResearchCache as any)?.key_insights) && deepResearchCache?.content && deepResearchCache.content.length > 200 && cityStateKey) {
                     // Backfill: extract key insights on-the-fly from existing research
                     console.log('[ExploreTab Cache] No key_insights found — extracting on-the-fly...');
                     try {
@@ -182,12 +194,42 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 if (investmentCache?.ltr_analysis) {
                     setCachedLtrAnalysis(investmentCache.ltr_analysis);
                 }
+                if (interiorCache) {
+                    setInteriorSummary(interiorCache);
+                }
             } catch (e) {
                 console.error('[ExploreTab Cache] Error fetching cache:', e);
             }
         })();
         return () => { cancelled = true; };
     }, [propertyData?.zpid, customAnalysis]);
+
+    const handleRefreshInterior = async () => {
+        if (!propertyData?.zpid) return;
+
+        const visualContext = customAnalysis || cachedVisualAnalysis;
+        if (!visualContext) {
+            // If no visual context at all, we must run visual AI first
+            onRunCustomAnalysis(false);
+            return;
+        }
+
+        setIsRefreshingInterior(true);
+        try {
+            const { analyzeInteriorSummary } = await import('../../services/geminiService');
+            const { saveInteriorSummaryToCloud } = await import('../../services/firebase/properties');
+
+            const res = await analyzeInteriorSummary(visualContext, 'user', propertyData.zpid, propertyData.address);
+            if (res.data) {
+                setInteriorSummary(res.data);
+                await saveInteriorSummaryToCloud(propertyData.zpid, res.data);
+            }
+        } catch (e) {
+            console.error('[ExploreTab] Failed to refresh interior summary:', e);
+        } finally {
+            setIsRefreshingInterior(false);
+        }
+    };
 
     const designStyle = customAnalysis?.home_interior?.design_style || cachedDesignStyle || null;
     const marketDynamics = customAnalysis?.deep_investment_research?.structured_report?.market_dynamics || cachedMarketDynamics || null;
@@ -196,8 +238,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const neighborhoodOverview = customAnalysis?.neighborhood?.overview || cachedNeighborhoodOverview || null;
     const visualPoi = customAnalysis?.neighborhood?.visual_poi || cachedVisualPoi || undefined;
     const mapLabels = customAnalysis?.neighborhood?.map_labels || cachedMapLabels || undefined;
+    const currentInteriorSummary = interiorSummary || comprehensiveAnalysis?.interior_summary || cachedComprehensiveAnalysis?.interior_summary;
 
-    // Determine if the property is actively listed for sale
+    const analysis = comprehensiveAnalysis || cachedComprehensiveAnalysis;
     const isForSale = !propertyData || !propertyData.homeStatus ||
         propertyData.homeStatus.toUpperCase().includes('FOR_SALE');
 
@@ -312,7 +355,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     />
                                 </div>
                                 {searchBar && (
-                                    <div className="lg:w-[380px] xl:w-[420px] shrink-0">
+                                    <div className="lg:w-[550px] xl:w-[650px] shrink-0">
                                         {searchBar}
                                     </div>
                                 )}
@@ -394,197 +437,410 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     <span className="text-lg font-black text-slate-900 tracking-tight">AI Insights</span>
                                 </div>
 
-                                {/* Horizontal Insight Strip — 5 cards in a row */}
-                                {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview) && (
-                                    <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
 
-                                            {/* Front Orientation */}
-                                            {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
-                                                const sat = (propertyData as any).orientation_ai;
-                                                return (
+
+
+                                {/* Horizontal Insight Strip */}
+
+                                {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview || analysis) && (
+                                    <div className="flex flex-col gap-3">
+                                        {/* Executive Summary */}
+                                        {(() => {
+                                            if (!analysis) return null;
+
+                                            const parts = [
+                                                { text: analysis.summary },
+                                                { text: analysis.strategic_insights },
+                                                { text: analysis.risks_considerations, type: 'risk' }
+                                            ].filter(p => p.text);
+
+                                            if (parts.length === 0) return null;
+
+                                            return (
+                                                <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white px-2 mb-1 shadow-sm">
+                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl p-3">
+                                                        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
+                                                            <div className="p-4">
+                                                                {/* Header */}
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-bolt-lightning text-indigo-600 text-[11px]"></i>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Executive Summary</h3>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Content Area */}
+                                                                <div className="text-[13px] text-slate-600 leading-relaxed text-left flex flex-col gap-4">
+                                                                    {parts.map((p: any, i: number) => {
+                                                                        const text = p.text || '';
+                                                                        return (
+                                                                            <div
+                                                                                key={i}
+                                                                                className={p.type === 'risk' ? 'bg-rose-50 p-6 rounded-2xl border border-rose-100 flex gap-4 shadow-sm mt-2' : ''}
+                                                                            >
+                                                                                {p.type === 'risk' && <i className="fa-solid fa-flag text-rose-500 mt-1 flex-shrink-0"></i>}
+                                                                                <div className="flex-1">
+                                                                                    {text.split('\n\n').filter(Boolean).map((para: string, pi: number) => (
+                                                                                        <p key={pi} className={pi > 0 ? 'mt-4' : ''}>
+                                                                                            {para.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                                            ))}
+                                                                                        </p>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {/* Interior Summary Intelligence */}
+                                        {(customAnalysis || currentInteriorSummary || analysis) && (
+                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white px-2 mb-1 shadow-sm">
+                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl p-3">
+                                                    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 text-[11px]"></i>
+                                                                    </div>
+                                                                    <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Interiors</h3>
+                                                                </div>
+                                                                <button
+                                                                    disabled={isRefreshingInterior}
+                                                                    onClick={handleRefreshInterior}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-indigo-600 text-slate-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50"
+                                                                >
+                                                                    <i className={`fa-solid fa-rotate ${isRefreshingInterior ? 'animate-spin' : ''}`}></i>
+                                                                    {isRefreshingInterior ? 'Analyzing...' : 'Refresh'}
+                                                                </button>
+                                                            </div>
+
+                                                            {!currentInteriorSummary ? (
+                                                                <div className="py-8 flex flex-col items-center justify-center gap-3">
+                                                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                                                        <i className="fa-solid fa-magnifying-glass-plus text-sm"></i>
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <div className="text-[12px] font-bold text-slate-500">No interior analysis found</div>
+                                                                        <button
+                                                                            onClick={handleRefreshInterior}
+                                                                            disabled={isRefreshingInterior}
+                                                                            className="mt-2 text-[11px] font-black text-indigo-600 hover:text-indigo-700 underline underline-offset-4 uppercase tracking-wider decoration-2 disabled:opacity-50"
+                                                                        >
+                                                                            Run Intelligence Analysis
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                    <div className="space-y-4">
+                                                                        <div>
+                                                                            <div className="flex items-center gap-2 mb-1.5 opacity-0 h-0 overflow-hidden">
+                                                                                <i className="fa-solid fa-house-user text-indigo-400"></i>
+                                                                                Overall Interior
+                                                                            </div>
+                                                                            <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                                                                                {currentInteriorSummary.interior_summary}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                                                                <i className="fa-solid fa-door-open text-indigo-400"></i>
+                                                                                Spaces
+                                                                            </div>
+                                                                            <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                                                                                {currentInteriorSummary.rooms_summary}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                                                            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                                <i className="fa-solid fa-palette"></i>
+                                                                                Aesthetic Vibe
+                                                                            </div>
+                                                                            <div className="text-[14px] font-black text-indigo-900 tracking-tight leading-snug">
+                                                                                {currentInteriorSummary.vibe}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                                <i className="fa-solid fa-tags"></i>
+                                                                                Physical Attributes
+                                                                            </div>
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {currentInteriorSummary.objective_tags?.map((tag: string, idx: number) => (
+                                                                                    <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-600 shadow-sm">
+                                                                                        {tag}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Row 1: Property & Neighborhood Context */}
+                                        <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+                                                {/* Front Orientation */}
+                                                {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+                                                    const sat = (propertyData as any).orientation_ai;
+                                                    return (
+                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-compass text-amber-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Front Orientation</span>
+                                                                    </div>
+                                                                    {sat.orientation_highlights && (
+                                                                        <p className="text-[12px] text-slate-600 leading-relaxed mb-2">
+                                                                            The front of the home likely faces <strong>{sat.final_orientation}</strong>. {sat.orientation_highlights}
+                                                                        </p>
+                                                                    )}
+                                                                    <div className="space-y-2">
+                                                                        {sat.lot_coverage_hardscape != null && (
+                                                                            <div className="p-2 bg-white rounded-lg border border-slate-100">
+                                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
+                                                                                <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                                                                    <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
+                                                                                </div>
+                                                                                <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
+                                                                                    <span>{sat.lot_coverage_hardscape}% hard</span>
+                                                                                    <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {sat.buyer_pro && (
+                                                                            <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                                                                                <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
+                                                                                <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
+                                                                            </div>
+                                                                        )}
+                                                                        {sat.buyer_con && (
+                                                                            <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
+                                                                                <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
+                                                                                <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* Neighborhood Overview */}
+                                                {neighborhoodOverview && (
                                                     <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                                                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                             <div className="p-4">
                                                                 <div className="flex items-center gap-2 mb-3">
                                                                     <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-compass text-amber-600 text-[11px]"></i>
+                                                                        <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
                                                                     </div>
-                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Front Orientation</span>
+                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
                                                                 </div>
-                                                                {sat.orientation_highlights && (
-                                                                    <p className="text-[12px] text-slate-600 leading-relaxed mb-2">
-                                                                        The front of the home likely faces <strong>{sat.final_orientation}</strong>. {sat.orientation_highlights}
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
+                                                                {propertyData.hoa?.amenities && propertyData.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
+                                                                    <div className="mt-3 pt-3 border-t border-slate-100">
+                                                                        <div className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-2">HOA Amenities</div>
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {propertyData.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
+                                                                                <span key={i} className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                                                    {amenity}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Architecture Appeal */}
+                                                {(designStyle?.style || analysis?.detailed_analysis?.visual_appeal_condition) && (
+                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                            <div className="p-4">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-archway text-indigo-600 text-[11px]"></i>
+                                                                    </div>
+                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Architecture Appeal</span>
+                                                                </div>
+                                                                {designStyle?.style && (
+                                                                    <span className="inline-block bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>
+                                                                )}
+                                                                {(analysis?.detailed_analysis?.visual_appeal_condition || designStyle?.reasoning) && (
+                                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                        {(analysis?.detailed_analysis?.visual_appeal_condition || designStyle?.reasoning)?.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                        ))}
                                                                     </p>
                                                                 )}
-                                                                <div className="space-y-2">
-                                                                    {sat.lot_coverage_hardscape != null && (
-                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100">
-                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
-                                                                            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                                                                <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
-                                                                            </div>
-                                                                            <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
-                                                                                <span>{sat.lot_coverage_hardscape}% hard</span>
-                                                                                <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                    {sat.buyer_pro && (
-                                                                        <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
-                                                                            <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
-                                                                            <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
-                                                                        </div>
-                                                                    )}
-                                                                    {sat.buyer_con && (
-                                                                        <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
-                                                                            <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
-                                                                            <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
-                                                                        </div>
-                                                                    )}
-                                                                    {sat.feng_shui_vastu && (
-                                                                        <div className="flex items-start gap-1.5 p-2 bg-purple-50/50 rounded-lg border border-purple-100">
-                                                                            <i className="fa-solid fa-yin-yang text-[8px] text-purple-500 mt-0.5"></i>
-                                                                            <div className="text-[11px] text-purple-700 font-medium leading-snug">{sat.feng_shui_vastu}</div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                );
-                                            })()}
+                                                )}
 
-                                            {/* Neighborhood Overview */}
-                                            {neighborhoodOverview && (
-                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                        <div className="p-4">
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                    <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
+                                                {/* Outdoors & Privacy */}
+                                                {(analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
+                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                            <div className="p-4">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-tree text-emerald-600 text-[11px]"></i>
+                                                                    </div>
+                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Outdoors</span>
                                                                 </div>
-                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed">
+                                                                    {analysis.detailed_analysis.outdoors_view_quality && (
+                                                                        <span className="block">
+                                                                            {analysis.detailed_analysis.outdoors_view_quality.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                            ))}
+                                                                        </span>
+                                                                    )}
+                                                                </p>
                                                             </div>
-                                                            <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
-                                                            {propertyData.hoa?.amenities && propertyData.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
-                                                                <div className="mt-3 pt-3 border-t border-slate-100">
-                                                                    <div className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-2">HOA Amenities</div>
-                                                                    <div className="flex flex-wrap gap-1">
-                                                                        {propertyData.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
-                                                                            <span key={i} className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                                                                {amenity}
-                                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Row 2: Investment Insights */}
+                                        {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse) && (
+                                            <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                                                    {/* Community Pulse */}
+                                                    {analysis?.detailed_analysis?.community_pulse && (
+                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-users text-blue-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
+                                                                    </div>
+                                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                        {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                        ))}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Market Insights */}
+                                                    {keyInsights && (
+                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-microscope text-violet-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
+                                                                    </div>
+                                                                    {keyInsights.executive_summary && keyInsights.executive_summary !== 'N/A' && (
+                                                                        <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
+                                                                    )}
+                                                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                                                        {[
+                                                                            { label: 'Median', value: keyInsights.median_price_range },
+                                                                            { label: 'PPSF', value: keyInsights.ppsf_benchmark },
+                                                                            { label: 'Supply', value: keyInsights.months_of_supply },
+                                                                            { label: 'DOM', value: keyInsights.dom_range },
+                                                                        ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
+                                                                            <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                <div className="min-w-0">
+                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
+                                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
+                                                                                </div>
+                                                                            </div>
                                                                         ))}
                                                                     </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {designStyle?.style && (
-                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                        <div className="p-4">
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                    <i className="fa-solid fa-palette text-indigo-600 text-[11px]"></i>
-                                                                </div>
-                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Design Philosophy</span>
-                                                            </div>
-                                                            <span className="inline-block bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>
-                                                            {designStyle.reasoning && (
-                                                                <p className="text-[13px] text-slate-600 leading-relaxed">{designStyle.reasoning}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Market Insights */}
-                                            {keyInsights && (
-                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                        <div className="p-4">
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                                                                    <i className="fa-solid fa-microscope text-violet-600 text-[11px]"></i>
-                                                                </div>
-                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
-                                                            </div>
-                                                            {keyInsights.executive_summary && keyInsights.executive_summary !== 'N/A' && (
-                                                                <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
-                                                            )}
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                {[
-                                                                    { label: 'Median', value: keyInsights.median_price_range },
-                                                                    { label: 'PPSF', value: keyInsights.ppsf_benchmark },
-                                                                    { label: 'Supply', value: keyInsights.months_of_supply },
-                                                                    { label: 'DOM', value: keyInsights.dom_range },
-                                                                ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
-                                                                    <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                        <div className="min-w-0">
-                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
-                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
+                                                                    {keyInsights.risk_tags && keyInsights.risk_tags.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1.5 mt-3">
+                                                                            {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
+                                                                                <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
+                                                                                    <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
+                                                                                    {tag}
+                                                                                </span>
+                                                                            ))}
                                                                         </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                            {keyInsights.risk_tags && keyInsights.risk_tags.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1.5 mt-3">
-                                                                    {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
-                                                                        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
-                                                                            <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
-                                                                            {tag}
-                                                                        </span>
-                                                                    ))}
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Long Term Rental */}
-                                            {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
-                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                        <div className="p-4">
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                                    <i className="fa-solid fa-house-circle-check text-emerald-600 text-[11px]"></i>
-                                                                </div>
-                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                {ltrAnalysis.monthly_rent && (
-                                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                        <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
-                                                                        <div className="min-w-0">
-                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
-                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                                {ltrAnalysis.vacancy_rate && (
-                                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                        <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
-                                                                        <div className="min-w-0">
-                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
-                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                </div>
-                                            )}
+                                                    )}
 
-                                        </div>
+                                                    {/* Long Term Rental */}
+                                                    {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
+                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-house-circle-check text-emerald-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        {ltrAnalysis.monthly_rent && (
+                                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
+                                                                                <div className="min-w-0">
+                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
+                                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {ltrAnalysis.vacancy_rate && (
+                                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
+                                                                                <div className="min-w-0">
+                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
+                                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+                                )
+                                }
+
 
                                 {/* Street View + Ground Truth Engine — side by side */}
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
@@ -714,7 +970,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                                {(propertyData.neighborhoodPlaces) && (
+
+                                {propertyData.neighborhoodPlaces && (
                                     <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                         <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
                                     </div>
@@ -725,26 +982,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         <PropertyFacts facts={propertyData.resoFacts} />
                                     </div>
                                 )}
-                                {(propertyData.mapZoomIn || propertyData.mapZoomOut || propertyData.coordinates) && (
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <PropertyMaps
-                                            mapZoomIn={propertyData.mapZoomIn}
-                                            mapZoomOut={propertyData.mapZoomOut}
-                                            coordinates={propertyData.coordinates}
-                                            address={propertyData.address}
-                                            solarData={propertyData.solarData}
-                                            parcelPolygon={
-                                                propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                                    ? propertyData.parcelPolygon.map((pt: any) =>
-                                                        Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                                    )
-                                                    : undefined
-                                            }
-                                            parcelApn={propertyData.parcelApn}
-                                            parcelAreaSqft={propertyData.parcelAreaSqft}
-                                        />
-                                    </div>
-                                )}
+
                                 <ComplianceAttribution data={propertyData} />
                             </div>
                         )}
@@ -811,7 +1049,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
             {propertyData && (
                 <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />
-            )}
+            )
+            }
         </>
     );
 };

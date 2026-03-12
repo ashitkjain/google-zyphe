@@ -119,6 +119,66 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
 
       <div className="space-y-2">
         <SectionCard title="Executive Summary" icon="fa-arrow-trend-up" content={analysis.summary} colorClass="text-gray-800" />
+
+        {analysis.interior_summary && (
+          <div className="bg-white rounded-[2.5rem] p-10 md:p-12 border border-gray-100 shadow-sm mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm">
+                <i className="fa-solid fa-wand-magic-sparkles text-xl"></i>
+              </div>
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight">Interiors</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-8">
+                <div>
+                  <div className="flex items-center gap-2 mb-3 opacity-0 h-0 overflow-hidden">
+                    <i className="fa-solid fa-house-user text-indigo-400"></i>
+                    Overall Interior
+                  </div>
+                  <p className="text-[15.33px] text-gray-700 leading-relaxed font-medium">
+                    {analysis.interior_summary.interior_summary}
+                  </p>
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-door-open text-indigo-400"></i>
+                    Spaces
+                  </div>
+                  <p className="text-[15.33px] text-gray-700 leading-relaxed font-medium">
+                    {analysis.interior_summary.rooms_summary}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                  <div className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-palette"></i>
+                    Aesthetic Vibe
+                  </div>
+                  <div className="text-[17px] font-black text-indigo-900 tracking-tight leading-snug">
+                    {analysis.interior_summary.vibe}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-tags"></i>
+                    Physical Attributes
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.interior_summary.objective_tags?.map((tag, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 shadow-sm">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <SectionCard title="Architectural Appeal & Condition" icon="fa-house-circle-check" content={analysis.detailed_analysis?.visual_appeal_condition} />
         <SectionCard title="Privacy, Layout & Expansion" icon="fa-maximize" content={analysis.detailed_analysis?.privacy_layout} />
         <SectionCard title="Outdoors & View Quality" icon="fa-eye" content={analysis.detailed_analysis?.outdoors_view_quality} />
@@ -147,6 +207,65 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
             </div>
           </div>
         </div>
+
+        {analysis.interior_summary && (
+          <div className="bg-white rounded-[2.5rem] p-10 md:p-12 border border-gray-100 shadow-sm mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm">
+                <i className="fa-solid fa-wand-magic-sparkles text-xl"></i>
+              </div>
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight">Interiors</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-8">
+                <div>
+                  <div className="flex items-center gap-2 mb-3 opacity-0 h-0 overflow-hidden">
+                    <i className="fa-solid fa-house-user text-indigo-400"></i>
+                    Overall Interior
+                  </div>
+                  <p className="text-[15.33px] text-gray-700 leading-relaxed font-medium">
+                    {analysis.interior_summary.interior_summary}
+                  </p>
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-door-open text-indigo-400"></i>
+                    Spaces
+                  </div>
+                  <p className="text-[15.33px] text-gray-700 leading-relaxed font-medium">
+                    {analysis.interior_summary.rooms_summary}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                  <div className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-palette"></i>
+                    Aesthetic Vibe
+                  </div>
+                  <div className="text-[17px] font-black text-indigo-900 tracking-tight leading-snug">
+                    {analysis.interior_summary.vibe}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-tags"></i>
+                    Physical Attributes
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.interior_summary.objective_tags?.map((tag, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 shadow-sm">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-rose-50/50 rounded-[2.5rem] p-10 md:p-12 border border-rose-100 shadow-sm mb-8">
           <div className="flex items-center gap-4 mb-6">

@@ -938,22 +938,10 @@ const App: React.FC = () => {
           onFocus={() => setShowHistory(true)}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Enter property address..."
-          className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
+          className="w-full pl-12 pr-36 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
         />
         <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          {/* Admin-only: Force Refresh environmental data */}
-          {propertyData && currentUser?.role === 'admin' && (
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRefreshEnvironment(); }}
-              disabled={envRefreshing || loading}
-              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all bg-amber-50 text-amber-500 hover:bg-amber-100 border border-amber-200 shadow-sm disabled:opacity-50"
-              title="Admin: Force refresh all environmental data (noise, solar, air quality)"
-            >
-              <i className={`fa-solid fa-rotate-right text-sm ${envRefreshing ? 'animate-spin' : ''}`}></i>
-            </button>
-          )}
           {propertyData && (
             <button
               type="button"
@@ -964,7 +952,7 @@ const App: React.FC = () => {
               <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-sm`}></i>
             </button>
           )}
-          <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Zyphe AI Intelligence</button>
+          <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Zyphe</button>
         </div>
       </div>
 

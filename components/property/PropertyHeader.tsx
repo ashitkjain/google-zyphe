@@ -29,6 +29,24 @@ const MetricItem: React.FC<{ m: any }> = ({ m }) => (
   </div>
 );
 
+const ExpandableList: React.FC<{ items: React.ReactNode[]; limit?: number; className?: string }> = ({ items, limit = 2, className = "flex flex-col gap-3" }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  if (items.length <= limit) return <div className={className}>{items}</div>;
+
+  return (
+    <div className={className}>
+      {isExpanded ? items : items.slice(0, limit)}
+      <button
+        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+        className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors mt-1 flex items-center gap-1.5 w-fit"
+      >
+        <i className={`fa-solid ${isExpanded ? 'fa-minus' : 'fa-plus'} text-[8px]`}></i>
+        {isExpanded ? 'Show Less' : `${items.length - limit} More`}
+      </button>
+    </div>
+  );
+};
+
 const parseValue = (val: any) => {
   if (val === null || val === undefined || val === '') return null;
   if (typeof val === 'string' && val.startsWith('[')) {
@@ -73,7 +91,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           <div className="bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
             <div className="text-[13px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
               <i className="fa-solid fa-align-left text-[11px]"></i>
-              MLS Property Description
+              Agent Property Description
             </div>
             <div className="relative">
               <p className={`text-[13px] text-slate-700 leading-relaxed font-normal whitespace-pre-wrap ${!isDescExpanded && data.description.length > 300 ? 'line-clamp-3' : ''}`}>
@@ -99,15 +117,15 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               <i className="fa-solid fa-house-chimney text-[13px]"></i>
               Exterior
             </div>
-            <div className="flex flex-col gap-3">
-              {[
+            <ExpandableList
+              items={[
                 { icon: 'fa-landmark', label: 'Architectural Style', value: parseValue(data.resoFacts?.architecturalStyle) },
                 { icon: 'fa-hammer', label: 'Construction', value: parseValue(data.resoFacts?.constructionMaterials) },
                 { icon: 'fa-rug', label: 'Flooring', value: parseValue(data.resoFacts?.flooring) },
                 { icon: 'fa-house-chimney-window', label: 'Roof Type', value: parseValue(data.resoFacts?.roofType) },
                 { icon: 'fa-car-side', label: 'Garage', value: parseValue(data.resoFacts?.garageParkingCapacity) },
               ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
-            </div>
+            />
 
             {/* Real Estate Dynamics (from Deep Investment Research) */}
             {marketDynamics && (marketDynamics.summary || (marketDynamics.details && marketDynamics.details.length > 0)) && (
@@ -119,31 +137,30 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 {marketDynamics.summary && (
                   <p className="text-[13px] text-slate-700 leading-relaxed font-normal mb-2">{marketDynamics.summary}</p>
                 )}
-                {marketDynamics.details && marketDynamics.details.length > 0 && (
-                  <ul className="flex flex-col gap-1.5">
-                    {marketDynamics.details.map((detail, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0 mt-[6px]"></div>
-                        <span className="text-[12px] text-slate-600 leading-relaxed">{detail}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ExpandableList
+                  className="flex flex-col gap-1.5"
+                  items={marketDynamics.details.map((detail, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0 mt-[6px]"></div>
+                      <span className="text-[12px] text-slate-600 leading-relaxed">{detail}</span>
+                    </div>
+                  ))}
+                />
               </div>
             )}
           </div>
 
-          {/* HOA */}
           {data.hoa && (
             <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-              <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                <i className="fa-solid fa-building-columns text-[13px]"></i>
-                HOA
-              </div>
-              <div className="flex flex-col gap-3">
-                <MetricItem m={{ icon: 'fa-building', label: 'Association', value: data.hoa.name ?? 'N/A' }} />
-                {data.hoa.fee && <MetricItem m={{ icon: 'fa-dollar-sign', label: 'Fee', value: data.hoa.fee }} />}
-                {data.hoa.phone && <MetricItem m={{ icon: 'fa-phone', label: 'Phone', value: data.hoa.phone }} />}
+              <div className="flex flex-wrap gap-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[13px] font-bold text-slate-700 shadow-sm group/hoa">
+                  <i className="fa-solid fa-building text-[10px] text-indigo-400 group-hover/hoa:text-indigo-600 transition-colors"></i>
+                  <span>
+                    {data.hoa.name || 'HOA'}
+                    {data.hoa.phone && <span className="text-slate-400 font-normal ml-1.5 text-[11px]">({data.hoa.phone})</span>}
+                    {data.hoa.fee && <span className="text-emerald-600 ml-2 font-black tracking-tight">{data.hoa.fee}</span>}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -154,14 +171,14 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               <i className="fa-solid fa-couch text-[13px]"></i>
               Interior
             </div>
-            <div className="flex flex-col gap-3">
-              {[
+            <ExpandableList
+              items={[
                 { icon: 'fa-fire-flame-simple', label: 'Heating', value: parseValue(data.resoFacts?.heating) },
                 { icon: 'fa-snowflake', label: 'Cooling', value: parseValue(data.resoFacts?.cooling) },
                 { icon: 'fa-blender', label: 'Appliances', value: parseValue(data.resoFacts?.appliances) },
                 { icon: 'fa-arrow-down-wide-short', label: 'Basement', value: parseValue(data.resoFacts?.basement) },
               ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
-            </div>
+            />
 
             {/* Utilities (below Interior) */}
             {(() => {
@@ -178,9 +195,9 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                     <i className="fa-solid fa-plug text-[13px]"></i>
                     Utilities
                   </div>
-                  <div className="flex flex-col gap-3">
-                    {utilItems.map((m, idx) => <MetricItem key={idx} m={m} />)}
-                  </div>
+                  <ExpandableList
+                    items={utilItems.map((m, idx) => <MetricItem key={idx} m={m} />)}
+                  />
                 </>
               );
             })()}
@@ -220,11 +237,11 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                   <i className="fa-solid fa-list-check text-[13px]"></i>
                   Additional Features
                 </div>
-                <div className="flex flex-col gap-3">
-                  {features.map((f, idx) => (
+                <ExpandableList
+                  items={features.map((f, idx) => (
                     <MetricItem key={idx} m={{ icon: 'fa-circle-check', label: f.split(':')[0], value: f.split(':').slice(1).join(':').trim() }} />
                   ))}
-                </div>
+                />
               </div>
             );
           })()}
@@ -238,9 +255,11 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               <i className="fa-solid fa-graduation-cap text-[13px]"></i>
               Schools
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {data.schools.slice(0, 3).map((s: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+            <ExpandableList
+              limit={3}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+              items={data.schools.map((s: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 min-w-0">
                   <i className="fa-solid fa-school-flag text-[10px] text-slate-300"></i>
                   <div className="min-w-0">
                     <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider truncate">{s.name}</div>
@@ -248,7 +267,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                   </div>
                 </div>
               ))}
-            </div>
+            />
           </div>
         )}
       </div>

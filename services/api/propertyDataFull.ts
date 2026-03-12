@@ -9,7 +9,7 @@ import { fetchResoPropertyData } from '../resoService';
 import { NeighborhoodPlaces } from './places';
 import { extractNumericValue, safeStringify, formatAddress } from './utils';
 import { normalizeAddress } from './geocoding';
-import { fetchScores, fetchPropertyComps, fetchPropertyImages } from './property';
+import { fetchScores, fetchPropertyImages } from './property';
 import { fetchNearbyPlaces } from './places';
 import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } from './environmental';
 
@@ -249,6 +249,7 @@ export const fetchPropertyDataFull = async (
         if (mappedData.zpid) {
             onStep?.('Loading property data...');
 
+            const needsScores = !mappedData.walkScore && !mappedData.transitScore;
             const needsImages = !skipImages && (!mappedData.images || mappedData.images.length === 0);
             const storageKeyForEnv = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
             const coordsForPlaces = mappedData.coordinates;
@@ -261,10 +262,9 @@ export const fetchPropertyDataFull = async (
 
             const needsPlacesFetch = coordsForPlaces && (!placesFresh || forceEnvironment || !cachedPlaces?.isUnified);
 
-            const [scores, images, comps, nearbyPlaces] = await Promise.all([
-                fetchScores(mappedData.zpid),
+            const [scores, images, nearbyPlaces] = await Promise.all([
+                needsScores ? fetchScores(mappedData.zpid) : Promise.resolve(null),
                 needsImages ? fetchPropertyImages(mappedData.zpid) : Promise.resolve(mappedData.images ?? []),
-                fetchPropertyComps(mappedData.zpid),
                 needsPlacesFetch
                     ? fetchNearbyPlaces(coordsForPlaces!.latitude, coordsForPlaces!.longitude, mappedData.zpid, mappedData.address, cachedPlaces, forceEnvironment).catch(() => null)
                     : Promise.resolve(cachedPlaces ?? null),
@@ -272,14 +272,16 @@ export const fetchPropertyDataFull = async (
 
             const cachedEnvEarly = envDocForPlaces;
 
-            mappedData.walkScore = scores.walkScore;
-            mappedData.walkScoreDesc = scores.walkScoreDesc;
-            mappedData.transitScore = scores.transitScore;
-            mappedData.transitScoreDesc = scores.transitScoreDesc;
-            mappedData.bikeScore = scores.bikeScore;
-            mappedData.bikeScoreDesc = scores.bikeScoreDesc;
+            if (scores) {
+                mappedData.walkScore = scores.walkScore;
+                mappedData.walkScoreDesc = scores.walkScoreDesc;
+                mappedData.transitScore = scores.transitScore;
+                mappedData.transitScoreDesc = scores.transitScoreDesc;
+                mappedData.bikeScore = scores.bikeScore;
+                mappedData.bikeScoreDesc = scores.bikeScoreDesc;
+            }
+
             if (needsImages && images.length > 0) mappedData.images = images;
-            mappedData.comps = comps;
             const placesForUI = nearbyPlaces ?? cachedPlaces ?? null;
             if (placesForUI) mappedData.neighborhoodPlaces = placesForUI;
 
@@ -416,7 +418,7 @@ export const fetchPropertyDataFull = async (
                 }
 
                 if (imageryAvailable) {
-                    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x640&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
+                    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x800&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
                     try {
                         const userId = auth?.currentUser?.uid || 'unknown';
                         const svAnalysis = await analyzeStreetView(streetViewUrl, mappedData, userId);

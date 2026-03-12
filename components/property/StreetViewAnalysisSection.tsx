@@ -104,7 +104,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                 {/* Visual Side — clickable to open interactive Street View */}
                 {analysis.imageUrl && (
                     <div
-                        className="lg:w-full h-[240px] rounded-2xl overflow-hidden border border-slate-100 shadow-inner group relative cursor-pointer"
+                        className="lg:w-full h-[400px] rounded-2xl overflow-hidden border border-slate-100 shadow-inner group relative cursor-pointer"
                         onClick={() => coords && setShowStreetView(true)}
                     >
                         <img
