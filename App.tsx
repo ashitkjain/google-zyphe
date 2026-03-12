@@ -1060,6 +1060,9 @@ const App: React.FC = () => {
           await saveVisualAnalysisToCloud(propertyData.zpid, updated);
         }
       }}
+      onUpdatePropertyData={(updatedFields) => {
+        setPropertyData(prev => prev ? ({ ...prev, ...updatedFields }) : prev);
+      }}
       addLog={addLog}
       logs={logs}
       userRole={currentUser?.role}

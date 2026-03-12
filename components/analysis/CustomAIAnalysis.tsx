@@ -19,6 +19,7 @@ interface Props {
   zpid?: string;
   propertyData?: any;
   onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void;
+  onUpdatePropertyData?: (updatedFields: any) => void;
   addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
   isFavorited?: boolean;
   onToggleFavorite?: () => void;

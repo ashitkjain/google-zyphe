@@ -10,21 +10,16 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
   Your goal is to provide a detailed, narrative-style, realtor written, professional report to a home buyer, based on a combination of provided - 
 
   ${buildMlsFactsBlock(property)}
+  ${property.orientation_ai ? `\n  ORIENTATION AI GROUNDING (STRICT): The property has been analyzed to face: ${property.orientation_ai.final_orientation}. You MUST use this as the authoritative source of truth for the property's "direction facing" or "orientation" throughout the report. If this contradicts other image analysis, this orientation data takes precedence.` : ''}
 
-  CRITICAL GROUNDING RULE: Every fact in the "KNOWN MLS / LISTING FACTS" block above is authoritative source-of-truth data from RapidAPI. You MUST NOT contradict any of these values anywhere in your response — including bedroom count, bathroom count, sqft, year built, garage capacity, description mentions, and price. Your response must be consistent with all of them.
+  CRITICAL GROUNDING RULE: Every fact in the "KNOWN MLS / LISTING FACTS" block above is authoritative source-of-truth data from RapidAPI. You MUST not contradict any of these values anywhere in your response — including bedroom count, bathroom count, sqft, year built, garage capacity, description mentions, and price. Your response must be consistent with all of them.
 
   Additional context:
   1. property information ${PROPERTY_DETAILS}, 
   2. image analysis - ${VISUAL_ANALYSIS}, and 
-  3. online research.
-     
-  IMPORTANT: Look for a field named 'orientation_ai' in the property data. If present, it contains ground-truth visual analysis of the home's orientation:
-  - 'final_orientation': The direction the FRONT of the house faces.
-  - 'backyard_orientation': The direction the BACKYARD faces.
-  Use these fields EXCLUSIVELY for your conclusions about sun exposure, solar potential, and yard light. Do NOT guess or hallucinate orientations that contradict these fields.
+  3. online research. 
 
-  TASK:
-### STRATEGIC FORENSICS (NEW DIRECTIVE)
+  ### STRATEGIC FORENSICS (NEW DIRECTIVE)
   While maintaining the high detail requested in the sections below, you must also act as a Senior Real Estate Strategist to "mine" the data for deep correlations:
   - Financial Velocity: Cross-reference recent Price History with Market Days-on-Market to signal seller motivation or leverage.
   - Modernization Potential: Compare the Year Built and visual finishes against neighborhood growth trends to identify "Value-Add" or equity-building potential.

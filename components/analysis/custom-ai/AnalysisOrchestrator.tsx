@@ -38,6 +38,7 @@ interface Props {
     zpid?: string;
     propertyData?: any;
     onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void;
+    onUpdatePropertyData?: (updatedFields: any) => void;
     addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any, usage?: any) => void;
     isFavorited?: boolean;
     onToggleFavorite?: () => void;
@@ -57,6 +58,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     zpid,
     propertyData,
     onUpdateAnalysis,
+    onUpdatePropertyData,
     addLog,
     isFavorited,
     onToggleFavorite
@@ -149,6 +151,24 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     buyer_con: res.buyer_con,
                     orientation_highlights: res.orientation_highlights,
                 });
+                if (onUpdatePropertyData) {
+                    onUpdatePropertyData({
+                        orientation_ai: {
+                            final_orientation: res.final_orientation,
+                            azimuth_degrees: res.azimuth_degrees,
+                            confidence: res.confidence,
+                            aerial_only_mode: res.aerial_only_mode,
+                            image_quality: res.image_quality,
+                            feng_shui_vastu: res.feng_shui_vastu ?? null,
+                            privacy_insight: res.privacy_insight,
+                            lot_coverage_hardscape: res.lot_coverage_hardscape,
+                            lot_coverage_pervious: res.lot_coverage_pervious,
+                            buyer_pro: res.buyer_pro,
+                            buyer_con: res.buyer_con,
+                            orientation_highlights: res.orientation_highlights,
+                        }
+                    });
+                }
             })
             .catch(e => console.warn('[Exterior] Auto satellite analysis failed:', e))
             .finally(() => setSatelliteLoading(false));

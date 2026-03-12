@@ -100,9 +100,8 @@ TASK:
      The heading only tells you which wall faces the PUBLIC road (likely the BACK of the units).
 
 3. Confirm the compass direction from the North-up aerial frame.
-4. Express the result as a specific compass direction (FRONT facing) and approximate azimuth in degrees.
-5. Identify the BACKYARD orientation (directly opposite the front).
-6. If the orientation has a notably positive or auspicious quality in Feng Shui or Vastu Shastra
+4. Express the result as a specific compass direction and approximate azimuth in degrees.
+5. If the orientation has a notably positive or auspicious quality in Feng Shui or Vastu Shastra
    (e.g. South-facing in Vastu, North or East in many Feng Shui traditions), provide a brief,
    warm feng_shui_vastu tip. If the orientation is neutral or unfavourable, set feng_shui_vastu to null.
 6. PRIVACY & OVERLOOK SCORE: Look at the aerial and assess neighbor proximity and sightlines.
@@ -194,9 +193,8 @@ TASK:
    - Also look for: driveway, front walkway, front yard, garage door, or visible entrance features.
 3. Determine which compass direction that front-facing wall points toward,
    using the strict North-up orientation of the image.
-4. Express the result as a compass direction (FRONT facing) and an approximate azimuth in degrees.
-5. Identify the BACKYARD orientation (directly opposite the front).
-6. If the orientation has a notably positive or auspicious quality in Feng Shui or Vastu Shastra
+4. Express the result as a compass direction and an approximate azimuth in degrees.
+5. If the orientation has a notably positive or auspicious quality in Feng Shui or Vastu Shastra
    (e.g. South-facing in Vastu, North or East in many Feng Shui traditions), provide a brief,
    warm feng_shui_vastu tip. If the orientation is neutral or unfavourable, set feng_shui_vastu to null.
 6. PRIVACY & OVERLOOK SCORE: Look at the aerial and assess neighbor proximity and sightlines.
@@ -246,10 +244,6 @@ export const satellitarySchema = {
             type: Type.STRING,
             description: 'Short compass direction the front of the house likely faces, e.g. "Northeast", "South", "East-Southeast". Use "UNCLEAR_IMAGE" if image_quality is blurry.'
         },
-        backyard_orientation: {
-            type: Type.STRING,
-            description: 'Short compass direction the BACK of the house likely faces (directly opposite to final_orientation). E.g. if final_orientation is "South", backyard_orientation is "North".'
-        },
         azimuth_degrees: {
             type: Type.NUMBER,
             description: 'Approximate azimuth in degrees (0=North, 90=East, 180=South, 270=West). Omit or use null if truly uncertain.',
@@ -296,7 +290,7 @@ export const satellitarySchema = {
             description: 'ONE or TWO sentences on what this facing direction typically means for a home. MANDATORY: every sentence MUST use a hedging word — "often", "typically", "may", "tends to", "can", "in many cases". NEVER use bare deterministic verbs: do NOT write "gets sun", "receives light", "is cooler", "will be warmer". ALWAYS hedge: write "may get", "often receives", "tends to feel cooler", "can be warmer". Bad: "North-facing homes get less sun." Good: "North-facing homes often receive less direct sunlight, which can keep interiors cooler in summer."'
         }
     },
-    required: ['image_quality', 'final_orientation', 'backyard_orientation', 'confidence', 'explanation', 'privacy_insight', 'buyer_pro', 'buyer_con', 'orientation_highlights']
+    required: ['image_quality', 'final_orientation', 'confidence', 'explanation', 'privacy_insight', 'buyer_pro', 'buyer_con', 'orientation_highlights']
 };
 
 // ─── Legacy Aliases ───────────────────────────────────────────────────────────

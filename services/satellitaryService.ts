@@ -22,7 +22,6 @@ const MAPS_API_KEY = APP_CONFIG.maps.key;
 
 export interface SatellitaryResult {
     final_orientation: string;        // e.g. "Northeast (approx. 45°)"
-    backyard_orientation: string;     // e.g. "Southwest (opposite of front)"
     azimuth_degrees: number | null;   // 0–360, null if uncertain (AI estimate)
     confidence: 'high' | 'medium' | 'low';
     image_quality: 'clear' | 'acceptable' | 'blurry'; // Satellite image clarity assessment
@@ -220,7 +219,7 @@ function buildStreetViewUrl(lat: number, lng: number, heading?: number | null): 
     const headingParam = heading != null ? `&heading=${heading}` : '';
     return (
         `https://maps.googleapis.com/maps/api/streetview` +
-        `?size=640x800` +
+        `?size=640x640` +
         `&location=${lat},${lng}` +
         `&fov=90` +
         `&radius=100` +
@@ -376,7 +375,6 @@ export async function runSatellitaryAnalysis(
             ...data,
             image_quality: 'blurry',
             final_orientation: 'UNCLEAR_IMAGE',
-            backyard_orientation: 'UNCLEAR_IMAGE',
             azimuth_degrees: null,
             confidence: 'low',
             feng_shui_vastu: null,
@@ -413,7 +411,6 @@ export async function runSatellitaryAnalysis(
             zpid,
             {
                 final_orientation: result.final_orientation,
-                backyard_orientation: result.backyard_orientation,
                 azimuth_degrees: result.azimuth_degrees,
                 confidence: result.confidence,
                 aerial_only_mode: result.aerial_only_mode,

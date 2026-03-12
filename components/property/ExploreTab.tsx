@@ -35,6 +35,7 @@ interface ExploreTabProps {
     comprehensiveAnalysis: ComprehensiveAnalysisResult | null;
     comprehensiveLoading: boolean;
     onUpdateAnalysis: (updated: any) => void;
+    onUpdatePropertyData?: (updatedFields: Partial<PropertyData>) => void;
     addLog: (service: string, meta: any, content: any) => void;
     logs: LogEntry[];
     userRole?: string;
@@ -60,6 +61,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     comprehensiveAnalysis,
     comprehensiveLoading,
     onUpdateAnalysis,
+    onUpdatePropertyData,
     addLog,
     logs,
     userRole,
@@ -1001,6 +1003,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 zpid={propertyData?.zpid}
                                 propertyData={propertyData}
                                 onUpdateAnalysis={onUpdateAnalysis}
+                                onUpdatePropertyData={onUpdatePropertyData}
                                 addLog={addLog}
                                 isFavorited={isFavorited}
                                 onToggleFavorite={onToggleFavorite}

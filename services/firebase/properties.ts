@@ -141,7 +141,6 @@ export const savePropertyOrientationToCloud = async (
     zpid: string,
     orientationAI: {
         final_orientation: string;
-        backyard_orientation: string;
         azimuth_degrees: number | null;
         confidence: 'high' | 'medium' | 'low';
         aerial_only_mode: boolean;
