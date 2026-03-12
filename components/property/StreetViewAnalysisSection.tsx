@@ -210,46 +210,46 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                             )}
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
                             {/* Quick stats as compact rows */}
                             {analysis.privacyRating && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-shield-halved text-[8px] text-indigo-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Privacy:</strong> {analysis.privacyRating}</div>
                                 </div>
                             )}
                             {analysis.parkingLogistics && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-car-side text-[8px] text-blue-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Parking:</strong> {analysis.parkingLogistics}</div>
                                 </div>
                             )}
                             {analysis.utilityAesthetic && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-plug-circle-bolt text-[8px] text-amber-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Utilities:</strong> {analysis.utilityAesthetic}</div>
                                 </div>
                             )}
                             {analysis.neighborhoodVibe && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-tree-city text-[8px] text-slate-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Vibe:</strong> {analysis.neighborhoodVibe}</div>
                                 </div>
                             )}
                             {analysis.familySafety && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-children text-[8px] text-emerald-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Safety:</strong> {analysis.familySafety}</div>
                                 </div>
                             )}
                             {analysis.solarObstructions && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-cloud-sun text-[8px] text-orange-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Solar:</strong> {analysis.solarObstructions}</div>
                                 </div>
                             )}
                             {analysis.neighborCondition && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-house-chimney-window text-[8px] text-sky-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Streetscape:</strong> {analysis.neighborCondition}</div>
                                 </div>
@@ -257,7 +257,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
 
                             {/* Maintenance Risks */}
                             {analysis.maintenanceRisks && analysis.maintenanceRisks.length > 0 && (
-                                <div className="flex items-start gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                                <div className="flex items-start gap-1 py-0.5 px-1">
                                     <i className="fa-solid fa-toolbox text-[8px] text-rose-500 mt-0.5"></i>
                                     <div className="text-[11px] text-slate-900 font-medium leading-snug">
                                         <strong>Risks:</strong> {analysis.maintenanceRisks.join(' · ')}

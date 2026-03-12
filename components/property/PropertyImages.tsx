@@ -13,7 +13,7 @@ interface Props {
   };
 }
 
-const MAX_SIDEBAR_IMAGES = 10; // Thumbnails shown in the sidebar
+const MAX_SIDEBAR_IMAGES = 7; // Thumbnails shown in the sidebar
 
 const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribution }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -80,8 +80,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
 
   return (
     <>
-      <div className="mb-10">
-        <div className="flex items-center justify-between mb-5 px-1">
+      <div className="mb-2">
+        <div className="flex items-center justify-between mb-2 px-1">
           <h3 className="font-bold text-gray-800 flex items-center text-lg">
             <i className="fa-solid fa-images text-gray-400 mr-3"></i>
             Property Gallery
@@ -115,17 +115,17 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
             </p>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-5 h-auto md:h-[400px]">
+          <div className="flex flex-col md:flex-row md:items-start gap-3">
             {/* Main large image — click to open lightbox */}
             <button
-              className="flex-1 rounded-3xl overflow-hidden shadow-xl border border-gray-100 bg-gray-900 group relative aspect-video md:aspect-auto cursor-zoom-in"
+              className="min-w-0 flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white group relative cursor-zoom-in self-start"
               onClick={() => openLightbox(allImages.indexOf(selectedImage ?? allImages[0]))}
               title="Click to view all photos"
             >
               <img
                 src={selectedImage || displayImages[0]}
                 alt="Property Main View"
-                className="w-full h-full object-contain transition-all duration-700 ease-in-out"
+                className="w-full h-auto object-contain transition-all duration-700 ease-in-out"
                 loading="eager"
                 decoding="async"
               />
@@ -146,7 +146,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
             </button>
 
             {/* Thumbnail sidebar */}
-            <div className="flex md:flex-col flex-row gap-4 w-full md:w-32 overflow-x-auto md:overflow-y-auto snap-x md:snap-y scroll-smooth">
+            <div className="flex md:flex-col flex-row gap-2 w-full md:w-28 overflow-x-auto md:overflow-y-auto snap-x md:snap-y scroll-smooth">
               {displayImages.map((img, idx) => {
                 const isLast = idx === displayImages.length - 1 && hiddenCount > 0;
                 return (
@@ -160,7 +160,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                         setSelectedImage(img);
                       }
                     }}
-                    className={`relative flex-shrink-0 w-24 md:w-full h-20 md:h-24 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast
+                    className={`relative flex-shrink-0 w-24 md:w-full h-16 md:h-20 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast
                       ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
                       : 'border-transparent hover:border-gray-300'
                       }`}
@@ -188,22 +188,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
           </div>
         )}
 
-        {allImages.length > 0 && attribution && (attribution.listingAgentName || attribution.brokerageName) && (
-          <div className="mt-4 px-2 py-3 border-t border-slate-50 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <i className="fa-solid fa-circle-info text-[10px] text-slate-300"></i>
-              <p className="text-[10px] text-slate-400 font-medium">
-                Listing provided courtesy of <span className="font-bold text-slate-500">{attribution.listingAgentName || 'Listing Agent'}</span>
-                {attribution.brokerageName && <> at <span className="font-bold text-slate-500">{attribution.brokerageName}</span></>}
-              </p>
-            </div>
-            {attribution.mlsName && (
-              <p className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">
-                {attribution.mlsName} {attribution.mlsId && `#${attribution.mlsId}`}
-              </p>
-            )}
-          </div>
-        )}
+
+
       </div>
 
       {/* ── Full-screen Lightbox ────────────────────────────────────────────── */}

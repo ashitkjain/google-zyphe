@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { NeighborhoodAnalysis } from '../../types/ai';
 import PropertyHeader from './PropertyHeader';
 import PropertyImages from './PropertyImages';
 import PropertyFacts from './PropertyFacts';
@@ -71,6 +72,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [cachedLtrAnalysis, setCachedLtrAnalysis] = useState<{ monthly_rent?: string; vacancy_rate?: string; comparison_summary?: string } | null>(null);
     const [cachedKeyInsights, setCachedKeyInsights] = useState<DeepResearchInsights | null>(null);
     const [cachedNeighborhoodOverview, setCachedNeighborhoodOverview] = useState<string | null>(null);
+    const [cachedVisualPoi, setCachedVisualPoi] = useState<NeighborhoodAnalysis['visual_poi'] | null>(null);
+    const [cachedMapLabels, setCachedMapLabels] = useState<string[] | null>(null);
 
     useEffect(() => {
         if (customAnalysis) {
@@ -80,6 +83,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             setCachedLtrAnalysis(null);
             setCachedKeyInsights(null);
             setCachedNeighborhoodOverview(null);
+            setCachedVisualPoi(null);
+            setCachedMapLabels(null);
             return;
         }
         if (!propertyData?.zpid) return;
@@ -124,6 +129,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 if (visualCache?.neighborhood?.overview) {
                     setCachedNeighborhoodOverview(visualCache.neighborhood.overview);
                 }
+                if (visualCache?.neighborhood?.visual_poi) {
+                    setCachedVisualPoi(visualCache.neighborhood.visual_poi);
+                }
+                if (visualCache?.neighborhood?.map_labels) {
+                    setCachedMapLabels(visualCache.neighborhood.map_labels);
+                }
                 if (deepResearchCache?.structured_report?.market_dynamics) {
                     setCachedMarketDynamics(deepResearchCache.structured_report.market_dynamics);
                 }
@@ -165,6 +176,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const ltrAnalysis = customAnalysis?.property_investment?.ltr_analysis || cachedLtrAnalysis || null;
     const keyInsights = cachedKeyInsights || null;
     const neighborhoodOverview = customAnalysis?.neighborhood?.overview || cachedNeighborhoodOverview || null;
+    const visualPoi = customAnalysis?.neighborhood?.visual_poi || cachedVisualPoi || undefined;
+    const mapLabels = customAnalysis?.neighborhood?.map_labels || cachedMapLabels || undefined;
 
     // Determine if the property is actively listed for sale
     const isForSale = !propertyData || !propertyData.homeStatus ||
@@ -271,6 +284,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
                                 designStyle={designStyle}
                                 marketDynamics={marketDynamics}
+                                section="top"
                                 parcelPolygon={
                                     propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
                                         ? propertyData.parcelPolygon.map((pt: any) =>
@@ -281,12 +295,103 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             />
 
                             <div className="flex flex-col gap-2.5">
+                                {/* Street View + Property Images — side by side */}
+                                {(propertyData.streetViewAnalysis?.isImageryAvailable !== false || (propertyData.images && propertyData.images.length > 0)) && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
+                                        {propertyData.images && propertyData.images.length > 0 && (
+                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
+                                            </div>
+                                        )}
+                                        {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
+                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                <StreetViewAnalysisSection
+                                                    data={propertyData}
+                                                    onRefresh={onRefreshEnvironment}
+                                                    refreshing={environmentRefreshing}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* MLS Description, Exterior, Interior, Ground Truth */}
+                                <PropertyHeader
+                                    data={propertyData}
+                                    isFavorited={isFavorited}
+                                    onToggleFavorite={onToggleFavorite}
+                                    onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                    designStyle={designStyle}
+                                    marketDynamics={marketDynamics}
+                                    section="details"
+                                    parcelPolygon={
+                                        propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                            ? propertyData.parcelPolygon.map((pt: any) =>
+                                                Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                            )
+                                            : undefined
+                                    }
+                                />
                                 {/* Horizontal Insight Strip — 4 cards in a row */}
-                                {(designStyle || keyInsights || ltrAnalysis || neighborhoodOverview) && (
+                                {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai) && (
                                     <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
-                                            {/* Design Philosophy */}
+                                            {/* Front Orientation */}
+                                            {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+                                                const sat = (propertyData as any).orientation_ai;
+                                                return (
+                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                            <div className="p-4">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-compass text-amber-600 text-[11px]"></i>
+                                                                    </div>
+                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Front Orientation</span>
+                                                                </div>
+                                                                {sat.orientation_highlights && (
+                                                                    <p className="text-[12px] text-slate-600 leading-relaxed mb-2">
+                                                                        The front of the home likely faces <strong>{sat.final_orientation}</strong>. {sat.orientation_highlights}
+                                                                    </p>
+                                                                )}
+                                                                <div className="space-y-2">
+                                                                    {sat.lot_coverage_hardscape != null && (
+                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100">
+                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
+                                                                            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                                                                <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
+                                                                            </div>
+                                                                            <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
+                                                                                <span>{sat.lot_coverage_hardscape}% hard</span>
+                                                                                <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {sat.buyer_pro && (
+                                                                        <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                                                                            <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
+                                                                            <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
+                                                                        </div>
+                                                                    )}
+                                                                    {sat.buyer_con && (
+                                                                        <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
+                                                                            <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
+                                                                            <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
+                                                                        </div>
+                                                                    )}
+                                                                    {sat.feng_shui_vastu && (
+                                                                        <div className="flex items-start gap-1.5 p-2 bg-purple-50/50 rounded-lg border border-purple-100">
+                                                                            <i className="fa-solid fa-yin-yang text-[8px] text-purple-500 mt-0.5"></i>
+                                                                            <div className="text-[11px] text-purple-700 font-medium leading-snug">{sat.feng_shui_vastu}</div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                             {designStyle?.style && (
                                                 <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                                                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
@@ -386,22 +491,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 </div>
                                             )}
 
-                                            {/* Neighborhood Overview */}
-                                            {neighborhoodOverview && (
-                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                        <div className="p-4">
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                    <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
-                                                                </div>
-                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
-                                                            </div>
-                                                            <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -413,28 +502,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 )}
                                 {(propertyData.neighborhoodPlaces) && (
                                     <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <NeighborhoodPlacesSection data={propertyData} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
+                                        <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
                                     </div>
                                 )}
-                                {/* Street View + Property Images — side by side */}
-                                {(propertyData.streetViewAnalysis?.isImageryAvailable !== false || (propertyData.images && propertyData.images.length > 0)) && (
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-                                        {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
-                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                                <StreetViewAnalysisSection
-                                                    data={propertyData}
-                                                    onRefresh={onRefreshEnvironment}
-                                                    refreshing={environmentRefreshing}
-                                                />
-                                            </div>
-                                        )}
-                                        {propertyData.images && propertyData.images.length > 0 && (
-                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                                <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+
                                 {propertyData.resoFacts && (
                                     <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                         <PropertyFacts facts={propertyData.resoFacts} />

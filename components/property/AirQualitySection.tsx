@@ -134,71 +134,22 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                 )}
 
 
-                {/* MODULE: ORIENTATION */}
-                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                    {/* Orientation */}
-                    {(data as any).orientation_ai && (data as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
-                        const sat = (data as any).orientation_ai;
-                        const confidenceColor = sat.confidence === 'high' ? 'text-emerald-600 bg-emerald-50' : sat.confidence === 'medium' ? 'text-amber-600 bg-amber-50' : 'text-slate-500 bg-slate-100';
-                        return (
-                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                <div className="p-4">
-                                    <div className="flex items-center justify-between gap-2 mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                <i className="fa-solid fa-compass text-amber-600 text-[11px]"></i>
-                                            </div>
-                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Front Orientation</span>
-                                        </div>
-                                        {sat.confidence && (
-                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${confidenceColor}`}>{sat.confidence}</span>
-                                        )}
+                {/* MODULE: NEIGHBORHOOD OVERVIEW */}
+                {neighborhoodOverview && (
+                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                            <div className="p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
                                     </div>
-                                    {sat.orientation_highlights && (
-                                        <p className="text-[12px] text-slate-600 leading-relaxed mb-2">
-                                            The front of the home likely faces <strong>{sat.final_orientation}</strong>. {sat.orientation_highlights}
-                                        </p>
-                                    )}
-                                    <div className="space-y-2">
-                                        {/* Lot Coverage */}
-                                        {sat.lot_coverage_hardscape != null && (
-                                            <div className="p-2 bg-white rounded-lg border border-slate-100">
-                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
-                                                <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                                    <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
-                                                </div>
-                                                <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
-                                                    <span>{sat.lot_coverage_hardscape}% hard</span>
-                                                    <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {/* Pro / Con */}
-                                        {sat.buyer_pro && (
-                                            <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
-                                                <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
-                                                <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
-                                            </div>
-                                        )}
-                                        {sat.buyer_con && (
-                                            <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
-                                                <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
-                                                <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
-                                            </div>
-                                        )}
-                                        {/* Feng Shui */}
-                                        {sat.feng_shui_vastu && (
-                                            <div className="flex items-start gap-1.5 p-2 bg-purple-50/50 rounded-lg border border-purple-100">
-                                                <i className="fa-solid fa-yin-yang text-[8px] text-purple-500 mt-0.5"></i>
-                                                <div className="text-[11px] text-purple-700 font-medium leading-snug">{sat.feng_shui_vastu}</div>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
                                 </div>
+                                <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
                             </div>
-                        );
-                    })()}
-                </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* MODULE: MOBILITY + NOISE (stacked) */}
                 <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
