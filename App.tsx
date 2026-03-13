@@ -771,6 +771,41 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRefreshCommunityPulse = async () => {
+    if (!propertyData) return;
+    try {
+      addLog('Gemini AI', { type: 'request' }, { task: 'community_pulse_refresh' });
+      const pulseRes = await analyzeCommunityPulse(propertyData);
+
+      const updatedCustom = {
+        ...(customAnalysis || {}),
+        community_pulse: pulseRes.data
+      } as CustomAIAnalysisResult;
+
+      setCustomAnalysis(updatedCustom);
+
+      // Update comprehensive analysis by re-running it to refresh the narrative
+      const compRes = await analyzeComprehensive(propertyData, updatedCustom);
+      setComprehensiveAnalysis(compRes.data);
+
+      if (propertyData.zpid) {
+        await saveVisualAnalysisToCloud(propertyData.zpid, updatedCustom);
+        await saveComprehensiveAnalysisToCloud(propertyData.zpid, compRes.data);
+
+        // Save to city-level cache too
+        const city = propertyData?.city || propertyData?.address?.split(',')[1]?.trim();
+        const state = propertyData?.state || propertyData?.address?.split(',')[2]?.split(' ')[1]?.trim();
+        const cityStateKey = generateCityStateKey(city, state);
+        if (cityStateKey) {
+          await saveCommunityPulseToCloud(cityStateKey, pulseRes.data);
+        }
+      }
+      addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
+    } catch (err: any) {
+      addLog('Gemini AI', { type: 'error' }, err.message || err);
+    }
+  };
+
   const handleSignOut = async () => {
     if (auth) {
       try {
@@ -1072,6 +1107,7 @@ const App: React.FC = () => {
       address={address}
       onRefreshEnvironment={handleRefreshEnvironment}
       environmentRefreshing={envRefreshing}
+      onRefreshCommunityPulse={handleRefreshCommunityPulse}
     />
   );
 

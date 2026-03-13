@@ -43,6 +43,7 @@ interface ExploreTabProps {
     address?: string;
     onRefreshEnvironment?: () => void;
     environmentRefreshing?: boolean;
+    onRefreshCommunityPulse?: () => Promise<void>;
 }
 
 const ExploreTab: React.FC<ExploreTabProps> = ({
@@ -68,7 +69,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     searchBar,
     address: currentAddress,
     onRefreshEnvironment,
-    environmentRefreshing
+    environmentRefreshing,
+    onRefreshCommunityPulse
 }) => {
     // Internal tab state — syncs with external viewMode
     type InternalTab = 'property-data' | 'visual-ai' | 'comprehensive';
@@ -78,6 +80,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         return 'property-data';
     };
     const [activeTab, setActiveTab] = useState<InternalTab>(mapViewToTab(viewMode));
+    const [isRefreshingPulse, setIsRefreshingPulse] = useState(false);
 
     // Sync external viewMode changes to internal tab
     React.useEffect(() => {
@@ -347,9 +350,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                         {/* ── Tab Navigation Bar ── */}
                         <div className="bg-white border-x border-b border-slate-100 px-6 py-3 flex items-center gap-3 overflow-x-auto">
                             {([
-                                { key: 'property-data' as InternalTab, label: 'Property Data', icon: 'fa-database' },
-                                { key: 'visual-ai' as InternalTab, label: 'Visual AI Analysis', icon: 'fa-eye' },
-                                { key: 'comprehensive' as InternalTab, label: 'Comprehensive Report', icon: 'fa-file-lines' },
+                                { key: 'property-data' as InternalTab, label: 'Overview', icon: 'fa-database' },
+                                { key: 'visual-ai' as InternalTab, label: 'A-Eye View', icon: 'fa-eye' },
                             ]).map(tab => (
                                 <button
                                     key={tab.key}
@@ -372,13 +374,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                         {/* ── Tab Content ── */}
                         {activeTab === 'property-data' && (
                             <div className="flex flex-col gap-2.5">
-                                {/* MLS Data heading */}
-                                <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                        <i className="fa-solid fa-database text-indigo-600 text-[11px]"></i>
-                                    </div>
-                                    <span className="text-lg font-black text-slate-900 tracking-tight">MLS Data</span>
-                                </div>
+
 
                                 {/* Property Images + MLS Details — side by side */}
                                 <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
@@ -708,11 +704,27 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                         <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
-                                                                    <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                                                                            <i className="fa-solid fa-users text-blue-600 text-[11px]"></i>
+                                                                    <div className="flex items-center justify-between mb-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                                                <i className="fa-solid fa-users text-blue-600 text-[11px]"></i>
+                                                                            </div>
+                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
                                                                         </div>
-                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
+                                                                        {userRole === 'admin' && onRefreshCommunityPulse && (
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    setIsRefreshingPulse(true);
+                                                                                    await onRefreshCommunityPulse();
+                                                                                    setIsRefreshingPulse(false);
+                                                                                }}
+                                                                                disabled={isRefreshingPulse}
+                                                                                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
+                                                                                title="Refresh Community Pulse"
+                                                                            >
+                                                                                <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                     <p className="text-[13px] text-slate-600 leading-relaxed text-left">
                                                                         {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (

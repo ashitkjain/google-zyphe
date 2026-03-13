@@ -129,12 +129,12 @@ export const useAnalysisActions = (
         }
     };
 
-    const handleRunCommunityPulse = async () => {
+    const handleRunCommunityPulse = async (force = false) => {
         if (!analysis || !propertyData || pulseLoading) return;
 
         setTimer(0);
         setPulseLoading(true);
-        addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid });
+        addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid, action: force ? 'refresh' : 'load' });
 
         try {
             const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
@@ -142,14 +142,18 @@ export const useAnalysisActions = (
             const cityStateKey = generateCityStateKey(city, state);
 
             let pulseData = null;
-            if (cityStateKey) {
+            if (cityStateKey && !force) {
                 pulseData = await getCommunityPulseFromCloud(cityStateKey);
             }
 
-            if (pulseData) {
+            if (pulseData && !force) {
                 addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'community_pulse', location: cityStateKey || zpid });
             } else {
-                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
+                if (force) {
+                    addLog('Cloud Cache', { type: 'info' }, { status: 'Bypassed', task: 'community_pulse', reason: 'Force refresh requested' });
+                } else {
+                    addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
+                }
                 const res = await aiAnalyzePulse(propertyData);
                 pulseData = res.data;
                 if (cityStateKey) {

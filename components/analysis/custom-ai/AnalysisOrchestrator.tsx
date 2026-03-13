@@ -329,7 +329,12 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             ) : !analysis.community_pulse ? (
                                 <EmptyState section="Community Pulse" />
                             ) : (
-                                <CommunityPulseView data={analysis.community_pulse} />
+                                <CommunityPulseView
+                                    data={analysis.community_pulse}
+                                    onRefresh={() => handleRunCommunityPulse(true)}
+                                    isRefreshing={pulseLoading}
+                                    userRole={userRole}
+                                />
                             )}
                         </section>
                     )}

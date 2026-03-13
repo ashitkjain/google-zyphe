@@ -81,26 +81,6 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
   return (
     <>
       <div className="mb-2">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h3 className="font-bold text-gray-800 flex items-center text-lg">
-            <i className="fa-solid fa-images text-gray-400 mr-3"></i>
-            Property Gallery
-          </h3>
-          <div className="flex items-center gap-2">
-            {totalCount > 0 && (
-              <button
-                onClick={() => openLightbox(0)}
-                className="text-sm font-bold px-4 py-1.5 rounded-full border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 transition-colors"
-              >
-                <i className="fa-solid fa-expand mr-1.5 text-xs" />
-                View All {totalCount}
-              </button>
-            )}
-
-
-          </div>
-        </div>
-
         {isOffMarket ? (
           <div className="bg-gray-100 rounded-[2.5rem] border-2 border-dashed border-gray-200 h-[350px] md:h-[400px] flex flex-col items-center justify-center text-center px-10">
             <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-lg mb-6">
@@ -144,44 +124,55 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
             </button>
 
             {/* Thumbnail sidebar */}
-            <div className="flex md:flex-col flex-row gap-2 w-full md:w-28 overflow-x-auto md:overflow-y-auto snap-x md:snap-y scroll-smooth">
-              {displayImages.map((img, idx) => {
-                const isLast = idx === displayImages.length - 1 && hiddenCount > 0;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      if (isLast) {
-                        // Open lightbox at the first hidden image
-                        openLightbox(MAX_SIDEBAR_IMAGES);
-                      } else {
-                        setSelectedImage(img);
-                      }
-                    }}
-                    className={`relative flex-shrink-0 w-24 md:w-full h-16 md:h-20 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast
-                      ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
-                      : 'border-transparent hover:border-gray-300'
-                      }`}
-                  >
-                    <img
-                      src={img}
-                      alt={`Thumbnail ${idx + 1}`}
-                      className={`w-full h-full object-cover transition-transform duration-300 ${selectedImage === img ? 'scale-110' : 'group-hover:scale-110'
+            <div className="flex flex-col gap-2 w-full md:w-28 shrink-0">
+              <div className="flex md:flex-col flex-row gap-2 w-full overflow-x-auto md:overflow-y-auto snap-x md:snap-y scroll-smooth">
+                {displayImages.map((img, idx) => {
+                  const isLast = idx === displayImages.length - 1 && hiddenCount > 0;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        if (isLast) {
+                          // Open lightbox at the first hidden image
+                          openLightbox(MAX_SIDEBAR_IMAGES);
+                        } else {
+                          setSelectedImage(img);
+                        }
+                      }}
+                      className={`relative flex-shrink-0 w-24 md:w-full h-16 md:h-20 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast
+                        ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
+                        : 'border-transparent hover:border-gray-300'
                         }`}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    {/* "+N more" overlay — clicking opens lightbox at first unseen image */}
-                    {isLast && (
-                      <div className="absolute inset-0 bg-black/65 flex flex-col items-center justify-center gap-0.5 cursor-pointer">
-                        <i className="fa-solid fa-images text-white/80 text-sm" />
-                        <span className="text-white text-xs font-black">+{hiddenCount}</span>
-                        <span className="text-white/60 text-[8px] font-semibold">more</span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+                    >
+                      <img
+                        src={img}
+                        alt={`Thumbnail ${idx + 1}`}
+                        className={`w-full h-full object-cover transition-transform duration-300 ${selectedImage === img ? 'scale-110' : 'group-hover:scale-110'
+                          }`}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      {/* "+N more" overlay — clicking opens lightbox at first unseen image */}
+                      {isLast && (
+                        <div className="absolute inset-0 bg-black/65 flex flex-col items-center justify-center gap-0.5 cursor-pointer">
+                          <i className="fa-solid fa-images text-white/80 text-sm" />
+                          <span className="text-white text-xs font-black">+{hiddenCount}</span>
+                          <span className="text-white/60 text-[8px] font-semibold">more</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {totalCount > 0 && (
+                <button
+                  onClick={() => openLightbox(0)}
+                  className="w-full text-[10px] font-black uppercase tracking-widest py-2 rounded-xl border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
+                >
+                  <i className="fa-solid fa-expand text-[9px]" />
+                  View All {totalCount}
+                </button>
+              )}
             </div>
           </div>
         )}

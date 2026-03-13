@@ -460,11 +460,11 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
 
-  onLog?.(`[Community Pulse] Running with gemini-3.0-flash + Google Search grounding for ${property.city}...`);
+  onLog?.(`[Community Pulse] Running with gemini-2.0-flash + Google Search grounding for ${property.city}...`);
   console.log(`[Community Pulse] Starting for ${property.city}, ${property.state}...`);
 
   return executeGeminiRequest<CommunityPulseResult>({
-    model: 'gemini-3.0-flash',
+    model: 'gemini-2.0-flash',
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.7 },
     userId,
