@@ -88,6 +88,8 @@ export interface ResoFacts {
 // PropertyData is large, let's keep it here.
 import { AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult, StreetViewAnalysisResult } from './ai';
 import type { HistoricalDisasterData } from '../services/api/disasters';
+import type { BroadbandData } from '../services/api/broadband';
+import type { DroughtData } from '../services/api/drought';
 
 export interface PropertyData {
     zpid?: string;
@@ -264,6 +266,8 @@ export interface PropertyData {
     parcelApn?: string;
     parcelAreaSqft?: number;
     historical_disasters?: HistoricalDisasterData | null;
+    broadband?: BroadbandData | null;
+    drought?: DroughtData | null;
 }
 
 export interface PropertyDetails {

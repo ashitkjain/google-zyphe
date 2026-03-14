@@ -13,6 +13,8 @@ import { fetchScores, fetchPropertyImages } from './property';
 import { fetchNearbyPlaces } from './places';
 import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } from './environmental';
 import { fetchHistoricalDisasters } from './disasters';
+import { fetchBroadbandData } from './broadband';
+import { fetchDroughtData } from './drought';
 
 const MAPS_API_KEY = APP_CONFIG.maps.key;
 
@@ -307,6 +309,8 @@ export const fetchPropertyDataFull = async (
             const TTL_POLLEN = 365 * 24 * 60 * 60 * 1000;
             const TTL_NOISE = 30 * 24 * 60 * 60 * 1000;
             const TTL_DISASTERS = 365 * 24 * 60 * 60 * 1000;  // Historical data barely changes
+            const TTL_BROADBAND = 30 * 24 * 60 * 60 * 1000;   // ISP availability changes rarely
+            const TTL_DROUGHT = 7 * 24 * 60 * 60 * 1000;       // Updated weekly by USDM
 
             const isCacheExpired = (lastUpdated: any, ttl: number) => {
                 if (!lastUpdated) return true;
@@ -336,17 +340,21 @@ export const fetchPropertyDataFull = async (
             const needsPollen = !cachedEnvData?.pollen?.analysis || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN);
             const needsNoise = cachedEnvData?.noiseScore == null || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
             const needsDisasters = !cachedEnvData?.historical_disasters || forceEnvironment || isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS);
+            const needsBroadband = !cachedEnvData?.broadband || forceEnvironment || isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND);
+            const needsDrought = !cachedEnvData?.drought || forceEnvironment || isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT);
 
-            if (needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters) {
+            if (needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought) {
                 onStep?.('Fetching environmental data...');
             }
 
-            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters] = await Promise.all([
+            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsNoise ? fetchNoiseScore(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsDisasters ? fetchHistoricalDisasters(lat, lng, mappedData.state, mappedData.city, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                needsBroadband ? fetchBroadbandData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
             ]);
 
             // 1. Solar
@@ -397,6 +405,20 @@ export const fetchPropertyDataFull = async (
                 mappedData.historical_disasters = freshDisasters;
             } else if (!needsDisasters && cachedEnvData?.historical_disasters) {
                 mappedData.historical_disasters = cachedEnvData.historical_disasters;
+            }
+
+            // 6. Broadband
+            if (needsBroadband && freshBroadband) {
+                mappedData.broadband = freshBroadband;
+            } else if (!needsBroadband && cachedEnvData?.broadband) {
+                mappedData.broadband = cachedEnvData.broadband;
+            }
+
+            // 7. Drought
+            if (needsDrought && freshDrought) {
+                mappedData.drought = freshDrought;
+            } else if (!needsDrought && cachedEnvData?.drought) {
+                mappedData.drought = cachedEnvData.drought;
             }
 
             // 6. AI Street View Analysis

@@ -857,52 +857,71 @@ const App: React.FC = () => {
   };
 
   const handleRefreshEnvironment = async () => {
-    if (!address || loading) return;
+    if (!propertyData?.coordinates || loading) return;
     setEnvRefreshing(true);
-    setLoadingSublabel('Clearing property cache...');
+    setLoadingSublabel('Refreshing environment data...');
     try {
-      const isZpid = /^\d+$/.test(address);
+      const lat = propertyData.coordinates.latitude;
+      const lng = propertyData.coordinates.longitude;
+      const zpid = propertyData.zpid ? String(propertyData.zpid) : undefined;
+      const addr = propertyData.address || undefined;
 
-      // ── Step 1: Snapshot existing secured assets BEFORE deleting anything ──
-      // We MUST preserve Firebase Storage image URLs — do NOT delete property_assets.
-      const existingAssets = propertyData?.zpid
-        ? await getPropertyAssetsFromCloud(String(propertyData.zpid))
-        : null;
+      // Dynamically import only the environment fetchers
+      const { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } = await import('./services/api/environmental');
+      const { fetchHistoricalDisasters } = await import('./services/api/disasters');
+      const { fetchBroadbandData } = await import('./services/api/broadband');
+      const { fetchDroughtData } = await import('./services/api/drought');
+      const { analyzePollen } = await import('./services/geminiService');
+      const { auth: fbAuth } = await import('./services/firebase/config');
 
-      // ── Step 2: Delete the property doc + AI analysis caches (NOT assets) ──
-      // This forces fetchPropertyDataFull to hit the live API again (fresh HOA, etc.).
-      if (propertyData?.zpid) {
-        await deletePropertyAnalysis(propertyData.zpid, 'intelligence'); // clears AI caches
-        // Also delete the raw property cache so the API is called fresh
-        const { deleteDoc, doc: fsDoc } = await import('firebase/firestore');
-        const { db } = await import('./services/firebase/config');
-        if (db) await deleteDoc(fsDoc(db, 'properties', String(propertyData.zpid)));
-        addLog('System', { type: 'info' }, `Admin: Cleared property + intelligence cache for ZPID ${propertyData.zpid}`);
+      setLoadingSublabel('Fetching environment data...');
+
+      const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought] = await Promise.all([
+        fetchSolarData(lat, lng, zpid, addr),
+        fetchAirQuality(lat, lng, zpid, addr),
+        fetchPollenData(lat, lng, zpid, addr),
+        fetchNoiseScore(lat, lng, zpid, addr),
+        fetchHistoricalDisasters(lat, lng, propertyData.state, propertyData.city, zpid, addr),
+        fetchBroadbandData(lat, lng, zpid, addr),
+        fetchDroughtData(lat, lng, zpid, addr),
+      ]);
+
+      // Merge fresh environment data onto existing property data (keep everything else)
+      const updated = { ...propertyData };
+
+      if (freshSolar) updated.solarData = freshSolar;
+      if (freshAirQual) updated.airQuality = freshAirQual;
+      if (freshNoise) {
+        updated.noiseScore = freshNoise.score;
+        updated.noiseScoreDesc = freshNoise.description ?? undefined;
+        updated.noiseTrafficScore = freshNoise.trafficScore;
+        updated.noiseTrafficDesc = freshNoise.trafficDesc ?? undefined;
+        updated.noiseLocalScore = freshNoise.localScore;
+        updated.noiseLocalDesc = freshNoise.localDesc ?? undefined;
+        updated.noiseAirportScore = freshNoise.airportScore;
+        updated.noiseAirportDesc = freshNoise.airportDesc ?? undefined;
+      }
+      if (freshDisasters) updated.historical_disasters = freshDisasters;
+      if (freshBroadband) updated.broadband = freshBroadband;
+      if (freshDrought) updated.drought = freshDrought;
+
+      // Pollen: run Gemini analysis if raw data is available
+      if (freshPollenRaw) {
+        try {
+          const userId = fbAuth?.currentUser?.uid || 'unknown';
+          const pollenAnalysis = await analyzePollen(freshPollenRaw, updated, userId);
+          updated.pollen = { ...freshPollenRaw, analysis: pollenAnalysis.data };
+        } catch (e) {
+          console.warn('Pollen analysis failed, using raw data only:', e);
+          updated.pollen = freshPollenRaw;
+        }
       }
 
-      setLoadingSublabel('Re-fetching property + environment data...');
-      const fullData = await fetchPropertyDataFull(
-        address,
-        isZpid,
-        true, // forceEnvironment = true
-        (step) => setLoadingSublabel(step)
-      );
-
-      // ── Step 3: Restore Firebase Storage images ──
-      // The fresh API call returns raw zillowstatic URLs. Overlay secured URLs
-      // from the preserved assets doc so Gemini never sees the raw Zillow URLs.
-      if (existingAssets?.images?.length) {
-        fullData.images = existingAssets.images;
-        if (existingAssets.mapZoomIn) fullData.mapZoomIn = existingAssets.mapZoomIn;
-        if (existingAssets.mapZoomOut) fullData.mapZoomOut = existingAssets.mapZoomOut;
-        addLog('System', { type: 'info' }, `Admin: Restored ${existingAssets.images.length} secured Firebase Storage images.`);
-      }
-
-      setPropertyData(fullData);
-      addLog('Zyphe Data Layer', { type: 'force-refresh' }, { target: address, result: 'success' });
+      setPropertyData(updated);
+      addLog('Zyphe Data Layer', { type: 'env-refresh' }, { target: addr, result: 'success' });
     } catch (err: any) {
       console.error('Environment refresh failed:', err);
-      addLog('Zyphe Data Layer', { type: 'force-refresh' }, { target: address, result: 'failed', error: err.message });
+      addLog('Zyphe Data Layer', { type: 'env-refresh' }, { target: address, result: 'failed', error: err.message });
     } finally {
       setEnvRefreshing(false);
       setLoadingSublabel('');

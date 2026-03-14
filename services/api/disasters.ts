@@ -117,7 +117,11 @@ export const fetchFloodZone = async (
     address?: string
 ): Promise<FloodZone | null> => {
     const geometry = encodeURIComponent(JSON.stringify({ x: lng, y: lat }));
-    const url = `https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28/query` +
+    const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    const baseUrl = isDev
+        ? '/fema-flood-proxy/gis/nfhl/rest/services/public/NFHL/MapServer/28/query'
+        : 'https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28/query';
+    const url = `${baseUrl}` +
         `?geometry=${geometry}` +
         `&geometryType=esriGeometryPoint` +
         `&inSR=4326&outFields=FLD_ZONE,ZONE_SUBTY&returnGeometry=false&f=json`;
@@ -297,7 +301,11 @@ export const fetchFemaDisasterHistory = async (
         filterStr += ` and contains(designatedArea,'${cleanCounty}')`;
     }
 
-    const url = `https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries?` +
+    const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    const baseUrl = isDev
+        ? '/fema-api-proxy/api/open/v2/DisasterDeclarationsSummaries'
+        : 'https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries';
+    const url = `${baseUrl}?` +
         `${filterStr}` +
         `&$orderby=declarationDate desc` +
         `&$top=50` +

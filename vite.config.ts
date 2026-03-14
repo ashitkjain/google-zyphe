@@ -27,6 +27,21 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api_proxy/, '')
         },
+        '/fema-flood-proxy': {
+          target: 'https://hazards.fema.gov',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/fema-flood-proxy/, '')
+        },
+        '/fema-api-proxy': {
+          target: 'https://www.fema.gov',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/fema-api-proxy/, '')
+        },
+        '/usdm-proxy': {
+          target: 'https://usdmdataservices.unl.edu',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/usdm-proxy/, '')
+        },
       }
     },
     plugins: [react()],

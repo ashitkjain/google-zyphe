@@ -1,9 +1,13 @@
 import React from 'react';
 import type { HistoricalDisasterData, DisasterEvent, SeismicZone, FloodZone } from '../../services/api/disasters';
+import type { DroughtData } from '../../services/api/drought';
 
 interface Props {
     data: HistoricalDisasterData;
+    drought?: DroughtData | null;
     compact?: boolean;
+    onRefresh?: () => void;
+    refreshing?: boolean;
 }
 
 // ── Info Tooltip (matches ParcelValidationCard style) ──
@@ -241,7 +245,7 @@ const FloodZoneCard: React.FC<{ zone: FloodZone; mini?: boolean }> = ({ zone, mi
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const HistoricalDisasterSection: React.FC<Props> = ({ data, compact }) => {
+const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, onRefresh, refreshing }) => {
     const allEvents = [
         ...data.earthquakes,
         ...data.femaDeclarations,
@@ -255,7 +259,7 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, compact }) => {
         return (
             <div className="bg-white border-x border-b border-gray-100 px-8 py-4 space-y-3 overflow-visible">
                 <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest">
-                    <div className="flex items-center">
+                    <div className="flex items-center flex-1">
                         <i className="fa-solid fa-shield-halved mr-2"></i>
                         Hazard Zones
                         <InfoTooltip title="Data Sources" items={[
@@ -265,22 +269,45 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, compact }) => {
                             { label: 'FEMA Events', desc: 'Federal disaster declarations by county' },
                         ]} />
                     </div>
+                    {onRefresh && (
+                        <button
+                            onClick={onRefresh}
+                            disabled={refreshing}
+                            className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${refreshing ? 'text-indigo-400 animate-spin' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                            title="Refresh"
+                        >
+                            <i className="fa-solid fa-arrows-rotate text-[9px]"></i>
+                        </button>
+                    )}
                 </div>
 
                 {/* Zone classifications — flat rows */}
                 <div className="space-y-1.5">
                     {data.seismicZone && (() => {
                         const c = SEISMIC_COLORS[data.seismicZone.riskLevel] || SEISMIC_COLORS.low;
+                        const zoneDesc: Record<string, string> = {
+                            A: 'Minimal seismic risk — standard construction',
+                            B: 'Low to moderate risk — basic seismic detailing',
+                            C: 'Moderate risk — seismic-resistant design required',
+                            D: 'High seismic risk — strict building codes apply',
+                            E: 'Very high seismic risk — earthquake insurance recommended',
+                            F: 'Near-fault zone — specialized engineering required',
+                        };
                         return (
-                            <div className="flex items-center gap-2">
-                                <i className={`fa-solid fa-mountain-sun text-[10px] ${c.text}`}></i>
-                                <span className="text-[12px] font-bold text-gray-600">Seismic</span>
-                                <span className={`text-[12px] font-black ${c.text}`}>Zone {data.seismicZone.designCategory}</span>
-                                <InfoTooltip items={[
-                                    { label: 'Category A', desc: 'Minimal risk' },
-                                    { label: 'Category B', desc: 'Low to moderate' },
-                                    { label: 'Category D/E', desc: 'Very high — quake insurance recommended' },
-                                ]} />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <i className={`fa-solid fa-mountain-sun text-[10px] ${c.text}`}></i>
+                                    <span className="text-[12px] font-bold text-gray-600">Seismic</span>
+                                    <span className={`text-[12px] font-black ${c.text}`}>Zone {data.seismicZone.designCategory}</span>
+                                    <InfoTooltip items={[
+                                        { label: 'Category A', desc: 'Minimal risk' },
+                                        { label: 'Category B', desc: 'Low to moderate' },
+                                        { label: 'Category D/E', desc: 'Very high — quake insurance recommended' },
+                                    ]} />
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-medium ml-[22px] mt-0.5 leading-snug">
+                                    {zoneDesc[data.seismicZone.designCategory] || 'Seismic design category per ASCE 7-22'}
+                                </p>
                             </div>
                         );
                     })()}
@@ -297,6 +324,35 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, compact }) => {
                                     { label: 'Zone A/AE', desc: 'High risk — flood insurance mandatory' },
                                     { label: 'Zone V/VE', desc: 'Coastal high risk' },
                                 ]} />
+                            </div>
+                        );
+                    })()}
+                    {drought && (() => {
+                        const droughtColors: Record<string, { text: string; icon: string }> = {
+                            'None': { text: 'text-emerald-700', icon: 'text-emerald-500' },
+                            'Abnormally Dry': { text: 'text-yellow-700', icon: 'text-yellow-500' },
+                            'Moderate': { text: 'text-amber-700', icon: 'text-amber-500' },
+                            'Severe': { text: 'text-orange-700', icon: 'text-orange-500' },
+                            'Extreme': { text: 'text-red-700', icon: 'text-red-500' },
+                            'Exceptional': { text: 'text-red-800', icon: 'text-red-600' },
+                        };
+                        const dc = droughtColors[drought.severity] || droughtColors['None'];
+                        return (
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <i className={`fa-solid fa-sun-plant-wilt text-[10px] ${dc.icon}`}></i>
+                                    <span className="text-[12px] font-bold text-gray-600">Drought</span>
+                                    <span className={`text-[12px] font-black ${dc.text}`}>{drought.severity}</span>
+                                    <InfoTooltip items={[
+                                        { label: 'D0', desc: 'Abnormally Dry' },
+                                        { label: 'D1', desc: 'Moderate Drought' },
+                                        { label: 'D2', desc: 'Severe Drought' },
+                                        { label: 'D3–D4', desc: 'Extreme / Exceptional Drought' },
+                                    ]} />
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-medium ml-[22px] mt-0.5 leading-snug">
+                                    {drought.countyName}, {drought.state} — {drought.none.toFixed(0)}% no drought, {(100 - drought.none).toFixed(0)}% affected
+                                </p>
                             </div>
                         );
                     })()}
