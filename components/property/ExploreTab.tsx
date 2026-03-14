@@ -14,6 +14,7 @@ import ComplianceAttribution from './ComplianceAttribution';
 import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
 import StaticParcelMap from './StaticParcelMap';
 import ParcelValidationCard from './ParcelValidationCard';
+import HistoricalDisasterSection from './HistoricalDisasterSection';
 
 
 import ChatInterface from '../shared/ChatInterface';
@@ -404,6 +405,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex) && (
                                     <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                         <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} />
+                                    </div>
+                                )}
+
+                                {/* Historical Disaster Ledger — compact inline */}
+                                {propertyData.historical_disasters && (
+                                    <div className="rounded-2xl border-2 border-amber-200 overflow-hidden">
+                                        <HistoricalDisasterSection data={propertyData.historical_disasters} compact />
                                     </div>
                                 )}
 

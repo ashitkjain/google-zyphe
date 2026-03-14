@@ -12,6 +12,7 @@ import { normalizeAddress } from './geocoding';
 import { fetchScores, fetchPropertyImages } from './property';
 import { fetchNearbyPlaces } from './places';
 import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } from './environmental';
+import { fetchHistoricalDisasters } from './disasters';
 
 const MAPS_API_KEY = APP_CONFIG.maps.key;
 
@@ -305,6 +306,7 @@ export const fetchPropertyDataFull = async (
             const TTL_AIR_QUALITY = 24 * 60 * 60 * 1000;
             const TTL_POLLEN = 365 * 24 * 60 * 60 * 1000;
             const TTL_NOISE = 30 * 24 * 60 * 60 * 1000;
+            const TTL_DISASTERS = 365 * 24 * 60 * 60 * 1000;  // Historical data barely changes
 
             const isCacheExpired = (lastUpdated: any, ttl: number) => {
                 if (!lastUpdated) return true;
@@ -333,16 +335,18 @@ export const fetchPropertyDataFull = async (
             const needsAirQual = !cachedEnvData?.airQuality || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY);
             const needsPollen = !cachedEnvData?.pollen?.analysis || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN);
             const needsNoise = cachedEnvData?.noiseScore == null || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
+            const needsDisasters = !cachedEnvData?.historical_disasters || forceEnvironment || isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS);
 
-            if (needsSolar || needsAirQual || needsPollen || needsNoise) {
+            if (needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters) {
                 onStep?.('Fetching environmental data...');
             }
 
-            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise] = await Promise.all([
+            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsNoise ? fetchNoiseScore(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                needsDisasters ? fetchHistoricalDisasters(lat, lng, mappedData.state, mappedData.city, mappedData.zpid, mappedData.address) : Promise.resolve(null),
             ]);
 
             // 1. Solar
@@ -388,7 +392,14 @@ export const fetchPropertyDataFull = async (
                 mappedData.noiseAirportDesc = cachedEnvData.noiseAirportDesc;
             }
 
-            // 5. AI Street View Analysis
+            // 5. Historical Disasters
+            if (needsDisasters && freshDisasters) {
+                mappedData.historical_disasters = freshDisasters;
+            } else if (!needsDisasters && cachedEnvData?.historical_disasters) {
+                mappedData.historical_disasters = cachedEnvData.historical_disasters;
+            }
+
+            // 6. AI Street View Analysis
             if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating && !forceEnvironment) {
                 console.log('[fetchPropertyDataFull] Using cached Street View analysis.');
                 mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
@@ -441,6 +452,7 @@ export const fetchPropertyDataFull = async (
                     airQuality: mappedData.airQuality,
                     pollen: mappedData.pollen,
                     streetViewAnalysis: mappedData.streetViewAnalysis,
+                    historical_disasters: mappedData.historical_disasters ?? null,
                     noiseScore: mappedData.noiseScore ?? null,
                     noiseScoreDesc: mappedData.noiseScoreDesc ?? null,
                     noiseTrafficScore: mappedData.noiseTrafficScore ?? null,

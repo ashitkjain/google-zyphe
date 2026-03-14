@@ -87,6 +87,7 @@ export interface ResoFacts {
 // Circular imports managed by index.ts or separate files. Importing AI types if needed, but PropertyData uses AI.
 // PropertyData is large, let's keep it here.
 import { AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult, StreetViewAnalysisResult } from './ai';
+import type { HistoricalDisasterData } from '../services/api/disasters';
 
 export interface PropertyData {
     zpid?: string;
@@ -262,6 +263,7 @@ export interface PropertyData {
     parcelPolygon?: [number, number][] | { lon: number, lat: number }[];
     parcelApn?: string;
     parcelAreaSqft?: number;
+    historical_disasters?: HistoricalDisasterData | null;
 }
 
 export interface PropertyDetails {

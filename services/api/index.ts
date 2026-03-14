@@ -20,6 +20,10 @@ export { fetchNearbyPlaces } from './places';
 // Environmental data
 export { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } from './environmental';
 
+// Historical disaster data (USGS Earthquake + FEMA)
+export type { DisasterEvent, SeismicZone, FloodZone, HistoricalDisasterData } from './disasters';
+export { fetchHistoricalDisasters, fetchEarthquakeHistory, fetchFemaDisasterHistory } from './disasters';
+
 // Property data (scores, comps, images, specs)
 export { fetchScores, fetchPropertyImages, fetchPropertySpecs } from './property';
 

@@ -2,6 +2,7 @@
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db, handleFirestoreError, logFirestoreQuery, sanitizeForFirestore } from "./config";
 import { StreetViewAnalysisResult } from "../../types";
+import type { HistoricalDisasterData } from "../api/disasters";
 
 export interface GoogleEnvironmentalData {
     zpid: string;
@@ -19,6 +20,8 @@ export interface GoogleEnvironmentalData {
     noiseAirportDesc?: string | null;
     /** Google Places Nearby Search results. 30-day TTL — set when data is first fetched. */
     neighborhoodPlaces?: any;
+    /** Historical disaster data (USGS + FEMA). 365-day TTL. */
+    historical_disasters?: HistoricalDisasterData | null;
     lastUpdated?: any;
 }
 

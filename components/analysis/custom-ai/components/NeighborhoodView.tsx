@@ -4,6 +4,7 @@ import { EmptyState } from './CommonComponents';
 import AirQualitySection from '../../../property/AirQualitySection';
 import NeighborhoodPlacesSection from '../../../property/NeighborhoodPlacesSection';
 import StaticParcelMap from '../../../property/StaticParcelMap';
+import HistoricalDisasterSection from '../../../property/HistoricalDisasterSection';
 
 interface NeighborhoodViewProps {
     data: CustomAIAnalysisResult['neighborhood'];
@@ -135,6 +136,11 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                         <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
                             <AirQualitySection data={propertyData} />
                         </div>
+
+                        {/* Historical Disaster Ledger — full expanded */}
+                        {propertyData.historical_disasters && (
+                            <HistoricalDisasterSection data={propertyData.historical_disasters} />
+                        )}
 
                         <div className="flex flex-col lg:flex-row gap-6">
                             {mapZoomOut && (

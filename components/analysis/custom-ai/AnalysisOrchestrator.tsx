@@ -266,28 +266,30 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     return (
         <div className="space-y-8 pb-20 relative">
             {/* Tabs */}
-            <div className="flex justify-center sm:justify-start">
-                <div className="inline-flex bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm overflow-x-auto no-scrollbar max-w-full">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as TabType)}
-                            className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[13px] whitespace-nowrap ${activeTab === tab.id ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                        >
-                            <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`}></i>
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
+            <div className="flex flex-col items-end gap-3 px-1">
                 {userRole === 'admin' && (
                     <button
                         onClick={onFullRefresh}
-                        className="ml-auto text-xs font-black text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-widest flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-indigo-50"
+                        className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-all uppercase tracking-[0.2em] flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 shadow-sm sm:shadow-none"
                     >
-                        <i className="fa-solid fa-sync"></i>
+                        <i className="fa-solid fa-sync text-[10px]"></i>
                         Full Refresh
                     </button>
                 )}
+                <div className="flex justify-center sm:justify-start w-full">
+                    <div className="inline-flex bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm overflow-x-auto no-scrollbar max-w-full">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as TabType)}
+                                className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[13px] whitespace-nowrap ${activeTab === tab.id ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                            >
+                                <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`}></i>
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* Content Area */}
