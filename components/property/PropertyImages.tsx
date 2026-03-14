@@ -164,15 +164,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                   );
                 })}
               </div>
-              {totalCount > 0 && (
-                <button
-                  onClick={() => openLightbox(0)}
-                  className="w-full text-[10px] font-black uppercase tracking-widest py-2 rounded-xl border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
-                >
-                  <i className="fa-solid fa-expand text-[9px]" />
-                  View All {totalCount}
-                </button>
-              )}
+
             </div>
           </div>
         )}

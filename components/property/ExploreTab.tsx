@@ -402,16 +402,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     />
                                 </div>
 
-                                {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex) && (
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} />
-                                    </div>
-                                )}
-
-                                {/* Historical Disaster Ledger — compact inline */}
-                                {propertyData.historical_disasters && (
-                                    <div className="rounded-2xl border-2 border-amber-200 overflow-hidden">
-                                        <HistoricalDisasterSection data={propertyData.historical_disasters} compact />
+                                {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex || propertyData.historical_disasters) && (
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-visible">
+                                        <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} disasterData={propertyData.historical_disasters} />
                                     </div>
                                 )}
 

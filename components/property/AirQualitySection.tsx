@@ -3,13 +3,15 @@ import React from 'react';
 import { PropertyData } from '../../types';
 
 import { calculateSolarPotential } from '../../utils/solarCalculations';
+import HistoricalDisasterSection from './HistoricalDisasterSection';
 
 interface Props {
     data: PropertyData;
     neighborhoodOverview?: string;
+    disasterData?: any;
 }
 
-const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
+const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disasterData }) => {
     const aq = data.airQuality;
     const solar = data.solarData;
     const solarPotential = solar?.estimatedSolarProduction || (solar ? calculateSolarPotential(solar) : null);
@@ -456,15 +458,11 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                             {/* Health Insights footer */}
                             {aq.recommendations && (
                                 <div className="p-2.5 bg-indigo-50/30 border-t border-indigo-100/30 space-y-1.5">
-                                    <div className="text-[11px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <i className="fa-solid fa-user-doctor text-[9px]"></i>
-                                        Health Insights
-                                    </div>
+
                                     {aq.recommendations.general && (
                                         <div className="flex gap-2">
                                             <div className="w-1 h-1 rounded-full bg-indigo-400/30 mt-1.5 flex-shrink-0" />
                                             <p className="text-[13px] text-slate-600 leading-snug italic">
-                                                <span className="font-bold text-slate-400 not-italic uppercase text-[9px] tracking-tighter mr-1">General:</span>
                                                 "{aq.recommendations.general}"
                                             </p>
                                         </div>
@@ -482,14 +480,11 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                             )}
                         </div>
                     )}
-                </div>
 
-                {/* MODULE: POLLEN */}
-                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                    {/* POLLEN — below Air Quality in same column */}
                     {hasPollen && data.pollen && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                             <div className="p-3">
-                                {/* Header */}
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                     <div className="flex items-center gap-2">
                                         <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
@@ -498,8 +493,6 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">Pollen</span>
                                     </div>
                                 </div>
-
-                                {/* Inline stats */}
                                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px] mb-2">
                                     {data.pollen.category && (
                                         <div>
@@ -516,23 +509,16 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Description */}
                                 {data.pollen.description && (
                                     <p className="text-[12px] text-slate-400 font-medium leading-snug mb-2">{data.pollen.description}</p>
                                 )}
-
-
-
                                 {data.pollen.analysis?.breathe_easy_summary && (
                                     <p className="text-[13px] text-slate-500 font-medium leading-snug italic p-2 bg-white rounded-lg border border-slate-100">
                                         "{data.pollen.analysis.breathe_easy_summary}"
                                     </p>
                                 )}
-
                                 <div className="mt-2 bg-white/50 rounded-lg border border-slate-100 overflow-hidden">
                                     <div className="px-2 py-2 space-y-2">
-                                        {/* Triggers + Types — single row */}
                                         <div className="flex gap-1.5">
                                             <div className="flex-1 p-2 bg-white rounded-lg border border-slate-100">
                                                 <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -567,10 +553,17 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview }) => {
                     )}
                 </div>
 
+                {/* MODULE: HAZARD ZONES (in 4th column, replacing pollen) */}
+                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3 overflow-visible">
+                    {disasterData && (
+                        <HistoricalDisasterSection data={disasterData} compact />
+                    )}
+                </div>
+
 
             </div>
-            <div className="text-[9px] text-slate-400 font-medium mt-1 text-right">Source: Loudscore, Google Places, Walkscore</div>
-        </div>
+            <div className="text-[9px] text-slate-400 font-medium mt-1 text-right">Source: Loudscore, Google Places, Walkscore, USGS, FEMA</div>
+        </div >
     );
 };
 

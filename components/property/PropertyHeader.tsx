@@ -89,12 +89,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         {/* MLS Description — full width */}
         {data.description && data.description !== "No description available." && (
           <div className="bg-slate-50/30 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[13px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <i className="fa-solid fa-align-left text-[11px]"></i>
-              Agent Property Description
-            </div>
             <div className="relative">
-              <p className={`text-[13px] text-slate-700 leading-relaxed font-normal whitespace-pre-wrap ${!isDescExpanded && data.description.length > 300 ? 'line-clamp-3' : ''}`}>
+              <p className={`text-[13px] text-slate-700 leading-relaxed font-normal whitespace-pre-wrap ${!isDescExpanded && data.description.length > 300 ? 'line-clamp-5' : ''}`}>
                 {data.description}
               </p>
               {data.description.length > 300 && (
@@ -113,10 +109,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         <div className="columns-1 lg:columns-3 gap-3 [&>*]:break-inside-avoid [&>*]:mb-3">
 
           <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <i className="fa-solid fa-house-chimney text-[13px]"></i>
-              Exterior
-            </div>
             <ExpandableList
               items={[
                 { icon: 'fa-landmark', label: 'Architectural Style', value: parseValue(data.resoFacts?.architecturalStyle) },
@@ -167,10 +159,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
           {/* Interior */}
           <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <i className="fa-solid fa-couch text-[13px]"></i>
-              Interior
-            </div>
             <ExpandableList
               items={[
                 { icon: 'fa-fire-flame-simple', label: 'Heating', value: parseValue(data.resoFacts?.heating) },
@@ -179,29 +167,25 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 { icon: 'fa-arrow-down-wide-short', label: 'Basement', value: parseValue(data.resoFacts?.basement) },
               ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
             />
-
-            {/* Utilities (below Interior) */}
-            {(() => {
-              const utilItems = [
-                { icon: 'fa-plug', label: 'Utilities', value: parseValue(data.resoFacts?.utilities) },
-                { icon: 'fa-faucet', label: 'Sewer', value: parseValue(data.resoFacts?.sewer) },
-                { icon: 'fa-droplet', label: 'Water Source', value: parseValue(data.resoFacts?.waterSource) },
-              ].filter(m => m.value);
-              if (!utilItems.length) return null;
-              return (
-                <>
-                  <div className="border-t border-slate-200/80 my-3"></div>
-                  <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                    <i className="fa-solid fa-plug text-[13px]"></i>
-                    Utilities
-                  </div>
-                  <ExpandableList
-                    items={utilItems.map((m, idx) => <MetricItem key={idx} m={m} />)}
-                  />
-                </>
-              );
-            })()}
           </div>
+
+          {/* Utilities */}
+          {(() => {
+            const utilItems = [
+              { icon: 'fa-plug', label: 'Utilities', value: parseValue(data.resoFacts?.utilities) },
+              { icon: 'fa-faucet', label: 'Sewer', value: parseValue(data.resoFacts?.sewer) },
+              { icon: 'fa-droplet', label: 'Water Source', value: parseValue(data.resoFacts?.waterSource) },
+            ].filter(m => m.value);
+            if (!utilItems.length) return null;
+            return (
+              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                <ExpandableList
+                  items={utilItems.map((m, idx) => <MetricItem key={idx} m={m} />)}
+                />
+              </div>
+            );
+          })()}
+
 
           {/* Additional Features */}
           {(() => {
@@ -233,10 +217,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             if (!features.length) return null;
             return (
               <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-                <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                  <i className="fa-solid fa-list-check text-[13px]"></i>
-                  Additional Features
-                </div>
                 <ExpandableList
                   items={features.map((f, idx) => (
                     <MetricItem key={idx} m={{ icon: 'fa-circle-check', label: f.split(':')[0], value: f.split(':').slice(1).join(':').trim() }} />
@@ -251,10 +231,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         {/* Schools — full width */}
         {data.schools && data.schools.length > 0 && (
           <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <div className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <i className="fa-solid fa-graduation-cap text-[13px]"></i>
-              Schools
-            </div>
             <ExpandableList
               limit={3}
               className="grid grid-cols-1 sm:grid-cols-3 gap-2"

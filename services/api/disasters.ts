@@ -245,10 +245,10 @@ export const fetchEarthquakeHistory = async (
                 id: f.id || `usgs-${props.time}`,
                 date: eqDate,
                 type: 'earthquake' as const,
-                title: props.title || `M${props.mag} Earthquake`,
+                title: kmToMi(props.title || `M${props.mag} Earthquake`),
                 severity: `M${props.mag?.toFixed(1) || '?'}`,
                 source: 'usgs' as const,
-                description: props.place || 'Unknown location',
+                description: kmToMi(props.place || 'Unknown location'),
                 distanceMi: distMi,
                 magnitude: props.mag,
                 depth: coords?.[2] ?? null,
@@ -394,6 +394,15 @@ export const fetchHistoricalDisasters = async (
         radiusMi: EARTHQUAKE_RADIUS_MI,
     };
 };
+
+// ─── km → mi string converter ─────────────────────────────────────────────────
+// Converts "4 km SE of …" → "2.5 mi SE of …" in USGS titles/descriptions
+function kmToMi(text: string): string {
+    return text.replace(/(\d+(?:\.\d+)?)\s*km\b/gi, (_, num) => {
+        const mi = (parseFloat(num) * 0.621371);
+        return `${mi < 1 ? mi.toFixed(1) : Math.round(mi)} mi`;
+    });
+}
 
 // ─── Haversine Distance Helper ────────────────────────────────────────────────
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
