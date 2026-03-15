@@ -112,6 +112,9 @@ function extractJson<T>(text: string | undefined): T {
   // Clean basic non-printable characters
   let cleaned = text.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
 
+  // Strip markdown bold markers (**text**) inside string values
+  cleaned = cleaned.replace(/\*\*/g, '');
+
   const tryParse = (str: string) => {
     try {
       return JSON.parse(str);
@@ -120,8 +123,33 @@ function extractJson<T>(text: string | undefined): T {
     }
   };
 
+  // Repair helper: fix unescaped newlines inside JSON strings & trailing commas
+  const repairJson = (str: string): string => {
+    // Fix unescaped literal newlines inside JSON string values
+    let result = '';
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      if (escaped) { result += ch; escaped = false; continue; }
+      if (ch === '\\' && inString) { result += ch; escaped = true; continue; }
+      if (ch === '"') { inString = !inString; result += ch; continue; }
+      if (inString && ch === '\n') { result += '\\n'; continue; }
+      if (inString && ch === '\r') { continue; }
+      if (inString && ch === '\t') { result += '\\t'; continue; }
+      result += ch;
+    }
+    // Remove trailing commas before } or ]
+    result = result.replace(/,\s*([}\]])/g, '$1');
+    return result;
+  };
+
   // 1. Try direct parse
   let result = tryParse(cleaned);
+  if (result) return result;
+
+  // 1b. Try repaired parse
+  result = tryParse(repairJson(cleaned));
   if (result) return result;
 
   // 2. Try to find content inside markdown code blocks
@@ -129,7 +157,7 @@ function extractJson<T>(text: string | undefined): T {
   for (const match of markdownMatches) {
     if (match[1]) {
       const candidate = match[1].trim();
-      result = tryParse(candidate);
+      result = tryParse(candidate) || tryParse(repairJson(candidate));
       if (result) return result;
     }
   }
@@ -144,7 +172,7 @@ function extractJson<T>(text: string | undefined): T {
       for (let end = lastBrace; end > firstBrace; end--) {
         if (cleaned[end] === '}') {
           const candidate = cleaned.substring(firstBrace, end + 1);
-          result = tryParse(candidate);
+          result = tryParse(candidate) || tryParse(repairJson(candidate));
           if (result) return result;
         }
       }
@@ -232,17 +260,17 @@ export const executeGeminiRequest = async <T>(
       });
 
       const inputTokens = tokenCountResponse.totalTokens;
-      const MAX_TOTAL_TOKENS = 50000; // 50K hard limit
+      const MAX_TOTAL_TOKENS = 100000; // 100K hard limit (images consume heavy input tokens)
 
       if (inputTokens > MAX_TOTAL_TOKENS) {
         throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
       }
 
-      // 2. Adjust maxOutputTokens to ensure input + output <= 50K
+      // 2. Adjust maxOutputTokens to ensure input + output <= 100K
       const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
       const finalConfig = {
         ...config,
-        maxOutputTokens: Math.min(config?.maxOutputTokens || 8192, remainingTokens)
+        maxOutputTokens: Math.min(config?.maxOutputTokens || 16384, remainingTokens)
       };
 
       const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
@@ -658,7 +686,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     model: FLASH_MODEL, // Upgrade to 2.0 Flash for complex multi-image analysis
     contents: { parts: [{ text: textInstruction }, ...imageParts] },
     config: {
-      maxOutputTokens: 8192,
+      maxOutputTokens: 16384,
       temperature: 0.1 // Lower temperature for more consistent JSON structure
     },
     userId,

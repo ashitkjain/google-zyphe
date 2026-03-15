@@ -14,7 +14,12 @@ interface PropertyHealth {
     llmCalls: LLMCallEvent[];
     lastUpdated?: any;
     status: 'healthy' | 'warning' | 'error' | 'pending';
+    apiFailCount: number;
+    llmFailCount: number;
 }
+
+type SortKey = 'address' | 'status' | 'apiFailCount' | 'llmFailCount';
+type SortDir = 'asc' | 'desc';
 
 const DataHealthTab: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -25,6 +30,15 @@ const DataHealthTab: React.FC = () => {
     const [page, setPage] = useState(1);
     const [pageSize] = useState(20);
     const [totalCount, setTotalCount] = useState(0);
+
+    // Sort state
+    const [sortKey, setSortKey] = useState<SortKey>('status');
+    const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+    // Selection state
+    const [selectedZpids, setSelectedZpids] = useState<Set<string>>(new Set());
+    const [bulkRunning, setBulkRunning] = useState(false);
+    const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; current: string } | null>(null);
 
     const cities = useMemo(() => {
         const uniqueCities = Array.from(new Set(healthData.map(h => h.city))).sort();
@@ -45,7 +59,7 @@ const DataHealthTab: React.FC = () => {
             const properties = propertySnapshot.docs.map(doc => ({ zpid: doc.id, ...doc.data() } as any));
             setTotalCount(properties.length);
 
-            // 2. Fetch Data Collections (Source of Truth) - Fetch sequentially to avoid saturating network
+            // 2. Fetch Data Collections (Source of Truth)
             const visualSnapshot = await getDocs(collection(db, "property_analyses_visual"));
             const qualitySnapshot = await getDocs(collection(db, "image_quality_analysis"));
             const investmentSnapshot = await getDocs(collection(db, "property_investment_research"));
@@ -56,14 +70,13 @@ const DataHealthTab: React.FC = () => {
             const investmentMap = Object.fromEntries(investmentSnapshot.docs.map(d => [d.id, d.data()]));
             const comprehensiveMap = Object.fromEntries(comprehensiveSnapshot.docs.map(d => [d.id, d.data()]));
 
-            // 3. Map properties to Health items purely based on Table Data
+            // 3. Map properties to Health items
             const healthItems: PropertyHealth[] = properties.map(p => {
                 const zpid = p.zpid;
                 const visual = visualAnalysisMap[zpid] as any;
                 const quality = qualityMap[zpid] as any;
                 const investment = investmentMap[zpid] as any;
 
-                // DATA INSPECTION
                 const hasSolar = !!p.solarData;
                 const hasAir = !!p.airQuality;
                 const hasPollen = !!p.pollen;
@@ -76,7 +89,6 @@ const DataHealthTab: React.FC = () => {
                     !!p.description &&
                     !!(p.listPrice ?? p.price);
 
-                // Deep Node Verification
                 const hasInterior = !!visual?.home_interior;
                 const hasRooms = !!(visual?.room_highlights && visual.room_highlights.length > 0);
                 const hasExterior = !!visual?.exterior_and_neighborhood;
@@ -85,7 +97,6 @@ const DataHealthTab: React.FC = () => {
                 const hasInvestment = !!investment;
                 const hasQuality = !!quality;
 
-                // 1. Map API Status (From Property Table)
                 const apiStatus = [
                     { name: 'Core Data', verified: hasCoreData },
                     { name: 'Images', verified: hasImages },
@@ -105,7 +116,6 @@ const DataHealthTab: React.FC = () => {
                     timestamp: new Date()
                 } as any));
 
-                // 2. Map Gemini Status (From Analysis Tables)
                 const aiStatus = [
                     { name: 'Interior', verified: hasInterior },
                     { name: 'Rooms', verified: hasRooms },
@@ -121,8 +131,10 @@ const DataHealthTab: React.FC = () => {
                     timestamp: new Date()
                 } as any));
 
-                const hasApiError = apiStatus.some(c => c.status === 'failed');
-                const hasLlmError = aiStatus.some(c => c.status === 'failed');
+                const apiFailCount = apiStatus.filter(c => c.status === 'failed').length;
+                const llmFailCount = aiStatus.filter(c => c.status === 'failed').length;
+                const hasApiError = apiFailCount > 0;
+                const hasLlmError = llmFailCount > 0;
 
                 let status: PropertyHealth['status'] = 'healthy';
                 if (hasApiError || hasLlmError) status = 'error';
@@ -134,7 +146,9 @@ const DataHealthTab: React.FC = () => {
                     city: p.city || 'Other',
                     apiCalls: apiStatus,
                     llmCalls: aiStatus,
-                    status
+                    status,
+                    apiFailCount,
+                    llmFailCount
                 };
             });
 
@@ -150,14 +164,46 @@ const DataHealthTab: React.FC = () => {
         fetchData();
     }, []);
 
+    // Toggle sort
+    const handleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortKey(key);
+            setSortDir(key === 'address' ? 'asc' : 'desc');
+        }
+    };
+
     const filteredData = useMemo(() => {
         let base = healthData;
         if (activeCity !== 'All Cities') base = base.filter(h => h.city === activeCity);
         if (filter === 'ERROR') base = base.filter(h => h.status === 'error');
         if (filter === 'WARNING') base = base.filter(h => h.status === 'warning');
 
+        // Sort
+        base = [...base].sort((a, b) => {
+            let cmp = 0;
+            switch (sortKey) {
+                case 'address':
+                    cmp = (a.address || '').localeCompare(b.address || '');
+                    break;
+                case 'status': {
+                    const order = { error: 0, warning: 1, pending: 2, healthy: 3 };
+                    cmp = (order[a.status] ?? 2) - (order[b.status] ?? 2);
+                    break;
+                }
+                case 'apiFailCount':
+                    cmp = a.apiFailCount - b.apiFailCount;
+                    break;
+                case 'llmFailCount':
+                    cmp = a.llmFailCount - b.llmFailCount;
+                    break;
+            }
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+
         return base;
-    }, [healthData, filter, activeCity]);
+    }, [healthData, filter, activeCity, sortKey, sortDir]);
 
     const paginatedData = useMemo(() => {
         const start = (page - 1) * pageSize;
@@ -165,6 +211,33 @@ const DataHealthTab: React.FC = () => {
     }, [filteredData, page, pageSize]);
 
     const totalPages = Math.ceil(filteredData.length / pageSize);
+
+    // Selection helpers
+    const allOnPageSelected = paginatedData.length > 0 && paginatedData.every(p => selectedZpids.has(p.zpid));
+
+    const toggleSelect = (zpid: string) => {
+        setSelectedZpids(prev => {
+            const next = new Set(prev);
+            if (next.has(zpid)) next.delete(zpid); else next.add(zpid);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (allOnPageSelected) {
+            setSelectedZpids(prev => {
+                const next = new Set(prev);
+                paginatedData.forEach(p => next.delete(p.zpid));
+                return next;
+            });
+        } else {
+            setSelectedZpids(prev => {
+                const next = new Set(prev);
+                paginatedData.forEach(p => next.add(p.zpid));
+                return next;
+            });
+        }
+    };
 
     const handleRetry = async (property: PropertyHealth) => {
         if (retryingZpids.has(property.zpid)) return;
@@ -184,6 +257,43 @@ const DataHealthTab: React.FC = () => {
                 return next;
             });
         }
+    };
+
+    const handleBulkRun = async () => {
+        const targets = healthData.filter(h => selectedZpids.has(h.zpid));
+        if (targets.length === 0) return;
+        setBulkRunning(true);
+        setBulkProgress({ done: 0, total: targets.length, current: '' });
+
+        for (let i = 0; i < targets.length; i++) {
+            const prop = targets[i];
+            setBulkProgress({ done: i, total: targets.length, current: prop.address });
+            setRetryingZpids(prev => new Set(prev).add(prop.zpid));
+            try {
+                await runFullIntelligencePipeline(prop.address, (progress) => {
+                    console.log(`[Bulk] ${prop.address}: ${progress.message}`);
+                });
+            } catch (e) {
+                console.error(`[Bulk] Failed for ${prop.address}:`, e);
+            } finally {
+                setRetryingZpids(prev => {
+                    const next = new Set(prev);
+                    next.delete(prop.zpid);
+                    return next;
+                });
+            }
+        }
+
+        setBulkProgress({ done: targets.length, total: targets.length, current: 'Done' });
+        setBulkRunning(false);
+        setSelectedZpids(new Set());
+        setTimeout(fetchData, 2000);
+    };
+
+    // Sort indicator
+    const SortIcon = ({ col }: { col: SortKey }) => {
+        if (sortKey !== col) return <i className="fa-solid fa-sort text-slate-300 ml-1 text-[8px]"></i>;
+        return <i className={`fa-solid ${sortDir === 'asc' ? 'fa-sort-up' : 'fa-sort-down'} text-indigo-500 ml-1 text-[8px]`}></i>;
     };
 
     return (
@@ -210,7 +320,56 @@ const DataHealthTab: React.FC = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* Bulk action bar */}
+                {selectedZpids.size > 0 && (
+                    <div className="flex items-center gap-3 animate-in slide-in-from-right-4 duration-300">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                            {selectedZpids.size} selected
+                        </span>
+                        <button
+                            onClick={() => setSelectedZpids(new Set())}
+                            className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+                        >
+                            Clear
+                        </button>
+                        <button
+                            onClick={handleBulkRun}
+                            disabled={bulkRunning}
+                            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                                bulkRunning
+                                    ? 'bg-slate-100 text-slate-400'
+                                    : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
+                            }`}
+                        >
+                            {bulkRunning ? (
+                                <><i className="fa-solid fa-spinner animate-spin"></i> Running {bulkProgress?.done}/{bulkProgress?.total}</>
+                            ) : (
+                                <><i className="fa-solid fa-play"></i> Run Full Suite</>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {/* Bulk progress banner */}
+            {bulkRunning && bulkProgress && (
+                <div className="mb-6 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl animate-in fade-in">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black text-indigo-700 uppercase tracking-widest">
+                            <i className="fa-solid fa-bolt mr-2"></i>
+                            Bulk Pipeline: {bulkProgress.done}/{bulkProgress.total}
+                        </span>
+                        <span className="text-[10px] font-medium text-indigo-500 truncate max-w-[300px]">{bulkProgress.current}</span>
+                    </div>
+                    <div className="h-1.5 bg-indigo-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                            style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }}
+                        ></div>
+                    </div>
+                </div>
+            )}
 
             {/* City Tabs */}
             <div className="flex gap-4 mb-8 overflow-x-auto pb-2 no-scrollbar">
@@ -246,15 +405,51 @@ const DataHealthTab: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property Intelligence</th>
-                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">API Gateway</th>
-                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Gemini Analysis</th>
-                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                                <th className="p-4 pl-6 w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={allOnPageSelected}
+                                        onChange={toggleSelectAll}
+                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    />
+                                </th>
+                                <th
+                                    className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 transition-colors select-none"
+                                    onClick={() => handleSort('address')}
+                                >
+                                    Property Intelligence <SortIcon col="address" />
+                                </th>
+                                <th
+                                    className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 transition-colors select-none"
+                                    onClick={() => handleSort('apiFailCount')}
+                                >
+                                    API Gateway <SortIcon col="apiFailCount" />
+                                </th>
+                                <th
+                                    className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 transition-colors select-none"
+                                    onClick={() => handleSort('llmFailCount')}
+                                >
+                                    Gemini Analysis <SortIcon col="llmFailCount" />
+                                </th>
+                                <th
+                                    className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right cursor-pointer hover:text-slate-600 transition-colors select-none"
+                                    onClick={() => handleSort('status')}
+                                >
+                                    Action <SortIcon col="status" />
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {paginatedData.length > 0 ? paginatedData.map((prop: PropertyHealth) => (
-                                <tr key={prop.zpid} className="group hover:bg-slate-50/50 transition-colors">
+                                <tr key={prop.zpid} className={`group hover:bg-slate-50/50 transition-colors ${selectedZpids.has(prop.zpid) ? 'bg-indigo-50/30' : ''}`}>
+                                    <td className="p-4 pl-6 w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedZpids.has(prop.zpid)}
+                                            onChange={() => toggleSelect(prop.zpid)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        />
+                                    </td>
                                     <td className="p-6">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner border
@@ -331,7 +526,7 @@ const DataHealthTab: React.FC = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={4} className="p-20 text-center">
+                                    <td colSpan={5} className="p-20 text-center">
                                         <div className="flex flex-col items-center opacity-30">
                                             <i className="fa-solid fa-shield-heart text-6xl mb-4 text-slate-200"></i>
                                             <p className="text-sm font-black text-slate-400 uppercase tracking-widest">All systems operational</p>

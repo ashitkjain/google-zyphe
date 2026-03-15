@@ -17,6 +17,7 @@ import {
   saveVisualAnalysisToCloud,
   getVisualAnalysisFromCloud,
   saveComprehensiveAnalysisToCloud,
+  getComprehensiveAnalysisFromCloud,
   saveImageQualityAnalysisToCloud,
   getImageQualityAnalysisFromCloud,
   savePropertyInvestmentToCloud,
@@ -29,7 +30,8 @@ import {
   getPropertyAssetsFromCloud,
   saveCommunityPulseToCloud,
   getCommunityPulseFromCloud,
-  generateCityStateKey
+  generateCityStateKey,
+  getPropertyFromCloud
 } from './firebaseService.ts';
 import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, AIUsage } from '../types';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
@@ -51,66 +53,86 @@ export const runFullIntelligencePipeline = async (
   skipMissingCityData: boolean = false
 ): Promise<{ zpid: string; warnings: string[] }> => {
   try {
-    // 1 & 3. Geocoding & Property Data (Parallel)
-    onProgress({ step: 'Discovery', status: 'running', message: 'Mapping location and fetching specifications...' });
-    const [radar, propData] = await Promise.all([
-      normalizeAddress(rawAddress, providedZpid),
-      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false)
-    ]);
+    // --- CHECK FOR EXISTING PROPERTY DATA IN CACHE ---
+    onProgress({ step: 'Discovery', status: 'running', message: 'Checking cache for existing data...' });
+    let enrichedData: PropertyData | null = null;
+    let zpid = providedZpid || '';
 
-    const address = radar.formattedAddress;
-    const zpid = propData.zpid || providedZpid;
-    onLog?.(`[Geocode] Address: ${address}`);
-    onLog?.(`[Pipeline] Resolved ZPID: ${zpid}`);
+    // Try to load existing property from Firestore first
+    if (zpid) {
+      const cached = await getPropertyFromCloud(zpid);
+      if (cached && cached.address && cached.images?.length && cached.coordinates && cached.mapZoomIn) {
+        onLog?.(`[Discovery] Cache hit — loaded ${cached.address} from database (${cached.images?.length || 0} images, maps present).`);
+        enrichedData = cached;
+        onProgress({ step: 'Discovery', status: 'completed', message: `Loaded ${cached.address} from cache` });
+      }
+    }
+
+    // Only hit external APIs if no usable cached data
+    if (!enrichedData) {
+      // 1 & 3. Geocoding & Property Data (Parallel)
+      onProgress({ step: 'Discovery', status: 'running', message: 'Mapping location and fetching specifications...' });
+      const [radar, propData] = await Promise.all([
+        normalizeAddress(rawAddress, providedZpid),
+        fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false)
+      ]);
+
+      const address = radar.formattedAddress;
+      zpid = propData.zpid || providedZpid || '';
+      onLog?.(`[Geocode] Address: ${address}`);
+      onLog?.(`[Pipeline] Resolved ZPID: ${zpid}`);
+
+      if (!zpid) throw new Error("Could not resolve ZPID for property.");
+      onProgress({ step: 'Discovery', status: 'completed', message: `Found ${address}` });
+
+      // 4. Gallery Fetch
+      onProgress({ step: 'Gallery', status: 'running', message: 'Syncing complete photo gallery...' });
+      try {
+        const fullImages = await fetchPropertyImages(zpid);
+        if (fullImages && fullImages.length > (propData.images?.length || 0)) {
+          onLog?.(`[Gallery] Discovered ${fullImages.length} images.`);
+          propData.images = fullImages;
+        }
+      } catch (e) {
+        console.warn("[Gallery] Gallery sync failed, using summary photos:", e);
+      }
+
+      // --- ASSET PERSISTENCE ---
+      onProgress({ step: 'Cloud Storage', status: 'running', message: 'Securing imagery and maps...' });
+      const assets = await securePropertyAssets(
+        zpid,
+        propData.images || [],
+        { zoomIn: radar.mapZoomIn, zoomOut: radar.mapZoomOut },
+        (p) => onLog?.(`[Assets] ${p.message}`)
+      );
+
+      const alternate_ids = [...(propData.alternate_ids || [])];
+      if (providedZpid && providedZpid !== zpid && !alternate_ids.includes(providedZpid)) {
+        alternate_ids.push(providedZpid);
+      }
+
+      enrichedData = {
+        ...propData,
+        zpid: zpid,
+        feed_property_id: providedZpid,
+        alternate_ids,
+        images: assets.images,
+        coordinates: radar.coordinates,
+        mapZoomIn: assets.mapZoomIn,
+        mapZoomOut: assets.mapZoomOut,
+        address: address
+      };
+      await savePropertyToCloud(zpid, enrichedData);
+      onProgress({ step: 'Cloud Storage', status: 'completed', message: 'Assets secured.' });
+    }
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
-    onProgress({ step: 'Discovery', status: 'completed', message: `Found ${address}` });
-
-    // 4. Gallery Fetch
-    onProgress({ step: 'Gallery', status: 'running', message: 'Syncing complete photo gallery...' });
-    try {
-      const fullImages = await fetchPropertyImages(zpid);
-      if (fullImages && fullImages.length > (propData.images?.length || 0)) {
-        onLog?.(`[Gallery] Discovered ${fullImages.length} images.`);
-        propData.images = fullImages;
-      }
-    } catch (e) {
-      console.warn("[Gallery] Gallery sync failed, using summary photos:", e);
-    }
-
-    // --- ASSET PERSISTENCE ---
-    onProgress({ step: 'Cloud Storage', status: 'running', message: 'Securing imagery and maps...' });
-    const assets = await securePropertyAssets(
-      zpid,
-      propData.images || [],
-      { zoomIn: radar.mapZoomIn, zoomOut: radar.mapZoomOut },
-      (p) => onLog?.(`[Assets] ${p.message}`)
-    );
-
-    const alternate_ids = [...(propData.alternate_ids || [])];
-    if (providedZpid && providedZpid !== zpid && !alternate_ids.includes(providedZpid)) {
-      alternate_ids.push(providedZpid);
-    }
-
-    const enrichedData: PropertyData = {
-      ...propData,
-      zpid: zpid,
-      feed_property_id: providedZpid,
-      alternate_ids,
-      images: assets.images,
-      coordinates: radar.coordinates,
-      mapZoomIn: assets.mapZoomIn,
-      mapZoomOut: assets.mapZoomOut,
-      address: address
-    };
-    await savePropertyToCloud(zpid, enrichedData);
-    onProgress({ step: 'Cloud Storage', status: 'completed', message: 'Assets secured.' });
 
     // --- PARALLEL AI INTELLIGENCE BLOCK ---
     onProgress({ step: 'Intelligence', status: 'running', message: 'Running parallel AI evaluation suite...' });
 
-    const city = radar.components?.city || propData.city;
-    const state = radar.components?.state || propData.state;
+    const city = enrichedData.city;
+    const state = enrichedData.state;
     const cityStateKey = generateCityStateKey(city, state);
     onLog?.(`[Pipeline] Location context: ${city}, ${state} (Key: ${cityStateKey})`);
 
@@ -199,12 +221,15 @@ export const runFullIntelligencePipeline = async (
       if (!result2?._incomplete) return result2;
 
       // Both attempts failed — save partial and continue pipeline
-      onLog?.(`[Visual] Both attempts incomplete. Saving partial data, pipeline will continue.`);
+      const reason = result2._reason === 'structural_array'
+        ? 'AI returned array instead of object'
+        : `Missing fields: ${(result2._missing || []).join(', ')}`;
+      onLog?.(`[Visual] Both attempts incomplete (${reason}). Saving partial data, pipeline will continue.`);
       const partialToSave = result2._reason === 'structural_array'
         ? { _structuralError: true, raw: result2.raw } as any
         : result2;
       await saveVisualAnalysisToCloud(zpid, partialToSave);
-      return null;
+      throw new Error(`2 attempts incomplete — ${reason}`);
     };
 
     const neighborhoodTask = async () => {
@@ -212,9 +237,9 @@ export const runFullIntelligencePipeline = async (
         onLog?.(`[Spatial] Cache hit.`);
         return visualCache.neighborhood;
       }
-      if (!assets.mapZoomIn || !assets.mapZoomOut) return null;
+      if (!enrichedData.mapZoomIn || !enrichedData.mapZoomOut) return null;
       onLog?.(`[Spatial] Mapping neighborhood...`);
-      const res = await analyzeNeighborhood(assets.mapZoomIn, assets.mapZoomOut, enrichedData, userId);
+      const res = await analyzeNeighborhood(enrichedData.mapZoomIn, enrichedData.mapZoomOut, enrichedData, userId);
       onLog?.(`[Spatial] Mapping complete.`);
       return res.data;
     };
@@ -435,11 +460,33 @@ export const runFullIntelligencePipeline = async (
       deep_investment_research: cityStateKey ? await getDeepInvestmentResearchFromCloud(cityStateKey) : null
     };
 
-    // 10. Narrative AI Synthesis (Final Step)
-    onProgress({ step: 'Narrative', status: 'running', message: 'Synthesizing final report...' });
-    const resultComp = await analyzeComprehensive(enrichedData, contextForComprehensive, userId);
-    await saveComprehensiveAnalysisToCloud(zpid, resultComp.data);
-    onProgress({ step: 'Narrative', status: 'completed', message: 'Report synthesized.', usage: resultComp.usage });
+    // 10. Narrative AI Synthesis (Final Step) — with cache check
+    onProgress({ step: 'Narrative', status: 'running', message: 'Checking narrative cache...' });
+    const isNarrativeComplete = (data: any): boolean => {
+      if (!data) return false;
+      const hasTop = !!data.summary && !!data.risks_considerations && !!data.schools_summary;
+      const hasDetailed = !!data.detailed_analysis?.visual_appeal_condition
+        && !!data.detailed_analysis?.outdoors_view_quality
+        && !!data.detailed_analysis?.community_pulse;
+      const hasInterior = !!data.interior_summary?.interior_summary
+        && !!data.interior_summary?.rooms_summary
+        && !!data.interior_summary?.vibe
+        && Array.isArray(data.interior_summary?.objective_tags)
+        && data.interior_summary.objective_tags.length > 0;
+      return hasTop && hasDetailed && hasInterior;
+    };
+
+    const existingNarrative = await getComprehensiveAnalysisFromCloud(zpid);
+    if (isNarrativeComplete(existingNarrative)) {
+      onLog?.(`[Narrative] Cache hit — comprehensive analysis already complete. Skipping.`);
+      onProgress({ step: 'Narrative', status: 'completed', message: 'Report loaded from cache.' });
+    } else {
+      onLog?.(`[Narrative] ${existingNarrative ? 'Incomplete cache — re-running synthesis.' : 'No cache — running synthesis.'}`);
+      onProgress({ step: 'Narrative', status: 'running', message: 'Synthesizing final report...' });
+      const resultComp = await analyzeComprehensive(enrichedData, contextForComprehensive, userId);
+      await saveComprehensiveAnalysisToCloud(zpid, resultComp.data);
+      onProgress({ step: 'Narrative', status: 'completed', message: 'Report synthesized.', usage: resultComp.usage });
+    }
 
     if (warnings.length > 0) {
       onProgress({ step: 'Status', status: 'completed', message: `Intelligence Suite ready (with warnings: ${warnings.join(', ')} needs retry).` });

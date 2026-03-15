@@ -1960,6 +1960,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                             </div>
                                         )}
 
+                                        {item.status === 'partial' && item.error && (
+                                            <p className="text-[11px] text-amber-700 font-medium bg-amber-50 p-3 rounded-xl border border-amber-100">
+                                                <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+                                                {item.error}
+                                            </p>
+                                        )}
+
                                         {item.status === 'error' && (
                                             <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
                                                 <i className="fa-solid fa-triangle-exclamation mr-2"></i>
