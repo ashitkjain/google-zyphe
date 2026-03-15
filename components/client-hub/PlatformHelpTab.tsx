@@ -1698,6 +1698,244 @@ const PlatformHelpTab: React.FC = () => {
                             </div>
                         </div>
                     )
+                },
+                {
+                    id: 'pipeline_caching',
+                    title: 'Pipeline & Caching',
+                    icon: 'fa-arrows-spin',
+                    content: (
+                        <div className="max-w-none animate-in fade-in duration-300">
+                            <div className="flex items-start gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-slate-900 text-white flex items-center justify-center text-3xl shadow-xl">
+                                    <i className="fa-solid fa-arrows-spin"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Pipeline & Caching</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">5 Pipelines · TTL-Based Caching · Parallel Execution</p>
+                                </div>
+                            </div>
+
+                            {/* Overview */}
+                            <section className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-sitemap text-indigo-500 text-sm"></i>
+                                    5 Pipelines — Lightest to Heaviest
+                                </h2>
+                                <div className="space-y-3">
+                                    {[
+                                        { name: 'Property Data', fn: 'runPropertyDataOnlyPipeline', level: 'Property', ai: false, images: false, desc: 'RapidAPI specs + ArcGIS parcel polygon + Gemini tax lookup', color: 'bg-blue-50 border-blue-200 text-blue-700' },
+                                        { name: 'Image Only', fn: 'runImageOnlyPipeline', level: 'Property', ai: false, images: true, desc: 'Secures photos & maps to Firebase Storage — no AI', color: 'bg-amber-50 border-amber-200 text-amber-700' },
+                                        { name: 'City Prefetch', fn: 'prefetchCityIntelligence', level: 'City', ai: true, images: false, desc: 'Warms Community Pulse + Market Intelligence for a city', color: 'bg-teal-50 border-teal-200 text-teal-700' },
+                                        { name: 'Deep Research', fn: 'runCityDeepResearch', level: 'City', ai: true, images: false, desc: 'Gemini Pro + Google Search — comprehensive city report', color: 'bg-violet-50 border-violet-200 text-violet-700' },
+                                        { name: 'Full Intelligence', fn: 'runFullIntelligencePipeline', level: 'Property', ai: true, images: true, desc: 'Everything: data + images + 7 parallel AI tasks + narrative', color: 'bg-rose-50 border-rose-200 text-rose-700' },
+                                    ].map(p => (
+                                        <div key={p.fn} className={`flex items-center gap-4 p-4 rounded-2xl border ${p.color}`}>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <span className="text-[12px] font-black">{p.name}</span>
+                                                    <span className="text-[8px] font-mono font-bold bg-white/50 px-2 py-0.5 rounded-lg border border-black/5">{p.fn}</span>
+                                                </div>
+                                                <p className="text-[11px] opacity-70 leading-relaxed">{p.desc}</p>
+                                            </div>
+                                            <div className="flex gap-2 shrink-0">
+                                                <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border ${p.level === 'City' ? 'bg-teal-50 border-teal-200 text-teal-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>{p.level}</span>
+                                                {p.ai && <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-600">AI</span>}
+                                                {p.images && <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-600">Images</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+
+                            {/* Full Pipeline Execution Order */}
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-indigo-600 pl-6">Full Intelligence Pipeline — Execution Order</h3>
+                            <div className="space-y-4 mb-12">
+                                {/* Sequential Phase */}
+                                <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-black">1</div>
+                                        <div className="text-sm font-black text-slate-800">Sequential: Data Acquisition</div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-600">3rd Party APIs</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                                        {[
+                                            { step: 'Geocoding', api: 'Radar', icon: 'fa-location-crosshairs' },
+                                            { step: 'Property Specs', api: 'RapidAPI (Zillow)', icon: 'fa-house' },
+                                            { step: 'Walk/Transit/Bike Scores', api: 'RapidAPI', icon: 'fa-person-walking' },
+                                            { step: 'Google Places (POI)', api: 'Google Maps Platform', icon: 'fa-map-pin' },
+                                            { step: 'Gallery Fetch', api: 'RapidAPI (Zillow)', icon: 'fa-images' },
+                                            { step: 'Asset Persistence', api: 'Firebase Storage', icon: 'fa-cloud-arrow-up' },
+                                        ].map(s => (
+                                            <div key={s.step} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                                                <i className={`fa-solid ${s.icon} text-slate-400 text-[10px] w-4 text-center`}></i>
+                                                <span className="font-bold text-slate-700">{s.step}</span>
+                                                <span className="text-slate-400 ml-auto">{s.api}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Environmental Data */}
+                                <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 text-[10px] font-black">2</div>
+                                        <div className="text-sm font-black text-slate-800">Parallel: Environmental Data</div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600">7 APIs</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                                        {[
+                                            { step: 'Solar Data', api: 'Google Solar API', ttl: '60 days' },
+                                            { step: 'Air Quality', api: 'Google Air Quality API', ttl: '60 days' },
+                                            { step: 'Pollen Data', api: 'Google Pollen API', ttl: '60 days' },
+                                            { step: 'Noise Score', api: 'HowLoud API', ttl: '60 days' },
+                                            { step: 'Disasters', api: 'FEMA API', ttl: '60 days' },
+                                            { step: 'Broadband', api: 'FCC API', ttl: '60 days' },
+                                            { step: 'Drought', api: 'US Drought Monitor', ttl: '60 days' },
+                                        ].map(s => (
+                                            <div key={s.step} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                                                <span className="font-bold text-slate-700 flex-1">{s.step}</span>
+                                                <span className="text-[9px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">{s.ttl}</span>
+                                                <span className="text-slate-400">{s.api}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* AI Parallel Block */}
+                                <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 text-[10px] font-black">3</div>
+                                        <div className="text-sm font-black text-slate-800">Parallel: AI Analysis Suite</div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-600">Promise.all</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                                        {[
+                                            { step: 'Visual AI', desc: 'Image analysis (2 attempts)', cache: 'Skips if valid + same image count' },
+                                            { step: 'Spatial/Neighborhood', desc: 'Map image analysis', cache: 'Skips if neighborhood cached' },
+                                            { step: 'Property Investment', desc: 'Investment analysis', cache: 'Skips if cached' },
+                                            { step: 'Lifestyle Insights', desc: 'Gemini + Search grounding', cache: 'Skips if outdoor field exists' },
+                                            { step: 'Community Pulse', desc: 'Cache read only', cache: 'City-level, never generates' },
+                                            { step: 'Market Intelligence', desc: 'Cache read only', cache: 'City-level, never generates' },
+                                        ].map(s => (
+                                            <div key={s.step} className="flex flex-col gap-1 p-3 bg-violet-50/30 rounded-xl border border-violet-100/50">
+                                                <span className="font-bold text-slate-700">{s.step}</span>
+                                                <span className="text-[10px] text-slate-400">{s.desc}</span>
+                                                <span className="text-[9px] text-violet-500 font-medium">{s.cache}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Final Synthesis */}
+                                <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-lg">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white text-[10px] font-black border border-white/10">4</div>
+                                        <div className="text-sm font-black">Narrative Synthesis</div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-rose-500/20 border border-rose-400/30 text-rose-300">ALWAYS OVERWRITES</span>
+                                    </div>
+                                    <p className="text-slate-400 text-[11px] mt-3 ml-11">Combines all above into the final comprehensive report. This is the only task that <strong className="text-white">always regenerates and overwrites</strong> existing data.</p>
+                                </div>
+                            </div>
+
+                            {/* Cache Behavior Table */}
+                            <h3 className="text-xl font-black text-slate-800 mb-6 border-l-4 border-emerald-600 pl-6">Cache Behavior — What Gets Skipped vs Overwritten</h3>
+
+                            <div className="mb-12 space-y-6">
+                                {/* Skipped */}
+                                <div className="bg-emerald-50/50 rounded-[2rem] p-8 border border-emerald-100">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center"><i className="fa-solid fa-forward text-sm"></i></div>
+                                        <h4 className="text-lg font-black text-slate-800">Skipped (Uses existing cache)</h4>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                                        {[
+                                            { task: 'Property Specs', check: 'Firestore properties doc exists', ttl: '∞' },
+                                            { task: 'Walk/Transit/Bike', check: 'walkScore field present', ttl: '∞' },
+                                            { task: 'Google Places', check: 'fetchedAt within TTL', ttl: '30 days' },
+                                            { task: 'Solar / Air / Pollen', check: 'lastUpdated within TTL', ttl: '60 days' },
+                                            { task: 'Noise / Disasters / Broadband / Drought', check: 'lastUpdated within TTL', ttl: '60 days' },
+                                            { task: 'Street View AI', check: 'imageUrl + privacyRating exist', ttl: '∞' },
+                                            { task: 'Visual AI', check: 'Valid analysis + image count match', ttl: '∞' },
+                                            { task: 'Spatial / Neighborhood', check: 'neighborhood object cached', ttl: '∞' },
+                                            { task: 'Property Investment', check: 'Firestore doc exists', ttl: '∞' },
+                                            { task: 'Lifestyle Insights', check: 'outdoor field present', ttl: '∞' },
+                                            { task: 'Community Pulse', check: 'City-level cache read', ttl: '∞' },
+                                            { task: 'Market Intelligence', check: 'City-level cache read', ttl: '∞' },
+                                        ].map(t => (
+                                            <div key={t.task} className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-emerald-100">
+                                                <i className="fa-solid fa-check text-emerald-500 text-[9px] shrink-0"></i>
+                                                <span className="font-bold text-slate-700 flex-1">{t.task}</span>
+                                                <span className="text-[9px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg">{t.ttl}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Always Overwrites */}
+                                <div className="bg-rose-50/50 rounded-[2rem] p-8 border border-rose-100">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center"><i className="fa-solid fa-rotate text-sm"></i></div>
+                                        <h4 className="text-lg font-black text-slate-800">Always Re-Runs (Overwrites data)</h4>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                                        {[
+                                            { task: 'Geocoding (Radar)', note: 'Lightweight, provides coordinates' },
+                                            { task: 'Gallery Fetch', note: 'Calls API but only overwrites if more images' },
+                                            { task: 'Asset Persistence', note: 'Re-uploads to Storage (deduped)' },
+                                            { task: 'Comprehensive Narrative', note: 'ALWAYS regenerated by Gemini' },
+                                            { task: 'Property Save (Merge)', note: 'Additive merge — never deletes fields' },
+                                        ].map(t => (
+                                            <div key={t.task} className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-rose-100">
+                                                <i className="fa-solid fa-rotate text-rose-500 text-[9px] shrink-0 mt-0.5"></i>
+                                                <div>
+                                                    <span className="font-bold text-slate-700">{t.task}</span>
+                                                    <div className="text-[10px] text-slate-400">{t.note}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* UI Trigger Points */}
+                            <h3 className="text-xl font-black text-slate-800 mb-6 border-l-4 border-blue-600 pl-6">UI Trigger Points</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+                                {[
+                                    { btn: 'Run Full Pipeline', pipeline: 'Full Intelligence', page: 'CityDataTab, BulkPrefetch, DataHealth' },
+                                    { btn: 'Secure Images', pipeline: 'Image Only', page: 'CityDataTab' },
+                                    { btn: 'Fetch Property Data', pipeline: 'Property Data', page: 'CityDataTab' },
+                                    { btn: 'Run City Research', pipeline: 'Deep Research', page: 'CityDataTab' },
+                                    { btn: 'Generate (Lifestyle)', pipeline: 'analyzeLifestyleInsights', page: 'ExploreTab' },
+                                ].map(t => (
+                                    <div key={t.btn} className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 text-[11px]">
+                                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                                            <i className="fa-solid fa-play text-indigo-600 text-[8px]"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-black text-slate-700">{t.btn}</div>
+                                            <div className="text-[10px] text-slate-400">{t.pipeline} · {t.page}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Concurrency Notes */}
+                            <section className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
+                                    <i className="fa-solid fa-bolt"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-amber-900 font-black text-lg mb-2">Concurrency Limits</h4>
+                                    <ul className="text-amber-800 text-sm font-medium leading-relaxed space-y-1 mb-0">
+                                        <li><strong>Full Pipeline:</strong> 6 AI tasks run in parallel (Visual, Spatial, Investment, Lifestyle, Pulse read, Market read)</li>
+                                        <li><strong>Bulk Processing:</strong> 3 properties simultaneously, 5s cooldown between chunks</li>
+                                        <li><strong>Image Bulk:</strong> 5 properties simultaneously, 1s cooldown</li>
+                                        <li><strong>Property Data:</strong> 2 properties simultaneously (RapidAPI rate limit: 2 req/sec)</li>
+                                    </ul>
+                                </div>
+                            </section>
+                        </div>
+                    )
                 }
             ]
         },

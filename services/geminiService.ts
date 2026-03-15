@@ -182,7 +182,7 @@ export const executeGeminiRequest = async <T>(
     schema?: any;
     imageUrls?: string[];
   }
-): Promise<{ data: T; usage: AIUsage; rawResponse: any }> => {
+): Promise<{ data: T; usage: AIUsage; sources?: {url: string; title: string}[] | null; rawResponse: any }> => {
   const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls } = params;
   const ai = getAi();
 
@@ -262,8 +262,24 @@ export const executeGeminiRequest = async <T>(
       const responseText = typeof result.text === 'function' ? result.text() : result.text;
       const usage = calculateUsage(result, model);
 
+      // Diagnostic: log when response is empty or truncated
+      const finishReason = result.candidates?.[0]?.finishReason;
+      if (!responseText) {
+        console.error(`[Gemini] Empty response for ${promptFilename}. finishReason=${finishReason}, candidates=${result.candidates?.length || 0}`);
+      } else if (finishReason && finishReason !== 'STOP' && finishReason !== 'END_TURN') {
+        console.warn(`[Gemini] Non-standard finishReason for ${promptFilename}: ${finishReason}. Response length: ${responseText.length} chars.`);
+      }
+
       // 4. Extract data first to catch parsing errors before marking as 'completed'
-      const data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
+      let data: T;
+      try {
+        data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
+      } catch (parseErr: any) {
+        console.error(`[Gemini] JSON parse failed for ${promptFilename}. finishReason=${finishReason}, responseLength=${responseText?.length || 0}, first500chars=${responseText?.substring(0, 500)}`);
+        throw parseErr;
+      }
+
+      const metadata = extractMetadata(result);
 
       // 5. Update Log with success (NOW AWAITED)
       if (logId) {
@@ -273,13 +289,14 @@ export const executeGeminiRequest = async <T>(
           response_received_at: serverTimestamp(),
           usage_metadata: (result.usageMetadata as any),
           estimated_cost: usage.cost,
-          ...extractMetadata(result)
+          ...metadata
         });
       }
 
       return {
         data,
         usage,
+        sources: metadata.sources,
         rawResponse: result
       };
     } catch (error: any) {
@@ -316,11 +333,23 @@ function extractMetadata(response: any) {
   const candidate = response.candidates?.[0];
   const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
 
+  // Extract grounding sources from Google Search tool
+  const groundingMetadata = candidate?.groundingMetadata;
+  const groundingChunks = groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks
+    .filter((chunk: any) => chunk.web?.uri)
+    .map((chunk: any) => ({
+      url: chunk.web.uri,
+      title: chunk.web.title || ''
+    }));
+
   return {
     usage_metadata: usage,
     safety_ratings: candidate?.safetyRatings || null,
     finish_reason: candidate?.finishReason || null,
     citation_metadata: candidate?.citationMetadata || null,
+    grounding_metadata: groundingMetadata || null,
+    sources: sources.length > 0 ? sources : null,
   };
 }
 
@@ -501,6 +530,25 @@ export const analyzeLifestyleInsights = async (property: PropertyData, userId: s
     promptFilename: "lifestyleInsights.ts",
     extractResultJson: true,
     schema: lifestyleInsightsSchema
+  });
+};
+
+export const analyzeSchool = async (school: any, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<any>> => {
+  const { getSchoolAnalysisPrompt, schoolAnalysisSchema } = await import("../prompts/property/schoolsAnalysis");
+  const prompt = getSchoolAnalysisPrompt(school, optimizePropertyForAi(property) as PropertyData);
+
+  console.log(`[Schools Intelligence] Analyzing: ${school.name}...`);
+
+  return executeGeminiRequest<any>({
+    model: 'gemini-2.0-flash',
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.5 },
+    userId,
+    zpid: property.zpid,
+    address: property.address,
+    promptFilename: "schoolsAnalysis.ts",
+    extractResultJson: true,
+    schema: schoolAnalysisSchema
   });
 };
 

@@ -539,6 +539,39 @@ export const getLifestyleInsightsFromCloud = async (zpid: string): Promise<any |
     }
 };
 
+// ── Schools Intelligence Cache (keyed by school name + city, shared across properties) ──
+
+export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => {
+    if (!db || !cacheKey) return { success: false, error: "Database not initialized or missing cache key" };
+    try {
+        const docRef = doc(db, "schools_intelligence", cacheKey);
+        logFirestoreQuery('setDoc', 'schools_intelligence', { cacheKey });
+        await setDoc(docRef, {
+            ...sanitizeForFirestore(data),
+            cache_key: cacheKey,
+            timestamp: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveSchoolAnalysisToCloud") as string };
+    }
+};
+
+export const getSchoolAnalysisFromCloud = async (cacheKey: string): Promise<any | null> => {
+    if (!db || !cacheKey) return null;
+    try {
+        const docRef = doc(db, "schools_intelligence", cacheKey);
+        logFirestoreQuery('getDoc', 'schools_intelligence', { cacheKey });
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) return docSnap.data();
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, "getSchoolAnalysisFromCloud");
+        return null;
+    }
+};
+
+
 export const saveContextGraphToCloud = async (zpid: string, data: any) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {

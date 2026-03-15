@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { APP_CONFIG, SUPPORTED_STATES, STATE_NAME_MAP } from '../../config';
 import {
     saveZipMetadataBatch,
@@ -13,7 +13,7 @@ import {
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
 
 import { PropertyData } from '../../types';
-import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, runRapidAPIOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
+import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth, STATE_MAP } from '../../services/firebase/config';
@@ -24,6 +24,7 @@ import { getUserProfile } from '../../services/firebase/user';
 import { searchResoProperties } from '../../services/resoService';
 import { formatAddress as centralFormatAddress } from '../../services/apiService';
 import { runCitySmokeTest, CitySmokeSummary, PropertySmokeResult } from '../../services/smokeTest';
+import { logPipelineAudit, getPipelineAuditTrail, PipelineAuditEntry } from '../../services/firebase/pipelineAudit';
 
 
 interface IngestionJob {
@@ -51,7 +52,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         llmLogs: LLMCallEvent[];
         apiLogs: APICallEvent[];
     } | null>(null);
-    const [viewMode, setViewMode] = useState<'table' | 'ingestion'>('table');
+    const [viewMode, setViewMode] = useState<'table' | 'ingestion' | 'audit'>('table');
+    const [auditEntries, setAuditEntries] = useState<PipelineAuditEntry[]>([]);
+    const [auditLoading, setAuditLoading] = useState(false);
     const [activeReportTab, setActiveReportTab] = useState<'ai' | 'api'>('ai');
     const [pipelineType, setPipelineType] = useState<'full' | 'images'>('full');
     const [deletionStatus, setDeletionStatus] = useState<{ address: string, tables: string[] } | null>(null);
@@ -184,18 +187,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         Array.from(selectedIds).filter(id => visibleIds.has(id)).length,
         [selectedIds, visibleIds]);
 
-    // Number of unique cities among the visible-selected listings — for the City Research button
-    const visibleSelectedCitiesCount = useMemo(() => {
-        const cities = new Set<string>();
-        Object.values(groupedListings).flat().forEach((item: any) => {
-            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
-            if (selectedIds.has(id)) {
-                const city = item.location?.address?.city || 'Unknown';
-                cities.add(city);
-            }
-        });
-        return cities.size;
-    }, [selectedIds, groupedListings]);
 
     const selectAll = () => {
         // Replace selection with only the currently-visible (state-filtered) listings
@@ -305,6 +296,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
 
         addLog(`Image Bulk Secure Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
+        const duration = Date.now() - batchStartTime;
+        logPipelineAudit('Secure Images', `${targets.length} properties`, successCount === targets.length ? 'success' : 'partial', `${successCount}/${targets.length} succeeded`, duration, { successCount, total: targets.length });
         setLoading(false);
         if (successCount === targets.length) setSelectedIds(new Set());
     };
@@ -364,161 +357,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             if (i + CHUNK_SIZE < targets.length) await new Promise(r => setTimeout(r, INTER_CHUNK_DELAY_MS));
         }
 
+
         addLog(`Property Data Complete. ${successCount} / ${targets.length} saved.`);
+        logPipelineAudit('Full Property Data', `${targets.length} properties`, successCount === targets.length ? 'success' : 'partial', `${successCount}/${targets.length} saved`, undefined, { successCount, total: targets.length });
         setLoading(false);
         if (successCount === targets.length) setSelectedIds(new Set());
     };
 
-    const handleBulkRapidAPIData = async () => {
-        if (selectedIds.size === 0) return;
-        setLoading(true);
-        setError(null);
-        setViewMode('ingestion');
-        setPipelineType('images'); // reuse ingestion view
-        setIngestionReport(null);
-        addLog(`Starting Get Property Data pipeline (RapidAPI + Radar only, preserves enrichment data)...`);
 
-        const targets = listings.filter(l => {
-            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
-            return selectedIds.has(id);
-        });
-        addLog(`Processing ${targets.length} properties...`);
 
-        const newJobs: IngestionJob[] = targets.map(item => {
-            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
-            const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
-            return { zpid: id, address: fullAddress, status: 'pending', progress: null };
-        });
-        setIngestionQueue(newJobs);
-
-        const CHUNK_SIZE = 2; // RapidAPI: 2 requests/sec max
-        const INTER_CHUNK_DELAY_MS = 1000;
-        let successCount = 0;
-
-        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
-            const chunk = targets.slice(i, i + CHUNK_SIZE);
-            addLog(`Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
-
-            const chunkPromises = chunk.map(async (item) => {
-                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
-                const addrObj = item.location?.address;
-                const builtAddress = addrObj
-                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                    : (item.location?.address?.line || zpid);
-
-                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
-                try {
-                    await runRapidAPIOnlyPipeline(builtAddress, (progress) => {
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                    }, zpid, (msg) => addLog(`[${builtAddress}] ${msg}`));
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                    return true;
-                } catch (e: any) {
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                    return false;
-                }
-            });
-
-            const results = await Promise.all(chunkPromises);
-            successCount += results.filter(r => r === true).length;
-            if (i + CHUNK_SIZE < targets.length) await new Promise(r => setTimeout(r, INTER_CHUNK_DELAY_MS));
-        }
-
-        addLog(`Get Property Data Complete. ${successCount} / ${targets.length} saved.`);
-        setLoading(false);
-        if (successCount === targets.length) setSelectedIds(new Set());
-    };
-
-    const handleCityDeepResearch = async () => {
-        if (selectedIds.size === 0) return;
-        setLoading(true);
-        addLog(`Running Deep City Research for selected properties...`);
-
-        // Collect unique cities from selected listings
-        const citySet = new Set<string>();
-        Object.values(groupedListings).flat().forEach((item: any) => {
-            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
-            if (!selectedIds.has(id)) return;
-            const city = item.location?.address?.city;
-            const stateRaw = item.location?.address?.state_code || item.location?.address?.state;
-            if (city && stateRaw) {
-                const normState = stateRaw.trim().toUpperCase();
-                const state = STATE_MAP[normState] || (normState.length === 2 ? normState : normState);
-                citySet.add(`${city.trim()}|${state.trim()}`);
-            }
-        });
-
-        for (const context of Array.from(citySet)) {
-            const [city, state] = context.split('|');
-            try {
-                const userId = auth?.currentUser?.uid || 'unknown';
-                addLog(`[Deep Research] Starting for ${city}, ${state}...`);
-                await runCityDeepResearch(city, state, userId, addLog, true);
-                addLog(`[Deep Research] Complete for ${city}, ${state}.`);
-            } catch (e: any) {
-                addLog(`[Deep Research] Failed for ${city}: ${e.message}`);
-            }
-        }
-        setLoading(false);
-    };
-
-    const handleCityWarmUp = async () => {
-        if (selectedIds.size === 0) {
-            addLog("No properties selected. Please select at least one property to identify target cities.");
-            return;
-        }
-
-        setLoading(true);
-        addLog(`Phase 1: Starting Manual Region Warming for selected contexts...`);
-
-        const targets = listings.filter(l => {
-            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
-            return selectedIds.has(id);
-        });
-
-        const cityContexts = new Set<string>();
-        const stateMap: Record<string, string> = {
-            'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA',
-            'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA',
-            'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
-            'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD',
-            'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO',
-            'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
-            'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
-            'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
-            'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT',
-            'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY'
-        };
-
-        targets.forEach(t => {
-            const city = t.location?.address?.city;
-            const stateRaw = t.location?.address?.state_code || t.location?.address?.state;
-
-            if (city && stateRaw) {
-                const normState = stateRaw.trim().toUpperCase();
-                const state = (STATE_MAP[normState] || (normState.length === 2 ? normState : normState));
-                cityContexts.add(`${city.trim()}|${state.trim()}`);
-            }
-        });
-
-        if (cityContexts.size > 0) {
-            for (const context of Array.from(cityContexts)) {
-                const [city, state] = context.split('|');
-                try {
-                    const userId = auth?.currentUser?.uid || 'unknown';
-                    addLog(`[Deep Research] Starting for ${city}, ${state}...`);
-                    await runCityDeepResearch(city, state, userId, addLog);
-                    addLog(`[Deep Research] Complete for ${city}.`);
-                } catch (e: any) {
-                    addLog(`[Deep Research] Error for ${city}: ${e.message || String(e)}`);
-                }
-            }
-            addLog(`City Deep Research Complete.`);
-        } else {
-            addLog("No valid city/state contexts found in selection.");
-        }
-        setLoading(false);
-    };
 
     const handleBulkIngest = async () => {
         if (selectedIds.size === 0) return;
@@ -654,7 +501,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
 
         const partialTotal = ingestionQueue.filter(j => j.status === 'partial').length;
+        const ingestDuration = Date.now() - batchStartTime;
         addLog(`Bulk Ingest Complete. ${successCount} fully processed, ${partialTotal} partial (need retry) / ${targets.length} total.`);
+        logPipelineAudit('Full Intel Suite', `${targets.length} properties`, successCount === targets.length ? 'success' : (successCount > 0 ? 'partial' : 'error'), `${successCount} done, ${partialTotal} partial, ${targets.length - successCount - partialTotal} failed`, ingestDuration, { successCount, partialTotal, total: targets.length });
         setLoading(false);
 
         if (successCount === targets.length) {
@@ -965,6 +814,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const results = deduplicate(rawResults);
 
             addLog(`Discovery complete. Found ${results.length} unique properties.`);
+            logPipelineAudit('Launch Ingestion', city.trim(), 'success', `${results.length} listings found across ${targetZips.length} zips`, undefined, { listingsCount: results.length, zipsScanned: targetZips.length });
 
             // Update state
             setListings(results);
@@ -977,6 +827,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             console.error(err);
             addLog(`Critical Error: ${err.message}`);
             setError(err.message || 'Workflow failed. See log.');
+            logPipelineAudit('Launch Ingestion', city.trim(), 'error', err.message || 'Unknown error');
         } finally {
             setLoading(false);
         }
@@ -1004,6 +855,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             });
             setSmokeSummary(summary);
             addLog(`Smoke test complete: ${summary.passedCount}/${summary.totalProperties} passed, ${summary.failedCount} with errors.`);
+            logPipelineAudit('Smoke Test', `${cachedPropertyIds.size} properties`, summary.failedCount === 0 ? 'success' : 'partial', `${summary.passedCount} passed, ${summary.failedCount} failed`, undefined, { passed: summary.passedCount, failed: summary.failedCount, total: summary.totalProperties });
         } catch (e: any) {
             addLog(`Smoke test failed: ${e.message}`);
         } finally {
@@ -1041,13 +893,27 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             setSweepResult({ deprecated: result.deprecated, skipped: result.skipped, errors: result.errors });
             addLog(`Refresh complete! Off Market: ${result.deprecated.length}, Active: ${result.skipped.length}, Errors: ${result.errors.length}`);
+            logPipelineAudit('Refresh Active Listings', Array.from(scopedCities).join(', '), result.errors.length === 0 ? 'success' : 'partial', `${result.deprecated.length} off market, ${result.skipped.length} active, ${result.errors.length} errors`, undefined, { deprecated: result.deprecated.length, active: result.skipped.length, errors: result.errors.length });
         } catch (e: any) {
             addLog(`Refresh Active Listings failed: ${e.message}`);
+            logPipelineAudit('Refresh Active Listings', city || 'unknown', 'error', e.message);
         } finally {
             setSweepRunning(false);
         }
     };
 
+
+    const loadAuditTrail = useCallback(async () => {
+        setAuditLoading(true);
+        try {
+            const entries = await getPipelineAuditTrail(200);
+            setAuditEntries(entries);
+        } catch (e) {
+            console.error('Failed to load audit trail:', e);
+        } finally {
+            setAuditLoading(false);
+        }
+    }, []);
 
     // Table Row Component
     const ListingRow = ({ item }: { item: any, key?: any }) => {
@@ -1239,24 +1105,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         <i className="fa-solid fa-database text-emerald-500 group-hover:scale-110 transition-transform"></i>
                                         Full Property Data ({visibleSelectedCount})
                                     </button>
-                                    <button
-                                        onClick={handleBulkRapidAPIData}
-                                        disabled={loading}
-                                        className="px-6 py-3 bg-white border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
-                                        title="Fetch RapidAPI specs + Radar geocoding only — preserves solar, noise, pollen, street view & AI data"
-                                    >
-                                        <i className="fa-solid fa-bolt text-blue-500 group-hover:scale-110 transition-transform"></i>
-                                        Get Property Data ({visibleSelectedCount})
-                                    </button>
-                                    <button
-                                        onClick={handleCityDeepResearch}
-                                        disabled={loading}
-                                        className="px-6 py-3 bg-white border-2 border-violet-200 hover:border-violet-400 hover:bg-violet-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
-                                        title="Run Deep Investment Research for the cities of selected properties"
-                                    >
-                                        <i className="fa-solid fa-microscope text-violet-500 group-hover:scale-110 transition-transform"></i>
-                                        City Research ({visibleSelectedCitiesCount} {visibleSelectedCitiesCount === 1 ? 'city' : 'cities'})
-                                    </button>
+
+
+
                                     <button
                                         onClick={handleBulkIngest}
                                         disabled={loading}
@@ -1450,18 +1301,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 )}
                             </button>
                             <button
-                                onClick={() => handleSearch(true)}
-                                disabled={loading}
-                                title="Bypass cache and fetch fresh ForSale listings from RapidAPI"
-                                className="px-6 py-4 border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                            >
-                                <i className="fa-solid fa-rotate" />
-                                Force Refresh
-                            </button>
-                            <button
                                 onClick={async () => {
                                     if (!city) { addLog('Please enter a city name.'); return; }
                                     setLoading(true);
+                                    setListings([]);
+                                    setStateFilter('ALL');
                                     const normalizedCity = city.trim();
                                     addLog(`[Cache Refresh] Resolving zips for ${normalizedCity}...`);
 
@@ -1488,6 +1332,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     const config = APP_CONFIG.usHousingApi;
                                     addLog(`[Cache Refresh] Force-refreshing ${uniqueZips.length} zips (ForSale + RecentlySold)...`);
 
+                                    const allForSaleResults: any[] = [];
+
                                     for (let i = 0; i < uniqueZips.length; i++) {
                                         const zip = uniqueZips[i];
                                         addLog(`  [${i + 1}/${uniqueZips.length}] Zip ${zip}...`);
@@ -1512,6 +1358,27 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
                                             }
                                             if (allForSale.length > 0) await saveZipListings(zip, allForSale);
+                                            // Collect for UI table
+                                            allForSaleResults.push(...allForSale.map((item: any) => {
+                                                const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
+                                                const legacyAddr = legacyLoc.address || {};
+                                                const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
+                                                const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+                                                return {
+                                                    ...item,
+                                                    property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
+                                                    location: {
+                                                        address: {
+                                                            line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
+                                                            city: legacyAddr.city || item.city || item.town || normalizedCity || 'Unknown City',
+                                                            state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || 'Unknown State',
+                                                            postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
+                                                        }
+                                                    },
+                                                    list_price: numericPrice,
+                                                    primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
+                                                };
+                                            }));
                                             addLog(`    ✓ ForSale: ${allForSale.length} saved`);
                                         } catch (e: any) {
                                             addLog(`    ⚠ ForSale error: ${e.message}`);
@@ -1546,7 +1413,19 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         if (i < uniqueZips.length - 1) await new Promise(r => setTimeout(r, 500));
                                     }
 
-                                    addLog(`[Cache Refresh] Done. All zip caches refreshed for ${normalizedCity}.`);
+                                    // Deduplicate and update the UI table
+                                    const seenIds = new Set<string>();
+                                    const deduped = allForSaleResults.filter(item => {
+                                        const id = item.property_id || item.listing_id || item.mls_id || item.mls?.id;
+                                        const addrId = item.location?.address?.line;
+                                        const compositeId = id ? String(id) : (addrId ? addrId.toLowerCase().replace(/\s+/g, '') : null);
+                                        if (!compositeId || seenIds.has(compositeId)) return false;
+                                        seenIds.add(compositeId);
+                                        return true;
+                                    });
+                                    setListings(deduped);
+                                    addLog(`[Cache Refresh] Done. ${deduped.length} unique ForSale listings loaded. All zip caches refreshed for ${normalizedCity}.`);
+                                    logPipelineAudit('Refresh Zip Listing Caches', normalizedCity, 'success', `${deduped.length} listings loaded, ${uniqueZips.length} zips refreshed`, undefined, { listings: deduped.length, zips: uniqueZips.length });
                                     setLoading(false);
                                 }}
                                 disabled={loading || !city}
@@ -1597,17 +1476,19 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         const userId = auth?.currentUser?.uid || 'unknown';
                                         await runCityDeepResearch(c, s, userId, addLog);
                                         addLog(`[Deep Research] Complete for ${displayTarget}. Research is now live in DB.`);
+                                        logPipelineAudit('Run City Level Reports', displayTarget, 'success', `Deep research complete for ${displayTarget}`);
                                     } catch (e: any) {
                                         addLog(`[Deep Research] Error for ${displayTarget}: ${e.message}`);
+                                        logPipelineAudit('Run City Level Reports', displayTarget, 'error', e.message);
                                     }
                                     setLoading(false);
                                 }}
                                 disabled={loading || !city}
                                 className="px-6 py-4 bg-white border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3 disabled:opacity-50"
-                                title="Warm Regional Intelligence"
+                                title="Run City Level Reports"
                             >
                                 <i className="fa-solid fa-earth-americas text-emerald-500"></i>
-                                Warm Region
+                                Run City Level Reports
                             </button>
                             {listings.length > 0 && (
                                 <button
@@ -1622,6 +1503,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     <i className="fa-solid fa-rotate-left"></i>
                                 </button>
                             )}
+                            <button
+                                onClick={() => {
+                                    loadAuditTrail();
+                                    setViewMode('audit');
+                                }}
+                                className="p-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl transition-all"
+                                title="View Audit Trail"
+                            >
+                                <i className="fa-solid fa-clock-rotate-left"></i>
+                            </button>
                         </div>
                     </div>
                     {error && (
@@ -2024,9 +1915,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                                     'fa-hourglass-start'
                                                         }`}></i>
                                                 </div>
-                                                {item.status === 'completed' ? (
+                                                {['completed', 'partial', 'error'].includes(item.status) ? (
                                                     <button
-                                                        onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}&zpid=${item.zpid}`, '_blank')}
+                                                        onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}`, '_blank')}
                                                         className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 hover:underline transition-colors text-left"
                                                     >
                                                         {item.address}
@@ -2266,6 +2157,107 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {/* ── Audit Trail View ────────────────────────────────────────────── */}
+            {viewMode === 'audit' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-arrow-left"></i>
+                                Back to City Data
+                            </button>
+                            <h2 className="text-2xl font-black text-slate-900">Pipeline Audit Trail</h2>
+                        </div>
+                        <button
+                            onClick={loadAuditTrail}
+                            disabled={auditLoading}
+                            className="px-4 py-2 bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <i className={`fa-solid fa-arrows-rotate ${auditLoading ? 'animate-spin' : ''}`}></i>
+                            Refresh
+                        </button>
+                    </div>
+
+                    {auditLoading ? (
+                        <div className="flex items-center justify-center py-20">
+                            <i className="fa-solid fa-spinner animate-spin text-indigo-400 text-2xl"></i>
+                        </div>
+                    ) : auditEntries.length === 0 ? (
+                        <div className="text-center py-20 text-slate-400">
+                            <i className="fa-solid fa-clipboard-list text-4xl mb-4 block"></i>
+                            <p className="font-bold">No audit entries yet</p>
+                            <p className="text-sm mt-1">Pipeline actions will appear here as you use the buttons above.</p>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b border-slate-100 bg-slate-50">
+                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Time</th>
+                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Action</th>
+                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Target</th>
+                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Summary</th>
+                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Duration</th>
+                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">User</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {auditEntries.map((entry, idx) => {
+                                        const statusColors = {
+                                            success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                            partial: 'bg-amber-50 text-amber-700 border-amber-200',
+                                            error: 'bg-rose-50 text-rose-700 border-rose-200',
+                                        };
+                                        const actionIcons: Record<string, string> = {
+                                            'Launch Ingestion': 'fa-radar text-indigo-400',
+                                            'Refresh Zip Listing Caches': 'fa-arrows-rotate text-amber-500',
+                                            'Run City Level Reports': 'fa-earth-americas text-emerald-500',
+                                            'Secure Images': 'fa-images text-sky-500',
+                                            'Full Property Data': 'fa-database text-emerald-500',
+                                            'Full Intel Suite': 'fa-bolt-lightning text-indigo-500',
+                                            'Smoke Test': 'fa-flask text-violet-500',
+                                            'Refresh Active Listings': 'fa-arrows-rotate text-rose-400',
+                                        };
+                                        const icon = actionIcons[entry.action] || 'fa-circle text-slate-400';
+                                        const time = entry.startedAt ? new Date(entry.startedAt).toLocaleString() : '--';
+                                        const duration = entry.durationMs
+                                            ? entry.durationMs > 60000
+                                                ? `${(entry.durationMs / 60000).toFixed(1)}m`
+                                                : `${(entry.durationMs / 1000).toFixed(1)}s`
+                                            : '--';
+
+                                        return (
+                                            <tr key={entry.id || idx} className="border-b border-slate-50 hover:bg-slate-25 transition-colors">
+                                                <td className="p-4 text-xs text-slate-500 font-mono whitespace-nowrap">{time}</td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <i className={`fa-solid ${icon} text-sm`}></i>
+                                                        <span className="text-xs font-bold text-slate-800">{entry.action}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-xs font-semibold text-slate-600 max-w-[200px] truncate" title={entry.target}>{entry.target}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border ${statusColors[entry.status]}`}>
+                                                        {entry.status}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-xs text-slate-600 max-w-[300px]" title={entry.summary}>{entry.summary}</td>
+                                                <td className="p-4 text-xs font-mono text-slate-500 text-right">{duration}</td>
+                                                <td className="p-4 text-xs text-slate-400 truncate max-w-[120px]" title={entry.userName}>{entry.userName}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

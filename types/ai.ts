@@ -377,6 +377,7 @@ export interface ComprehensiveAnalysisResult {
         food: string;
         professionals: string;
     };
+    schools_summary?: string;
 }
 
 
@@ -538,6 +539,7 @@ export interface AIUsage {
 export interface AIResponseWithUsage<T> {
     data: T;
     usage: AIUsage;
+    sources?: {url: string; title: string}[] | null;
 }
 
 export interface DailyPulseResult {

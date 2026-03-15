@@ -86,6 +86,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [isRefreshingPulse, setIsRefreshingPulse] = useState(false);
     const [lifestyleInsights, setLifestyleInsights] = useState<any>(null);
     const [lifestyleLoading, setLifestyleLoading] = useState(false);
+    const [schoolsIntelligence, setSchoolsIntelligence] = useState<any>(null);
+    const [schoolsExpanded, setSchoolsExpanded] = useState<Record<number, boolean>>({});
 
     // Sync external viewMode changes to internal tab
     React.useEffect(() => {
@@ -116,6 +118,43 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             } catch (_) { /* optional */ }
         };
         loadLifestyle();
+    }, [propertyData?.zpid]);
+
+    // Load schools intelligence from per-school cache
+    React.useEffect(() => {
+        setSchoolsIntelligence(null);
+        setSchoolsExpanded({});
+        const loadSchools = async () => {
+            const schools = propertyData?.schools;
+            const city = propertyData?.city;
+            const state = propertyData?.state;
+            if (!schools?.length || !city) return;
+            try {
+                const { getSchoolAnalysisFromCloud } = await import('../../services/firebase/properties');
+                const { getSchoolCacheKey } = await import('../../prompts/property/schoolsAnalysis');
+
+                const results: any[] = [];
+                for (const school of schools) {
+                    const cacheKey = getSchoolCacheKey(school.name, city, state || '');
+                    const cached = await getSchoolAnalysisFromCloud(cacheKey);
+                    if (cached?.name) {
+                        results.push({
+                            ...cached,
+                            distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
+                            mls_rating: school.rating,
+                            is_assigned: true
+                        });
+                    }
+                }
+                if (results.length > 0) {
+                    setSchoolsIntelligence({
+                        schools: results,
+                        district_name: results[0]?.district_name || '',
+                    });
+                }
+            } catch (_) { /* optional */ }
+        };
+        loadSchools();
     }, [propertyData?.zpid]);
 
     const handleGenerateLifestyle = async () => {
@@ -672,6 +711,240 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                         </div>
                                                                     </div>
                                                                 )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Schools Intelligence */}
+                                                {schoolsIntelligence?.schools?.length > 0 && (
+                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                            <div className="p-4">
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-graduation-cap text-blue-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
+                                                                    </div>
+                                                                    {schoolsIntelligence.district_rating && (
+                                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                                            schoolsIntelligence.district_rating.startsWith('A') ? 'bg-emerald-100 text-emerald-700' :
+                                                                            schoolsIntelligence.district_rating.startsWith('B') ? 'bg-blue-100 text-blue-700' :
+                                                                            schoolsIntelligence.district_rating.startsWith('C') ? 'bg-amber-100 text-amber-700' :
+                                                                            'bg-rose-100 text-rose-700'
+                                                                        }`}>
+                                                                            {schoolsIntelligence.district_name} · {schoolsIntelligence.district_rating}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* District overview */}
+                                                                {schoolsIntelligence.district_overview && (
+                                                                    <p className="text-[12px] text-slate-500 leading-relaxed mb-3">
+                                                                        {schoolsIntelligence.district_overview}
+                                                                    </p>
+                                                                )}
+
+                                                                {/* Desirability badge */}
+                                                                {schoolsIntelligence.is_desirable_zone !== undefined && (
+                                                                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-3 ${schoolsIntelligence.is_desirable_zone ? 'bg-emerald-50 border border-emerald-100' : 'bg-amber-50 border border-amber-100'}`}>
+                                                                        <i className={`fa-solid ${schoolsIntelligence.is_desirable_zone ? 'fa-circle-check text-emerald-500' : 'fa-triangle-exclamation text-amber-500'} text-[11px]`}></i>
+                                                                        <span className={`text-[11px] font-bold ${schoolsIntelligence.is_desirable_zone ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                                                            {schoolsIntelligence.is_desirable_zone ? 'Desirable School Zone' : 'School Zone Concerns'}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* School tabs — stacked, max 3 */}
+                                                                <div className="flex flex-col gap-1.5 mb-2">
+                                                                    {schoolsIntelligence.schools.slice(0, 3).map((school: any, idx: number) => {
+                                                                        const isActive = (schoolsExpanded.__activeIdx ?? 0) === idx;
+                                                                        const ratingNum = parseFloat(String(school.mls_rating)) || 0;
+                                                                        const ratingColor = ratingNum >= 7 ? 'emerald' : ratingNum >= 5 ? 'amber' : 'rose';
+                                                                        const levelIcon = school.level?.includes('element') ? 'fa-child' :
+                                                                            school.level?.includes('middle') ? 'fa-school' : 'fa-building-columns';
+                                                                        return (
+                                                                            <button
+                                                                                key={idx}
+                                                                                onClick={() => setSchoolsExpanded(prev => ({ ...prev, __activeIdx: idx }))}
+                                                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all w-full ${
+                                                                                    isActive
+                                                                                        ? 'bg-indigo-600 shadow-sm border border-indigo-700'
+                                                                                        : 'bg-white border border-slate-200 hover:bg-slate-50'
+                                                                                }`}
+                                                                            >
+                                                                                <i className={`fa-solid ${levelIcon} text-[9px] ${isActive ? 'text-indigo-200' : 'text-slate-400'}`}></i>
+                                                                                <span className={`text-[12px] font-bold flex-1 ${isActive ? 'text-white' : 'text-slate-600'}`}>{school.name}</span>
+                                                                                {school.mls_rating && (
+                                                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-${ratingColor}-100 text-${ratingColor}-700`}>
+                                                                                        {school.mls_rating}/10
+                                                                                    </span>
+                                                                                )}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                {/* Active school content */}
+                                                                {(() => {
+                                                                    const activeIdx = schoolsExpanded.__activeIdx ?? 0;
+                                                                    const school = schoolsIntelligence.schools[activeIdx];
+                                                                    if (!school) return null;
+                                                                    const isDetailOpen = schoolsExpanded[`detail_${activeIdx}`];
+                                                                    return (
+                                                                        <div className="border border-slate-100 rounded-xl overflow-hidden bg-white animate-in fade-in duration-200">
+                                                                            {/* Summary — always visible */}
+                                                                            {school.overall_assessment && (
+                                                                                <div className="p-3 bg-indigo-50/50 border-b border-indigo-100/50">
+                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed">{school.overall_assessment}</p>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* Show Details toggle */}
+                                                                            <button
+                                                                                onClick={() => setSchoolsExpanded(prev => ({ ...prev, [`detail_${activeIdx}`]: !prev[`detail_${activeIdx}`] }))}
+                                                                                className="w-full flex items-center justify-center gap-1 py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                                                                            >
+                                                                                <span>{isDetailOpen ? 'Hide Details' : 'Show Details'}</span>
+                                                                                <i className={`fa-solid fa-chevron-${isDetailOpen ? 'up' : 'down'} text-[8px]`}></i>
+                                                                            </button>
+
+                                                                            {/* Expandable details */}
+                                                                            {isDetailOpen && (
+                                                                                <div className="px-3 pb-3 space-y-2 border-t border-slate-50">
+                                                                                    {/* Stat pills */}
+                                                                                    <div className="flex flex-wrap gap-1.5 pt-2">
+                                                                                        {school.enrollment && (
+                                                                                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                                                                                                Enrollment: {school.enrollment?.toLocaleString()}
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {school.student_teacher_ratio && (
+                                                                                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                                                                                                Ratio: {school.student_teacher_ratio}
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {school.graduation_rate && school.graduation_rate !== 'N/A' && (
+                                                                                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
+                                                                                                Graduation: {school.graduation_rate}
+                                                                                            </span>
+                                                                                        )}
+                                                                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full capitalize">
+                                                                                            {school.type || 'Public'}
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                    {/* Test Scores */}
+                                                                                    {school.test_scores && (
+                                                                                        <div>
+                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Test Scores</div>
+                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.test_scores}</p>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* College Readiness */}
+                                                                                    {school.college_readiness && school.college_readiness !== 'N/A' && (
+                                                                                        <div>
+                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">College Readiness</div>
+                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.college_readiness}</p>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* AP/IB Programs */}
+                                                                                    {school.ap_ib_programs && school.ap_ib_programs !== 'N/A' && (
+                                                                                        <div>
+                                                                                            <div className="text-[9px] font-black text-indigo-500 uppercase tracking-wider mb-1">AP/IB Programs</div>
+                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.ap_ib_programs}</p>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* Parent Sentiment */}
+                                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                                        {school.parent_sentiment_positive && (
+                                                                                            <div className="p-2 bg-emerald-50/50 rounded-lg border border-emerald-100/50">
+                                                                                                <div className="text-[9px] font-black text-emerald-600 uppercase mb-1">
+                                                                                                    <i className="fa-solid fa-thumbs-up mr-1"></i>Parent Loves
+                                                                                                </div>
+                                                                                                <p className="text-[10px] text-emerald-800 leading-relaxed">{school.parent_sentiment_positive}</p>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {school.parent_sentiment_concerns && (
+                                                                                            <div className="p-2 bg-pink-50/50 rounded-lg border border-pink-100/50">
+                                                                                                <div className="text-[9px] font-black text-pink-600 uppercase mb-1">
+                                                                                                    <i className="fa-solid fa-flag mr-1"></i>Parent Concerns
+                                                                                                </div>
+                                                                                                <p className="text-[10px] text-pink-800 leading-relaxed">{school.parent_sentiment_concerns}</p>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+
+                                                                                    {/* Activities & Strengths */}
+                                                                                    {school.extracurriculars && (
+                                                                                        <div>
+                                                                                            <div className="text-[9px] font-black text-violet-500 uppercase tracking-wider mb-1">
+                                                                                                <i className="fa-solid fa-trophy mr-1"></i>Activities & Strengths
+                                                                                            </div>
+                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.extracurriculars}</p>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* Recent News */}
+                                                                                    {school.recent_news && (
+                                                                                        <div>
+                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Recent News</div>
+                                                                                            <p className="text-[11px] text-slate-500 leading-relaxed italic">{school.recent_news}</p>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* Demographics */}
+                                                                                    {school.demographics_summary && (
+                                                                                        <div>
+                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                                                                                                <i className="fa-solid fa-users mr-1"></i>Demographics
+                                                                                            </div>
+                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.demographics_summary}</p>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
+
+                                                                {/* Education Verdict */}
+                                                                {schoolsIntelligence.education_verdict && (
+                                                                    <div className="mt-3 pt-3 border-t border-slate-100">
+                                                                        <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Education Verdict</div>
+                                                                        <p className="text-[12px] text-slate-600 leading-relaxed">
+                                                                            {schoolsIntelligence.education_verdict.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                            ))}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Schools Summary from Comprehensive Analysis (fallback when no full schools data) */}
+                                                {!schoolsIntelligence?.schools?.length && analysis?.schools_summary && (
+                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                            <div className="p-4">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-graduation-cap text-blue-600 text-[11px]"></i>
+                                                                    </div>
+                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
+                                                                </div>
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed">
+                                                                    {analysis.schools_summary.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                        j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                    ))}
+                                                                </p>
                                                             </div>
                                                         </div>
                                                     </div>

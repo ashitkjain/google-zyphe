@@ -8,6 +8,7 @@ import {
   analyzeInvestmentResearch,
   analyzeGeneralMarketIntelligence,
   analyzeLifestyleInsights,
+  analyzeSchool,
   runBackgroundCityResearch,
   AiResponseError
 } from './geminiService.ts';
@@ -322,22 +323,95 @@ export const runFullIntelligencePipeline = async (
       }
     };
 
+    const schoolsTask = async () => {
+      try {
+        const propertySchools = enrichedData.schools;
+        if (!propertySchools?.length) {
+          onLog?.(`[Schools] No schools associated with this property. Skipping.`);
+          return null;
+        }
+
+        const { getSchoolAnalysisFromCloud, saveSchoolAnalysisToCloud } = await import('./firebase/properties');
+        const { getSchoolCacheKey } = await import('../prompts/property/schoolsAnalysis');
+        const city = enrichedData.city || '';
+        const state = enrichedData.state || '';
+
+        const analyzedSchools: any[] = [];
+        let cachedCount = 0;
+        let analyzedCount = 0;
+
+        for (const school of propertySchools) {
+          const cacheKey = getSchoolCacheKey(school.name, city, state);
+          const cached = await getSchoolAnalysisFromCloud(cacheKey);
+
+          if (cached?.name) {
+            onLog?.(`[Schools] ✓ Cache hit: ${school.name}`);
+            analyzedSchools.push({
+              ...cached,
+              distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
+              mls_rating: school.rating,
+              is_assigned: true // from property's own school list
+            });
+            cachedCount++;
+            continue;
+          }
+
+          // Run analysis for this school
+          try {
+            onLog?.(`[Schools] Analyzing: ${school.name}...`);
+            const res = await analyzeSchool(school, enrichedData, userId);
+            if (res.data) {
+              // Merge grounding sources into data if not already present from schema
+              const schoolData = {
+                ...res.data,
+                sources: res.data.sources?.length ? res.data.sources : (res.sources || [])
+              };
+              await saveSchoolAnalysisToCloud(cacheKey, schoolData);
+              analyzedSchools.push({
+                ...schoolData,
+                distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
+                mls_rating: school.rating,
+                is_assigned: true
+              });
+              analyzedCount++;
+            }
+          } catch (e: any) {
+            onLog?.(`[Schools] Failed for ${school.name}: ${e.message}`);
+          }
+        }
+
+        onLog?.(`[Schools] Done — ${cachedCount} cached, ${analyzedCount} newly analyzed.`);
+
+        return analyzedSchools.length > 0 ? {
+          schools: analyzedSchools,
+          district_name: analyzedSchools[0]?.district_name || '',
+        } : null;
+      } catch (e: any) {
+        onLog?.(`[Schools] Failed (non-blocking): ${e.message}`);
+        return null;
+      }
+    };
+
     // Execute AI Tasks Parallelized for maximum speed
-    // Visual, Spatial, Regional (city-level cache reads), Property Investment, and Lifestyle run simultaneously.
+    // Visual, Spatial, Regional (city-level cache reads), Property Investment, Lifestyle, and Schools run simultaneously.
     // Deep Research is NOT included here — it runs separately via prefetchCityIntelligence (city-level).
     onLog?.(`[Pipeline] Launching parallel AI evaluation suite...`);
-    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, _lifestyleResult] = await Promise.all([
-      visualTask(),
+    let visualResult: any = null;
+    let visualError: string | null = null;
+
+    const [_visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, _lifestyleResult, schoolsResult] = await Promise.all([
+      visualTask().then(r => { visualResult = r; return r; }).catch(e => { visualError = e.message || String(e); onLog?.(`[Visual] ❌ Failed: ${visualError}`); return null; }),
       neighborhoodTask(),
       pulseTask(),
       propInvTask(),
       marketIntTask(),
-      lifestyleTask()
+      lifestyleTask(),
+      schoolsTask()
     ]);
 
     // Track which subtasks had issues
     const warnings: string[] = [];
-    if (!visualResult) warnings.push('Visual AI');
+    if (!visualResult) warnings.push(`Visual AI${visualError ? `: ${visualError}` : ''}`);
 
     // Assembly - Keep visualResult lean (only item-specific data)
     const finalVisualResult: CustomAIAnalysisResult = {
@@ -356,6 +430,7 @@ export const runFullIntelligencePipeline = async (
       community_pulse: communityPulse,
       property_investment: investmentSpecific,
       general_market_intelligence: marketIntelligence,
+      schools_intelligence: schoolsResult,
       // Deep Research is loaded from cache if available (set by prefetchCityIntelligence)
       deep_investment_research: cityStateKey ? await getDeepInvestmentResearchFromCloud(cityStateKey) : null
     };

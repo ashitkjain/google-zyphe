@@ -5,7 +5,7 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'schools' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -84,6 +84,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
         { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
+        { id: 'schools', label: 'Schools', icon: 'fa-graduation-cap' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
@@ -94,6 +95,43 @@ const AnalysisOrchestrator: React.FC<Props> = ({
 
     // Initialize activeTab to the first TRULY available tab, fallback to 'interior'
     const [activeTab, setActiveTab] = useState<TabType>((tabs[0]?.id as TabType) || 'interior');
+
+    // Schools intelligence state
+    const [schoolsData, setSchoolsData] = useState<any>(null);
+    const [activeSchoolIdx, setActiveSchoolIdx] = useState<number>(0);
+
+    // Load schools from per-school cache when propertyData changes
+    useEffect(() => {
+        setSchoolsData(null);
+        setActiveSchoolIdx(0);
+        const loadSchools = async () => {
+            const schools = propertyData?.schools;
+            const city = propertyData?.city;
+            const state = propertyData?.state;
+            if (!schools?.length || !city) return;
+            try {
+                const { getSchoolAnalysisFromCloud } = await import('../../../services/firebase/properties');
+                const { getSchoolCacheKey } = await import('../../../prompts/property/schoolsAnalysis');
+                const results: any[] = [];
+                for (const school of schools) {
+                    const cacheKey = getSchoolCacheKey(school.name, city, state || '');
+                    const cached = await getSchoolAnalysisFromCloud(cacheKey);
+                    if (cached?.name) {
+                        results.push({
+                            ...cached,
+                            distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
+                            mls_rating: school.rating,
+                            is_assigned: true
+                        });
+                    }
+                }
+                if (results.length > 0) {
+                    setSchoolsData({ schools: results, district_name: results[0]?.district_name || '' });
+                }
+            } catch (_) { /* optional */ }
+        };
+        loadSchools();
+    }, [propertyData?.zpid]);
 
     // Keep activeTab in sync if role/tabs change and current tab becomes invalid
     useEffect(() => {
@@ -321,6 +359,189 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                     isRefreshing={neighborhoodLoading}
                                     timer={timer}
                                 />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'schools' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {!schoolsData?.schools?.length ? (
+                                <EmptyState section="Schools" />
+                            ) : (
+                                <div className="space-y-4">
+                                    {/* District header */}
+                                    {schoolsData.district_name && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                                <i className="fa-solid fa-graduation-cap text-blue-600"></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-black text-slate-800 tracking-tight">Schools Intelligence</h3>
+                                                <p className="text-sm text-slate-400">{schoolsData.district_name} · {schoolsData.schools.length} schools analyzed</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* School tabs row */}
+                                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                                        {schoolsData.schools.map((school: any, idx: number) => {
+                                            const isActive = activeSchoolIdx === idx;
+                                            const ratingNum = parseFloat(String(school.mls_rating)) || 0;
+                                            const ratingColor = ratingNum >= 7 ? 'emerald' : ratingNum >= 5 ? 'amber' : 'rose';
+                                            const levelIcon = school.level?.toLowerCase()?.includes('element') ? 'fa-child' :
+                                                school.level?.toLowerCase()?.includes('middle') ? 'fa-school' : 'fa-building-columns';
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setActiveSchoolIdx(idx)}
+                                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-left whitespace-nowrap transition-all flex-shrink-0 ${
+                                                        isActive
+                                                            ? 'bg-white shadow-md border border-slate-200 ring-1 ring-indigo-100'
+                                                            : 'bg-slate-50 border border-transparent hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    <i className={`fa-solid ${levelIcon} text-[11px] ${isActive ? 'text-indigo-500' : 'text-slate-400'}`}></i>
+                                                    <div>
+                                                        <div className={`text-[12px] font-bold ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>{school.name}</div>
+                                                        <div className="text-[10px] text-slate-400">{school.grades_served}</div>
+                                                    </div>
+                                                    {school.mls_rating && (
+                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ml-1 bg-${ratingColor}-100 text-${ratingColor}-700`}>
+                                                            {school.mls_rating}/10
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Active school content */}
+                                    {(() => {
+                                        const school = schoolsData.schools[activeSchoolIdx];
+                                        if (!school) return null;
+                                        return (
+                                            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm animate-in fade-in duration-300">
+                                                {/* Stat pills row */}
+                                                <div className="flex flex-wrap gap-2 px-4 pt-4 pb-3">
+                                                    {school.enrollment && (
+                                                        <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
+                                                            Enrollment: {school.enrollment?.toLocaleString()}
+                                                        </span>
+                                                    )}
+                                                    {school.student_teacher_ratio && (
+                                                        <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
+                                                            Ratio: {school.student_teacher_ratio}
+                                                        </span>
+                                                    )}
+                                                    {school.graduation_rate && school.graduation_rate !== 'N/A' && (
+                                                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">
+                                                            Graduation: {school.graduation_rate}
+                                                        </span>
+                                                    )}
+                                                    <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full capitalize">
+                                                        {school.type || 'Public'}
+                                                    </span>
+                                                </div>
+
+                                                {/* Summary — full width at top */}
+                                                <div className="px-4 pb-2">
+                                                    {school.overall_assessment && (
+                                                        <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                                                            <div className="text-[10px] font-black text-indigo-500 uppercase tracking-wider mb-1.5">Summary</div>
+                                                            <p className="text-[13px] text-indigo-900 leading-relaxed font-medium">{school.overall_assessment}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Two-column grid */}
+                                                <div className="px-4 pb-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        {/* LEFT COLUMN: Academics */}
+                                                        <div className="space-y-3">
+                                                            {school.test_scores && (
+                                                                <div className="p-3 bg-slate-50 rounded-xl">
+                                                                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Test Scores</div>
+                                                                    <p className="text-[12px] text-slate-700 leading-relaxed">{school.test_scores}</p>
+                                                                </div>
+                                                            )}
+                                                            {school.ap_ib_programs && school.ap_ib_programs !== 'N/A' && (
+                                                                <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/40">
+                                                                    <div className="text-[10px] font-black text-indigo-500 uppercase tracking-wider mb-1.5">AP / IB Programs</div>
+                                                                    <p className="text-[12px] text-slate-700 leading-relaxed">{school.ap_ib_programs}</p>
+                                                                </div>
+                                                            )}
+                                                            {school.college_readiness && school.college_readiness !== 'N/A' && (
+                                                                <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100/40">
+                                                                    <div className="text-[10px] font-black text-blue-500 uppercase tracking-wider mb-1.5">College Readiness</div>
+                                                                    <p className="text-[12px] text-slate-700 leading-relaxed">{school.college_readiness}</p>
+                                                                </div>
+                                                            )}
+                                                            {school.recent_news && (
+                                                                <div className="p-3 bg-slate-50 rounded-xl">
+                                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Recent News</div>
+                                                                    <p className="text-[12px] text-slate-500 leading-relaxed italic">{school.recent_news}</p>
+                                                                </div>
+                                                            )}
+                                                            {school.demographics_summary && (
+                                                                <div className="p-3 bg-slate-50 rounded-xl">
+                                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">
+                                                                        <i className="fa-solid fa-users mr-1"></i>Demographics
+                                                                    </div>
+                                                                    <p className="text-[12px] text-slate-600 leading-relaxed">{school.demographics_summary}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* RIGHT COLUMN: Community Voice */}
+                                                        <div className="space-y-3">
+                                                            {school.parent_sentiment_positive && (
+                                                                <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100/50">
+                                                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-wider mb-1.5">
+                                                                        <i className="fa-solid fa-thumbs-up mr-1"></i>Parent Loves
+                                                                    </div>
+                                                                    <p className="text-[12px] text-emerald-800 leading-relaxed">{school.parent_sentiment_positive}</p>
+                                                                </div>
+                                                            )}
+                                                            {school.parent_sentiment_concerns && (
+                                                                <div className="p-3 bg-pink-50/60 rounded-xl border border-pink-100/50">
+                                                                    <div className="text-[10px] font-black text-pink-600 uppercase tracking-wider mb-1.5">
+                                                                        <i className="fa-solid fa-flag mr-1"></i>Parent Concerns
+                                                                    </div>
+                                                                    <p className="text-[12px] text-pink-800 leading-relaxed">{school.parent_sentiment_concerns}</p>
+                                                                </div>
+                                                            )}
+                                                            {school.extracurriculars && (
+                                                                <div className="p-3 bg-violet-50/40 rounded-xl border border-violet-100/40">
+                                                                    <div className="text-[10px] font-black text-violet-500 uppercase tracking-wider mb-1.5">
+                                                                        <i className="fa-solid fa-trophy mr-1"></i>Activities & Strengths
+                                                                    </div>
+                                                                    <p className="text-[12px] text-slate-700 leading-relaxed">{school.extracurriculars}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Sources — footer */}
+                                                    {school.sources?.length > 0 && (
+                                                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase mr-1">Sources:</span>
+                                                            {school.sources.map((src: any, sIdx: number) => {
+                                                                const domain = (() => { try { return new URL(src.url).hostname.replace('www.', ''); } catch { return src.title || src.url; }})();
+                                                                return (
+                                                                    <a key={sIdx} href={src.url} target="_blank" rel="noopener noreferrer"
+                                                                        className="text-[10px] text-blue-500 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-colors"
+                                                                        title={src.title || src.url}
+                                                                    >
+                                                                        {src.title || domain}
+                                                                    </a>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
                             )}
                         </section>
                     )}

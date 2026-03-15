@@ -21,7 +21,8 @@ service cloud.firestore {
         'distress_analysis',
         'zip_sold_listings_cache',
         'deprecated_distressed_properties',
-        'lifestyle_insights'
+        'lifestyle_insights',
+        'schools_intelligence'
       ];
       allow write: if request.auth != null && collectionName in [
         'properties', 
@@ -40,7 +41,8 @@ service cloud.firestore {
         'distress_analysis',
         'zip_sold_listings_cache',
         'deprecated_distressed_properties',
-        'lifestyle_insights'
+        'lifestyle_insights',
+        'schools_intelligence'
       ];
     }
 
@@ -328,6 +330,13 @@ service cloud.firestore {
         (resource != null && resource.data.userId == request.auth.uid)
       );
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // 8. PIPELINE AUDIT TRAIL (append-only log of pipeline actions)
+    match /pipeline_audit_trail/{entryId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow update, delete: if false;
     }
   }
 }

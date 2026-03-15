@@ -5,6 +5,8 @@ import { buildMlsFactsBlock } from "./mlsFacts";
 export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: CustomAIAnalysisResult) => {
   const PROPERTY_DETAILS = JSON.stringify(property, null, 2);
   const VISUAL_ANALYSIS = JSON.stringify(visual, null, 2);
+  const schoolsData = (visual as any)?.schools_intelligence;
+  const SCHOOLS_CONTEXT = schoolsData ? JSON.stringify(schoolsData, null, 2) : null;
 
   return `You are an AI-powered home buying assistant, tasked with generating a comprehensive and compelling analysis of a residential property. 
   Your goal is to provide a detailed, narrative-style, realtor written, professional report to a home buyer, based on a combination of provided - 
@@ -17,7 +19,8 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
   Additional context:
   1. property information ${PROPERTY_DETAILS}, 
   2. image analysis - ${VISUAL_ANALYSIS}, and 
-  3. online research. 
+  3. online research.
+  ${SCHOOLS_CONTEXT ? `4. Schools Intelligence Data - ${SCHOOLS_CONTEXT}` : ''}
 
   ### STRATEGIC FORENSICS (NEW DIRECTIVE)
   While maintaining the high detail requested in the sections below, you must also act as a Senior Real Estate Strategist to "mine" the data for deep correlations:
@@ -52,21 +55,17 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
     "summary": "150-200 word summary with key highlights. Use **bold** for critical decision factors such as: direction facing, quiet street, excellent school district, natural light, investment potential, visual appeal and condition, outdoor views, move-in ready, and any other key highlights.",
     "detailed_analysis": {
       "visual_appeal_condition": "Summarize the visual appeal and condition from provided information, like the provided property photo analysis, facts and description, including a paragraph commenting on finishes, natural lighting, cleanliness, and style (e.g., Mediterranean, Modern). Assess the apparent condition of the roof, windows, and major systems. Describe the physical atmosphere of the home. Use **bold** for key highlights like style, condition ratings, and standout features.",
-      "privacy_layout": "Based on the provided images, streetview and map analysis, write a short paragraph assessing separation from neighbors, landscaping, window placement, lot shape, curb appeal and interior room layout. Mention potential for an Accessory Dwelling Unit (ADU), zoning constraints, and expansion possibilities. Use **bold** for key highlights like lot size, privacy level, and expansion potential.",
       "outdoors_view_quality": "Using the provided properties data, photo and map analysis, write a short paragraph evaluating views (e.g., yard, hills, ocean) and the level of privacy. Assess the backyard, patio, or balcony for usability. Mention fencing, surface types, pollution and pollen levels and sun exposure (including solar readiness). Highlight any coastal erosion concerns or sea-level projections if relevant. Use **bold** for key highlights like view types, privacy level, and notable outdoor features.",
-      "location_neighborhood": "Based on the provided property facts and description, map analysis and your knowledge, write a short paragraph describing proximity to schools, highways, parks, public transport options, and shops. Note the neighborhood character (e.g., young professionals, families), and local safety data. Include commute times to major work hubs, access to public transport, and any upcoming local development. Add any information about the community amenities and HOA amenities (like pools, gyms, clubhouses) that you can find if applicable. Discuss local appreciation trends, vacancy risk, and saturation of short-term rentals. Use **bold** for key highlights like distances, scores, and important features.",
       "community_pulse": "Summarize the local sentiment using provided community pulse data. Specifically highlight 'what residents like' (e.g., quiet streets, friendly neighbors, local events) and 'common complaints' (e.g., traffic, parking, noise). Provide a narrative on the 'vibe' of living in this specific area. Use **bold** for key sentiment highlights.",
-      "additional_considerations": "Write a short paragraph including information on garage capacity, storage, smart home features, HVAC quality, internet speed availability, HOA rules, and any historical permit data discovered during your search. Include any other market or neighborhood details or information provided that is not yet covered. Use **bold** for key highlights like capacities, fees, and notable features.",
-      "climate_resilience": "Using the provided climate risk scores, insurance recommendations, existing knowledge and your search results, write a short paragraph indicating whether the home lies within a FEMA flood zone, wildfire-prone area, or has earthquake risk. Discuss how these risks might affect insurance premiums and highlight any resilience features the home may possess. Evaluate the long-term climate stability of the region. Use **bold** for key highlights like risk scores, zone designations, and resilience features."
     },
-    "strategic_insights": "A dedicated paragraph of 'Strategic Forensics'. Correlate carry-cost coverage (projected STR/LTR revenue vs. property taxes/insurance), the modernization gap for future ROI. Highlight the 'Investment Thesis' of this home by combining financial, physical, and market data.",
     "risks_considerations": "Write a paragraph highlighting any concerns regarding: Location (Crime rate, noise, environmental hazards, lack of essential services, zoning or future development changes), Property Condition (Age and state of roof, foundation, plumbing/electrical, HVAC, outdated layout, accessibility issues, storage/parking limits, energy inefficiency), Financial (Overpricing compared to comps, high property taxes, HOA fees/restrictions, rental market volatility, low appreciation potential, high insurance costs), Infrastructure (limited transit, long distance to hubs, noise pollution), Legal/Compliance (Title disputes, unpermitted work, restrictive ordinances), Any other risk factors mentioned in the provided information. Use **bold** for critical risk factors and warning items.",
     "interior_summary": {
       "interior_summary": "Neutral, factual summary of the overall home interior (4-5 objective sentences), focusing on layout, spatial flow, and material consistency. CRITICAL: Avoid all sales-oriented language, marketing fluff, or subjective adjectives like 'stunning' or 'gorgeous'.",
       "rooms_summary": "Neutral, factual summary of the individual identifiable rooms and spaces (4-5 objective sentences), focusing on the character, features, and functionality. CRITICAL: Avoid subjective or salesy language.",
       "vibe": "Objective description of the aesthetic atmosphere and physical character using neutral terminology (e.g., 'minimalist and utilitarian', 'traditional with heavy ornamentation').",
       "objective_tags": ["Purely descriptive, objective tags such as 'hardwood-floors', 'recessed-lighting', 'vaulted-ceilings', 'stainless-appliances'."]
-    }
+    },
+    "schools_summary": "3-5 sentence summary of the nearby schools landscape. Mention the school district, key assigned schools and their ratings, whether this is a desirable zone, and any standout positives or concerns. Use the provided Schools Intelligence Data if available. Use **bold** for school names and ratings."
   }
   `;
 };
@@ -79,24 +78,15 @@ export const comprehensiveAnalysisSchema = {
       type: Type.OBJECT,
       properties: {
         visual_appeal_condition: { type: Type.STRING },
-        privacy_layout: { type: Type.STRING },
         outdoors_view_quality: { type: Type.STRING },
-        location_neighborhood: { type: Type.STRING },
-        community_pulse: { type: Type.STRING },
-        additional_considerations: { type: Type.STRING },
-        climate_resilience: { type: Type.STRING }
+        community_pulse: { type: Type.STRING }
       },
       required: [
         "visual_appeal_condition",
-        "privacy_layout",
         "outdoors_view_quality",
-        "location_neighborhood",
-        "community_pulse",
-        "additional_considerations",
-        "climate_resilience"
+        "community_pulse"
       ]
     },
-    strategic_insights: { type: Type.STRING },
     risks_considerations: { type: Type.STRING },
     interior_summary: {
       type: Type.OBJECT,
@@ -110,7 +100,8 @@ export const comprehensiveAnalysisSchema = {
         }
       },
       required: ["interior_summary", "rooms_summary", "vibe", "objective_tags"]
-    }
+    },
+    schools_summary: { type: Type.STRING }
   },
-  required: ["summary", "detailed_analysis", "strategic_insights", "risks_considerations", "interior_summary"]
+  required: ["summary", "detailed_analysis", "risks_considerations", "interior_summary", "schools_summary"]
 };

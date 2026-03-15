@@ -104,15 +104,18 @@ export const getZipsForCity = async (city: string): Promise<Record<string, strin
 export const saveZipListings = async (zipCode: string, listings: any[]) => {
     if (!db) return { success: false, error: "Database not initialized" };
     try {
+        // Filter out properties without a zpid
+        const validListings = listings.filter(item => item.zpid);
+
         const docRef = doc(db, "zip_listings_cache", zipCode);
 
-        logFirestoreQuery('setDoc', 'zip_listings_cache', { zipCode });
+        logFirestoreQuery('setDoc', 'zip_listings_cache', { zipCode, total: listings.length, valid: validListings.length });
         await setDoc(docRef, {
             zipCode,
-            listings: sanitizeForFirestore(listings),
+            listings: sanitizeForFirestore(validListings),
             timestamp: serverTimestamp()
         });
-        return { success: true };
+        return { success: true, filtered: listings.length - validListings.length };
     } catch (error: any) {
         return { success: false, error: handleFirestoreError(error, "saveZipListings") };
     }
@@ -176,14 +179,17 @@ export const removePropertyFromZipCache = async (zipCode: string, propertyId: st
 export const saveZipSoldListings = async (zipCode: string, listings: any[]) => {
     if (!db) return { success: false, error: 'Database not initialized' };
     try {
+        // Filter out properties without a zpid
+        const validListings = listings.filter(item => item.zpid);
+
         const docRef = doc(db, 'zip_sold_listings_cache', zipCode);
-        logFirestoreQuery('setDoc', 'zip_sold_listings_cache', { zipCode });
+        logFirestoreQuery('setDoc', 'zip_sold_listings_cache', { zipCode, total: listings.length, valid: validListings.length });
         await setDoc(docRef, {
             zipCode,
-            listings: sanitizeForFirestore(listings),
+            listings: sanitizeForFirestore(validListings),
             fetchedAt: serverTimestamp(),
         });
-        return { success: true };
+        return { success: true, filtered: listings.length - validListings.length };
     } catch (error: any) {
         return { success: false, error: handleFirestoreError(error, 'saveZipSoldListings') };
     }
