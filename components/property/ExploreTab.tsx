@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NeighborhoodAnalysis } from '../../types/ai';
 import PropertyHeader from './PropertyHeader';
 import PropertyImages from './PropertyImages';
@@ -21,6 +21,7 @@ import LifestyleInsightsSection from './LifestyleInsightsSection';
 import ChatInterface from '../shared/ChatInterface';
 import { auth } from '../../services/firebase/config';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry, DeepResearchInsights } from '../../types';
+import { getPropertiesByCity, CityPropertySummary } from '../../services/firebase/properties';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -1318,13 +1319,22 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 )}
 
                 {!propertyData && !loading && (
-                    <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
+                    <div className="max-w-5xl mx-auto py-6 text-center space-y-12">
                         {searchBar && (
                             <div className="w-full max-w-2xl mx-auto">
                                 {searchBar}
                             </div>
                         )}
                         <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
+
+                        {/* ── Browse by City ── */}
+                        <BrowseByCitySection
+                            onPropertyClick={(addr) => {
+                                if (typeof (setViewMode as any) === 'function') {
+                                    (setViewMode as any)('explore', addr);
+                                }
+                            }}
+                        />
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
                             {[
@@ -1350,6 +1360,162 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             )
             }
         </>
+    );
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   Browse by City — self-contained section for the Explore home
+   ══════════════════════════════════════════════════════════════════ */
+
+const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
+
+const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void }> = ({ onPropertyClick }) => {
+    const [selectedCity, setSelectedCity] = useState<string>('');
+    const [browsing, setBrowsing] = useState(false);
+    const [results, setResults] = useState<CityPropertySummary[]>([]);
+    const [hasSearched, setHasSearched] = useState(false);
+
+    const handleBrowse = async () => {
+        if (!selectedCity) return;
+        setBrowsing(true);
+        setHasSearched(true);
+        try {
+            const data = await getPropertiesByCity(selectedCity);
+            setResults(data);
+        } catch (e) {
+            console.error('Browse by city failed:', e);
+            setResults([]);
+        } finally {
+            setBrowsing(false);
+        }
+    };
+
+    // Group by ZIP
+    const grouped = useMemo(() => {
+        const map: Record<string, CityPropertySummary[]> = {};
+        results.forEach(p => {
+            const zip = p.zipcode || 'Unknown';
+            if (!map[zip]) map[zip] = [];
+            map[zip].push(p);
+        });
+        // Sort zips
+        return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+    }, [results]);
+
+    const fmt = (n?: number) => n ? `$${n.toLocaleString()}` : '';
+
+    return (
+        <div className="text-left animate-in fade-in duration-500">
+            {/* Header row */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+                        <i className="fa-solid fa-city text-sm"></i>
+                    </div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Browse by City</h3>
+                </div>
+
+                <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                    <select
+                        value={selectedCity}
+                        onChange={e => setSelectedCity(e.target.value)}
+                        className="px-5 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all cursor-pointer min-w-[180px]"
+                    >
+                        <option value="">Select city...</option>
+                        {BROWSE_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <button
+                        onClick={handleBrowse}
+                        disabled={!selectedCity || browsing}
+                        className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            !selectedCity || browsing
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
+                        }`}
+                    >
+                        {browsing ? (
+                            <><i className="fa-solid fa-spinner animate-spin"></i> Loading...</>
+                        ) : (
+                            <><i className="fa-solid fa-magnifying-glass"></i> Browse</>
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {/* Results */}
+            {browsing && (
+                <div className="flex items-center justify-center py-16">
+                    <div className="w-10 h-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
+                </div>
+            )}
+
+            {!browsing && hasSearched && results.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
+                    <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-200 mb-3"></i>
+                    <p className="text-sm font-bold text-slate-400">No properties found in {selectedCity}</p>
+                </div>
+            )}
+
+            {!browsing && grouped.length > 0 && (
+                <div className="space-y-8">
+                    {grouped.map(([zip, properties]) => (
+                        <div key={zip} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* ZIP Header */}
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-black">
+                                    <i className="fa-solid fa-location-dot"></i>
+                                </div>
+                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">{selectedCity}</h4>
+                                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-black">{zip}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
+                            </div>
+
+                            {/* Property Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                {properties.sort((a, b) => (a.address || '').localeCompare(b.address || '')).map(prop => (
+                                    <button
+                                        key={prop.zpid}
+                                        onClick={() => onPropertyClick(prop.address)}
+                                        className="group bg-white rounded-2xl border border-slate-100 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50 transition-all text-left overflow-hidden"
+                                    >
+                                        {/* Thumbnail */}
+                                        {prop.images?.[0] ? (
+                                            <div className="h-28 bg-slate-100 overflow-hidden">
+                                                <img
+                                                    src={prop.images[0]}
+                                                    alt=""
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="h-28 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                                <i className="fa-solid fa-house text-2xl text-slate-300"></i>
+                                            </div>
+                                        )}
+
+                                        {/* Info */}
+                                        <div className="p-4">
+                                            <div className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug mb-2 line-clamp-2">
+                                                {prop.address}
+                                            </div>
+                                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold">
+                                                {prop.listPrice && (
+                                                    <span className="text-indigo-600 font-black">{fmt(prop.listPrice)}</span>
+                                                )}
+                                                {prop.bedrooms && <span>{prop.bedrooms} bd</span>}
+                                                {prop.bathrooms && <span>{prop.bathrooms} ba</span>}
+                                                {prop.livingArea && <span>{prop.livingArea.toLocaleString()} sqft</span>}
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 };
 

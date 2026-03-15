@@ -17,6 +17,7 @@ export interface AIAssessment {
     propertyAddress: string;
     assessment: 'good' | 'bad' | 'other';
     comment: string;
+    visual_ai_comment?: string;
     create_date: any;
     last_update_date: any;
     auditor: string;

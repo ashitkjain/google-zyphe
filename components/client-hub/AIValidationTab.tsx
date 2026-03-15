@@ -6,6 +6,7 @@ import { getDeprecatedProperties, restoreDeprecatedProperty } from '../../servic
 import { getZipsForCity, getZipListings } from '../../services/firebase/cityData';
 import { PropertyData } from '../../types';
 import OrientationAuditTab from './OrientationAuditTab';
+import AssessmentSummaryTab from './AssessmentSummaryTab';
 
 
 interface PropertyValidationStatus extends PropertyData {
@@ -13,6 +14,7 @@ interface PropertyValidationStatus extends PropertyData {
     hasInterior: boolean;
     assessment?: 'good' | 'bad' | 'other';
     comment?: string;
+    visual_ai_comment?: string;
     isGrayedOut: boolean;
 }
 
@@ -31,10 +33,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
     const [userNames, setUserNames] = useState<Record<string, string>>({});
     const [allAuditors, setAllAuditors] = useState<{ uid: string, displayName: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions' | 'orientation' | 'deprecated'>('audits');
+    const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions' | 'orientation' | 'deprecated' | 'summary'>('audits');
 
     const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
     const [editingComment, setEditingComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
+    const [editingVisualComment, setEditingVisualComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [messagingModal, setMessagingModal] = useState<{
@@ -152,6 +155,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                         hasInterior,
                         assessment: existing?.assessment,
                         comment: existing?.comment,
+                        visual_ai_comment: existing?.visual_ai_comment,
                         isGrayedOut: !hasCoreData || !hasInterior
                     };
                 });
@@ -393,6 +397,41 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
         }
     };
 
+    const handleSaveVisualComment = async (zpid: string, visualComment: string) => {
+        const userId = auth?.currentUser?.uid;
+        if (!userId) { alert('Please sign in.'); return; }
+
+        setSavingZpids(prev => new Set(prev).add(zpid));
+        try {
+            const existing = assessments[zpid];
+            await saveAIAssessment({
+                mlsid: zpid,
+                propertyAddress: existing?.propertyAddress || '',
+                assessment: existing?.assessment || 'other',
+                comment: existing?.comment || '',
+                visual_ai_comment: visualComment,
+                auditor: existing?.auditor || userId,
+                userId: userId
+            });
+
+            setAssessments(prev => ({
+                ...prev,
+                [zpid]: {
+                    ...prev[zpid],
+                    visual_ai_comment: visualComment,
+                    last_update_date: new Date()
+                }
+            }));
+
+            setProperties(prev => prev.map(p => p.zpid === zpid ? { ...p, visual_ai_comment: visualComment } : p));
+        } catch (error) {
+            console.error('Failed to save visual AI comment:', error);
+            alert('Save failed. Check console.');
+        } finally {
+            setSavingZpids(prev => { const nx = new Set(prev); nx.delete(zpid); return nx; });
+        }
+    };
+
     const handlePropertyClick = (address: string) => {
         const url = `${window.location.origin}/?q=${encodeURIComponent(address)}`;
         window.open(url, '_blank');
@@ -458,6 +497,13 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                             className={`text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all ${activeTab === 'orientation' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             <i className="fa-solid fa-satellite-dish mr-1.5 text-[10px]"></i>Orientation
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('summary')}
+                            className={`text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all flex items-center gap-2 ${activeTab === 'summary' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            <i className="fa-solid fa-chart-line text-[10px]"></i>
+                            Summary
                         </button>
                         <button
                             onClick={() => setActiveTab('deprecated')}
@@ -527,6 +573,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assessment</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Updated</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comments</th>
+                                            <th className="p-6 text-[10px] font-black text-cyan-500 uppercase tracking-widest">Visual AI Audit</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                                         </tr>
                                     </thead>
@@ -534,6 +581,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                         {paginatedProperties.map((prop) => {
                                             const localAssessment = assessments[prop.zpid]?.assessment || prop.assessment;
                                             const localComment = assessments[prop.zpid]?.comment || prop.comment || '';
+                                            const localVisualComment = assessments[prop.zpid]?.visual_ai_comment || prop.visual_ai_comment || '';
 
                                             return (
                                                 <tr key={prop.zpid} className={`group hover:bg-slate-50/50 transition-colors ${prop.isGrayedOut ? 'opacity-40' : ''}`}>
@@ -650,6 +698,25 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                             <div className="absolute top-2 right-2 opacity-0 group-hover/comment:opacity-100 transition-opacity">
                                                                 <i className="fa-solid fa-pen-to-square text-indigo-400 text-[10px]"></i>
                                                             </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-6">
+                                                        <div
+                                                            onClick={() => setEditingVisualComment({ zpid: prop.zpid, address: prop.address, comment: localVisualComment })}
+                                                            className={`min-h-[40px] max-h-[60px] p-3 rounded-xl border cursor-pointer hover:shadow-sm transition-all overflow-hidden group/vcomment
+                                                                ${localVisualComment ? 'border-cyan-200 bg-cyan-50/50 hover:bg-cyan-50 hover:border-cyan-300' : 'border-slate-100 bg-slate-50/50 hover:bg-white hover:border-cyan-200'}
+                                                            `}
+                                                        >
+                                                            {localVisualComment ? (
+                                                                <p className="text-[10px] text-cyan-700 font-medium leading-relaxed line-clamp-2">
+                                                                    {localVisualComment}
+                                                                </p>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 text-cyan-400">
+                                                                    <i className="fa-solid fa-eye text-[8px]"></i>
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest">Visual AI</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="p-6 text-right">
@@ -1055,6 +1122,14 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                 <OrientationAuditTab isAdmin={userRole === 'admin'} />
             )}
 
+            {activeTab === 'summary' && (
+                <AssessmentSummaryTab
+                    assessments={assessments}
+                    userNames={userNames}
+                    properties={properties}
+                />
+            )}
+
             {/* Reassignment Confirmation Modal */}
             {assignmentConfirm && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -1181,6 +1256,89 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                     </div>
                 </div>
             )}
+
+            {/* Visual AI Comment Editing Modal */}
+            {editingVisualComment && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3rem] w-full max-w-2xl shadow-2xl border border-cyan-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                        {/* Modal Header */}
+                        <div className="p-8 border-b border-cyan-50 flex items-center justify-between bg-cyan-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-cyan-600 flex items-center justify-center text-white shadow-lg shadow-cyan-200">
+                                    <i className="fa-solid fa-eye text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-900 leading-tight">Visual AI Audit</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 truncate max-w-[300px]">
+                                        {editingVisualComment.address}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setEditingVisualComment(null)}
+                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center group"
+                            >
+                                <i className="fa-solid fa-xmark group-hover:rotate-90 transition-transform"></i>
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-1">Visual AI Analysis Comments</label>
+                                <textarea
+                                    autoFocus
+                                    value={editingVisualComment.comment}
+                                    onChange={(e) => setEditingVisualComment(prev => prev ? { ...prev, comment: e.target.value } : null)}
+                                    placeholder="Describe any discrepancies between AI's image analysis and reality. E.g. wrong room count, incorrect style identification, hallucinated features, wrong orientation..."
+                                    className="w-full min-h-[250px] p-6 bg-cyan-50/30 border border-cyan-200 rounded-[2rem] text-sm text-slate-800 font-medium leading-relaxed outline-none focus:bg-white focus:border-cyan-500 transition-all resize-none shadow-inner"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-8 bg-cyan-50/30 border-t border-cyan-50 flex items-center gap-4">
+                            <button
+                                onClick={async () => {
+                                    await handleSaveVisualComment(editingVisualComment.zpid, '');
+                                    setEditingVisualComment(null);
+                                }}
+                                disabled={savingZpids.has(editingVisualComment.zpid)}
+                                className="px-6 py-4 bg-white border border-rose-100 text-rose-500 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2 group disabled:opacity-50"
+                            >
+                                <i className={`fa-solid ${savingZpids.has(editingVisualComment.zpid) ? 'fa-spinner animate-spin' : 'fa-trash-can'}`}></i>
+                                Clear
+                            </button>
+
+                            <div className="flex-1"></div>
+
+                            <button
+                                onClick={() => setEditingVisualComment(null)}
+                                className="px-8 py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-600 transition-all"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={async () => {
+                                    await handleSaveVisualComment(editingVisualComment.zpid, editingVisualComment.comment);
+                                    setEditingVisualComment(null);
+                                }}
+                                disabled={savingZpids.has(editingVisualComment.zpid)}
+                                className="px-10 py-4 bg-cyan-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-cyan-200 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {savingZpids.has(editingVisualComment.zpid) ? (
+                                    <i className="fa-solid fa-spinner animate-spin"></i>
+                                ) : (
+                                    <i className="fa-solid fa-cloud-arrow-up text-cyan-200"></i>
+                                )}
+                                Save Visual Audit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {/* Messaging Modal */}
             {messagingModal && (

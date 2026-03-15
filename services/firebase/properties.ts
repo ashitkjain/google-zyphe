@@ -210,6 +210,51 @@ export const getPropertyZpidsByCity = async (city: string, maxResults: number = 
     }
 };
 
+export interface CityPropertySummary {
+    zpid: string;
+    address: string;
+    zipcode: string;
+    listPrice?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    livingArea?: number;
+    images?: string[];
+}
+
+/**
+ * Get lightweight property summaries for a given city.
+ * Returns address, zpid, zip, price, beds/baths for the Browse by City feature.
+ */
+export const getPropertiesByCity = async (city: string, maxResults: number = 200): Promise<CityPropertySummary[]> => {
+    if (!db) return [];
+    try {
+        const q = query(
+            collection(db, "properties"),
+            where("city", "==", city),
+            limit(maxResults)
+        );
+        logFirestoreQuery('getDocs', 'properties', { city, maxResults, scope: 'browse_by_city' });
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(d => {
+            const data = d.data();
+            return {
+                zpid: d.id,
+                address: data.address || '',
+                zipcode: data.zipcode || data.zip || '',
+                listPrice: data.listPrice ?? data.list_price ?? data.price,
+                bedrooms: data.bedrooms,
+                bathrooms: data.bathrooms,
+                livingArea: data.livingArea,
+                images: data.images?.slice(0, 1) || [],
+            };
+        });
+    } catch (error: any) {
+        handleFirestoreError(error, "getPropertiesByCity");
+        return [];
+    }
+};
+
+
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {
     if (!db) return { success: false, error: "Database not initialized" };
     if (!zpid) return { success: false, error: "Missing ZPID" };
