@@ -15,9 +15,11 @@ import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
 import StaticParcelMap from './StaticParcelMap';
 import ParcelValidationCard from './ParcelValidationCard';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
+import LifestyleInsightsSection from './LifestyleInsightsSection';
 
 
 import ChatInterface from '../shared/ChatInterface';
+import { auth } from '../../services/firebase/config';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry, DeepResearchInsights } from '../../types';
 
 interface ExploreTabProps {
@@ -82,6 +84,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     };
     const [activeTab, setActiveTab] = useState<InternalTab>(mapViewToTab(viewMode));
     const [isRefreshingPulse, setIsRefreshingPulse] = useState(false);
+    const [lifestyleInsights, setLifestyleInsights] = useState<any>(null);
+    const [lifestyleLoading, setLifestyleLoading] = useState(false);
 
     // Sync external viewMode changes to internal tab
     React.useEffect(() => {
@@ -98,6 +102,36 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [cachedMapLabels, setCachedMapLabels] = useState<string[] | null>(null);
     const [cachedComprehensiveAnalysis, setCachedComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
     const [groundTruthMapTab, setGroundTruthMapTab] = useState<'parcel' | 'satellite'>('parcel');
+
+    // Load lifestyle insights from cache on mount — reset first to prevent stale cross-property data
+    React.useEffect(() => {
+        setLifestyleInsights(null); // Clear immediately to prevent showing previous property's data
+        const loadLifestyle = async () => {
+            const zpid = propertyData?.zpid;
+            if (!zpid) return;
+            try {
+                const { getLifestyleInsightsFromCloud } = await import('../../services/firebase/properties');
+                const cached = await getLifestyleInsightsFromCloud(zpid);
+                if (cached?.outdoor) setLifestyleInsights(cached);
+            } catch (_) { /* optional */ }
+        };
+        loadLifestyle();
+    }, [propertyData?.zpid]);
+
+    const handleGenerateLifestyle = async () => {
+        if (!propertyData || lifestyleLoading) return;
+        setLifestyleLoading(true);
+        try {
+            const { analyzeLifestyleInsights } = await import('../../services/geminiService');
+            const { saveLifestyleInsightsToCloud } = await import('../../services/firebase/properties');
+            const { data } = await analyzeLifestyleInsights(propertyData, auth?.currentUser?.uid || 'unknown');
+            setLifestyleInsights(data);
+            if (propertyData.zpid) await saveLifestyleInsightsToCloud(propertyData.zpid, data);
+        } catch (e: any) {
+            console.error('[Lifestyle Insights] Failed:', e.message);
+        }
+        setLifestyleLoading(false);
+    };
     const [isSatelliteExpanded, setIsSatelliteExpanded] = useState(false);
     const [compReportTab, setCompReportTab] = useState<number>(0);
     const [cachedVisualAnalysis, setCachedVisualAnalysis] = useState<CustomAIAnalysisResult | null>(null);
@@ -695,6 +729,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Row: AI Lifestyle Insights */}
+                                        <LifestyleInsightsSection
+                                            insights={lifestyleInsights}
+                                            loading={lifestyleLoading}
+                                            onGenerate={handleGenerateLifestyle}
+                                        />
 
                                         {/* Row 2: Investment Insights */}
                                         {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse) && (

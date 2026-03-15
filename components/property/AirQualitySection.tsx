@@ -4,6 +4,7 @@ import { PropertyData } from '../../types';
 
 import { calculateSolarPotential } from '../../utils/solarCalculations';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
+import CommuteCalculator from './CommuteCalculator';
 
 interface Props {
     data: PropertyData;
@@ -175,6 +176,11 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                 <div className="text-[8px] text-slate-700 mt-2 text-right">HowLoud</div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Commute Calculator */}
+                    {data.coordinates && (
+                        <CommuteCalculator originLat={data.coordinates.latitude} originLng={data.coordinates.longitude} propertyAddress={data.address} />
                     )}
 
                 </div>

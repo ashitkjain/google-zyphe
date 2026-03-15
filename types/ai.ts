@@ -369,6 +369,14 @@ export interface ComprehensiveAnalysisResult {
         vibe: string;
         objective_tags: string[];
     };
+    lifestyle_insights?: {
+        outdoor: string;
+        family: string;
+        senior: string;
+        pets: string;
+        food: string;
+        professionals: string;
+    };
 }
 
 

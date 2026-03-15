@@ -258,7 +258,7 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
     if (compact) {
         return (
             <div className="bg-white border-x border-b border-gray-100 px-8 py-4 space-y-3 overflow-visible">
-                <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest">
+                <div className="flex items-center justify-between text-xs font-black text-black uppercase tracking-widest">
                     <div className="flex items-center flex-1">
                         <i className="fa-solid fa-shield-halved mr-2"></i>
                         Hazard Zones

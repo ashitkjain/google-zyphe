@@ -7,6 +7,7 @@ import {
   analyzeComprehensive,
   analyzeInvestmentResearch,
   analyzeGeneralMarketIntelligence,
+  analyzeLifestyleInsights,
   runBackgroundCityResearch,
   AiResponseError
 } from './geminiService.ts';
@@ -299,16 +300,39 @@ export const runFullIntelligencePipeline = async (
     };
 
 
+    const lifestyleTask = async () => {
+      try {
+        // Check cache first — lifestyle insights are stored inside property_analyses_comprehensive
+        const { getLifestyleInsightsFromCloud, saveLifestyleInsightsToCloud } = await import('./firebase/properties');
+        const cached = await getLifestyleInsightsFromCloud(zpid);
+        if (cached?.outdoor) {
+          onLog?.(`[Lifestyle] Cache hit — skipping.`);
+          return cached;
+        }
+        onLog?.(`[Lifestyle] Generating lifestyle insights...`);
+        const res = await analyzeLifestyleInsights(enrichedData, userId);
+        if (res.data) {
+          await saveLifestyleInsightsToCloud(zpid, res.data);
+          onLog?.(`[Lifestyle] Insights saved.`);
+        }
+        return res.data;
+      } catch (e: any) {
+        onLog?.(`[Lifestyle] Failed (non-blocking): ${e.message}`);
+        return null;
+      }
+    };
+
     // Execute AI Tasks Parallelized for maximum speed
-    // Visual, Spatial, Regional (city-level cache reads), and Property Investment run simultaneously.
+    // Visual, Spatial, Regional (city-level cache reads), Property Investment, and Lifestyle run simultaneously.
     // Deep Research is NOT included here — it runs separately via prefetchCityIntelligence (city-level).
     onLog?.(`[Pipeline] Launching parallel AI evaluation suite...`);
-    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence] = await Promise.all([
+    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, _lifestyleResult] = await Promise.all([
       visualTask(),
       neighborhoodTask(),
       pulseTask(),
       propInvTask(),
-      marketIntTask()
+      marketIntTask(),
+      lifestyleTask()
     ]);
 
     // Track which subtasks had issues

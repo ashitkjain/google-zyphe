@@ -504,6 +504,41 @@ export const getDeepInvestmentResearchFromCloud = async (cityStateKey: string): 
 
 // ── Context Graph Extraction Cache (per-property, keyed by zpid) ──
 
+// ── Lifestyle Insights Cache (stored in property_analyses_comprehensive, keyed by zpid) ──
+
+export const saveLifestyleInsightsToCloud = async (zpid: string, insights: any) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    try {
+        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
+        logFirestoreQuery('setDoc', 'property_analyses_comprehensive (lifestyle_insights)', { zpid });
+        await setDoc(docRef, {
+            lifestyle_insights: sanitizeForFirestore(insights),
+            zpid: String(zpid),
+            timestamp: serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveLifestyleInsightsToCloud") as string };
+    }
+};
+
+export const getLifestyleInsightsFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db || !zpid) return null;
+    try {
+        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
+        logFirestoreQuery('getDoc', 'property_analyses_comprehensive (lifestyle_insights)', { zpid });
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data() as ComprehensiveAnalysisResult;
+            return data.lifestyle_insights || null;
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, "getLifestyleInsightsFromCloud");
+        return null;
+    }
+};
+
 export const saveContextGraphToCloud = async (zpid: string, data: any) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {

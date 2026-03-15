@@ -303,14 +303,14 @@ export const fetchPropertyDataFull = async (
         if (mappedData.coordinates) {
             const storageKey = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
 
-            // Google Maps Platform Terms of Service Caching Limits (TTLs)
-            const TTL_SOLAR = 30 * 24 * 60 * 60 * 1000;
-            const TTL_AIR_QUALITY = 24 * 60 * 60 * 1000;
-            const TTL_POLLEN = 365 * 24 * 60 * 60 * 1000;
-            const TTL_NOISE = 30 * 24 * 60 * 60 * 1000;
-            const TTL_DISASTERS = 365 * 24 * 60 * 60 * 1000;  // Historical data barely changes
-            const TTL_BROADBAND = 30 * 24 * 60 * 60 * 1000;   // ISP availability changes rarely
-            const TTL_DROUGHT = 7 * 24 * 60 * 60 * 1000;       // Updated weekly by USDM
+            const TTL_ENV = 60 * 24 * 60 * 60 * 1000; // 60 days for all environmental data
+            const TTL_SOLAR = TTL_ENV;
+            const TTL_AIR_QUALITY = TTL_ENV;
+            const TTL_POLLEN = TTL_ENV;
+            const TTL_NOISE = TTL_ENV;
+            const TTL_DISASTERS = TTL_ENV;
+            const TTL_BROADBAND = TTL_ENV;
+            const TTL_DROUGHT = TTL_ENV;
 
             const isCacheExpired = (lastUpdated: any, ttl: number) => {
                 if (!lastUpdated) return true;

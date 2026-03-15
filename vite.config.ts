@@ -42,6 +42,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/usdm-proxy/, '')
         },
+        '/gmaps-proxy': {
+          target: 'https://maps.googleapis.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/gmaps-proxy/, '')
+        },
       }
     },
     plugins: [react()],

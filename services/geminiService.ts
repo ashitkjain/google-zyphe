@@ -21,6 +21,7 @@ import {
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/property/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/property/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
+import { getLifestyleInsightsPrompt, lifestyleInsightsSchema } from "../prompts/property/lifestyleInsights";
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/property/propertyImages";
 import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/property/comprehensiveAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
@@ -473,6 +474,33 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
     promptFilename: "communityPulse.ts",
     extractResultJson: true,
     schema: communityPulseSchema
+  });
+};
+
+export interface LifestyleInsightsResult {
+  outdoor: string;
+  family: string;
+  senior: string;
+  pets: string;
+  food: string;
+  professionals: string;
+}
+
+export const analyzeLifestyleInsights = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<LifestyleInsightsResult>> => {
+  const prompt = getLifestyleInsightsPrompt(optimizePropertyForAi(property) as PropertyData);
+
+  console.log(`[Lifestyle Insights] Starting for ${property.address}...`);
+
+  return executeGeminiRequest<LifestyleInsightsResult>({
+    model: 'gemini-2.0-flash',
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.7 },
+    userId,
+    zpid: property.zpid,
+    address: property.address,
+    promptFilename: "lifestyleInsights.ts",
+    extractResultJson: true,
+    schema: lifestyleInsightsSchema
   });
 };
 
