@@ -5,7 +5,7 @@ interface ImageAnalysisViewProps {
 }
 
 export const ImageAnalysisView: React.FC<ImageAnalysisViewProps> = ({ data }) => (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto py-2">
+    <div className="py-2">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {(data || []).map((item, idx) => {
                 // Handle both string and object formats for robustness

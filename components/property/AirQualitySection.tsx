@@ -126,54 +126,99 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                         </div>
                     </div>
 
-                    {/* Noise */}
-                    {hasNoise && (
+                    {/* Connectivity */}
+                    {data.broadband && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                            <div className="p-4">
-                                {/* Header */}
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
-                                            <i className="fa-solid fa-volume-xmark text-purple-600 text-[13px]"></i>
-                                        </div>
-                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Noise</span>
+                            <div className="p-3">
+                                <div className="flex items-center gap-2 mb-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-wifi text-blue-600 text-[11px]"></i>
                                     </div>
-                                    <div className="flex items-center gap-3 text-[13px]">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Score</span>
-                                            <span className={`font-black ${data.noiseScore! >= 80 ? 'text-emerald-500' : data.noiseScore! >= 65 ? 'text-amber-500' : 'text-orange-500'}`}>
-                                                {data.noiseScore}/100
-                                            </span>
-                                        </div>
-                                        <div className="w-px h-6 bg-slate-200"></div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Level</span>
-                                            <span className="font-black text-slate-700">{data.noiseScoreDesc ?? 'N/A'}</span>
-                                        </div>
-                                    </div>
+                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Connectivity</span>
                                 </div>
-                                {/* Bars */}
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(data.noiseScore!)}%`, background: getNoiseColor(data.noiseScore!) }} />
-                                        </div>
-                                    </div>
-                                    {[
-                                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
-                                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
-                                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
-                                    ].filter(s => s.score != null).map(({ label, score, desc }) => (
-                                        <div key={label} className="flex items-center gap-1.5">
-                                            <span className="text-[11px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
-                                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(score!)}%`, background: getNoiseColor(score!) }} />
-                                            </div>
-                                            <span className="text-[12px] text-slate-500 w-10 text-right flex-shrink-0">{desc ?? score}</span>
-                                        </div>
-                                    ))}
+
+                                {/* Summary badges */}
+                                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                                    {data.broadband.hasFiber && (
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wider">Fiber ✓</span>
+                                    )}
+                                    {data.broadband.has5G && (
+                                        <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-black uppercase tracking-wider">5G ✓</span>
+                                    )}
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-wider">
+                                        {data.broadband.providerCount} ISPs
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                                        ↓ {data.broadband.topDownloadMbps >= 1000 ? `${(data.broadband.topDownloadMbps / 1000).toFixed(0)} Gbps` : `${data.broadband.topDownloadMbps} Mbps`}
+                                    </span>
                                 </div>
-                                <div className="text-[8px] text-slate-700 mt-2 text-right">HowLoud</div>
+
+                                {/* Internet Providers — top 4 wired/fixed */}
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Internet Providers</div>
+                                <div className="space-y-1 mb-3">
+                                    {data.broadband.internetProviders
+                                        .filter(p => !p.technology.includes('Satellite'))
+                                        .slice(0, 4)
+                                        .map((p, i) => {
+                                            const techColor = p.technology === 'Fiber' ? 'bg-emerald-100 text-emerald-700'
+                                                : p.technology === 'Cable' ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-slate-100 text-slate-600';
+                                            return (
+                                                <div key={i} className="flex items-center justify-between p-1.5 rounded-lg bg-white border border-slate-100">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <i className={`fa-solid ${p.technology === 'Fiber' ? 'fa-bolt' : p.technology === 'Cable' ? 'fa-ethernet' : 'fa-tower-broadcast'} text-[9px] text-slate-400`}></i>
+                                                        <span className="text-[12px] font-bold text-slate-700 truncate">{p.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${techColor}`}>{p.technology}</span>
+                                                        <span className="text-[11px] font-black text-slate-500">
+                                                            {p.maxDownloadMbps >= 1000 ? `${(p.maxDownloadMbps / 1000).toFixed(0)}G` : `${p.maxDownloadMbps}M`}↓
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+
+                                {/* Cell Coverage */}
+                                {data.broadband.cellCoverage.length > 0 && (
+                                    <>
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Cell Coverage</div>
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            {/* Group by carrier, pick best signal */}
+                                            {(() => {
+                                                const byCarrier: Record<string, any> = {};
+                                                for (const c of data.broadband!.cellCoverage) {
+                                                    const existing = byCarrier[c.network];
+                                                    if (!existing || c.rsrpDbm > existing.rsrpDbm) {
+                                                        byCarrier[c.network] = c;
+                                                    }
+                                                }
+                                                return Object.values(byCarrier).slice(0, 3).map((c: any, i: number) => {
+                                                    const signalColor = c.signalLevel === 'Good' ? 'text-emerald-500'
+                                                        : c.signalLevel === 'Fair' ? 'text-amber-500' : 'text-red-500';
+                                                    const bars = c.signalLevel === 'Good' ? 4 : c.signalLevel === 'Fair' ? 2 : 1;
+                                                    return (
+                                                        <div key={i} className="p-2 bg-white rounded-lg border border-slate-100 text-center">
+                                                            <div className="flex items-end justify-center gap-px mb-1 h-3.5">
+                                                                {[1, 2, 3, 4].map(b => (
+                                                                    <div
+                                                                        key={b}
+                                                                        className={`w-1 rounded-sm ${b <= bars ? signalColor.replace('text-', 'bg-') : 'bg-slate-200'}`}
+                                                                        style={{ height: `${b * 25}%` }}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                            <div className="text-[10px] font-black text-slate-700 leading-none">{c.network}</div>
+                                                            <div className={`text-[9px] font-bold ${signalColor} capitalize`}>{c.signalLevel}</div>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+                                    </>
+                                )}
+                                <div className="text-[8px] text-slate-700 mt-1 text-right">BroadbandMap</div>
                             </div>
                         </div>
                     )}
@@ -569,99 +614,54 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                         </>
                     )}
 
-                    {/* Broadband Availability */}
-                    {data.broadband && (
+                    {/* Noise */}
+                    {hasNoise && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                            <div className="p-3">
-                                <div className="flex items-center gap-2 mb-2.5">
-                                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                                        <i className="fa-solid fa-wifi text-blue-600 text-[11px]"></i>
-                                    </div>
-                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Connectivity</span>
-                                </div>
-
-                                {/* Summary badges */}
-                                <div className="flex flex-wrap gap-1.5 mb-2.5">
-                                    {data.broadband.hasFiber && (
-                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wider">Fiber ✓</span>
-                                    )}
-                                    {data.broadband.has5G && (
-                                        <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-black uppercase tracking-wider">5G ✓</span>
-                                    )}
-                                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-wider">
-                                        {data.broadband.providerCount} ISPs
-                                    </span>
-                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
-                                        ↓ {data.broadband.topDownloadMbps >= 1000 ? `${(data.broadband.topDownloadMbps / 1000).toFixed(0)} Gbps` : `${data.broadband.topDownloadMbps} Mbps`}
-                                    </span>
-                                </div>
-
-                                {/* Internet Providers — top 4 wired/fixed */}
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Internet Providers</div>
-                                <div className="space-y-1 mb-3">
-                                    {data.broadband.internetProviders
-                                        .filter(p => !p.technology.includes('Satellite'))
-                                        .slice(0, 4)
-                                        .map((p, i) => {
-                                            const techColor = p.technology === 'Fiber' ? 'bg-emerald-100 text-emerald-700'
-                                                : p.technology === 'Cable' ? 'bg-blue-100 text-blue-700'
-                                                    : 'bg-slate-100 text-slate-600';
-                                            return (
-                                                <div key={i} className="flex items-center justify-between p-1.5 rounded-lg bg-white border border-slate-100">
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <i className={`fa-solid ${p.technology === 'Fiber' ? 'fa-bolt' : p.technology === 'Cable' ? 'fa-ethernet' : 'fa-tower-broadcast'} text-[9px] text-slate-400`}></i>
-                                                        <span className="text-[12px] font-bold text-slate-700 truncate">{p.name}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${techColor}`}>{p.technology}</span>
-                                                        <span className="text-[11px] font-black text-slate-500">
-                                                            {p.maxDownloadMbps >= 1000 ? `${(p.maxDownloadMbps / 1000).toFixed(0)}G` : `${p.maxDownloadMbps}M`}↓
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                </div>
-
-                                {/* Cell Coverage */}
-                                {data.broadband.cellCoverage.length > 0 && (
-                                    <>
-                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Cell Coverage</div>
-                                        <div className="grid grid-cols-3 gap-1.5">
-                                            {/* Group by carrier, pick best signal */}
-                                            {(() => {
-                                                const byCarrier: Record<string, any> = {};
-                                                for (const c of data.broadband!.cellCoverage) {
-                                                    const existing = byCarrier[c.network];
-                                                    if (!existing || c.rsrpDbm > existing.rsrpDbm) {
-                                                        byCarrier[c.network] = c;
-                                                    }
-                                                }
-                                                return Object.values(byCarrier).slice(0, 3).map((c: any, i: number) => {
-                                                    const signalColor = c.signalLevel === 'Good' ? 'text-emerald-500'
-                                                        : c.signalLevel === 'Fair' ? 'text-amber-500' : 'text-red-500';
-                                                    const bars = c.signalLevel === 'Good' ? 4 : c.signalLevel === 'Fair' ? 2 : 1;
-                                                    return (
-                                                        <div key={i} className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                                            <div className="flex items-end justify-center gap-px mb-1 h-3.5">
-                                                                {[1, 2, 3, 4].map(b => (
-                                                                    <div
-                                                                        key={b}
-                                                                        className={`w-1 rounded-sm ${b <= bars ? signalColor.replace('text-', 'bg-') : 'bg-slate-200'}`}
-                                                                        style={{ height: `${b * 25}%` }}
-                                                                    />
-                                                                ))}
-                                                            </div>
-                                                            <div className="text-[10px] font-black text-slate-700 leading-none">{c.network}</div>
-                                                            <div className={`text-[9px] font-bold ${signalColor} capitalize`}>{c.signalLevel}</div>
-                                                        </div>
-                                                    );
-                                                });
-                                            })()}
+                            <div className="p-4">
+                                {/* Header */}
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
+                                            <i className="fa-solid fa-volume-xmark text-purple-600 text-[13px]"></i>
                                         </div>
-                                    </>
-                                )}
-                                <div className="text-[8px] text-slate-700 mt-1 text-right">BroadbandMap</div>
+                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Noise</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[13px]">
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Score</span>
+                                            <span className={`font-black ${data.noiseScore! >= 80 ? 'text-emerald-500' : data.noiseScore! >= 65 ? 'text-amber-500' : 'text-orange-500'}`}>
+                                                {data.noiseScore}/100
+                                            </span>
+                                        </div>
+                                        <div className="w-px h-6 bg-slate-200"></div>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Level</span>
+                                            <span className="font-black text-slate-700">{data.noiseScoreDesc ?? 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Bars */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(data.noiseScore!)}%`, background: getNoiseColor(data.noiseScore!) }} />
+                                        </div>
+                                    </div>
+                                    {[
+                                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
+                                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
+                                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
+                                    ].filter(s => s.score != null).map(({ label, score, desc }) => (
+                                        <div key={label} className="flex items-center gap-1.5">
+                                            <span className="text-[11px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
+                                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(score!)}%`, background: getNoiseColor(score!) }} />
+                                            </div>
+                                            <span className="text-[12px] text-slate-500 w-10 text-right flex-shrink-0">{desc ?? score}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="text-[8px] text-slate-700 mt-2 text-right">HowLoud</div>
                             </div>
                         </div>
                     )}

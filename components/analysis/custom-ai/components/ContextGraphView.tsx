@@ -138,7 +138,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     const uniqueTags = new Set(allTags);
 
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-6">
+        <div className="space-y-6">
             {/* Summary Header */}
             <div className="bg-gradient-to-r from-indigo-50 via-violet-50 to-purple-50 border border-indigo-100 rounded-2xl p-6">
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">

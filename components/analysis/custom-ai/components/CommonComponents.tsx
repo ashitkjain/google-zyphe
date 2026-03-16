@@ -49,30 +49,41 @@ interface PulseCardProps {
     title: string;
     data?: CommunityPulseSection;
     icon: string;
+    variant?: 'default' | 'concern';
 }
 
-export const PulseCard: React.FC<PulseCardProps> = ({ title, data, icon }) => {
+export const PulseCard: React.FC<PulseCardProps> = ({ title, data, icon, variant = 'default' }) => {
     if (!data || !data.summary) return null;
     const cleanSources = Array.from(new Set(data.sources?.map(getCleanDomain))).filter(Boolean);
+    const isConcern = variant === 'concern';
     return (
-        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col transition-all hover:shadow-xl hover:-translate-y-1">
+        <div className={`p-8 rounded-[2.5rem] border shadow-sm flex flex-col transition-all hover:shadow-xl hover:-translate-y-1 ${
+            isConcern ? 'bg-rose-50/60 border-rose-200/60' : 'bg-white border-gray-100'
+        }`}>
             <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                    isConcern ? 'bg-rose-100 text-rose-500' : 'bg-gray-50 text-gray-400'
+                }`}>
                     <i className={`fa-solid ${icon} text-xl`}></i>
                 </div>
                 <h4 className="text-2xl font-black text-gray-900 tracking-tight">{title}</h4>
+                {isConcern && (
+                    <span className="ml-auto text-[10px] font-black text-rose-500 bg-rose-100 px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
+                        <i className="fa-solid fa-flag text-[9px]"></i>Flag
+                    </span>
+                )}
             </div>
-            <p className="text-gray-700 font-sans font-normal mb-4 leading-[1.625] text-[14px]">{data.summary}</p>
+            <p className={`font-sans font-normal mb-4 leading-[1.625] text-[14px] ${isConcern ? 'text-rose-900/80' : 'text-gray-700'}`}>{data.summary}</p>
             <ul className="space-y-2 mb-6 flex-1">
                 {data.points?.map((pt, i) => (
-                    <li key={i} className="flex gap-3 text-gray-600 text-[14px] leading-[1.625] font-sans font-normal">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 flex-shrink-0"></span>
+                    <li key={i} className={`flex gap-3 text-[14px] leading-[1.625] font-sans font-normal ${isConcern ? 'text-rose-800/70' : 'text-gray-600'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${isConcern ? 'bg-rose-400' : 'bg-indigo-400'}`}></span>
                         {pt}
                     </li>
                 ))}
             </ul>
             {cleanSources.length > 0 && (
-                <div className="pt-4 border-t border-gray-50">
+                <div className={`pt-4 border-t ${isConcern ? 'border-rose-100' : 'border-gray-50'}`}>
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Knowledge Sources</div>
                     <div className="text-[11px] text-gray-400 font-sans font-black leading-relaxed italic">{cleanSources.join(', ')}</div>
                 </div>

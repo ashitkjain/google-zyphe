@@ -84,7 +84,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
   // ── Details-only section ──────────────────────────────────────────
   if (section === 'details') {
     return (
-      <div className="bg-white p-5 md:p-6 md:pb-2 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-3">
+      <div className="bg-white px-5 pb-5 pt-2 md:px-6 md:pb-2 md:pt-2 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-3">
 
         {/* MLS Description — full width */}
         {data.description && data.description !== "No description available." && (
@@ -265,6 +265,11 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 <i className="fa-solid fa-arrow-up-right-from-square text-[12px] ml-2 opacity-0 group-hover/address:opacity-100 transition-all"></i>
               </h2>
             </a>
+            {(data.listPrice ?? data.price) && (
+              <span className="text-lg font-black text-emerald-600 tracking-tight leading-none">
+                {formatCurrency(data.listPrice ?? data.price)}
+              </span>
+            )}
             <div className="flex items-center gap-2 ml-2">
               <button
                 onClick={() => onToggleFavorite && onToggleFavorite()}
@@ -323,16 +328,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 <i className="fa-solid fa-tag text-[7px]" />${Math.round((data.listPrice ?? data.price!) / data.livingAreaValue)}/sf
               </span>
             )}
-            {(data.listPrice ?? data.price) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded-md text-[11px] font-bold text-indigo-700">
-                <i className="fa-solid fa-tag text-[7px]" />{formatCurrency(data.listPrice ?? data.price)}
-              </span>
-            )}
-            {data.homeStatus && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-100 rounded-md text-[11px] font-bold text-amber-700">
-                <i className="fa-solid fa-house-circle-check text-[7px]" />{data.homeStatus.replace(/_/g, ' ')}
-              </span>
-            )}
+
             {computedDaysOnMarket != null && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-600">
                 <i className="fa-solid fa-clock text-[7px] text-slate-400" />DOM: {computedDaysOnMarket}

@@ -24,6 +24,7 @@ interface Props {
   addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
+  activeSubTab?: string;
 }
 
 const CustomAIAnalysis: React.FC<Props> = (props) => {

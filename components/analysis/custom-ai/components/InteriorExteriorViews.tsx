@@ -9,37 +9,67 @@ interface InteriorViewProps {
 export const InteriorView: React.FC<InteriorViewProps> = ({ data }) => {
     if (!data?.overall_description) return <EmptyState section="Interior" />;
     return (
-        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
+        <section className="space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
                 <div className="space-y-4">
                     <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">OVERVIEW</div>
                     <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.625]">{data.overall_description}</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-12 border-t border-gray-100">
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Design Philosophy</div>
-                        <div className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full mb-2">{data.design_style?.style}</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.design_style?.reasoning}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-12 border-t border-gray-100">
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-palette text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Design Philosophy</h4>
+                        <div className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full mb-2 self-start">{data.design_style?.style}</div>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.design_style?.reasoning}</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Colors & Materials</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.color_and_materials}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-swatchbook text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Colors & Materials</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.color_and_materials}</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Lighting Environment</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.lighting}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-lightbulb text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Lighting Environment</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.lighting}</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Spatial Architecture</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.spatial_flow}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-arrows-up-down-left-right text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Spatial Architecture</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.spatial_flow}</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Staging & Furnishings</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.staging_and_furnishings}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-chair text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Staging & Furnishings</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.staging_and_furnishings}</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Condition & Finish</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.condition_and_finish}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-screwdriver-wrench text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Condition & Finish</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.condition_and_finish}</p>
                     </div>
                 </div>
             </div>
@@ -127,7 +157,7 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
     }
 
     return (
-        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <section>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {sorted.map((room, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
@@ -177,7 +207,7 @@ interface ExteriorViewProps {
 export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation, satelliteLoading }) => {
     if (!data?.exterior_and_lot_appeal?.architecture_style) return <EmptyState section="Exterior" />;
     return (
-        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
+        <section className="space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
                 {/* Visual Street View Forensic Scan Integration */}
                 {(streetViewAnalysis?.imageUrl || streetViewAnalysis?.curbAppealScore) && (
@@ -275,7 +305,7 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                 )}
 
                 {/* ── Unified card grid ───── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-6">
 
                     {/* Satellite loading placeholder */}
                     {satelliteLoading && !satellitaryOrientation && (
@@ -292,14 +322,19 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                     {satellitaryOrientation && satellitaryOrientation.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                         const sat = satellitaryOrientation;
                         return (<>
-                            <div className="space-y-2">
-                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Front Orientation</div>
-                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">
+                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                        <i className="fa-solid fa-compass text-lg"></i>
+                                    </div>
+                                </div>
+                                <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Front Orientation</h4>
+                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">
                                     The front of the home likely faces <strong>{sat.final_orientation}</strong>.
                                     {sat.orientation_highlights ? ` ${sat.orientation_highlights}` : ''}
                                 </p>
                                 {(sat.aerial_only_mode || (sat.image_quality && sat.image_quality !== 'clear')) && (
-                                    <div className="flex gap-2 pt-1 flex-wrap">
+                                    <div className="flex gap-2 pt-3 flex-wrap">
                                         {sat.aerial_only_mode && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">aerial only</span>}
                                         {sat.image_quality && sat.image_quality !== 'clear' && (
                                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${sat.image_quality === 'blurry' ? 'bg-gray-100 text-gray-500' : 'bg-amber-50 text-amber-700'}`}>{sat.image_quality} image</span>
@@ -308,52 +343,87 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                                 )}
                             </div>
                             {sat.privacy_insight && (
-                                <div className="space-y-2">
-                                    <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Privacy</div>
-                                    <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{sat.privacy_insight}</p>
+                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                            <i className="fa-solid fa-eye-slash text-lg"></i>
+                                        </div>
+                                    </div>
+                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Privacy</h4>
+                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{sat.privacy_insight}</p>
                                 </div>
                             )}
                             {sat.lot_coverage_hardscape != null && (
-                                <div className="space-y-2">
-                                    <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Lot Coverage</div>
-                                    <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                            <i className="fa-solid fa-layer-group text-lg"></i>
+                                        </div>
+                                    </div>
+                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Lot Coverage</h4>
+                                    <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
                                         <div className="h-full bg-gray-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
                                     </div>
-                                    <div className="flex justify-between text-[11px] font-black text-gray-500">
+                                    <div className="flex justify-between text-[11px] font-black text-gray-500 mb-3">
                                         <span>{sat.lot_coverage_hardscape}% hardscape</span>
                                         <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
                                     </div>
-                                    <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">
+                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">
                                         ~{sat.lot_coverage_hardscape}% of the lot is hardscape (roof, driveway, patio) and ~{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% is pervious green space.
                                     </p>
                                 </div>
                             )}
                             {sat.feng_shui_vastu && (
-                                <div className="space-y-2">
-                                    <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Feng Shui / Vastu</div>
-                                    <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{sat.feng_shui_vastu}</p>
+                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                            <i className="fa-solid fa-yin-yang text-lg"></i>
+                                        </div>
+                                    </div>
+                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Feng Shui / Vastu</h4>
+                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{sat.feng_shui_vastu}</p>
                                 </div>
                             )}
                         </>);
                     })()}
 
                     {/* Architecture & lot cards — always shown */}
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Style</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.architecture_style}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-building-columns text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Style</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.architecture_style}</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Curb Appeal</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.curb_appeal}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-house text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Curb Appeal</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.curb_appeal}</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Backyard & Patio</div>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                <i className="fa-solid fa-tree text-lg"></i>
+                            </div>
+                        </div>
+                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Backyard & Patio</h4>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
                     </div>
                     {data.views_privacy_orientation?.views && (
-                        <div className="space-y-2">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Views</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.views_privacy_orientation.views}</p>
+                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-mountain-sun text-lg"></i>
+                                </div>
+                            </div>
+                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Views</h4>
+                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.views_privacy_orientation.views}</p>
                         </div>
                     )}
                 </div>

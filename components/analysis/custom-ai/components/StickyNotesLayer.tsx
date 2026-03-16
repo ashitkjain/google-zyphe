@@ -177,31 +177,37 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                 }
             `}} />
 
-            {/* Quick Note Palette */}
-            <div className="absolute top-0 right-0 z-[101] p-3 pointer-events-auto">
-                <div className="flex items-center gap-3 bg-white/95 backdrop-blur-md p-2.5 rounded-2xl border border-slate-200 shadow-xl animate-in slide-in-from-right-4 duration-500">
-                    <div className="flex flex-col pl-2 border-l-4 border-amber-400">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 leading-tight">Quick Note</span>
-                        <span className="text-[9px] font-bold text-slate-400 leading-tight">Drag to tab</span>
+            {/* Quick Note Palette — fixed right sidebar */}
+            <div className="fixed z-[101] animate-in slide-in-from-right-4 duration-500" style={{ right: 'calc((100vw - 72rem) / 4)', top: '28%' }}>
+                <div className="flex flex-col items-center gap-3 bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 shadow-2xl">
+                    <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 leading-tight">Quick Note</span>
+                        <span className="text-[8px] font-semibold text-slate-400 leading-tight">Drag to page</span>
                     </div>
-                    <div className="flex items-center gap-3 pr-2">
-                        {PALETTE_COLORS.map((note) => (
+                    <div className="grid grid-cols-2 gap-3">
+                        {PALETTE_COLORS.map((note, idx) => {
+                            const rotations = ['-rotate-2', 'rotate-1', 'rotate-2', '-rotate-1'];
+                            return (
                             <div key={note.id} className="relative group/palette-item">
-                                <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-40 ${note.color} -rotate-3 transition-transform group-hover/palette-item:-translate-x-2 group-hover/palette-item:translate-y-2`}></div>
-                                <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-20 ${note.color} rotate-2 transition-transform group-hover/palette-item:translate-x-1 group-hover/palette-item:translate-y-1`}></div>
+                                {/* Shadow layer behind */}
+                                <div className={`absolute inset-0 translate-x-0.5 translate-y-1 rounded-sm ${note.color} opacity-30 blur-[1px] ${rotations[idx]}`}></div>
                                 <div
                                     onMouseDown={(e) => handlePaletteDragStart(e, note.id)}
                                     onTouchStart={(e) => handlePaletteDragStart(e, note.id)}
                                     onDragStart={(e) => e.preventDefault()}
-                                    className={`w-12 h-12 rounded-[1px] border-t border-black/5 ${note.color} border-black/10 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 shadow-[5px_5px_7px_rgba(33,33,33,.1)] relative z-10`}
+                                    className={`w-14 h-14 rounded-[2px] ${note.color} cursor-grab active:cursor-grabbing flex items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-[4px_4px_8px_rgba(33,33,33,.15)] relative z-10 ${rotations[idx]}`}
                                 >
-                                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-5 border-2 border-slate-400/60 rounded-full bg-slate-200/40 z-20 shadow-sm opacity-80">
-                                        <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
+                                    {/* Paper fold corner */}
+                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-gradient-to-tl from-black/[0.07] to-transparent"></div>
+                                    {/* Paperclip */}
+                                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-5 border-2 border-slate-400/50 rounded-full bg-slate-200/30 z-20 shadow-sm">
+                                        <div className="absolute inset-0.5 border-l border-slate-500/20 rounded-full"></div>
                                     </div>
-                                    <i className="fa-solid fa-note-sticky opacity-20 text-[14px]"></i>
+                                    <i className="fa-solid fa-pen-fancy opacity-15 text-[13px]"></i>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -231,19 +237,20 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                     {/* Pending Drop Note (Draft mode) */}
                     {pendingNote && (
                         <div
-                            className={`absolute w-24 h-24 p-2.5 pt-4 rounded-sm border-t border-black/5 shadow-2xl transition-all z-[200] flex flex-col pointer-events-auto rotate-1 scale-105 post-it-font
+                            className={`absolute w-36 h-36 p-3 pt-6 rounded-[2px] shadow-2xl transition-all z-[200] flex flex-col pointer-events-auto rotate-1 scale-105 post-it-font
                                 ${pendingNote.color === 'yellow' ? 'bg-[#ffff88] text-slate-800' :
                                     pendingNote.color === 'blue' ? 'bg-[#7afaff] text-slate-800' :
                                         pendingNote.color === 'rose' ? 'bg-[#ff7e7e] text-white' :
                                             'bg-[#a7ffeb] text-slate-800'}`}
                             style={{ left: pendingNote.location.x, top: pendingNote.location.y, fontFamily: "'Architects Daughter', cursive" }}
                         >
-                            <div className="flex justify-between items-start mb-1 absolute top-1 left-2 right-1">
-                                <span className="text-[6px] font-black uppercase tracking-widest opacity-40">Draft</span>
+                            <div className="absolute bottom-0 right-0 w-5 h-5 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
+                            <div className="flex justify-between items-start mb-1 absolute top-1.5 left-3 right-1.5">
+                                <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Draft</span>
                             </div>
                             <textarea
                                 autoFocus
-                                className="w-full h-full bg-transparent border-none focus:ring-0 text-[12px] font-bold p-0 resize-none leading-tight placeholder:italic placeholder:opacity-40 post-it-font"
+                                className="w-full h-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 resize-none leading-snug placeholder:italic placeholder:opacity-40 post-it-font"
                                 placeholder="..."
                                 value={draftContent}
                                 onChange={(e) => setDraftContent(e.target.value)}
@@ -262,14 +269,14 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                 <div
                     className="fixed pointer-events-none z-[500] rotate-6 scale-110 opacity-70"
                     style={{
-                        left: dragPos.x - 40,
-                        top: dragPos.y - 40,
-                        width: '80px',
-                        height: '80px'
+                        left: dragPos.x - 56,
+                        top: dragPos.y - 56,
+                        width: '112px',
+                        height: '112px'
                     }}
                 >
-                    <div className={`w-full h-full rounded-sm border-t shadow-2xl ${PALETTE_COLORS.find(c => c.id === draggingFromPalette)?.color} border-black/10`}>
-                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm"></div>
+                    <div className={`w-full h-full rounded-[2px] shadow-2xl ${PALETTE_COLORS.find(c => c.id === draggingFromPalette)?.color}`}>
+                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
                     </div>
                 </div>
             )}

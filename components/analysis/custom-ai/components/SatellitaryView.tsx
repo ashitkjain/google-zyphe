@@ -125,7 +125,7 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
     }
 
     return (
-        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
+        <section className="max-w-5xl mx-auto space-y-8">
             {!result ? (
                 /* ── Run Panel ── */
                 <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-10 md:p-16 flex flex-col items-center gap-8 text-center">

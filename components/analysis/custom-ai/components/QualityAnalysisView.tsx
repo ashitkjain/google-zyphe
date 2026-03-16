@@ -182,7 +182,7 @@ export const QualityAnalysisView: React.FC<QualityAnalysisViewProps> = ({
     if (!data) return null;
 
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-12">
+        <div className="max-w-5xl mx-auto space-y-12">
             <QualityVerdictWidget summary={data.overall_score?.summary} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <QualityRatingCard title="Composition" category={data.composition} icon="fa-crop-simple" />
