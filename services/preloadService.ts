@@ -434,6 +434,28 @@ export const runFullIntelligencePipeline = async (
       schoolsTask()
     ]);
 
+    // Report per-task outcomes to the UI
+    const reportSubtask = (name: string, result: any, cached: boolean, error?: string) => {
+      if (error) {
+        onProgress({ step: `AI:${name}`, status: 'error', message: error });
+      } else if (!result) {
+        onProgress({ step: `AI:${name}`, status: 'pending', message: 'Skipped' });
+      } else if (cached) {
+        onProgress({ step: `AI:${name}`, status: 'completed', message: 'Cache hit' });
+      } else {
+        onProgress({ step: `AI:${name}`, status: 'completed', message: 'Ran' });
+      }
+    };
+
+    // Determine cache status for each task
+    reportSubtask('Visual', visualResult, !!(visualCache && visualResult), visualError || undefined);
+    reportSubtask('Spatial', neighborhoodData, !!(visualCache?.neighborhood && neighborhoodData));
+    reportSubtask('Pulse', communityPulse, !!communityPulse); // always from cache or skipped
+    reportSubtask('Investment', investmentSpecific, !!(await getPropertyInvestmentFromCloud(zpid) && investmentSpecific));
+    reportSubtask('Market Intel', marketIntelligence, !!marketIntelligence); // always from cache or skipped
+    reportSubtask('Lifestyle', _lifestyleResult, false); // never pre-cached at this point  
+    reportSubtask('Schools', schoolsResult, false); // mixed cache/fresh per school
+
     // Track which subtasks had issues
     const warnings: string[] = [];
     if (!visualResult) warnings.push(`Visual AI${visualError ? `: ${visualError}` : ''}`);
@@ -480,12 +502,14 @@ export const runFullIntelligencePipeline = async (
     if (isNarrativeComplete(existingNarrative)) {
       onLog?.(`[Narrative] Cache hit — comprehensive analysis already complete. Skipping.`);
       onProgress({ step: 'Narrative', status: 'completed', message: 'Report loaded from cache.' });
+      onProgress({ step: 'AI:Narrative', status: 'completed', message: 'Cache hit' });
     } else {
       onLog?.(`[Narrative] ${existingNarrative ? 'Incomplete cache — re-running synthesis.' : 'No cache — running synthesis.'}`);
       onProgress({ step: 'Narrative', status: 'running', message: 'Synthesizing final report...' });
       const resultComp = await analyzeComprehensive(enrichedData, contextForComprehensive, userId);
       await saveComprehensiveAnalysisToCloud(zpid, resultComp.data);
       onProgress({ step: 'Narrative', status: 'completed', message: 'Report synthesized.', usage: resultComp.usage });
+      onProgress({ step: 'AI:Narrative', status: 'completed', message: 'Ran' });
     }
 
     if (warnings.length > 0) {

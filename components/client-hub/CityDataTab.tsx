@@ -35,6 +35,7 @@ interface IngestionJob {
     startTime?: number;
     endTime?: number;
     error?: string;
+    completedSteps?: { name: string; outcome: 'ran' | 'cached' | 'skipped' | 'failed' }[];
 }
 
 const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => void }> = ({ onNavigate }) => {
@@ -463,7 +464,20 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const userId = auth?.currentUser?.uid || 'unknown';
                     // Run Full Intelligence Pipeline
                     const { zpid: resultZpid, warnings } = await runFullIntelligencePipeline(builtAddress, (progress) => {
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                        // Accumulate AI sub-task outcomes
+                        if (progress.step.startsWith('AI:')) {
+                            const name = progress.step.replace('AI:', '');
+                            const outcome = progress.status === 'error' ? 'failed' as const
+                                : progress.status === 'pending' ? 'skipped' as const
+                                : progress.message === 'Cache hit' ? 'cached' as const
+                                : 'ran' as const;
+                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
+                                ...j,
+                                completedSteps: [...(j.completedSteps || []), { name, outcome }]
+                            } : j));
+                        } else {
+                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                        }
                     }, zpid, userId, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
 
                     if (warnings && warnings.length > 0) {
@@ -1984,11 +1998,41 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                             </div>
                                         )}
 
-                                        {item.status === 'partial' && item.error && (
-                                            <p className="text-[11px] text-amber-700 font-medium bg-amber-50 p-3 rounded-xl border border-amber-100">
-                                                <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-                                                {item.error}
-                                            </p>
+                                        {item.status === 'partial' && (
+                                            <div className="space-y-2">
+                                                {item.completedSteps && item.completedSteps.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {item.completedSteps.map((step, idx) => {
+                                                            const colors = {
+                                                                ran: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                                                cached: 'bg-blue-50 text-blue-700 border-blue-200',
+                                                                skipped: 'bg-slate-50 text-slate-400 border-slate-200',
+                                                                failed: 'bg-rose-50 text-rose-600 border-rose-200'
+                                                            };
+                                                            const icons = {
+                                                                ran: 'fa-circle-check',
+                                                                cached: 'fa-bolt-lightning',
+                                                                skipped: 'fa-forward',
+                                                                failed: 'fa-circle-xmark'
+                                                            };
+                                                            return (
+                                                                <span key={idx}
+                                                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${colors[step.outcome]}`}
+                                                                >
+                                                                    <i className={`fa-solid ${icons[step.outcome]} text-[8px]`}></i>
+                                                                    {step.name}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                                {item.error && (
+                                                    <p className="text-[11px] text-amber-700 font-medium bg-amber-50 p-3 rounded-xl border border-amber-100">
+                                                        <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+                                                        {item.error}
+                                                    </p>
+                                                )}
+                                            </div>
                                         )}
 
                                         {item.status === 'error' && (
@@ -1999,20 +2043,50 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         )}
 
                                         {item.status === 'completed' && (
-                                            <div className="flex items-center justify-between">
-                                                <button
-                                                    onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}&zpid=${item.zpid}`, '_blank')}
-                                                    className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl hover:bg-emerald-100 transition-colors w-fit group"
-                                                >
-                                                    <i className="fa-solid fa-check"></i>
-                                                    {pipelineType === 'images' ? 'Assets Secured in Cloud' : 'Intelligence Suite Ready'}
-                                                    <i className="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition-transform"></i>
-                                                </button>
-                                                {item.startTime && item.endTime && (
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                        Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
-                                                    </span>
+                                            <div className="space-y-3">
+                                                {/* Step breakdown */}
+                                                {item.completedSteps && item.completedSteps.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {item.completedSteps.map((step, idx) => {
+                                                            const colors = {
+                                                                ran: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                                                cached: 'bg-blue-50 text-blue-700 border-blue-200',
+                                                                skipped: 'bg-slate-50 text-slate-400 border-slate-200',
+                                                                failed: 'bg-rose-50 text-rose-600 border-rose-200'
+                                                            };
+                                                            const icons = {
+                                                                ran: 'fa-circle-check',
+                                                                cached: 'fa-bolt-lightning',
+                                                                skipped: 'fa-forward',
+                                                                failed: 'fa-circle-xmark'
+                                                            };
+                                                            return (
+                                                                <span
+                                                                    key={idx}
+                                                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${colors[step.outcome]}`}
+                                                                >
+                                                                    <i className={`fa-solid ${icons[step.outcome]} text-[8px]`}></i>
+                                                                    {step.name}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 )}
+                                                <div className="flex items-center justify-between">
+                                                    <button
+                                                        onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}&zpid=${item.zpid}`, '_blank')}
+                                                        className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl hover:bg-emerald-100 transition-colors w-fit group"
+                                                    >
+                                                        <i className="fa-solid fa-check"></i>
+                                                        {pipelineType === 'images' ? 'Assets Secured in Cloud' : 'Intelligence Suite Ready'}
+                                                        <i className="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition-transform"></i>
+                                                    </button>
+                                                    {item.startTime && item.endTime && (
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                            Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
