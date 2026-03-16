@@ -87,6 +87,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [isRefreshingPulse, setIsRefreshingPulse] = useState(false);
     const [lifestyleInsights, setLifestyleInsights] = useState<any>(null);
     const [lifestyleLoading, setLifestyleLoading] = useState(false);
+    const [lifestyleFit, setLifestyleFit] = useState<any>(null);
+    const [lifestyleFitTab, setLifestyleFitTab] = useState<string>('working_professionals');
     const [schoolsIntelligence, setSchoolsIntelligence] = useState<any>(null);
     const [schoolsExpanded, setSchoolsExpanded] = useState<Record<number, boolean>>({});
 
@@ -106,16 +108,21 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [cachedComprehensiveAnalysis, setCachedComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
     const [groundTruthMapTab, setGroundTruthMapTab] = useState<'parcel' | 'satellite'>('parcel');
 
-    // Load lifestyle insights from cache on mount — reset first to prevent stale cross-property data
+    // Load lifestyle insights + lifestyle fit from cache on mount
     React.useEffect(() => {
-        setLifestyleInsights(null); // Clear immediately to prevent showing previous property's data
+        setLifestyleInsights(null);
+        setLifestyleFit(null);
         const loadLifestyle = async () => {
             const zpid = propertyData?.zpid;
             if (!zpid) return;
             try {
-                const { getLifestyleInsightsFromCloud } = await import('../../services/firebase/properties');
-                const cached = await getLifestyleInsightsFromCloud(zpid);
+                const { getLifestyleInsightsFromCloud, getLifestyleFitFromCloud } = await import('../../services/firebase/properties');
+                const [cached, fitCached] = await Promise.all([
+                    getLifestyleInsightsFromCloud(zpid),
+                    getLifestyleFitFromCloud(zpid)
+                ]);
                 if (cached?.outdoor) setLifestyleInsights(cached);
+                if (fitCached?.working_professionals) setLifestyleFit(fitCached);
             } catch (_) { /* optional */ }
         };
         loadLifestyle();
@@ -688,30 +695,26 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     );
                                                 })()}
 
-                                                {/* Neighborhood Overview */}
-                                                {neighborhoodOverview && (
+                                                {/* Outdoors & Privacy */}
+                                                {(analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
                                                     <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
                                                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                             <div className="p-4">
                                                                 <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
+                                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-tree text-emerald-600 text-[11px]"></i>
                                                                     </div>
-                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
+                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Outdoors</span>
                                                                 </div>
-                                                                <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
-                                                                {propertyData.hoa?.amenities && propertyData.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
-                                                                    <div className="mt-3 pt-3 border-t border-slate-100">
-                                                                        <div className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-2">HOA Amenities</div>
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            {propertyData.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
-                                                                                <span key={i} className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                                                                    {amenity}
-                                                                                </span>
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed">
+                                                                    {analysis.detailed_analysis.outdoors_view_quality && (
+                                                                        <span className="block">
+                                                                            {analysis.detailed_analysis.outdoors_view_quality.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
                                                                             ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
+                                                                        </span>
+                                                                    )}
+                                                                </p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -976,40 +979,201 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                         </div>
                                                     </div>
                                                 )}
-
-                                                {/* Outdoors & Privacy */}
-                                                {(analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
-                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                            <div className="p-4">
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-tree text-emerald-600 text-[11px]"></i>
-                                                                    </div>
-                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Outdoors</span>
-                                                                </div>
-                                                                <p className="text-[13px] text-slate-600 leading-relaxed">
-                                                                    {analysis.detailed_analysis.outdoors_view_quality && (
-                                                                        <span className="block">
-                                                                            {analysis.detailed_analysis.outdoors_view_quality.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                                            ))}
-                                                                        </span>
-                                                                    )}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
 
-                                        {/* Row: AI Lifestyle Insights */}
-                                        <LifestyleInsightsSection
-                                            insights={lifestyleInsights}
-                                            loading={lifestyleLoading}
-                                            onGenerate={handleGenerateLifestyle}
-                                        />
+                                        {/* Row: Unified Lifestyle Fit */}
+                                        {(() => {
+                                            const NEIGHBORHOOD_KEY_MAP: Record<string, string> = {
+                                                working_professionals: 'professionals',
+                                                families_with_kids: 'family',
+                                                seniors: 'senior',
+                                            };
+                                            const ALL_TABS = [
+                                                { key: 'working_professionals', label: 'Working Professionals', icon: 'fa-briefcase', bg: 'bg-sky-100', text: 'text-sky-600', type: 'fit' as const },
+                                                { key: 'families_with_kids', label: 'Families with Kids', icon: 'fa-children', bg: 'bg-blue-100', text: 'text-blue-600', type: 'fit' as const },
+                                                { key: 'seniors', label: 'Seniors', icon: 'fa-heart-pulse', bg: 'bg-rose-100', text: 'text-rose-600', type: 'fit' as const },
+                                                { key: 'outdoor', label: 'Outdoor & Recreation', icon: 'fa-mountain-sun', bg: 'bg-emerald-100', text: 'text-emerald-600', type: 'neighborhood' as const },
+                                                { key: 'pets', label: 'Pet Friendly', icon: 'fa-paw', bg: 'bg-amber-100', text: 'text-amber-600', type: 'neighborhood' as const },
+                                                { key: 'food', label: 'Food & Entertainment', icon: 'fa-utensils', bg: 'bg-violet-100', text: 'text-violet-600', type: 'neighborhood' as const },
+                                            ];
+                                            const verdictColors: Record<string, string> = {
+                                                'Excellent Fit': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                                'Good Fit': 'bg-sky-100 text-sky-700 border-sky-200',
+                                                'Moderate Fit': 'bg-amber-100 text-amber-700 border-amber-200',
+                                                'Poor Fit': 'bg-orange-100 text-orange-700 border-orange-200',
+                                                'Not Recommended': 'bg-rose-100 text-rose-700 border-rose-200',
+                                            };
+
+                                            // Check if anything to show
+                                            const hasFitData = lifestyleFit && (lifestyleFit.working_professionals || lifestyleFit.families_with_kids || lifestyleFit.seniors);
+                                            const hasNeighborhoodData = lifestyleInsights && (lifestyleInsights.outdoor || lifestyleInsights.pets || lifestyleInsights.food);
+                                            if (!hasFitData && !hasNeighborhoodData && !lifestyleLoading) return null;
+
+                                            const activeTab = ALL_TABS.find(t => t.key === lifestyleFitTab) || ALL_TABS[0];
+
+                                            return (
+                                                <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                    <div className="p-4">
+                                                        {/* Header */}
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                                                <i className="fa-solid fa-people-roof text-indigo-600 text-sm" />
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Lifestyle Fit and Interests</span>
+                                                                <div className="text-[10px] text-slate-400">Property analysis + neighborhood context for each lifestyle</div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Compact horizontal tabs */}
+                                                        <div className="flex flex-wrap gap-1.5 mb-3">
+                                                            {ALL_TABS.map(tab => {
+                                                                const isActive = tab.key === lifestyleFitTab;
+                                                                const hasContent = tab.type === 'fit'
+                                                                    ? !!lifestyleFit?.[tab.key]
+                                                                    : !!lifestyleInsights?.[tab.key as keyof typeof lifestyleInsights];
+                                                                const fitData = tab.type === 'fit' ? lifestyleFit?.[tab.key] : null;
+                                                                return (
+                                                                    <button
+                                                                        key={tab.key}
+                                                                        onClick={() => setLifestyleFitTab(tab.key)}
+                                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-left ${
+                                                                            isActive
+                                                                                ? `${tab.bg} border-current ${tab.text} shadow-sm`
+                                                                                : hasContent
+                                                                                    ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
+                                                                                    : 'bg-slate-50/30 border-slate-100 opacity-40 cursor-not-allowed'
+                                                                        }`}
+                                                                        disabled={!hasContent}
+                                                                    >
+                                                                        <i className={`fa-solid ${tab.icon} ${tab.text} text-[11px]`} />
+                                                                        <span className={`text-[11px] font-bold whitespace-nowrap ${
+                                                                            isActive ? 'text-slate-900' : 'text-slate-500'
+                                                                        }`}>{tab.label}</span>
+                                                                        {fitData?.verdict && (
+                                                                            <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-500'}`}>
+                                                                                {fitData.verdict}
+                                                                            </span>
+                                                                        )}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Content panel — adapts based on tab type */}
+                                                        {activeTab.type === 'fit' ? (() => {
+                                                            const fitData = lifestyleFit?.[activeTab.key];
+                                                            if (!fitData) return (
+                                                                <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
+                                                                    <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
+                                                                        <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
+                                                                    </div>
+                                                                    <div className="text-[12px] font-bold text-slate-400">No analysis available for {activeTab.label}</div>
+                                                                </div>
+                                                            );
+                                                            return (
+                                                                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                                                                    <div className="p-5 flex flex-col gap-3">
+                                                                        {/* Verdict badge */}
+                                                                        <div className="flex justify-end">
+                                                                            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-600'}`}>
+                                                                                {fitData.verdict}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        {/* Summary */}
+                                                                        <p className="text-[13px] text-slate-600 leading-relaxed">{fitData.summary}</p>
+
+                                                                        {/* Strengths + Concerns side by side */}
+                                                                        <div className="grid grid-cols-2 gap-4">
+                                                                            {fitData.strengths?.length > 0 && (
+                                                                                <div>
+                                                                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">Strengths</div>
+                                                                                    <div className="flex flex-col gap-1">
+                                                                                        {fitData.strengths.map((s: string, i: number) => (
+                                                                                            <div key={i} className="flex items-start gap-2">
+                                                                                                <i className="fa-solid fa-circle-check text-[9px] text-emerald-400 mt-[5px] flex-shrink-0" />
+                                                                                                <span className="text-[12px] text-slate-700 leading-snug">{s}</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                            {fitData.concerns?.length > 0 && (
+                                                                                <div>
+                                                                                    <div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Concerns</div>
+                                                                                    <div className="flex flex-col gap-1">
+                                                                                        {fitData.concerns.map((c: string, i: number) => (
+                                                                                            <div key={i} className="flex items-start gap-2">
+                                                                                                <i className="fa-solid fa-triangle-exclamation text-[9px] text-amber-400 mt-[5px] flex-shrink-0" />
+                                                                                                <span className="text-[12px] text-slate-700 leading-snug">{c}</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {/* Tip */}
+                                                                        {fitData.tip && (
+                                                                            <div className="flex items-start gap-2 bg-indigo-50/50 rounded-lg p-3 border border-indigo-100">
+                                                                                <i className="fa-solid fa-lightbulb text-[11px] text-indigo-400 mt-0.5" />
+                                                                                <span className="text-[12px] text-indigo-700 leading-snug">{fitData.tip}</span>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Neighborhood context paragraph */}
+                                                                        {(() => {
+                                                                            const nbKey = NEIGHBORHOOD_KEY_MAP[activeTab.key];
+                                                                            const nbText = nbKey && lifestyleInsights?.[nbKey as keyof typeof lifestyleInsights];
+                                                                            if (!nbText) return null;
+                                                                            return (
+                                                                                <div className="mt-1 bg-emerald-50/40 rounded-xl border border-emerald-100 p-4">
+                                                                                    <div className="flex items-center gap-1.5 mb-2">
+                                                                                        <i className="fa-solid fa-map-location-dot text-[10px] text-emerald-500" />
+                                                                                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Neighborhood Context</span>
+                                                                                    </div>
+                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                                        {String(nbText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
+                                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                                        ))}
+                                                                                    </p>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })() : (() => {
+                                                            // Neighborhood tab — show paragraph text
+                                                            const nbText = lifestyleInsights?.[activeTab.key as keyof typeof lifestyleInsights];
+                                                            if (!nbText) return (
+                                                                <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
+                                                                    <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
+                                                                        <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
+                                                                    </div>
+                                                                    <div className="text-[12px] font-bold text-slate-400">No insights available for {activeTab.label}</div>
+                                                                </div>
+                                                            );
+                                                            return (
+                                                                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                                                                    <div className="p-5">
+                                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                            {String(nbText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
+                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                            ))}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
+
+                                                        <div className="text-[8px] text-slate-700 mt-2 text-right">MLS + AI Photo Analysis • Google Places • Gemini</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
 
                                         {/* Row 2: Investment Insights */}
                                         {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse) && (
@@ -1270,7 +1434,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                 {propertyData.neighborhoodPlaces && (
                                     <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} />
+                                        <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} neighborhoodOverview={neighborhoodOverview} hoaAmenities={propertyData.hoa?.amenities} />
                                     </div>
                                 )}
 

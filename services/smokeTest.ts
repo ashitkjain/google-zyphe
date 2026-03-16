@@ -74,6 +74,7 @@ function runChecks(
     env: any | null,
     comprehensive: any | null,
     investment: any | null,
+    schoolAnalyses: Record<string, any>,
     addressHint?: string
 ): PropertySmokeResult {
     const checks: SmokeCheck[] = [];
@@ -254,6 +255,45 @@ function runChecks(
     chk(checks, 'nearbySchools', 'Nearby Schools Data', 'warn', schoolCount > 0,
         schoolCount > 0 ? `${schoolCount} schools` : 'no schools on property');
 
+    // Per-school analysis quality (from school_analyses collection)
+    if (schoolCount > 0 && prop?.city) {
+        const staleFields = ['test_scores', 'demographics_summary', 'parent_sentiment_positive',
+            'parent_sentiment_concerns', 'extracurriculars', 'recent_news', 'overall_assessment'];
+        const isFieldEmpty = (val: string | undefined) =>
+            !val || val.toLowerCase().includes('current data not available') ||
+            val.toLowerCase().includes('not possible') ||
+            val.toLowerCase().includes('data not available');
+
+        let analyzedCount = 0;
+        let staleCount = 0;
+        const staleNames: string[] = [];
+
+        for (const school of prop.schools) {
+            const words = school.name.trim().split(/\s+/);
+            const w1 = words[0] || '';
+            const w2 = words[1] || '';
+            const key = `${w1}_${w2}_${prop.city}_${prop.state || ''}`
+                .toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_')
+                .replace(/^_|_$/g, '').substring(0, 120);
+            const analysis = schoolAnalyses[key];
+            if (analysis?.name) {
+                analyzedCount++;
+                const emptyCount = staleFields.filter(f => isFieldEmpty(analysis[f])).length;
+                if (emptyCount >= 3) {
+                    staleCount++;
+                    staleNames.push(school.name);
+                }
+            }
+        }
+
+        chk(checks, 'schoolAnalyses', 'School Intelligence', 'warn', analyzedCount > 0,
+            analyzedCount > 0 ? `${analyzedCount}/${schoolCount} analyzed` : 'none analyzed');
+        chk(checks, 'schoolQuality', 'School Analysis Quality', 'warn', staleCount === 0,
+            staleCount === 0
+                ? (analyzedCount > 0 ? 'all schools have valid data' : 'no data to check')
+                : `${staleCount} stale: ${staleNames.join(', ')}`);
+    }
+
     // ── 12. Lifestyle Insights (inside property_analyses_comprehensive) ────────
     const life = comprehensive?.lifestyle_insights;
     const hasLifestyle = !!(life?.outdoor && life?.family);
@@ -316,6 +356,7 @@ export const runCitySmokeTest = async (
     const allEnv: Record<string, any> = {};
     const allComp: Record<string, any> = {};
     const allInvest: Record<string, any> = {};
+    const allSchoolAnalyses: Record<string, any> = {};
 
     // Batch-fetch all collections in parallel chunks
     const chunks: string[][] = [];
@@ -344,6 +385,34 @@ export const runCitySmokeTest = async (
     // Skip zpids that have no property document (never ingested / no real ZPID)
     const resolvedZpids = zpids.filter(zpid => !!allProps[zpid]);
 
+    // Batch-fetch school analyses: derive cache keys from each property's schools list
+    const schoolCacheKeys = new Set<string>();
+    for (const zpid of resolvedZpids) {
+        const prop = allProps[zpid];
+        if (Array.isArray(prop?.schools) && prop?.city) {
+            for (const school of prop.schools) {
+                const words = school.name.trim().split(/\s+/);
+                const w1 = words[0] || '';
+                const w2 = words[1] || '';
+                const key = `${w1}_${w2}_${prop.city}_${prop.state || ''}`
+                    .toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_')
+                    .replace(/^_|_$/g, '').substring(0, 120);
+                schoolCacheKeys.add(key);
+            }
+        }
+    }
+
+    // Fetch school analyses in chunks
+    if (schoolCacheKeys.size > 0) {
+        const schoolKeyArray = Array.from(schoolCacheKeys);
+        const schoolChunks: string[][] = [];
+        for (let i = 0; i < schoolKeyArray.length; i += CHUNK) schoolChunks.push(schoolKeyArray.slice(i, i + CHUNK));
+        await Promise.all(schoolChunks.map(async (chunk) => {
+            const snap = await getDocs(query(collection(db!, 'school_analyses'), where(documentId(), 'in', chunk)));
+            snap.forEach(d => { allSchoolAnalyses[d.id] = d.data(); });
+        }));
+    }
+
     const results = resolvedZpids.map(zpid =>
         runChecks(
             zpid,
@@ -353,6 +422,7 @@ export const runCitySmokeTest = async (
             allEnv[zpid] || null,
             allComp[zpid] || null,
             allInvest[zpid] || null,
+            allSchoolAnalyses,
             addressMap?.[zpid]
         )
     );

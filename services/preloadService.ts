@@ -8,6 +8,7 @@ import {
   analyzeInvestmentResearch,
   analyzeGeneralMarketIntelligence,
   analyzeLifestyleInsights,
+  analyzeLifestyleFit,
   analyzeSchool,
   runBackgroundCityResearch,
   AiResponseError
@@ -333,7 +334,7 @@ export const runFullIntelligencePipeline = async (
         const cached = await getLifestyleInsightsFromCloud(zpid);
         if (cached?.outdoor) {
           onLog?.(`[Lifestyle] Cache hit — skipping.`);
-          return cached;
+          return { data: cached, fromCache: true };
         }
         onLog?.(`[Lifestyle] Generating lifestyle insights...`);
         const res = await analyzeLifestyleInsights(enrichedData, userId);
@@ -341,10 +342,10 @@ export const runFullIntelligencePipeline = async (
           await saveLifestyleInsightsToCloud(zpid, res.data);
           onLog?.(`[Lifestyle] Insights saved.`);
         }
-        return res.data;
+        return { data: res.data, fromCache: false };
       } catch (e: any) {
         onLog?.(`[Lifestyle] Failed (non-blocking): ${e.message}`);
-        return null;
+        return { data: null, fromCache: false };
       }
     };
 
@@ -370,16 +371,20 @@ export const runFullIntelligencePipeline = async (
           const cached = await getSchoolAnalysisFromCloud(cacheKey);
 
           if (cached?.name) {
-            // Skip cached low-quality results so they get re-analyzed
-            const cachedAssessment = (cached.overall_assessment || '').toLowerCase();
-            const isCachedLowQuality = cachedAssessment.includes('not possible') ||
-              cachedAssessment.includes('without current data') ||
-              cachedAssessment.includes('data not available') ||
-              cachedAssessment.includes('unable to provide') ||
-              cachedAssessment.length < 50;
+            // Quality gate: count how many fields say "Current data not available"
+            const fields = [
+              cached.test_scores, cached.demographics_summary,
+              cached.parent_sentiment_positive, cached.parent_sentiment_concerns,
+              cached.extracurriculars, cached.recent_news, cached.overall_assessment
+            ];
+            const emptyCount = fields.filter(f =>
+              (f || '').toLowerCase().includes('current data not available') ||
+              (f || '').toLowerCase().includes('not possible') ||
+              (f || '').toLowerCase().includes('data not available')
+            ).length;
 
-            if (isCachedLowQuality) {
-              onLog?.(`[Schools] ⚠ Stale/low-quality cache for ${school.name} — re-analyzing.`);
+            if (emptyCount >= 3) {
+              onLog?.(`[Schools] ⚠ Stale cache for ${school.name} (${emptyCount}/7 fields empty) — re-analyzing with Gemini 3.`);
               // Fall through to fresh analysis below
             } else {
               onLog?.(`[Schools] ✓ Cache hit: ${school.name}`);
@@ -404,21 +409,7 @@ export const runFullIntelligencePipeline = async (
                 ...res.data,
                 sources: res.data.sources?.length ? res.data.sources : (res.sources || [])
               };
-
-              // Quality gate: don't cache obviously low-quality fallback responses
-              const assessment = (schoolData.overall_assessment || '').toLowerCase();
-              const isLowQuality = assessment.includes('not possible') ||
-                assessment.includes('without current data') ||
-                assessment.includes('data not available') ||
-                assessment.includes('unable to provide') ||
-                assessment.length < 50;
-
-              if (isLowQuality) {
-                onLog?.(`[Schools] ⚠ Low-quality result for ${school.name} — skipping cache (will retry next run).`);
-              } else {
-                await saveSchoolAnalysisToCloud(cacheKey, schoolData);
-              }
-
+              await saveSchoolAnalysisToCloud(cacheKey, schoolData);
               analyzedSchools.push({
                 ...schoolData,
                 distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
@@ -437,6 +428,7 @@ export const runFullIntelligencePipeline = async (
         return analyzedSchools.length > 0 ? {
           schools: analyzedSchools,
           district_name: analyzedSchools[0]?.district_name || '',
+          _allCached: analyzedCount === 0 && cachedCount > 0,
         } : null;
       } catch (e: any) {
         onLog?.(`[Schools] Failed (non-blocking): ${e.message}`);
@@ -451,7 +443,7 @@ export const runFullIntelligencePipeline = async (
     let visualResult: any = null;
     let visualError: string | null = null;
 
-    const [_visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, _lifestyleResult, schoolsResult] = await Promise.all([
+    const [_visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, lifestyleResult, schoolsResult] = await Promise.all([
       visualTask().then(r => { visualResult = r; return r; }).catch(e => { visualError = e.message || String(e); onLog?.(`[Visual] ❌ Failed: ${visualError}`); return null; }),
       neighborhoodTask(),
       pulseTask(),
@@ -460,6 +452,9 @@ export const runFullIntelligencePipeline = async (
       lifestyleTask(),
       schoolsTask()
     ]);
+
+    const _lifestyleData = lifestyleResult?.data ?? null;
+    const lifestyleFromCache = lifestyleResult?.fromCache ?? false;
 
     // Report per-task outcomes to the UI
     const reportSubtask = (name: string, result: any, cached: boolean, error?: string) => {
@@ -480,8 +475,8 @@ export const runFullIntelligencePipeline = async (
     reportSubtask('Pulse', communityPulse, !!communityPulse); // always from cache or skipped
     reportSubtask('Investment', investmentSpecific, !!(await getPropertyInvestmentFromCloud(zpid) && investmentSpecific));
     reportSubtask('Market Intel', marketIntelligence, !!marketIntelligence); // always from cache or skipped
-    reportSubtask('Lifestyle', _lifestyleResult, false); // never pre-cached at this point  
-    reportSubtask('Schools', schoolsResult, false); // mixed cache/fresh per school
+    reportSubtask('Lifestyle', _lifestyleData, lifestyleFromCache);
+    reportSubtask('Schools', schoolsResult?.schools || schoolsResult, !!(schoolsResult && schoolsResult._allCached));
 
     // Track which subtasks had issues
     const warnings: string[] = [];
@@ -509,7 +504,40 @@ export const runFullIntelligencePipeline = async (
       deep_investment_research: cityStateKey ? await getDeepInvestmentResearchFromCloud(cityStateKey) : null
     };
 
-    // 10. Narrative AI Synthesis (Final Step) — with cache check
+    // 10. Lifestyle Fit Analysis (runs alongside narrative) — with cache check + quality gate
+    const lifestyleFitTask = async () => {
+      try {
+        const { getLifestyleFitFromCloud, saveLifestyleFitToCloud } = await import('./firebase/properties');
+        const cached = await getLifestyleFitFromCloud(zpid);
+
+        // Quality gate: check if all 3 categories have verdicts and non-empty summaries
+        const isComplete = cached?.working_professionals?.verdict
+          && cached?.families_with_kids?.verdict
+          && cached?.seniors?.verdict
+          && cached?.working_professionals?.summary?.length > 20
+          && cached?.families_with_kids?.summary?.length > 20
+          && cached?.seniors?.summary?.length > 20;
+
+        if (isComplete) {
+          onLog?.(`[Lifestyle Fit] Cache hit — skipping.`);
+          return { data: cached, fromCache: true };
+        }
+
+        onLog?.(`[Lifestyle Fit] ${cached ? 'Incomplete cache — re-analyzing.' : 'Generating lifestyle fit analysis...'}`);
+        const streetView = enrichedData.streetViewAnalysis || null;
+        const res = await analyzeLifestyleFit(enrichedData, visualResult, streetView, userId);
+        if (res.data) {
+          await saveLifestyleFitToCloud(zpid, res.data);
+          onLog?.(`[Lifestyle Fit] Analysis saved.`);
+        }
+        return { data: res.data, fromCache: false };
+      } catch (e: any) {
+        onLog?.(`[Lifestyle Fit] Failed (non-blocking): ${e.message}`);
+        return { data: null, fromCache: false };
+      }
+    };
+
+    // 11. Narrative AI Synthesis (Final Step) — with cache check
     onProgress({ step: 'Narrative', status: 'running', message: 'Checking narrative cache...' });
     const isNarrativeComplete = (data: any): boolean => {
       if (!data) return false;
@@ -525,7 +553,15 @@ export const runFullIntelligencePipeline = async (
       return hasTop && hasDetailed && hasInterior;
     };
 
-    const existingNarrative = await getComprehensiveAnalysisFromCloud(zpid);
+    // Run lifestyle fit and narrative in parallel
+    const [lifestyleFitResult, existingNarrative] = await Promise.all([
+      lifestyleFitTask(),
+      getComprehensiveAnalysisFromCloud(zpid)
+    ]);
+
+    // Report lifestyle fit outcome
+    reportSubtask('Lifestyle Fit', lifestyleFitResult?.data, lifestyleFitResult?.fromCache ?? false);
+
     if (isNarrativeComplete(existingNarrative)) {
       onLog?.(`[Narrative] Cache hit — comprehensive analysis already complete. Skipping.`);
       onProgress({ step: 'Narrative', status: 'completed', message: 'Report loaded from cache.' });

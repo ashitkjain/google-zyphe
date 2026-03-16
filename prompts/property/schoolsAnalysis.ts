@@ -7,8 +7,9 @@ import { PropertyData, School } from "../../types";
  */
 export const getSchoolCacheKey = (schoolName: string, city: string, state: string = ''): string => {
     const words = schoolName.trim().split(/\s+/);
-    const slug = words.slice(0, 4).join('_');
-    return `${slug}_${city}_${state}`
+    const w1 = words[0] || '';
+    const w2 = words[1] || '';
+    return `${w1}_${w2}_${city}_${state}`
         .toLowerCase()
         .replace(/[^a-z0-9_]/g, '_')
         .replace(/_+/g, '_')
@@ -30,7 +31,7 @@ You are an expert education analyst. Analyze the following school in detail for 
 
 Use your search tools to find comprehensive data about this school. Be thorough and cite real data.
 
-RECENCY RULE: The current year is ${new Date().getFullYear()}. Only use data from the ${new Date().getFullYear() - 1}-${new Date().getFullYear()} or ${new Date().getFullYear() - 2}-${new Date().getFullYear() - 1} school years. REJECT any statistics, enrollment numbers, AP data, test scores, or reviews from ${new Date().getFullYear() - 3} or earlier. If only outdated data is available for a field, write "Current data not available".
+RECENCY RULE: The current year is ${new Date().getFullYear()}. Prefer data from the ${new Date().getFullYear() - 1}-${new Date().getFullYear()} or ${new Date().getFullYear() - 2}-${new Date().getFullYear() - 1} school years. Data from the ${new Date().getFullYear() - 3}-${new Date().getFullYear() - 2} school year is also acceptable if more recent data is unavailable. Only reject statistics older than the ${new Date().getFullYear() - 3}-${new Date().getFullYear() - 2} school year. Always note the data year when citing statistics.
 
 1. **Academic Performance**: Test score proficiency rates (Math & ELA), any notable AP/IB programs offered, number of AP courses
 2. **College Readiness** (high schools only): Graduation rate, college acceptance rate, average SAT/ACT scores, notable college acceptances, percentage attending 4-year vs 2-year institutions

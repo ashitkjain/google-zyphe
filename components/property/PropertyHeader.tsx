@@ -228,22 +228,20 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
         </div>
 
-        {/* Schools — full width */}
-        {data.schools && data.schools.length > 0 && (
+        {/* HOA Amenities — full width */}
+        {data.hoa?.amenities && data.hoa.amenities.filter((a: string) => a !== 'Other').length > 0 && (
           <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-            <ExpandableList
-              limit={3}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-2"
-              items={data.schools.map((s: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 min-w-0">
-                  <i className="fa-solid fa-school-flag text-[10px] text-slate-300"></i>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider truncate">{s.name}</div>
-                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{s.rating}/10 · {s.distance} mi</div>
-                  </div>
-                </div>
+            <div className="flex items-center gap-2 mb-2">
+              <i className="fa-solid fa-building-shield text-[10px] text-slate-300"></i>
+              <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">HOA Amenities</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {data.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
+                <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {amenity}
+                </span>
               ))}
-            />
+            </div>
           </div>
         )}
       </div>
@@ -320,12 +318,12 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 <i className="fa-solid fa-calendar text-[7px] text-slate-400" />Built {data.yearBuilt}
               </span>
             )}
-            {data.price && data.livingAreaValue && data.livingAreaValue > 0 && (
+            {(data.listPrice ?? data.price) && data.livingAreaValue && data.livingAreaValue > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded-md text-[11px] font-bold text-emerald-700">
-                <i className="fa-solid fa-tag text-[7px]" />${Math.round(data.price / data.livingAreaValue)}/sf
+                <i className="fa-solid fa-tag text-[7px]" />${Math.round((data.listPrice ?? data.price!) / data.livingAreaValue)}/sf
               </span>
             )}
-            {data.price && (
+            {(data.listPrice ?? data.price) && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded-md text-[11px] font-bold text-indigo-700">
                 <i className="fa-solid fa-tag text-[7px]" />{formatCurrency(data.listPrice ?? data.price)}
               </span>

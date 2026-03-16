@@ -274,10 +274,16 @@ export const executeGeminiRequest = async <T>(
       };
 
       const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
+      const isGemini3 = model.startsWith('gemini-3');
 
-      if (schema && !hasSearchTool) {
+      if (schema && (!hasSearchTool || isGemini3)) {
         finalConfig.responseMimeType = "application/json";
-        finalConfig.responseSchema = schema;
+        // Gemini 3 uses responseJsonSchema when combining with tools
+        if (isGemini3 && hasSearchTool) {
+          finalConfig.responseJsonSchema = schema;
+        } else {
+          finalConfig.responseSchema = schema;
+        }
       }
 
       // 3. Perform Generation
@@ -387,6 +393,7 @@ const MODEL_PRICING: Record<string, { input: number, output: number, cached?: nu
   'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000, cached: 0.3125 / 1000000 },
   'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
   'gemini-2.0-pro-exp': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
+  'gemini-3-flash-preview': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
 };
 
 function calculateUsage(response: any, modelName: string): AIUsage {
@@ -561,6 +568,34 @@ export const analyzeLifestyleInsights = async (property: PropertyData, userId: s
   });
 };
 
+export const analyzeLifestyleFit = async (
+  property: PropertyData,
+  visual: CustomAIAnalysisResult | null,
+  streetView: any | null,
+  userId: string = "unknown"
+): Promise<AIResponseWithUsage<any>> => {
+  const { getLifestyleFitPrompt, lifestyleFitSchema } = await import("../prompts/property/lifestyleFit");
+  const prompt = getLifestyleFitPrompt(
+    optimizePropertyForAi(property) as PropertyData,
+    visual ? optimizeVisualForAi(visual) as CustomAIAnalysisResult : null,
+    streetView
+  );
+
+  console.log(`[Lifestyle Fit] Starting for ${property.address}...`);
+
+  return executeGeminiRequest<any>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { temperature: 0.5 },
+    userId,
+    zpid: property.zpid,
+    address: property.address,
+    promptFilename: "lifestyleFit.ts",
+    extractResultJson: true,
+    schema: lifestyleFitSchema
+  });
+};
+
 export const analyzeSchool = async (school: any, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<any>> => {
   const { getSchoolAnalysisPrompt, schoolAnalysisSchema } = await import("../prompts/property/schoolsAnalysis");
   const prompt = getSchoolAnalysisPrompt(school, optimizePropertyForAi(property) as PropertyData);
@@ -568,7 +603,7 @@ export const analyzeSchool = async (school: any, property: PropertyData, userId:
   console.log(`[Schools Intelligence] Analyzing: ${school.name}...`);
 
   return executeGeminiRequest<any>({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.5 },
     userId,

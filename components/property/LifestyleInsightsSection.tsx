@@ -9,13 +9,19 @@ interface Props {
 }
 
 const LifestyleInsightsSection: React.FC<Props> = ({ insights, loading, onGenerate }) => {
+    // Filter topics to only those with data in the provided insights
+    const availableTopics = insights
+        ? LIFESTYLE_TOPICS.filter(t => !!insights[t.key as keyof LifestyleInsightsResult])
+        : LIFESTYLE_TOPICS;
     const [activeKey, setActiveKey] = useState<string>(LIFESTYLE_TOPICS[0].key);
-    const activeTopic = LIFESTYLE_TOPICS.find(t => t.key === activeKey) || LIFESTYLE_TOPICS[0];
+    // Auto-select first available topic if current selection is not in list
+    const effectiveKey = availableTopics.find(t => t.key === activeKey) ? activeKey : availableTopics[0]?.key;
+    const activeTopic = LIFESTYLE_TOPICS.find(t => t.key === effectiveKey) || LIFESTYLE_TOPICS[0];
 
     /* ── Shared tab grid (icon-centered, label below) ── */
     const renderTabGrid = (opts: { interactive?: boolean; skeleton?: boolean }) => (
         <div className="grid grid-cols-3 gap-2" style={{ flex: '2 1 0%' }}>
-            {LIFESTYLE_TOPICS.map(t => {
+            {(opts.skeleton ? LIFESTYLE_TOPICS : availableTopics).map(t => {
                 if (opts.skeleton) {
                     return (
                         <div key={t.key} className="flex flex-col items-center gap-1.5 p-3 bg-slate-50/50 rounded-xl border border-slate-100 animate-pulse">
@@ -25,7 +31,7 @@ const LifestyleInsightsSection: React.FC<Props> = ({ insights, loading, onGenera
                     );
                 }
 
-                const isActive = opts.interactive && t.key === activeKey;
+                const isActive = opts.interactive && t.key === effectiveKey;
                 const hasContent = opts.interactive ? !!insights?.[t.key as keyof LifestyleInsightsResult] : false;
 
                 return (
@@ -68,7 +74,7 @@ const LifestyleInsightsSection: React.FC<Props> = ({ insights, loading, onGenera
                                 <i className="fa-solid fa-sparkles text-emerald-600 text-sm"></i>
                             </div>
                             <div>
-                                <span className="text-[16px] font-black text-slate-700 tracking-tight">AI Lifestyle Insights</span>
+                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood Lifestyle Fit</span>
                                 <div className="text-[10px] text-slate-400">Personalized analysis for different buyer profiles</div>
                             </div>
                         </div>
@@ -106,7 +112,7 @@ const LifestyleInsightsSection: React.FC<Props> = ({ insights, loading, onGenera
                             <i className="fa-solid fa-sparkles text-emerald-600 text-sm animate-pulse"></i>
                         </div>
                         <div>
-                            <span className="text-[16px] font-black text-slate-700 tracking-tight">AI Lifestyle Insights</span>
+                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood Lifestyle Fit</span>
                             <div className="text-[10px] text-emerald-500 animate-pulse">Analyzing neighborhood for different lifestyles...</div>
                         </div>
                     </div>
@@ -144,7 +150,7 @@ const LifestyleInsightsSection: React.FC<Props> = ({ insights, loading, onGenera
                             <i className="fa-solid fa-sparkles text-emerald-600 text-sm"></i>
                         </div>
                         <div>
-                            <span className="text-[16px] font-black text-slate-700 tracking-tight">AI Lifestyle Insights</span>
+                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood Lifestyle Fit</span>
                             <div className="text-[10px] text-slate-400">Personalized analysis for different buyer profiles</div>
                         </div>
                     </div>

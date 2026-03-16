@@ -584,6 +584,41 @@ export const getLifestyleInsightsFromCloud = async (zpid: string): Promise<any |
     }
 };
 
+// ── Lifestyle Fit Cache (stored in property_analyses_comprehensive, keyed by zpid) ──
+
+export const saveLifestyleFitToCloud = async (zpid: string, fit: any) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    try {
+        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
+        logFirestoreQuery('setDoc', 'property_analyses_comprehensive (lifestyle_fit)', { zpid });
+        await setDoc(docRef, {
+            lifestyle_fit: sanitizeForFirestore(fit),
+            zpid: String(zpid),
+            timestamp: serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveLifestyleFitToCloud") as string };
+    }
+};
+
+export const getLifestyleFitFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db || !zpid) return null;
+    try {
+        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
+        logFirestoreQuery('getDoc', 'property_analyses_comprehensive (lifestyle_fit)', { zpid });
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return data.lifestyle_fit || null;
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, "getLifestyleFitFromCloud");
+        return null;
+    }
+};
+
 // ── Schools Intelligence Cache (keyed by school name + city, shared across properties) ──
 
 export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => {
