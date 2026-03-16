@@ -12,7 +12,7 @@ import {
   GeneralMarketIntelligenceResult,
   DeepInvestmentResearchResult,
   DeepResearchInsights,
-  BiddingStrategyResult,
+
   LeadReactivationResult,
   AIResponseWithUsage,
   AIUsage,
@@ -28,7 +28,7 @@ import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompt
 import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
 import { getDeepInvestmentResearchPrompt, deepInvestmentResearchSchema } from "../prompts/property/deepInvestmentResearch";
 import { getDeepResearchInsightsPrompt, deepResearchInsightsSchema } from "../prompts/property/deepResearchInsights";
-import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
+
 import { getInteriorSummaryPrompt, interiorSummarySchema } from "../prompts/property/interiorSummary";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
 import { precomputeDataFactors, PRECOMPUTED_FACTOR_IDS } from "../utils/contextGraphPrecompute";
@@ -903,20 +903,7 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
   return { status: 'started', cityStateKey, promise };
 };
 
-export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<BiddingStrategyResult>> => {
-  const prompt = biddingStrategyPrompt(optimizePropertyForAi(property) as PropertyData);
-  return executeGeminiRequest<BiddingStrategyResult>({
-    model: FLASH_MODEL,
-    contents: prompt,
-    config: { tools: [groundingTool], temperature: 1.0 },
-    userId,
-    zpid: property.zpid,
-    address: property.address,
-    promptFilename: "biddingStrategy.ts",
-    extractResultJson: true,
-    schema: biddingStrategySchema
-  });
-};
+
 
 export const analyzeLeadDatabase = async (rawData: string, userId: string = "unknown"): Promise<{ result: LeadReactivationResult; llmCallId?: string }> => {
   const prompt = getLeadReactivationPrompt(rawData);

@@ -27,7 +27,7 @@ import {
     analyzePropertyImages as aiAnalyzeImages,
     analyzeInvestmentResearch as aiAnalyzeInvestment,
     analyzeGeneralMarketIntelligence as aiAnalyzeMarket,
-    analyzeBiddingStrategy as aiAnalyzeBidding,
+
     analyzeCommunityPulse as aiAnalyzePulse,
     analyzeNeighborhood as aiAnalyzeNeighborhood,
     analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch,
@@ -47,14 +47,14 @@ export const useAnalysisActions = (
     const [timer, setTimer] = useState(0);
     const [qualityLoading, setQualityLoading] = useState(false);
     const [investmentLoading, setInvestmentLoading] = useState(false);
-    const [biddingLoading, setBiddingLoading] = useState(false);
+
     const [pulseLoading, setPulseLoading] = useState(false);
     const [deepLoading, setDeepLoading] = useState(false);
     const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
     useEffect(() => {
         let intervalId: any = null;
 
-        if (isInitialLoading || qualityLoading || investmentLoading || biddingLoading || pulseLoading || deepLoading || neighborhoodLoading || graphLoading) {
+        if (isInitialLoading || qualityLoading || investmentLoading || pulseLoading || deepLoading || neighborhoodLoading || graphLoading) {
             // Reset timer when a new loading state starts
             intervalId = setInterval(() => {
                 setTimer(prev => prev + 1);
@@ -66,7 +66,7 @@ export const useAnalysisActions = (
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isInitialLoading, qualityLoading, investmentLoading, biddingLoading, pulseLoading, deepLoading, neighborhoodLoading]);
+    }, [isInitialLoading, qualityLoading, investmentLoading, pulseLoading, deepLoading, neighborhoodLoading]);
 
     const handleRunQualityAnalysis = async () => {
         if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {
@@ -235,26 +235,7 @@ export const useAnalysisActions = (
         */
     };
 
-    const handleRunBiddingStrategy = async () => {
-        if (!analysis || !zpid || !propertyData || biddingLoading) return;
 
-        setTimer(0);
-        setBiddingLoading(true);
-
-        try {
-            addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.flash });
-            const res = await aiAnalyzeBidding(propertyData);
-            const result = res.data;
-
-            onUpdateAnalysis({ ...analysis, bidding_strategy: result });
-            addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result }, (res as any).usage);
-        } catch (err: any) {
-            console.error("Bidding Strategy Failed:", err);
-            addLog('System', { type: 'error' }, { message: "Bidding Strategy Failed", error: err.message || err });
-        } finally {
-            setBiddingLoading(false);
-        }
-    };
 
 
     const handleRunDeepInvestmentResearch = async (forceRefresh = false) => {
@@ -474,7 +455,7 @@ export const useAnalysisActions = (
         timer,
         qualityLoading,
         investmentLoading,
-        biddingLoading,
+
         pulseLoading,
         deepLoading,
         graphLoading,
@@ -483,7 +464,7 @@ export const useAnalysisActions = (
         handleRunQualityAnalysis,
         handleRunCommunityPulse,
         handleRunInvestmentResearch,
-        handleRunBiddingStrategy,
+
         handleRunDeepInvestmentResearch,
         handleExtractContextGraph,
         handleReExtractContextGraph,

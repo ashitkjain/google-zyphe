@@ -5,12 +5,12 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'schools' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'schools' | 'pulse' | 'quality' | 'investment' | 'image_analysis' | 'deep_research' | 'context_graph';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
 import { InvestmentView } from './components/InvestmentView';
-import { BiddingView } from './components/BiddingView';
+
 import { QualityAnalysisView } from './components/QualityAnalysisView';
 import { CommunityPulseView } from './components/CommunityPulseView';
 import { DeepInvestmentView } from './components/DeepInvestmentView';
@@ -223,13 +223,13 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         timer,
         qualityLoading,
         investmentLoading,
-        biddingLoading,
+
         pulseLoading,
         deepLoading,
         handleRunQualityAnalysis,
         handleRunCommunityPulse,
         handleRunInvestmentResearch,
-        handleRunBiddingStrategy,
+
         handleRunDeepInvestmentResearch,
         handleExtractContextGraph,
         handleReExtractContextGraph,
@@ -261,11 +261,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     // Deep Research is NOT auto-triggered — data must be pre-populated via "City Research" in the ingestion tab.
     // useEffect removed intentionally.
 
-    useEffect(() => {
-        if (activeTab === 'bidding' && !analysis?.bidding_strategy && !biddingLoading) {
-            handleRunBiddingStrategy();
-        }
-    }, [activeTab, analysis?.bidding_strategy, biddingLoading]);
+
 
     useEffect(() => {
         if (activeTab === 'context_graph' && !graphResult && !graphLoading) {
@@ -628,17 +624,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             )}
                         </section>
                     )}
-                    {activeTab === 'bidding' && (
-                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            {biddingLoading ? (
-                                <AnalysisLoading title="Strategizing Offer..." subtitle="Analyzing DOM benchmarks and pressure." timer={timer} address={propertyData?.address} icon="fa-gavel" />
-                            ) : !analysis.bidding_strategy ? (
-                                <EmptyState section="Bidding Strategy" />
-                            ) : (
-                                <BiddingView data={analysis.bidding_strategy} comps={propertyData?.comps} priceHistory={propertyData?.priceHistory} onRefresh={handleRunBiddingStrategy} />
-                            )}
-                        </section>
-                    )}
+
                     {activeTab === 'image_analysis' && (
                         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                             {!analysis.image_by_image_analysis || analysis.image_by_image_analysis.length === 0 ? (

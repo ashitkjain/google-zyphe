@@ -278,30 +278,6 @@ export interface StreetViewAnalysisResult {
     imageUrl?: string;
 }
 
-export interface BiddingStrategyResult {
-    property_specifics: {
-        days_on_market: string;
-        listing_history: string[] | string;
-        price_changes: string;
-    };
-    zip_code_benchmarks: {
-        median_days_on_market: string;
-    };
-    inventory_pressure: {
-        months_of_supply: string;
-        market_category: 'Strong Seller' | 'Balanced' | 'Buyer-Friendly' | string;
-        pressure_analysis: string;
-    };
-    offer_velocity: {
-        velocity_status: string;
-        recent_offer_trends: string;
-    };
-    negotiation_strategy: {
-        leverage_analysis: string;
-        suggested_offer_tactics: string[];
-        calculated_discount_strategy: string;
-    };
-}
 
 
 export interface CustomAIAnalysisResult {
@@ -346,7 +322,7 @@ export interface CustomAIAnalysisResult {
     property_investment?: PropertySpecificInvestmentResult;
     general_market_intelligence?: GeneralMarketIntelligenceResult;
     deep_investment_research?: DeepInvestmentResearchResult;
-    bidding_strategy?: BiddingStrategyResult;
+
     context_graph?: ContextGraphExtractionResult;
 }
 

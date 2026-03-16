@@ -108,7 +108,7 @@ test.describe('Zyphe AI - Stable Regression Suite', () => {
             'Community Pulse',
             'Picture Quality Audit',
             'Investment Research',
-            'Bidding Strategy'
+
         ];
 
         for (const label of tabs) {
@@ -119,8 +119,7 @@ test.describe('Zyphe AI - Stable Regression Suite', () => {
                 await expect(page.getByText('Resident Highlights', { exact: true })).toBeVisible({ timeout: 15000 });
             } else if (label === 'Investment Research') {
                 await expect(page.getByText('STR INVESTMENT SUMMARY')).toBeVisible({ timeout: 150000 });
-            } else if (label === 'Bidding Strategy') {
-                await expect(page.getByText('BIDDING STRATEGY REPORT')).toBeVisible({ timeout: 150000 });
+
             }
         }
 
