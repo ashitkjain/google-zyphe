@@ -7,9 +7,8 @@ import { PropertyData, School } from "../../types";
  */
 export const getSchoolCacheKey = (schoolName: string, city: string, state: string = ''): string => {
     const words = schoolName.trim().split(/\s+/);
-    const w1 = words[0] || '';
-    const w2 = words[1] || '';
-    return `${w1}_${w2}_${city}_${state}`
+    const slug = words.slice(0, 4).join('_');
+    return `${slug}_${city}_${state}`
         .toLowerCase()
         .replace(/[^a-z0-9_]/g, '_')
         .replace(/_+/g, '_')

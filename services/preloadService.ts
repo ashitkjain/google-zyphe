@@ -370,15 +370,28 @@ export const runFullIntelligencePipeline = async (
           const cached = await getSchoolAnalysisFromCloud(cacheKey);
 
           if (cached?.name) {
-            onLog?.(`[Schools] ✓ Cache hit: ${school.name}`);
-            analyzedSchools.push({
-              ...cached,
-              distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
-              mls_rating: school.rating,
-              is_assigned: true // from property's own school list
-            });
-            cachedCount++;
-            continue;
+            // Skip cached low-quality results so they get re-analyzed
+            const cachedAssessment = (cached.overall_assessment || '').toLowerCase();
+            const isCachedLowQuality = cachedAssessment.includes('not possible') ||
+              cachedAssessment.includes('without current data') ||
+              cachedAssessment.includes('data not available') ||
+              cachedAssessment.includes('unable to provide') ||
+              cachedAssessment.length < 50;
+
+            if (isCachedLowQuality) {
+              onLog?.(`[Schools] ⚠ Stale/low-quality cache for ${school.name} — re-analyzing.`);
+              // Fall through to fresh analysis below
+            } else {
+              onLog?.(`[Schools] ✓ Cache hit: ${school.name}`);
+              analyzedSchools.push({
+                ...cached,
+                distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
+                mls_rating: school.rating,
+                is_assigned: true // from property's own school list
+              });
+              cachedCount++;
+              continue;
+            }
           }
 
           // Run analysis for this school
@@ -391,7 +404,21 @@ export const runFullIntelligencePipeline = async (
                 ...res.data,
                 sources: res.data.sources?.length ? res.data.sources : (res.sources || [])
               };
-              await saveSchoolAnalysisToCloud(cacheKey, schoolData);
+
+              // Quality gate: don't cache obviously low-quality fallback responses
+              const assessment = (schoolData.overall_assessment || '').toLowerCase();
+              const isLowQuality = assessment.includes('not possible') ||
+                assessment.includes('without current data') ||
+                assessment.includes('data not available') ||
+                assessment.includes('unable to provide') ||
+                assessment.length < 50;
+
+              if (isLowQuality) {
+                onLog?.(`[Schools] ⚠ Low-quality result for ${school.name} — skipping cache (will retry next run).`);
+              } else {
+                await saveSchoolAnalysisToCloud(cacheKey, schoolData);
+              }
+
               analyzedSchools.push({
                 ...schoolData,
                 distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,

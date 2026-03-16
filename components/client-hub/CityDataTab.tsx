@@ -1930,7 +1930,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         <div className="space-y-6">
                             <div className="flex items-center justify-between px-4">
                                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Ingestion Jobs</h3>
-                                <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase">
+                                <span className="px-5 py-2.5 bg-slate-100 rounded-2xl text-sm font-black text-slate-700 uppercase tracking-widest">
                                     {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} {pipelineType === 'images' ? 'Images Secured' : 'Reports Synthesized'}
                                 </span>
                             </div>
