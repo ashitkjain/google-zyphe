@@ -117,10 +117,9 @@ export const fetchFloodZone = async (
     address?: string
 ): Promise<FloodZone | null> => {
     const geometry = encodeURIComponent(JSON.stringify({ x: lng, y: lat }));
-    const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-    const baseUrl = isDev
-        ? '/fema-flood-proxy/gis/nfhl/rest/services/public/NFHL/MapServer/28/query'
-        : 'https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28/query';
+    // FEMA doesn't support CORS — use the Vite dev proxy; in production this will
+    // gracefully fail and return null (data is cached from ingestion runs).
+    const baseUrl = '/fema-flood-proxy/gis/nfhl/rest/services/public/NFHL/MapServer/28/query';
     const url = `${baseUrl}` +
         `?geometry=${geometry}` +
         `&geometryType=esriGeometryPoint` +
@@ -301,10 +300,9 @@ export const fetchFemaDisasterHistory = async (
         filterStr += ` and contains(designatedArea,'${cleanCounty}')`;
     }
 
-    const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-    const baseUrl = isDev
-        ? '/fema-api-proxy/api/open/v2/DisasterDeclarationsSummaries'
-        : 'https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries';
+    // FEMA doesn't support CORS — use the Vite dev proxy; in production this will
+    // gracefully fail and return [] (data is cached from ingestion runs).
+    const baseUrl = '/fema-api-proxy/api/open/v2/DisasterDeclarationsSummaries';
     const url = `${baseUrl}?` +
         `${filterStr}` +
         `&$orderby=declarationDate desc` +

@@ -490,6 +490,53 @@ export const fetchPropertyDataFull = async (
             }
         }
 
+        // ── PARCEL DATA (previously lazy-loaded by ParcelValidationCard) ────────
+        // Fetch ArcGIS parcel polygon, APN, and area if not already cached.
+        if (mappedData.coordinates && mappedData.zpid && !mappedData.parcelPolygon) {
+            onStep?.('Fetching parcel data from ArcGIS...');
+            try {
+                const { fetchParcelFromCounty, polygonToFirestore } = await import('../arcgis/countyParcels');
+                const parcelResult = await fetchParcelFromCounty(
+                    mappedData.coordinates.latitude,
+                    mappedData.coordinates.longitude
+                );
+                if (parcelResult) {
+                    (mappedData as any).parcelPolygon = polygonToFirestore(parcelResult.polygon);
+                    (mappedData as any).parcelApn = parcelResult.apn;
+                    (mappedData as any).parcelAreaSqft = parcelResult.areaSqft;
+                    (mappedData as any).parcelCounty = parcelResult.county;
+                    (mappedData as any).parcelCachedAt = new Date().toISOString();
+                    if (parcelResult.buildingSqft && parcelResult.buildingSqft > 0) {
+                        (mappedData as any).taxSqft = parcelResult.buildingSqft;
+                        (mappedData as any).taxSqftSource = `ArcGIS ${parcelResult.county}`;
+                    }
+                    console.log(`[Pipeline] Parcel data fetched: APN=${parcelResult.apn}, area=${parcelResult.areaSqft}sf, county=${parcelResult.county}`);
+                }
+            } catch (e: any) {
+                console.warn('[Pipeline] ArcGIS parcel fetch failed (non-blocking):', e.message);
+            }
+        }
+
+        // ── SATELLITE IMAGE (previously lazy-loaded by orientation UI) ────────
+        // Fetch Google satellite image and upload to Firebase Storage if not already cached.
+        if (mappedData.coordinates && mappedData.zpid && !mappedData.satelliteImageUrl) {
+            onStep?.('Caching satellite image...');
+            try {
+                const { getOrCacheAerialSatelliteUrl } = await import('../satellitaryService');
+                const satUrl = await getOrCacheAerialSatelliteUrl(
+                    mappedData.zpid,
+                    mappedData.coordinates.latitude,
+                    mappedData.coordinates.longitude
+                );
+                if (satUrl) {
+                    mappedData.satelliteImageUrl = satUrl;
+                    console.log('[Pipeline] Satellite image cached:', satUrl.substring(0, 80) + '...');
+                }
+            } catch (e: any) {
+                console.warn('[Pipeline] Satellite image fetch failed (non-blocking):', e.message);
+            }
+        }
+
         // Final save attempt if we have a ZPID (in case we added environmental data)
         if (mappedData.zpid) {
             await savePropertyToCloud(mappedData.zpid, mappedData);

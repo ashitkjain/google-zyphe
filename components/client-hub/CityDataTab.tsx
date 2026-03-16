@@ -536,7 +536,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             try {
                 const cloudCached = await getZipListings(zip);
                 if (cloudCached && (cloudCached.listings?.length ?? 0) > 0) {
-                    const cachedListings = (cloudCached.listings || []).map((item: any) => ({
+                    const allCached = cloudCached.listings || [];
+                    const cachedListings = allCached
+                        .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
+                        .map((item: any) => ({
                         ...item,
                         location: {
                             ...item.location,
@@ -547,6 +550,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             }
                         }
                     }));
+                    // If ghost listings were removed, persist the clean list back to Firestore
+                    const removed = allCached.length - cachedListings.length;
+                    if (removed > 0) {
+                        addLog(`Cleaned ${removed} ghost listing(s) with no ZPID from cache for zip ${zip}`);
+                        saveZipListings(zip, cachedListings).catch(console.error);
+                    }
                     addLog(`Cloud Cache Hit for Zip: ${zip} (${cachedListings.length} items)`);
                     return cachedListings;
                 }
@@ -579,7 +588,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const baseUrl = `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale`;
         addLog(`Fetching live data (paginated) for ${zip}…`);
 
-        const mapPage = (rawData: any[]) => rawData.map((item: any) => {
+        const mapPage = (rawData: any[]) => rawData
+            .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
+            .map((item: any) => {
             const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
             const legacyAddr = legacyLoc.address || {};
             const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
@@ -791,8 +802,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 } else if (cachedGroups) {
                     // Fallback to cachedGroups if we didn't hit the API
                     Object.entries(cachedGroups).forEach(([st, zips]) => {
+                        // st may be a full name like "California" — normalize to 2-letter code
+                        const stateCode = STATE_NAME_MAP[st.toLowerCase()] || (st.length === 2 ? st.toUpperCase() : st);
                         zips.forEach(z => {
-                            zipRegistry[z] = { city: city.trim(), state: st };
+                            zipRegistry[z] = { city: city.trim(), state: stateCode };
                         });
                     });
                 }
@@ -852,7 +865,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const zpids = Array.from(cachedPropertyIds) as string[];
             const summary = await runCitySmokeTest(zpids, (done, total) => {
                 setSmokeProgress({ done, total });
-            });
+            }, zpidToAddressMap);
             setSmokeSummary(summary);
             addLog(`Smoke test complete: ${summary.passedCount}/${summary.totalProperties} passed, ${summary.failedCount} with errors.`);
             logPipelineAudit('Smoke Test', `${cachedPropertyIds.size} properties`, summary.failedCount === 0 ? 'success' : 'partial', `${summary.passedCount} passed, ${summary.failedCount} failed`, undefined, { passed: summary.passedCount, failed: summary.failedCount, total: summary.totalProperties });
@@ -1323,6 +1336,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         .flatMap(([, zips]) => zips);
                                     const uniqueZips = [...new Set(allZips)];
 
+                                    // Build a zip → state code lookup from cachedGroups
+                                    const zipStateMap: Record<string, string> = {};
+                                    Object.entries(cachedGroups).forEach(([st, zips]) => {
+                                        const stateCode = resolveState(st);
+                                        zips.forEach(z => { zipStateMap[z] = stateCode; });
+                                    });
+
                                     if (uniqueZips.length === 0) {
                                         addLog('⚠ No supported-state zips found.');
                                         setLoading(false);
@@ -1336,6 +1356,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                                     for (let i = 0; i < uniqueZips.length; i++) {
                                         const zip = uniqueZips[i];
+                                        const fallbackState = zipStateMap[zip] || 'Unknown State';
                                         addLog(`  [${i + 1}/${uniqueZips.length}] Zip ${zip}...`);
 
                                         // ForSale listings
@@ -1357,28 +1378,31 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 page++;
                                                 if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
                                             }
-                                            if (allForSale.length > 0) await saveZipListings(zip, allForSale);
-                                            // Collect for UI table
-                                            allForSaleResults.push(...allForSale.map((item: any) => {
-                                                const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
-                                                const legacyAddr = legacyLoc.address || {};
-                                                const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
-                                                const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
-                                                return {
-                                                    ...item,
-                                                    property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
-                                                    location: {
-                                                        address: {
-                                                            line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
-                                                            city: legacyAddr.city || item.city || item.town || normalizedCity || 'Unknown City',
-                                                            state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || 'Unknown State',
-                                                            postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
-                                                        }
-                                                    },
-                                                    list_price: numericPrice,
-                                                    primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
-                                                };
-                                            }));
+                                            if (allForSale.length > 0) {
+                                                // Normalize listings WITH fallback state before saving to cache
+                                                const mapped = allForSale.map((item: any) => {
+                                                    const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
+                                                    const legacyAddr = legacyLoc.address || {};
+                                                    const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
+                                                    const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+                                                    return {
+                                                        ...item,
+                                                        property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
+                                                        location: {
+                                                            address: {
+                                                                line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
+                                                                city: legacyAddr.city || item.city || item.town || normalizedCity || 'Unknown City',
+                                                                state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
+                                                                postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
+                                                            }
+                                                        },
+                                                        list_price: numericPrice,
+                                                        primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
+                                                    };
+                                                });
+                                                await saveZipListings(zip, mapped);
+                                                allForSaleResults.push(...mapped);
+                                            }
                                             addLog(`    ✓ ForSale: ${allForSale.length} saved`);
                                         } catch (e: any) {
                                             addLog(`    ⚠ ForSale error: ${e.message}`);

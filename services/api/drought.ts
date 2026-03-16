@@ -100,10 +100,9 @@ export const fetchDroughtData = async (
         const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
         const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 
-        const isLocal = window.location.hostname === 'localhost';
-        const usdmBase = isLocal
-            ? '/usdm-proxy'
-            : 'https://usdmdataservices.unl.edu';
+        // USDM doesn't support CORS — use the Vite dev proxy; in production this will
+        // gracefully fail and return null (data is cached from ingestion runs).
+        const usdmBase = '/usdm-proxy';
 
         const res = await fetch(
             `${usdmBase}/api/CountyStatistics/GetDroughtSeverityStatisticsByAreaPercent?aoi=${county.fips}&startdate=${fmt(twoWeeksAgo)}&enddate=${fmt(now)}&statisticsType=1`,

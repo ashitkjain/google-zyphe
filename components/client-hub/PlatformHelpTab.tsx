@@ -1939,6 +1939,254 @@ const PlatformHelpTab: React.FC = () => {
                 }
             ]
         },
+        {
+            id: 'database_schema',
+            title: 'Database Schema',
+            icon: 'fa-database',
+            topics: [
+                {
+                    id: 'property_schema',
+                    title: 'Property Collections',
+                    icon: 'fa-house',
+                    content: (
+                        <div className="prose prose-slate max-w-none" key={`schema-prop-${schemaRefreshKey}`}>
+                            <SchemaPageHeader
+                                icon="fa-house"
+                                iconBg="bg-indigo-600 text-white"
+                                title="Property Intelligence"
+                                subtitle="Tier 1 — Keyed by ZPID"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-6">
+                                {propertyCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'city_schema',
+                    title: 'City & Market',
+                    icon: 'fa-city',
+                    content: (
+                        <div className="prose prose-slate max-w-none" key={`schema-city-${schemaRefreshKey}`}>
+                            <SchemaPageHeader
+                                icon="fa-chart-line"
+                                iconBg="bg-slate-900 text-white"
+                                title="City & Market Intelligence"
+                                subtitle="Tier 2 — Keyed by cityStateKey or Zip"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-6">
+                                {cityCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'crm_schema',
+                    title: 'CRM & Transactions',
+                    icon: 'fa-handshake',
+                    content: (
+                        <div className="prose prose-slate max-w-none" key={`schema-crm-${schemaRefreshKey}`}>
+                            <SchemaPageHeader
+                                icon="fa-handshake"
+                                iconBg="bg-emerald-600 text-white"
+                                title="CRM & Transactions"
+                                subtitle="Tier 3 — Leads, Transactions, Users"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-6">
+                                {crmCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'ops_schema',
+                    title: 'Platform Operations',
+                    icon: 'fa-gears',
+                    content: (
+                        <div className="prose prose-slate max-w-none" key={`schema-ops-${schemaRefreshKey}`}>
+                            <SchemaPageHeader
+                                icon="fa-gears"
+                                iconBg="bg-rose-600 text-white"
+                                title="Platform Operations"
+                                subtitle="Tier 4 — Audit Logs, API Events, Messaging"
+                                onRefresh={handleSchemaRefresh}
+                                refreshing={schemaRefreshing}
+                            />
+                            <SourceLegend />
+                            <div className="space-y-6">
+                                {opsCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'smoke_test_map',
+                    title: 'Smoke Test ↔ UI Map',
+                    icon: 'fa-arrows-left-right',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-amber-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-amber-100">
+                                    <i className="fa-solid fa-arrows-left-right"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Smoke Test ↔ UI Mapping</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">How each smoke test check maps to Firestore fields and UI components</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-amber-50/50 rounded-[2.5rem] p-10 border border-amber-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-circle-info text-amber-500 text-sm"></i>
+                                    How to Read This
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed mb-0">
+                                    The smoke test reads from <strong>6 Firestore collections</strong> in parallel. Each check below shows which collection the data comes from, the exact field path, and the UI component that renders it. When a field says <strong>"→ fallback"</strong>, it means the smoke test checks both locations.
+                                </p>
+                            </section>
+
+                            {/* Field Normalization Gotchas */}
+                            <section className="bg-rose-50 rounded-[2.5rem] p-8 border border-rose-100 mb-12">
+                                <h3 className="text-lg font-black text-rose-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-triangle-exclamation text-rose-500"></i>
+                                    Field Normalization Gotchas
+                                </h3>
+                                <div className="space-y-3">
+                                    {[
+                                        { from: 'price / list_price / ListPrice', to: 'listPrice', note: 'normalizePropertyFields() renames on every write' },
+                                        { from: 'sqft / square_footage / LivingArea', to: 'squareFootage', note: 'normalizePropertyFields() normalizes to squareFootage' },
+                                        { from: 'neighborhoodPlaces', to: '(stripped)', note: 'Removed from properties doc — only in google_environmental_data' },
+                                        { from: 'streetViewAnalysis.overall_assessment', to: '(does not exist)', note: 'Phantom field — use privacyRating / curbAppealScore / neighborhoodVibe' },
+                                        { from: 'pollen.analysis.summary', to: 'pollen.analysis.breathe_easy_summary', note: 'PollenAnalysisResult type uses breathe_easy_summary' },
+                                    ].map(g => (
+                                        <div key={g.from} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-rose-100">
+                                            <i className="fa-solid fa-bolt text-rose-400 text-[9px] mt-1.5 shrink-0"></i>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <code className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">{g.from}</code>
+                                                    <i className="fa-solid fa-arrow-right text-[8px] text-slate-300"></i>
+                                                    <code className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{g.to}</code>
+                                                </div>
+                                                <p className="text-[10px] text-slate-500 mt-1 mb-0">{g.note}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+
+                            {/* Collections Legend */}
+                            <div className="flex flex-wrap gap-2 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 self-center mr-2">Collections:</span>
+                                {[
+                                    { name: 'properties', color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
+                                    { name: 'property_assets', color: 'bg-sky-50 text-sky-600 border-sky-200' },
+                                    { name: 'property_analyses_visual', color: 'bg-violet-50 text-violet-600 border-violet-200' },
+                                    { name: 'google_environmental_data', color: 'bg-amber-50 text-amber-600 border-amber-200' },
+                                    { name: 'property_analyses_comprehensive', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+                                    { name: 'property_investment_research', color: 'bg-rose-50 text-rose-600 border-rose-200' },
+                                ].map(c => (
+                                    <span key={c.name} className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${c.color}`}>{c.name}</span>
+                                ))}
+                            </div>
+
+                            {/* Mapping Table */}
+                            <h3 className="text-xl font-black text-slate-800 mb-6 border-l-4 border-amber-600 pl-6">Full Smoke Test Field Map</h3>
+                            <div className="space-y-3 mb-12">
+                                {[
+                                    { check: 'Listing Price', severity: 'error', source: 'properties', field: 'listPrice (← price)', ui: 'PropertyHeader', fallback: 'price' },
+                                    { check: 'Bedrooms', severity: 'error', source: 'properties', field: 'bedrooms', ui: 'PropertyHeader' },
+                                    { check: 'Bathrooms', severity: 'error', source: 'properties', field: 'bathrooms', ui: 'PropertyHeader' },
+                                    { check: 'Living Area', severity: 'error', source: 'properties', field: 'livingAreaValue', ui: 'PropertyHeader' },
+                                    { check: 'Lot Size', severity: 'warn', source: 'properties', field: 'lotSize / lotAreaValue', ui: 'PropertyFacts' },
+                                    { check: 'Description', severity: 'error', source: 'properties', field: 'description', ui: 'PropertyDescription' },
+                                    { check: 'Year Built', severity: 'warn', source: 'properties', field: 'yearBuilt', ui: 'PropertyFacts' },
+                                    { check: 'Home Type', severity: 'warn', source: 'properties', field: 'homeType', ui: 'PropertyFacts' },
+                                    { check: 'Coordinates', severity: 'error', source: 'properties', field: 'coordinates.latitude / .longitude', ui: 'PropertyMaps' },
+                                    { check: 'Walk Score', severity: 'warn', source: 'properties', field: 'walkScore', ui: 'AirQualitySection' },
+                                    { check: 'Transit Score', severity: 'warn', source: 'properties', field: 'transitScore', ui: 'AirQualitySection' },
+                                    { check: 'Bike Score', severity: 'warn', source: 'properties', field: 'bikeScore', ui: 'AirQualitySection' },
+                                    { check: 'Property Images', severity: 'error', source: 'properties', field: 'images[]', ui: 'PropertyImages', fallback: 'property_assets.images[]' },
+                                    { check: 'Map Zoom-In', severity: 'error', source: 'property_assets', field: 'mapZoomIn', ui: 'PropertyMaps', fallback: 'properties.mapZoomIn' },
+                                    { check: 'Map Zoom-Out', severity: 'error', source: 'property_assets', field: 'mapZoomOut', ui: 'PropertyMaps', fallback: 'properties.mapZoomOut' },
+                                    { check: 'Street View (Storage)', severity: 'warn', source: 'property_assets', field: 'streetView', ui: 'StreetViewAnalysisSection', fallback: 'properties.streetViewAnalysis.imageUrl → env.streetViewAnalysis.imageUrl' },
+                                    { check: 'Satellite Image', severity: 'warn', source: 'property_assets', field: 'satelliteImageUrl', ui: 'Orientation Card', fallback: 'properties.satelliteImageUrl' },
+                                    { check: 'Parcel Polygon', severity: 'warn', source: 'properties', field: 'parcelPolygon / parcel_polygon', ui: 'ParcelValidationCard' },
+                                    { check: 'APN', severity: 'warn', source: 'properties', field: 'parcelApn / parcel_apn / apn', ui: 'ParcelValidationCard' },
+                                    { check: 'Parcel Area', severity: 'warn', source: 'properties', field: 'parcelAreaSqft / parcel_area_sqft', ui: 'ParcelValidationCard' },
+                                    { check: 'Tax Record Sqft', severity: 'warn', source: 'properties', field: 'taxSqft', ui: 'ParcelValidationCard' },
+                                    { check: 'Solar API', severity: 'warn', source: 'google_environmental_data', field: 'solarData.maxSunshineHoursPerYear', ui: 'AirQualitySection', fallback: 'properties.solarData' },
+                                    { check: 'Air Quality API', severity: 'warn', source: 'google_environmental_data', field: 'airQuality.aqi', ui: 'AirQualitySection', fallback: 'properties.airQuality' },
+                                    { check: 'Pollen API', severity: 'warn', source: 'google_environmental_data', field: 'pollen.score / .category', ui: 'AirQualitySection', fallback: 'properties.pollen' },
+                                    { check: 'Noise Score', severity: 'warn', source: 'google_environmental_data', field: 'noiseScore', ui: 'AirQualitySection', fallback: 'properties.noiseScore' },
+                                    { check: 'Nearby Places (POI)', severity: 'warn', source: 'google_environmental_data', field: 'neighborhoodPlaces', ui: 'NeighborhoodPlacesSection' },
+                                    { check: 'AI Visual — Interior', severity: 'error', source: 'property_analyses_visual', field: 'home_interior.overall_description', ui: 'InteriorView (Full Intel tab)' },
+                                    { check: 'AI Visual — Exterior', severity: 'error', source: 'property_analyses_visual', field: 'exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style', ui: 'ExteriorView (Full Intel tab)' },
+                                    { check: 'AI Neighborhood/Spatial', severity: 'error', source: 'property_analyses_visual', field: 'neighborhood.overview', ui: 'ExploreTab Neighborhood section' },
+                                    { check: 'Orientation AI', severity: 'warn', source: 'properties', field: 'orientation_ai.final_orientation', ui: 'ExploreTab Orientation card', fallback: 'env.orientation_ai' },
+                                    { check: 'Street View AI', severity: 'warn', source: 'properties', field: 'streetViewAnalysis.privacyRating / .curbAppealScore / .neighborhoodVibe', ui: 'StreetViewAnalysisSection', fallback: 'env.streetViewAnalysis' },
+                                    { check: 'Pollen AI Analysis', severity: 'warn', source: 'google_environmental_data', field: 'pollen.analysis.breathe_easy_summary', ui: 'AirQualitySection', fallback: 'properties.pollen.analysis' },
+                                    { check: 'Custom AI Analysis', severity: 'warn', source: 'properties', field: 'visual_analysis.executiveSummary', ui: 'CustomAIAnalysis' },
+                                    { check: 'Narrative Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Risks & Considerations', severity: 'warn', source: 'property_analyses_comprehensive', field: 'risks_considerations', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Interior Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'interior_summary.interior_summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Rooms Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'interior_summary.rooms_summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Interior Vibe', severity: 'warn', source: 'property_analyses_comprehensive', field: 'interior_summary.vibe', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Interior Tags', severity: 'warn', source: 'property_analyses_comprehensive', field: 'interior_summary.objective_tags[]', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Schools Summary', severity: 'warn', source: 'property_analyses_comprehensive', field: 'schools_summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Nearby Schools Data', severity: 'warn', source: 'properties', field: 'schools[]', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Lifestyle Insights', severity: 'warn', source: 'property_analyses_comprehensive', field: 'lifestyle_insights.outdoor / .family', ui: 'LifestyleInsightsSection' },
+                                    { check: 'STR Performance', severity: 'warn', source: 'property_investment_research', field: 'str_performance.adr', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'LTR Analysis', severity: 'warn', source: 'property_investment_research', field: 'ltr_analysis.monthly_rent', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Flood Risk Score', severity: 'warn', source: 'properties', field: 'floodRiskScore', ui: 'ExploreTab Risk section' },
+                                    { check: 'Fire Risk Score', severity: 'warn', source: 'properties', field: 'fireRiskScore', ui: 'ExploreTab Risk section' },
+                                ].map(row => {
+                                    const colColors: Record<string, string> = {
+                                        'properties': 'bg-indigo-50 text-indigo-600 border-indigo-200',
+                                        'property_assets': 'bg-sky-50 text-sky-600 border-sky-200',
+                                        'property_analyses_visual': 'bg-violet-50 text-violet-600 border-violet-200',
+                                        'google_environmental_data': 'bg-amber-50 text-amber-600 border-amber-200',
+                                        'property_analyses_comprehensive': 'bg-emerald-50 text-emerald-600 border-emerald-200',
+                                        'property_investment_research': 'bg-rose-50 text-rose-600 border-rose-200',
+                                    };
+                                    return (
+                                        <div key={row.check} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 ${row.severity === 'error' ? 'bg-rose-100 text-rose-500' : 'bg-amber-100 text-amber-500'}`}>
+                                                <i className={`fa-solid ${row.severity === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'} text-[8px]`}></i>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{row.check}</div>
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${colColors[row.source] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>{row.source}</span>
+                                                    <code className="text-[9px] text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-100 font-mono">{row.field}</code>
+                                                </div>
+                                                {row.fallback && (
+                                                    <div className="text-[9px] text-slate-400 mt-0.5">
+                                                        <span className="font-bold">Fallback:</span> {row.fallback}
+                                                    </div>
+                                                )}
+                                                <div className="text-[9px] text-indigo-500 mt-0.5 font-bold">
+                                                    <i className="fa-solid fa-display text-[7px] mr-1"></i>
+                                                    {row.ui}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )
+                },
+            ]
+        },
     ];
 
     const activeCategory = categories.find(c => c.id === activeCategoryId) || categories[1];
