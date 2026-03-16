@@ -681,43 +681,42 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                         </div>
                                                     </td>
                                                     <td className="p-6">
-                                                        <div
-                                                            onClick={() => setEditingComment({ zpid: prop.zpid, address: prop.address, comment: localComment })}
-                                                            className={`min-h-[40px] max-h-[60px] p-3 rounded-xl border border-slate-100 bg-slate-50/50 cursor-pointer hover:bg-white hover:border-indigo-200 hover:shadow-sm transition-all overflow-hidden group/comment`}
-                                                        >
-                                                            {localComment ? (
-                                                                <p className="text-[10px] text-slate-600 font-medium leading-relaxed line-clamp-2">
-                                                                    {localComment}
-                                                                </p>
-                                                            ) : (
-                                                                <div className="flex items-center gap-2 text-slate-400">
-                                                                    <i className="fa-solid fa-plus text-[8px]"></i>
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest">Add Comment</span>
-                                                                </div>
-                                                            )}
-                                                            <div className="absolute top-2 right-2 opacity-0 group-hover/comment:opacity-100 transition-opacity">
-                                                                <i className="fa-solid fa-pen-to-square text-indigo-400 text-[10px]"></i>
-                                                            </div>
-                                                        </div>
+                                                        <textarea
+                                                            value={localComment}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, comment: val } : p));
+                                                            }}
+                                                            placeholder="Add comment..."
+                                                            className={`w-full min-h-[40px] max-h-[60px] p-3 rounded-xl border text-[10px] font-medium leading-relaxed outline-none resize-none transition-all
+                                                                ${localComment ? 'border-slate-200 bg-slate-50/50 text-slate-600 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100' : 'border-slate-100 bg-slate-50/50 text-slate-600 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100 placeholder:text-slate-300'}
+                                                            `}
+                                                            rows={2}
+                                                        />
                                                     </td>
                                                     <td className="p-6">
-                                                        <div
-                                                            onClick={() => setEditingVisualComment({ zpid: prop.zpid, address: prop.address, comment: localVisualComment })}
-                                                            className={`min-h-[40px] max-h-[60px] p-3 rounded-xl border cursor-pointer hover:shadow-sm transition-all overflow-hidden group/vcomment
-                                                                ${localVisualComment ? 'border-cyan-200 bg-cyan-50/50 hover:bg-cyan-50 hover:border-cyan-300' : 'border-slate-100 bg-slate-50/50 hover:bg-white hover:border-cyan-200'}
+                                                        <textarea
+                                                            value={localVisualComment}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setAssessments(prev => ({
+                                                                    ...prev,
+                                                                    [prop.zpid]: { ...prev[prop.zpid], visual_ai_comment: val }
+                                                                }));
+                                                                setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, visual_ai_comment: val } : p));
+                                                            }}
+                                                            onBlur={() => {
+                                                                const current = assessments[prop.zpid]?.visual_ai_comment ?? '';
+                                                                if (current !== (prop.visual_ai_comment || '')) {
+                                                                    handleSaveVisualComment(prop.zpid, current);
+                                                                }
+                                                            }}
+                                                            placeholder="Add visual AI comment..."
+                                                            className={`w-full min-h-[40px] max-h-[60px] p-3 rounded-xl border text-[10px] font-medium leading-relaxed outline-none resize-none transition-all
+                                                                ${localVisualComment ? 'border-cyan-200 bg-cyan-50/50 text-cyan-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-200' : 'border-slate-100 bg-slate-50/50 text-slate-600 focus:border-cyan-300 focus:ring-1 focus:ring-cyan-100 placeholder:text-slate-300'}
                                                             `}
-                                                        >
-                                                            {localVisualComment ? (
-                                                                <p className="text-[10px] text-cyan-700 font-medium leading-relaxed line-clamp-2">
-                                                                    {localVisualComment}
-                                                                </p>
-                                                            ) : (
-                                                                <div className="flex items-center gap-2 text-cyan-400">
-                                                                    <i className="fa-solid fa-eye text-[8px]"></i>
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest">Visual AI</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                            rows={2}
+                                                        />
                                                     </td>
                                                     <td className="p-6 text-right">
                                                         <button
