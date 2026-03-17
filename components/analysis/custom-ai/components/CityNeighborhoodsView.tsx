@@ -4,6 +4,14 @@ interface CityNeighborhoodsViewProps {
     propertyData?: any;
 }
 
+const TIER_ICONS: Record<string, string> = {
+    'entry-level': 'fa-seedling',
+    'mid-range': 'fa-house',
+    'upper mid-range': 'fa-house-chimney',
+    'premium': 'fa-gem',
+    'ultra-luxury': 'fa-crown',
+};
+
 const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyData }) => {
     const [minedCities, setMinedCities] = useState<{ key: string; city: string; state: string; count: number }[]>([]);
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -14,28 +22,21 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
     const [loading, setLoading] = useState(true);
     const [showGuide, setShowGuide] = useState(true);
 
-    // Extract city/state from propertyData
     const propertyCity = propertyData?.city || propertyData?.address?.split(',')[1]?.trim();
     const propertyState = propertyData?.state || 'CA';
 
-    // Load all mined cities on mount
     useEffect(() => {
         (async () => {
             try {
                 const { getAllMinedCities } = await import('../../../../services/firebase/properties');
                 const cities = await getAllMinedCities();
                 setMinedCities(cities);
-
-                // Auto-select city matching current property
                 if (propertyCity) {
                     const { generateCityStateKey } = await import('../../../../services/firebase/config');
                     const hintKey = generateCityStateKey(propertyCity, propertyState);
                     const match = cities.find(c => c.key === hintKey);
-                    if (match) {
-                        setSelectedKey(match.key);
-                    } else if (cities.length > 0) {
-                        setSelectedKey(cities[0].key);
-                    }
+                    if (match) setSelectedKey(match.key);
+                    else if (cities.length > 0) setSelectedKey(cities[0].key);
                 } else if (cities.length > 0) {
                     setSelectedKey(cities[0].key);
                 }
@@ -44,7 +45,6 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
         })();
     }, []);
 
-    // Load neighborhood data when a city is selected
     useEffect(() => {
         if (!selectedKey) return;
         setNeighborhoodData(null);
@@ -60,13 +60,13 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
     const selectedCity = minedCities.find(c => c.key === selectedKey);
 
     const tierColors: Record<string, string> = {
-        'entry-level': 'bg-emerald-50 border-emerald-200 text-emerald-700',
-        'mid-range': 'bg-blue-50 border-blue-200 text-blue-700',
-        'upper mid-range': 'bg-indigo-50 border-indigo-200 text-indigo-700',
-        'premium': 'bg-purple-50 border-purple-200 text-purple-700',
-        'ultra-luxury': 'bg-amber-50 border-amber-200 text-amber-800',
+        'entry-level': 'bg-emerald-100 text-emerald-700',
+        'mid-range': 'bg-blue-100 text-blue-700',
+        'upper mid-range': 'bg-indigo-100 text-indigo-700',
+        'premium': 'bg-purple-100 text-purple-700',
+        'ultra-luxury': 'bg-amber-100 text-amber-700',
     };
-    const getTierColor = (tier: string) => tierColors[tier?.toLowerCase()] || 'bg-slate-50 border-slate-200 text-slate-600';
+    const getTierColor = (tier: string) => tierColors[tier?.toLowerCase()] || 'bg-gray-100 text-gray-700';
 
     const tiers = neighborhoodData?.neighborhoods
         ? [...new Set(neighborhoodData.neighborhoods.map((n: any) => n.price_context?.tier).filter(Boolean))]
@@ -87,8 +87,8 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
         return (
             <div className="flex items-center justify-center py-24">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-sm font-bold text-slate-400">Loading city neighborhoods...</p>
+                    <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-[13px] font-bold text-gray-400">Loading city neighborhoods...</p>
                 </div>
             </div>
         );
@@ -96,239 +96,271 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
 
     if (minedCities.length === 0) {
         return (
-            <div className="flex items-center justify-center py-24">
-                <div className="text-center max-w-md">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                        <i className="fa-solid fa-mountain-city text-2xl text-slate-300"></i>
+            <section>
+                <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12">
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-5">
+                            <i className="fa-solid fa-mountain-city text-2xl text-gray-300"></i>
+                        </div>
+                        <h3 className="font-black text-gray-900 text-xl mb-3 tracking-tight">No Cities Mined Yet</h3>
+                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625] max-w-md">
+                            Go to the <strong className="text-indigo-600">City Data</strong> admin tab and click <strong className="text-indigo-600">Mine Neighborhoods</strong> for a city to populate this view.
+                        </p>
                     </div>
-                    <h3 className="text-lg font-black text-slate-700 mb-2">No Cities Mined Yet</h3>
-                    <p className="text-sm text-slate-400">Go to the <strong>City Data</strong> admin tab and click <strong>Mine Neighborhoods</strong> for a city to populate this view.</p>
                 </div>
-            </div>
+            </section>
         );
     }
 
     return (
-        <div className="space-y-4">
-            {/* City Selector Bar */}
-            <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <i className="fa-solid fa-mountain-city mr-1.5"></i>
-                    Select City
-                </span>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                    {minedCities.map(c => (
-                        <button
-                            key={c.key}
-                            onClick={() => { setSelectedKey(c.key); setNhFilter('all'); setNhSearch(''); setExpandedNh(new Set()); }}
-                            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                                selectedKey === c.key
-                                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
-                                    : 'bg-white border border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-600'
-                            }`}
-                        >
-                            {c.city}, {c.state} ({c.count})
-                        </button>
-                    ))}
-                </div>
-            </div>
+        <section className="space-y-8">
+            {/* ── Main Container ─────────────────────────────── */}
+            <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
 
-            {!neighborhoodData ? (
-                <div className="flex items-center justify-center py-16">
-                    <div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div>
+                {/* ── Header + City Selector ────────────────── */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOODS</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {minedCities.map(c => (
+                                <button
+                                    key={c.key}
+                                    onClick={() => { setSelectedKey(c.key); setNhFilter('all'); setNhSearch(''); setExpandedNh(new Set()); }}
+                                    className={`text-[11px] font-bold px-3 py-1.5 rounded-full transition-all ${
+                                        selectedKey === c.key
+                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-mountain-city mr-1.5" />{c.city}, {c.state} ({c.count})
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            ) : (
-                <>
-                    {/* Buyer's Guide */}
-                    {neighborhoodData.city_summary && (
-                        <div className="rounded-2xl border border-indigo-100 overflow-hidden">
-                            <button
-                                onClick={() => setShowGuide(!showGuide)}
-                                className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-indigo-50/60 to-purple-50/40 hover:from-indigo-50 hover:to-purple-50/60 transition-colors"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <i className="fa-solid fa-compass text-indigo-500 text-sm"></i>
-                                    <span className="text-xs font-black text-slate-800 uppercase tracking-widest">Buyer&apos;s Guide — {selectedCity?.city || 'City'}</span>
-                                </div>
-                                <i className={`fa-solid fa-chevron-${showGuide ? 'up' : 'down'} text-indigo-300 text-xs`}></i>
-                            </button>
-                            {showGuide && (
-                                <div className="px-5 py-4 bg-white/50">
-                                    <p className="text-[11.5px] text-slate-600 leading-relaxed whitespace-pre-line">
+
+                {!neighborhoodData ? (
+                    <div className="flex items-center justify-center py-16">
+                        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                    </div>
+                ) : (
+                    <>
+                        {/* ── Buyer's Guide ─────────────────────────── */}
+                        {neighborhoodData.city_summary && (
+                            <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-[2.5rem] border border-indigo-100/60 p-6 md:p-8">
+                                <button
+                                    onClick={() => setShowGuide(!showGuide)}
+                                    className="w-full flex items-center justify-between group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-500 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                            <i className="fa-solid fa-compass text-lg" />
+                                        </div>
+                                        <div className="text-left">
+                                            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">BUYER&apos;S GUIDE</div>
+                                            <div className="font-black text-gray-900 text-lg tracking-tight">{selectedCity?.city || 'City'} Residential Landscape</div>
+                                        </div>
+                                    </div>
+                                    <i className={`fa-solid fa-chevron-${showGuide ? 'up' : 'down'} text-indigo-300`} />
+                                </button>
+                                {showGuide && (
+                                    <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625] mt-6 whitespace-pre-line">
                                         {neighborhoodData.city_summary}
                                     </p>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                )}
+                            </div>
+                        )}
 
-                    {/* Filter + Search */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center bg-white border border-slate-200 p-1 rounded-xl flex-wrap">
-                            <button
-                                onClick={() => setNhFilter('all')}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${nhFilter === 'all' ? 'bg-slate-900 text-white shadow' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                All ({neighborhoodData.neighborhoods?.length || 0})
-                            </button>
-                            {(tiers as string[]).map((tier: string) => {
-                                const cnt = neighborhoodData.neighborhoods?.filter((n: any) => n.price_context?.tier === tier).length || 0;
-                                return (
-                                    <button
-                                        key={tier}
-                                        onClick={() => setNhFilter(nhFilter === tier ? 'all' : tier)}
-                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${nhFilter === tier ? 'bg-slate-900 text-white shadow' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        {tier} ({cnt})
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <div className="relative flex-1 min-w-[200px] max-w-sm">
-                            <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
-                            <input
-                                value={nhSearch}
-                                onChange={e => setNhSearch(e.target.value)}
-                                placeholder="Search neighborhoods..."
-                                className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-                            />
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400 ml-auto">
-                            Showing {filtered.length} of {neighborhoodData.neighborhoods?.length || 0}
-                        </span>
-                    </div>
-
-                    {/* Neighborhood Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {filtered.map((n: any, idx: number) => {
-                            const isExpanded = expandedNh.has(n.neighborhood_name);
-                            return (
-                                <div
-                                    key={idx}
-                                    className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group"
-                                    onClick={() => setExpandedNh(prev => {
-                                        const next = new Set(prev);
-                                        isExpanded ? next.delete(n.neighborhood_name) : next.add(n.neighborhood_name);
-                                        return next;
-                                    })}
+                        {/* ── Filter + Search ───────────────────────── */}
+                        <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-gray-100">
+                            <div className="flex items-center gap-1 flex-wrap">
+                                <button
+                                    onClick={() => setNhFilter('all')}
+                                    className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full transition-all ${nhFilter === 'all' ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'}`}
                                 >
-                                    {/* Card Header */}
-                                    <div className="p-4 pb-3">
-                                        <div className="flex items-start justify-between gap-2 mb-2">
-                                            <h4 className="text-sm font-black text-slate-900 leading-snug">{n.neighborhood_name}</h4>
-                                            <span className={`shrink-0 px-2.5 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${getTierColor(n.price_context?.tier)}`}>
+                                    All ({neighborhoodData.neighborhoods?.length || 0})
+                                </button>
+                                {(tiers as string[]).map((tier: string) => {
+                                    const cnt = neighborhoodData.neighborhoods?.filter((n: any) => n.price_context?.tier === tier).length || 0;
+                                    return (
+                                        <button
+                                            key={tier}
+                                            onClick={() => setNhFilter(nhFilter === tier ? 'all' : tier)}
+                                            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full transition-all ${nhFilter === tier ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                                        >
+                                            {tier} ({cnt})
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className="relative flex-1 min-w-[200px] max-w-sm">
+                                <i className="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 text-xs" />
+                                <input
+                                    value={nhSearch}
+                                    onChange={e => setNhSearch(e.target.value)}
+                                    placeholder="Search neighborhoods..."
+                                    className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-[13px] font-medium outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                                />
+                            </div>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-auto">
+                                {filtered.length} of {neighborhoodData.neighborhoods?.length || 0}
+                            </span>
+                        </div>
+
+                        {/* ── Neighborhood Cards Grid ────────────────── */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {filtered.map((n: any, idx: number) => {
+                                const isExpanded = expandedNh.has(n.neighborhood_name);
+                                const tierKey = (n.price_context?.tier || '').toLowerCase();
+                                const icon = TIER_ICONS[tierKey] || 'fa-location-dot';
+                                return (
+                                    <div
+                                        key={idx}
+                                        className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col cursor-pointer"
+                                        onClick={() => setExpandedNh(prev => {
+                                            const next = new Set(prev);
+                                            isExpanded ? next.delete(n.neighborhood_name) : next.add(n.neighborhood_name);
+                                            return next;
+                                        })}
+                                    >
+                                        {/* Icon + Tier badge */}
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                                <i className={`fa-solid ${icon} text-lg`}></i>
+                                            </div>
+                                            <span className={`text-[10px] font-black px-3 py-1.5 rounded-full ${getTierColor(n.price_context?.tier)}`}>
                                                 {n.price_context?.tier || 'N/A'}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-2 mb-2.5">
-                                            <span className="text-[11px] font-bold text-indigo-600">{n.price_context?.typical_range || '—'}</span>
+
+                                        {/* Name */}
+                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">{n.neighborhood_name}</h4>
+
+                                        {/* Price + Community Type badges */}
+                                        <div className="flex flex-wrap gap-1.5 mb-3">
+                                            {n.price_context?.typical_range && (
+                                                <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700">
+                                                    <i className="fa-solid fa-dollar-sign mr-1" />{n.price_context.typical_range}
+                                                </span>
+                                            )}
                                             {n.character?.community_type && (
-                                                <span className="text-[9px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">{n.character.community_type}</span>
+                                                <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600">
+                                                    <i className="fa-solid fa-shield-halved mr-1" />{n.character.community_type}
+                                                </span>
                                             )}
                                         </div>
-                                        <p className={`text-[10px] text-slate-500 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+
+                                        {/* Description */}
+                                        <p className={`text-gray-700 font-sans font-normal text-[13px] leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
                                             {n.character?.description || 'No description available.'}
                                         </p>
-                                    </div>
 
-                                    {/* Quick Stats Row */}
-                                    <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
-                                        {n.character?.architectural_style && (
-                                            <span className="text-[9px] text-slate-500">
-                                                <i className="fa-solid fa-home text-[7px] text-slate-300 mr-1"></i>
-                                                {n.character.architectural_style}
-                                            </span>
-                                        )}
-                                        {n.character?.era_built && (
-                                            <span className="text-[9px] text-slate-500">
-                                                <i className="fa-solid fa-calendar text-[7px] text-slate-300 mr-1"></i>
-                                                {n.character.era_built}
-                                            </span>
-                                        )}
-                                        {n.character?.typical_home_size && (
-                                            <span className="text-[9px] text-slate-500">
-                                                <i className="fa-solid fa-ruler-combined text-[7px] text-slate-300 mr-1"></i>
-                                                {n.character.typical_home_size}
-                                            </span>
-                                        )}
-                                        {n.hoa?.has_hoa && (
-                                            <span className="text-[9px] text-amber-600 font-semibold">
-                                                <i className="fa-solid fa-shield text-[7px] mr-1"></i>
-                                                HOA{n.hoa.monthly_fee ? ` ${n.hoa.monthly_fee}` : ''}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Expanded Details */}
-                                    {isExpanded && (
-                                        <div className="px-4 py-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-200 bg-white">
-                                            {n.alternative_names?.length > 0 && (
-                                                <div>
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Also Known As</span>
-                                                    <p className="text-[10px] text-slate-600 mt-0.5">{n.alternative_names.join(', ')}</p>
-                                                </div>
+                                        {/* Quick stats in footer zone */}
+                                        <div className="pt-4 border-t border-gray-100 mt-auto -mx-6 -mb-6 px-6 py-4 rounded-b-2xl bg-gray-50 flex flex-wrap gap-x-4 gap-y-1.5">
+                                            {n.character?.architectural_style && (
+                                                <span className="text-[11px] font-semibold text-gray-500">
+                                                    <i className="fa-solid fa-building-columns text-gray-300 mr-1 text-[9px]" />
+                                                    {n.character.architectural_style}
+                                                </span>
                                             )}
-                                            {n.character?.typical_lot_size && (
-                                                <div>
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Typical Lot Size</span>
-                                                    <p className="text-[10px] text-slate-600 mt-0.5">{n.character.typical_lot_size}</p>
-                                                </div>
+                                            {n.character?.era_built && (
+                                                <span className="text-[11px] font-semibold text-gray-500">
+                                                    <i className="fa-solid fa-calendar text-gray-300 mr-1 text-[9px]" />
+                                                    {n.character.era_built}
+                                                </span>
                                             )}
-                                            {n.price_context?.context && (
-                                                <div>
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Market Position</span>
-                                                    <p className="text-[10px] text-slate-600 mt-0.5">{n.price_context.context}</p>
-                                                </div>
+                                            {n.character?.typical_home_size && (
+                                                <span className="text-[11px] font-semibold text-gray-500">
+                                                    <i className="fa-solid fa-ruler-combined text-gray-300 mr-1 text-[9px]" />
+                                                    {n.character.typical_home_size}
+                                                </span>
                                             )}
-                                            {n.hoa?.has_hoa && (n.hoa.covers || n.hoa.notable_rules) && (
-                                                <div>
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">HOA Details</span>
-                                                    {n.hoa.covers && <p className="text-[10px] text-slate-600 mt-0.5"><strong>Covers:</strong> {n.hoa.covers}</p>}
-                                                    {n.hoa.notable_rules && <p className="text-[10px] text-slate-600 mt-0.5"><strong>Rules:</strong> {n.hoa.notable_rules}</p>}
-                                                </div>
+                                            {n.hoa?.has_hoa && (
+                                                <span className="text-[11px] font-bold text-amber-600">
+                                                    <i className="fa-solid fa-building-shield text-[9px] mr-1" />
+                                                    HOA{n.hoa.monthly_fee ? ` · ${n.hoa.monthly_fee}` : ''}
+                                                </span>
                                             )}
-                                            {n.infrastructure_quality && (
-                                                <div>
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Infrastructure</span>
-                                                    <p className="text-[10px] text-slate-600 mt-0.5">{n.infrastructure_quality}</p>
-                                                </div>
-                                            )}
-                                            {n.upcoming_changes && n.upcoming_changes !== 'None known' && (
-                                                <div>
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Upcoming Changes</span>
-                                                    <p className="text-[10px] text-amber-700 mt-0.5">{n.upcoming_changes}</p>
-                                                </div>
-                                            )}
-                                            {n.unique_features?.length > 0 && (
-                                                <div>
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Standout Features</span>
-                                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                                        {n.unique_features.map((f: string, fi: number) => (
-                                                            <span key={fi} className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg text-[9px] font-semibold">
-                                                                {f}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div className="pt-1">
-                                                <span className="text-[8px] text-slate-300 font-medium">Source: {n.source_type || 'Unknown'}</span>
-                                            </div>
                                         </div>
-                                    )}
+
+                                        {/* Expanded details */}
+                                        {isExpanded && (
+                                            <div className="pt-5 -mx-6 -mb-6 px-6 pb-6 border-t border-gray-100 space-y-4 bg-white rounded-b-2xl mt-4">
+                                                {n.alternative_names?.length > 0 && (
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">ALSO KNOWN AS</div>
+                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{n.alternative_names.join(', ')}</p>
+                                                    </div>
+                                                )}
+                                                {n.character?.typical_lot_size && (
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">TYPICAL LOT SIZE</div>
+                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{n.character.typical_lot_size}</p>
+                                                    </div>
+                                                )}
+                                                {n.price_context?.context && (
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">MARKET POSITION</div>
+                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{n.price_context.context}</p>
+                                                    </div>
+                                                )}
+                                                {n.hoa?.has_hoa && (n.hoa.covers || n.hoa.notable_rules) && (
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-1">
+                                                            <i className="fa-solid fa-building-shield mr-1" />HOA DETAILS
+                                                        </div>
+                                                        {n.hoa.covers && <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed"><strong className="text-gray-900">Covers:</strong> {n.hoa.covers}</p>}
+                                                        {n.hoa.notable_rules && <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed mt-1"><strong className="text-gray-900">Rules:</strong> {n.hoa.notable_rules}</p>}
+                                                    </div>
+                                                )}
+                                                {n.infrastructure_quality && (
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">INFRASTRUCTURE</div>
+                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{n.infrastructure_quality}</p>
+                                                    </div>
+                                                )}
+                                                {n.upcoming_changes && n.upcoming_changes !== 'None known' && (
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-1">
+                                                            <i className="fa-solid fa-triangle-exclamation mr-1" />UPCOMING CHANGES
+                                                        </div>
+                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{n.upcoming_changes}</p>
+                                                    </div>
+                                                )}
+                                                {n.unique_features?.length > 0 && (
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2">STANDOUT FEATURES</div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {n.unique_features.map((f: string, fi: number) => (
+                                                                <span key={fi} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white border border-indigo-100 text-indigo-700 shadow-sm">
+                                                                    {f}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className="pt-2">
+                                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Source: {n.source_type || 'Unknown'}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            {filtered.length === 0 && (
+                                <div className="col-span-full text-center py-16">
+                                    <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-5">
+                                        <i className="fa-solid fa-search text-2xl text-gray-300"></i>
+                                    </div>
+                                    <h3 className="font-black text-gray-900 text-lg mb-2 tracking-tight">No neighborhoods match</h3>
+                                    <p className="text-gray-500 font-sans font-normal text-[13px]">Try a different search term or filter.</p>
                                 </div>
-                            );
-                        })}
-                        {filtered.length === 0 && (
-                            <div className="col-span-full text-center py-12">
-                                <i className="fa-solid fa-search text-3xl text-slate-200 mb-3"></i>
-                                <p className="text-sm font-bold text-slate-400">No neighborhoods match your search</p>
-                            </div>
-                        )}
-                    </div>
-                </>
-            )}
-        </div>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+        </section>
     );
 };
 
