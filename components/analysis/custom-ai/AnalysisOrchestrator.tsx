@@ -45,7 +45,6 @@ interface Props {
     isFavorited?: boolean;
     onToggleFavorite?: () => void;
     activeSubTab?: string;
-    paletteSlotRef?: React.RefObject<HTMLDivElement>;
 }
 
 const AnalysisOrchestrator: React.FC<Props> = ({
@@ -67,8 +66,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     addLog,
     isFavorited,
     onToggleFavorite,
-    activeSubTab,
-    paletteSlotRef
+    activeSubTab
 }) => {
     const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor') || 'buyer';
     const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
@@ -314,7 +312,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         <div className="pb-20 relative">
             {/* Content Area */}
             <div className="min-h-[500px] relative max-w-6xl mx-auto">
-                <StickyNotesLayer zpid={zpid || ''} activeTab={activeTab} paletteSlotRef={paletteSlotRef}>
+                <StickyNotesLayer zpid={zpid || ''} activeTab={activeTab}>
                     {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
                     {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
                     {activeTab === 'exterior_and_neighborhood' && (
