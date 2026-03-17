@@ -28,6 +28,12 @@ INSTRUCTIONS:
    - Unique physical features (trails, views, parks, proximity to landmarks)
 3. Be EXHAUSTIVE — include small subdivisions, newer developments, and established neighborhoods alike.
 4. Order neighborhoods roughly by price tier (Entry-Level first, Ultra-Luxury last).
+5. ALSO provide a "city_summary" that:
+   - Gives an overall summary of the residential landscape in ${city}
+   - Explains the key trade-offs between neighborhoods (e.g. price vs lot size, schools vs commute, newer vs established)
+   - Provides practical buying guidance: how should a prospective buyer go about deciding which neighborhood to buy a home in?
+   - Highlights any neighborhood clusters or corridors that share similar characteristics
+   - Keep this to 3-5 paragraphs, written in a helpful, advisory tone
 
 IMPORTANT RULES:
 - Focus on RESIDENTIAL neighborhoods only (not commercial districts).
@@ -47,6 +53,10 @@ export const cityNeighborhoodMinerSchema = {
         city: { type: Type.STRING, description: "City name." },
         state: { type: Type.STRING, description: "State abbreviation." },
         total_neighborhoods: { type: Type.NUMBER, description: "Total number of neighborhoods identified." },
+        city_summary: {
+            type: Type.STRING,
+            description: "3-5 paragraph summary of the city's residential landscape. Covers how neighborhoods compare, key trade-offs (price vs lot size, schools vs commute, newer vs established), practical buying guidance for prospective buyers on how to decide which neighborhood to buy in, and any notable neighborhood clusters or corridors."
+        },
         neighborhoods: {
             type: Type.ARRAY,
             description: "All identified residential neighborhoods in the city.",
@@ -115,7 +125,7 @@ export const cityNeighborhoodMinerSchema = {
             }
         }
     },
-    required: ["city", "state", "total_neighborhoods", "neighborhoods"]
+    required: ["city", "state", "total_neighborhoods", "city_summary", "neighborhoods"]
 };
 
 // ── TypeScript types ──────────────────────────────────────────────────────────
@@ -152,5 +162,6 @@ export interface CityNeighborhoodsResult {
     city: string;
     state: string;
     total_neighborhoods: number;
+    city_summary: string;
     neighborhoods: CityNeighborhoodEntry[];
 }

@@ -2539,6 +2539,18 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
                         </div>
                     ) : (
                         <>
+                            {/* City Summary / Buyer's Guide */}
+                            {neighborhoodData.city_summary && (
+                                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50/40 to-purple-50/30">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <i className="fa-solid fa-compass text-indigo-500 text-sm"></i>
+                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Buyer&apos;s Guide — {city}</h4>
+                                    </div>
+                                    <div className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line max-h-[200px] overflow-y-auto pr-2">
+                                        {neighborhoodData.city_summary}
+                                    </div>
+                                </div>
+                            )}
                             {/* Filter + Search bar */}
                             <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex flex-wrap items-center gap-3">
                                 <div className="flex items-center bg-white border border-slate-200 p-1 rounded-xl flex-wrap">
