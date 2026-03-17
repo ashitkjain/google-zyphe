@@ -187,11 +187,6 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                                 </div>
                                 <span className="text-[16px] font-black text-slate-700 tracking-tight">Street View Analysis</span>
                             </div>
-                            {analysis.curbAppealScore != null && (
-                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${getScoreBg(analysis.curbAppealScore)} ${getScoreColor(analysis.curbAppealScore)}`}>
-                                    Curb Appeal: {analysis.curbAppealScore}/10
-                                </span>
-                            )}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">

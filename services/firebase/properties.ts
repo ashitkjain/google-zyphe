@@ -239,14 +239,13 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
         );
         logFirestoreQuery('getDocs', 'properties', { city, maxResults, scope: 'browse_by_city' });
         const snapshot = await getDocs(q);
-        const { getNeighborhood } = await import('../neighborhoodService');
         return snapshot.docs
             .filter(d => !d.data().deprecated)
             .map(d => {
             const data = d.data();
             const coords = data.coordinates ? { latitude: data.coordinates.latitude, longitude: data.coordinates.longitude } : undefined;
-            const addr = data.address || '';
-            const hood = getNeighborhood(coords?.latitude || 0, coords?.longitude || 0, addr);
+            // Prefer AI-resolved neighborhood name (actual neighborhoods), fall back to geo-based school zone lookup
+            const resolvedNeighborhood = data.neighborhood_identity?.resolved_name || '';
             return {
                 zpid: d.id,
                 address: data.address || '',
@@ -257,7 +256,7 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                 livingArea: data.squareFootage ?? data.livingAreaValue ?? data.livingArea ?? data.living_area ?? undefined,
                 lotSize: data.lotSize || data.lot_size || data.resoFacts?.lotSize || '',
                 homeType: data.homeType || data.home_type || data.propertyType || data.property_type || '',
-                neighborhood: hood?.name || '',
+                neighborhood: resolvedNeighborhood,
                 coordinates: coords,
                 images: data.images?.slice(0, 1) || [],
             };

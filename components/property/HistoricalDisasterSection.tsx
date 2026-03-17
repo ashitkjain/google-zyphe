@@ -258,10 +258,12 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
     if (compact) {
         return (
             <div className="bg-white border-x border-b border-gray-100 px-6 py-3 overflow-visible">
-                <div className="flex items-center justify-between text-xs font-black text-black uppercase tracking-widest mb-2">
-                    <div className="flex items-center flex-1">
-                        <i className="fa-solid fa-shield-halved mr-2"></i>
-                        Hazard Zones
+                <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-rose-100 flex items-center justify-center">
+                            <i className="fa-solid fa-shield-halved text-rose-600 text-[11px]"></i>
+                        </div>
+                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Hazard Zones</span>
                         <InfoTooltip title="Data Sources" items={[
                             { label: 'Seismic Zone', desc: 'USGS Design Maps (ASCE 7-22)' },
                             { label: 'Flood Zone', desc: 'FEMA National Flood Hazard Layer' },
@@ -286,11 +288,25 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
                     {/* Zone classifications as inline badges */}
                     {data.seismicZone && (() => {
                         const c = SEISMIC_COLORS[data.seismicZone.riskLevel] || SEISMIC_COLORS.low;
+                        const zoneDescs: Record<string, string> = {
+                            'A': 'Minimal seismic risk',
+                            'B': 'Low to moderate seismic risk',
+                            'C': 'Moderate to high seismic risk',
+                            'D': 'High seismic risk — stricter building codes apply',
+                            'E': 'Very high seismic risk — earthquake insurance recommended',
+                            'F': 'Site-specific ground failure risk',
+                        };
+                        const desc = zoneDescs[data.seismicZone.designCategory] || '';
                         return (
-                            <div className="flex items-center gap-1.5">
-                                <i className={`fa-solid fa-mountain-sun text-[9px] ${c.text}`}></i>
-                                <span className="text-[11px] font-bold text-gray-500">Seismic</span>
-                                <span className={`text-[11px] font-black ${c.text} ${c.bg} px-1.5 py-0.5 rounded-md border ${c.border}`}>Zone {data.seismicZone.designCategory}</span>
+                            <div>
+                                <div className="flex items-center gap-1.5">
+                                    <i className={`fa-solid fa-mountain-sun text-[9px] ${c.text}`}></i>
+                                    <span className="text-[11px] font-bold text-gray-500">Seismic</span>
+                                    <span className={`text-[11px] font-black ${c.text} ${c.bg} px-1.5 py-0.5 rounded-md border ${c.border}`}>Zone {data.seismicZone.designCategory}</span>
+                                </div>
+                                {desc && (
+                                    <p className="text-[10px] text-gray-400 font-medium ml-[22px] mt-0.5 leading-snug">{desc}</p>
+                                )}
                             </div>
                         );
                     })()}
@@ -316,10 +332,15 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
                         };
                         const dc = droughtColors[drought.severity] || droughtColors['None'];
                         return (
-                            <div className="flex items-center gap-1.5">
-                                <i className={`fa-solid fa-sun-plant-wilt text-[9px] ${dc.icon}`}></i>
-                                <span className="text-[11px] font-bold text-gray-500">Drought</span>
-                                <span className={`text-[11px] font-black ${dc.text}`}>{drought.severity}</span>
+                            <div>
+                                <div className="flex items-center gap-1.5">
+                                    <i className={`fa-solid fa-sun-plant-wilt text-[9px] ${dc.icon}`}></i>
+                                    <span className="text-[11px] font-bold text-gray-500">Drought</span>
+                                    <span className={`text-[11px] font-black ${dc.text}`}>{drought.severity}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-medium ml-[22px] mt-0.5 leading-snug">
+                                    {drought.countyName}, {drought.state} — {drought.none.toFixed(0)}% no drought, {(100 - drought.none).toFixed(0)}% affected
+                                </p>
                             </div>
                         );
                     })()}

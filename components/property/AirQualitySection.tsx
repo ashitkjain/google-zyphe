@@ -314,60 +314,72 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
 
 
                                 <>
-                                    {/* Key financial metrics — standalone above Financial Analysis */}
-                                    {solar.financialAnalysis?.cashPurchase && (
-                                        <div className="grid grid-cols-2 gap-2 mt-3">
-                                            {solar.financialAnalysis.cashPurchase.paybackYears != null && (
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-clock-rotate-left text-[10px] text-amber-400"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Payback</div>
-                                                        <div className="text-[13px] font-black text-amber-600 leading-snug">{Number(solar.financialAnalysis.cashPurchase.paybackYears).toFixed(1)} years</div>
-                                                    </div>
+                                    {/* Key financial metrics */}
+                                    {solar.financialAnalysis && (
+                                        <div className="mt-3 space-y-2">
+                                            {/* After Solar estimate */}
+                                            {solar.financialAnalysis.remainingLifetimeCostBill != null && (
+                                                <div className="p-2 bg-emerald-50/60 rounded-lg border border-emerald-100/60">
+                                                    <div className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">After Solar</div>
+                                                    <div className="text-[13px] font-black text-emerald-600 leading-snug">${Math.round(solar.financialAnalysis.remainingLifetimeCostBill / 240).toLocaleString()}<span className="text-[10px] font-normal text-emerald-400">/mo est.</span></div>
                                                 </div>
                                             )}
-                                            {solar.financialAnalysis.cashPurchase.savings?.savingsYear20 != null && (
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-chart-line text-[10px] text-emerald-400"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">20-Year Savings</div>
-                                                        <div className="text-[13px] font-black text-emerald-600 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}</div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {solar.financialAnalysis.cashPurchase.upfrontCost != null && (
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-receipt text-[10px] text-indigo-400"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">System Cost</div>
-                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.upfrontCost.toLocaleString()}</div>
-                                                        {solar.financialAnalysis.cashPurchase.rebateValue != null && solar.financialAnalysis.cashPurchase.rebateValue > 0 && (
-                                                            <div className="text-[10px] text-emerald-500 font-semibold">incl. ${solar.financialAnalysis.cashPurchase.rebateValue.toLocaleString()} rebate</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {solar.financialAnalysis.cashPurchase.savings?.savingsYear1 != null && (
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-calendar-check text-[10px] text-slate-300"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Year 1 Savings</div>
-                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}</div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
 
-                                    {/* After Solar estimate */}
-                                    {solar.financialAnalysis?.monthlyBill != null && solar.financialAnalysis.costOfElectricityWithoutSolar != null && solar.financialAnalysis.remainingLifetimeCostBill != null && (
-                                        <div className="mt-3 pt-3 border-t border-slate-200/80">
-                                            <div className="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-100/60">
-                                                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">After Solar</div>
-                                                <div className="text-[15px] font-black text-emerald-600">
-                                                    ${Math.round(solar.financialAnalysis.remainingLifetimeCostBill / 240).toLocaleString()}<span className="text-[10px] font-normal text-emerald-400">/mo est.</span>
+                                            {/* Cash purchase metrics grid */}
+                                            {solar.financialAnalysis.cashPurchase && (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {solar.financialAnalysis.cashPurchase.paybackYears != null && (
+                                                        <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                            <i className="fa-solid fa-clock-rotate-left text-[10px] text-amber-400"></i>
+                                                            <div className="min-w-0">
+                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Payback</div>
+                                                                <div className="text-[13px] font-black text-amber-600 leading-snug">{Number(solar.financialAnalysis.cashPurchase.paybackYears).toFixed(1)} years</div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {solar.financialAnalysis.cashPurchase.savings?.savingsYear20 != null && (
+                                                        <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                            <i className="fa-solid fa-chart-line text-[10px] text-emerald-400"></i>
+                                                            <div className="min-w-0">
+                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">20-Yr Savings</div>
+                                                                <div className="text-[13px] font-black text-emerald-600 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}</div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {solar.financialAnalysis.cashPurchase.upfrontCost != null && (
+                                                        <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                            <i className="fa-solid fa-receipt text-[10px] text-indigo-400"></i>
+                                                            <div className="min-w-0">
+                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">System Cost</div>
+                                                                <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.upfrontCost.toLocaleString()}</div>
+                                                                {solar.financialAnalysis.cashPurchase.rebateValue != null && solar.financialAnalysis.cashPurchase.rebateValue > 0 && (
+                                                                    <div className="text-[10px] text-emerald-500 font-semibold">incl. ${solar.financialAnalysis.cashPurchase.rebateValue.toLocaleString()} rebate</div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {solar.financialAnalysis.cashPurchase.savings?.savingsYear1 != null && (
+                                                        <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                            <i className="fa-solid fa-calendar-check text-[10px] text-slate-300"></i>
+                                                            <div className="min-w-0">
+                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Year 1 Savings</div>
+                                                                <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}</div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
+                                            )}
+
+                                            {/* Lifetime cost without solar */}
+                                            {solar.financialAnalysis.costOfElectricityWithoutSolar != null && (
+                                                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                                    <i className="fa-solid fa-bolt text-[10px] text-slate-400"></i>
+                                                    <div className="min-w-0">
+                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Lifetime Cost (No Solar)</div>
+                                                        <div className="text-[13px] font-normal text-slate-700 leading-snug">${solar.financialAnalysis.costOfElectricityWithoutSolar.toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 

@@ -486,21 +486,21 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     ]).map(tab => {
                                         const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
                                         return (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => {
-                                                setActiveTab('visual-ai');
-                                                setActiveSubTab(tab.id);
-                                                onRunCustomAnalysis(false);
-                                            }}
-                                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
-                                                ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
-                                                : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
-                                                }`}
-                                        >
-                                            <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
-                                            {tab.label}
-                                        </button>
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => {
+                                                    setActiveTab('visual-ai');
+                                                    setActiveSubTab(tab.id);
+                                                    onRunCustomAnalysis(false);
+                                                }}
+                                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
+                                                    ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
+                                                    : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
+                                                    }`}
+                                            >
+                                                <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
+                                                {tab.label}
+                                            </button>
                                         );
                                     })}
                                 </div>
@@ -513,21 +513,21 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     ]).map(tab => {
                                         const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
                                         return (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => {
-                                                setActiveTab('visual-ai');
-                                                setActiveSubTab(tab.id);
-                                                onRunCustomAnalysis(false);
-                                            }}
-                                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
-                                                ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
-                                                : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
-                                                }`}
-                                        >
-                                            <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
-                                            {tab.label}
-                                        </button>
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => {
+                                                    setActiveTab('visual-ai');
+                                                    setActiveSubTab(tab.id);
+                                                    onRunCustomAnalysis(false);
+                                                }}
+                                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
+                                                    ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
+                                                    : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
+                                                    }`}
+                                            >
+                                                <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
+                                                {tab.label}
+                                            </button>
                                         );
                                     })}
                                     {userRole === 'admin' && (
@@ -546,847 +546,505 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                         {/* ── Tab Content ── */}
                         {activeTab === 'property-data' && (
                             <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab="overview">
-                            <div className="flex flex-col gap-2.5">
+                                <div className="flex flex-col gap-2.5">
 
 
-                                {/* Property Images + MLS Details — side by side */}
-                                <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
-                                    {propertyData.images && propertyData.images.length > 0 && (
-                                        <div className="rounded-2xl overflow-hidden">
-                                            <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
-                                        </div>
+                                    {/* Property Images + MLS Details — side by side */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
+                                        {propertyData.images && propertyData.images.length > 0 && (
+                                            <div className="rounded-2xl overflow-hidden">
+                                                <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
+                                            </div>
+                                        )}
+                                        <PropertyHeader
+                                            data={propertyData}
+                                            isFavorited={isFavorited}
+                                            onToggleFavorite={onToggleFavorite}
+                                            onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                            designStyle={designStyle}
+                                            marketDynamics={marketDynamics}
+                                            section="details"
+                                            parcelPolygon={
+                                                propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                    ? propertyData.parcelPolygon.map((pt: any) =>
+                                                        Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                    )
+                                                    : undefined
+                                            }
+                                        />
+                                    </div>
+
+                                    {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex || propertyData.historical_disasters || propertyData.broadband || propertyData.drought) && (
+                                        <>
+                                            {/* 3rd Party Data heading */}
+                                            <div className="flex items-center gap-2 mt-6 mb-2">
+                                                <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                    <i className="fa-solid fa-database text-emerald-600 text-[11px]"></i>
+                                                </div>
+                                                <span className="text-lg font-black text-slate-900 tracking-tight">3rd Party Data</span>
+                                            </div>
+                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-visible">
+                                                <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} disasterData={propertyData.historical_disasters} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
+                                            </div>
+                                        </>
                                     )}
-                                    <PropertyHeader
-                                        data={propertyData}
-                                        isFavorited={isFavorited}
-                                        onToggleFavorite={onToggleFavorite}
-                                        onRunAnalysis={() => onRunCustomAnalysis(false)}
-                                        designStyle={designStyle}
-                                        marketDynamics={marketDynamics}
-                                        section="details"
-                                        parcelPolygon={
-                                            propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                                ? propertyData.parcelPolygon.map((pt: any) =>
-                                                    Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                                )
-                                                : undefined
-                                        }
-                                    />
-                                </div>
 
-                                {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex || propertyData.historical_disasters || propertyData.broadband || propertyData.drought) && (
-                                    <>
-                                    {/* 3rd Party Data heading */}
+                                    {/* AI Insights heading */}
                                     <div className="flex items-center gap-2 mt-6 mb-2">
-                                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                            <i className="fa-solid fa-database text-emerald-600 text-[11px]"></i>
+                                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                            <i className="fa-solid fa-brain text-indigo-600 text-[11px]"></i>
                                         </div>
-                                        <span className="text-lg font-black text-slate-900 tracking-tight">3rd Party Data</span>
+                                        <span className="text-lg font-black text-slate-900 tracking-tight">AI Insights</span>
                                     </div>
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-visible">
-                                        <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} disasterData={propertyData.historical_disasters} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
-                                    </div>
-                                    </>
-                                )}
-
-                                {/* AI Insights heading */}
-                                <div className="flex items-center gap-2 mt-6 mb-2">
-                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                        <i className="fa-solid fa-brain text-indigo-600 text-[11px]"></i>
-                                    </div>
-                                    <span className="text-lg font-black text-slate-900 tracking-tight">AI Insights</span>
-                                </div>
 
 
 
 
-                                {/* Horizontal Insight Strip */}
+                                    {/* Horizontal Insight Strip */}
 
-                                {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview || analysis) && (
-                                    <div className="flex flex-col gap-3">
-                                        {/* Executive Summary */}
-                                        {(() => {
-                                            if (!analysis) return null;
+                                    {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview || analysis) && (
+                                        <div className="flex flex-col gap-3">
+                                            {/* Executive Summary */}
+                                            {(() => {
+                                                if (!analysis) return null;
 
-                                            const parts = [
-                                                { text: analysis.summary },
-                                                { text: analysis.strategic_insights },
-                                                { text: analysis.risks_considerations, type: 'risk' }
-                                            ].filter(p => p.text);
+                                                const parts = [
+                                                    { text: analysis.summary },
+                                                    { text: analysis.strategic_insights },
+                                                    { text: analysis.risks_considerations, type: 'risk' }
+                                                ].filter(p => p.text);
 
-                                            if (parts.length === 0) return null;
+                                                if (parts.length === 0) return null;
 
-                                            return (
+                                                return (
+                                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white px-2 mb-1 shadow-sm">
+                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl p-3">
+                                                            <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
+                                                                <div className="p-4">
+                                                                    {/* Header */}
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-bolt-lightning text-indigo-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <div>
+                                                                            <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Executive Summary</h3>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Content Area */}
+                                                                    <div className="text-[13px] text-slate-600 leading-relaxed text-left flex flex-col gap-4">
+                                                                        {parts.map((p: any, i: number) => {
+                                                                            const text = p.text || '';
+                                                                            return (
+                                                                                <div
+                                                                                    key={i}
+                                                                                    className={p.type === 'risk' ? 'bg-rose-50 p-6 rounded-2xl border border-rose-100 flex gap-4 shadow-sm mt-2' : ''}
+                                                                                >
+                                                                                    {p.type === 'risk' && <i className="fa-solid fa-flag text-rose-500 mt-1 flex-shrink-0"></i>}
+                                                                                    <div className="flex-1">
+                                                                                        {text.split('\n\n').filter(Boolean).map((para: string, pi: number) => (
+                                                                                            <p key={pi} className={pi > 0 ? 'mt-4' : ''}>
+                                                                                                {para.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                                    j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                                                ))}
+                                                                                            </p>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Interior Summary Intelligence */}
+                                            {(customAnalysis || currentInteriorSummary || analysis) && (
                                                 <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white px-2 mb-1 shadow-sm">
                                                     <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl p-3">
                                                         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
                                                             <div className="p-4">
-                                                                {/* Header */}
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-bolt-lightning text-indigo-600 text-[11px]"></i>
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Interiors</h3>
                                                                     </div>
-                                                                    <div>
-                                                                        <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Executive Summary</h3>
-                                                                    </div>
+
                                                                 </div>
 
-                                                                {/* Content Area */}
-                                                                <div className="text-[13px] text-slate-600 leading-relaxed text-left flex flex-col gap-4">
-                                                                    {parts.map((p: any, i: number) => {
-                                                                        const text = p.text || '';
-                                                                        return (
-                                                                            <div
-                                                                                key={i}
-                                                                                className={p.type === 'risk' ? 'bg-rose-50 p-6 rounded-2xl border border-rose-100 flex gap-4 shadow-sm mt-2' : ''}
-                                                                            >
-                                                                                {p.type === 'risk' && <i className="fa-solid fa-flag text-rose-500 mt-1 flex-shrink-0"></i>}
-                                                                                <div className="flex-1">
-                                                                                    {text.split('\n\n').filter(Boolean).map((para: string, pi: number) => (
-                                                                                        <p key={pi} className={pi > 0 ? 'mt-4' : ''}>
-                                                                                            {para.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                                                            ))}
-                                                                                        </p>
+                                                                {!currentInteriorSummary ? (
+                                                                    <div className="py-8 flex flex-col items-center justify-center gap-3">
+                                                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                                                            <i className="fa-solid fa-magnifying-glass-plus text-sm"></i>
+                                                                        </div>
+                                                                        <div className="text-center">
+                                                                            <div className="text-[12px] font-bold text-slate-500">No interior analysis found</div>
+
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                        <div className="space-y-4">
+                                                                            <div>
+                                                                                <div className="flex items-center gap-2 mb-1.5 opacity-0 h-0 overflow-hidden">
+                                                                                    <i className="fa-solid fa-house-user text-indigo-400"></i>
+                                                                                    Overall Interior
+                                                                                </div>
+                                                                                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                                                                                    {currentInteriorSummary.interior_summary}
+                                                                                </p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                                                                    <i className="fa-solid fa-door-open text-indigo-400"></i>
+                                                                                    Spaces
+                                                                                </div>
+                                                                                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                                                                                    {currentInteriorSummary.rooms_summary}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="space-y-4">
+                                                                            <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                                                                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                                    <i className="fa-solid fa-palette"></i>
+                                                                                    Aesthetic Vibe
+                                                                                </div>
+                                                                                <div className="text-[14px] font-black text-indigo-900 tracking-tight leading-snug">
+                                                                                    {currentInteriorSummary.vibe}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                                    <i className="fa-solid fa-tags"></i>
+                                                                                    Physical Attributes
+                                                                                </div>
+                                                                                <div className="flex flex-wrap gap-1.5">
+                                                                                    {currentInteriorSummary.objective_tags?.map((tag: string, idx: number) => (
+                                                                                        <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-600 shadow-sm">
+                                                                                            {tag}
+                                                                                        </span>
                                                                                     ))}
                                                                                 </div>
                                                                             </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            );
-                                        })()}
+                                            )}
 
-                                        {/* Interior Summary Intelligence */}
-                                        {(customAnalysis || currentInteriorSummary || analysis) && (
-                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white px-2 mb-1 shadow-sm">
-                                                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl p-3">
-                                                    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
-                                                        <div className="p-4">
-                                                            <div className="flex items-center justify-between mb-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 text-[11px]"></i>
+                                            {/* Row 1: Property & Neighborhood Context */}
+                                            <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+                                                    {/* Front Orientation */}
+                                                    {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+                                                        const sat = (propertyData as any).orientation_ai;
+                                                        return (
+                                                            <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                    <div className="p-4">
+                                                                        <div className="flex items-center gap-2 mb-3">
+                                                                            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                                                                                <i className="fa-solid fa-compass text-amber-600 group-hover:text-white text-[11px]"></i>
+                                                                            </div>
+                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Front Orientation</span>
+                                                                        </div>
+                                                                        {sat.orientation_highlights && (
+                                                                            <p className="text-[12px] text-slate-600 leading-relaxed mb-2">
+                                                                                The front of the home likely faces <strong>{sat.final_orientation}</strong>. {sat.orientation_highlights}
+                                                                            </p>
+                                                                        )}
+                                                                        <div className="space-y-2">
+                                                                            {sat.lot_coverage_hardscape != null && (
+                                                                                <div className="p-2 bg-white rounded-lg border border-slate-100">
+                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
+                                                                                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                                                                        <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
+                                                                                    </div>
+                                                                                    <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
+                                                                                        <span>{sat.lot_coverage_hardscape}% hard</span>
+                                                                                        <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                            {sat.buyer_pro && (
+                                                                                <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                                                                                    <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
+                                                                                    <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
+                                                                                </div>
+                                                                            )}
+                                                                            {sat.buyer_con && (
+                                                                                <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
+                                                                                    <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
+                                                                                    <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
-                                                                    <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Interiors</h3>
                                                                 </div>
-
                                                             </div>
+                                                        );
+                                                    })()}
 
-                                                            {!currentInteriorSummary ? (
-                                                                <div className="py-8 flex flex-col items-center justify-center gap-3">
-                                                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                                                                        <i className="fa-solid fa-magnifying-glass-plus text-sm"></i>
-                                                                    </div>
-                                                                    <div className="text-center">
-                                                                        <div className="text-[12px] font-bold text-slate-500">No interior analysis found</div>
-
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                                    <div className="space-y-4">
-                                                                        <div>
-                                                                            <div className="flex items-center gap-2 mb-1.5 opacity-0 h-0 overflow-hidden">
-                                                                                <i className="fa-solid fa-house-user text-indigo-400"></i>
-                                                                                Overall Interior
-                                                                            </div>
-                                                                            <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                                                                                {currentInteriorSummary.interior_summary}
-                                                                            </p>
-                                                                        </div>
-                                                                        <div>
-                                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                                                                <i className="fa-solid fa-door-open text-indigo-400"></i>
-                                                                                Spaces
-                                                                            </div>
-                                                                            <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                                                                                {currentInteriorSummary.rooms_summary}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="space-y-4">
-                                                                        <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
-                                                                            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                                                <i className="fa-solid fa-palette"></i>
-                                                                                Aesthetic Vibe
-                                                                            </div>
-                                                                            <div className="text-[14px] font-black text-indigo-900 tracking-tight leading-snug">
-                                                                                {currentInteriorSummary.vibe}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div>
-                                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                                                <i className="fa-solid fa-tags"></i>
-                                                                                Physical Attributes
-                                                                            </div>
-                                                                            <div className="flex flex-wrap gap-1.5">
-                                                                                {currentInteriorSummary.objective_tags?.map((tag: string, idx: number) => (
-                                                                                    <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-600 shadow-sm">
-                                                                                        {tag}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Row 1: Property & Neighborhood Context */}
-                                        <div className="w-full px-2 -mt-1 rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-
-                                                {/* Front Orientation */}
-                                                {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
-                                                    const sat = (propertyData as any).orientation_ai;
-                                                    return (
+                                                    {/* Outdoors & Privacy */}
+                                                    {(analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
                                                         <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
                                                                     <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                                                                            <i className="fa-solid fa-compass text-amber-600 group-hover:text-white text-[11px]"></i>
+                                                                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                                                            <i className="fa-solid fa-tree text-emerald-600 group-hover:text-white text-[11px]"></i>
                                                                         </div>
-                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Front Orientation</span>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Outdoors</span>
                                                                     </div>
-                                                                    {sat.orientation_highlights && (
-                                                                        <p className="text-[12px] text-slate-600 leading-relaxed mb-2">
-                                                                            The front of the home likely faces <strong>{sat.final_orientation}</strong>. {sat.orientation_highlights}
-                                                                        </p>
-                                                                    )}
-                                                                    <div className="space-y-2">
-                                                                        {sat.lot_coverage_hardscape != null && (
-                                                                            <div className="p-2 bg-white rounded-lg border border-slate-100">
-                                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
-                                                                                <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                                                                    <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
-                                                                                </div>
-                                                                                <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
-                                                                                    <span>{sat.lot_coverage_hardscape}% hard</span>
-                                                                                    <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                        {sat.buyer_pro && (
-                                                                            <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
-                                                                                <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
-                                                                                <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
-                                                                            </div>
-                                                                        )}
-                                                                        {sat.buyer_con && (
-                                                                            <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
-                                                                                <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
-                                                                                <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-
-                                                {/* Outdoors & Privacy */}
-                                                {(analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
-                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                            <div className="p-4">
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                                                                        <i className="fa-solid fa-tree text-emerald-600 group-hover:text-white text-[11px]"></i>
-                                                                    </div>
-                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Outdoors</span>
-                                                                </div>
-                                                                <p className="text-[13px] text-slate-600 leading-relaxed">
-                                                                    {analysis.detailed_analysis.outdoors_view_quality && (
-                                                                        <span className="block">
-                                                                            {analysis.detailed_analysis.outdoors_view_quality.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                                            ))}
-                                                                        </span>
-                                                                    )}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Schools Intelligence */}
-                                                {schoolsIntelligence?.schools?.length > 0 && (
-                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                            <div className="p-4">
-                                                                <div className="flex items-center justify-between mb-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                                                            <i className="fa-solid fa-graduation-cap text-blue-600 group-hover:text-white text-[11px]"></i>
-                                                                        </div>
-                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
-                                                                    </div>
-                                                                    {schoolsIntelligence.district_rating && (
-                                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                                                            schoolsIntelligence.district_rating.startsWith('A') ? 'bg-emerald-100 text-emerald-700' :
-                                                                            schoolsIntelligence.district_rating.startsWith('B') ? 'bg-blue-100 text-blue-700' :
-                                                                            schoolsIntelligence.district_rating.startsWith('C') ? 'bg-amber-100 text-amber-700' :
-                                                                            'bg-rose-100 text-rose-700'
-                                                                        }`}>
-                                                                            {schoolsIntelligence.district_name} · {schoolsIntelligence.district_rating}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* District overview */}
-                                                                {schoolsIntelligence.district_overview && (
-                                                                    <p className="text-[12px] text-slate-500 leading-relaxed mb-3">
-                                                                        {schoolsIntelligence.district_overview}
-                                                                    </p>
-                                                                )}
-
-                                                                {/* Desirability badge */}
-                                                                {schoolsIntelligence.is_desirable_zone !== undefined && (
-                                                                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-3 ${schoolsIntelligence.is_desirable_zone ? 'bg-emerald-50 border border-emerald-100' : 'bg-amber-50 border border-amber-100'}`}>
-                                                                        <i className={`fa-solid ${schoolsIntelligence.is_desirable_zone ? 'fa-circle-check text-emerald-500' : 'fa-triangle-exclamation text-amber-500'} text-[11px]`}></i>
-                                                                        <span className={`text-[11px] font-bold ${schoolsIntelligence.is_desirable_zone ? 'text-emerald-700' : 'text-amber-700'}`}>
-                                                                            {schoolsIntelligence.is_desirable_zone ? 'Desirable School Zone' : 'School Zone Concerns'}
-                                                                        </span>
-                                                                    </div>
-                                                                )}
-
-                                                                {/* School tabs — stacked, max 3 */}
-                                                                <div className="flex flex-col gap-1.5 mb-2">
-                                                                    {schoolsIntelligence.schools.slice(0, 3).map((school: any, idx: number) => {
-                                                                        const isActive = (schoolsExpanded.__activeIdx ?? 0) === idx;
-                                                                        const ratingNum = parseFloat(String(school.mls_rating)) || 0;
-                                                                        const ratingColor = ratingNum >= 7 ? 'emerald' : ratingNum >= 5 ? 'amber' : 'rose';
-                                                                        const levelIcon = school.level?.includes('element') ? 'fa-child' :
-                                                                            school.level?.includes('middle') ? 'fa-school' : 'fa-building-columns';
-                                                                        return (
-                                                                            <button
-                                                                                key={idx}
-                                                                                onClick={() => setSchoolsExpanded(prev => ({ ...prev, __activeIdx: idx }))}
-                                                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all w-full ${
-                                                                                    isActive
-                                                                                        ? 'bg-indigo-600 shadow-sm border border-indigo-700'
-                                                                                        : 'bg-white border border-slate-200 hover:bg-slate-50'
-                                                                                }`}
-                                                                            >
-                                                                                <i className={`fa-solid ${levelIcon} text-[9px] ${isActive ? 'text-indigo-200' : 'text-slate-400'}`}></i>
-                                                                                <span className={`text-[12px] font-bold flex-1 ${isActive ? 'text-white' : 'text-slate-600'}`}>{school.name}</span>
-                                                                                {school.mls_rating && (
-                                                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-${ratingColor}-100 text-${ratingColor}-700`}>
-                                                                                        {school.mls_rating}/10
-                                                                                    </span>
-                                                                                )}
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-
-                                                                {/* Active school content */}
-                                                                {(() => {
-                                                                    const activeIdx = schoolsExpanded.__activeIdx ?? 0;
-                                                                    const school = schoolsIntelligence.schools[activeIdx];
-                                                                    if (!school) return null;
-                                                                    const isDetailOpen = schoolsExpanded[`detail_${activeIdx}`];
-                                                                    return (
-                                                                        <div className="border border-slate-100 rounded-xl overflow-hidden bg-white animate-in fade-in duration-200">
-                                                                            {/* Summary — always visible */}
-                                                                            {school.overall_assessment && (
-                                                                                <div className="p-3 bg-indigo-50/50 border-b border-indigo-100/50">
-                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed">{school.overall_assessment}</p>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* Show Details toggle */}
-                                                                            <button
-                                                                                onClick={() => setSchoolsExpanded(prev => ({ ...prev, [`detail_${activeIdx}`]: !prev[`detail_${activeIdx}`] }))}
-                                                                                className="w-full flex items-center justify-center gap-1 py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                                                                            >
-                                                                                <span>{isDetailOpen ? 'Hide Details' : 'Show Details'}</span>
-                                                                                <i className={`fa-solid fa-chevron-${isDetailOpen ? 'up' : 'down'} text-[8px]`}></i>
-                                                                            </button>
-
-                                                                            {/* Expandable details */}
-                                                                            {isDetailOpen && (
-                                                                                <div className="px-3 pb-3 space-y-2 border-t border-slate-50">
-                                                                                    {/* Stat pills */}
-                                                                                    <div className="flex flex-wrap gap-1.5 pt-2">
-                                                                                        {school.enrollment && (
-                                                                                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                                                                                                Enrollment: {school.enrollment?.toLocaleString()}
-                                                                                            </span>
-                                                                                        )}
-                                                                                        {school.student_teacher_ratio && (
-                                                                                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                                                                                                Ratio: {school.student_teacher_ratio}
-                                                                                            </span>
-                                                                                        )}
-                                                                                        {school.graduation_rate && school.graduation_rate !== 'N/A' && (
-                                                                                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
-                                                                                                Graduation: {school.graduation_rate}
-                                                                                            </span>
-                                                                                        )}
-                                                                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full capitalize">
-                                                                                            {school.type || 'Public'}
-                                                                                        </span>
-                                                                                    </div>
-
-                                                                                    {/* Test Scores */}
-                                                                                    {school.test_scores && (
-                                                                                        <div>
-                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Test Scores</div>
-                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.test_scores}</p>
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {/* College Readiness */}
-                                                                                    {school.college_readiness && school.college_readiness !== 'N/A' && (
-                                                                                        <div>
-                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">College Readiness</div>
-                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.college_readiness}</p>
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {/* AP/IB Programs */}
-                                                                                    {school.ap_ib_programs && school.ap_ib_programs !== 'N/A' && (
-                                                                                        <div>
-                                                                                            <div className="text-[9px] font-black text-indigo-500 uppercase tracking-wider mb-1">AP/IB Programs</div>
-                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.ap_ib_programs}</p>
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {/* Parent Sentiment */}
-                                                                                    <div className="grid grid-cols-2 gap-2">
-                                                                                        {school.parent_sentiment_positive && (
-                                                                                            <div className="p-2 bg-emerald-50/50 rounded-lg border border-emerald-100/50">
-                                                                                                <div className="text-[9px] font-black text-emerald-600 uppercase mb-1">
-                                                                                                    <i className="fa-solid fa-thumbs-up mr-1"></i>Parent Loves
-                                                                                                </div>
-                                                                                                <p className="text-[10px] text-emerald-800 leading-relaxed">{school.parent_sentiment_positive}</p>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {school.parent_sentiment_concerns && (
-                                                                                            <div className="p-2 bg-pink-50/50 rounded-lg border border-pink-100/50">
-                                                                                                <div className="text-[9px] font-black text-pink-600 uppercase mb-1">
-                                                                                                    <i className="fa-solid fa-flag mr-1"></i>Parent Concerns
-                                                                                                </div>
-                                                                                                <p className="text-[10px] text-pink-800 leading-relaxed">{school.parent_sentiment_concerns}</p>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-
-                                                                                    {/* Activities & Strengths */}
-                                                                                    {school.extracurriculars && (
-                                                                                        <div>
-                                                                                            <div className="text-[9px] font-black text-violet-500 uppercase tracking-wider mb-1">
-                                                                                                <i className="fa-solid fa-trophy mr-1"></i>Activities & Strengths
-                                                                                            </div>
-                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.extracurriculars}</p>
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {/* Recent News */}
-                                                                                    {school.recent_news && (
-                                                                                        <div>
-                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Recent News</div>
-                                                                                            <p className="text-[11px] text-slate-500 leading-relaxed italic">{school.recent_news}</p>
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {/* Demographics */}
-                                                                                    {school.demographics_summary && (
-                                                                                        <div>
-                                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">
-                                                                                                <i className="fa-solid fa-users mr-1"></i>Demographics
-                                                                                            </div>
-                                                                                            <p className="text-[11px] text-slate-600 leading-relaxed">{school.demographics_summary}</p>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })()}
-
-                                                                {/* Education Verdict */}
-                                                                {schoolsIntelligence.education_verdict && (
-                                                                    <div className="mt-3 pt-3 border-t border-slate-100">
-                                                                        <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Education Verdict</div>
-                                                                        <p className="text-[12px] text-slate-600 leading-relaxed">
-                                                                            {schoolsIntelligence.education_verdict.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
-                                                                            ))}
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Schools Summary from Comprehensive Analysis (fallback when no full schools data) */}
-                                                {!schoolsIntelligence?.schools?.length && analysis?.schools_summary && (
-                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
-                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                            <div className="p-4">
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-graduation-cap text-blue-600 text-[11px]"></i>
-                                                                    </div>
-                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
-                                                                </div>
-                                                                <p className="text-[13px] text-slate-600 leading-relaxed">
-                                                                    {analysis.schools_summary.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                        j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
-                                                                    ))}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Architecture Appeal */}
-                                                {(designStyle?.style || analysis?.detailed_analysis?.visual_appeal_condition) && (
-                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                            <div className="p-4">
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                                                        <i className="fa-solid fa-archway text-indigo-600 group-hover:text-white text-[11px]"></i>
-                                                                    </div>
-                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Architecture Appeal</span>
-                                                                </div>
-                                                                {designStyle?.style && (
-                                                                    <span className="inline-block bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>
-                                                                )}
-                                                                {(analysis?.detailed_analysis?.visual_appeal_condition || designStyle?.reasoning) && (
-                                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                                        {(analysis?.detailed_analysis?.visual_appeal_condition || designStyle?.reasoning)?.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                                        ))}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Neighborhood Identity */}
-                                                {propertyData?.neighborhood_identity?.resolved_name && (() => {
-                                                    const nid = propertyData.neighborhood_identity;
-                                                    const gem = cityNhEntryOverview || nid.gemini;
-                                                    const tierColors: Record<string, string> = {
-                                                        'Entry-Level': 'bg-emerald-100 text-emerald-700',
-                                                        'Mid-Range': 'bg-blue-100 text-blue-700',
-                                                        'Upper Mid-Range': 'bg-indigo-100 text-indigo-700',
-                                                        'Premium': 'bg-amber-100 text-amber-700',
-                                                        'Ultra-Luxury': 'bg-purple-100 text-purple-700',
-                                                    };
-                                                    return (
-                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                                <div className="p-4">
-                                                                    <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors">
-                                                                            <i className="fa-solid fa-map-location-dot text-violet-600 group-hover:text-white text-[11px]"></i>
-                                                                        </div>
-                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">{nid.resolved_name}</span>
-                                                                    </div>
-                                                                    {gem?.character?.description && (
-                                                                        <p className="text-[11px] text-slate-600 leading-relaxed mb-3">{gem.character.description}</p>
-                                                                    )}
-                                                                    {/* Tags */}
-                                                                    <div className="flex flex-wrap gap-1.5 mb-2">
-                                                                        {gem?.price_context?.tier && (
-                                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tierColors[gem.price_context.tier] || 'bg-gray-100 text-gray-700'}`}>
-                                                                                <i className="fa-solid fa-tag mr-1 text-[8px]" />{gem.price_context.tier}
-                                                                            </span>
-                                                                        )}
-                                                                        {gem?.price_context?.typical_range && (
-                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                                                                <i className="fa-solid fa-dollar-sign mr-1 text-[8px]" />{gem.price_context.typical_range}
-                                                                            </span>
-                                                                        )}
-                                                                        {gem?.character?.community_type && (
-                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
-                                                                                {gem.character.community_type}
-                                                                            </span>
-                                                                        )}
-                                                                        {gem?.character?.era_built && (
-                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                                                                Built {gem.character.era_built}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    {/* Standout Features */}
-                                                                    {gem?.unique_features?.length > 0 && (
-                                                                        <div className="mt-2">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Standout Features</div>
-                                                                            <div className="flex flex-wrap gap-1">
-                                                                                {gem.unique_features.map((feat: string, i: number) => (
-                                                                                    <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white border border-violet-100 text-violet-700 shadow-sm">
-                                                                                        {feat}
-                                                                                    </span>
+                                                                    <p className="text-[13px] text-slate-600 leading-relaxed">
+                                                                        {analysis.detailed_analysis.outdoors_view_quality && (
+                                                                            <span className="block">
+                                                                                {analysis.detailed_analysis.outdoors_view_quality.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                    j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
                                                                                 ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                    {gem?.price_context?.context && (
-                                                                        <div className="mt-2">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Market Position</div>
-                                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{gem.price_context.context}</p>
-                                                                        </div>
-                                                                    )}
-                                                                    {gem?.infrastructure_quality && (
-                                                                        <div className="mt-2">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Infrastructure</div>
-                                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{gem.infrastructure_quality}</p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-
-                                        {/* Row: Unified Lifestyle Fit */}
-                                        {(() => {
-                                            const NEIGHBORHOOD_KEY_MAP: Record<string, string> = {
-                                                working_professionals: 'professionals',
-                                                families_with_kids: 'family',
-                                                seniors: 'senior',
-                                            };
-                                            const ALL_TABS = [
-                                                { key: 'working_professionals', label: 'Working Professionals', icon: 'fa-briefcase', bg: 'bg-sky-100', text: 'text-sky-600', type: 'fit' as const },
-                                                { key: 'families_with_kids', label: 'Families with Kids', icon: 'fa-children', bg: 'bg-blue-100', text: 'text-blue-600', type: 'fit' as const },
-                                                { key: 'seniors', label: 'Seniors', icon: 'fa-heart-pulse', bg: 'bg-rose-100', text: 'text-rose-600', type: 'fit' as const },
-                                                { key: 'outdoor', label: 'Outdoor & Recreation', icon: 'fa-mountain-sun', bg: 'bg-emerald-100', text: 'text-emerald-600', type: 'neighborhood' as const },
-                                                { key: 'pets', label: 'Pet Friendly', icon: 'fa-paw', bg: 'bg-amber-100', text: 'text-amber-600', type: 'neighborhood' as const },
-                                                { key: 'food', label: 'Food & Entertainment', icon: 'fa-utensils', bg: 'bg-violet-100', text: 'text-violet-600', type: 'neighborhood' as const },
-                                            ];
-                                            const verdictColors: Record<string, string> = {
-                                                'Excellent Fit': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                                                'Good Fit': 'bg-sky-100 text-sky-700 border-sky-200',
-                                                'Moderate Fit': 'bg-amber-100 text-amber-700 border-amber-200',
-                                                'Poor Fit': 'bg-orange-100 text-orange-700 border-orange-200',
-                                                'Not Recommended': 'bg-rose-100 text-rose-700 border-rose-200',
-                                            };
-
-                                            // Check if anything to show
-                                            const hasFitData = lifestyleFit && (lifestyleFit.working_professionals || lifestyleFit.families_with_kids || lifestyleFit.seniors);
-                                            const hasNeighborhoodData = lifestyleInsights && (lifestyleInsights.outdoor || lifestyleInsights.pets || lifestyleInsights.food);
-                                            if (!hasFitData && !hasNeighborhoodData && !lifestyleLoading) return null;
-
-                                            const activeTab = ALL_TABS.find(t => t.key === lifestyleFitTab) || ALL_TABS[0];
-
-                                            return (
-                                                <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                                    <div className="p-4">
-                                                        {/* Header */}
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-                                                                <i className="fa-solid fa-people-roof text-indigo-600 text-sm" />
-                                                            </div>
-                                                            <div>
-                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Lifestyle Fit and Interests</span>
-                                                                <div className="text-[10px] text-slate-400">Property analysis + neighborhood context for each lifestyle</div>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Compact horizontal tabs */}
-                                                        <div className="flex flex-wrap gap-1.5 mb-3">
-                                                            {ALL_TABS.map(tab => {
-                                                                const isActive = tab.key === lifestyleFitTab;
-                                                                const hasContent = tab.type === 'fit'
-                                                                    ? !!lifestyleFit?.[tab.key]
-                                                                    : !!lifestyleInsights?.[tab.key as keyof typeof lifestyleInsights];
-                                                                const fitData = tab.type === 'fit' ? lifestyleFit?.[tab.key] : null;
-                                                                return (
-                                                                    <button
-                                                                        key={tab.key}
-                                                                        onClick={() => setLifestyleFitTab(tab.key)}
-                                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-left ${
-                                                                            isActive
-                                                                                ? `${tab.bg} border-current ${tab.text} shadow-sm`
-                                                                                : hasContent
-                                                                                    ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
-                                                                                    : 'bg-slate-50/30 border-slate-100 opacity-40 cursor-not-allowed'
-                                                                        }`}
-                                                                        disabled={!hasContent}
-                                                                    >
-                                                                        <i className={`fa-solid ${tab.icon} ${tab.text} text-[11px]`} />
-                                                                        <span className={`text-[11px] font-bold whitespace-nowrap ${
-                                                                            isActive ? 'text-slate-900' : 'text-slate-500'
-                                                                        }`}>{tab.label}</span>
-                                                                        {fitData?.verdict && (
-                                                                            <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-500'}`}>
-                                                                                {fitData.verdict}
                                                                             </span>
                                                                         )}
-                                                                    </button>
-                                                                );
-                                                            })}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
                                                         </div>
+                                                    )}
 
-                                                        {/* Content panel — adapts based on tab type */}
-                                                        {activeTab.type === 'fit' ? (() => {
-                                                            const fitData = lifestyleFit?.[activeTab.key];
-                                                            if (!fitData) return (
-                                                                <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
-                                                                    <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
-                                                                        <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
-                                                                    </div>
-                                                                    <div className="text-[12px] font-bold text-slate-400">No analysis available for {activeTab.label}</div>
-                                                                </div>
-                                                            );
-                                                            return (
-                                                                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-                                                                    <div className="p-5 flex flex-col gap-3">
-                                                                        {/* Verdict badge */}
-                                                                        <div className="flex justify-end">
-                                                                            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-600'}`}>
-                                                                                {fitData.verdict}
-                                                                            </span>
-                                                                        </div>
-
-                                                                        {/* Summary */}
-                                                                        <p className="text-[13px] text-slate-600 leading-relaxed">{fitData.summary}</p>
-
-                                                                        {/* Strengths + Concerns side by side */}
-                                                                        <div className="grid grid-cols-2 gap-4">
-                                                                            {fitData.strengths?.length > 0 && (
-                                                                                <div>
-                                                                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">Strengths</div>
-                                                                                    <div className="flex flex-col gap-1">
-                                                                                        {fitData.strengths.map((s: string, i: number) => (
-                                                                                            <div key={i} className="flex items-start gap-2">
-                                                                                                <i className="fa-solid fa-circle-check text-[9px] text-emerald-400 mt-[5px] flex-shrink-0" />
-                                                                                                <span className="text-[12px] text-slate-700 leading-snug">{s}</span>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-                                                                            {fitData.concerns?.length > 0 && (
-                                                                                <div>
-                                                                                    <div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Concerns</div>
-                                                                                    <div className="flex flex-col gap-1">
-                                                                                        {fitData.concerns.map((c: string, i: number) => (
-                                                                                            <div key={i} className="flex items-start gap-2">
-                                                                                                <i className="fa-solid fa-triangle-exclamation text-[9px] text-amber-400 mt-[5px] flex-shrink-0" />
-                                                                                                <span className="text-[12px] text-slate-700 leading-snug">{c}</span>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-
-                                                                        {/* Tip */}
-                                                                        {fitData.tip && (
-                                                                            <div className="flex items-start gap-2 bg-indigo-50/50 rounded-lg p-3 border border-indigo-100">
-                                                                                <i className="fa-solid fa-lightbulb text-[11px] text-indigo-400 mt-0.5" />
-                                                                                <span className="text-[12px] text-indigo-700 leading-snug">{fitData.tip}</span>
-                                                                            </div>
-                                                                        )}
-
-                                                                        {/* Neighborhood context paragraph */}
-                                                                        {(() => {
-                                                                            const nbKey = NEIGHBORHOOD_KEY_MAP[activeTab.key];
-                                                                            const nbText = nbKey && lifestyleInsights?.[nbKey as keyof typeof lifestyleInsights];
-                                                                            if (!nbText) return null;
-                                                                            return (
-                                                                                <div className="mt-1 bg-emerald-50/40 rounded-xl border border-emerald-100 p-4">
-                                                                                    <div className="flex items-center gap-1.5 mb-2">
-                                                                                        <i className="fa-solid fa-map-location-dot text-[10px] text-emerald-500" />
-                                                                                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Neighborhood Context</span>
-                                                                                    </div>
-                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                                                        {String(nbText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
-                                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
-                                                                                        ))}
-                                                                                    </p>
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })() : (() => {
-                                                            // Neighborhood tab — show paragraph text
-                                                            const nbText = lifestyleInsights?.[activeTab.key as keyof typeof lifestyleInsights];
-                                                            if (!nbText) return (
-                                                                <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
-                                                                    <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
-                                                                        <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
-                                                                    </div>
-                                                                    <div className="text-[12px] font-bold text-slate-400">No insights available for {activeTab.label}</div>
-                                                                </div>
-                                                            );
-                                                            return (
-                                                                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-                                                                    <div className="p-5">
-                                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                                            {String(nbText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
-                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
-                                                                            ))}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })()}
-
-                                                        <div className="text-[8px] text-slate-700 mt-2 text-right">MLS + AI Photo Analysis • Google Places • Gemini</div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-
-                                        {/* Row 2: Investment Insights */}
-                                        {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse) && (
-                                            <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                                                    {/* Community Pulse */}
-                                                    {analysis?.detailed_analysis?.community_pulse && (
+                                                    {/* Schools Intelligence */}
+                                                    {schoolsIntelligence?.schools?.length > 0 && (
                                                         <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
                                                                     <div className="flex items-center justify-between mb-3">
                                                                         <div className="flex items-center gap-2">
-                                                                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                                                                                <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[11px]"></i>
+                                                                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                                                <i className="fa-solid fa-graduation-cap text-blue-600 group-hover:text-white text-[11px]"></i>
                                                                             </div>
-                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
+                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
                                                                         </div>
-                                                                        {userRole === 'admin' && onRefreshCommunityPulse && (
-                                                                            <button
-                                                                                onClick={async () => {
-                                                                                    setIsRefreshingPulse(true);
-                                                                                    await onRefreshCommunityPulse();
-                                                                                    setIsRefreshingPulse(false);
-                                                                                }}
-                                                                                disabled={isRefreshingPulse}
-                                                                                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
-                                                                                title="Refresh Community Pulse"
-                                                                            >
-                                                                                <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
-                                                                            </button>
+                                                                        {schoolsIntelligence.district_rating && (
+                                                                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${schoolsIntelligence.district_rating.startsWith('A') ? 'bg-emerald-100 text-emerald-700' :
+                                                                                    schoolsIntelligence.district_rating.startsWith('B') ? 'bg-blue-100 text-blue-700' :
+                                                                                        schoolsIntelligence.district_rating.startsWith('C') ? 'bg-amber-100 text-amber-700' :
+                                                                                            'bg-rose-100 text-rose-700'
+                                                                                }`}>
+                                                                                {schoolsIntelligence.district_name} · {schoolsIntelligence.district_rating}
+                                                                            </span>
                                                                         )}
                                                                     </div>
-                                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                                        {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+
+                                                                    {/* District overview */}
+                                                                    {schoolsIntelligence.district_overview && (
+                                                                        <p className="text-[12px] text-slate-500 leading-relaxed mb-3">
+                                                                            {schoolsIntelligence.district_overview}
+                                                                        </p>
+                                                                    )}
+
+                                                                    {/* Desirability badge */}
+                                                                    {schoolsIntelligence.is_desirable_zone !== undefined && (
+                                                                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-3 ${schoolsIntelligence.is_desirable_zone ? 'bg-emerald-50 border border-emerald-100' : 'bg-amber-50 border border-amber-100'}`}>
+                                                                            <i className={`fa-solid ${schoolsIntelligence.is_desirable_zone ? 'fa-circle-check text-emerald-500' : 'fa-triangle-exclamation text-amber-500'} text-[11px]`}></i>
+                                                                            <span className={`text-[11px] font-bold ${schoolsIntelligence.is_desirable_zone ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                                                                {schoolsIntelligence.is_desirable_zone ? 'Desirable School Zone' : 'School Zone Concerns'}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* School tabs — stacked, max 3 */}
+                                                                    <div className="flex flex-col gap-1.5 mb-2">
+                                                                        {schoolsIntelligence.schools.slice(0, 3).map((school: any, idx: number) => {
+                                                                            const isActive = (schoolsExpanded.__activeIdx ?? 0) === idx;
+                                                                            const ratingNum = parseFloat(String(school.mls_rating)) || 0;
+                                                                            const ratingColor = ratingNum >= 7 ? 'emerald' : ratingNum >= 5 ? 'amber' : 'rose';
+                                                                            const levelIcon = school.level?.includes('element') ? 'fa-child' :
+                                                                                school.level?.includes('middle') ? 'fa-school' : 'fa-building-columns';
+                                                                            return (
+                                                                                <button
+                                                                                    key={idx}
+                                                                                    onClick={() => setSchoolsExpanded(prev => ({ ...prev, __activeIdx: idx }))}
+                                                                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all w-full ${isActive
+                                                                                            ? 'bg-indigo-600 shadow-sm border border-indigo-700'
+                                                                                            : 'bg-white border border-slate-200 hover:bg-slate-50'
+                                                                                        }`}
+                                                                                >
+                                                                                    <i className={`fa-solid ${levelIcon} text-[9px] ${isActive ? 'text-indigo-200' : 'text-slate-400'}`}></i>
+                                                                                    <span className={`text-[12px] font-bold flex-1 ${isActive ? 'text-white' : 'text-slate-600'}`}>{school.name}</span>
+                                                                                    {school.mls_rating && (
+                                                                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-${ratingColor}-100 text-${ratingColor}-700`}>
+                                                                                            {school.mls_rating}/10
+                                                                                        </span>
+                                                                                    )}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+
+                                                                    {/* Active school content */}
+                                                                    {(() => {
+                                                                        const activeIdx = schoolsExpanded.__activeIdx ?? 0;
+                                                                        const school = schoolsIntelligence.schools[activeIdx];
+                                                                        if (!school) return null;
+                                                                        const isDetailOpen = schoolsExpanded[`detail_${activeIdx}`];
+                                                                        return (
+                                                                            <div className="border border-slate-100 rounded-xl overflow-hidden bg-white animate-in fade-in duration-200">
+                                                                                {/* Summary — always visible */}
+                                                                                {school.overall_assessment && (
+                                                                                    <div className="p-3 bg-indigo-50/50 border-b border-indigo-100/50">
+                                                                                        <p className="text-[13px] text-slate-600 leading-relaxed">{school.overall_assessment}</p>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* Show Details toggle */}
+                                                                                <button
+                                                                                    onClick={() => setSchoolsExpanded(prev => ({ ...prev, [`detail_${activeIdx}`]: !prev[`detail_${activeIdx}`] }))}
+                                                                                    className="w-full flex items-center justify-center gap-1 py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                                                                                >
+                                                                                    <span>{isDetailOpen ? 'Hide Details' : 'Show Details'}</span>
+                                                                                    <i className={`fa-solid fa-chevron-${isDetailOpen ? 'up' : 'down'} text-[8px]`}></i>
+                                                                                </button>
+
+                                                                                {/* Expandable details */}
+                                                                                {isDetailOpen && (
+                                                                                    <div className="px-3 pb-3 space-y-2 border-t border-slate-50">
+                                                                                        {/* Stat pills */}
+                                                                                        <div className="flex flex-wrap gap-1.5 pt-2">
+                                                                                            {school.enrollment && (
+                                                                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                                                                                                    Enrollment: {school.enrollment?.toLocaleString()}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            {school.student_teacher_ratio && (
+                                                                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                                                                                                    Ratio: {school.student_teacher_ratio}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            {school.graduation_rate && school.graduation_rate !== 'N/A' && (
+                                                                                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
+                                                                                                    Graduation: {school.graduation_rate}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full capitalize">
+                                                                                                {school.type || 'Public'}
+                                                                                            </span>
+                                                                                        </div>
+
+                                                                                        {/* Test Scores */}
+                                                                                        {school.test_scores && (
+                                                                                            <div>
+                                                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Test Scores</div>
+                                                                                                <p className="text-[11px] text-slate-600 leading-relaxed">{school.test_scores}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* College Readiness */}
+                                                                                        {school.college_readiness && school.college_readiness !== 'N/A' && (
+                                                                                            <div>
+                                                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">College Readiness</div>
+                                                                                                <p className="text-[11px] text-slate-600 leading-relaxed">{school.college_readiness}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* AP/IB Programs */}
+                                                                                        {school.ap_ib_programs && school.ap_ib_programs !== 'N/A' && (
+                                                                                            <div>
+                                                                                                <div className="text-[9px] font-black text-indigo-500 uppercase tracking-wider mb-1">AP/IB Programs</div>
+                                                                                                <p className="text-[11px] text-slate-600 leading-relaxed">{school.ap_ib_programs}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Parent Sentiment */}
+                                                                                        <div className="grid grid-cols-2 gap-2">
+                                                                                            {school.parent_sentiment_positive && (
+                                                                                                <div className="p-2 bg-emerald-50/50 rounded-lg border border-emerald-100/50">
+                                                                                                    <div className="text-[9px] font-black text-emerald-600 uppercase mb-1">
+                                                                                                        <i className="fa-solid fa-thumbs-up mr-1"></i>Parent Loves
+                                                                                                    </div>
+                                                                                                    <p className="text-[10px] text-emerald-800 leading-relaxed">{school.parent_sentiment_positive}</p>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {school.parent_sentiment_concerns && (
+                                                                                                <div className="p-2 bg-pink-50/50 rounded-lg border border-pink-100/50">
+                                                                                                    <div className="text-[9px] font-black text-pink-600 uppercase mb-1">
+                                                                                                        <i className="fa-solid fa-flag mr-1"></i>Parent Concerns
+                                                                                                    </div>
+                                                                                                    <p className="text-[10px] text-pink-800 leading-relaxed">{school.parent_sentiment_concerns}</p>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+
+                                                                                        {/* Activities & Strengths */}
+                                                                                        {school.extracurriculars && (
+                                                                                            <div>
+                                                                                                <div className="text-[9px] font-black text-violet-500 uppercase tracking-wider mb-1">
+                                                                                                    <i className="fa-solid fa-trophy mr-1"></i>Activities & Strengths
+                                                                                                </div>
+                                                                                                <p className="text-[11px] text-slate-600 leading-relaxed">{school.extracurriculars}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Recent News */}
+                                                                                        {school.recent_news && (
+                                                                                            <div>
+                                                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Recent News</div>
+                                                                                                <p className="text-[11px] text-slate-500 leading-relaxed italic">{school.recent_news}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Demographics */}
+                                                                                        {school.demographics_summary && (
+                                                                                            <div>
+                                                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                                                                                                    <i className="fa-solid fa-users mr-1"></i>Demographics
+                                                                                                </div>
+                                                                                                <p className="text-[11px] text-slate-600 leading-relaxed">{school.demographics_summary}</p>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+
+                                                                    {/* Education Verdict */}
+                                                                    {schoolsIntelligence.education_verdict && (
+                                                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                                                            <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Education Verdict</div>
+                                                                            <p className="text-[12px] text-slate-600 leading-relaxed">
+                                                                                {schoolsIntelligence.education_verdict.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                    j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                                ))}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Schools Summary from Comprehensive Analysis (fallback when no full schools data) */}
+                                                    {!schoolsIntelligence?.schools?.length && analysis?.schools_summary && (
+                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                                            <i className="fa-solid fa-graduation-cap text-blue-600 text-[11px]"></i>
+                                                                        </div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
+                                                                    </div>
+                                                                    <p className="text-[13px] text-slate-600 leading-relaxed">
+                                                                        {analysis.schools_summary.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
                                                                         ))}
                                                                     </p>
                                                                 </div>
@@ -1394,236 +1052,574 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                         </div>
                                                     )}
 
-                                                    {/* Market Insights */}
-                                                    {keyInsights && (
+                                                    {/* Architecture Appeal */}
+                                                    {(designStyle?.style || analysis?.detailed_analysis?.visual_appeal_condition) && (
                                                         <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
                                                                     <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 transition-colors">
-                                                                            <i className="fa-solid fa-microscope text-violet-600 group-hover:text-white text-[11px]"></i>
+                                                                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                                                            <i className="fa-solid fa-archway text-indigo-600 group-hover:text-white text-[11px]"></i>
                                                                         </div>
-                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Architecture Appeal</span>
                                                                     </div>
-                                                                    {keyInsights.executive_summary && keyInsights.executive_summary !== 'N/A' && (
-                                                                        <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
+                                                                    {designStyle?.style && (
+                                                                        <span className="inline-block bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>
                                                                     )}
-                                                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                                                                        {[
-                                                                            { label: 'Median', value: keyInsights.median_price_range },
-                                                                            { label: 'PPSF', value: keyInsights.ppsf_benchmark },
-                                                                            { label: 'Supply', value: keyInsights.months_of_supply },
-                                                                            { label: 'DOM', value: keyInsights.dom_range },
-                                                                        ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
-                                                                            <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                                <div className="min-w-0">
-                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
-                                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
+                                                                    {(analysis?.detailed_analysis?.visual_appeal_condition || designStyle?.reasoning) && (
+                                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                            {(analysis?.detailed_analysis?.visual_appeal_condition || designStyle?.reasoning)?.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                            ))}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Neighborhood Identity */}
+                                                    {propertyData?.neighborhood_identity?.resolved_name && (() => {
+                                                        const nid = propertyData.neighborhood_identity;
+                                                        const gem = cityNhEntryOverview || nid.gemini;
+                                                        const tierColors: Record<string, string> = {
+                                                            'Entry-Level': 'bg-emerald-100 text-emerald-700',
+                                                            'Mid-Range': 'bg-blue-100 text-blue-700',
+                                                            'Upper Mid-Range': 'bg-indigo-100 text-indigo-700',
+                                                            'Premium': 'bg-amber-100 text-amber-700',
+                                                            'Ultra-Luxury': 'bg-purple-100 text-purple-700',
+                                                        };
+                                                        return (
+                                                            <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                    <div className="p-4">
+                                                                        <div className="flex items-center gap-2 mb-3">
+                                                                            <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                                                                                <i className="fa-solid fa-map-location-dot text-violet-600 group-hover:text-white text-[11px]"></i>
+                                                                            </div>
+                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">{nid.resolved_name}</span>
+                                                                        </div>
+                                                                        {gem?.character?.description && (
+                                                                            <p className="text-[11px] text-slate-600 leading-relaxed mb-3">{gem.character.description}</p>
+                                                                        )}
+                                                                        {/* Tags */}
+                                                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                                                            {gem?.price_context?.tier && (
+                                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tierColors[gem.price_context.tier] || 'bg-gray-100 text-gray-700'}`}>
+                                                                                    <i className="fa-solid fa-tag mr-1 text-[8px]" />{gem.price_context.tier}
+                                                                                </span>
+                                                                            )}
+                                                                            {gem?.price_context?.typical_range && (
+                                                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                                                                    <i className="fa-solid fa-dollar-sign mr-1 text-[8px]" />{gem.price_context.typical_range}
+                                                                                </span>
+                                                                            )}
+                                                                            {gem?.character?.community_type && (
+                                                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                                                                                    {gem.character.community_type}
+                                                                                </span>
+                                                                            )}
+                                                                            {gem?.character?.era_built && (
+                                                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                                                                    Built {gem.character.era_built}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        {/* Standout Features */}
+                                                                        {gem?.unique_features?.length > 0 && (
+                                                                            <div className="mt-2">
+                                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Standout Features</div>
+                                                                                <div className="flex flex-wrap gap-1">
+                                                                                    {gem.unique_features.map((feat: string, i: number) => (
+                                                                                        <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white border border-violet-100 text-violet-700 shadow-sm">
+                                                                                            {feat}
+                                                                                        </span>
+                                                                                    ))}
                                                                                 </div>
                                                                             </div>
-                                                                        ))}
+                                                                        )}
+                                                                        {gem?.price_context?.context && (
+                                                                            <div className="mt-2">
+                                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Market Position</div>
+                                                                                <p className="text-[10px] text-slate-600 leading-relaxed">{gem.price_context.context}</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {gem?.infrastructure_quality && (
+                                                                            <div className="mt-2">
+                                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Infrastructure</div>
+                                                                                <p className="text-[10px] text-slate-600 leading-relaxed">{gem.infrastructure_quality}</p>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
-                                                                    {keyInsights.risk_tags && keyInsights.risk_tags.length > 0 && (
-                                                                        <div className="flex flex-wrap gap-1.5 mt-3">
-                                                                            {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
-                                                                                <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
-                                                                                    <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
-                                                                                    {tag}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+
+                                            {/* Row: Unified Lifestyle Fit */}
+                                            {(() => {
+                                                const NEIGHBORHOOD_KEY_MAP: Record<string, string> = {
+                                                    working_professionals: 'professionals',
+                                                    families_with_kids: 'family',
+                                                    seniors: 'senior',
+                                                };
+                                                const ALL_TABS = [
+                                                    { key: 'working_professionals', label: 'Working Professionals', icon: 'fa-briefcase', bg: 'bg-sky-100', text: 'text-sky-600', type: 'fit' as const },
+                                                    { key: 'families_with_kids', label: 'Families with Kids', icon: 'fa-children', bg: 'bg-blue-100', text: 'text-blue-600', type: 'fit' as const },
+                                                    { key: 'seniors', label: 'Seniors', icon: 'fa-heart-pulse', bg: 'bg-rose-100', text: 'text-rose-600', type: 'fit' as const },
+                                                    { key: 'outdoor', label: 'Outdoor & Recreation', icon: 'fa-mountain-sun', bg: 'bg-emerald-100', text: 'text-emerald-600', type: 'neighborhood' as const },
+                                                    { key: 'pets', label: 'Pet Friendly', icon: 'fa-paw', bg: 'bg-amber-100', text: 'text-amber-600', type: 'neighborhood' as const },
+                                                    { key: 'food', label: 'Food & Entertainment', icon: 'fa-utensils', bg: 'bg-violet-100', text: 'text-violet-600', type: 'neighborhood' as const },
+                                                ];
+                                                const verdictColors: Record<string, string> = {
+                                                    'Excellent Fit': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                                    'Good Fit': 'bg-sky-100 text-sky-700 border-sky-200',
+                                                    'Moderate Fit': 'bg-amber-100 text-amber-700 border-amber-200',
+                                                    'Poor Fit': 'bg-orange-100 text-orange-700 border-orange-200',
+                                                    'Not Recommended': 'bg-rose-100 text-rose-700 border-rose-200',
+                                                };
+
+                                                // Check if anything to show
+                                                const hasFitData = lifestyleFit && (lifestyleFit.working_professionals || lifestyleFit.families_with_kids || lifestyleFit.seniors);
+                                                const hasNeighborhoodData = lifestyleInsights && (lifestyleInsights.outdoor || lifestyleInsights.pets || lifestyleInsights.food);
+                                                if (!hasFitData && !hasNeighborhoodData && !lifestyleLoading) return null;
+
+                                                const activeTab = ALL_TABS.find(t => t.key === lifestyleFitTab) || ALL_TABS[0];
+
+                                                return (
+                                                    <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                        <div className="p-4">
+                                                            {/* Header */}
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                                                    <i className="fa-solid fa-people-roof text-indigo-600 text-sm" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Lifestyle Fit and Interests</span>
+                                                                    <div className="text-[10px] text-slate-400">Property analysis + neighborhood context for each lifestyle</div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Compact horizontal tabs */}
+                                                            <div className="flex flex-wrap gap-1.5 mb-3">
+                                                                {ALL_TABS.map(tab => {
+                                                                    const isActive = tab.key === lifestyleFitTab;
+                                                                    const hasContent = tab.type === 'fit'
+                                                                        ? !!lifestyleFit?.[tab.key]
+                                                                        : !!lifestyleInsights?.[tab.key as keyof typeof lifestyleInsights];
+                                                                    const fitData = tab.type === 'fit' ? lifestyleFit?.[tab.key] : null;
+                                                                    return (
+                                                                        <button
+                                                                            key={tab.key}
+                                                                            onClick={() => setLifestyleFitTab(tab.key)}
+                                                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-left ${isActive
+                                                                                    ? `${tab.bg} border-current ${tab.text} shadow-sm`
+                                                                                    : hasContent
+                                                                                        ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
+                                                                                        : 'bg-slate-50/30 border-slate-100 opacity-40 cursor-not-allowed'
+                                                                                }`}
+                                                                            disabled={!hasContent}
+                                                                        >
+                                                                            <i className={`fa-solid ${tab.icon} ${tab.text} text-[11px]`} />
+                                                                            <span className={`text-[11px] font-bold whitespace-nowrap ${isActive ? 'text-slate-900' : 'text-slate-500'
+                                                                                }`}>{tab.label}</span>
+                                                                            {fitData?.verdict && (
+                                                                                <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-500'}`}>
+                                                                                    {fitData.verdict}
                                                                                 </span>
+                                                                            )}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {/* Content panel — adapts based on tab type */}
+                                                            {activeTab.type === 'fit' ? (() => {
+                                                                const fitData = lifestyleFit?.[activeTab.key];
+                                                                if (!fitData) return (
+                                                                    <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
+                                                                        <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
+                                                                            <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
+                                                                        </div>
+                                                                        <div className="text-[12px] font-bold text-slate-400">No analysis available for {activeTab.label}</div>
+                                                                    </div>
+                                                                );
+                                                                return (
+                                                                    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                                                                        <div className="p-5 flex flex-col gap-3">
+                                                                            {/* Verdict badge */}
+                                                                            <div className="flex justify-end">
+                                                                                <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-600'}`}>
+                                                                                    {fitData.verdict}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            {/* Summary */}
+                                                                            <p className="text-[13px] text-slate-600 leading-relaxed">{fitData.summary}</p>
+
+                                                                            {/* Strengths + Concerns side by side */}
+                                                                            <div className="grid grid-cols-2 gap-4">
+                                                                                {fitData.strengths?.length > 0 && (
+                                                                                    <div>
+                                                                                        <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">Strengths</div>
+                                                                                        <div className="flex flex-col gap-1">
+                                                                                            {fitData.strengths.map((s: string, i: number) => (
+                                                                                                <div key={i} className="flex items-start gap-2">
+                                                                                                    <i className="fa-solid fa-circle-check text-[9px] text-emerald-400 mt-[5px] flex-shrink-0" />
+                                                                                                    <span className="text-[12px] text-slate-700 leading-snug">{s}</span>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                                {fitData.concerns?.length > 0 && (
+                                                                                    <div>
+                                                                                        <div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Concerns</div>
+                                                                                        <div className="flex flex-col gap-1">
+                                                                                            {fitData.concerns.map((c: string, i: number) => (
+                                                                                                <div key={i} className="flex items-start gap-2">
+                                                                                                    <i className="fa-solid fa-triangle-exclamation text-[9px] text-amber-400 mt-[5px] flex-shrink-0" />
+                                                                                                    <span className="text-[12px] text-slate-700 leading-snug">{c}</span>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* Tip */}
+                                                                            {fitData.tip && (
+                                                                                <div className="flex items-start gap-2 bg-indigo-50/50 rounded-lg p-3 border border-indigo-100">
+                                                                                    <i className="fa-solid fa-lightbulb text-[11px] text-indigo-400 mt-0.5" />
+                                                                                    <span className="text-[12px] text-indigo-700 leading-snug">{fitData.tip}</span>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* Neighborhood context paragraph */}
+                                                                            {(() => {
+                                                                                const nbKey = NEIGHBORHOOD_KEY_MAP[activeTab.key];
+                                                                                const nbText = nbKey && lifestyleInsights?.[nbKey as keyof typeof lifestyleInsights];
+                                                                                if (!nbText) return null;
+                                                                                return (
+                                                                                    <div className="mt-1 bg-emerald-50/40 rounded-xl border border-emerald-100 p-4">
+                                                                                        <div className="flex items-center gap-1.5 mb-2">
+                                                                                            <i className="fa-solid fa-map-location-dot text-[10px] text-emerald-500" />
+                                                                                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Neighborhood Context</span>
+                                                                                        </div>
+                                                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                                            {String(nbText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
+                                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                                            ))}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })() : (() => {
+                                                                // Neighborhood tab — show paragraph text
+                                                                const nbText = lifestyleInsights?.[activeTab.key as keyof typeof lifestyleInsights];
+                                                                if (!nbText) return (
+                                                                    <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
+                                                                        <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
+                                                                            <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
+                                                                        </div>
+                                                                        <div className="text-[12px] font-bold text-slate-400">No insights available for {activeTab.label}</div>
+                                                                    </div>
+                                                                );
+                                                                return (
+                                                                    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                                                                        <div className="p-5">
+                                                                            <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                                {String(nbText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
+                                                                                    j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                                ))}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+
+                                                            <div className="text-[8px] text-slate-700 mt-2 text-right">MLS + AI Photo Analysis • Google Places • Gemini</div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Row 2: Investment Insights */}
+                                            {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse) && (
+                                                <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                                                        {/* Community Pulse */}
+                                                        {analysis?.detailed_analysis?.community_pulse && (
+                                                            <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                    <div className="p-4">
+                                                                        <div className="flex items-center justify-between mb-3">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                                                                                    <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[11px]"></i>
+                                                                                </div>
+                                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
+                                                                            </div>
+                                                                            {userRole === 'admin' && onRefreshCommunityPulse && (
+                                                                                <button
+                                                                                    onClick={async () => {
+                                                                                        setIsRefreshingPulse(true);
+                                                                                        await onRefreshCommunityPulse();
+                                                                                        setIsRefreshingPulse(false);
+                                                                                    }}
+                                                                                    disabled={isRefreshingPulse}
+                                                                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
+                                                                                    title="Refresh Community Pulse"
+                                                                                >
+                                                                                    <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                            {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                            ))}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Market Insights */}
+                                                        {keyInsights && (
+                                                            <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                    <div className="p-4">
+                                                                        <div className="flex items-center gap-2 mb-3">
+                                                                            <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 transition-colors">
+                                                                                <i className="fa-solid fa-microscope text-violet-600 group-hover:text-white text-[11px]"></i>
+                                                                            </div>
+                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
+                                                                        </div>
+                                                                        {keyInsights.executive_summary && keyInsights.executive_summary !== 'N/A' && (
+                                                                            <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
+                                                                        )}
+                                                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                                                            {[
+                                                                                { label: 'Median', value: keyInsights.median_price_range },
+                                                                                { label: 'PPSF', value: keyInsights.ppsf_benchmark },
+                                                                                { label: 'Supply', value: keyInsights.months_of_supply },
+                                                                                { label: 'DOM', value: keyInsights.dom_range },
+                                                                            ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
+                                                                                <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                    <div className="min-w-0">
+                                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
+                                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
+                                                                                    </div>
+                                                                                </div>
                                                                             ))}
                                                                         </div>
-                                                                    )}
+                                                                        {keyInsights.risk_tags && keyInsights.risk_tags.length > 0 && (
+                                                                            <div className="flex flex-wrap gap-1.5 mt-3">
+                                                                                {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
+                                                                                    <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
+                                                                                        <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
+                                                                                        {tag}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
 
-                                                    {/* Long Term Rental */}
-                                                    {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
-                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                                <div className="p-4">
-                                                                    <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
-                                                                            <i className="fa-solid fa-house-circle-check text-emerald-600 group-hover:text-white text-[11px]"></i>
+                                                        {/* Long Term Rental */}
+                                                        {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
+                                                            <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                    <div className="p-4">
+                                                                        <div className="flex items-center gap-2 mb-3">
+                                                                            <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
+                                                                                <i className="fa-solid fa-house-circle-check text-emerald-600 group-hover:text-white text-[11px]"></i>
+                                                                            </div>
+                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
                                                                         </div>
-                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-2 gap-2">
-                                                                        {ltrAnalysis.monthly_rent && (
-                                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                                <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
-                                                                                <div className="min-w-0">
-                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
-                                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
+                                                                        <div className="grid grid-cols-2 gap-2">
+                                                                            {ltrAnalysis.monthly_rent && (
+                                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                    <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
+                                                                                    <div className="min-w-0">
+                                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
+                                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        )}
-                                                                        {ltrAnalysis.vacancy_rate && (
-                                                                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                                <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
-                                                                                <div className="min-w-0">
-                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
-                                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
+                                                                            )}
+                                                                            {ltrAnalysis.vacancy_rate && (
+                                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                    <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
+                                                                                    <div className="min-w-0">
+                                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
+                                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        )}
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
+                                            )}
+                                        </div>
+                                    )
+                                    }
+
+
+                                    {/* Street View + Ground Truth Engine — side by side */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                                        {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
+                                            <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                                                <StreetViewAnalysisSection
+                                                    data={propertyData}
+                                                    onRefresh={onRefreshEnvironment}
+                                                    refreshing={environmentRefreshing}
+                                                />
                                             </div>
                                         )}
-                                    </div>
-                                )
-                                }
-
-
-                                {/* Street View + Ground Truth Engine — side by side */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-                                    {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
-                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                                            <StreetViewAnalysisSection
-                                                data={propertyData}
-                                                onRefresh={onRefreshEnvironment}
-                                                refreshing={environmentRefreshing}
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                                        {/* Ground Truth Engine intro */}
-                                        <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
-                                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                                                <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">The Ground Truth Engine</div>
-                                                <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
-                                                    Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {/* Parcel Map + Validation side by side */}
-                                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 flex-1">
-                                            <div className="lg:col-span-3 aspect-square flex flex-col">
-                                                {/* Tabs — only show if satellite image exists */}
-                                                {propertyData.satelliteImageUrl && (
-                                                    <div className="flex items-center gap-1 mb-2">
-                                                        <button
-                                                            onClick={() => setGroundTruthMapTab('parcel')}
-                                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'parcel'
-                                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                                                }`}
-                                                        >
-                                                            <i className="fa-solid fa-map text-[9px]"></i>
-                                                            Parcel
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setGroundTruthMapTab('satellite')}
-                                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'satellite'
-                                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                                                }`}
-                                                        >
-                                                            <i className="fa-solid fa-satellite text-[9px]"></i>
-                                                            Satellite
-                                                        </button>
-                                                    </div>
-                                                )}
-                                                {/* Map content */}
-                                                <div className="flex-1 min-h-0 relative">
-                                                    {groundTruthMapTab === 'parcel' ? (
-                                                        <StaticParcelMap data={propertyData} parcelPolygon={
-                                                            propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                                                ? propertyData.parcelPolygon.map((pt: any) =>
-                                                                    Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                                                )
-                                                                : undefined
-                                                        } />
-                                                    ) : (
-                                                        <>
-                                                            <div
-                                                                className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden h-full relative group cursor-pointer"
-                                                                onClick={() => setIsSatelliteExpanded(true)}
-                                                            >
-                                                                <img
-                                                                    src={propertyData.satelliteImageUrl}
-                                                                    alt="Satellite View"
-                                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-                                                                />
-                                                                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100 z-10">
-                                                                    Satellite View
-                                                                </div>
-                                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
-                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
-                                                                        <i className="fa-solid fa-expand text-slate-700 text-sm"></i>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Expanded Satellite Overlay */}
-                                                            {isSatelliteExpanded && (
-                                                                <div
-                                                                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
-                                                                    onClick={() => setIsSatelliteExpanded(false)}
-                                                                >
-                                                                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
-                                                                    <div
-                                                                        className="relative max-w-5xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
-                                                                        style={{ maxHeight: '90vh' }}
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        <button
-                                                                            onClick={() => setIsSatelliteExpanded(false)}
-                                                                            className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
-                                                                        >
-                                                                            <i className="fa-solid fa-xmark text-lg"></i>
-                                                                        </button>
-
-                                                                        {/* Top white border */}
-                                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
-
-                                                                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center relative p-4">
-                                                                            <img
-                                                                                src={propertyData.satelliteImageUrl}
-                                                                                alt="Expanded Satellite View"
-                                                                                className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl"
-                                                                            />
-                                                                        </div>
-
-                                                                        {/* Bottom white border */}
-                                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
+                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                                            {/* Ground Truth Engine intro */}
+                                            <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
+                                                <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                                    <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">The Ground Truth Engine</div>
+                                                    <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
+                                                        Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <div className="lg:col-span-2 h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-                                                <ParcelValidationCard propertyData={propertyData} />
+                                            {/* Parcel Map + Validation side by side */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 flex-1">
+                                                <div className="lg:col-span-3 aspect-square flex flex-col">
+                                                    {/* Tabs — only show if satellite image exists */}
+                                                    {propertyData.satelliteImageUrl && (
+                                                        <div className="flex items-center gap-1 mb-2">
+                                                            <button
+                                                                onClick={() => setGroundTruthMapTab('parcel')}
+                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'parcel'
+                                                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                                    }`}
+                                                            >
+                                                                <i className="fa-solid fa-map text-[9px]"></i>
+                                                                Parcel
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setGroundTruthMapTab('satellite')}
+                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'satellite'
+                                                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                                    }`}
+                                                            >
+                                                                <i className="fa-solid fa-satellite text-[9px]"></i>
+                                                                Satellite
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {/* Map content */}
+                                                    <div className="flex-1 min-h-0 relative">
+                                                        {groundTruthMapTab === 'parcel' ? (
+                                                            <StaticParcelMap data={propertyData} parcelPolygon={
+                                                                propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                                    ? propertyData.parcelPolygon.map((pt: any) =>
+                                                                        Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                                    )
+                                                                    : undefined
+                                                            } />
+                                                        ) : (
+                                                            <>
+                                                                <div
+                                                                    className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden h-full relative group cursor-pointer"
+                                                                    onClick={() => setIsSatelliteExpanded(true)}
+                                                                >
+                                                                    <img
+                                                                        src={propertyData.satelliteImageUrl}
+                                                                        alt="Satellite View"
+                                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                                                                    />
+                                                                    <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100 z-10">
+                                                                        Satellite View
+                                                                    </div>
+                                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                                                                            <i className="fa-solid fa-expand text-slate-700 text-sm"></i>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Expanded Satellite Overlay */}
+                                                                {isSatelliteExpanded && (
+                                                                    <div
+                                                                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
+                                                                        onClick={() => setIsSatelliteExpanded(false)}
+                                                                    >
+                                                                        <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
+                                                                        <div
+                                                                            className="relative max-w-5xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
+                                                                            style={{ maxHeight: '90vh' }}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <button
+                                                                                onClick={() => setIsSatelliteExpanded(false)}
+                                                                                className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
+                                                                            >
+                                                                                <i className="fa-solid fa-xmark text-lg"></i>
+                                                                            </button>
+
+                                                                            {/* Top white border */}
+                                                                            <div className="h-16 bg-white w-full flex-shrink-0" />
+
+                                                                            <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center relative p-4">
+                                                                                <img
+                                                                                    src={propertyData.satelliteImageUrl}
+                                                                                    alt="Expanded Satellite View"
+                                                                                    className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl"
+                                                                                />
+                                                                            </div>
+
+                                                                            {/* Bottom white border */}
+                                                                            <div className="h-16 bg-white w-full flex-shrink-0" />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="lg:col-span-2 h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                                                    <ParcelValidationCard propertyData={propertyData} />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
+
+                                    {propertyData.neighborhoodPlaces && (
+                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                            <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} neighborhoodOverview={neighborhoodOverview} hoaAmenities={propertyData.hoa?.amenities} />
+                                        </div>
+                                    )}
+
+                                    {propertyData.resoFacts && (
+                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                            <PropertyFacts facts={propertyData.resoFacts} />
+                                        </div>
+                                    )}
+
+                                    <ComplianceAttribution data={propertyData} />
                                 </div>
-
-                                {propertyData.neighborhoodPlaces && (
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} neighborhoodOverview={neighborhoodOverview} hoaAmenities={propertyData.hoa?.amenities} />
-                                    </div>
-                                )}
-
-                                {propertyData.resoFacts && (
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                                        <PropertyFacts facts={propertyData.resoFacts} />
-                                    </div>
-                                )}
-
-                                <ComplianceAttribution data={propertyData} />
-                            </div>
                             </StickyNotesLayer>
                         )}
 
@@ -1896,11 +1892,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 <button
                     onClick={handleBrowse}
                     disabled={!selectedCity || browsing}
-                    className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-                        !selectedCity || browsing
+                    className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${!selectedCity || browsing
                             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                             : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
-                    }`}
+                        }`}
                 >
                     {browsing ? (
                         <><i className="fa-solid fa-spinner animate-spin"></i> Loading...</>
@@ -1986,7 +1981,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
                         >
                             <option value="">Beds</option>
-                            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
+                            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
                         </select>
                         <select
                             value={filterBaths}
@@ -1994,7 +1989,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
                         >
                             <option value="">Baths</option>
-                            {[1,2,3,4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
+                            {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
                         </select>
                         {availableNeighborhoods.length > 0 && (
                             <select
@@ -2151,11 +2146,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                         <button
                                             key={p}
                                             onClick={() => setPage(p)}
-                                            className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
-                                                page === p
+                                            className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${page === p
                                                     ? 'bg-indigo-600 text-white shadow-sm'
                                                     : 'bg-white border border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
-                                            }`}
+                                                }`}
                                         >
                                             {p}
                                         </button>
