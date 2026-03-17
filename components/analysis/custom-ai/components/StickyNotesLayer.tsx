@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { UserPropertyComment, StickyNoteColor } from '../../../../types';
 import { getStickyNotes, saveStickyNote, updateStickyNote, deleteStickyNote } from '../../../../services/firebase/stickyNotes';
 import { auth } from '../../../../services/firebase/config';
@@ -10,6 +11,7 @@ interface Props {
     zpid: string;
     activeTab: string;
     children: React.ReactNode;
+    paletteSlotRef?: React.RefObject<HTMLDivElement>;
 }
 
 const PALETTE_COLORS: { id: StickyNoteColor; label: string; color: string; border: string }[] = [
@@ -19,7 +21,7 @@ const PALETTE_COLORS: { id: StickyNoteColor; label: string; color: string; borde
     { id: 'emerald', label: 'Green', color: 'bg-[#a7ffeb]', border: 'border-[#96eee0]' },
 ];
 
-export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children }) => {
+export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children, paletteSlotRef }) => {
     const user = auth?.currentUser;
     const [notes, setNotes] = useState<UserPropertyComment[]>([]);
     const [draggingFromPalette, setDraggingFromPalette] = useState<StickyNoteColor | null>(null);
@@ -177,40 +179,52 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                 }
             `}} />
 
-            {/* Quick Note Palette — fixed right sidebar */}
-            <div className="fixed z-[101] animate-in slide-in-from-right-4 duration-500" style={{ right: 'calc((100vw - 72rem) / 4)', top: '28%' }}>
-                <div className="flex flex-col items-center gap-3 bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 shadow-2xl">
-                    <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 leading-tight">Quick Note</span>
-                        <span className="text-[8px] font-semibold text-slate-400 leading-tight">Drag to page</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        {PALETTE_COLORS.map((note, idx) => {
-                            const rotations = ['-rotate-2', 'rotate-1', 'rotate-2', '-rotate-1'];
-                            return (
-                            <div key={note.id} className="relative group/palette-item">
-                                {/* Shadow layer behind */}
-                                <div className={`absolute inset-0 translate-x-0.5 translate-y-1 rounded-sm ${note.color} opacity-30 blur-[1px] ${rotations[idx]}`}></div>
-                                <div
-                                    onMouseDown={(e) => handlePaletteDragStart(e, note.id)}
-                                    onTouchStart={(e) => handlePaletteDragStart(e, note.id)}
-                                    onDragStart={(e) => e.preventDefault()}
-                                    className={`w-14 h-14 rounded-[2px] ${note.color} cursor-grab active:cursor-grabbing flex items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-[4px_4px_8px_rgba(33,33,33,.15)] relative z-10 ${rotations[idx]}`}
-                                >
-                                    {/* Paper fold corner */}
-                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-gradient-to-tl from-black/[0.07] to-transparent"></div>
-                                    {/* Paperclip */}
-                                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-5 border-2 border-slate-400/50 rounded-full bg-slate-200/30 z-20 shadow-sm">
-                                        <div className="absolute inset-0.5 border-l border-slate-500/20 rounded-full"></div>
+            {/* Quick Note Palette — renders inline or fixed depending on paletteSlotRef */}
+            {(() => {
+                const paletteContent = (
+                    <div className={paletteSlotRef?.current ? 'flex items-center gap-2.5' : 'flex flex-col items-center gap-3 bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 shadow-2xl'}>
+                        <div className={paletteSlotRef?.current ? 'flex flex-col items-center gap-0 mr-0.5' : 'flex flex-col items-center gap-0.5'}>
+                            <span className={`font-black uppercase tracking-[0.2em] text-amber-600 leading-tight ${paletteSlotRef?.current ? 'text-[8px]' : 'text-[10px]'}`}>Quick Note</span>
+                            <span className={`font-semibold text-slate-400 leading-tight ${paletteSlotRef?.current ? 'text-[7px]' : 'text-[8px]'}`}>Drag to page</span>
+                        </div>
+                        <div className={paletteSlotRef?.current ? 'flex items-center gap-1.5' : 'grid grid-cols-2 gap-3'}>
+                            {PALETTE_COLORS.map((note, idx) => {
+                                const rotations = ['-rotate-2', 'rotate-1', 'rotate-2', '-rotate-1'];
+                                const size = paletteSlotRef?.current ? 'w-8 h-8' : 'w-14 h-14';
+                                return (
+                                <div key={note.id} className="relative group/palette-item">
+                                    <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm ${note.color} opacity-30 blur-[1px] ${rotations[idx]}`}></div>
+                                    <div
+                                        onMouseDown={(e) => handlePaletteDragStart(e, note.id)}
+                                        onTouchStart={(e) => handlePaletteDragStart(e, note.id)}
+                                        onDragStart={(e) => e.preventDefault()}
+                                        className={`${size} rounded-[2px] ${note.color} cursor-grab active:cursor-grabbing flex items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-[2px_2px_6px_rgba(33,33,33,.15)] relative z-10 ${rotations[idx]}`}
+                                    >
+                                        <div className="absolute bottom-0 right-0 w-2 h-2 bg-gradient-to-tl from-black/[0.07] to-transparent"></div>
+                                        {!paletteSlotRef?.current && (
+                                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-5 border-2 border-slate-400/50 rounded-full bg-slate-200/30 z-20 shadow-sm">
+                                                <div className="absolute inset-0.5 border-l border-slate-500/20 rounded-full"></div>
+                                            </div>
+                                        )}
+                                        <i className={`fa-solid fa-pen-fancy opacity-15 ${paletteSlotRef?.current ? 'text-[9px]' : 'text-[13px]'}`}></i>
                                     </div>
-                                    <i className="fa-solid fa-pen-fancy opacity-15 text-[13px]"></i>
                                 </div>
-                            </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            </div>
+                );
+
+                if (paletteSlotRef?.current) {
+                    return createPortal(paletteContent, paletteSlotRef.current);
+                }
+
+                return (
+                    <div className="fixed z-[101] animate-in slide-in-from-right-4 duration-500" style={{ right: 'calc((100vw - 72rem) / 4)', top: '28%' }}>
+                        {paletteContent}
+                    </div>
+                );
+            })()}
 
             <div
                 ref={containerRef}

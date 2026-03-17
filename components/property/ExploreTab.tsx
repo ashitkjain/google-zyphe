@@ -93,6 +93,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [lifestyleFitTab, setLifestyleFitTab] = useState<string>('working_professionals');
     const [schoolsIntelligence, setSchoolsIntelligence] = useState<any>(null);
     const [schoolsExpanded, setSchoolsExpanded] = useState<Record<number, boolean>>({});
+    const paletteSlotRef = React.useRef<HTMLDivElement>(null);
 
     // Sync external viewMode changes to internal tab
     React.useEffect(() => {
@@ -451,7 +452,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             {/* AI sub-tabs — two rows */}
                             <div className="flex-1 space-y-1">
                                 {/* Row 1 */}
-                                <div className="flex flex-wrap items-center gap-12">
+                                <div className="flex flex-wrap items-center gap-10">
                                     {([
                                         { id: 'interior', label: 'Interior', icon: 'fa-couch' },
                                         { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
@@ -480,9 +481,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         </button>
                                         );
                                     })}
+                                    {/* Quick Note palette slot — portal target */}
+                                    <div ref={paletteSlotRef} className="flex items-center ml-auto" />
                                 </div>
                                 {/* Row 2 */}
-                                <div className="flex flex-wrap items-center gap-12">
+                                <div className="flex flex-wrap items-center gap-10">
                                     {([
                                         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
                                         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
@@ -1614,6 +1617,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 isFavorited={isFavorited}
                                 onToggleFavorite={onToggleFavorite}
                                 activeSubTab={activeSubTab}
+                                paletteSlotRef={paletteSlotRef}
                             />
                         )}
 
