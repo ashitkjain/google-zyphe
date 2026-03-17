@@ -228,13 +228,13 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                     <p className="text-[10px] font-medium text-slate-400 mt-1">Please try searching again to refresh results</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1 items-start">
-                    {/* Neighborhood Map — spans 2 columns */}
+                <div className="flex gap-3 items-start">
+                    {/* Neighborhood Map — fixed left column */}
                     {mapZoomOut && (
-                        <div className="hidden lg:block col-span-2 row-span-3">
+                        <div className="hidden lg:block w-[280px] flex-shrink-0">
                             <div
                                 onClick={() => setExpandedMap(mapZoomOut)}
-                                className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group relative cursor-zoom-in w-full h-full"
+                                className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group relative cursor-zoom-in w-full aspect-square"
                             >
                                 <img
                                     src={mapZoomOut}
@@ -249,20 +249,25 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                         </div>
                     )}
 
-                    {/* Category cards */}
-                    {CATEGORY_CONFIG.map(cat => (
-                        <CategoryCard
-                            key={cat.key}
-                            icon={cat.icon}
-                            label={cat.label}
-                            color={cat.color}
-                            bgColor={cat.bgColor}
-                            borderColor={cat.borderColor}
-                            places={collections[cat.key] || []}
-                        />
-                    ))}
-
-
+                    {/* Category cards — masonry columns */}
+                    <div className="flex-1 min-w-0" style={{ columnCount: mapZoomOut ? 3 : 4, columnGap: '0.5rem' }}>
+                        {CATEGORY_CONFIG.map(cat => {
+                            const places = collections[cat.key] || [];
+                            if (places.length === 0) return null;
+                            return (
+                                <div key={cat.key} className="break-inside-avoid mb-2">
+                                    <CategoryCard
+                                        icon={cat.icon}
+                                        label={cat.label}
+                                        color={cat.color}
+                                        bgColor={cat.bgColor}
+                                        borderColor={cat.borderColor}
+                                        places={places}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 

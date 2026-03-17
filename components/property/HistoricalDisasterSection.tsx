@@ -257,8 +257,8 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
 
     if (compact) {
         return (
-            <div className="bg-white border-x border-b border-gray-100 px-8 py-4 space-y-3 overflow-visible">
-                <div className="flex items-center justify-between text-xs font-black text-black uppercase tracking-widest">
+            <div className="bg-white border-x border-b border-gray-100 px-6 py-3 overflow-visible">
+                <div className="flex items-center justify-between text-xs font-black text-black uppercase tracking-widest mb-2">
                     <div className="flex items-center flex-1">
                         <i className="fa-solid fa-shield-halved mr-2"></i>
                         Hazard Zones
@@ -281,49 +281,27 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
                     )}
                 </div>
 
-                {/* Zone classifications — flat rows */}
-                <div className="space-y-1.5">
+                {/* Inline zone badges + event counts in one row */}
+                <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5">
+                    {/* Zone classifications as inline badges */}
                     {data.seismicZone && (() => {
                         const c = SEISMIC_COLORS[data.seismicZone.riskLevel] || SEISMIC_COLORS.low;
-                        const zoneDesc: Record<string, string> = {
-                            A: 'Minimal seismic risk — standard construction',
-                            B: 'Low to moderate risk — basic seismic detailing',
-                            C: 'Moderate risk — seismic-resistant design required',
-                            D: 'High seismic risk — strict building codes apply',
-                            E: 'Very high seismic risk — earthquake insurance recommended',
-                            F: 'Near-fault zone — specialized engineering required',
-                        };
                         return (
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <i className={`fa-solid fa-mountain-sun text-[10px] ${c.text}`}></i>
-                                    <span className="text-[12px] font-bold text-gray-600">Seismic</span>
-                                    <span className={`text-[12px] font-black ${c.text}`}>Zone {data.seismicZone.designCategory}</span>
-                                    <InfoTooltip items={[
-                                        { label: 'Category A', desc: 'Minimal risk' },
-                                        { label: 'Category B', desc: 'Low to moderate' },
-                                        { label: 'Category D/E', desc: 'Very high — quake insurance recommended' },
-                                    ]} />
-                                </div>
-                                <p className="text-[10px] text-gray-400 font-medium ml-[22px] mt-0.5 leading-snug">
-                                    {zoneDesc[data.seismicZone.designCategory] || 'Seismic design category per ASCE 7-22'}
-                                </p>
+                            <div className="flex items-center gap-1.5">
+                                <i className={`fa-solid fa-mountain-sun text-[9px] ${c.text}`}></i>
+                                <span className="text-[11px] font-bold text-gray-500">Seismic</span>
+                                <span className={`text-[11px] font-black ${c.text} ${c.bg} px-1.5 py-0.5 rounded-md border ${c.border}`}>Zone {data.seismicZone.designCategory}</span>
                             </div>
                         );
                     })()}
                     {data.floodZone && (() => {
                         const c = FLOOD_COLORS[data.floodZone.riskLevel] || FLOOD_COLORS.minimal;
                         return (
-                            <div className="flex items-center gap-2">
-                                <i className={`fa-solid fa-water text-[10px] ${c.text}`}></i>
-                                <span className="text-[12px] font-bold text-gray-600">Flood</span>
-                                <span className={`text-[12px] font-black ${c.text}`}>Zone {data.floodZone.zone}</span>
-                                {data.floodZone.insuranceRequired && <span className="text-[9px] font-black text-rose-500 uppercase">Ins. Req</span>}
-                                <InfoTooltip items={[
-                                    { label: 'Zone X', desc: 'Minimal risk — no insurance required' },
-                                    { label: 'Zone A/AE', desc: 'High risk — flood insurance mandatory' },
-                                    { label: 'Zone V/VE', desc: 'Coastal high risk' },
-                                ]} />
+                            <div className="flex items-center gap-1.5">
+                                <i className={`fa-solid fa-water text-[9px] ${c.text}`}></i>
+                                <span className="text-[11px] font-bold text-gray-500">Flood</span>
+                                <span className={`text-[11px] font-black ${c.text} ${c.bg} px-1.5 py-0.5 rounded-md border ${c.border}`}>Zone {data.floodZone.zone}</span>
+                                {data.floodZone.insuranceRequired && <span className="text-[8px] font-black text-rose-500 uppercase">Ins. Req</span>}
                             </div>
                         );
                     })()}
@@ -338,70 +316,40 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
                         };
                         const dc = droughtColors[drought.severity] || droughtColors['None'];
                         return (
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <i className={`fa-solid fa-sun-plant-wilt text-[10px] ${dc.icon}`}></i>
-                                    <span className="text-[12px] font-bold text-gray-600">Drought</span>
-                                    <span className={`text-[12px] font-black ${dc.text}`}>{drought.severity}</span>
-                                    <InfoTooltip items={[
-                                        { label: 'D0', desc: 'Abnormally Dry' },
-                                        { label: 'D1', desc: 'Moderate Drought' },
-                                        { label: 'D2', desc: 'Severe Drought' },
-                                        { label: 'D3–D4', desc: 'Extreme / Exceptional Drought' },
-                                    ]} />
-                                </div>
-                                <p className="text-[10px] text-gray-400 font-medium ml-[22px] mt-0.5 leading-snug">
-                                    {drought.countyName}, {drought.state} — {drought.none.toFixed(0)}% no drought, {(100 - drought.none).toFixed(0)}% affected
-                                </p>
+                            <div className="flex items-center gap-1.5">
+                                <i className={`fa-solid fa-sun-plant-wilt text-[9px] ${dc.icon}`}></i>
+                                <span className="text-[11px] font-bold text-gray-500">Drought</span>
+                                <span className={`text-[11px] font-black ${dc.text}`}>{drought.severity}</span>
                             </div>
                         );
                     })()}
+
+                    {/* Divider */}
+                    <div className="h-4 w-px bg-slate-200"></div>
+
+                    {/* Event counts inline */}
+                    <div className="flex items-center gap-1.5">
+                        <i className="fa-solid fa-house-crack text-amber-500 text-[9px]"></i>
+                        <span className="text-[11px] font-bold text-gray-500">Quakes</span>
+                        <span className="text-[11px] font-black text-gray-800">{eqSplit.ytd.length}</span>
+                        <span className="text-[9px] text-gray-400">YTD</span>
+                        <span className="text-[11px] font-black text-gray-800">{eqSplit.prev.length}</span>
+                        <span className="text-[9px] text-gray-400">prev</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <i className="fa-solid fa-landmark text-blue-500 text-[9px]"></i>
+                        <span className="text-[11px] font-bold text-gray-500">FEMA</span>
+                        <span className="text-[11px] font-black text-gray-800">{femaSplit.ytd.length}</span>
+                        <span className="text-[9px] text-gray-400">YTD</span>
+                        <span className="text-[11px] font-black text-gray-800">{femaSplit.prev.length}</span>
+                        <span className="text-[9px] text-gray-400">prev</span>
+                    </div>
                 </div>
 
-                {/* Event counts — mini table */}
-                <table className="w-full text-[12px]">
-                    <thead>
-                        <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            <th className="text-left py-1 font-black"></th>
-                            <th className="text-center py-1 font-black">YTD</th>
-                            <th className="text-center py-1 font-black">{currentYear - 2}–{currentYear - 1}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td className="py-1.5 pr-2">
-                                <div className="flex items-center gap-1.5">
-                                    <i className="fa-solid fa-house-crack text-amber-500 text-[10px]"></i>
-                                    <span className="font-bold text-gray-600">Earthquakes</span>
-                                    <InfoTooltip items={[
-                                        { label: 'Source', desc: 'USGS real-time feed' },
-                                        { label: 'Radius', desc: '5 mi from property' },
-                                        { label: 'Min', desc: 'M3.0+' },
-                                    ]} />
-                                </div>
-                            </td>
-                            <td className="text-center py-1.5 font-black text-gray-800">{eqSplit.ytd.length}</td>
-                            <td className="text-center py-1.5 font-black text-gray-800">{eqSplit.prev.length}</td>
-                        </tr>
-                        <tr>
-                            <td className="py-1.5 pr-2">
-                                <div className="flex items-center gap-1.5">
-                                    <i className="fa-solid fa-landmark text-blue-500 text-[10px]"></i>
-                                    <span className="font-bold text-gray-600">FEMA</span>
-                                    <InfoTooltip items={[
-                                        { label: 'Source', desc: 'FEMA OpenFEMA API' },
-                                        { label: 'Scope', desc: 'County declarations' },
-                                        { label: 'Types', desc: 'Floods, fires, storms, etc.' },
-                                    ]} />
-                                </div>
-                            </td>
-                            <td className="text-center py-1.5 font-black text-gray-800">{femaSplit.ytd.length}</td>
-                            <td className="text-center py-1.5 font-black text-gray-800">{femaSplit.prev.length}</td>
-                        </tr>
-                    </tbody>
-                </table>
                 {data.femaDeclarations.length > 0 && (
-                    <TypeCountBadges events={data.femaDeclarations} />
+                    <div className="mt-1.5">
+                        <TypeCountBadges events={data.femaDeclarations} />
+                    </div>
                 )}
             </div>
         );

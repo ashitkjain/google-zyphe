@@ -448,7 +448,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     />
                                 </div>
                                 {searchBar && (
-                                    <div className="lg:w-[550px] xl:w-[650px] shrink-0">
+                                    <div className="lg:w-[420px] xl:w-[500px] shrink-0">
                                         {searchBar}
                                     </div>
                                 )}
@@ -1102,7 +1102,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">{nid.resolved_name}</span>
                                                                     </div>
                                                                     {gem?.character?.description && (
-                                                                        <p className="text-[13px] text-slate-600 leading-relaxed mb-3">{gem.character.description}</p>
+                                                                        <p className="text-[11px] text-slate-600 leading-relaxed mb-3">{gem.character.description}</p>
                                                                     )}
                                                                     {/* Tags */}
                                                                     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1143,13 +1143,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                     {gem?.price_context?.context && (
                                                                         <div className="mt-2">
                                                                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Market Position</div>
-                                                                            <p className="text-[12px] text-slate-600 leading-relaxed">{gem.price_context.context}</p>
+                                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{gem.price_context.context}</p>
                                                                         </div>
                                                                     )}
                                                                     {gem?.infrastructure_quality && (
                                                                         <div className="mt-2">
                                                                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Infrastructure</div>
-                                                                            <p className="text-[12px] text-slate-600 leading-relaxed">{gem.infrastructure_quality}</p>
+                                                                            <p className="text-[10px] text-slate-600 leading-relaxed">{gem.infrastructure_quality}</p>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -1745,6 +1745,33 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [page, setPage] = useState(1);
     const PER_PAGE = 20;
 
+    // Listen for browse-city events from the search bar Browse button
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const city = (e as CustomEvent).detail?.city;
+            if (city && typeof city === 'string') {
+                setSelectedCity(city);
+                // Auto-trigger browse after state update
+                setTimeout(async () => {
+                    setBrowsing(true);
+                    setHasSearched(true);
+                    setPage(1);
+                    try {
+                        const data = await getPropertiesByCity(city);
+                        setResults(data);
+                    } catch (err) {
+                        console.error('Browse by city failed:', err);
+                        setResults([]);
+                    } finally {
+                        setBrowsing(false);
+                    }
+                }, 100);
+            }
+        };
+        window.addEventListener('browse-city', handler);
+        return () => window.removeEventListener('browse-city', handler);
+    }, []);
+
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
     const [miningStatus, setMiningStatus] = useState<string>('');
@@ -1882,38 +1909,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     )}
                 </button>
 
-                {/* Mine Neighborhoods button */}
-                <button
-                    onClick={handleMineNeighborhoods}
-                    disabled={!selectedCity || mining}
-                    className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-                        !selectedCity || mining
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                            : cachedNeighborhoodCount && cachedNeighborhoodCount > 0
-                                ? 'bg-emerald-50 text-emerald-700 border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95'
-                                : 'bg-amber-50 text-amber-700 border-2 border-amber-200 hover:bg-amber-100 active:scale-95'
-                    }`}
-                    title={cachedNeighborhoodCount ? `${cachedNeighborhoodCount} neighborhoods cached — click to re-mine` : 'Mine all neighborhoods for this city'}
-                >
-                    {mining ? (
-                        <><i className="fa-solid fa-spinner animate-spin"></i> Mining...</>
-                    ) : cachedNeighborhoodCount && cachedNeighborhoodCount > 0 ? (
-                        <><i className="fa-solid fa-check-circle"></i> {cachedNeighborhoodCount} Neighborhoods</>
-                    ) : (
-                        <><i className="fa-solid fa-pickaxe"></i> Mine Neighborhoods</>
-                    )}
-                </button>
 
-                {/* Mining status */}
-                {miningStatus && (
-                    <span className={`text-[10px] font-semibold ${
-                        miningStatus.startsWith('✓') ? 'text-emerald-600' :
-                        miningStatus.startsWith('✗') ? 'text-red-500' :
-                        'text-amber-600'
-                    }`}>
-                        {miningStatus}
-                    </span>
-                )}
             </div>
 
             {/* Results area */}

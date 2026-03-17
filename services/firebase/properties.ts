@@ -240,7 +240,9 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
         logFirestoreQuery('getDocs', 'properties', { city, maxResults, scope: 'browse_by_city' });
         const snapshot = await getDocs(q);
         const { getNeighborhood } = await import('../neighborhoodService');
-        return snapshot.docs.map(d => {
+        return snapshot.docs
+            .filter(d => !d.data().deprecated)
+            .map(d => {
             const data = d.data();
             const coords = data.coordinates ? { latitude: data.coordinates.latitude, longitude: data.coordinates.longitude } : undefined;
             const addr = data.address || '';

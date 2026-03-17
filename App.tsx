@@ -994,21 +994,45 @@ const App: React.FC = () => {
           onFocus={() => setShowHistory(true)}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Enter property address..."
-          className="w-full pl-12 pr-36 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
+          className="w-full pl-12 pr-48 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
         />
         <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
           {propertyData && (
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
               title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
             >
-              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-sm`}></i>
+              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-xs`}></i>
             </button>
           )}
-          <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Zyphe</button>
+          <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-4 py-1.5 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-indigo-200">Search</button>
+          {propertyData?.city && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const city = propertyData.city;
+                // Clear property state so BrowseHomeSection mounts
+                setPropertyData(null);
+                setCustomAnalysis(null);
+                setComprehensiveAnalysis(null);
+                setAddress('');
+                transitionToView('main' as any);
+                // Dispatch after BrowseHomeSection has mounted
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('browse-city', { detail: { city } }));
+                }, 300);
+              }}
+              className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all border border-emerald-200"
+              title={`Browse all properties in ${propertyData.city}`}
+            >
+              <i className="fa-solid fa-city mr-1 text-[8px]"></i>Browse
+            </button>
+          )}
         </div>
       </div>
 
