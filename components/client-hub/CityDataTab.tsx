@@ -78,6 +78,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [neighborhoodMiningStatus, setNeighborhoodMiningStatus] = useState<string>('');
     const [cachedNeighborhoodCount, setCachedNeighborhoodCount] = useState<number | null>(null);
 
+    // Batch Context Graph
+    const [graphBatchRunning, setGraphBatchRunning] = useState(false);
+    const [graphBatchProgress, setGraphBatchProgress] = useState<{ done: number; skipped: number; failed: number; total: number } | null>(null);
+
     // Load cities from city_zip_cache filtered to SUPPORTED_STATES on mount
     useEffect(() => {
         getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
@@ -564,6 +568,27 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     };
 
 
+    /**
+     * Detects ghost/plan listings that will never resolve to a real ZPID.
+     * These are new construction model-home "plans" without real street addresses.
+     * Examples: "Plan 1 Plan, Larkspur at Francis Ranch", "Residence 1 Plan, Parkton"
+     */
+    const isGhostListing = (item: any): boolean => {
+        const addr = item.location?.address?.line || item.address || item.streetAddress || item.full_address || '';
+        const addrLower = addr.toLowerCase().trim();
+
+        // Pattern: starts with "Plan <N>" or "Residence <N> Plan" — new construction model plans
+        if (/^(plan\s+\d|residence\s+\d+\s+plan|homesite|lot\s+\d)/i.test(addrLower)) return true;
+
+        // No street number at all (real addresses start with a number)
+        if (addr && !/^\d/.test(addr.trim())) return true;
+
+        // Address is just a community name (no comma before city, no numbers)
+        if (addr && !addr.includes(',') && !/\d/.test(addr)) return true;
+
+        return false;
+    };
+
     const fetchListings = async (zip: string, fallbackCity?: string, fallbackState?: string, forceRefresh = false) => {
         const config = APP_CONFIG.usHousingApi;
 
@@ -575,6 +600,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const allCached = cloudCached.listings || [];
                     const cachedListings = allCached
                         .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
+                        .filter((item: any) => !isGhostListing(item))
                         .map((item: any) => ({
                         ...item,
                         location: {
@@ -589,7 +615,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     // If ghost listings were removed, persist the clean list back to Firestore
                     const removed = allCached.length - cachedListings.length;
                     if (removed > 0) {
-                        addLog(`Cleaned ${removed} ghost listing(s) with no ZPID from cache for zip ${zip}`);
+                        addLog(`Cleaned ${removed} ghost/plan listing(s) from cache for zip ${zip}`);
                         saveZipListings(zip, cachedListings).catch(console.error);
                     }
                     addLog(`Cloud Cache Hit for Zip: ${zip} (${cachedListings.length} items)`);
@@ -626,6 +652,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         const mapPage = (rawData: any[]) => rawData
             .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
+            .filter((item: any) => !isGhostListing(item))
             .map((item: any) => {
             const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
             const legacyAddr = legacyLoc.address || {};
@@ -952,6 +979,112 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     };
 
 
+    // ── Batch Context Graph Generator ──────────────────────────────────────
+    const handleBatchContextGraph = async () => {
+        if (cachedPropertyIds.size === 0) {
+            addLog('Load listings and check cache first before running batch context graph.');
+            return;
+        }
+        setGraphBatchRunning(true);
+        setGraphBatchProgress({ done: 0, skipped: 0, failed: 0, total: cachedPropertyIds.size });
+        addLog(`[Context Graph] Starting batch extraction for ${cachedPropertyIds.size} cached properties...`);
+
+        const zpids = Array.from(cachedPropertyIds) as string[];
+        let done = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        // Lazy imports
+        const { getContextGraphFromCloud, saveContextGraphToCloud } = await import('../../services/firebase/properties');
+        const { getPropertyFromCloud } = await import('../../services/firebase/properties');
+        const { getVisualAnalysisFromCloud, getComprehensiveAnalysisFromCloud } = await import('../../services/firebaseService');
+        const { extractContextGraphFactors } = await import('../../services/geminiService');
+        const { getCommunityPulseFromCloud, getGeneralMarketIntelligenceFromCloud, getDeepInvestmentResearchFromCloud, generateCityStateKey } = await import('../../services/firebaseService');
+
+        const CHUNK_SIZE = 5;
+
+        for (let i = 0; i < zpids.length; i += CHUNK_SIZE) {
+            const chunk = zpids.slice(i, i + CHUNK_SIZE);
+
+            const results = await Promise.allSettled(chunk.map(async (zpid) => {
+                const addr = zpidToAddressMap[zpid] || zpid;
+
+                // 1. Check if context graph already exists
+                const existing = await getContextGraphFromCloud(zpid);
+                if (existing?.factors?.length > 0) {
+                    addLog(`[Context Graph] ✓ Skip ${addr} — already has ${existing.factors.length} factors`);
+                    return 'skipped';
+                }
+
+                // 2. Load property, visual, and comprehensive from Firestore
+                const [property, visual, comprehensive] = await Promise.all([
+                    getPropertyFromCloud(zpid),
+                    getVisualAnalysisFromCloud(zpid),
+                    getComprehensiveAnalysisFromCloud(zpid)
+                ]);
+
+                if (!property) {
+                    addLog(`[Context Graph] ✗ Skip ${addr} — no property data`);
+                    return 'failed';
+                }
+
+                // 3. Enrich visual with city-level data for richer graph extraction
+                const city = property.city || '';
+                const state = property.state || '';
+                const cityStateKey = generateCityStateKey(city, state);
+                let enrichedVisual = visual || {} as any;
+
+                if (cityStateKey) {
+                    const [pulse, market, deep] = await Promise.all([
+                        getCommunityPulseFromCloud(cityStateKey).catch(() => null),
+                        getGeneralMarketIntelligenceFromCloud(cityStateKey).catch(() => null),
+                        getDeepInvestmentResearchFromCloud(cityStateKey).catch(() => null)
+                    ]);
+                    if (pulse) enrichedVisual = { ...enrichedVisual, community_pulse: pulse };
+                    if (market) enrichedVisual = { ...enrichedVisual, general_market_intelligence: market };
+                    if (deep) enrichedVisual = { ...enrichedVisual, deep_investment_research: deep };
+                }
+
+                // 4. Extract context graph via Gemini
+                addLog(`[Context Graph] Extracting for ${addr}...`);
+                const res = await extractContextGraphFactors(property, enrichedVisual, comprehensive || null);
+
+                if (res.data?.factors?.length > 0) {
+                    await saveContextGraphToCloud(zpid, res.data);
+                    addLog(`[Context Graph] ✓ Saved ${res.data.factors.length} factors for ${addr}`);
+                    return 'done';
+                } else {
+                    addLog(`[Context Graph] ✗ No factors returned for ${addr}`);
+                    return 'failed';
+                }
+            }));
+
+            // Tally results
+            for (const r of results) {
+                if (r.status === 'fulfilled') {
+                    if (r.value === 'skipped') skipped++;
+                    else if (r.value === 'done') done++;
+                    else failed++;
+                } else {
+                    failed++;
+                    console.error('[Context Graph Batch] Error:', r.reason);
+                    addLog(`[Context Graph] ✗ Error: ${r.reason?.message || r.reason}`);
+                }
+            }
+
+            setGraphBatchProgress({ done, skipped, failed, total: zpids.length });
+
+            // Brief cooldown between chunks
+            if (i + CHUNK_SIZE < zpids.length) {
+                await new Promise(r => setTimeout(r, 2000));
+            }
+        }
+
+        addLog(`[Context Graph] Batch complete: ${done} extracted, ${skipped} already existed, ${failed} failed / ${zpids.length} total.`);
+        logPipelineAudit('Batch Context Graph', `${zpids.length} properties`, failed === 0 ? 'success' : 'partial', `${done} new, ${skipped} cached, ${failed} failed`, undefined, { done, skipped, failed, total: zpids.length });
+        setGraphBatchRunning(false);
+    };
+
     const loadAuditTrail = useCallback(async () => {
         setAuditLoading(true);
         try {
@@ -1187,6 +1320,35 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 <><i className="fa-solid fa-flask text-violet-400 group-hover:scale-110 transition-transform"></i>Smoke Test</>
                                             )}
                                         </button>
+                                    )}
+                                    {cachedPropertyIds.size > 0 && (
+                                        <button
+                                            onClick={handleBatchContextGraph}
+                                            disabled={graphBatchRunning || loading}
+                                            className="px-6 py-3 bg-white border-2 border-cyan-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                            title="Generate context graphs for all cached properties (skips already-generated)"
+                                        >
+                                            {graphBatchRunning ? (
+                                                <>
+                                                    <i className="fa-solid fa-spinner animate-spin text-cyan-400"></i>
+                                                    {graphBatchProgress ? `${graphBatchProgress.done + graphBatchProgress.skipped}/${graphBatchProgress.total}` : 'Starting...'}
+                                                </>
+                                            ) : (
+                                                <><i className="fa-solid fa-diagram-project text-cyan-500 group-hover:scale-110 transition-transform"></i>Context Graphs</>
+                                            )}
+                                        </button>
+                                    )}
+                                    {graphBatchProgress && !graphBatchRunning && (
+                                        <div className="flex items-center gap-2 px-4 py-2.5 bg-cyan-50 border border-cyan-200 rounded-2xl animate-in fade-in">
+                                            <span className="text-[10px] font-black text-cyan-600 uppercase tracking-widest">Graph:</span>
+                                            <span className="text-[11px] font-black text-emerald-600">{graphBatchProgress.done} new</span>
+                                            <span className="text-slate-300">|</span>
+                                            <span className="text-[11px] font-semibold text-slate-500">{graphBatchProgress.skipped} cached</span>
+                                            {graphBatchProgress.failed > 0 && (<><span className="text-slate-300">|</span><span className="text-[11px] font-black text-rose-600">{graphBatchProgress.failed} failed</span></>)}
+                                            <button onClick={() => setGraphBatchProgress(null)} className="w-5 h-5 flex items-center justify-center text-cyan-300 hover:text-cyan-500 transition-colors ml-1">
+                                                <i className="fa-solid fa-xmark text-[10px]"></i>
+                                            </button>
+                                        </div>
                                     )}
                                     {smokeSummary && !smokeRunning && (
                                         <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-50 border border-violet-200 rounded-2xl animate-in fade-in">

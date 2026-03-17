@@ -510,6 +510,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
                                         { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city' },
                                         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
+                                        { id: 'context_graph', label: 'Context Graph', icon: 'fa-diagram-project' },
                                     ]).map(tab => {
                                         const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
                                         return (
