@@ -1017,10 +1017,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 }
 
                 // 2. Load property, visual, and comprehensive from Firestore
-                const [property, visual, comprehensive] = await Promise.all([
+                const [property, visual, comprehensive, lifestyleFit] = await Promise.all([
                     getPropertyFromCloud(zpid),
                     getVisualAnalysisFromCloud(zpid),
-                    getComprehensiveAnalysisFromCloud(zpid)
+                    getComprehensiveAnalysisFromCloud(zpid),
+                    import('../../services/firebase/properties').then(m => m.getLifestyleFitFromCloud(zpid))
                 ]);
 
                 if (!property) {
@@ -1033,6 +1034,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const state = property.state || '';
                 const cityStateKey = generateCityStateKey(city, state);
                 let enrichedVisual = visual || {} as any;
+                if (lifestyleFit) enrichedVisual = { ...enrichedVisual, lifestyle_fit: lifestyleFit };
 
                 if (cityStateKey) {
                     const [pulse, market, deep] = await Promise.all([

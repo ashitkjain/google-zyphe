@@ -630,7 +630,7 @@ export const extractContextGraphFactors = async (
   const context = buildGraphExtractionContext(property, visual, comprehensive);
   const prompt = getContextGraphExtractionPrompt(context, PRECOMPUTED_FACTOR_IDS);
 
-  console.log(`[Context Graph] Requesting AI for remaining ${88 - PRECOMPUTED_FACTOR_IDS.length} factors for ${property.address}...`);
+  console.log(`[Context Graph] Requesting AI for remaining ${111 - PRECOMPUTED_FACTOR_IDS.length} factors for ${property.address}...`);
 
   // 3. Call Gemini for the remaining factors
   const aiResult = await executeGeminiRequest<ContextGraphExtractionResult>({

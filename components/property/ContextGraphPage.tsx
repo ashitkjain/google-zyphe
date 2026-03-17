@@ -5,7 +5,8 @@ import {
     getContextGraphFromCloud,
     saveContextGraphToCloud,
     getPropertyFromCloud,
-    getVisualAnalysisFromCloud
+    getVisualAnalysisFromCloud,
+    getLifestyleFitFromCloud
 } from '../../services/firebase/properties';
 import { extractContextGraphFactors } from '../../services/geminiService';
 
@@ -55,15 +56,24 @@ const ContextGraphPage: React.FC<Props> = ({ zpid, onBack }) => {
 
             setPropertyAddress(propData.address || zpid);
 
-            // 3. Load visual analysis from cloud
+            // 3. Load visual analysis, lifestyle fit, and comprehensive from cloud
             let visualData = visualDataRef.current;
+            let comprehensiveData: any = null;
             if (!visualData) {
-                visualData = await getVisualAnalysisFromCloud(zpid);
+                const { getComprehensiveAnalysisFromCloud } = await import('../../services/firebase/properties');
+                const [rawVisual, lifestyleFit, comprehensive] = await Promise.all([
+                    getVisualAnalysisFromCloud(zpid),
+                    getLifestyleFitFromCloud(zpid),
+                    getComprehensiveAnalysisFromCloud(zpid)
+                ]);
+                visualData = rawVisual ? { ...rawVisual } : {} as any;
+                if (lifestyleFit) (visualData as any).lifestyle_fit = lifestyleFit;
                 visualDataRef.current = visualData;
+                comprehensiveData = comprehensive;
             }
 
             // 4. Extract via AI
-            const result = await extractContextGraphFactors(propData, visualData, null);
+            const result = await extractContextGraphFactors(propData, visualData, comprehensiveData);
 
             if (result.data) {
                 setGraphResult(result.data);

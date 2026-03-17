@@ -105,11 +105,11 @@ export const getContextGraphExtractionPrompt = (context: any, skipIds: number[] 
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
 ${skipNote}
 Given the property data below, extract values for the required decision factors. For each factor, return:
-- The factor ID (1-88)
+- The factor ID
 - A concise value (maximum 10 words — use fragments, numbers, and labels, not full sentences)
 - An optional detail (1-2 sentences max) containing the specific qualitative evidence that supports your value. Pull from listing description, visual analysis, or deep research. Do NOT invent details — only include what the data shows. Omit if no additional context beyond the value exists.
 - A confidence score: "high" (directly from data), "medium" (inferred), "low" (insufficient data)
-- Optional tags: 1-3 short labels that could be used as graph node values (e.g., "Luxury", "Turn-key", "High Solar Yield")
+- Tags: short labels (1-3 words each) suitable for graph nodes. For factors 89-105, tags are the PRIMARY output — generate 3-8 concept tags per factor.
 
 ## FACTOR DEFINITIONS
 
@@ -210,10 +210,6 @@ Given the property data below, extract values for the required decision factors.
 78. **Water & Drought Risk**: From property.drought — severity level (None/Abnormally Dry/Moderate/Severe/Extreme/Exceptional) and % of county affected.
 79. **Disaster History**: From property.historical_disasters — count and types of FEMA-declared disasters affecting the county.
 
-### Lifestyle Fit (80-82)
-80. **Professional Lifestyle Fit**: From lifestyle_fit.working_professionals if available. How well does this home suit remote workers, commuters, and DINK households? Verdict + top 2 strengths.
-81. **Family Lifestyle Fit**: From lifestyle_fit.families_with_kids if available. How well does this home suit families with children? Consider bedrooms, yard, schools, safety. Verdict + top 2 strengths.
-82. **Senior Lifestyle Fit**: From lifestyle_fit.seniors if available. How well does this home suit retirees and aging-in-place buyers? Consider single-story, terrain, medical access. Verdict + top 2 strengths.
 
 ### Neighborhood & Amenities (83-88)
 83. **Micro-Neighborhood Identity**: From neighborhood_identity if available. Return the social/micro-level neighborhood name (e.g. \"Vintage Hills\", \"Ruby Hill\") + price tier (Entry/Mid/Premium/Ultra-Luxury) + community type (Gated/HOA/Open).
@@ -222,6 +218,32 @@ Given the property data below, extract values for the required decision factors.
 86. **EV Infrastructure**: From property.neighborhoodPlaces — number of EV charging stations nearby and distance to closest.
 87. **Pet Friendliness**: Combine neighborhoodPlaces.parks (dog parks, off-leash areas) + property features (fenced yard, dog door). Also look for vet clinics in nearby places.
 88. **Dining & Entertainment Scene**: From neighborhoodPlaces.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
+
+### Investment Intelligence (89-93) — Tags are the primary output. Generate 3-8 concept tags per factor.
+89. **Market Signals**: From deep_investment_research.market_dynamics + macroeconomic_indicators. Tags = market concepts like "Seller's Market", "Low Inventory", "3% YoY Growth", "Rising Rates", "Declining DOM". Value = overall market direction (Appreciating/Cooling/Flat).
+90. **Growth Catalysts**: From deep_investment_research.investment_outlook + macroeconomic_indicators. Tags = upcoming drivers like "BART Extension 2026", "Tesla HQ Expansion", "New Tech Campus", "Rezoning Vote". Value = strongest catalyst.
+91. **Investment Risk Factors**: From deep_investment_research.local_risks + macroeconomic_indicators. Tags = risk concepts like "Seismic Zone", "Drought Risk", "FAIR Plan Insurance", "Declining Tax Base". Value = top risk.
+92. **Market Friction**: From deep_investment_research.competitor_gaps.friction_points + community_pulse. Tags = drawbacks like "Long SF Commute", "Limited Transit", "No Nightlife", "HOA Restrictions", "Airport Noise". Value = biggest friction.
+93. **Zoning & Regulatory Perks**: From deep_investment_research.investment_outlook + property_investment.value_add_strategies. Tags = zoning advantages like "ADU-Friendly", "No STR Ban", "Prop 13 Transfer", "R-1 Zoning". Value = strongest perk.
+
+### Street View Intelligence (94-98) — Tags are the primary output. Generate 3-8 concept tags per factor from streetViewAnalysis data.
+94. **Street Character**: From streetViewAnalysis.neighborhoodVibe + safetyAssessment + familySafety. Tags = street concepts like "Tree-Lined Street", "Quiet Cul-de-sac", "Well-Lit", "Wide Streets", "Speed Bumps", "Dead End". Value = overall street character.
+95. **Curbside Risks**: From streetViewAnalysis.maintenanceRisks. Tags = visible risk concepts like "Aging Roof Shingles", "Cracked Driveway", "Peeling Paint", "Dated Facade", "Missing Gutters". Value = risk severity (None/Minor/Moderate/Major).
+96. **Landscaping Profile**: From streetViewAnalysis.gardenDescription. Tags = landscaping concepts like "Mature Oaks", "Drought-Tolerant", "Stone Pathway", "Manicured Lawn", "Rose Garden", "Native Plants". Value = landscaping quality.
+97. **Parking Setup**: From streetViewAnalysis.parkingLogistics. Tags = parking concepts like "2-Car Garage", "Wide Driveway", "Street Parking", "RV Parking", "Circular Drive". Value = parking summary.
+98. **Neighborhood Condition**: From streetViewAnalysis.neighborCondition. Tags = neighborhood concepts like "Well-Maintained Neighborhood", "Consistent Style", "Tidy Yards", "Fresh Paint", "Mixed Condition". Value = condition assessment.
+
+### Agent Description Concepts (100)
+100. **Agent Highlights**: From property.description (MLS listing). Tags = key selling points the agent emphasizes like "Updated Kitchen", "Pool Ready", "Corner Lot", "Solar Installed", "ADU Potential". Pull the 7-15 most impactful concepts from the listing text. Value = most prominent highlight.
+
+### Community Sentiment & Condition (102-105) — Tags are the primary output. Generate 3-8 concept tags.
+102. **Resident Sentiment Concepts**: From community_pulse (all sections). Tags = sentiment concepts like "Love the Schools", "Quiet Community", "Great Parks", "HOA Issues", "Traffic Concerns". Value = overall sentiment.
+103. **Market Narrative Concepts**: From deep_investment_research (all sections). Tags = narrative concepts like "Tech Worker Suburb", "Family-Oriented", "Investor-Friendly", "Appreciation Play", "Cash Flow Market". Value = dominant narrative.
+104. **Condition & Renovation Concepts**: From visual analysis condition_and_finish + room_highlights potential_improvements. Tags = condition concepts like "Needs Kitchen Update", "New Roof", "Original Hardwood", "Remodeled Bathrooms", "Dated HVAC". Value = overall condition.
+105. **Lifestyle Convenience Concepts**: From neighborhoodPlaces + walkScore + community_pulse. Tags = convenience concepts like "Walkable Dining", "Near BART", "Great Dog Parks", "Close to Costco", "Farmer's Market". Value = top convenience.
+
+### Distressed & Opportunity Signals (111)
+111. **Distressed Sale Signal**: Analyze property.description, priceHistory, daysOnMarket, condition_and_finish, and deep_investment_research for distress indicators. Tags = distress concepts like "Foreclosure/REO", "As-Is Sale", "Estate Sale", "Probate", "Short Sale", "Investor Special", "Bank-Owned", "Price Slashed 3x", "Deferred Maintenance", "Vacant Property", "Court-Ordered", "Fixer-Upper". Value = distress level (None/Mild/Moderate/Heavy). Generate 3-8 tags if any distress signals found.
 
 ## PROPERTY DATA
 
@@ -243,7 +265,7 @@ Return a JSON object with this structure:
       "confidence": "high",
       "tags": ["Luxury", "$2M+"]
     },
-    ...all 88 factors...
+    ...all factors...
   ],
   "summary": {
     "topStrengths": ["Top 3-5 property strengths as buyer-facing phrases"],
@@ -253,9 +275,10 @@ Return a JSON object with this structure:
 }
 
 CRITICAL RULES:
-- Extract ALL 88 factors. If data is missing, set value to "Data not available" and confidence to "low"
+- Extract ALL non-skipped factors. If data is missing, set value to "Data not available" and confidence to "low"
 - value MUST be 10 words or fewer — use fragments and labels, never full sentences (e.g. "Luxury — $2.1M" not "This property is in the luxury tier at $2.1M")
 - Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
+- For factors 89-105: tags are the PRIMARY output — generate 3-8 rich concept tags per factor from the source data
 - Be specific with values - include numbers, percentages, and descriptors
 - The summary should synthesize the factors into actionable buyer intelligence
 `;
@@ -265,7 +288,7 @@ CRITICAL RULES:
 const factorSchema = {
     type: Type.OBJECT,
     properties: {
-        id: { type: Type.NUMBER, description: "Factor ID (1-88)" },
+        id: { type: Type.NUMBER, description: "Factor ID (1-111)" },
         name: { type: Type.STRING, description: "Factor name" },
         value: { type: Type.STRING, description: "Extracted or computed value (max 10 words)" },
         detail: { type: Type.STRING, description: "Optional 1-2 sentence qualitative evidence behind the value. Omit if no extra context." },
@@ -273,7 +296,7 @@ const factorSchema = {
         tags: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: "1-3 short labels for graph nodes"
+            description: "1-8 short labels for graph nodes. For factors 89-105, generate 3-8 concept tags."
         }
     },
     required: ["id", "name", "value", "confidence", "tags"]

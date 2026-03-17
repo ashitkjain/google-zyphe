@@ -787,6 +787,171 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
     };
 }
 
+function factor39_usableYard(p: PropertyData): ExtractedFactor {
+    const pv = (p as any).parcelValidation;
+    if (!pv || pv.slopePercent == null) {
+        return { id: 39, name: 'Usable Yard Space', value: 'Data not available', confidence: 'low', tags: [] };
+    }
+    const slope = pv.slopePercent;
+    const cat = pv.slopeCategory || '';
+    let pct = 100;
+    const tags: string[] = [];
+    if (slope <= 5) { pct = 100; }
+    else if (slope <= 10) { pct = 85; tags.push('Mild Slope'); }
+    else if (slope <= 20) { pct = 65; tags.push('Hillside Limitation'); }
+    else if (slope <= 35) { pct = 40; tags.push('Steep Terrain'); tags.push('Retaining Walls Likely'); }
+    else { pct = 20; tags.push('Very Steep'); tags.push('Limited Usability'); }
+    return {
+        id: 39, name: 'Usable Yard Space',
+        value: `${pct}% usable${cat ? ` — ${cat}` : ''}`,
+        confidence: 'high', tags
+    };
+}
+
+function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
+    const ni = (p as any).neighborhood_identity;
+    const gem = ni?.gemini;
+    if (!ni?.resolved_name) {
+        return { id: 83, name: 'Micro-Neighborhood Identity', value: 'Data not available', confidence: 'low', tags: [] };
+    }
+    const parts: string[] = [ni.resolved_name];
+    if (gem?.price_context?.tier) parts.push(gem.price_context.tier);
+    if (gem?.character?.community_type) parts.push(gem.character.community_type);
+    const tags: string[] = [];
+    if (gem?.unique_features?.length) {
+        for (const feat of gem.unique_features.slice(0, 5)) tags.push(feat);
+    }
+    if (gem?.price_context?.typical_range) tags.push(gem.price_context.typical_range);
+    if (gem?.character?.era_built) tags.push(`Built ${gem.character.era_built}`);
+    if (gem?.character?.architectural_style) tags.push(gem.character.architectural_style);
+    return { id: 83, name: 'Micro-Neighborhood Identity', value: parts.join(' — '), confidence: 'high', tags };
+}
+
+function factor101_schoolConcepts(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
+    const si = (visual as any)?.schools_intelligence;
+    const schools = si?.schools || (p as any)?.schools;
+    if (!schools?.length) {
+        return { id: 101, name: 'School Concepts', value: 'Data not available', confidence: 'low', tags: [] };
+    }
+    const tags: string[] = [];
+    if (si?.district_name) tags.push(si.district_name);
+    if (si?.district_rating) tags.push(`District ${si.district_rating}`);
+    if (si?.is_desirable_zone) tags.push('Desirable School Zone');
+    for (const s of (si?.schools || schools).slice(0, 3)) {
+        if (s.name) tags.push(s.name);
+        if (s.mls_rating != null) {
+            const r = parseFloat(String(s.mls_rating));
+            if (r >= 9) tags.push(`${s.name?.split(' ')[0]} ${r}/10 Top Rated`);
+            else if (r >= 7) tags.push(`${s.name?.split(' ')[0]} ${r}/10`);
+        }
+        if (s.ap_ib_programs && s.ap_ib_programs !== 'N/A') tags.push('AP/IB Programs');
+        if (s.college_readiness && s.college_readiness !== 'N/A') tags.push('College Prep');
+        if (s.extracurriculars) tags.push('Strong Extracurriculars');
+    }
+    const unique = [...new Set(tags)].slice(0, 12);
+    const topSchool = (si?.schools || schools)[0];
+    const val = topSchool?.mls_rating
+        ? `${topSchool.name} ${topSchool.mls_rating}/10`
+        : topSchool?.name || 'Schools available';
+    return { id: 101, name: 'School Concepts', value: val, confidence: 'high', tags: unique };
+}
+
+function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
+    const pv = (p as any).parcelValidation;
+    const flags = pv?.flags?.filter((f: any) => f.check?.toLowerCase().includes('seismic') || f.check?.toLowerCase().includes('earthquake'));
+    if (!flags?.length) return { id: 106, name: 'Seismic Risk', value: 'No known seismic flags', confidence: 'medium', tags: [] };
+    return { id: 106, name: 'Seismic Risk', value: flags[0].finding || 'Seismic zone flagged', confidence: 'high', tags: ['Seismic Zone'] };
+}
+
+function factor107_floodZone(p: PropertyData): ExtractedFactor {
+    const fz = (p as any).floodZone || (p as any).resoFacts?.floodZone;
+    if (!fz) return { id: 107, name: 'Flood Zone Status', value: 'Data not available', confidence: 'low', tags: [] };
+    const isRisk = typeof fz === 'string' && (fz.includes('A') || fz.includes('V') || fz.toLowerCase().includes('high'));
+    return { id: 107, name: 'Flood Zone Status', value: fz, confidence: 'high', tags: isRisk ? ['Flood Risk'] : [] };
+}
+
+function factor108_sqftDiscrepancy(p: PropertyData): ExtractedFactor {
+    const listed = (p as any).livingArea;
+    const tax = (p as any).taxSqft;
+    if (!listed || !tax) return { id: 108, name: 'Sqft Discrepancy', value: 'Data not available', confidence: 'low', tags: [] };
+    const diff = Math.abs(listed - tax);
+    const pct = Math.round((diff / tax) * 100);
+    if (pct <= 5) return { id: 108, name: 'Sqft Discrepancy', value: `Match — ${pct}% diff`, confidence: 'high', tags: [] };
+    return { id: 108, name: 'Sqft Discrepancy', value: `${pct}% diff (${listed} vs ${tax} tax)`, confidence: 'high', tags: pct > 15 ? ['Major Discrepancy'] : ['Minor Discrepancy'] };
+}
+
+function factor109_lotSizeVerification(p: PropertyData): ExtractedFactor {
+    const listed = (p as any).lotSize;
+    const arcgis = (p as any).parcelAreaSqft;
+    if (!listed || !arcgis) return { id: 109, name: 'Lot Size Verification', value: 'Data not available', confidence: 'low', tags: [] };
+    const diff = Math.abs(listed - arcgis);
+    const pct = Math.round((diff / arcgis) * 100);
+    if (pct <= 10) return { id: 109, name: 'Lot Size Verification', value: `Verified — ${pct}% diff`, confidence: 'high', tags: [] };
+    return { id: 109, name: 'Lot Size Verification', value: `${pct}% diff (${listed.toLocaleString()} vs ${arcgis.toLocaleString()} ArcGIS)`, confidence: 'high', tags: pct > 20 ? ['Lot Size Mismatch'] : ['Minor Lot Diff'] };
+}
+
+function factor110_listingClaimFlags(p: PropertyData): ExtractedFactor {
+    const pv = (p as any).parcelValidation;
+    const flags = pv?.flags?.filter((f: any) => f.severity === 'warning' || f.severity === 'error');
+    if (!flags?.length) return { id: 110, name: 'Listing Claim Flags', value: 'No discrepancies found', confidence: 'high', tags: [] };
+    const tags = flags.slice(0, 3).map((f: any) => f.check || 'Flag');
+    return { id: 110, name: 'Listing Claim Flags', value: `${flags.length} flag${flags.length > 1 ? 's' : ''} found`, confidence: 'high', tags };
+}
+
+function factor80_professionalLifestyleFit(visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
+    // Try structured lifestyle_fit first
+    const lf = (visual as any)?.lifestyle_fit?.working_professionals;
+    console.log('[Factor 80 Debug] lifestyle_fit:', !!(visual as any)?.lifestyle_fit, 'working_professionals:', !!lf, 'comprehensive:', !!comprehensive, 'lifestyle_insights:', !!comprehensive?.lifestyle_insights, 'professionals:', !!comprehensive?.lifestyle_insights?.professionals);
+    if (lf?.verdict) {
+        const tags: string[] = [];
+        tags.push(lf.verdict);
+        if (lf.strengths?.length) for (const s of lf.strengths.slice(0, 3)) tags.push(s);
+        if (lf.weaknesses?.length) for (const w of lf.weaknesses.slice(0, 2)) tags.push(w);
+        return { id: 80, name: 'Professional Lifestyle Fit', value: `${lf.verdict}${lf.strengths?.[0] ? ' — ' + lf.strengths[0] : ''}`, confidence: 'high', tags };
+    }
+    // Fallback to comprehensive.lifestyle_insights.professionals
+    const text = comprehensive?.lifestyle_insights?.professionals;
+    if (text) {
+        const val = text.length > 60 ? text.substring(0, 57) + '...' : text;
+        return { id: 80, name: 'Professional Lifestyle Fit', value: val, confidence: 'medium', tags: [text] };
+    }
+    return { id: 80, name: 'Professional Lifestyle Fit', value: 'Data not available', confidence: 'low', tags: [] };
+}
+
+function factor81_familyLifestyleFit(visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
+    const lf = (visual as any)?.lifestyle_fit?.families_with_kids;
+    if (lf?.verdict) {
+        const tags: string[] = [];
+        tags.push(lf.verdict);
+        if (lf.strengths?.length) for (const s of lf.strengths.slice(0, 3)) tags.push(s);
+        if (lf.weaknesses?.length) for (const w of lf.weaknesses.slice(0, 2)) tags.push(w);
+        return { id: 81, name: 'Family Lifestyle Fit', value: `${lf.verdict}${lf.strengths?.[0] ? ' — ' + lf.strengths[0] : ''}`, confidence: 'high', tags };
+    }
+    const text = comprehensive?.lifestyle_insights?.family;
+    if (text) {
+        const val = text.length > 60 ? text.substring(0, 57) + '...' : text;
+        return { id: 81, name: 'Family Lifestyle Fit', value: val, confidence: 'medium', tags: [text] };
+    }
+    return { id: 81, name: 'Family Lifestyle Fit', value: 'Data not available', confidence: 'low', tags: [] };
+}
+
+function factor82_seniorLifestyleFit(visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
+    const lf = (visual as any)?.lifestyle_fit?.seniors;
+    if (lf?.verdict) {
+        const tags: string[] = [];
+        tags.push(lf.verdict);
+        if (lf.strengths?.length) for (const s of lf.strengths.slice(0, 3)) tags.push(s);
+        if (lf.weaknesses?.length) for (const w of lf.weaknesses.slice(0, 2)) tags.push(w);
+        return { id: 82, name: 'Senior Lifestyle Fit', value: `${lf.verdict}${lf.strengths?.[0] ? ' — ' + lf.strengths[0] : ''}`, confidence: 'high', tags };
+    }
+    const text = comprehensive?.lifestyle_insights?.senior;
+    if (text) {
+        const val = text.length > 60 ? text.substring(0, 57) + '...' : text;
+        return { id: 82, name: 'Senior Lifestyle Fit', value: val, confidence: 'medium', tags: [text] };
+    }
+    return { id: 82, name: 'Senior Lifestyle Fit', value: 'Data not available', confidence: 'low', tags: [] };
+}
+
 // ── Main Export ────────────────────────────────────────────────────
 
 /**
@@ -796,7 +961,7 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
 export function precomputeDataFactors(
     property: PropertyData,
     visual: CustomAIAnalysisResult | null,
-    _comprehensive: ComprehensiveAnalysisResult | null
+    comprehensive: ComprehensiveAnalysisResult | null
 ): Map<number, ExtractedFactor> {
     const factors: ExtractedFactor[] = [
         factor1_priceBracket(property),
@@ -816,6 +981,7 @@ export function precomputeDataFactors(
         factor28_flooring(property),
         factor33_privacyLevel(property, visual),
         factor34_curbAppeal(property, visual),
+        factor39_usableYard(property),
         factor41_schoolQuality(property),
         factor43_walkability(property),
         factor46_wildfireRisk(property),
@@ -834,9 +1000,19 @@ export function precomputeDataFactors(
         factor77_noiseProfile(property),
         factor78_droughtRisk(property),
         factor79_disasterHistory(property),
+        factor80_professionalLifestyleFit(visual, comprehensive),
+        factor81_familyLifestyleFit(visual, comprehensive),
+        factor82_seniorLifestyleFit(visual, comprehensive),
+        factor83_microNeighborhood(property),
         factor84_walkableAmenities(property),
         factor85_medicalProximity(property),
         factor86_evInfrastructure(property),
+        factor101_schoolConcepts(property, visual),
+        factor106_seismicRisk(property),
+        factor107_floodZone(property),
+        factor108_sqftDiscrepancy(property),
+        factor109_lotSizeVerification(property),
+        factor110_listingClaimFlags(property),
     ];
 
     const map = new Map<number, ExtractedFactor>();
@@ -845,4 +1021,6 @@ export function precomputeDataFactors(
 }
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 84, 85, 86];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 107, 108, 109, 110];
+
+

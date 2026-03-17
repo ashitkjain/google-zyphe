@@ -333,7 +333,7 @@ export const useAnalysisActions = (
             const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
             const cityStateKey = generateCityStateKey(city, state);
 
-            let enrichedAnalysis = { ...analysis };
+            let enrichedAnalysis = { ...analysis } as any;
             let enrichedAny = false;
 
             if (cityStateKey) {
@@ -354,6 +354,20 @@ export const useAnalysisActions = (
                 if (deepData && (deepData.status === 'completed' || deepData.content)) {
                     enrichedAnalysis.deep_investment_research = deepData;
                     enrichedAny = true;
+                }
+            }
+
+            // Fetch lifestyle_fit from Firestore if not already on the analysis object
+            if (!enrichedAnalysis.lifestyle_fit && zpid) {
+                try {
+                    const { getLifestyleFitFromCloud } = await import('../../../../services/firebase/properties');
+                    const lifestyleFit = await getLifestyleFitFromCloud(zpid);
+                    if (lifestyleFit) {
+                        enrichedAnalysis.lifestyle_fit = lifestyleFit;
+                        enrichedAny = true;
+                    }
+                } catch (e) {
+                    console.warn('[Context Graph] lifestyle_fit fetch failed:', e);
                 }
             }
 

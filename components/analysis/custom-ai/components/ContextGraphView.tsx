@@ -20,7 +20,41 @@ const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string;
     infrastructure: { label: 'Infrastructure & Environment', icon: 'fa-wifi', color: 'sky', range: [76, 79] },
     lifestyle: { label: 'Lifestyle Fit', icon: 'fa-heart', color: 'pink', range: [80, 82] },
     neighborhood: { label: 'Neighborhood & Amenities', icon: 'fa-location-dot', color: 'orange', range: [83, 88] },
+    investment: { label: 'Investment Intelligence', icon: 'fa-chart-line', color: 'blue', range: [89, 93] },
+    streetView: { label: 'Street View Intelligence', icon: 'fa-street-view', color: 'cyan', range: [94, 98] },
+    agentDesc: { label: 'Agent Description', icon: 'fa-clipboard-list', color: 'slate', range: [100, 100] },
+    schoolConcepts: { label: 'School Intelligence', icon: 'fa-graduation-cap', color: 'blue', range: [101, 101] },
+    commCondition: { label: 'Community & Condition', icon: 'fa-building', color: 'violet', range: [102, 105] },
+    groundTruth: { label: 'Ground Truth Verification', icon: 'fa-shield-halved', color: 'red', range: [106, 110] },
+    distressed: { label: 'Distressed & Opportunity', icon: 'fa-triangle-exclamation', color: 'orange', range: [111, 111] },
 };
+
+/** Per-factor-ID tag color styles */
+const TAG_COLOR_MAP: Record<number, { bg: string; text: string; border: string }> = {
+    // Street View Intelligence
+    94: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+    95: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+    96: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    97: { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-300' },
+    98: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+    // Investment Intelligence
+    89: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+    90: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    91: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+    92: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    93: { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
+    // Community & Condition
+    102: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+    103: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+    104: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    105: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    // Other
+    100: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' },
+    101: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+    83:  { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+    111: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+};
+const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' };
 
 const CONFIDENCE_STYLES: Record<string, string> = {
     high: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -50,15 +84,18 @@ const FactorCard: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => (
         {factor.detail && (
             <p className="text-[11px] text-slate-400 italic leading-relaxed mb-2">{factor.detail}</p>
         )}
-        {factor.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-                {factor.tags.map((tag, i) => (
-                    <span key={i} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
-                        {tag}
-                    </span>
-                ))}
-            </div>
-        )}
+        {factor.tags.length > 0 && (() => {
+            const tagStyle = TAG_COLOR_MAP[factor.id] || DEFAULT_TAG_STYLE;
+            return (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                    {factor.tags.map((tag, i) => (
+                        <span key={i} className={`text-[10px] font-bold ${tagStyle.text} ${tagStyle.bg} px-2.5 py-1 rounded-lg border ${tagStyle.border}`}>
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            );
+        })()}
     </div>
 );
 
