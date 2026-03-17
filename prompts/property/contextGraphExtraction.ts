@@ -168,6 +168,13 @@ Given the property data below, extract values for the required decision factors.
 44. **Greenery Proximity**: "Park adjacent" or "Near trails" from neighborhood features.
 45. **Sidewalk Continuity**: From streetViewAnalysis.familySafety or pedestrian_infra.
 
+### Environmental (46-50)
+46. **Wildfire Risk**: From fireRiskScore (1-10). "Low" if <= 3, "Moderate" 4-6, "High" >= 7. Flag if in WUI zone.
+47. **Flood Risk**: From floodRiskScore (1-10). "Low" if <= 3, "Moderate" 4-6, "High" >= 7. Note any FEMA flood zone mentions.
+48. **Solar Yield Potential**: From solarData.estimatedSolarProduction.annualKwh. "High" if > 15,000 kWh, "Moderate" 8,000-15,000, "Low" < 8,000. Include estimated panels and savings if available.
+49. **Allergen / Pollen Safety**: From pollen.score and pollen.dominantPollenType. "Low Risk" if score <= 2, "Moderate" 3, "High Risk" >= 4. Name the dominant allergen.
+50. **HVAC Quality / Air Filtration**: From resoFacts.heating + resoFacts.cooling. "Central Air" vs "Window Units". Note zoned systems, filtration, or smart thermostats.
+
 ### Advanced Intelligence (51-70)
 51. **Vastu / Feng Shui Readiness**: Home orientation (North/South facing) — use neighborhood.orientation.
 52. **Asthma / Respiratory Safety**: Check airQuality.aqi and pm25 load.
