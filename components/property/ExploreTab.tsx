@@ -1711,6 +1711,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [page, setPage] = useState(1);
     const PER_PAGE = 20;
 
+    // City Neighborhood Mining state
+    const [mining, setMining] = useState(false);
+    const [miningStatus, setMiningStatus] = useState<string>('');
+    const [cachedNeighborhoodCount, setCachedNeighborhoodCount] = useState<number | null>(null);
+
     const handleBrowse = async () => {
         if (!selectedCity) return;
         setBrowsing(true);
@@ -1724,6 +1729,43 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             setResults([]);
         } finally {
             setBrowsing(false);
+        }
+    };
+
+    // Check if neighborhoods are already cached when city changes
+    useEffect(() => {
+        if (!selectedCity) { setCachedNeighborhoodCount(null); return; }
+        (async () => {
+            try {
+                const { generateCityStateKey } = await import('../../services/firebase/config');
+                const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
+                const key = generateCityStateKey(selectedCity, 'CA');
+                if (!key) return;
+                const cached = await getCityNeighborhoodsFromCloud(key);
+                setCachedNeighborhoodCount(cached?.neighborhoods?.length || 0);
+            } catch { setCachedNeighborhoodCount(null); }
+        })();
+    }, [selectedCity]);
+
+    const handleMineNeighborhoods = async () => {
+        if (!selectedCity || mining) return;
+        setMining(true);
+        setMiningStatus('Starting neighborhood mining...');
+        try {
+            const { mineCityNeighborhoods } = await import('../../services/geminiService');
+            const result = await mineCityNeighborhoods(
+                selectedCity,
+                'CA',
+                'admin',
+                (msg) => setMiningStatus(msg)
+            );
+            const count = result.data?.neighborhoods?.length || 0;
+            setCachedNeighborhoodCount(count);
+            setMiningStatus(`✓ Mined ${count} neighborhoods for ${selectedCity}`);
+        } catch (err: any) {
+            setMiningStatus(`✗ Failed: ${err.message}`);
+        } finally {
+            setMining(false);
         }
     };
 
@@ -1805,6 +1847,39 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         <><i className="fa-solid fa-magnifying-glass"></i> Browse</>
                     )}
                 </button>
+
+                {/* Mine Neighborhoods button */}
+                <button
+                    onClick={handleMineNeighborhoods}
+                    disabled={!selectedCity || mining}
+                    className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+                        !selectedCity || mining
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            : cachedNeighborhoodCount && cachedNeighborhoodCount > 0
+                                ? 'bg-emerald-50 text-emerald-700 border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95'
+                                : 'bg-amber-50 text-amber-700 border-2 border-amber-200 hover:bg-amber-100 active:scale-95'
+                    }`}
+                    title={cachedNeighborhoodCount ? `${cachedNeighborhoodCount} neighborhoods cached — click to re-mine` : 'Mine all neighborhoods for this city'}
+                >
+                    {mining ? (
+                        <><i className="fa-solid fa-spinner animate-spin"></i> Mining...</>
+                    ) : cachedNeighborhoodCount && cachedNeighborhoodCount > 0 ? (
+                        <><i className="fa-solid fa-check-circle"></i> {cachedNeighborhoodCount} Neighborhoods</>
+                    ) : (
+                        <><i className="fa-solid fa-pickaxe"></i> Mine Neighborhoods</>
+                    )}
+                </button>
+
+                {/* Mining status */}
+                {miningStatus && (
+                    <span className={`text-[10px] font-semibold ${
+                        miningStatus.startsWith('✓') ? 'text-emerald-600' :
+                        miningStatus.startsWith('✗') ? 'text-red-500' :
+                        'text-amber-600'
+                    }`}>
+                        {miningStatus}
+                    </span>
+                )}
             </div>
 
             {/* Results area */}
