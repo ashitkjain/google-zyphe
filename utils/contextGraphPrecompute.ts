@@ -435,6 +435,70 @@ function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedF
     return { id: 7, name: 'STR Viability', value: 'STR data available — see investment tab', confidence: 'low', tags: ['STR'] };
 }
 
+// ── Outdoor Factors from Street View & Visual AI ────────────────────
+
+function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
+    const sv = p.streetViewAnalysis;
+    const visualPrivacy = visual?.exterior_and_neighborhood?.views_privacy_orientation?.privacy;
+
+    // Prefer street view rating, fallback to visual analysis
+    const rating = sv?.privacyRating || visualPrivacy;
+    if (!rating) return { id: 33, name: 'Privacy Level', value: 'Data not available', confidence: 'low', tags: [] };
+
+    // Truncate to a concise value (max 10 words)
+    const valueTrunc = rating.split(/[.!]/).filter(Boolean)[0]?.trim() || rating;
+    const value = valueTrunc.split(/\s+/).slice(0, 10).join(' ');
+
+    // Use both sources for detail
+    const detailParts: string[] = [];
+    if (sv?.privacyRating) detailParts.push(`Street View: ${sv.privacyRating}`);
+    if (visualPrivacy && visualPrivacy !== sv?.privacyRating) detailParts.push(`Photo analysis: ${visualPrivacy}`);
+
+    return {
+        id: 33, name: 'Privacy Level',
+        value,
+        detail: detailParts.length ? detailParts.join('. ').substring(0, 300) : undefined,
+        confidence: sv ? 'high' : 'medium',
+        tags: [rating.toLowerCase().includes('high') || rating.toLowerCase().includes('private') ? 'Private' : rating.toLowerCase().includes('low') || rating.toLowerCase().includes('exposed') ? 'Exposed' : 'Moderate Privacy']
+    };
+}
+
+function factor34_curbAppeal(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
+    const sv = p.streetViewAnalysis;
+    const visualCurb = visual?.exterior_and_neighborhood?.exterior_and_lot_appeal?.curb_appeal;
+
+    const score = sv?.curbAppealScore;
+    const narrative = visualCurb;
+
+    if (score == null && !narrative) return { id: 34, name: 'Curb Appeal', value: 'Data not available', confidence: 'low', tags: [] };
+
+    // Build value from score + first sentence of narrative
+    let value: string;
+    if (score != null) {
+        const tier = score >= 8 ? 'Excellent' : score >= 6 ? 'Good' : score >= 4 ? 'Average' : 'Below Average';
+        value = `${tier} — ${score}/10`;
+    } else {
+        // Use first fragment of the narrative
+        value = (narrative || '').split(/[.!]/).filter(Boolean)[0]?.trim().split(/\s+/).slice(0, 10).join(' ') || 'See detail';
+    }
+
+    // Rich detail combining both sources
+    const detailParts: string[] = [];
+    if (narrative) detailParts.push(narrative);
+    if (sv?.gardenDescription) detailParts.push(`Garden: ${sv.gardenDescription}`);
+    if (sv?.neighborCondition) detailParts.push(`Neighbors: ${sv.neighborCondition}`);
+
+    return {
+        id: 34, name: 'Curb Appeal',
+        value,
+        detail: detailParts.length ? detailParts.join('. ').substring(0, 400) : undefined,
+        confidence: sv ? 'high' : 'medium',
+        tags: score != null
+            ? [score >= 8 ? 'Great Curb Appeal' : score >= 6 ? 'Good Curb Appeal' : 'Needs Curb Work', `${score}/10`]
+            : ['Visual Assessment']
+    };
+}
+
 // ── Environmental Factors (46-50) ───────────────────────────────────
 
 function factor46_wildfireRisk(p: PropertyData): ExtractedFactor {
@@ -750,6 +814,8 @@ export function precomputeDataFactors(
         factor18_garage(property),
         factor20_constructionEra(property),
         factor28_flooring(property),
+        factor33_privacyLevel(property, visual),
+        factor34_curbAppeal(property, visual),
         factor41_schoolQuality(property),
         factor43_walkability(property),
         factor46_wildfireRisk(property),
@@ -779,4 +845,4 @@ export function precomputeDataFactors(
 }
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 84, 85, 86];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 84, 85, 86];
