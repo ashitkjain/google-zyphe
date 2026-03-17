@@ -198,20 +198,6 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                 <span className="text-lg font-black text-slate-900 tracking-tight">What's Nearby</span>
             </div>
 
-            {/* Neighborhood Overview */}
-            {neighborhoodOverview && (
-                <div className="mb-4 bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                    <div className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                <i className="fa-solid fa-map-location-dot text-amber-600 text-[11px]"></i>
-                            </div>
-                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood</span>
-                        </div>
-                        <p className="text-[13px] text-slate-600 leading-relaxed">{neighborhoodOverview}</p>
-                    </div>
-                </div>
-            )}
 
 
             {/* Header */}

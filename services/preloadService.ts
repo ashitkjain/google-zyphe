@@ -10,6 +10,7 @@ import {
   analyzeLifestyleInsights,
   analyzeLifestyleFit,
   analyzeSchool,
+  analyzeNeighborhoodIdentity,
   runBackgroundCityResearch,
   AiResponseError
 } from './geminiService.ts';
@@ -37,6 +38,51 @@ import {
 import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, AIUsage } from '../types';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 import { securePropertyAssets } from './assetService';
+
+/**
+ * Query Alameda County Surveyor Tract Map layer for a property's historic subdivision.
+ * Uses spatial intersection to find the tract polygon containing the given coordinates.
+ */
+async function fetchSurveyorTract(lat?: number, lng?: number): Promise<{
+  tract_id: string;
+  description: string;
+  year: string;
+  roads: string;
+} | null> {
+  if (!lat || !lng) return null;
+  try {
+    const url = `https://services5.arcgis.com/ROBnTHSNjoZ2Wm1P/arcgis/rest/services/Surveyor_TM_RS_PM_SubLayers/FeatureServer/0/query?` +
+      `geometry=${lng},${lat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects` +
+      `&inSR=4326&outFields=DocumentId,LocationDescription,Year,Roads&f=json&returnGeometry=false`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const features = data?.features;
+    if (!features?.length) return null;
+    // Pick the most specific/recent tract (prefer ones with roads, then by most recent year)
+    const sorted = features
+      .map((f: any) => f.attributes)
+      .filter((a: any) => a?.DocumentId)
+      .sort((a: any, b: any) => {
+        // Prefer features with roads
+        if (a.Roads && !b.Roads) return -1;
+        if (!a.Roads && b.Roads) return 1;
+        // Then by year (most recent first)
+        const ya = parseInt(a.Year) || 0;
+        const yb = parseInt(b.Year) || 0;
+        return yb - ya;
+      });
+    const feat = sorted[0];
+    if (!feat) return null;
+    return {
+      tract_id: feat.DocumentId || '',
+      description: feat.LocationDescription || feat.DocumentId || '',
+      year: feat.Year || '',
+      roads: feat.Roads || ''
+    };
+  } catch {
+    return null;
+  }
+}
 
 export interface PipelineProgress {
   step: string;
@@ -436,6 +482,60 @@ export const runFullIntelligencePipeline = async (
       }
     };
 
+    const neighborhoodIdentityTask = async () => {
+      try {
+        const { saveNeighborhoodIdentityToCloud } = await import('./firebase/properties');
+
+        // BRUTE FORCE: always re-run all sources (no cache check)
+        const lat = enrichedData.coordinates?.latitude || 0;
+        const lng = enrichedData.coordinates?.longitude || 0;
+        onLog?.(`[Neighborhood ID] Running all sources fresh — coords: ${lat}, ${lng}, address: "${enrichedData.address}"`);
+
+        const [geminiResult, cityPlanResult, surveyorTract] = await Promise.allSettled([
+          // 1. Gemini grounded neighborhood identity
+          analyzeNeighborhoodIdentity(enrichedData, userId).then(r => r.data),
+          // 2. City plan data (LMD + Specific Plan + School District + Land Use — all from city ArcGIS)
+          Promise.resolve().then(async () => {
+              const { fetchCityPlanData } = await import('./neighborhoodService');
+              const result = await fetchCityPlanData(lat, lng);
+              onLog?.(`[Neighborhood ID] City: LMD=${result?.lmd_name || 'null'}, SP=${result?.specific_plan || 'null'}, LandUse=${result?.land_use_designation || 'null'}`);
+              return result;
+            }),
+          // 3. Surveyor Tract Map lookup (ArcGIS by coordinates)
+          fetchSurveyorTract(lat, lng).then(r => {
+            onLog?.(`[Neighborhood ID] Surveyor tract: ${r?.tract_id || 'null'} — ${r?.description || 'n/a'}`);
+            return r;
+          })
+        ]);
+
+        const gemini = geminiResult.status === 'fulfilled' ? geminiResult.value : null;
+        const cityPlan = cityPlanResult.status === 'fulfilled' ? cityPlanResult.value : null;
+        const tract = surveyorTract.status === 'fulfilled' ? surveyorTract.value : null;
+
+        // Resolve the best name: Gemini > LMD > specific plan > surveyor tract
+        const resolvedName = gemini?.neighborhood_name
+          || cityPlan?.lmd_name
+          || cityPlan?.specific_plan
+          || tract?.description
+          || null;
+
+        const identityData = {
+          gemini: gemini || null,
+          city_plan: cityPlan || null,
+          surveyor_tract: tract !== undefined ? tract : null,
+          resolved_name: resolvedName,
+          last_updated: new Date().toISOString()
+        };
+
+        await saveNeighborhoodIdentityToCloud(zpid, identityData);
+        onLog?.(`[Neighborhood ID] Resolved: "${resolvedName || 'Unknown'}" (Gemini: ${gemini ? '✓' : '✗'}, CityPlan: ${cityPlan ? '✓' : '✗'}, Tract: ${tract ? '✓' : '✗'})`);
+        return identityData;
+      } catch (e: any) {
+        onLog?.(`[Neighborhood ID] Failed (non-blocking): ${e.message}`);
+        return null;
+      }
+    };
+
     // Execute AI Tasks Parallelized for maximum speed
     // Visual, Spatial, Regional (city-level cache reads), Property Investment, Lifestyle, and Schools run simultaneously.
     // Deep Research is NOT included here — it runs separately via prefetchCityIntelligence (city-level).
@@ -443,14 +543,15 @@ export const runFullIntelligencePipeline = async (
     let visualResult: any = null;
     let visualError: string | null = null;
 
-    const [_visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, lifestyleResult, schoolsResult] = await Promise.all([
+    const [_visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, lifestyleResult, schoolsResult, neighborhoodIdentity] = await Promise.all([
       visualTask().then(r => { visualResult = r; return r; }).catch(e => { visualError = e.message || String(e); onLog?.(`[Visual] ❌ Failed: ${visualError}`); return null; }),
       neighborhoodTask(),
       pulseTask(),
       propInvTask(),
       marketIntTask(),
       lifestyleTask(),
-      schoolsTask()
+      schoolsTask(),
+      neighborhoodIdentityTask()
     ]);
 
     const _lifestyleData = lifestyleResult?.data ?? null;
@@ -477,6 +578,7 @@ export const runFullIntelligencePipeline = async (
     reportSubtask('Market Intel', marketIntelligence, !!marketIntelligence); // always from cache or skipped
     reportSubtask('Lifestyle', _lifestyleData, lifestyleFromCache);
     reportSubtask('Schools', schoolsResult?.schools || schoolsResult, !!(schoolsResult && schoolsResult._allCached));
+    reportSubtask('Neighborhood ID', neighborhoodIdentity, !!(neighborhoodIdentity?.gemini?.neighborhood_name));
 
     // Track which subtasks had issues
     const warnings: string[] = [];

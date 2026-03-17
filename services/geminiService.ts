@@ -56,8 +56,7 @@ import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi, optimizeVisualForAi } from "../utils/aiOptimization";
 
-import { getNeighborhoodDeepSearchPrompt, neighborhoodDeepSearchSchema } from "../prompts/property/neighborhoodDeepSearch";
-import { NeighborhoodDeepSearchResult } from "../types/ai";
+
 
 // Use config for model selection
 export const FLASH_MODEL = APP_CONFIG.models.flash;
@@ -965,24 +964,32 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
   return data;
 };
 
-export const analyzeNeighborhoodDeepSearch = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodDeepSearchResult>> => {
+import { getNeighborhoodIdentityPrompt, neighborhoodIdentitySchema, NeighborhoodIdentityResult } from "../prompts/property/neighborhoodIdentity";
+
+export const analyzeNeighborhoodIdentity = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodIdentityResult>> => {
   const { address, city, state } = property;
-  const prompt = getNeighborhoodDeepSearchPrompt(address || "Subject Property", city || "", state || "");
+  const prompt = getNeighborhoodIdentityPrompt(
+    address || "Subject Property",
+    city || "",
+    state || "",
+    property.description || undefined
+  );
 
-  console.log(`[Neighborhood Deep Search] Using Google Grounding for exhaustive discovery in ${city}...`);
+  console.log(`[Neighborhood Identity] Using Gemini 3 Flash + Google Grounding for ${address}...`);
 
-  return executeGeminiRequest<NeighborhoodDeepSearchResult>({
-    model: 'gemini-2.0-flash',
+  return executeGeminiRequest<NeighborhoodIdentityResult>({
+    model: 'gemini-3-flash-preview',
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.3 },
     userId,
     zpid: property.zpid,
     address: property.address,
-    promptFilename: "neighborhoodDeepSearch.ts",
+    promptFilename: "neighborhoodIdentity.ts",
     extractResultJson: true,
-    schema: neighborhoodDeepSearchSchema
+    schema: neighborhoodIdentitySchema
   });
 };
+
 
 import { getStreetViewAnalysisPrompt, streetViewAnalysisSchema } from "../prompts/property/streetViewAnalysis";
 import { StreetViewAnalysisResult } from "../types";

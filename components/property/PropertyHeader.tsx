@@ -293,6 +293,11 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
           {/* Inline physical specs badges — comps style */}
           <div className="flex flex-wrap gap-1.5">
+            {data.neighborhood_identity?.resolved_name && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-50 border border-violet-200 rounded-md text-[11px] font-bold text-violet-700">
+                <i className="fa-solid fa-map-location-dot text-[7px]" />{data.neighborhood_identity.resolved_name}
+              </span>
+            )}
             {data.homeType && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded-md text-[11px] font-bold text-indigo-700">
                 <i className="fa-solid fa-house text-[7px]" />{data.homeType.replace(/_/g, ' ')}

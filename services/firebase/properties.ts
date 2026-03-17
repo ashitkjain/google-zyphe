@@ -218,6 +218,10 @@ export interface CityPropertySummary {
     bedrooms?: number;
     bathrooms?: number;
     livingArea?: number;
+    lotSize?: string;
+    homeType?: string;
+    neighborhood?: string;
+    coordinates?: { latitude: number; longitude: number };
     images?: string[];
 }
 
@@ -235,8 +239,12 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
         );
         logFirestoreQuery('getDocs', 'properties', { city, maxResults, scope: 'browse_by_city' });
         const snapshot = await getDocs(q);
+        const { getNeighborhood } = await import('../neighborhoodService');
         return snapshot.docs.map(d => {
             const data = d.data();
+            const coords = data.coordinates ? { latitude: data.coordinates.latitude, longitude: data.coordinates.longitude } : undefined;
+            const addr = data.address || '';
+            const hood = getNeighborhood(coords?.latitude || 0, coords?.longitude || 0, addr);
             return {
                 zpid: d.id,
                 address: data.address || '',
@@ -244,7 +252,11 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                 listPrice: data.listPrice ?? data.list_price ?? data.price,
                 bedrooms: data.bedrooms,
                 bathrooms: data.bathrooms,
-                livingArea: data.livingArea,
+                livingArea: data.squareFootage ?? data.livingAreaValue ?? data.livingArea ?? data.living_area ?? undefined,
+                lotSize: data.lotSize || data.lot_size || data.resoFacts?.lotSize || '',
+                homeType: data.homeType || data.home_type || data.propertyType || data.property_type || '',
+                neighborhood: hood?.name || '',
+                coordinates: coords,
                 images: data.images?.slice(0, 1) || [],
             };
         });
@@ -615,6 +627,39 @@ export const getLifestyleFitFromCloud = async (zpid: string): Promise<any | null
         return null;
     } catch (error) {
         handleFirestoreError(error, "getLifestyleFitFromCloud");
+        return null;
+    }
+};
+
+// ── Neighborhood Identity Cache (stored directly on the properties document, keyed by zpid) ──
+
+export const saveNeighborhoodIdentityToCloud = async (zpid: string, identityData: any) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    try {
+        const docRef = doc(db, "properties", String(zpid));
+        logFirestoreQuery('setDoc', 'properties (neighborhood_identity)', { zpid });
+        await setDoc(docRef, {
+            neighborhood_identity: sanitizeForFirestore(identityData),
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveNeighborhoodIdentityToCloud") as string };
+    }
+};
+
+export const getNeighborhoodIdentityFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db || !zpid) return null;
+    try {
+        const docRef = doc(db, "properties", String(zpid));
+        logFirestoreQuery('getDoc', 'properties (neighborhood_identity)', { zpid });
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return data.neighborhood_identity || null;
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, "getNeighborhoodIdentityFromCloud");
         return null;
     }
 };

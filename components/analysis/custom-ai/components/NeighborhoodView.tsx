@@ -20,12 +20,31 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
 
     if (!data?.overview) return <EmptyState section="Neighborhood" />;
 
+    // Neighborhood Identity data (from Gemini grounded + city plan + surveyor tract)
+    const identity = propertyData?.neighborhood_identity;
+    const gemini = identity?.gemini;
+    const cityPlan = identity?.city_plan;
+    const surveyorTract = identity?.surveyor_tract;
+    const resolvedName = identity?.resolved_name;
+
+    // DEBUG: log what we have
+    console.log('[NeighborhoodView] identity data:', JSON.stringify({ resolvedName, hasGemini: !!gemini, cityPlan, surveyorTract }, null, 2));
+
     // Normalize parcelPolygon for use with StaticParcelMap
     const parcelPolygon = React.useMemo(() => {
         const raw = propertyData?.parcelPolygon;
         if (!raw || !Array.isArray(raw) || raw.length < 3) return undefined;
         return raw.map((pt: any) => Array.isArray(pt) ? pt : [pt.lon, pt.lat]) as [number, number][];
     }, [propertyData]);
+
+    // Price tier color mapping
+    const tierColors: Record<string, string> = {
+        'Entry-Level': 'bg-emerald-100 text-emerald-700',
+        'Mid-Range': 'bg-blue-100 text-blue-700',
+        'Upper Mid-Range': 'bg-indigo-100 text-indigo-700',
+        'Premium': 'bg-amber-100 text-amber-700',
+        'Ultra-Luxury': 'bg-purple-100 text-purple-700',
+    };
 
     return (
         <section className="space-y-8">
@@ -103,89 +122,189 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                     )}
                 </div>
 
-                {/* ── Extracted Labels (Visual Evidence) — HIDDEN ─────── */}
+            </div>
 
-                {/* ── Neighborhood features grid ─────────────── */}
-                {data.neighborhood_features && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-12 border-t border-gray-100">
-                        {/* Row 1: General, Amenities, Nature & Greenery */}
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-city text-lg"></i>
-                                </div>
+            {/* ── Neighborhood Identity Banner ─────────────────── */}
+            {resolvedName && (
+                <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-[3rem] border border-indigo-100/60 shadow-sm overflow-hidden p-8 md:p-12">
+                    <div className="flex flex-col md:flex-row gap-8">
+                        {/* Left: Name + Character */}
+                        <div className="flex-1 min-w-0 space-y-4">
+                            <div>
+                                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-2">NEIGHBORHOOD</div>
+                                <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">{resolvedName}</h2>
+                                {gemini?.alternative_names?.length > 0 && (
+                                    <p className="text-sm text-slate-400 mt-1">Also known as: {gemini.alternative_names.join(', ')}</p>
+                                )}
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">General</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.general}</p>
+
+                            {/* Character description */}
+                            {gemini?.character?.description && (
+                                <p className="text-slate-700 text-[14px] leading-[1.625] font-normal">{gemini.character.description}</p>
+                            )}
+                            {gemini?.price_context?.context && (
+                                <p className="text-slate-600 text-[13px] leading-[1.625] font-normal">{gemini.price_context.context}</p>
+                            )}
+
+                            {/* Badges row */}
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {gemini?.price_context?.tier && (
+                                    <span className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${tierColors[gemini.price_context.tier] || 'bg-gray-100 text-gray-700'}`}>
+                                        <i className="fa-solid fa-tag mr-1.5" />{gemini.price_context.tier}
+                                    </span>
+                                )}
+                                {gemini?.price_context?.typical_range && (
+                                    <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600">
+                                        <i className="fa-solid fa-dollar-sign mr-1.5" />{gemini.price_context.typical_range}
+                                    </span>
+                                )}
+                                {gemini?.character?.community_type && (
+                                    <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-violet-100 text-violet-700">
+                                        <i className="fa-solid fa-shield-halved mr-1.5" />{gemini.character.community_type}
+                                    </span>
+                                )}
+                                {gemini?.hoa?.has_hoa !== undefined && (
+                                    <span className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${gemini.hoa.has_hoa ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                        <i className={`fa-solid ${gemini.hoa.has_hoa ? 'fa-building-shield' : 'fa-check'} mr-1.5`} />
+                                        {gemini.hoa.has_hoa ? `HOA${gemini.hoa.monthly_fee ? ` · ${gemini.hoa.monthly_fee}` : ''}` : 'No HOA'}
+                                    </span>
+                                )}
+                                {gemini?.character?.era_built && (
+                                    <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600">
+                                        <i className="fa-solid fa-calendar mr-1.5" />Built {gemini.character.era_built}
+                                    </span>
+                                )}
+                                {gemini?.character?.architectural_style && (
+                                    <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600">
+                                        <i className="fa-solid fa-ruler-combined mr-1.5" />{gemini.character.architectural_style}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-store text-lg"></i>
+
+                        {/* Right: Unique Features + Infrastructure */}
+                        <div className="w-full md:w-80 space-y-5 flex-shrink-0">
+                            {gemini?.unique_features?.length > 0 && (
+                                <div>
+                                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2">STANDOUT FEATURES</h4>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {gemini.unique_features.map((feat: string, i: number) => (
+                                            <span key={i} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white border border-indigo-100 text-indigo-700 shadow-sm">
+                                                {feat}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Amenities</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.nearby_amenities}</p>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-tree text-lg"></i>
+                            )}
+                            {gemini?.infrastructure_quality && (
+                                <div>
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">INFRASTRUCTURE</h4>
+                                    <p className="text-slate-600 text-[12px] leading-relaxed">{gemini.infrastructure_quality}</p>
                                 </div>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Nature & Greenery</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.proximity_to_greenery_and_water}</p>
-                        </div>
-                        {/* Row 2: Streets, Pedestrian, Topography */}
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-road text-lg"></i>
+                            )}
+                            {gemini?.upcoming_changes && gemini.upcoming_changes !== 'None known' && (
+                                <div>
+                                    <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-2">
+                                        <i className="fa-solid fa-triangle-exclamation mr-1" />UPCOMING CHANGES
+                                    </h4>
+                                    <p className="text-slate-600 text-[12px] leading-relaxed">{gemini.upcoming_changes}</p>
                                 </div>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Street & Traffic</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.street_layout_and_traffic}</p>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-person-walking text-lg"></i>
-                                </div>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Pedestrian</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.sidewalks_and_pedestrian_infra}</p>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-mountain text-lg"></i>
-                                </div>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Topography</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.topography}</p>
-                        </div>
-                        {/* Row 3: Density, Development */}
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-building text-lg"></i>
-                                </div>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Density</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.neighborhood_density}</p>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-hammer text-lg"></i>
-                                </div>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Development</h4>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.neighborhood_features.development_patterns}</p>
+                            )}
                         </div>
                     </div>
-                )}
-            </div>
+
+                    {/* Source attribution + data source detail cards */}
+                    <div className="mt-4 pt-2 space-y-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Data Sources Queried:</span>
+                            <span className={`text-[10px] font-semibold ${cityPlan ? 'text-teal-500' : 'text-slate-300'}`}><i className="fa-solid fa-city mr-1" />City Plan</span>
+                            <span className={`text-[10px] font-semibold ${surveyorTract?.tract_id ? 'text-violet-500' : 'text-slate-300'}`}><i className="fa-solid fa-map mr-1" />Surveyor Tract</span>
+                        </div>
+
+                        {/* Data source detail cards — always show all sources */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+
+                            {/* City Plan (LMD + Specific Plan + Land Use) */}
+                            <div className={`rounded-xl p-4 shadow-sm ${cityPlan ? 'bg-white border border-teal-100' : 'bg-slate-50/50 border border-dashed border-slate-200'}`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${cityPlan ? 'bg-teal-50' : 'bg-slate-100'}`}>
+                                        <i className={`fa-solid fa-city text-[11px] ${cityPlan ? 'text-teal-500' : 'text-slate-300'}`} />
+                                    </div>
+                                    <div className={`text-[10px] font-black uppercase tracking-wider ${cityPlan ? 'text-teal-600' : 'text-slate-400'}`}>City of Pleasanton</div>
+                                </div>
+                                {cityPlan ? (
+                                    <>
+                                        {/* Primary name: LMD > Specific Plan */}
+                                        {(cityPlan.lmd_name || cityPlan.specific_plan) && (
+                                            <div className="text-[14px] font-bold text-slate-800 mb-1">
+                                                {cityPlan.lmd_name || cityPlan.specific_plan}
+                                            </div>
+                                        )}
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {cityPlan.lmd_name && (
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                    <i className="fa-solid fa-tree mr-1 text-[8px]" />LMD
+                                                </span>
+                                            )}
+                                            {cityPlan.specific_plan && cityPlan.lmd_name && (
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">
+                                                    {cityPlan.specific_plan}
+                                                </span>
+                                            )}
+                                            {cityPlan.land_use_designation && (
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                                    {cityPlan.land_use_designation}
+                                                </span>
+                                            )}
+                                            {cityPlan.land_use_category && (
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200">
+                                                    {cityPlan.land_use_category}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="mt-1.5 text-[10px] text-slate-400">City ArcGIS — 3 layers queried</div>
+                                    </>
+                                ) : (
+                                    <div className="text-[12px] text-slate-400 italic">Outside city coverage</div>
+                                )}
+                            </div>
+
+                            {/* Surveyor Tract Map */}
+                            <div className={`rounded-xl p-4 shadow-sm ${surveyorTract?.tract_id ? 'bg-white border border-violet-100' : 'bg-slate-50/50 border border-dashed border-slate-200'}`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${surveyorTract?.tract_id ? 'bg-violet-50' : 'bg-slate-100'}`}>
+                                        <i className={`fa-solid fa-scroll text-[11px] ${surveyorTract?.tract_id ? 'text-violet-500' : 'text-slate-300'}`} />
+                                    </div>
+                                    <div className={`text-[10px] font-black uppercase tracking-wider ${surveyorTract?.tract_id ? 'text-violet-600' : 'text-slate-400'}`}>Surveyor Tract Map</div>
+                                </div>
+                                {surveyorTract?.tract_id ? (
+                                    <>
+                                        <div className="text-[14px] font-bold text-slate-800">{surveyorTract.description || surveyorTract.tract_id}</div>
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
+                                                <i className="fa-solid fa-hashtag mr-1 text-[8px]" />{surveyorTract.tract_id}
+                                            </span>
+                                            {surveyorTract.year && (
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
+                                                    <i className="fa-solid fa-calendar mr-1 text-[8px]" />Filed {surveyorTract.year}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {surveyorTract.roads && surveyorTract.roads.toUpperCase() !== 'NONE' && (
+                                            <div className="mt-2 text-[11px] text-slate-500">
+                                                <span className="font-bold text-slate-600">Roads: </span>{surveyorTract.roads}
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="text-[12px] text-slate-400 italic">No tract found in Alameda County Surveyor records</div>
+                                )}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── Hazard ──────────────────────────────────── */}
             {propertyData && (

@@ -61,13 +61,8 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData, places?: N
   
   INSTRUCTIONS:
 
-  1. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
-  2. DENSITY & LAND USE: Evaluate the neighborhood density. Are homes tightly packed? Are there large lots? Are there commercial or industrial buffers nearby?
-  3. GREENERY & BLUE SPACE: Identify visible parks, wooded areas, walking trails, or bodies of water in the immediate vicinity.
-  4. INFRASTRUCTURE: Look for sidewalks, crosswalks, and pedestrian-friendly features.
-  5. TOPOGRAPHY: Note any significant slopes, hills, or unique geographical features visible in the map context.
-  6. DEVELOPMENT: Assess the age and style of surrounding development based on the roof patterns and parcel layouts.
-  7. VISUAL POI EXTRACTION: Meticulously analyze the "Zoom Out" map image to extract ALL visible text labels.
+  1. OVERVIEW: Write a professional summary of the neighborhood's character and location value. Cover street layout, density, greenery, infrastructure, topography, development patterns, and nearby amenities. If the Property Description indicates the home is part of an HOA or planned community, mention HOA amenities (pools, clubhouses, fitness centers, etc.).
+  2. VISUAL POI EXTRACTION: Meticulously analyze the "Zoom Out" map image to extract ALL visible text labels.
      - FIRST, list EVERY text label you can read on the map (labels for venues, stores, parks, etc.).
      - SECOND, filter out street names and broad region names (e.g. city name, county name, or general area names like "East Bay").
      - THIRD, categorize EVERY unique venue label found in step 1 into the "visual_poi" object fields. 
@@ -83,8 +78,6 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData, places?: N
       - PROHIBITED: Do NOT include street names, highway numbers, city/county names, or generic area descriptors in these categories.
      - EVERY single unique detected label from step 1 MUST be categorized into exactly one "visual_poi" field. No label should be left uncategorized.
      - Include these extracted names in the "map_labels" field as a raw list for verification.
-  8. AMENITIES: Identify retail, dining, HOA amenities and service clusters nearby. 
-     IMPORTANT: If the Property Description indicates the home is part of an HOA or planned community, specifically include the list of HOA amenities (pools, clubhouses, fitness centers, etc.) in your response.
 
   Return the response as a single JSON object matching the requested schema. 
   Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery${places ? ', enriched with the specific Google Places venue data provided above' : ''}.
@@ -96,30 +89,7 @@ export const neighborhoodAnalysisSchema = {
   properties: {
     overview: {
       type: Type.STRING,
-      description: "A professional summary of the neighborhood's character and location value based on the map visuals."
-    },
-    neighborhood_features: {
-      type: Type.OBJECT,
-      properties: {
-        street_layout_and_traffic: { type: Type.STRING, description: "Analysis of street patterns and traffic flow." },
-        sidewalks_and_pedestrian_infra: { type: Type.STRING, description: "Presence and quality of pedestrian paths." },
-        proximity_to_greenery_and_water: { type: Type.STRING, description: "Access to parks, forests, or water." },
-        neighborhood_density: { type: Type.STRING, description: "Evaluation of how crowded or spacious the area is." },
-        topography: { type: Type.STRING, description: "Analysis of land elevation and slopes." },
-        development_patterns: { type: Type.STRING, description: "Types of building layouts and age indicators." },
-        nearby_amenities: { type: Type.STRING, description: "Retail, dining, and service clusters identified, including HOA/Community amenities if applicable." },
-        general: { type: Type.STRING, description: "Any other standout spatial observations." }
-      },
-      required: [
-        "street_layout_and_traffic",
-        "sidewalks_and_pedestrian_infra",
-        "proximity_to_greenery_and_water",
-        "neighborhood_density",
-        "topography",
-        "development_patterns",
-        "nearby_amenities",
-        "general"
-      ]
+      description: "A professional summary of the neighborhood's character and location value based on the map visuals, covering street layout, density, greenery, infrastructure, topography, development patterns, and amenities."
     },
     map_labels: {
       type: Type.ARRAY,
@@ -142,5 +112,5 @@ export const neighborhoodAnalysisSchema = {
       }
     }
   },
-  required: ["overview", "neighborhood_features"]
+  required: ["overview"]
 };

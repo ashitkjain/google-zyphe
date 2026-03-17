@@ -37,19 +37,7 @@ export interface NeighborhoodAnalysis {
     }
 }
 
-export interface NeighborhoodDeepSearchResult {
-    neighborhood_summary: string;
-    pois: Array<{
-        name: string;
-        type: string;
-        category: "dining" | "shopping" | "parks" | "transit" | "fitness" | "schools" | "medical" | "community" | "others";
-        distance_miles: number;
-        highlights?: string;
-    }>;
-    status?: 'running' | 'completed' | 'failed' | string;
-    lastRan?: any;
-    lastUpdated?: any;
-}
+
 
 export interface CommunityPulseSection {
     summary: string;

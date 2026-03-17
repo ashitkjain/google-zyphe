@@ -113,27 +113,32 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
     try {
         const storageRef = ref(storage, path);
 
-        // Optimization: Check if the file already exists in storage and is still valid
+        // Optimization: Check if the file already exists in storage and is still valid.
+        // We use getDownloadURL wrapped in try/catch — the 404 from getMetadata is expected
+        // but generates noisy red console errors. This is the same pattern but quieter.
         try {
             const isGoogleSource = url.includes("maps.googleapis.com") || url.includes("google.com/maps");
             const GOOGLE_MAPS_TTL = 30 * 24 * 60 * 60 * 1000; // 30 Days
 
-            const { getMetadata } = await import('firebase/storage');
-            const metadata = await getMetadata(storageRef);
-            const createdTime = new Date(metadata.timeCreated).getTime();
-            const age = Date.now() - createdTime;
+            // Try to get the download URL — if it succeeds, file exists
+            const existingURL = await getDownloadURL(storageRef);
 
-            if (isGoogleSource && age > GOOGLE_MAPS_TTL) {
-                console.log(`[Storage] Google Maps content is stale (${Math.round(age / 86400000)} days old). Re-downloading for compliance: ${path}`);
-                // Fall through to download and upload new version
+            if (isGoogleSource) {
+                const { getMetadata } = await import('firebase/storage');
+                const metadata = await getMetadata(storageRef);
+                const createdTime = new Date(metadata.timeCreated).getTime();
+                const age = Date.now() - createdTime;
+                if (age > GOOGLE_MAPS_TTL) {
+                    console.log(`[Storage] Google Maps content is stale (${Math.round(age / 86400000)} days old). Re-downloading: ${path}`);
+                    // Fall through to download and upload new version
+                } else {
+                    return existingURL;
+                }
             } else {
-                const existingURL = await getDownloadURL(storageRef);
-                console.log(`[Storage] Returning cached file (${isGoogleSource ? `${Math.round(age / 86400000)}d old` : 'permanent'}): ${path}`);
                 return existingURL;
             }
-        } catch (e) {
-            // 404 = file not yet in Firebase Storage (expected cache miss). Proceeding to download & upload.
-            console.log(`[Storage] Cache miss, downloading: ${path}`);
+        } catch {
+            // File doesn't exist yet — proceed to download & upload (normal first-run path)
         }
 
         // Fetch the image (with proxy fallback if direct fetch fails due to CORS/etc)

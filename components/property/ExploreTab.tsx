@@ -448,7 +448,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             <div className="w-px h-8 bg-slate-200 flex-shrink-0"></div>
 
                             {/* AI sub-tabs — two rows */}
-                            <div className="flex-1 space-y-8">
+                            <div className="flex-1 space-y-1">
                                 {/* Row 1 */}
                                 <div className="flex flex-wrap items-center gap-12">
                                     {([
@@ -468,9 +468,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 setActiveSubTab(tab.id);
                                                 onRunCustomAnalysis(false);
                                             }}
-                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
-                                                ? 'bg-indigo-600 text-white border border-indigo-600 shadow-sm'
-                                                : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
+                                                ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
+                                                : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
                                                 }`}
                                         >
                                             <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
@@ -497,9 +497,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 setActiveSubTab(tab.id);
                                                 onRunCustomAnalysis(false);
                                             }}
-                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
-                                                ? 'bg-indigo-600 text-white border border-indigo-600 shadow-sm'
-                                                : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
+                                                ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
+                                                : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
                                                 }`}
                                         >
                                             <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
@@ -725,12 +725,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                                                     const sat = (propertyData as any).orientation_ai;
                                                     return (
-                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
                                                                     <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                                            <i className="fa-solid fa-compass text-amber-600 text-[11px]"></i>
+                                                                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                                                                            <i className="fa-solid fa-compass text-amber-600 group-hover:text-white text-[11px]"></i>
                                                                         </div>
                                                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">Front Orientation</span>
                                                                     </div>
@@ -773,12 +773,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                                 {/* Outdoors & Privacy */}
                                                 {(analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
-                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                             <div className="p-4">
                                                                 <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-tree text-emerald-600 text-[11px]"></i>
+                                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                                                        <i className="fa-solid fa-tree text-emerald-600 group-hover:text-white text-[11px]"></i>
                                                                     </div>
                                                                     <span className="text-[16px] font-black text-slate-700 tracking-tight">Outdoors</span>
                                                                 </div>
@@ -798,13 +798,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                                 {/* Schools Intelligence */}
                                                 {schoolsIntelligence?.schools?.length > 0 && (
-                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                             <div className="p-4">
                                                                 <div className="flex items-center justify-between mb-3">
                                                                     <div className="flex items-center gap-2">
-                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                                                                            <i className="fa-solid fa-graduation-cap text-blue-600 text-[11px]"></i>
+                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                                            <i className="fa-solid fa-graduation-cap text-blue-600 group-hover:text-white text-[11px]"></i>
                                                                         </div>
                                                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">Schools</span>
                                                                     </div>
@@ -1032,12 +1032,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                                 {/* Architecture Appeal */}
                                                 {(designStyle?.style || analysis?.detailed_analysis?.visual_appeal_condition) && (
-                                                    <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                             <div className="p-4">
                                                                 <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                        <i className="fa-solid fa-archway text-indigo-600 text-[11px]"></i>
+                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                                                        <i className="fa-solid fa-archway text-indigo-600 group-hover:text-white text-[11px]"></i>
                                                                     </div>
                                                                     <span className="text-[16px] font-black text-slate-700 tracking-tight">Architecture Appeal</span>
                                                                 </div>
@@ -1055,6 +1055,72 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                {/* Neighborhood Identity */}
+                                                {propertyData?.neighborhood_identity?.resolved_name && (() => {
+                                                    const nid = propertyData.neighborhood_identity;
+                                                    const gem = nid.gemini;
+                                                    const tierColors: Record<string, string> = {
+                                                        'Entry-Level': 'bg-emerald-100 text-emerald-700',
+                                                        'Mid-Range': 'bg-blue-100 text-blue-700',
+                                                        'Upper Mid-Range': 'bg-indigo-100 text-indigo-700',
+                                                        'Premium': 'bg-amber-100 text-amber-700',
+                                                        'Ultra-Luxury': 'bg-purple-100 text-purple-700',
+                                                    };
+                                                    return (
+                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                                                                            <i className="fa-solid fa-map-location-dot text-violet-600 group-hover:text-white text-[11px]"></i>
+                                                                        </div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">{nid.resolved_name}</span>
+                                                                    </div>
+                                                                    {gem?.character?.description && (
+                                                                        <p className="text-[13px] text-slate-600 leading-relaxed mb-3">{gem.character.description}</p>
+                                                                    )}
+                                                                    {/* Tags */}
+                                                                    <div className="flex flex-wrap gap-1.5 mb-2">
+                                                                        {gem?.price_context?.tier && (
+                                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tierColors[gem.price_context.tier] || 'bg-gray-100 text-gray-700'}`}>
+                                                                                <i className="fa-solid fa-tag mr-1 text-[8px]" />{gem.price_context.tier}
+                                                                            </span>
+                                                                        )}
+                                                                        {gem?.price_context?.typical_range && (
+                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                                                                <i className="fa-solid fa-dollar-sign mr-1 text-[8px]" />{gem.price_context.typical_range}
+                                                                            </span>
+                                                                        )}
+                                                                        {gem?.character?.community_type && (
+                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                                                                                {gem.character.community_type}
+                                                                            </span>
+                                                                        )}
+                                                                        {gem?.character?.era_built && (
+                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                                                                Built {gem.character.era_built}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    {/* Standout Features */}
+                                                                    {gem?.unique_features?.length > 0 && (
+                                                                        <div className="mt-2">
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Standout Features</div>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {gem.unique_features.map((feat: string, i: number) => (
+                                                                                    <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white border border-violet-100 text-violet-700 shadow-sm">
+                                                                                        {feat}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
 
@@ -1560,40 +1626,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 )}
 
                 {!propertyData && !loading && (
-                    <div className="max-w-5xl mx-auto py-6 text-center space-y-12">
-                        <div className="flex items-center gap-4 w-full max-w-4xl mx-auto">
-                            {searchBar && (
-                                <div className="flex-1 min-w-0">
-                                    {searchBar}
-                                </div>
-                            )}
-                            {/* ── Browse by City ── */}
-                            <BrowseByCitySection
-                                onPropertyClick={(addr) => {
-                                    if (typeof (setViewMode as any) === 'function') {
-                                        (setViewMode as any)('explore', addr);
-                                    }
-                                }}
-                            />
-                        </div>
-                        <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-                            {[
-                                { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
-                                { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
-                                { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
-                            ].map((item, i) => (
-                                <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
-                                    <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                                        <i className={`fa-solid ${item.icon} text-2xl`}></i>
-                                    </div>
-                                    <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
-                                    <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <BrowseHomeSection searchBar={searchBar} setViewMode={setViewMode} />
                 )}
             </div>
 
@@ -1611,16 +1644,75 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
 const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
 
-const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void }> = ({ onPropertyClick }) => {
+const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any }> = ({ searchBar, setViewMode }) => {
+    const [browseHasResults, setBrowseHasResults] = useState(false);
+
+    return (
+        <div className="max-w-5xl mx-auto py-6 text-center space-y-8">
+            {/* Search bar always centered at top */}
+            {searchBar && (
+                <div className="w-full max-w-2xl mx-auto">
+                    {searchBar}
+                </div>
+            )}
+
+            {/* Browse by City — controls + results */}
+            <BrowseByCitySection
+                onPropertyClick={(addr) => {
+                    if (typeof (setViewMode as any) === 'function') {
+                        (setViewMode as any)('explore', addr);
+                    }
+                }}
+                onHasResults={setBrowseHasResults}
+            />
+
+            {!browseHasResults && (
+                <>
+                    <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                        {[
+                            { title: 'For Buyers', icon: 'fa-shopping-bag', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
+                            { title: 'For Sellers', icon: 'fa-money-bill-trend-up', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
+                            { title: 'For Realtors', icon: 'fa-briefcase', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
+                        ].map((item, i) => (
+                            <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
+                                <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                                    <i className={`fa-solid ${item.icon} text-2xl`}></i>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
+                                <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
+const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void; onHasResults?: (has: boolean) => void }> = ({ onPropertyClick, onHasResults }) => {
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
 
+    // View, sort, filter, pagination state
+    const [viewMode, setViewModeLocal] = useState<'gallery' | 'table'>('gallery');
+    const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea'>('address');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+    const [filterMinPrice, setFilterMinPrice] = useState('');
+    const [filterMaxPrice, setFilterMaxPrice] = useState('');
+    const [filterBeds, setFilterBeds] = useState('');
+    const [filterBaths, setFilterBaths] = useState('');
+    const [filterNeighborhood, setFilterNeighborhood] = useState('');
+    const [page, setPage] = useState(1);
+    const PER_PAGE = 20;
+
     const handleBrowse = async () => {
         if (!selectedCity) return;
         setBrowsing(true);
         setHasSearched(true);
+        setPage(1);
         try {
             const data = await getPropertiesByCity(selectedCity);
             setResults(data);
@@ -1632,27 +1724,64 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         }
     };
 
-    // Group by ZIP
-    const grouped = useMemo(() => {
-        const map: Record<string, CityPropertySummary[]> = {};
-        results.forEach(p => {
-            const zip = p.zipcode || 'Unknown';
-            if (!map[zip]) map[zip] = [];
-            map[zip].push(p);
-        });
-        // Sort zips
-        return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+    // Available neighborhoods for filter dropdown
+    const availableNeighborhoods = useMemo(() => {
+        const hoods = new Set<string>();
+        results.forEach(p => { if (p.neighborhood) hoods.add(p.neighborhood); });
+        return Array.from(hoods).sort();
     }, [results]);
 
-    const fmt = (n?: number) => n ? `$${n.toLocaleString()}` : '';
+    // Filtered + sorted flat list
+    const processed = useMemo(() => {
+        let list = [...results];
+        // Filters
+        const minP = filterMinPrice ? parseFloat(filterMinPrice) : 0;
+        const maxP = filterMaxPrice ? parseFloat(filterMaxPrice) : Infinity;
+        const minBeds = filterBeds ? parseInt(filterBeds) : 0;
+        const minBaths = filterBaths ? parseInt(filterBaths) : 0;
+        if (minP > 0) list = list.filter(p => (p.listPrice || 0) >= minP);
+        if (maxP < Infinity) list = list.filter(p => (p.listPrice || 0) <= maxP);
+        if (minBeds > 0) list = list.filter(p => (p.bedrooms || 0) >= minBeds);
+        if (minBaths > 0) list = list.filter(p => (p.bathrooms || 0) >= minBaths);
+        if (filterNeighborhood) list = list.filter(p => p.neighborhood === filterNeighborhood);
+        // Sort
+        list.sort((a, b) => {
+            const av = a[sortField] ?? '';
+            const bv = b[sortField] ?? '';
+            if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+            return sortDir === 'asc' ? (Number(av) - Number(bv)) : (Number(bv) - Number(av));
+        });
+        return list;
+    }, [results, sortField, sortDir, filterMinPrice, filterMaxPrice, filterBeds, filterBaths, filterNeighborhood]);
+
+    // Notify parent about results state
+    useEffect(() => {
+        onHasResults?.(results.length > 0);
+    }, [results.length, onHasResults]);
+
+    const totalPages = Math.ceil(processed.length / PER_PAGE);
+    const pageItems = processed.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+    const toggleSort = (field: typeof sortField) => {
+        if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        else { setSortField(field); setSortDir('asc'); }
+        setPage(1);
+    };
+
+    const sortIcon = (field: typeof sortField) => {
+        if (sortField !== field) return 'fa-sort text-slate-300';
+        return sortDir === 'asc' ? 'fa-sort-up text-indigo-600' : 'fa-sort-down text-indigo-600';
+    };
+
+    const fmt = (n?: number) => n ? `$${n.toLocaleString()}` : '—';
 
     return (
-        <div className="text-left animate-in fade-in duration-500">
+        <div className="text-left">
             {/* Controls row */}
             <div className="flex items-center gap-2">
                 <select
                     value={selectedCity}
-                    onChange={e => setSelectedCity(e.target.value)}
+                    onChange={e => { setSelectedCity(e.target.value); setPage(1); }}
                     className="px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all cursor-pointer min-w-[150px]"
                 >
                     <option value="">City...</option>
@@ -1675,7 +1804,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 </button>
             </div>
 
-            {/* Results */}
+            {/* Results area */}
             {browsing && (
                 <div className="flex items-center justify-center py-16">
                     <div className="w-10 h-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -1683,69 +1812,256 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             )}
 
             {!browsing && hasSearched && results.length === 0 && (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 mt-6">
                     <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-200 mb-3"></i>
                     <p className="text-sm font-bold text-slate-400">No properties found in {selectedCity}</p>
                 </div>
             )}
 
-            {!browsing && grouped.length > 0 && (
-                <div className="space-y-8">
-                    {grouped.map(([zip, properties]) => (
-                        <div key={zip} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* ZIP Header */}
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-black">
-                                    <i className="fa-solid fa-location-dot"></i>
-                                </div>
-                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">{selectedCity}</h4>
-                                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-black">{zip}</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
-                            </div>
+            {!browsing && results.length > 0 && (
+                <div className="mt-6 space-y-4">
+                    {/* Toolbar: view toggle, filters, sort, count */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* View toggle */}
+                        <div className="flex bg-slate-100 rounded-xl p-1">
+                            <button
+                                onClick={() => setViewModeLocal('gallery')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <i className="fa-solid fa-grid-2 mr-1"></i> Gallery
+                            </button>
+                            <button
+                                onClick={() => setViewModeLocal('table')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <i className="fa-solid fa-table-list mr-1"></i> Table
+                            </button>
+                        </div>
 
-                            {/* Property Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                {properties.sort((a, b) => (a.address || '').localeCompare(b.address || '')).map(prop => (
-                                    <button
-                                        key={prop.zpid}
-                                        onClick={() => onPropertyClick(prop.address)}
-                                        className="group bg-white rounded-2xl border border-slate-100 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50 transition-all text-left overflow-hidden"
-                                    >
-                                        {/* Thumbnail */}
-                                        {prop.images?.[0] ? (
-                                            <div className="h-28 bg-slate-100 overflow-hidden">
-                                                <img
-                                                    src={prop.images[0]}
-                                                    alt=""
-                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                                    loading="lazy"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="h-28 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                                                <i className="fa-solid fa-house text-2xl text-slate-300"></i>
-                                            </div>
-                                        )}
+                        {/* Sort */}
+                        <select
+                            value={`${sortField}-${sortDir}`}
+                            onChange={e => {
+                                const [f, d] = e.target.value.split('-') as [typeof sortField, 'asc' | 'desc'];
+                                setSortField(f); setSortDir(d); setPage(1);
+                            }}
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
+                        >
+                            <option value="address-asc">Address A→Z</option>
+                            <option value="address-desc">Address Z→A</option>
+                            <option value="listPrice-asc">Price Low→High</option>
+                            <option value="listPrice-desc">Price High→Low</option>
+                            <option value="bedrooms-desc">Beds Most→Least</option>
+                            <option value="bathrooms-desc">Baths Most→Least</option>
+                            <option value="livingArea-desc">Sqft Largest</option>
+                            <option value="livingArea-asc">Sqft Smallest</option>
+                        </select>
 
-                                        {/* Info */}
-                                        <div className="p-4">
-                                            <div className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug mb-2 line-clamp-2">
+                        {/* Filters */}
+                        <input
+                            type="number"
+                            placeholder="Min $"
+                            value={filterMinPrice}
+                            onChange={e => { setFilterMinPrice(e.target.value); setPage(1); }}
+                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none placeholder:text-slate-300"
+                        />
+                        <input
+                            type="number"
+                            placeholder="Max $"
+                            value={filterMaxPrice}
+                            onChange={e => { setFilterMaxPrice(e.target.value); setPage(1); }}
+                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none placeholder:text-slate-300"
+                        />
+                        <select
+                            value={filterBeds}
+                            onChange={e => { setFilterBeds(e.target.value); setPage(1); }}
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
+                        >
+                            <option value="">Beds</option>
+                            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
+                        </select>
+                        <select
+                            value={filterBaths}
+                            onChange={e => { setFilterBaths(e.target.value); setPage(1); }}
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
+                        >
+                            <option value="">Baths</option>
+                            {[1,2,3,4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
+                        </select>
+                        {availableNeighborhoods.length > 0 && (
+                            <select
+                                value={filterNeighborhood}
+                                onChange={e => { setFilterNeighborhood(e.target.value); setPage(1); }}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer max-w-[160px]"
+                            >
+                                <option value="">Neighborhood</option>
+                                {availableNeighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                        )}
+
+                        {/* Count */}
+                        <span className="ml-auto text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {processed.length} {processed.length === 1 ? 'property' : 'properties'}
+                            {processed.length !== results.length && ` (of ${results.length})`}
+                        </span>
+                    </div>
+
+                    {/* ── GALLERY VIEW ── */}
+                    {viewMode === 'gallery' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                            {pageItems.map(prop => (
+                                <button
+                                    key={prop.zpid}
+                                    onClick={() => onPropertyClick(prop.address)}
+                                    className="group bg-white rounded-2xl border border-slate-100 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50 transition-all text-left overflow-hidden"
+                                >
+                                    {prop.images?.[0] ? (
+                                        <div className="h-28 bg-slate-100 overflow-hidden">
+                                            <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                        </div>
+                                    ) : (
+                                        <div className="h-28 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                            <i className="fa-solid fa-house text-2xl text-slate-300"></i>
+                                        </div>
+                                    )}
+                                    <div className="p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
                                                 {prop.address}
                                             </div>
-                                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold">
-                                                {prop.listPrice && (
-                                                    <span className="text-indigo-600 font-black">{fmt(prop.listPrice)}</span>
-                                                )}
-                                                {prop.bedrooms && <span>{prop.bedrooms} bd</span>}
-                                                {prop.bathrooms && <span>{prop.bathrooms} ba</span>}
-                                                {prop.livingArea && <span>{prop.livingArea.toLocaleString()} sqft</span>}
-                                            </div>
                                         </div>
-                                    </button>
-                                ))}
-                            </div>
+                                        {prop.neighborhood && (
+                                            <div className="mb-1.5">
+                                                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{prop.neighborhood}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold flex-wrap">
+                                            {prop.listPrice && <span className="text-indigo-600 font-black">{fmt(prop.listPrice)}</span>}
+                                            {prop.bedrooms && <span>{prop.bedrooms} bd</span>}
+                                            {prop.bathrooms && <span>{prop.bathrooms} ba</span>}
+                                            {prop.livingArea && <span>{prop.livingArea.toLocaleString()} sqft</span>}
+                                            {prop.lotSize && <span>Lot {prop.lotSize}</span>}
+                                            {prop.homeType && <span>{prop.homeType.replace(/_/g, ' ')}</span>}
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
                         </div>
-                    ))}
+                    )}
+
+                    {/* ── TABLE VIEW ── */}
+                    {viewMode === 'table' && (
+                        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-100">
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => toggleSort('address')}>
+                                            Address <i className={`fa-solid ${sortIcon('address')} ml-1`}></i>
+                                        </th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-right" onClick={() => toggleSort('listPrice')}>
+                                            Price <i className={`fa-solid ${sortIcon('listPrice')} ml-1`}></i>
+                                        </th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-center" onClick={() => toggleSort('bedrooms')}>
+                                            Beds <i className={`fa-solid ${sortIcon('bedrooms')} ml-1`}></i>
+                                        </th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-center" onClick={() => toggleSort('bathrooms')}>
+                                            Baths <i className={`fa-solid ${sortIcon('bathrooms')} ml-1`}></i>
+                                        </th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-right" onClick={() => toggleSort('livingArea')}>
+                                            Sq Ft <i className={`fa-solid ${sortIcon('livingArea')} ml-1`}></i>
+                                        </th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">
+                                            Lot
+                                        </th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">
+                                            Type
+                                        </th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">
+                                            Neighborhood
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pageItems.map((prop, i) => (
+                                        <tr
+                                            key={prop.zpid}
+                                            onClick={() => onPropertyClick(prop.address)}
+                                            className={`cursor-pointer hover:bg-indigo-50/50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                                        >
+                                            <td className="px-4 py-3 text-xs font-bold text-slate-900 hover:text-indigo-600 max-w-[320px] truncate">
+                                                {prop.address}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-black text-indigo-600 text-right">
+                                                {fmt(prop.listPrice)}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-center">
+                                                {prop.bedrooms || '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-center">
+                                                {prop.bathrooms || '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-right">
+                                                {prop.livingArea ? prop.livingArea.toLocaleString() : '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-right">
+                                                {prop.lotSize || '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-bold text-slate-400 text-center">
+                                                {prop.homeType || '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-bold text-emerald-600">
+                                                {prop.neighborhood || '—'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* ── PAGINATION ── */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <i className="fa-solid fa-chevron-left"></i>
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                                .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+                                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
+                                    acc.push(p);
+                                    return acc;
+                                }, [])
+                                .map((p, i) =>
+                                    p === 'ellipsis' ? (
+                                        <span key={`e${i}`} className="text-xs text-slate-300 px-1">…</span>
+                                    ) : (
+                                        <button
+                                            key={p}
+                                            onClick={() => setPage(p)}
+                                            className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                                                page === p
+                                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                                    : 'bg-white border border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                                            }`}
+                                        >
+                                            {p}
+                                        </button>
+                                    )
+                                )}
+                            <button
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                                className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <i className="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
