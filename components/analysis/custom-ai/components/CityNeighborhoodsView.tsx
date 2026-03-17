@@ -117,27 +117,6 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
             {/* ── Main Container ─────────────────────────────── */}
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
 
-                {/* ── Header + City Selector ────────────────── */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                        <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOODS</div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {minedCities.map(c => (
-                                <button
-                                    key={c.key}
-                                    onClick={() => { setSelectedKey(c.key); setNhFilter('all'); setNhSearch(''); setExpandedNh(new Set()); }}
-                                    className={`text-[11px] font-bold px-3 py-1.5 rounded-full transition-all ${
-                                        selectedKey === c.key
-                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
-                                    }`}
-                                >
-                                    <i className="fa-solid fa-mountain-city mr-1.5" />{c.city}, {c.state} ({c.count})
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
 
                 {!neighborhoodData ? (
                     <div className="flex items-center justify-center py-16">
