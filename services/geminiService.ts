@@ -1011,7 +1011,7 @@ export const mineCityNeighborhoods = async (
   const result = await executeGeminiRequest<CityNeighborhoodsResult>({
     model: 'gemini-3-flash-preview',
     contents: prompt,
-    config: { tools: [groundingTool], temperature: 0.3 },
+    config: { tools: [groundingTool], temperature: 0.3, maxOutputTokens: 65536 },
     userId,
     zpid: cityStateKey,
     address: `${city}, ${state}`,
