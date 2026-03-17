@@ -459,7 +459,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
                                         { id: 'schools', label: 'Schools', icon: 'fa-graduation-cap' },
                                         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
-                                        { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city' },
                                     ]).map(tab => {
                                         const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
                                         return (
@@ -485,6 +484,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 <div className="flex flex-wrap items-center gap-10">
                                     {([
                                         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
+                                        { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city' },
                                         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
                                     ]).map(tab => {
                                         const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
