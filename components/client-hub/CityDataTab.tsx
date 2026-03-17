@@ -1640,6 +1640,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 </div>
             )}
 
+            {/* ─── City Neighborhoods Intelligence Panel ──────────────────────────── */}
+            {viewMode === 'table' && cachedNeighborhoodCount != null && cachedNeighborhoodCount > 0 && (
+                <CityNeighborhoodsPanel city={city} stateFilter={stateFilter} count={cachedNeighborhoodCount} />
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 {/* Left: Live Console */}
                 <div className="lg:col-span-1 space-y-6">
@@ -2448,3 +2453,262 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 };
 
 export default CityDataTab;
+
+// ─── City Neighborhoods Intelligence Panel (sub-component) ───────────────────
+const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; count: number }> = ({ city, stateFilter, count }) => {
+    const [showNeighborhoods, setShowNeighborhoods] = useState(false);
+    const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
+    const [nhFilter, setNhFilter] = useState<string>('all');
+    const [nhSearch, setNhSearch] = useState('');
+    const [expandedNh, setExpandedNh] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!showNeighborhoods || neighborhoodData) return;
+        (async () => {
+            try {
+                const { generateCityStateKey } = await import('../../services/firebase/config');
+                const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
+                const s = stateFilter && stateFilter !== 'ALL' ? stateFilter : 'CA';
+                const key = generateCityStateKey(city, s);
+                if (!key) return;
+                const data = await getCityNeighborhoodsFromCloud(key);
+                setNeighborhoodData(data);
+            } catch (e) { console.warn('Failed to load neighborhoods:', e); }
+        })();
+    }, [showNeighborhoods, city, stateFilter]);
+
+    // Reset data when city changes
+    useEffect(() => { setNeighborhoodData(null); }, [city, stateFilter]);
+
+    const tierColors: Record<string, string> = {
+        'entry-level': 'bg-emerald-50 border-emerald-200 text-emerald-700',
+        'mid-range': 'bg-blue-50 border-blue-200 text-blue-700',
+        'upper mid-range': 'bg-indigo-50 border-indigo-200 text-indigo-700',
+        'premium': 'bg-purple-50 border-purple-200 text-purple-700',
+        'ultra-luxury': 'bg-amber-50 border-amber-200 text-amber-800',
+    };
+    const getTierColor = (tier: string) => tierColors[tier?.toLowerCase()] || 'bg-slate-50 border-slate-200 text-slate-600';
+
+    const tiers = neighborhoodData?.neighborhoods
+        ? [...new Set(neighborhoodData.neighborhoods.map((n: any) => n.price_context?.tier).filter(Boolean))]
+        : [];
+
+    const filtered = neighborhoodData?.neighborhoods?.filter((n: any) => {
+        if (nhFilter !== 'all' && n.price_context?.tier !== nhFilter) return false;
+        if (nhSearch) {
+            const q = nhSearch.toLowerCase();
+            return n.neighborhood_name?.toLowerCase().includes(q) ||
+                n.alternative_names?.some((a: string) => a.toLowerCase().includes(q)) ||
+                n.character?.description?.toLowerCase().includes(q);
+        }
+        return true;
+    }) || [];
+
+    return (
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 mb-10 overflow-hidden animate-in fade-in">
+            {/* Toggle Header */}
+            <button
+                onClick={() => setShowNeighborhoods(!showNeighborhoods)}
+                className="w-full flex items-center justify-between p-6 hover:bg-slate-50/50 transition-colors"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-600 flex items-center justify-center shadow-inner">
+                        <i className="fa-solid fa-mountain-city text-lg"></i>
+                    </div>
+                    <div className="text-left">
+                        <h3 className="text-lg font-black text-slate-900">City Neighborhoods Intelligence</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
+                            {count} neighborhoods mined for {city || 'this city'}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                        {count} cached
+                    </span>
+                    <i className={`fa-solid fa-chevron-${showNeighborhoods ? 'up' : 'down'} text-slate-400 transition-transform`}></i>
+                </div>
+            </button>
+
+            {/* Expanded Content */}
+            {showNeighborhoods && (
+                <div className="border-t border-slate-100">
+                    {!neighborhoodData ? (
+                        <div className="flex items-center justify-center py-16">
+                            <div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Filter + Search bar */}
+                            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex flex-wrap items-center gap-3">
+                                <div className="flex items-center bg-white border border-slate-200 p-1 rounded-xl flex-wrap">
+                                    <button
+                                        onClick={() => setNhFilter('all')}
+                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${nhFilter === 'all' ? 'bg-slate-900 text-white shadow' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        All ({neighborhoodData.neighborhoods?.length || 0})
+                                    </button>
+                                    {(tiers as string[]).map((tier: string) => {
+                                        const cnt = neighborhoodData.neighborhoods?.filter((n: any) => n.price_context?.tier === tier).length || 0;
+                                        return (
+                                            <button
+                                                key={tier}
+                                                onClick={() => setNhFilter(nhFilter === tier ? 'all' : tier)}
+                                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${nhFilter === tier ? 'bg-slate-900 text-white shadow' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                {tier} ({cnt})
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="relative flex-1 min-w-[200px] max-w-sm">
+                                    <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
+                                    <input
+                                        value={nhSearch}
+                                        onChange={e => setNhSearch(e.target.value)}
+                                        placeholder="Search neighborhoods..."
+                                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                                    />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400 ml-auto">
+                                    Showing {filtered.length} of {neighborhoodData.neighborhoods?.length || 0}
+                                </span>
+                            </div>
+
+                            {/* Neighborhood Cards Grid */}
+                            <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[700px] overflow-y-auto">
+                                {filtered.map((n: any, idx: number) => {
+                                    const isExpanded = expandedNh.has(n.neighborhood_name);
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group"
+                                            onClick={() => setExpandedNh(prev => {
+                                                const next = new Set(prev);
+                                                isExpanded ? next.delete(n.neighborhood_name) : next.add(n.neighborhood_name);
+                                                return next;
+                                            })}
+                                        >
+                                            {/* Card Header */}
+                                            <div className="p-4 pb-3">
+                                                <div className="flex items-start justify-between gap-2 mb-2">
+                                                    <h4 className="text-sm font-black text-slate-900 leading-snug">{n.neighborhood_name}</h4>
+                                                    <span className={`shrink-0 px-2.5 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${getTierColor(n.price_context?.tier)}`}>
+                                                        {n.price_context?.tier || 'N/A'}
+                                                    </span>
+                                                </div>
+                                                {/* Price + Type */}
+                                                <div className="flex items-center gap-2 mb-2.5">
+                                                    <span className="text-[11px] font-bold text-indigo-600">{n.price_context?.typical_range || '—'}</span>
+                                                    {n.character?.community_type && (
+                                                        <span className="text-[9px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">{n.character.community_type}</span>
+                                                    )}
+                                                </div>
+                                                {/* Description */}
+                                                <p className={`text-[10px] text-slate-500 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                                    {n.character?.description || 'No description available.'}
+                                                </p>
+                                            </div>
+
+                                            {/* Quick Stats Row */}
+                                            <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
+                                                {n.character?.architectural_style && (
+                                                    <span className="text-[9px] text-slate-500">
+                                                        <i className="fa-solid fa-home text-[7px] text-slate-300 mr-1"></i>
+                                                        {n.character.architectural_style}
+                                                    </span>
+                                                )}
+                                                {n.character?.era_built && (
+                                                    <span className="text-[9px] text-slate-500">
+                                                        <i className="fa-solid fa-calendar text-[7px] text-slate-300 mr-1"></i>
+                                                        {n.character.era_built}
+                                                    </span>
+                                                )}
+                                                {n.character?.typical_home_size && (
+                                                    <span className="text-[9px] text-slate-500">
+                                                        <i className="fa-solid fa-ruler-combined text-[7px] text-slate-300 mr-1"></i>
+                                                        {n.character.typical_home_size}
+                                                    </span>
+                                                )}
+                                                {n.hoa?.has_hoa && (
+                                                    <span className="text-[9px] text-amber-600 font-semibold">
+                                                        <i className="fa-solid fa-shield text-[7px] mr-1"></i>
+                                                        HOA{n.hoa.monthly_fee ? ` ${n.hoa.monthly_fee}` : ''}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Expanded Details */}
+                                            {isExpanded && (
+                                                <div className="px-4 py-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-200 bg-white">
+                                                    {n.alternative_names?.length > 0 && (
+                                                        <div>
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Also Known As</span>
+                                                            <p className="text-[10px] text-slate-600 mt-0.5">{n.alternative_names.join(', ')}</p>
+                                                        </div>
+                                                    )}
+                                                    {n.character?.typical_lot_size && (
+                                                        <div>
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Typical Lot Size</span>
+                                                            <p className="text-[10px] text-slate-600 mt-0.5">{n.character.typical_lot_size}</p>
+                                                        </div>
+                                                    )}
+                                                    {n.price_context?.context && (
+                                                        <div>
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Market Position</span>
+                                                            <p className="text-[10px] text-slate-600 mt-0.5">{n.price_context.context}</p>
+                                                        </div>
+                                                    )}
+                                                    {n.hoa?.has_hoa && (n.hoa.covers || n.hoa.notable_rules) && (
+                                                        <div>
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">HOA Details</span>
+                                                            {n.hoa.covers && <p className="text-[10px] text-slate-600 mt-0.5"><strong>Covers:</strong> {n.hoa.covers}</p>}
+                                                            {n.hoa.notable_rules && <p className="text-[10px] text-slate-600 mt-0.5"><strong>Rules:</strong> {n.hoa.notable_rules}</p>}
+                                                        </div>
+                                                    )}
+                                                    {n.infrastructure_quality && (
+                                                        <div>
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Infrastructure</span>
+                                                            <p className="text-[10px] text-slate-600 mt-0.5">{n.infrastructure_quality}</p>
+                                                        </div>
+                                                    )}
+                                                    {n.upcoming_changes && n.upcoming_changes !== 'None known' && (
+                                                        <div>
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Upcoming Changes</span>
+                                                            <p className="text-[10px] text-amber-700 mt-0.5">{n.upcoming_changes}</p>
+                                                        </div>
+                                                    )}
+                                                    {n.unique_features?.length > 0 && (
+                                                        <div>
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Standout Features</span>
+                                                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                                                {n.unique_features.map((f: string, fi: number) => (
+                                                                    <span key={fi} className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg text-[9px] font-semibold">
+                                                                        {f}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div className="pt-1">
+                                                        <span className="text-[8px] text-slate-300 font-medium">Source: {n.source_type || 'Unknown'}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {filtered.length === 0 && (
+                                    <div className="col-span-full text-center py-12">
+                                        <i className="fa-solid fa-search text-3xl text-slate-200 mb-3"></i>
+                                        <p className="text-sm font-bold text-slate-400">No neighborhoods match your search</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
