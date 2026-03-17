@@ -1641,8 +1641,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             )}
 
             {/* ─── City Neighborhoods Intelligence Panel ──────────────────────────── */}
-            {viewMode === 'table' && cachedNeighborhoodCount != null && cachedNeighborhoodCount > 0 && (
-                <CityNeighborhoodsPanel city={city} stateFilter={stateFilter} count={cachedNeighborhoodCount} />
+            {viewMode === 'table' && (
+                <CityNeighborhoodsPanel cityHint={city} stateHint={stateFilter} />
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -2455,30 +2455,81 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 export default CityDataTab;
 
 // ─── City Neighborhoods Intelligence Panel (sub-component) ───────────────────
-const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; count: number }> = ({ city, stateFilter, count }) => {
+const LAST_NH_CITY_KEY = 'zyphe_last_nh_city';
+
+const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }> = ({ cityHint, stateHint }) => {
+    const [minedCities, setMinedCities] = useState<{ key: string; city: string; state: string; count: number }[]>([]);
+    const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [showNeighborhoods, setShowNeighborhoods] = useState(false);
     const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
     const [nhFilter, setNhFilter] = useState<string>('all');
     const [nhSearch, setNhSearch] = useState('');
     const [expandedNh, setExpandedNh] = useState<Set<string>>(new Set());
+    const [loading, setLoading] = useState(true);
 
+    // On mount: load all mined cities
     useEffect(() => {
-        if (!showNeighborhoods || neighborhoodData) return;
         (async () => {
             try {
-                const { generateCityStateKey } = await import('../../services/firebase/config');
+                const { getAllMinedCities } = await import('../../services/firebase/properties');
+                const cities = await getAllMinedCities();
+                setMinedCities(cities);
+
+                // Auto-select: prefer cityHint, then localStorage, then first available
+                const lastKey = localStorage.getItem(LAST_NH_CITY_KEY);
+                if (cityHint) {
+                    const { generateCityStateKey } = await import('../../services/firebase/config');
+                    const s = stateHint && stateHint !== 'ALL' ? stateHint : 'CA';
+                    const hintKey = generateCityStateKey(cityHint, s);
+                    const match = cities.find(c => c.key === hintKey);
+                    if (match) {
+                        setSelectedKey(match.key);
+                        setShowNeighborhoods(true);
+                    } else if (lastKey && cities.find(c => c.key === lastKey)) {
+                        setSelectedKey(lastKey);
+                    } else if (cities.length > 0) {
+                        setSelectedKey(cities[0].key);
+                    }
+                } else if (lastKey && cities.find(c => c.key === lastKey)) {
+                    setSelectedKey(lastKey);
+                } else if (cities.length > 0) {
+                    setSelectedKey(cities[0].key);
+                }
+            } catch (e) { console.warn('Failed to load mined cities:', e); }
+            setLoading(false);
+        })();
+    }, []);
+
+    // When cityHint changes, try to match
+    useEffect(() => {
+        if (!cityHint || minedCities.length === 0) return;
+        (async () => {
+            const { generateCityStateKey } = await import('../../services/firebase/config');
+            const s = stateHint && stateHint !== 'ALL' ? stateHint : 'CA';
+            const hintKey = generateCityStateKey(cityHint, s);
+            const match = minedCities.find(c => c.key === hintKey);
+            if (match && match.key !== selectedKey) {
+                setSelectedKey(match.key);
+                setNeighborhoodData(null);
+            }
+        })();
+    }, [cityHint, stateHint]);
+
+    // Load neighborhood data when a city is selected and panel is expanded
+    useEffect(() => {
+        if (!showNeighborhoods || !selectedKey) return;
+        setNeighborhoodData(null);
+        (async () => {
+            try {
                 const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
-                const s = stateFilter && stateFilter !== 'ALL' ? stateFilter : 'CA';
-                const key = generateCityStateKey(city, s);
-                if (!key) return;
-                const data = await getCityNeighborhoodsFromCloud(key);
+                const data = await getCityNeighborhoodsFromCloud(selectedKey);
                 setNeighborhoodData(data);
+                localStorage.setItem(LAST_NH_CITY_KEY, selectedKey);
             } catch (e) { console.warn('Failed to load neighborhoods:', e); }
         })();
-    }, [showNeighborhoods, city, stateFilter]);
+    }, [showNeighborhoods, selectedKey]);
 
-    // Reset data when city changes
-    useEffect(() => { setNeighborhoodData(null); }, [city, stateFilter]);
+    const selectedCity = minedCities.find(c => c.key === selectedKey);
 
     const tierColors: Record<string, string> = {
         'entry-level': 'bg-emerald-50 border-emerald-200 text-emerald-700',
@@ -2504,6 +2555,9 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
         return true;
     }) || [];
 
+    // Don't render if no mined cities and done loading
+    if (!loading && minedCities.length === 0) return null;
+
     return (
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 mb-10 overflow-hidden animate-in fade-in">
             {/* Toggle Header */}
@@ -2518,14 +2572,32 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
                     <div className="text-left">
                         <h3 className="text-lg font-black text-slate-900">City Neighborhoods Intelligence</h3>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
-                            {count} neighborhoods mined for {city || 'this city'}
+                            {loading ? 'Loading...' : `${minedCities.length} ${minedCities.length === 1 ? 'city' : 'cities'} mined`}
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                        {count} cached
-                    </span>
+                    {/* City pills on the header */}
+                    <div className="hidden md:flex items-center gap-1.5">
+                        {minedCities.map(c => (
+                            <span
+                                key={c.key}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedKey(c.key);
+                                    setNeighborhoodData(null);
+                                    setShowNeighborhoods(true);
+                                }}
+                                className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all ${
+                                    selectedKey === c.key
+                                        ? 'bg-emerald-100 border border-emerald-300 text-emerald-800 shadow-sm'
+                                        : 'bg-slate-50 border border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                                }`}
+                            >
+                                {c.city}, {c.state} ({c.count})
+                            </span>
+                        ))}
+                    </div>
                     <i className={`fa-solid fa-chevron-${showNeighborhoods ? 'up' : 'down'} text-slate-400 transition-transform`}></i>
                 </div>
             </button>
@@ -2533,7 +2605,28 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
             {/* Expanded Content */}
             {showNeighborhoods && (
                 <div className="border-t border-slate-100">
-                    {!neighborhoodData ? (
+                    {/* Mobile city selector */}
+                    {minedCities.length > 1 && (
+                        <div className="md:hidden px-6 py-3 bg-slate-50/50 border-b border-slate-100 flex flex-wrap gap-1.5">
+                            {minedCities.map(c => (
+                                <button
+                                    key={c.key}
+                                    onClick={() => { setSelectedKey(c.key); setNeighborhoodData(null); }}
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                        selectedKey === c.key ? 'bg-slate-900 text-white shadow' : 'bg-white border border-slate-200 text-slate-400'
+                                    }`}
+                                >
+                                    {c.city}, {c.state} ({c.count})
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {!selectedKey ? (
+                        <div className="flex items-center justify-center py-16 text-slate-400 text-sm font-bold">
+                            Select a city above to view neighborhoods
+                        </div>
+                    ) : !neighborhoodData ? (
                         <div className="flex items-center justify-center py-16">
                             <div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div>
                         </div>
@@ -2544,7 +2637,7 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
                                 <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50/40 to-purple-50/30">
                                     <div className="flex items-center gap-2 mb-3">
                                         <i className="fa-solid fa-compass text-indigo-500 text-sm"></i>
-                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Buyer&apos;s Guide — {city}</h4>
+                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Buyer&apos;s Guide — {selectedCity?.city || 'City'}</h4>
                                     </div>
                                     <div className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line max-h-[200px] overflow-y-auto pr-2">
                                         {neighborhoodData.city_summary}
@@ -2609,20 +2702,17 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
                                                         {n.price_context?.tier || 'N/A'}
                                                     </span>
                                                 </div>
-                                                {/* Price + Type */}
                                                 <div className="flex items-center gap-2 mb-2.5">
                                                     <span className="text-[11px] font-bold text-indigo-600">{n.price_context?.typical_range || '—'}</span>
                                                     {n.character?.community_type && (
                                                         <span className="text-[9px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">{n.character.community_type}</span>
                                                     )}
                                                 </div>
-                                                {/* Description */}
                                                 <p className={`text-[10px] text-slate-500 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
                                                     {n.character?.description || 'No description available.'}
                                                 </p>
                                             </div>
 
-                                            {/* Quick Stats Row */}
                                             <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
                                                 {n.character?.architectural_style && (
                                                     <span className="text-[9px] text-slate-500">
@@ -2650,7 +2740,6 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
                                                 )}
                                             </div>
 
-                                            {/* Expanded Details */}
                                             {isExpanded && (
                                                 <div className="px-4 py-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-200 bg-white">
                                                     {n.alternative_names?.length > 0 && (
@@ -2724,3 +2813,4 @@ const CityNeighborhoodsPanel: React.FC<{ city: string; stateFilter: string; coun
         </div>
     );
 };
+

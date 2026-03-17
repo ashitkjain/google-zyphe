@@ -694,6 +694,27 @@ export const getCityNeighborhoodsFromCloud = async (cityStateKey: string): Promi
     }
 };
 
+export const getAllMinedCities = async (): Promise<{ key: string; city: string; state: string; count: number; lastUpdated?: any }[]> => {
+    if (!db) return [];
+    try {
+        logFirestoreQuery('getDocs', 'city_neighborhoods', { action: 'listAll' });
+        const snap = await getDocs(collection(db, "city_neighborhoods"));
+        return snap.docs.map(d => {
+            const data = d.data();
+            return {
+                key: d.id,
+                city: data.city || d.id.split('_')[0] || 'Unknown',
+                state: data.state || d.id.split('_')[1] || '',
+                count: data.neighborhoods?.length || data.total_neighborhoods || 0,
+                lastUpdated: data.lastUpdated
+            };
+        });
+    } catch (error) {
+        handleFirestoreError(error, "getAllMinedCities");
+        return [];
+    }
+};
+
 // ── Schools Intelligence Cache (keyed by school name + city, shared across properties) ──
 
 export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => {
