@@ -109,6 +109,30 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [cachedMapLabels, setCachedMapLabels] = useState<string[] | null>(null);
     const [cachedComprehensiveAnalysis, setCachedComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
     const [groundTruthMapTab, setGroundTruthMapTab] = useState<'parcel' | 'satellite'>('parcel');
+    const [cityNhEntryOverview, setCityNhEntryOverview] = React.useState<any>(null);
+
+    // Fetch city-level neighborhood details for the overview card
+    React.useEffect(() => {
+        const resolvedName = propertyData?.neighborhood_identity?.resolved_name;
+        if (!resolvedName || !propertyData?.city || !propertyData?.state) return;
+        (async () => {
+            try {
+                const { generateCityStateKey } = await import('../../services/firebase/config');
+                const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
+                const key = generateCityStateKey(propertyData.city, propertyData.state);
+                if (!key) return;
+                const cityData = await getCityNeighborhoodsFromCloud(key);
+                if (cityData?.neighborhoods?.length) {
+                    const match = cityData.neighborhoods.find((n: any) =>
+                        n.neighborhood_name?.toLowerCase() === resolvedName.toLowerCase()
+                    );
+                    if (match) setCityNhEntryOverview(match);
+                }
+            } catch (e) {
+                console.warn('[ExploreTab] City neighborhoods lookup failed:', e);
+            }
+        })();
+    }, [propertyData?.neighborhood_identity?.resolved_name, propertyData?.city, propertyData?.state]);
 
     // Load lifestyle insights + lifestyle fit from cache on mount
     React.useEffect(() => {
@@ -1059,7 +1083,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 {/* Neighborhood Identity */}
                                                 {propertyData?.neighborhood_identity?.resolved_name && (() => {
                                                     const nid = propertyData.neighborhood_identity;
-                                                    const gem = nid.gemini;
+                                                    const gem = cityNhEntryOverview || nid.gemini;
                                                     const tierColors: Record<string, string> = {
                                                         'Entry-Level': 'bg-emerald-100 text-emerald-700',
                                                         'Mid-Range': 'bg-blue-100 text-blue-700',
@@ -1114,6 +1138,18 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                                     </span>
                                                                                 ))}
                                                                             </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {gem?.price_context?.context && (
+                                                                        <div className="mt-2">
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Market Position</div>
+                                                                            <p className="text-[12px] text-slate-600 leading-relaxed">{gem.price_context.context}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {gem?.infrastructure_quality && (
+                                                                        <div className="mt-2">
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Infrastructure</div>
+                                                                            <p className="text-[12px] text-slate-600 leading-relaxed">{gem.infrastructure_quality}</p>
                                                                         </div>
                                                                     )}
                                                                 </div>

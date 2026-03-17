@@ -17,18 +17,40 @@ interface NeighborhoodViewProps {
 
 export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoomIn, mapZoomOut, propertyData, onRefresh, isRefreshing, timer }) => {
     const [selectedMap, setSelectedMap] = React.useState<{ url: string, title: string, isZoomIn?: boolean } | null>(null);
+    const [cityNhEntry, setCityNhEntry] = React.useState<any>(null);
 
     if (!data?.overview) return <EmptyState section="Neighborhood" />;
 
     // Neighborhood Identity data (from Gemini grounded + city plan + surveyor tract)
     const identity = propertyData?.neighborhood_identity;
-    const gemini = identity?.gemini;
     const cityPlan = identity?.city_plan;
     const surveyorTract = identity?.surveyor_tract;
     const resolvedName = identity?.resolved_name;
 
-    // DEBUG: log what we have
-    console.log('[NeighborhoodView] identity data:', JSON.stringify({ resolvedName, hasGemini: !!gemini, cityPlan, surveyorTract }, null, 2));
+    // Fetch matching entry from city_neighborhoods table
+    React.useEffect(() => {
+        if (!resolvedName || !propertyData?.city || !propertyData?.state) return;
+        (async () => {
+            try {
+                const { generateCityStateKey } = await import('../../../../services/firebase/config');
+                const { getCityNeighborhoodsFromCloud } = await import('../../../../services/firebase/properties');
+                const key = generateCityStateKey(propertyData.city, propertyData.state);
+                if (!key) return;
+                const cityData = await getCityNeighborhoodsFromCloud(key);
+                if (cityData?.neighborhoods?.length) {
+                    const match = cityData.neighborhoods.find((n: any) =>
+                        n.neighborhood_name?.toLowerCase() === resolvedName.toLowerCase()
+                    );
+                    if (match) setCityNhEntry(match);
+                }
+            } catch (e) {
+                console.warn('[NeighborhoodView] City neighborhoods lookup failed:', e);
+            }
+        })();
+    }, [resolvedName, propertyData?.city, propertyData?.state]);
+
+    // Use city-level mined data if available, fall back to per-property gemini data
+    const gemini = cityNhEntry || identity?.gemini;
 
     // Normalize parcelPolygon for use with StaticParcelMap
     const parcelPolygon = React.useMemo(() => {
