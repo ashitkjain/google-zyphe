@@ -484,7 +484,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             {/* AI sub-tabs — two rows */}
                             <div className="flex-1 space-y-1">
                                 {/* Row 1 */}
-                                <div className="flex flex-wrap items-center gap-10">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {([
                                         { id: 'interior', label: 'Interior', icon: 'fa-couch' },
                                         { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
@@ -514,7 +514,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     })}
                                 </div>
                                 {/* Row 2 */}
-                                <div className="flex flex-wrap items-center gap-10">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {([
                                         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
                                         { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city' },
