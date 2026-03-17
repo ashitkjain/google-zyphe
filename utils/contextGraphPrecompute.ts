@@ -1,11 +1,11 @@
 /**
  * Context Graph Pre-computation
  *
- * Computes the 23 pure-data factors directly from property fields,
+ * Computes the 30 pure-data factors directly from property fields,
  * without any AI call. The AI prompt is then told to skip these IDs
  * and only fill in the remaining factors.
  *
- * Total factors: 75 (STR Legality + STR Performance merged into factor 7)
+ * Total factors: 88 (STR Legality + STR Performance merged into factor 7)
  */
 
 import { PropertyData } from '../types/property';
@@ -15,6 +15,7 @@ export interface ExtractedFactor {
     id: number;
     name: string;
     value: string;
+    detail?: string;  // Optional 1-2 sentence qualitative context behind the value
     confidence: 'high' | 'medium' | 'low';
     tags: string[];
 }
@@ -89,10 +90,17 @@ function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {
 
     const total = Math.round(mortgage + taxes + insurance + hoa);
     const confidence = p.price != null ? 'medium' : 'low'; // always estimated
+    const breakdownParts = [
+        `Mortgage: $${Math.round(mortgage).toLocaleString()}`,
+        `Taxes: $${Math.round(taxes).toLocaleString()}`,
+        `Insurance: $${Math.round(insurance).toLocaleString()}`,
+        ...(hoa > 0 ? [`HOA: $${Math.round(hoa).toLocaleString()}`] : [])
+    ];
     return {
         id: 4,
         name: 'True Carrying Cost',
         value: `~$${total.toLocaleString()}/month est.`,
+        detail: `Breakdown (7% 30yr): ${breakdownParts.join(', ')}.`,
         confidence,
         tags: [`$${Math.round(total / 1000)}K/mo`, 'Estimated']
     };
@@ -106,9 +114,13 @@ function factor5_sellerMotivation(p: PropertyData): ExtractedFactor {
         const reasons: string[] = [];
         if (cuts > 0) reasons.push(`${cuts} price cut${cuts > 1 ? 's' : ''}`);
         if (dom != null && dom > 90) reasons.push(`${dom} DOM`);
+        // Build detail with actual price history events
+        const historyDetail = (p.priceHistory ?? []).filter(h => h.price != null).slice(0, 4)
+            .map(h => `${h.event} $${(h.price || 0).toLocaleString()} (${h.date})`).join('. ');
         return {
             id: 5, name: 'Seller Motivation',
             value: `High — ${reasons.join(', ')}`,
+            detail: historyDetail || undefined,
             confidence: 'high',
             tags: ['Motivated Seller', 'Negotiable']
         };
@@ -381,19 +393,25 @@ function factor59_laundry(p: PropertyData): ExtractedFactor {
     };
 }
 
-function factor75_marketVelocity(visual: CustomAIAnalysisResult | null): ExtractedFactor {
-    const dom = (visual as any)?.general_market_intelligence?.market_dynamics?.days_on_market;
+function factor75_marketVelocity(visual: CustomAIAnalysisResult | null, property?: PropertyData): ExtractedFactor {
+    // 1. City-level market intelligence (best source — median DOM for the area)
+    const cityDom = (visual as any)?.general_market_intelligence?.market_dynamics?.days_on_market;
+    // 2. Property-level DOM (fallback — this specific listing's days on market)
+    const propDom = property?.resoFacts?.daysOnZillow ?? (property as any)?.timeOnZillow;
+
+    const dom = cityDom ?? propDom;
     if (!dom) return { id: 75, name: 'Market Velocity (DOM)', value: 'Data not available', confidence: 'low', tags: [] };
 
     const num = parseFloat(String(dom).replace(/[^0-9.]/g, ''));
     if (isNaN(num)) {
-        return { id: 75, name: 'Market Velocity (DOM)', value: dom, confidence: 'medium', tags: [] };
+        return { id: 75, name: 'Market Velocity (DOM)', value: String(dom), confidence: 'medium', tags: [] };
     }
     const speed = num < 14 ? 'Fast' : num <= 30 ? 'Moderate' : 'Slow';
+    const source = cityDom ? 'median DOM' : 'listing DOM';
     return {
         id: 75, name: 'Market Velocity (DOM)',
-        value: `${speed} — ${Math.round(num)} days median DOM`,
-        confidence: 'high',
+        value: `${speed} — ${Math.round(num)} days ${source}`,
+        confidence: cityDom ? 'high' : 'medium',
         tags: [speed, `${Math.round(num)} DOM`]
     };
 }
@@ -417,10 +435,201 @@ function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedF
     return { id: 7, name: 'STR Viability', value: 'STR data available — see investment tab', confidence: 'low', tags: ['STR'] };
 }
 
+// ── New Factors: Infrastructure & Environment ──────────────────────
+
+function factor76_internetConnectivity(p: PropertyData): ExtractedFactor {
+    const bb = (p as any).broadband;
+    if (!bb) return { id: 76, name: 'Internet & Connectivity', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const parts: string[] = [];
+    if (bb.hasFiber) parts.push('Fiber');
+    else if (bb.topDownloadMbps > 0) parts.push(`Cable ${bb.topDownloadMbps}Mbps`);
+    if (bb.has5G) parts.push('5G');
+    parts.push(`${bb.providerCount} provider${bb.providerCount !== 1 ? 's' : ''}`);
+
+    const speed = bb.topDownloadMbps;
+    const tier = speed >= 1000 ? 'Gigabit' : speed >= 300 ? 'Fast' : speed >= 100 ? 'Moderate' : speed > 0 ? 'Basic' : 'Unknown';
+
+    // Build rich detail with provider names and cell coverage
+    const detailParts: string[] = [`Max download: ${speed}Mbps`];
+    if (bb.providers?.length) detailParts.push(`Providers: ${bb.providers.slice(0, 3).map((pr: any) => pr.name || pr).join(', ')}`);
+    if (bb.cellCoverage?.length) {
+        const carriers = bb.cellCoverage.slice(0, 3).map((c: any) => `${c.carrier || c.name} (${c.technology || ''})`).join(', ');
+        detailParts.push(`Cell: ${carriers}`);
+    }
+
+    return {
+        id: 76, name: 'Internet & Connectivity',
+        value: `${tier} — ${parts.join(', ')}`,
+        detail: detailParts.join('. ') + '.',
+        confidence: 'high',
+        tags: [tier, ...(bb.hasFiber ? ['Fiber'] : []), ...(bb.has5G ? ['5G'] : [])]
+    };
+}
+
+function factor77_noiseProfile(p: PropertyData): ExtractedFactor {
+    if (p.noiseScore == null) return { id: 77, name: 'Noise Profile (Measured)', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const score = p.noiseScore;
+    const label = score >= 90 ? 'Very Quiet' : score >= 80 ? 'Calm' : score >= 70 ? 'Moderate' : score >= 60 ? 'Active' : 'Loud';
+
+    const details: string[] = [];
+    if (p.noiseTrafficDesc) details.push(`Traffic: ${p.noiseTrafficDesc}`);
+    if (p.noiseAirportDesc) details.push(`Airport: ${p.noiseAirportDesc}`);
+    if (p.noiseLocalDesc) details.push(`Local: ${p.noiseLocalDesc}`);
+
+    // Rich detail with all sub-scores
+    const subScores: string[] = [];
+    if (p.noiseTrafficScore != null) subScores.push(`Traffic ${p.noiseTrafficScore}/100`);
+    if (p.noiseAirportScore != null) subScores.push(`Airport ${p.noiseAirportScore}/100`);
+    if (p.noiseLocalScore != null) subScores.push(`Local ${p.noiseLocalScore}/100`);
+
+    return {
+        id: 77, name: 'Noise Profile (Measured)',
+        value: `${label} — Score ${score}/100${details.length ? ` (${details.join(', ')})` : ''}`,
+        detail: subScores.length ? `HowLoud breakdown: ${subScores.join(', ')}. ${details.join('. ')}.` : undefined,
+        confidence: 'high',
+        tags: [label, `Score ${score}`]
+    };
+}
+
+function factor78_droughtRisk(p: PropertyData): ExtractedFactor {
+    const d = (p as any).drought;
+    if (!d) return { id: 78, name: 'Water & Drought Risk', value: 'Data not available', confidence: 'low', tags: [] };
+
+    if (d.severityLevel < 0 || d.none >= 100) {
+        return { id: 78, name: 'Water & Drought Risk', value: `None — ${d.countyName} fully hydrated`, confidence: 'high', tags: ['No Drought'] };
+    }
+
+    const pctAffected = Math.round(100 - d.none);
+    // Detail with full severity breakdown
+    const levels: string[] = [];
+    if (d.d0 > 0) levels.push(`${d.d0.toFixed(0)}% Abnormally Dry`);
+    if (d.d1 > 0) levels.push(`${d.d1.toFixed(0)}% Moderate`);
+    if (d.d2 > 0) levels.push(`${d.d2.toFixed(0)}% Severe`);
+    if (d.d3 > 0) levels.push(`${d.d3.toFixed(0)}% Extreme`);
+    if (d.d4 > 0) levels.push(`${d.d4.toFixed(0)}% Exceptional`);
+
+    return {
+        id: 78, name: 'Water & Drought Risk',
+        value: `${d.severity} — ${pctAffected}% of ${d.countyName} affected`,
+        detail: levels.length ? `US Drought Monitor: ${levels.join(', ')}. May impact landscaping costs and water restrictions.` : undefined,
+        confidence: 'high',
+        tags: [d.severity, `${pctAffected}% Affected`]
+    };
+}
+
+function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
+    const hd = (p as any).historical_disasters;
+    if (!hd || !hd.events) return { id: 79, name: 'Disaster History', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const events = Array.isArray(hd.events) ? hd.events : [];
+    if (events.length === 0) {
+        return { id: 79, name: 'Disaster History', value: 'Clean — no recent disasters', confidence: 'high', tags: ['Clean Record'] };
+    }
+
+    // Count by type
+    const typeCounts: Record<string, number> = {};
+    for (const e of events) {
+        const type = e.type || e.disasterType || 'Unknown';
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
+    }
+    const typeList = Object.entries(typeCounts).map(([t, c]) => `${c} ${t.toLowerCase()}`).slice(0, 3).join(', ');
+    const severity = events.length >= 5 ? 'High' : events.length >= 2 ? 'Moderate' : 'Low';
+
+    return {
+        id: 79, name: 'Disaster History',
+        value: `${events.length} events — ${typeList}`,
+        confidence: 'high',
+        tags: [severity, `${events.length} Events`]
+    };
+}
+
+function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
+    const places = (p as any).neighborhoodPlaces;
+    if (!places?.walkable) return { id: 84, name: 'Walkable Amenity Score', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const w = places.walkable;
+    const diningCount = w.dining?.length || 0;
+    const parksCount = w.parks?.length || 0;
+    const shoppingCount = w.shopping?.length || 0;
+    const fitnessCount = w.fitness?.length || 0;
+    const total = diningCount + parksCount + shoppingCount + fitnessCount + (w.schools?.length || 0) + (w.community?.length || 0);
+
+    if (total === 0) {
+        return { id: 84, name: 'Walkable Amenity Score', value: 'Low — no walkable POIs found', confidence: 'high', tags: ['Car-Dependent'] };
+    }
+
+    const tier = total >= 10 ? 'High' : total >= 5 ? 'Moderate' : 'Low';
+    const parts: string[] = [];
+    if (diningCount > 0) parts.push(`${diningCount} dining`);
+    if (parksCount > 0) parts.push(`${parksCount} parks`);
+    if (shoppingCount > 0) parts.push(`${shoppingCount} shops`);
+
+    // Detail: name the top 3 closest walkable places
+    const allWalkable = [...(w.dining || []), ...(w.parks || []), ...(w.shopping || []), ...(w.fitness || [])]
+        .filter((pl: any) => pl.name && pl.distanceMeters)
+        .sort((a: any, b: any) => (a.distanceMeters || 0) - (b.distanceMeters || 0))
+        .slice(0, 5);
+    const placeNames = allWalkable.map((pl: any) => `${pl.name} (${(pl.distanceMeters / 1000).toFixed(1)}km)`).join(', ');
+
+    return {
+        id: 84, name: 'Walkable Amenity Score',
+        value: `${tier} — ${total} walkable POIs (${parts.join(', ')})`,
+        detail: placeNames ? `Closest: ${placeNames}.` : undefined,
+        confidence: 'high',
+        tags: [tier, `${total} Walkable`]
+    };
+}
+
+function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
+    const places = (p as any).neighborhoodPlaces;
+    const medical = places?.drivable?.medical || places?.medical || [];
+    if (!medical.length) return { id: 85, name: 'Medical Proximity', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const closest = medical.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
+    const closestKm = closest.distanceMeters ? (closest.distanceMeters / 1000).toFixed(1) : '?';
+
+    // Detail: name the hospitals
+    const hospitalNames = medical.slice(0, 3).map((h: any) => {
+        const km = h.distanceMeters ? `${(h.distanceMeters / 1000).toFixed(1)}km` : '';
+        return `${h.name}${km ? ` (${km})` : ''}`;
+    }).join(', ');
+
+    return {
+        id: 85, name: 'Medical Proximity',
+        value: `${medical.length} hospital${medical.length > 1 ? 's' : ''} within 5km, closest ${closestKm}km`,
+        detail: hospitalNames ? `Facilities: ${hospitalNames}.` : undefined,
+        confidence: 'high',
+        tags: [`${medical.length} Hospitals`, `${closestKm}km`]
+    };
+}
+
+function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
+    const places = (p as any).neighborhoodPlaces;
+    // EV charging stations are in the transit bucket
+    const transit = [...(places?.walkable?.transit || []), ...(places?.drivable?.transit || [])];
+    const evStations = transit.filter((pl: any) => (pl.types || []).some((t: string) => t.includes('electric_vehicle') || t.includes('ev_charging')));
+
+    if (evStations.length === 0) {
+        return { id: 86, name: 'EV Infrastructure', value: 'None nearby — no charging stations found', confidence: 'high', tags: ['No EV Charging'] };
+    }
+
+    const closest = evStations.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
+    const closestKm = closest.distanceMeters ? (closest.distanceMeters / 1000).toFixed(1) : '?';
+
+    return {
+        id: 86, name: 'EV Infrastructure',
+        value: `${evStations.length} charging station${evStations.length > 1 ? 's' : ''}, closest ${closestKm}km`,
+        confidence: 'high',
+        tags: ['EV Ready', `${evStations.length} Stations`]
+    };
+}
+
 // ── Main Export ────────────────────────────────────────────────────
 
 /**
- * Pre-computes all 23 pure-data factors from property fields.
+ * Pre-computes all pure-data factors from property fields.
  * Returns a map of factorId → ExtractedFactor for fast merging.
  */
 export function precomputeDataFactors(
@@ -451,7 +660,15 @@ export function precomputeDataFactors(
         factor54_topography(property),
         factor55_solar(property),
         factor59_laundry(property),
-        factor75_marketVelocity(visual),
+        factor75_marketVelocity(visual, property),
+        // ── New factors ──
+        factor76_internetConnectivity(property),
+        factor77_noiseProfile(property),
+        factor78_droughtRisk(property),
+        factor79_disasterHistory(property),
+        factor84_walkableAmenities(property),
+        factor85_medicalProximity(property),
+        factor86_evInfrastructure(property),
     ];
 
     const map = new Map<number, ExtractedFactor>();
@@ -460,4 +677,4 @@ export function precomputeDataFactors(
 }
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 51, 52, 54, 55, 59, 75];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 84, 85, 86];

@@ -471,7 +471,7 @@ const PlatformHelpTab: React.FC = () => {
                                 </div>
                                 <div>
                                     <h1 className="text-3xl font-black text-slate-900 mb-1">Context Graph</h1>
-                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">75 Decision Factors · Hybrid Extraction</p>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">88 Decision Factors · Hybrid Extraction</p>
                                 </div>
                             </div>
 
@@ -481,7 +481,7 @@ const PlatformHelpTab: React.FC = () => {
                                     What is the Context Graph?
                                 </h2>
                                 <p className="text-slate-600 font-medium leading-relaxed mb-0">
-                                    The Context Graph is a structured representation of <strong>75 buyer-relevant decision factors</strong> extracted from every property. It combines data from <strong>12+ APIs</strong>, <strong>AI-driven analysis</strong>, and <strong>computed heuristics</strong> into a standardized format that powers property comparison, search tags, and recommendation engines.
+                                    The Context Graph is a structured representation of <strong>88 buyer-relevant decision factors</strong> extracted from every property. It combines data from <strong>15+ APIs</strong>, <strong>AI-driven analysis</strong>, and <strong>computed heuristics</strong> into a standardized format that powers property comparison, search tags, and recommendation engines.
                                 </p>
                             </section>
 
@@ -495,8 +495,8 @@ const PlatformHelpTab: React.FC = () => {
                                             <i className="fa-solid fa-microchip text-emerald-400"></i>
                                         </div>
                                         <div>
-                                            <div className="font-bold text-sm mb-1">22 Pre-Computed Factors <span className="text-emerald-400 text-[10px] font-mono ml-2">zero AI tokens</span></div>
-                                            <div className="text-slate-400 text-xs leading-relaxed">Extracted deterministically from structured property data — MLS fields, API responses, and computed formulas. These are guaranteed accurate and free.</div>
+                                            <div className="font-bold text-sm mb-1">30 Pre-Computed Factors <span className="text-emerald-400 text-[10px] font-mono ml-2">zero AI tokens</span></div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Extracted deterministically from structured property data — MLS fields, API responses (broadband, noise, drought, disasters, Places), and computed formulas. These are guaranteed accurate and free.</div>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-4">
@@ -504,8 +504,8 @@ const PlatformHelpTab: React.FC = () => {
                                             <i className="fa-solid fa-wand-magic-sparkles text-violet-400"></i>
                                         </div>
                                         <div>
-                                            <div className="font-bold text-sm mb-1">53 AI-Extracted Factors <span className="text-violet-400 text-[10px] font-mono ml-2">Gemini 2.0 Flash</span></div>
-                                            <div className="text-slate-400 text-xs leading-relaxed">Inferred by Gemini from visual analysis, descriptions, deep research, and community data. The AI prompt explicitly skips pre-computed IDs to avoid redundant work.</div>
+                                            <div className="font-bold text-sm mb-1">58 AI-Extracted Factors <span className="text-violet-400 text-[10px] font-mono ml-2">Gemini 2.0 Flash</span></div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Inferred by Gemini from visual analysis, descriptions, deep research, community data, lifestyle fit analysis, and neighborhood identity. The AI prompt explicitly skips pre-computed IDs to avoid redundant work.</div>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-4">
@@ -521,7 +521,7 @@ const PlatformHelpTab: React.FC = () => {
                             </section>
 
                             {/* Factor Categories */}
-                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">All 75 Decision Factors</h3>
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">All 88 Decision Factors</h3>
 
                             {/* Financial & Market */}
                             <div className="mb-8">
@@ -760,6 +760,88 @@ const PlatformHelpTab: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Infrastructure & Environment */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-wifi text-sky-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Infrastructure & Environment (76–79)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 76, name: 'Internet & Connectivity', method: 'Pre-computed', how: 'Fiber/Cable/5G from Broadband Map API, classified by speed tier' },
+                                        { id: 77, name: 'Noise Profile (Measured)', method: 'Pre-computed', how: 'HowLoud SoundScore: Very Quiet→Loud + traffic/airport breakdown' },
+                                        { id: 78, name: 'Water & Drought Risk', method: 'Pre-computed', how: 'US Drought Monitor severity + % of county affected' },
+                                        { id: 79, name: 'Disaster History', method: 'Pre-computed', how: 'FEMA disaster count by type (wildfire, flood, earthquake, etc.)' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-200">Pre-computed</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Lifestyle Fit */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-heart text-pink-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Lifestyle Fit (80–82)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 80, name: 'Professional Lifestyle Fit', how: 'AI verdict: home office, commute, low-maintenance, smart features' },
+                                        { id: 81, name: 'Family Lifestyle Fit', how: 'AI verdict: bedrooms, yard, schools, safety, room for growth' },
+                                        { id: 82, name: 'Senior Lifestyle Fit', how: 'AI verdict: single-story, terrain, medical access, walkable errands' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className="w-6 h-6 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-[10px] font-black shrink-0">{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200">AI</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Neighborhood & Amenities */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-location-dot text-orange-600 text-sm"></i>
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800">Neighborhood & Amenities (83–88)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { id: 83, name: 'Micro-Neighborhood Identity', method: 'AI', how: 'Social name + price tier + community type from grounded search' },
+                                        { id: 84, name: 'Walkable Amenity Score', method: 'Pre-computed', how: 'POI count within 1.5km: dining, parks, shops, fitness, schools' },
+                                        { id: 85, name: 'Medical Proximity', method: 'Pre-computed', how: 'Hospitals within 5km and distance to closest' },
+                                        { id: 86, name: 'EV Infrastructure', method: 'Pre-computed', how: 'EV charging station count and distance from Google Places' },
+                                        { id: 87, name: 'Pet Friendliness', method: 'AI', how: 'Dog parks + fenced yard + vet clinic proximity' },
+                                        { id: 88, name: 'Dining & Entertainment', method: 'AI', how: 'Walkable restaurant count + avg rating. Vibrant if 5+ at 4.0★+' },
+                                    ].map(f => (
+                                        <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-6 h-6 rounded-lg ${f.method === 'Pre-computed' ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'} flex items-center justify-center text-[10px] font-black shrink-0`}>{f.id}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{f.name}</div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">{f.how}</div>
+                                                <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${f.method === 'Pre-computed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>{f.method}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             {/* Data Sources */}
                             <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">Data Sources</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
@@ -824,7 +906,7 @@ const PlatformHelpTab: React.FC = () => {
                                 <div>
                                     <h4 className="text-amber-900 font-black text-lg mb-2">Future: Graph Search</h4>
                                     <p className="text-amber-800 text-sm font-medium leading-relaxed">
-                                        The Context Graph taxonomy is designed for eventual <strong>natural-language property search</strong> — e.g., "Show me turn-key homes with chef's kitchens near top-rated schools with low climate risk." The tag system enables faceted filtering across all 75 dimensions.
+                                        The Context Graph taxonomy is designed for eventual <strong>natural-language property search</strong> — e.g., "Show me turn-key homes with chef's kitchens near top-rated schools with low climate risk." The tag system enables faceted filtering across all 88 dimensions.
                                     </p>
                                 </div>
                             </div>

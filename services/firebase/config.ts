@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getStorage, FirebaseStorage } from "firebase/storage";
-import { initializeFirestore, memoryLocalCache, Firestore } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache, Firestore, getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -27,8 +27,13 @@ try {
             localCache: memoryLocalCache()
         });
     }
-} catch (e) {
-    console.error("Firestore service initialization failed:", e);
+} catch (e: any) {
+    // Already initialized (e.g. Vite HMR) — reuse existing instance
+    if (app && e?.message?.includes('already been called')) {
+        _db = getFirestore(app);
+    } else {
+        console.error("Firestore service initialization failed:", e);
+    }
 }
 
 let authInstance: Auth | null = null;
@@ -82,11 +87,12 @@ export const sanitizeForFirestore = (data: any): any => {
     return data;
 };
 
+const _pageStart = performance.now();
 export const logFirestoreQuery = (operation: string, collection: string, details: any) => {
-    console.log(`%c[Firestore] ${operation}`, 'color: #6366f1; font-weight: bold;', {
+    const elapsed = `${(performance.now() - _pageStart).toFixed(0)}ms`;
+    console.log(`%c[Firestore] ${operation} (+${elapsed})`, 'color: #6366f1; font-weight: bold;', {
         collection,
         ...details,
-        timestamp: new Date().toISOString()
     });
 };
 

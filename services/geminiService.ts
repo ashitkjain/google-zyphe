@@ -622,7 +622,7 @@ export const extractContextGraphFactors = async (
   comprehensive: ComprehensiveAnalysisResult | null,
   userId: string = "unknown"
 ): Promise<AIResponseWithUsage<ContextGraphExtractionResult>> => {
-  // 1. Pre-compute the 23 pure-data factors client-side (no AI tokens)
+  // 1. Pre-compute the 30 pure-data factors client-side (no AI tokens)
   const precomputed = precomputeDataFactors(property, visual, comprehensive);
   console.log(`[Context Graph] Pre-computed ${precomputed.size} factors from structured data.`);
 
@@ -630,7 +630,7 @@ export const extractContextGraphFactors = async (
   const context = buildGraphExtractionContext(property, visual, comprehensive);
   const prompt = getContextGraphExtractionPrompt(context, PRECOMPUTED_FACTOR_IDS);
 
-  console.log(`[Context Graph] Requesting AI for remaining ${75 - PRECOMPUTED_FACTOR_IDS.length} factors for ${property.address}...`);
+  console.log(`[Context Graph] Requesting AI for remaining ${88 - PRECOMPUTED_FACTOR_IDS.length} factors for ${property.address}...`);
 
   // 3. Call Gemini for the remaining factors
   const aiResult = await executeGeminiRequest<ContextGraphExtractionResult>({
@@ -662,11 +662,145 @@ export const extractContextGraphFactors = async (
   // Sort by factor ID for consistent ordering
   mergedFactors.sort((a, b) => a.id - b.id);
 
+  // 5. Build keyMetrics — hard numbers for downstream filter queries (zero AI)
+  const hoaRaw = property.resoFacts?.feesAndDues ?? (property as any).hoaFees;
+  const hoaNum = hoaRaw ? parseFloat(String(hoaRaw).replace(/[^0-9.]/g, '')) || null : null;
+  const garageRaw = property.resoFacts?.garageParkingCapacity;
+  const garageSpaces = garageRaw != null ? (typeof garageRaw === 'number' ? garageRaw : parseInt(String(garageRaw)) || null) : null;
+  const schoolMaxRating = property.schools?.length
+    ? Math.max(...property.schools.map(s => typeof s.rating === 'number' ? s.rating : parseFloat(String(s.rating)) || 0))
+    : null;
+  const price = property.price ?? property.zestimate;
+  const sqft = property.livingAreaValue;
+
+  const keyMetrics: any = {
+    price: price ?? null,
+    sqft: sqft ?? null,
+    pricePerSqft: price && sqft ? Math.round(price / sqft) : null,
+    beds: property.bedrooms ?? null,
+    baths: property.bathrooms ?? null,
+    lotSqft: (property as any).parcelAreaSqft ?? null,
+    yearBuilt: property.yearBuilt ?? null,
+    dom: property.timeOnZillow ?? property.resoFacts?.daysOnZillow ?? null,
+    hoaMonthly: hoaNum,
+    walkScore: property.walkScore ?? null,
+    transitScore: property.transitScore ?? null,
+    noiseScore: property.noiseScore ?? null,
+    schoolMaxRating,
+    fireRisk: property.fireRiskScore ?? null,
+    floodRisk: property.floodRiskScore ?? null,
+    windRisk: property.windRiskScore ?? null,
+    heatRisk: property.heatRiskScore ?? null,
+    garageSpaces,
+  };
+
+  // 6. Build enrichment — curated qualitative narratives from existing caches
+  const enrichment: any = {};
+
+  // Agent remarks: first 300 chars of MLS description
+  if (property.description) {
+    enrichment.agentRemarks = property.description.length > 300
+      ? property.description.substring(0, 300) + '…'
+      : property.description;
+  }
+
+  // Condition notes from visual analysis
+  if (visual) {
+    const condParts: string[] = [];
+    if ((visual as any).overall_condition) condParts.push((visual as any).overall_condition);
+    if ((visual as any).renovation_summary) condParts.push((visual as any).renovation_summary);
+    else if ((visual as any).home_interior?.quality_tier) condParts.push(`Interior: ${(visual as any).home_interior.quality_tier}`);
+    if ((visual as any).exterior_and_lot_appeal?.maintenance_assessment) condParts.push(`Exterior: ${(visual as any).exterior_and_lot_appeal.maintenance_assessment}`);
+    if (condParts.length) enrichment.conditionNotes = condParts.join('. ').substring(0, 400);
+  }
+
+  // Community pulse: resident sentiment
+  if (visual?.community_pulse) {
+    const cp = visual.community_pulse as any;
+    const sentParts: string[] = [];
+    if (cp.what_residents_like?.points?.length) {
+      sentParts.push(`Love: ${cp.what_residents_like.points.slice(0, 2).join(', ')}`);
+    }
+    if (cp.common_complaints?.points?.length) {
+      sentParts.push(`Concerns: ${cp.common_complaints.points.slice(0, 2).join(', ')}`);
+    }
+    if (sentParts.length) enrichment.residentSentiment = sentParts.join('. ').substring(0, 300);
+  }
+
+  // Market narrative from deep research
+  if ((visual as any)?.deep_investment_research) {
+    const dir = (visual as any).deep_investment_research;
+    const mktParts: string[] = [];
+    if (dir.market_dynamics?.summary) mktParts.push(dir.market_dynamics.summary);
+    else if (dir.market_dynamics?.appreciation) mktParts.push(`Appreciation: ${dir.market_dynamics.appreciation}`);
+    if (dir.macroeconomic_indicators?.summary) mktParts.push(dir.macroeconomic_indicators.summary);
+    if (mktParts.length) enrichment.marketNarrative = mktParts.join('. ').substring(0, 400);
+  }
+
+  // Lifestyle verdicts (if the visual analysis cached them)
+  if ((visual as any)?.lifestyle_fit) {
+    const lf = (visual as any).lifestyle_fit;
+    enrichment.lifestyleVerdicts = {
+      professional: lf.working_professionals?.verdict,
+      family: lf.families_with_kids?.verdict,
+      senior: lf.seniors?.verdict,
+    };
+  }
+
+  // Top nearby places with actual names and distances
+  const places = (property as any).neighborhoodPlaces;
+  if (places) {
+    const allPlaces = [
+      ...(places.walkable?.dining || []),
+      ...(places.walkable?.parks || []),
+      ...(places.walkable?.shopping || []),
+      ...(places.drivable?.medical || []),
+      ...(places.drivable?.transit || []),
+    ]
+      .filter((p: any) => p.name && p.distanceMeters)
+      .sort((a: any, b: any) => (a.distanceMeters || 0) - (b.distanceMeters || 0))
+      .slice(0, 5);
+    if (allPlaces.length) {
+      enrichment.topNearbyPlaces = allPlaces.map((p: any) =>
+        `${p.name} — ${(p.distanceMeters / 1000).toFixed(1)}km`
+      );
+    }
+  }
+
+  // Climate profile — structured risk data
+  const drought = (property as any).drought;
+  const hd = (property as any).historical_disasters;
+  enrichment.climateProfile = {
+    fire: property.fireRiskScore ?? null,
+    flood: property.floodRiskScore ?? null,
+    wind: property.windRiskScore ?? null,
+    heat: property.heatRiskScore ?? null,
+    drought: drought
+      ? (drought.none >= 100 ? 'None' : `${drought.severity} — ${Math.round(100 - drought.none)}% affected`)
+      : undefined,
+    disasters: hd?.events?.length
+      ? `${hd.events.length} events`
+      : hd ? 'Clean record' : undefined,
+  };
+
+  // Neighborhood character from neighborhood_identity (if cached on visual)
+  if ((visual as any)?.neighborhood_identity) {
+    const ni = (visual as any).neighborhood_identity;
+    const niParts: string[] = [];
+    if (ni.neighborhood_name) niParts.push(ni.neighborhood_name);
+    if (ni.character?.community_type) niParts.push(ni.character.community_type);
+    if (ni.price_context?.tier) niParts.push(`${ni.price_context.tier} tier`);
+    if (ni.unique_features?.length) niParts.push(`Known for: ${ni.unique_features.slice(0, 2).join(', ')}`);
+    if (niParts.length) enrichment.neighborhoodCharacter = niParts.join(' — ').substring(0, 300);
+  }
+
   return {
     ...aiResult,
     data: {
       ...aiResult.data,
-      factors: mergedFactors
+      factors: mergedFactors,
+      keyMetrics,
+      enrichment,
     }
   };
 };

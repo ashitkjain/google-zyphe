@@ -213,6 +213,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     useEffect(() => {
         if (!propertyData?.zpid) return;
 
+        const _t0 = performance.now();
+        const _elapsed = () => `${(performance.now() - _t0).toFixed(0)}ms`;
+        console.log(`[⏱ ExploreTab] Cache fetch START for zpid=${propertyData.zpid}`);
+
         let cancelled = false;
         (async () => {
             try {
@@ -233,12 +237,14 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                     cityStateKey
                 });
 
+                console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read start`);
                 const [visualCache, investmentCache, deepResearchCache, interiorCache] = await Promise.all([
                     getVisualAnalysisFromCloud(String(propertyData.zpid)),
                     getPropertyInvestmentFromCloud(String(propertyData.zpid)),
                     cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
                     getInteriorSummaryFromCloud(String(propertyData.zpid))
                 ]);
+                console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read done (visual=${!!visualCache}, investment=${!!investmentCache}, deepResearch=${!!deepResearchCache}, interior=${!!interiorCache})`);
 
                 console.log('[ExploreTab Cache] hasDeepResearch:', !!deepResearchCache);
                 console.log('[ExploreTab Cache] deepResearch keys:', deepResearchCache ? Object.keys(deepResearchCache) : 'null');
@@ -273,8 +279,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                 // Also fetch comprehensive analysis if not in full view mode
                 try {
+                    console.log(`[⏱ ExploreTab] +${_elapsed()} — comprehensive cache read start`);
                     const { getComprehensiveAnalysisFromCloud } = await import('../../services/firebase/properties');
                     const compCache = await getComprehensiveAnalysisFromCloud(String(propertyData.zpid));
+                    console.log(`[⏱ ExploreTab] +${_elapsed()} — comprehensive cache read done (hit=${!!compCache})`);
                     if (compCache && !cancelled) {
                         setCachedComprehensiveAnalysis(compCache);
                     }
@@ -312,6 +320,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             } catch (e) {
                 console.error('[ExploreTab Cache] Error fetching cache:', e);
             }
+            console.log(`%c[⏱ ExploreTab] +${_elapsed()} — ALL cache fetches COMPLETE`, 'color: #22c55e; font-weight: bold;');
         })();
         return () => { cancelled = true; };
     }, [propertyData?.zpid, customAnalysis]);

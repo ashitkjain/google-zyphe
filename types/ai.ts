@@ -236,10 +236,56 @@ export interface ExtractedFactor {
     tags: string[];
 }
 
+export interface ContextGraphKeyMetrics {
+    price?: number | null;
+    sqft?: number | null;
+    pricePerSqft?: number | null;
+    beds?: number | null;
+    baths?: number | null;
+    lotSqft?: number | null;
+    yearBuilt?: number | null;
+    dom?: number | null;
+    hoaMonthly?: number | null;
+    walkScore?: number | null;
+    transitScore?: number | null;
+    noiseScore?: number | null;
+    schoolMaxRating?: number | null;
+    fireRisk?: number | null;
+    floodRisk?: number | null;
+    windRisk?: number | null;
+    heatRisk?: number | null;
+    stories?: number | null;
+    garageSpaces?: number | null;
+}
+
+export interface ContextGraphEnrichment {
+    agentRemarks?: string;            // First ~300 chars of MLS description
+    conditionNotes?: string;          // From visual AI: what's new, what needs work
+    neighborhoodCharacter?: string;   // From neighborhood_identity: social name, character, price tier
+    residentSentiment?: string;       // From community_pulse: what residents love/complain about
+    marketNarrative?: string;         // From deep_research: appreciation, inventory, demand signals
+    lifestyleVerdicts?: {             // From lifestyle_fit analysis: raw verdicts
+        professional?: string;
+        family?: string;
+        senior?: string;
+    };
+    topNearbyPlaces?: string[];       // Top 5 named POIs with distance (e.g., "Starbucks — 0.3km")
+    climateProfile?: {
+        fire?: number | null;
+        flood?: number | null;
+        wind?: number | null;
+        heat?: number | null;
+        drought?: string;             // e.g., "Moderate — 35% of county"
+        disasters?: string;           // e.g., "2 events (1 wildfire, 1 flood)"
+    };
+}
+
 export interface ContextGraphExtractionResult {
     address: string;
     extractedAt: string;
     factors: ExtractedFactor[];
+    keyMetrics?: ContextGraphKeyMetrics;
+    enrichment?: ContextGraphEnrichment;
     summary: {
         topStrengths: string[];
         topConcerns: string[];

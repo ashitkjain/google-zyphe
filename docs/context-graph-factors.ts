@@ -1,7 +1,7 @@
 /**
  * Context Graph Decision Factors
  * 
- * Master list of 70 decision factors that power the buyer context graph.
+ * Master list of 88 decision factors that power the buyer context graph.
  * Each factor maps to a graph node label and specifies the exact data source
  * from the chatbot context JSON.
  * 
@@ -50,7 +50,11 @@ export type GraphNodeLabel =
     | 'PropertyConstraint'
     | 'EconomicDriver'
     | 'MarketCatalyst'
-    | 'GeoRisk';
+    | 'GeoRisk'
+    | 'ConnectivityProfile'
+    | 'LifestyleFitScore'
+    | 'NeighborhoodVibe'
+    | 'AmenityDensity';
 
 // ── Decision Factor Definition ────────────────────────────
 
@@ -616,6 +620,112 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
         nodeLabel: 'MarketMomentum',
         dataSource: 'deep_investment_research.market_dynamics',
         computation: 'City-level median DOM from deep research market_dynamics section: "Fast" (<14), "Moderate" (14-30), "Slow" (>30); fallback to general_market_intelligence.market_dynamics.days_on_market',
+    },
+
+    // ═══════════════════════════════════════════════════════
+    // INFRASTRUCTURE & ENVIRONMENT (76–79)
+    // ═══════════════════════════════════════════════════════
+
+    {
+        id: 76,
+        name: 'Internet & Connectivity',
+        nodeLabel: 'ConnectivityProfile',
+        dataSource: 'property.broadband.hasFiber + property.broadband.topDownloadMbps + property.broadband.has5G + property.broadband.providerCount',
+        computation: 'Tiers: Gigabit (≥1Gbps), Fast (≥300Mbps), Moderate (≥100Mbps), Basic (<100Mbps). Flags Fiber and 5G availability.',
+    },
+    {
+        id: 77,
+        name: 'Noise Profile (Measured)',
+        nodeLabel: 'Nuisance',
+        dataSource: 'property.noiseScore + property.noiseTrafficScore + property.noiseAirportScore + property.noiseLocalScore',
+        computation: 'Measured by HowLoud SoundScore: Very Quiet (≥90), Calm (≥80), Moderate (≥70), Active (≥60), Loud (<60). Breaks down traffic, airport, and local noise contributions.',
+    },
+    {
+        id: 78,
+        name: 'Water & Drought Risk',
+        nodeLabel: 'ClimateRisk',
+        dataSource: 'property.drought.severity + property.drought.severityLevel + property.drought.none',
+        computation: 'From US Drought Monitor: None, Abnormally Dry (D0), Moderate (D1), Severe (D2), Extreme (D3), Exceptional (D4). Reports % of county area affected.',
+    },
+    {
+        id: 79,
+        name: 'Disaster History',
+        nodeLabel: 'GeoRisk',
+        dataSource: 'property.historical_disasters.events',
+        computation: 'Counts FEMA-declared disasters (wildfire, flood, earthquake, etc.) affecting the county. Summarizes by type.',
+    },
+
+    // ═══════════════════════════════════════════════════════
+    // LIFESTYLE FIT (80–82)
+    // ═══════════════════════════════════════════════════════
+
+    {
+        id: 80,
+        name: 'Professional Lifestyle Fit',
+        nodeLabel: 'LifestyleFitScore',
+        dataSource: 'lifestyle_fit.working_professionals (Firestore cache)',
+        computation: 'AI verdict (Excellent/Good/Moderate/Poor/Not Recommended) based on: home office, commute access, modern kitchen, low-maintenance yard, smart features, Wi-Fi layout, noise for calls',
+    },
+    {
+        id: 81,
+        name: 'Family Lifestyle Fit',
+        nodeLabel: 'LifestyleFitScore',
+        dataSource: 'lifestyle_fit.families_with_kids (Firestore cache)',
+        computation: 'AI verdict based on: bedroom count/layout, yard safety, school ratings, cul-de-sac/low traffic, storage, pool safety, fencing, room for growth',
+    },
+    {
+        id: 82,
+        name: 'Senior Lifestyle Fit',
+        nodeLabel: 'LifestyleFitScore',
+        dataSource: 'lifestyle_fit.seniors (Firestore cache)',
+        computation: 'AI verdict based on: single-story/elevator, step-free entry, wide doorways, walk-in shower, flat terrain, medical proximity, walkable errands, HOA exterior maintenance',
+    },
+
+    // ═══════════════════════════════════════════════════════
+    // NEIGHBORHOOD & AMENITIES (83–88)
+    // ═══════════════════════════════════════════════════════
+
+    {
+        id: 83,
+        name: 'Micro-Neighborhood Identity',
+        nodeLabel: 'NeighborhoodVibe',
+        dataSource: 'neighborhood_identity.neighborhood_name + neighborhood_identity.price_context + neighborhood_identity.character (Firestore cache)',
+        computation: 'Social/micro-level neighborhood name that locals use (e.g. "Birdland", "Vintage Hills") + price tier + community type (Gated/HOA/Open)',
+    },
+    {
+        id: 84,
+        name: 'Walkable Amenity Score',
+        nodeLabel: 'AmenityDensity',
+        dataSource: 'property.neighborhoodPlaces.walkable (Google Places API, 1.5km radius)',
+        computation: 'Count of walkable POIs: dining, parks, shops, fitness, schools, community. High (≥10), Moderate (5-9), Low (<5)',
+    },
+    {
+        id: 85,
+        name: 'Medical Proximity',
+        nodeLabel: 'AmenityDensity',
+        dataSource: 'property.neighborhoodPlaces.drivable.medical (Google Places API, 5km radius)',
+        computation: 'Number of hospitals within 5km and distance to closest. Critical for seniors and families with young children.',
+    },
+    {
+        id: 86,
+        name: 'EV Infrastructure',
+        nodeLabel: 'AmenityDensity',
+        dataSource: 'property.neighborhoodPlaces.transit (electric_vehicle_charging_station type)',
+        computation: 'Number of EV charging stations nearby and distance to closest. Replaces AI-guessed EV Readiness (#56 checks MLS text for 240V).',
+    },
+    {
+        id: 87,
+        name: 'Pet Friendliness',
+        nodeLabel: 'CommunityVibe',
+        dataSource: 'neighborhoodPlaces.parks + property.resoFacts.fencing + lifestyle_insights.pets',
+        computation: 'Combines real dog park/off-leash area count with property fencing and vet clinic proximity. High if fenced + 2+ parks.',
+    },
+    {
+        id: 88,
+        name: 'Dining & Entertainment Scene',
+        nodeLabel: 'AmenityDensity',
+        dataSource: 'neighborhoodPlaces.walkable.dining (Google Places API, 1.5km radius)',
+        computation: 'Walkable restaurant count + average rating + variety. "Vibrant" if 5+ walkable with avg ≥4.0★. "Sparse" if car required.',
     },
 ];
 

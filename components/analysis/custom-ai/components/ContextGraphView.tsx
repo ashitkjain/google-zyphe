@@ -16,6 +16,10 @@ const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string;
     location: { label: 'Location & Community', icon: 'fa-map-pin', color: 'rose', range: [41, 45] },
     environment: { label: 'Environmental', icon: 'fa-leaf', color: 'teal', range: [46, 50] },
     advanced: { label: 'Advanced Intelligence', icon: 'fa-brain', color: 'fuchsia', range: [51, 70] },
+    community: { label: 'Community & Market Intel', icon: 'fa-users', color: 'cyan', range: [71, 75] },
+    infrastructure: { label: 'Infrastructure & Environment', icon: 'fa-wifi', color: 'sky', range: [76, 79] },
+    lifestyle: { label: 'Lifestyle Fit', icon: 'fa-heart', color: 'pink', range: [80, 82] },
+    neighborhood: { label: 'Neighborhood & Amenities', icon: 'fa-location-dot', color: 'orange', range: [83, 88] },
 };
 
 const CONFIDENCE_STYLES: Record<string, string> = {
@@ -42,9 +46,12 @@ const FactorCard: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => (
                 {factor.confidence}
             </span>
         </div>
-        <p className="text-sm text-slate-600 leading-relaxed mb-3">{factor.value}</p>
+        <p className="text-sm text-slate-600 leading-relaxed mb-1">{factor.value}</p>
+        {factor.detail && (
+            <p className="text-[11px] text-slate-400 italic leading-relaxed mb-2">{factor.detail}</p>
+        )}
         {factor.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mt-2">
                 {factor.tags.map((tag, i) => (
                     <span key={i} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
                         {tag}
@@ -235,6 +242,147 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                     <p className="text-sm text-indigo-700 leading-relaxed">{data.summary.buyerProfile}</p>
                 </div>
             </div>
+
+            {/* Enrichment Panel */}
+            {(data.keyMetrics || data.enrichment) && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-5">
+                    <h4 className="text-sm font-black text-slate-700 flex items-center gap-2">
+                        <i className="fa-solid fa-layer-group text-indigo-500"></i>
+                        Enrichment Layer
+                        <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg ml-1">for downstream search & recommendations</span>
+                    </h4>
+
+                    {/* Key Metrics Row */}
+                    {data.keyMetrics && (
+                        <div className="flex flex-wrap gap-2">
+                            {Object.entries(data.keyMetrics).filter(([, v]) => v != null).map(([key, val]) => (
+                                <div key={key} className="bg-white border border-slate-100 rounded-lg px-3 py-2 text-center">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                                    <div className="text-sm font-black text-slate-700">{typeof val === 'number' && val > 999 ? val.toLocaleString() : val}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Qualitative Narratives */}
+                    {data.enrichment && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {data.enrichment.agentRemarks && (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-quote-left text-[8px]"></i> Agent Remarks
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 italic leading-relaxed">{data.enrichment.agentRemarks}</p>
+                                </div>
+                            )}
+                            {data.enrichment.conditionNotes && (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-wrench text-[8px]"></i> Condition Notes
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed">{data.enrichment.conditionNotes}</p>
+                                </div>
+                            )}
+                            {data.enrichment.residentSentiment && (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-users text-[8px]"></i> Resident Sentiment
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed">{data.enrichment.residentSentiment}</p>
+                                </div>
+                            )}
+                            {data.enrichment.marketNarrative && (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-chart-line text-[8px]"></i> Market Context
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed">{data.enrichment.marketNarrative}</p>
+                                </div>
+                            )}
+                            {data.enrichment.neighborhoodCharacter && (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-map text-[8px]"></i> Neighborhood Identity
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed">{data.enrichment.neighborhoodCharacter}</p>
+                                </div>
+                            )}
+                            {data.enrichment.lifestyleVerdicts && Object.values(data.enrichment.lifestyleVerdicts).some(v => v) && (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-heart text-[8px]"></i> Lifestyle Verdicts
+                                    </div>
+                                    <div className="space-y-1">
+                                        {data.enrichment.lifestyleVerdicts.professional && (
+                                            <div className="text-[11px] text-slate-500"><span className="font-bold text-slate-600">Professional:</span> {data.enrichment.lifestyleVerdicts.professional}</div>
+                                        )}
+                                        {data.enrichment.lifestyleVerdicts.family && (
+                                            <div className="text-[11px] text-slate-500"><span className="font-bold text-slate-600">Family:</span> {data.enrichment.lifestyleVerdicts.family}</div>
+                                        )}
+                                        {data.enrichment.lifestyleVerdicts.senior && (
+                                            <div className="text-[11px] text-slate-500"><span className="font-bold text-slate-600">Senior:</span> {data.enrichment.lifestyleVerdicts.senior}</div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            {data.enrichment.topNearbyPlaces?.length ? (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-location-dot text-[8px]"></i> Top Nearby Places
+                                    </div>
+                                    <div className="space-y-1">
+                                        {data.enrichment.topNearbyPlaces.map((place, i) => (
+                                            <div key={i} className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                                                <i className="fa-solid fa-circle text-[4px] text-slate-300"></i>
+                                                {place}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+                            {data.enrichment.climateProfile && (
+                                <div className="bg-white border border-slate-100 rounded-xl p-4">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-shield-halved text-[8px]"></i> Climate Profile
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {data.enrichment.climateProfile.fire != null && (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${data.enrichment.climateProfile.fire >= 7 ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                                                🔥 Fire: {data.enrichment.climateProfile.fire}/10
+                                            </span>
+                                        )}
+                                        {data.enrichment.climateProfile.flood != null && (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${data.enrichment.climateProfile.flood >= 7 ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                                                🌊 Flood: {data.enrichment.climateProfile.flood}/10
+                                            </span>
+                                        )}
+                                        {data.enrichment.climateProfile.wind != null && (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200`}>
+                                                💨 Wind: {data.enrichment.climateProfile.wind}/10
+                                            </span>
+                                        )}
+                                        {data.enrichment.climateProfile.heat != null && (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${data.enrichment.climateProfile.heat >= 7 ? 'bg-orange-50 text-orange-600 border border-orange-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                                                🌡 Heat: {data.enrichment.climateProfile.heat}/10
+                                            </span>
+                                        )}
+                                        {data.enrichment.climateProfile.drought && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-200">
+                                                🏜 Drought: {data.enrichment.climateProfile.drought}
+                                            </span>
+                                        )}
+                                        {data.enrichment.climateProfile.disasters && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200">
+                                                ⚠ Disasters: {data.enrichment.climateProfile.disasters}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Category Filter */}
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">

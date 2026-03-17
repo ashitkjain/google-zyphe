@@ -1,7 +1,7 @@
 /**
  * Context Graph Factor Extraction Prompt
  * 
- * Sends optimized property data to Gemini and extracts the 75 decision factors
+ * Sends optimized property data to Gemini and extracts the 88 decision factors
  * that power the buyer context graph.
  */
 
@@ -105,8 +105,9 @@ export const getContextGraphExtractionPrompt = (context: any, skipIds: number[] 
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
 ${skipNote}
 Given the property data below, extract values for the required decision factors. For each factor, return:
-- The factor ID (1-75)
+- The factor ID (1-88)
 - A concise value (maximum 10 words — use fragments, numbers, and labels, not full sentences)
+- An optional detail (1-2 sentences max) containing the specific qualitative evidence that supports your value. Pull from listing description, visual analysis, or deep research. Do NOT invent details — only include what the data shows. Omit if no additional context beyond the value exists.
 - A confidence score: "high" (directly from data), "medium" (inferred), "low" (insufficient data)
 - Optional tags: 1-3 short labels that could be used as graph node values (e.g., "Luxury", "Turn-key", "High Solar Yield")
 
@@ -196,6 +197,25 @@ Given the property data below, extract values for the required decision factors.
 74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
 75. **Market Velocity (DOM)**: From deep_investment_research.market_dynamics — look for "Days on Market" or "DOM" mentions (e.g. "29-43 days"). Classify: "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Fallback to general_market_intelligence.market_dynamics.days_on_market. Signals buyer urgency and negotiation leverage.
 
+### Infrastructure & Environment (76-79)
+76. **Internet & Connectivity**: From property.broadband — hasFiber, has5G, topDownloadMbps, providerCount. Classify speed tier (Gigabit/Fast/Moderate/Basic).
+77. **Noise Profile (Measured)**: From property.noiseScore (50=loud, 100=quiet) + noiseTrafficDesc, noiseAirportDesc. Real measured data from HowLoud.
+78. **Water & Drought Risk**: From property.drought — severity level (None/Abnormally Dry/Moderate/Severe/Extreme/Exceptional) and % of county affected.
+79. **Disaster History**: From property.historical_disasters — count and types of FEMA-declared disasters affecting the county.
+
+### Lifestyle Fit (80-82)
+80. **Professional Lifestyle Fit**: From lifestyle_fit.working_professionals if available. How well does this home suit remote workers, commuters, and DINK households? Verdict + top 2 strengths.
+81. **Family Lifestyle Fit**: From lifestyle_fit.families_with_kids if available. How well does this home suit families with children? Consider bedrooms, yard, schools, safety. Verdict + top 2 strengths.
+82. **Senior Lifestyle Fit**: From lifestyle_fit.seniors if available. How well does this home suit retirees and aging-in-place buyers? Consider single-story, terrain, medical access. Verdict + top 2 strengths.
+
+### Neighborhood & Amenities (83-88)
+83. **Micro-Neighborhood Identity**: From neighborhood_identity if available. Return the social/micro-level neighborhood name (e.g. \"Vintage Hills\", \"Ruby Hill\") + price tier (Entry/Mid/Premium/Ultra-Luxury) + community type (Gated/HOA/Open).
+84. **Walkable Amenity Score**: From property.neighborhoodPlaces.walkable — count of dining, parks, shops within walking distance (~1.5km). Classify density as High/Moderate/Low.
+85. **Medical Proximity**: From property.neighborhoodPlaces — number of hospitals/medical within 5km and distance to closest.
+86. **EV Infrastructure**: From property.neighborhoodPlaces — number of EV charging stations nearby and distance to closest.
+87. **Pet Friendliness**: Combine neighborhoodPlaces.parks (dog parks, off-leash areas) + property features (fenced yard, dog door). Also look for vet clinics in nearby places.
+88. **Dining & Entertainment Scene**: From neighborhoodPlaces.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
+
 ## PROPERTY DATA
 
 \`\`\`json
@@ -216,7 +236,7 @@ Return a JSON object with this structure:
       "confidence": "high",
       "tags": ["Luxury", "$2M+"]
     },
-    ...all 75 factors...
+    ...all 88 factors...
   ],
   "summary": {
     "topStrengths": ["Top 3-5 property strengths as buyer-facing phrases"],
@@ -226,7 +246,7 @@ Return a JSON object with this structure:
 }
 
 CRITICAL RULES:
-- Extract ALL 75 factors. If data is missing, set value to "Data not available" and confidence to "low"
+- Extract ALL 88 factors. If data is missing, set value to "Data not available" and confidence to "low"
 - value MUST be 10 words or fewer — use fragments and labels, never full sentences (e.g. "Luxury — $2.1M" not "This property is in the luxury tier at $2.1M")
 - Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
 - Be specific with values - include numbers, percentages, and descriptors
@@ -238,9 +258,10 @@ CRITICAL RULES:
 const factorSchema = {
     type: Type.OBJECT,
     properties: {
-        id: { type: Type.NUMBER, description: "Factor ID (1-75)" },
+        id: { type: Type.NUMBER, description: "Factor ID (1-88)" },
         name: { type: Type.STRING, description: "Factor name" },
-        value: { type: Type.STRING, description: "Extracted or computed value" },
+        value: { type: Type.STRING, description: "Extracted or computed value (max 10 words)" },
+        detail: { type: Type.STRING, description: "Optional 1-2 sentence qualitative evidence behind the value. Omit if no extra context." },
         confidence: { type: Type.STRING, description: "high, medium, or low" },
         tags: {
             type: Type.ARRAY,

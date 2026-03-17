@@ -486,6 +486,10 @@ const App: React.FC = () => {
   const performSearch = async (searchAddress: string, forceRefresh: boolean = false, displayAddressOverride?: string) => {
     if (!searchAddress.trim()) return;
 
+    const _t0 = performance.now();
+    const _elapsed = () => `${(performance.now() - _t0).toFixed(0)}ms`;
+    console.log(`%c[⏱ PageLoad] START search: "${searchAddress}"`, 'color: #f59e0b; font-weight: bold;');
+
     setLoading(true);
     setLoadingSublabel("Initializing session...");
     setImagesLoading(true);
@@ -507,9 +511,11 @@ const App: React.FC = () => {
       const isZpid = /^\d+$/.test(searchAddress);
 
       if (!isZpid) {
+        console.log(`[⏱ PageLoad] +${_elapsed()} — Geocoding start`);
         setLoadingSublabel("Normalizing address...");
         addLog('Radar Geocode API', { type: 'request' }, { address: searchAddress });
         const radarResult = await normalizeAddress(searchAddress);
+        console.log(`[⏱ PageLoad] +${_elapsed()} — Geocoding complete`);
         addLog('Radar Geocode API', { type: 'response' }, radarResult);
         finalAddress = radarResult.formattedAddress;
         coords = radarResult.coordinates;
@@ -521,6 +527,7 @@ const App: React.FC = () => {
         setLoadingSublabel(`Direct ZPID Search: ${searchAddress}`);
       }
 
+      console.log(`[⏱ PageLoad] +${_elapsed()} — fetchPropertyDataFull start`);
       addLog('Zyphe Data Layer', { type: 'request' }, { target: finalAddress, isZpid });
 
       const fullData = await fetchPropertyDataFull(
@@ -529,6 +536,7 @@ const App: React.FC = () => {
         false, // forceEnvironment
         (step) => setLoadingSublabel(step)
       );
+      console.log(`[⏱ PageLoad] +${_elapsed()} — fetchPropertyDataFull complete`);
 
       // IDENTITY RESOLUTION: Centralize the "truth" for the property's primary identity.
       // Priority chain:
@@ -559,11 +567,13 @@ const App: React.FC = () => {
       if (!db_instance) {
         addLog('System', { type: 'error' }, "Firestore Database not initialized. Cloud caching will be disabled.");
       }
+      console.log(`[⏱ PageLoad] +${_elapsed()} — Data merged, setting state`);
       console.log(`[Zyphe API] Property Data Loaded. ZPID: ${mergedData.zpid || 'MISSING'}`);
       setPropertyData(mergedData);
       setAddress(mergedData.address); // Sync search bar with the final resolved identity
       setLoading(false);
       setImagesLoading(false);
+      console.log(`%c[⏱ PageLoad] +${_elapsed()} — DONE (loading=false, UI can render)`, 'color: #22c55e; font-weight: bold;');
 
       if (currentUser && mergedData.zpid) {
         trackUserPropertyView(currentUser.uid, mergedData);
