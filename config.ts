@@ -28,12 +28,12 @@ export const APP_CONFIG = {
         flash: 'gemini-2.0-flash',
     },
     roleTabs: {
-        buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'image_analysis', 'investment', 'deep_research', 'context_graph'],
+        buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'city_neighborhoods', 'image_analysis', 'investment', 'deep_research', 'context_graph'],
         seller: ['image_analysis', 'quality'],
-        realtor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'image_analysis', 'investment', 'quality', 'storage_registry', 'deep_research', 'context_graph'],
-        investor: ['deep_research', 'executive_summary', 'interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'image_analysis', 'investment', 'quality', 'storage_registry', 'market_analysis', 'opportunity_discovery', 'industry_research', 'product_market_fit', 'post_close_intelligence', 'technical_papers', 'technical_media', 'context_graph'],
-        auditor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'deep_research', 'context_graph'],
-        admin: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'image_analysis', 'investment', 'quality', 'deep_research', 'context_graph'],
+        realtor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'city_neighborhoods', 'image_analysis', 'investment', 'quality', 'storage_registry', 'deep_research', 'context_graph'],
+        investor: ['deep_research', 'executive_summary', 'interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'city_neighborhoods', 'image_analysis', 'investment', 'quality', 'storage_registry', 'market_analysis', 'opportunity_discovery', 'industry_research', 'product_market_fit', 'post_close_intelligence', 'technical_papers', 'technical_media', 'context_graph'],
+        auditor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'city_neighborhoods', 'deep_research', 'context_graph'],
+        admin: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'city_neighborhoods', 'image_analysis', 'investment', 'quality', 'deep_research', 'context_graph'],
     },
     rapidapi: {
         realtyInUsApi: {

@@ -5,7 +5,7 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'schools' | 'pulse' | 'quality' | 'investment' | 'image_analysis' | 'deep_research' | 'context_graph';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'schools' | 'pulse' | 'city_neighborhoods' | 'quality' | 'investment' | 'image_analysis' | 'deep_research' | 'context_graph';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -22,6 +22,7 @@ import { HoverPreview } from './components/HoverPreview';
 import { ContextGraphView } from './components/ContextGraphView';
 import { StickyNotesLayer } from './components/StickyNotesLayer';
 import SatellitaryView from './components/SatellitaryView';
+import { CityNeighborhoodsView } from './components/CityNeighborhoodsView';
 import { runSatellitaryAnalysis } from '../../../services/satellitaryService';
 
 interface Props {
@@ -88,6 +89,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
         { id: 'schools', label: 'Schools', icon: 'fa-graduation-cap' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
+        { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city' },
         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
         { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
@@ -566,6 +568,11 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                     userRole={userRole}
                                 />
                             )}
+                        </section>
+                    )}
+                    {activeTab === 'city_neighborhoods' && (
+                        <section>
+                            <CityNeighborhoodsView propertyData={propertyData} />
                         </section>
                     )}
                     {activeTab === 'quality' && (

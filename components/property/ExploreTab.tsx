@@ -459,6 +459,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
                                         { id: 'schools', label: 'Schools', icon: 'fa-graduation-cap' },
                                         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
+                                        { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city' },
                                     ]).map(tab => {
                                         const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
                                         return (
