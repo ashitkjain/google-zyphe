@@ -1570,19 +1570,33 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     }
                                     if (!s) s = 'CA';
 
-                                    addLog(`[City Neighborhoods] Mining neighborhoods for ${c}, ${s}...`);
+                                    addLog(`[City Neighborhoods] Checking cache for ${c}, ${s}...`);
                                     try {
-                                        const { mineCityNeighborhoods } = await import('../../services/geminiService');
-                                        const userId = auth?.currentUser?.uid || 'unknown';
-                                        const result = await mineCityNeighborhoods(c, s, userId, (msg) => {
-                                            setNeighborhoodMiningStatus(msg);
-                                            addLog(msg);
-                                        });
-                                        const count = result.data?.neighborhoods?.length || 0;
-                                        setCachedNeighborhoodCount(count);
-                                        setNeighborhoodMiningStatus(`✓ ${count} neighborhoods`);
-                                        addLog(`[City Neighborhoods] ✓ Mined and cached ${count} neighborhoods for ${c}, ${s}.`);
-                                        logPipelineAudit('Mine Neighborhoods', `${c}, ${s}`, 'success', `${count} neighborhoods mined and cached`);
+                                        const { generateCityStateKey } = await import('../../services/firebase/config');
+                                        const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
+                                        const cacheKey = generateCityStateKey(c, s);
+                                        const cached = await getCityNeighborhoodsFromCloud(cacheKey);
+
+                                        if (cached?.neighborhoods?.length > 0) {
+                                            const count = cached.neighborhoods.length;
+                                            setCachedNeighborhoodCount(count);
+                                            setNeighborhoodMiningStatus(`✓ ${count} neighborhoods (cached)`);
+                                            addLog(`[City Neighborhoods] ✓ Found ${count} cached neighborhoods for ${c}, ${s}. Skipping mining.`);
+                                            logPipelineAudit('Mine Neighborhoods', `${c}, ${s}`, 'success', `${count} neighborhoods found in cache`);
+                                        } else {
+                                            addLog(`[City Neighborhoods] No cache found. Mining neighborhoods for ${c}, ${s}...`);
+                                            const { mineCityNeighborhoods } = await import('../../services/geminiService');
+                                            const userId = auth?.currentUser?.uid || 'unknown';
+                                            const result = await mineCityNeighborhoods(c, s, userId, (msg) => {
+                                                setNeighborhoodMiningStatus(msg);
+                                                addLog(msg);
+                                            });
+                                            const count = result.data?.neighborhoods?.length || 0;
+                                            setCachedNeighborhoodCount(count);
+                                            setNeighborhoodMiningStatus(`✓ ${count} neighborhoods`);
+                                            addLog(`[City Neighborhoods] ✓ Mined and cached ${count} neighborhoods for ${c}, ${s}.`);
+                                            logPipelineAudit('Mine Neighborhoods', `${c}, ${s}`, 'success', `${count} neighborhoods mined and cached`);
+                                        }
                                     } catch (e: any) {
                                         setNeighborhoodMiningStatus(`✗ Failed`);
                                         addLog(`[City Neighborhoods] Error: ${e.message}`);
