@@ -1640,11 +1640,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 </div>
             )}
 
-            {/* ─── City Neighborhoods Intelligence Panel ──────────────────────────── */}
-            {viewMode === 'table' && (
-                <CityNeighborhoodsPanel cityHint={city} stateHint={stateFilter} />
-            )}
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 {/* Left: Live Console */}
                 <div className="lg:col-span-1 space-y-6">
