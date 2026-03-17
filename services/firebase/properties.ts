@@ -664,6 +664,36 @@ export const getNeighborhoodIdentityFromCloud = async (zpid: string): Promise<an
     }
 };
 
+// ── City Neighborhoods Cache (keyed by cityStateKey, shared across all properties in a city) ──
+
+export const saveCityNeighborhoodsToCloud = async (cityStateKey: string, data: any) => {
+    if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing city key" };
+    try {
+        const docRef = doc(db, "city_neighborhoods", cityStateKey);
+        logFirestoreQuery('setDoc', 'city_neighborhoods', { cityStateKey });
+        await setDoc(docRef, {
+            ...sanitizeForFirestore(data),
+            cityStateKey,
+            lastUpdated: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveCityNeighborhoodsToCloud") as string };
+    }
+};
+
+export const getCityNeighborhoodsFromCloud = async (cityStateKey: string): Promise<any | null> => {
+    if (!db || !cityStateKey) return null;
+    try {
+        logFirestoreQuery('getDoc', 'city_neighborhoods', { cityStateKey });
+        const data = await getCityDocWithFallback('city_neighborhoods', cityStateKey);
+        return data || null;
+    } catch (error) {
+        handleFirestoreError(error, "getCityNeighborhoodsFromCloud");
+        return null;
+    }
+};
+
 // ── Schools Intelligence Cache (keyed by school name + city, shared across properties) ──
 
 export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => {

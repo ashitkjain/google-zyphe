@@ -40,7 +40,9 @@ import {
   setCityResearchFlag,
   saveCommunityPulseToCloud,
   saveGeneralMarketIntelligenceToCloud,
-  saveDeepInvestmentResearchToCloud
+  saveDeepInvestmentResearchToCloud,
+  saveCityNeighborhoodsToCloud,
+  getCityNeighborhoodsFromCloud
 } from "./firebase/properties";
 import { generateCityStateKey } from "./firebase/config";
 
@@ -919,8 +921,28 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
       onLog?.(`[runBackgroundCityResearch] Starting Deep Investment research for: ${cityStateKey}`);
       await setCityResearchFlag(cityStateKey, 'running');
 
-      // Only run Deep Research as Pulse and Market Intelligence are disabled
-      const deepRes = await analyzeDeepInvestmentResearch(property, userId, cityStateKey, onLog);
+      // Run Deep Research + City Neighborhood Mining in parallel
+      const existingNeighborhoods = await getCityNeighborhoodsFromCloud(cityStateKey);
+      const needsNeighborhoodMining = !existingNeighborhoods?.neighborhoods?.length;
+
+      const tasks: Promise<any>[] = [
+        analyzeDeepInvestmentResearch(property, userId, cityStateKey, onLog)
+      ];
+
+      if (needsNeighborhoodMining && city && state) {
+        onLog?.(`[runBackgroundCityResearch] No cached neighborhoods for ${city}. Mining in parallel...`);
+        tasks.push(
+          mineCityNeighborhoods(city, state, userId, onLog).catch(err => {
+            console.warn(`[runBackgroundCityResearch] Neighborhood mining failed (non-blocking):`, err.message);
+            onLog?.(`[runBackgroundCityResearch] Neighborhood mining failed: ${err.message}`);
+            return null;
+          })
+        );
+      } else if (!needsNeighborhoodMining) {
+        onLog?.(`[runBackgroundCityResearch] City neighborhoods already cached (${existingNeighborhoods.neighborhoods.length} neighborhoods).`);
+      }
+
+      const [deepRes] = await Promise.all(tasks);
 
       onLog?.(`[runBackgroundCityResearch] Deep Research successful for ${cityStateKey}. Saving results...`);
 
@@ -965,9 +987,124 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
 };
 
 import { getNeighborhoodIdentityPrompt, neighborhoodIdentitySchema, NeighborhoodIdentityResult } from "../prompts/property/neighborhoodIdentity";
+import { getCityNeighborhoodMinerPrompt, cityNeighborhoodMinerSchema, CityNeighborhoodsResult } from "../prompts/city/cityNeighborhoodMiner";
+import { getNeighborhoodMatcherPrompt, neighborhoodMatcherSchema, NeighborhoodMatchResult } from "../prompts/property/neighborhoodMatcher";
 
+/**
+ * Mine ALL neighborhoods for a city. Runs once per city, results cached in Firestore.
+ * Uses Gemini 3 Flash + Google Search grounding to exhaustively catalog neighborhoods.
+ */
+export const mineCityNeighborhoods = async (
+  city: string,
+  state: string,
+  userId: string = "unknown",
+  onLog?: (msg: string) => void
+): Promise<AIResponseWithUsage<CityNeighborhoodsResult>> => {
+  const cityStateKey = generateCityStateKey(city, state);
+  if (!cityStateKey) throw new Error(`Invalid city/state: ${city}, ${state}`);
+
+  onLog?.(`[City Neighborhoods] Mining all neighborhoods for ${city}, ${state}...`);
+  console.log(`[City Neighborhoods] Starting city-level mining for ${city}, ${state}...`);
+
+  const prompt = getCityNeighborhoodMinerPrompt(city, state);
+
+  const result = await executeGeminiRequest<CityNeighborhoodsResult>({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.3 },
+    userId,
+    zpid: cityStateKey,
+    address: `${city}, ${state}`,
+    promptFilename: "cityNeighborhoodMiner.ts",
+    extractResultJson: true,
+    schema: cityNeighborhoodMinerSchema
+  });
+
+  // Save to Firestore
+  if (result.data?.neighborhoods?.length) {
+    onLog?.(`[City Neighborhoods] Found ${result.data.neighborhoods.length} neighborhoods. Saving to cache...`);
+    await saveCityNeighborhoodsToCloud(cityStateKey, result.data);
+    onLog?.(`[City Neighborhoods] ✓ Cached ${result.data.neighborhoods.length} neighborhoods for ${city}.`);
+  }
+
+  return result;
+};
+
+/**
+ * Lightweight property-to-neighborhood matcher.
+ * Sends only the address + list of known names to Gemini Flash (no grounding needed).
+ * ~50x cheaper than a full identity call.
+ */
+const matchPropertyToNeighborhood = async (
+  property: PropertyData,
+  neighborhoodNames: string[],
+  userId: string = "unknown"
+): Promise<AIResponseWithUsage<NeighborhoodMatchResult>> => {
+  const prompt = getNeighborhoodMatcherPrompt(
+    property.address || "Subject Property",
+    property.city || "",
+    property.state || "",
+    neighborhoodNames,
+    property.description || undefined
+  );
+
+  console.log(`[Neighborhood Matcher] Matching ${property.address} against ${neighborhoodNames.length} known neighborhoods...`);
+
+  return executeGeminiRequest<NeighborhoodMatchResult>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { temperature: 0.1 },
+    userId,
+    zpid: property.zpid,
+    address: property.address,
+    promptFilename: "neighborhoodMatcher.ts",
+    extractResultJson: true,
+    schema: neighborhoodMatcherSchema
+  });
+};
+
+/**
+ * Two-tier neighborhood identity analysis:
+ * 1. Check city-level cache → lightweight match if available (~$0.0001)
+ * 2. Fallback to full grounded identity call if no cache (~$0.005)
+ */
 export const analyzeNeighborhoodIdentity = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodIdentityResult>> => {
   const { address, city, state } = property;
+
+  // ── Tier 1: Try city-level cache + lightweight match ──
+  const cityKey = generateCityStateKey(city, state);
+  if (cityKey) {
+    try {
+      const cityData = await getCityNeighborhoodsFromCloud(cityKey);
+      if (cityData?.neighborhoods?.length) {
+        const names = cityData.neighborhoods.map((n: any) => n.neighborhood_name);
+        console.log(`[Neighborhood Identity] Found ${names.length} cached neighborhoods for ${city}. Running lightweight match...`);
+
+        const matchResult = await matchPropertyToNeighborhood(property, names, userId);
+        const matchedName = matchResult.data?.matched_neighborhood;
+
+        if (matchedName) {
+          // Find the full cached entry
+          const cachedEntry = cityData.neighborhoods.find(
+            (n: any) => n.neighborhood_name.toLowerCase() === matchedName.toLowerCase()
+          );
+
+          if (cachedEntry) {
+            console.log(`[Neighborhood Identity] ✓ Matched to "${matchedName}" from city cache (confidence: ${matchResult.data?.confidence}).`);
+            return {
+              data: cachedEntry as NeighborhoodIdentityResult,
+              usage: matchResult.usage
+            };
+          }
+        }
+        console.log(`[Neighborhood Identity] Lightweight match failed for "${matchedName}". Falling back to full analysis.`);
+      }
+    } catch (err) {
+      console.warn(`[Neighborhood Identity] City cache lookup failed, falling back to full analysis:`, err);
+    }
+  }
+
+  // ── Tier 2: Full grounded identity call (fallback) ──
   const prompt = getNeighborhoodIdentityPrompt(
     address || "Subject Property",
     city || "",
@@ -975,7 +1112,7 @@ export const analyzeNeighborhoodIdentity = async (property: PropertyData, userId
     property.description || undefined
   );
 
-  console.log(`[Neighborhood Identity] Using Gemini 3 Flash + Google Grounding for ${address}...`);
+  console.log(`[Neighborhood Identity] Using full Gemini 3 Flash + Google Grounding for ${address}...`);
 
   return executeGeminiRequest<NeighborhoodIdentityResult>({
     model: 'gemini-3-flash-preview',

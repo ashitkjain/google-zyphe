@@ -95,7 +95,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
 
                 {/* MODULE: MOBILITY + NOISE (stacked) */}
-                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                         <div className="p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -231,7 +231,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                 </div>
 
                 {/* MODULE: CLIMATE RISK + SOLAR (stacked) */}
-                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                     {/* Climate Risk */}
                     {hasClimate && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
@@ -442,7 +442,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                 </div>
 
                 {/* MODULE: AIR QUALITY */}
-                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                     {aq && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden flex flex-col shadow-sm">
                             <div className="p-3">
@@ -606,7 +606,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                 </div>
 
                 {/* MODULE: HAZARD ZONES (in 4th column, replacing pollen) */}
-                <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3 overflow-visible">
+                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 overflow-visible hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                     {disasterData && (
                         <>
                             <HistoricalDisasterSection data={disasterData} drought={data.drought} compact onRefresh={onRefresh} refreshing={refreshing} />

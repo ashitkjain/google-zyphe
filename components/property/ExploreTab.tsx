@@ -16,6 +16,7 @@ import StaticParcelMap from './StaticParcelMap';
 import ParcelValidationCard from './ParcelValidationCard';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import LifestyleInsightsSection from './LifestyleInsightsSection';
+import { StickyNotesLayer } from '../analysis/custom-ai/components/StickyNotesLayer';
 
 
 import ChatInterface from '../shared/ChatInterface';
@@ -522,6 +523,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                         {/* ── Tab Content ── */}
                         {activeTab === 'property-data' && (
+                            <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab="overview">
                             <div className="flex flex-col gap-2.5">
 
 
@@ -1323,13 +1325,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                                                     {/* Community Pulse */}
                                                     {analysis?.detailed_analysis?.community_pulse && (
-                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
                                                                     <div className="flex items-center justify-between mb-3">
                                                                         <div className="flex items-center gap-2">
-                                                                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                                                                                <i className="fa-solid fa-users text-blue-600 text-[11px]"></i>
+                                                                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                                                                                <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[11px]"></i>
                                                                             </div>
                                                                             <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
                                                                         </div>
@@ -1360,12 +1362,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                                     {/* Market Insights */}
                                                     {keyInsights && (
-                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
                                                                     <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                                                                            <i className="fa-solid fa-microscope text-violet-600 text-[11px]"></i>
+                                                                        <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 transition-colors">
+                                                                            <i className="fa-solid fa-microscope text-violet-600 group-hover:text-white text-[11px]"></i>
                                                                         </div>
                                                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
                                                                     </div>
@@ -1404,12 +1406,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                                     {/* Long Term Rental */}
                                                     {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
-                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl border border-slate-100/80 p-3">
+                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                             <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                 <div className="p-4">
                                                                     <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                                            <i className="fa-solid fa-house-circle-check text-emerald-600 text-[11px]"></i>
+                                                                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
+                                                                            <i className="fa-solid fa-house-circle-check text-emerald-600 group-hover:text-white text-[11px]"></i>
                                                                         </div>
                                                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
                                                                     </div>
@@ -1448,7 +1450,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 {/* Street View + Ground Truth Engine — side by side */}
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
                                     {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
-                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
+                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                                             <StreetViewAnalysisSection
                                                 data={propertyData}
                                                 onRefresh={onRefreshEnvironment}
@@ -1456,7 +1458,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             />
                                         </div>
                                     )}
-                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3">
+                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                                         {/* Ground Truth Engine intro */}
                                         <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
                                             <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
@@ -1588,6 +1590,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                 <ComplianceAttribution data={propertyData} />
                             </div>
+                            </StickyNotesLayer>
                         )}
 
                         {activeTab === 'visual-ai' && (

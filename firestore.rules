@@ -22,7 +22,8 @@ service cloud.firestore {
         'zip_sold_listings_cache',
         'deprecated_distressed_properties',
         'lifestyle_insights',
-        'schools_intelligence'
+        'schools_intelligence',
+        'city_neighborhoods'
       ];
       allow write: if request.auth != null && collectionName in [
         'properties', 
@@ -42,7 +43,8 @@ service cloud.firestore {
         'zip_sold_listings_cache',
         'deprecated_distressed_properties',
         'lifestyle_insights',
-        'schools_intelligence'
+        'schools_intelligence',
+        'city_neighborhoods'
       ];
     }
 
