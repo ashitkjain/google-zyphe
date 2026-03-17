@@ -622,7 +622,7 @@ export const extractContextGraphFactors = async (
   comprehensive: ComprehensiveAnalysisResult | null,
   userId: string = "unknown"
 ): Promise<AIResponseWithUsage<ContextGraphExtractionResult>> => {
-  // 1. Pre-compute the 30 pure-data factors client-side (no AI tokens)
+  // 1. Pre-compute the 35 pure-data factors client-side (no AI tokens)
   const precomputed = precomputeDataFactors(property, visual, comprehensive);
   console.log(`[Context Graph] Pre-computed ${precomputed.size} factors from structured data.`);
 

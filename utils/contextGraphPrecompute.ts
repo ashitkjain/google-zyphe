@@ -1,7 +1,7 @@
 /**
  * Context Graph Pre-computation
  *
- * Computes the 30 pure-data factors directly from property fields,
+ * Computes the 35 pure-data factors directly from property fields,
  * without any AI call. The AI prompt is then told to skip these IDs
  * and only fill in the remaining factors.
  *
@@ -435,6 +435,103 @@ function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedF
     return { id: 7, name: 'STR Viability', value: 'STR data available — see investment tab', confidence: 'low', tags: ['STR'] };
 }
 
+// ── Environmental Factors (46-50) ───────────────────────────────────
+
+function factor46_wildfireRisk(p: PropertyData): ExtractedFactor {
+    const score = p.fireRiskScore;
+    if (score == null) return { id: 46, name: 'Wildfire Risk', value: 'Data not available', confidence: 'low', tags: [] };
+    const tier = score <= 3 ? 'Low' : score <= 6 ? 'Moderate' : 'High';
+    return {
+        id: 46, name: 'Wildfire Risk',
+        value: `${tier} — ${score}/10`,
+        detail: score >= 7 ? `Fire risk score ${score}/10 may impact insurance premiums and evacuaton planning.` : undefined,
+        confidence: 'high',
+        tags: [tier, `${score}/10`, ...(score >= 7 ? ['High Fire Risk'] : [])]
+    };
+}
+
+function factor47_floodRisk(p: PropertyData): ExtractedFactor {
+    const score = p.floodRiskScore;
+    if (score == null) return { id: 47, name: 'Flood Risk', value: 'Data not available', confidence: 'low', tags: [] };
+    const tier = score <= 3 ? 'Low' : score <= 6 ? 'Moderate' : 'High';
+    return {
+        id: 47, name: 'Flood Risk',
+        value: `${tier} — ${score}/10`,
+        detail: score >= 7 ? `Flood risk score ${score}/10. Flood insurance may be required. Check FEMA flood zone designation.` : undefined,
+        confidence: 'high',
+        tags: [tier, `${score}/10`, ...(score >= 7 ? ['Flood Insurance'] : [])]
+    };
+}
+
+function factor48_solarYield(p: PropertyData): ExtractedFactor {
+    const solar = p.solarData;
+    if (!solar?.estimatedSolarProduction) return { id: 48, name: 'Solar Yield Potential', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const kwh = solar.estimatedSolarProduction.annualKwh;
+    const panels = solar.estimatedSolarProduction.estimatedPanels;
+    const capacity = solar.estimatedSolarProduction.systemCapacityKw;
+    const tier = kwh > 15000 ? 'High' : kwh > 8000 ? 'Moderate' : 'Low';
+
+    const detailParts: string[] = [];
+    if (panels) detailParts.push(`${panels} panels`);
+    if (capacity) detailParts.push(`${capacity.toFixed(1)}kW system`);
+    if (solar.financialAnalysis?.cashPurchase?.savings?.savingsYear20) {
+        detailParts.push(`20yr savings: $${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}`);
+    }
+
+    return {
+        id: 48, name: 'Solar Yield Potential',
+        value: `${tier} — ${kwh.toLocaleString()} kWh/year`,
+        detail: detailParts.length ? `Google Solar API: ${detailParts.join(', ')}.` : undefined,
+        confidence: 'high',
+        tags: [tier, `${Math.round(kwh / 1000)}K kWh`, ...(kwh > 15000 ? ['High Solar'] : [])]
+    };
+}
+
+function factor49_pollenSafety(p: PropertyData): ExtractedFactor {
+    const pollen = p.pollen;
+    if (!pollen) return { id: 49, name: 'Allergen / Pollen Safety', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const score = pollen.score;
+    const tier = score <= 2 ? 'Low Risk' : score <= 3 ? 'Moderate' : 'High Risk';
+    const dominant = pollen.dominantPollenType || 'Unknown';
+
+    return {
+        id: 49, name: 'Allergen / Pollen Safety',
+        value: `${tier} — ${pollen.category} (${dominant})`,
+        detail: pollen.description || undefined,
+        confidence: 'high',
+        tags: [tier, dominant, pollen.category]
+    };
+}
+
+function factor50_hvacQuality(p: PropertyData): ExtractedFactor {
+    const heating = p.resoFacts?.heating;
+    const cooling = p.resoFacts?.cooling;
+    if (!heating && !cooling) return { id: 50, name: 'HVAC Quality / Air Filtration', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const parts: string[] = [];
+    const tags: string[] = [];
+    if (cooling) {
+        const isCentral = cooling.toLowerCase().includes('central');
+        parts.push(isCentral ? 'Central AC' : cooling);
+        tags.push(isCentral ? 'Central AC' : 'AC');
+    }
+    if (heating) {
+        const isForced = heating.toLowerCase().includes('forced air') || heating.toLowerCase().includes('central');
+        parts.push(isForced ? 'Forced Air Heat' : heating);
+        tags.push(isForced ? 'Forced Air' : 'Heat');
+    }
+
+    return {
+        id: 50, name: 'HVAC Quality / Air Filtration',
+        value: parts.join(', '),
+        detail: `Heating: ${heating || 'N/A'}. Cooling: ${cooling || 'N/A'}.`,
+        confidence: 'high',
+        tags
+    };
+}
+
 // ── New Factors: Infrastructure & Environment ──────────────────────
 
 function factor76_internetConnectivity(p: PropertyData): ExtractedFactor {
@@ -655,6 +752,11 @@ export function precomputeDataFactors(
         factor28_flooring(property),
         factor41_schoolQuality(property),
         factor43_walkability(property),
+        factor46_wildfireRisk(property),
+        factor47_floodRisk(property),
+        factor48_solarYield(property),
+        factor49_pollenSafety(property),
+        factor50_hvacQuality(property),
         factor51_vastu(property),
         factor52_airQuality(property),
         factor54_topography(property),
@@ -677,4 +779,4 @@ export function precomputeDataFactors(
 }
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 84, 85, 86];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 84, 85, 86];
