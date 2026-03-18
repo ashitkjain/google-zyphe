@@ -1856,7 +1856,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean; relevantFactors: string[] } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
@@ -2086,7 +2086,8 @@ INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (M
                 homeType: ext.home_type || undefined,
                 mustHaves: ext.must_haves || [],
                 niceToHaves: ext.nice_to_haves || [],
-                singleStory: ext.single_story || false
+                singleStory: ext.single_story || false,
+                relevantFactors: ext.relevant_factors || []
             };
             setBuyerExtracted(extracted);
 
@@ -2489,6 +2490,7 @@ ${JSON.stringify(summaries)}
 
                             {/* Extracted criteria */}
                             {buyerExtracted && !buyerError && (
+                                <>
                                 <div className="flex flex-wrap items-center gap-2 text-[10px]">
                                     <span className="font-bold text-slate-500 uppercase tracking-wider">AI Extracted:</span>
                                     <span className="font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
@@ -2513,6 +2515,15 @@ ${JSON.stringify(summaries)}
                                         <span key={`nth-${i}`} className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">{nth}</span>
                                     ))}
                                 </div>
+                                {buyerExtracted.relevantFactors.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        <span className="text-[9px] font-black text-violet-500 uppercase tracking-wider">🔍 Factors:</span>
+                                        {buyerExtracted.relevantFactors.map((rf, i) => (
+                                            <span key={`rf-${i}`} className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">{rf}</span>
+                                        ))}
+                                    </div>
+                                )}
+                                </>
                             )}
                         </div>
                     )}
