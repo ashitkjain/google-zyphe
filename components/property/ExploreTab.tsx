@@ -845,9 +845,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                         </div>
                                                                         {schoolsIntelligence.district_rating && (
                                                                             <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${schoolsIntelligence.district_rating.startsWith('A') ? 'bg-emerald-100 text-emerald-700' :
-                                                                                    schoolsIntelligence.district_rating.startsWith('B') ? 'bg-blue-100 text-blue-700' :
-                                                                                        schoolsIntelligence.district_rating.startsWith('C') ? 'bg-amber-100 text-amber-700' :
-                                                                                            'bg-rose-100 text-rose-700'
+                                                                                schoolsIntelligence.district_rating.startsWith('B') ? 'bg-blue-100 text-blue-700' :
+                                                                                    schoolsIntelligence.district_rating.startsWith('C') ? 'bg-amber-100 text-amber-700' :
+                                                                                        'bg-rose-100 text-rose-700'
                                                                                 }`}>
                                                                                 {schoolsIntelligence.district_name} · {schoolsIntelligence.district_rating}
                                                                             </span>
@@ -884,8 +884,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                                     key={idx}
                                                                                     onClick={() => setSchoolsExpanded(prev => ({ ...prev, __activeIdx: idx }))}
                                                                                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all w-full ${isActive
-                                                                                            ? 'bg-indigo-600 shadow-sm border border-indigo-700'
-                                                                                            : 'bg-white border border-slate-200 hover:bg-slate-50'
+                                                                                        ? 'bg-indigo-600 shadow-sm border border-indigo-700'
+                                                                                        : 'bg-white border border-slate-200 hover:bg-slate-50'
                                                                                         }`}
                                                                                 >
                                                                                     <i className={`fa-solid ${levelIcon} text-[9px] ${isActive ? 'text-indigo-200' : 'text-slate-400'}`}></i>
@@ -1226,10 +1226,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                             key={tab.key}
                                                                             onClick={() => setLifestyleFitTab(tab.key)}
                                                                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-left ${isActive
-                                                                                    ? `${tab.bg} border-current ${tab.text} shadow-sm`
-                                                                                    : hasContent
-                                                                                        ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
-                                                                                        : 'bg-slate-50/30 border-slate-100 opacity-40 cursor-not-allowed'
+                                                                                ? `${tab.bg} border-current ${tab.text} shadow-sm`
+                                                                                : hasContent
+                                                                                    ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
+                                                                                    : 'bg-slate-50/30 border-slate-100 opacity-40 cursor-not-allowed'
                                                                                 }`}
                                                                             disabled={!hasContent}
                                                                         >
@@ -2019,17 +2019,31 @@ ${buyerStory}
 - baths: minimum bathrooms needed (0 if not specified). If "2+ baths", use 2.
 - home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "" if not specified
 - keywords: 3-5 key lifestyle/feature words from the story (e.g. "schools", "backyard", "modern")
-- search_tags: 5-15 short lowercase phrases (1-3 words each) that can be searched in a property description or listing data. Be specific and include variations.
+- search_tags: 5-15 short lowercase phrases (1-3 words each) that can be text-searched in a property description. Include variations of each concept.
+  Examples: "single story", "no stairs", "one story" | "drought tolerant", "low maintenance yard", "xeriscape" | "hospital", "medical" | "pool", "spa" | "home office", "den", "study"
+- numeric_filters: convert buyer requirements into numeric key-value pairs when possible. Each filter has a "field" (matching a keyMetric name), "op" (eq/gte/lte), and "value" (number).
+  Available fields: sqft, yearBuilt, walkScore, noiseScore, schoolMaxRating, fireRisk, floodRisk, garageSpaces, lotSqft
   Examples:
-  - "single story" (not just "single"), "no stairs", "one story"
-  - "drought tolerant", "low maintenance yard", "xeriscape"
-  - "medical", "hospital", "medical facilities"
-  - "park", "parks", "trails", "hiking"
-  - "quiet", "cul-de-sac", "quiet neighborhood"
-  - "home office", "office", "den", "study"
-  - "pool", "spa", "outdoor kitchen"
-  - "solar", "ev charger", "smart home"
-  Generate as many relevant search variations as possible (up to 15).`;
+  - "single story" → { field: "stories", op: "eq", value: 1 }
+  - "2+ car garage" → { field: "garageSpaces", op: "gte", value: 2 }
+  - "walkable" → { field: "walkScore", op: "gte", value: 70 }
+  - "quiet neighborhood" → { field: "noiseScore", op: "gte", value: 75 }
+  - "good schools" or "top schools" → { field: "schoolMaxRating", op: "gte", value: 8 }
+  - "new construction" → { field: "yearBuilt", op: "gte", value: 2015 }
+  - "at least 2000 sqft" → { field: "sqft", op: "gte", value: 2000 }
+  - "large lot" → { field: "lotSqft", op: "gte", value: 7000 }
+  - "low fire risk" → { field: "fireRisk", op: "lte", value: 3 }
+  Only include filters that directly map to a buyer requirement. Return empty array if none apply.`;
+
+            const numericFilterSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    field: { type: Type.STRING },
+                    op: { type: Type.STRING },
+                    value: { type: Type.NUMBER }
+                },
+                required: ['field', 'op', 'value']
+            };
 
             const extractionSchema = {
                 type: Type.OBJECT,
@@ -2040,12 +2054,14 @@ ${buyerStory}
                     baths: { type: Type.NUMBER },
                     home_type: { type: Type.STRING },
                     keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    numeric_filters: { type: Type.ARRAY, items: numericFilterSchema }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords', 'search_tags']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords', 'search_tags', 'numeric_filters']
             };
 
-            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[] }>({
+            type NumericFilter = { field: string; op: string; value: number };
+            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] }>({
                 model: FLASH_LITE_MODEL,
                 contents: extractionPrompt,
                 config: { temperature: 0.1, maxOutputTokens: 1024 },
@@ -2079,6 +2095,7 @@ ${buyerStory}
             // else: both bounds specified — use as-is
 
             const searchTags = (ext.search_tags || []).map(t => t.toLowerCase().trim());
+            const numericFilters = ext.numeric_filters || [];
 
             const extracted = {
                 priceMin, priceMax,
@@ -2100,15 +2117,36 @@ ${buyerStory}
                 return true;
             });
 
-            // ── STEP 1b: Rank by search_tags against property description ──
+            // ── STEP 1b: Rank by search_tags + numeric_filters ──
             const MAX = 20;
-            if (candidates.length > MAX && searchTags.length > 0) {
+            if (candidates.length > MAX && (searchTags.length > 0 || numericFilters.length > 0)) {
                 const scored = candidates.map(p => {
-                    const desc = (p.description || '').toLowerCase();
-                    const hits = searchTags.filter(tag => desc.includes(tag)).length;
-                    return { prop: p, hits };
+                    let score = 0;
+                    // Text matches in description
+                    if (searchTags.length > 0) {
+                        const desc = (p.description || '').toLowerCase();
+                        score += searchTags.filter(tag => desc.includes(tag)).length;
+                    }
+                    // Numeric filter matches against listing data
+                    for (const nf of numericFilters) {
+                        const fieldMap: Record<string, number | undefined> = {
+                            sqft: p.livingArea,
+                            yearBuilt: p.yearBuilt,
+                            walkScore: p.walkScore,
+                            noiseScore: (p as any).noiseScore,
+                            garageSpaces: (p as any).garageSpaces || (p.resoFacts as any)?.garageParkingCapacity,
+                            lotSqft: (p as any).lotSize,
+                        };
+                        const val = fieldMap[nf.field];
+                        if (val != null) {
+                            if (nf.op === 'gte' && val >= nf.value) score += 2;
+                            else if (nf.op === 'lte' && val <= nf.value) score += 2;
+                            else if (nf.op === 'eq' && val === nf.value) score += 2;
+                        }
+                    }
+                    return { prop: p, score };
                 });
-                scored.sort((a, b) => b.hits - a.hits);
+                scored.sort((a, b) => b.score - a.score);
                 candidates = scored.map(s => s.prop);
             }
             candidates = candidates.slice(0, MAX);
@@ -2223,8 +2261,8 @@ ${JSON.stringify(summaries)}
                     onClick={handleBrowse}
                     disabled={!selectedCity || browsing}
                     className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${!selectedCity || browsing
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                            : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
                         }`}
                 >
                     {browsing ? (
@@ -2478,9 +2516,8 @@ ${JSON.stringify(summaries)}
                                                         onClick={() => onPropertyClick(prop.address)}
                                                     >
                                                         {/* Rank badge */}
-                                                        <span className={`absolute top-2 left-2 text-[10px] font-black px-2 py-1 rounded-lg shadow-md ${
-                                                            idx === 0 ? 'bg-amber-400 text-white' : idx < 3 ? 'bg-indigo-600 text-white' : 'bg-white/95 text-slate-600 border border-slate-200'
-                                                        }`}>
+                                                        <span className={`absolute top-2 left-2 text-[10px] font-black px-2 py-1 rounded-lg shadow-md ${idx === 0 ? 'bg-amber-400 text-white' : idx < 3 ? 'bg-indigo-600 text-white' : 'bg-white/95 text-slate-600 border border-slate-200'
+                                                            }`}>
                                                             #{idx + 1}
                                                         </span>
                                                     </div>
@@ -2504,9 +2541,8 @@ ${JSON.stringify(summaries)}
                                                                 {prop.livingArea && <span className="text-[11px] text-slate-500 font-bold">{prop.livingArea.toLocaleString()} sqft</span>}
                                                             </div>
                                                         </div>
-                                                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center ${
-                                                            match.score >= 80 ? 'bg-emerald-50 border border-emerald-200' : match.score >= 60 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-200'
-                                                        }`}>
+                                                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center ${match.score >= 80 ? 'bg-emerald-50 border border-emerald-200' : match.score >= 60 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-200'
+                                                            }`}>
                                                             <span className={`text-lg font-black ${match.score >= 80 ? 'text-emerald-600' : match.score >= 60 ? 'text-amber-600' : 'text-slate-400'}`}>
                                                                 {match.score}
                                                             </span>
@@ -2736,8 +2772,8 @@ ${JSON.stringify(summaries)}
                                             key={p}
                                             onClick={() => setPage(p)}
                                             className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${page === p
-                                                    ? 'bg-indigo-600 text-white shadow-sm'
-                                                    : 'bg-white border border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                                                ? 'bg-indigo-600 text-white shadow-sm'
+                                                : 'bg-white border border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
                                                 }`}
                                         >
                                             {p}
