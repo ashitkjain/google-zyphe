@@ -27,6 +27,7 @@ const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string;
     commCondition: { label: 'Community & Condition', icon: 'fa-building', color: 'violet', range: [102, 105] },
     groundTruth: { label: 'Ground Truth Verification', icon: 'fa-shield-halved', color: 'red', range: [108, 110] },
     distressed: { label: 'Distressed & Opportunity', icon: 'fa-triangle-exclamation', color: 'orange', range: [111, 111] },
+    interiorRooms: { label: 'Interior Room Intelligence', icon: 'fa-door-open', color: 'violet', range: [113, 116] },
 };
 
 /** Per-factor-ID tag color styles */
@@ -53,6 +54,11 @@ const TAG_COLOR_MAP: Record<number, { bg: string; text: string; border: string }
     101: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
     83: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
     111: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+    // Interior Room Intelligence
+    113: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    114: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+    115: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+    116: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
 };
 const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' };
 

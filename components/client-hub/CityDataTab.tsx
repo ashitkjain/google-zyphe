@@ -589,6 +589,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         return false;
     };
 
+    /**
+     * Only allow Single Family, Townhouse, and Condo listings.
+     * homeType values come from Zillow API: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", etc.
+     */
+    const ALLOWED_HOME_TYPES = ['SINGLE_FAMILY', 'TOWNHOUSE', 'CONDO'];
+
+    const isSupportedPropertyType = (item: any): boolean => {
+        const ht = item.homeType;
+        if (!ht) return true; // no type info yet — let it through
+        return ALLOWED_HOME_TYPES.includes(ht);
+    };
+
     const fetchListings = async (zip: string, fallbackCity?: string, fallbackState?: string, forceRefresh = false) => {
         const config = APP_CONFIG.usHousingApi;
 
@@ -601,6 +613,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const cachedListings = allCached
                         .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
                         .filter((item: any) => !isGhostListing(item))
+                        .filter((item: any) => isSupportedPropertyType(item))
                         .map((item: any) => ({
                         ...item,
                         location: {
@@ -612,10 +625,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             }
                         }
                     }));
-                    // If ghost listings were removed, persist the clean list back to Firestore
                     const removed = allCached.length - cachedListings.length;
                     if (removed > 0) {
-                        addLog(`Cleaned ${removed} ghost/plan listing(s) from cache for zip ${zip}`);
+                        addLog(`Cleaned ${removed} ghost/unsupported listing(s) from cache for zip ${zip}`);
                         saveZipListings(zip, cachedListings).catch(console.error);
                     }
                     addLog(`Cloud Cache Hit for Zip: ${zip} (${cachedListings.length} items)`);
@@ -653,6 +665,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const mapPage = (rawData: any[]) => rawData
             .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
             .filter((item: any) => !isGhostListing(item))
+            .filter((item: any) => isSupportedPropertyType(item))
             .map((item: any) => {
             const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
             const legacyAddr = legacyLoc.address || {};
@@ -1580,7 +1593,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                             }
                                             if (allForSale.length > 0) {
                                                 // Normalize listings WITH fallback state before saving to cache
-                                                const mapped = allForSale.map((item: any) => {
+                                                const mapped = allForSale
+                                                    .filter((item: any) => !isGhostListing(item))
+                                                    .filter((item: any) => isSupportedPropertyType(item))
+                                                    .map((item: any) => {
                                                     const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
                                                     const legacyAddr = legacyLoc.address || {};
                                                     const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
@@ -1600,10 +1616,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                         primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
                                                     };
                                                 });
+                                                const filtered = allForSale.length - mapped.length;
                                                 await saveZipListings(zip, mapped);
                                                 allForSaleResults.push(...mapped);
+                                                if (filtered > 0) addLog(`    Filtered ${filtered} ghost/unsupported listings`);
                                             }
-                                            addLog(`    ✓ ForSale: ${allForSale.length} saved`);
+                                            addLog(`    ✓ ForSale: ${allForSale.length} fetched, ${allForSale.length > 0 ? allForSaleResults.length : 0} saved`);
                                         } catch (e: any) {
                                             addLog(`    ⚠ ForSale error: ${e.message}`);
                                         }
@@ -1647,9 +1665,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         seenIds.add(compositeId);
                                         return true;
                                     });
+                                    // Compare old vs new listings to report changes
+                                    const oldIds = new Set<string>(listings.map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id || '')));
+                                    const newIds = new Set<string>(deduped.map((item: any) => String(item.property_id || '')));
+                                    const removedCount = Array.from(oldIds).filter(id => id && !newIds.has(id)).length;
+                                    const addedCount = Array.from(newIds).filter(id => id && !oldIds.has(id)).length;
+
                                     setListings(deduped);
-                                    addLog(`[Cache Refresh] Done. ${deduped.length} unique ForSale listings loaded. All zip caches refreshed for ${normalizedCity}.`);
-                                    logPipelineAudit('Refresh Zip Listing Caches', normalizedCity, 'success', `${deduped.length} listings loaded, ${uniqueZips.length} zips refreshed`, undefined, { listings: deduped.length, zips: uniqueZips.length });
+                                    addLog(`[Cache Refresh] Done. ${deduped.length} unique ForSale listings loaded. ${addedCount} new, ${removedCount} removed. All zip caches refreshed for ${normalizedCity}.`);
+                                    logPipelineAudit('Refresh Zip Listing Caches', normalizedCity, 'success', `${deduped.length} listings loaded, +${addedCount} new, -${removedCount} removed, ${uniqueZips.length} zips refreshed`, undefined, { listings: deduped.length, added: addedCount, removed: removedCount, zips: uniqueZips.length });
                                     setLoading(false);
                                 }}
                                 disabled={loading || !city}

@@ -306,20 +306,24 @@ function factor51_vastu(p: PropertyData): ExtractedFactor {
     // Read from orientation_ai (satellite analysis) — the authoritative source
     const orientationAI = (p as any).orientation_ai;
     const orientation = orientationAI?.final_orientation;
-    if (!orientation) return { id: 51, name: 'Vastu / Feng Shui Readiness', value: 'Data not available', confidence: 'low', tags: [] };
+    if (!orientation) return { id: 51, name: 'Front Orientation', value: 'Data not available', confidence: 'low', tags: [] };
 
     const favorable = ['North', 'East', 'North-East', 'Northeast'].includes(orientation);
     const confidence = orientationAI.confidence ?? 'medium';
-    const vastuNote = orientationAI.feng_shui_vastu || '';
 
-    let value = `${orientation}-facing${favorable ? ' (favorable)' : ''}`;
-    if (vastuNote) value += ` — ${vastuNote}`;
+    const parts: string[] = [`${orientation}-facing`];
+    if (orientationAI.buyer_pro) parts.push(orientationAI.buyer_pro);
+    if (orientationAI.buyer_con) parts.push(orientationAI.buyer_con);
+
+    const tags: string[] = [`${orientation}-Facing`];
+    if (favorable) tags.push('Favorable Orientation');
+    if (orientationAI.feng_shui_vastu) tags.push('Vastu/Feng Shui Noted');
 
     return {
-        id: 51, name: 'Vastu / Feng Shui Readiness',
-        value,
+        id: 51, name: 'Front Orientation',
+        value: parts.join(' — '),
         confidence,
-        tags: [`${orientation}-Facing`, favorable ? 'Vastu Favorable' : 'Vastu Neutral']
+        tags
     };
 }
 

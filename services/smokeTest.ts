@@ -16,7 +16,7 @@
 import {
     doc, getDoc, getDocs, query, collection, where, documentId
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db, generateCityStateKey } from './firebase/config';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +75,8 @@ function runChecks(
     comprehensive: any | null,
     investment: any | null,
     schoolAnalyses: Record<string, any>,
-    addressHint?: string
+    addressHint?: string,
+    cityData?: { communityPulse?: any; deepInvestmentResearch?: any }
 ): PropertySmokeResult {
     const checks: SmokeCheck[] = [];
 
@@ -158,6 +159,20 @@ function runChecks(
     const hasSolar = !!(solar?.maxSunshineHoursPerYear || solar?.solarPotential || solar?.yearlyEnergyDcKwh);
     chk(checks, 'solarData', 'Solar API', 'warn', hasSolar,
         solar ? `${solar.maxSunshineHoursPerYear || solar.yearlyEnergyDcKwh || '?'} hrs/yr sunshine` : 'not fetched');
+
+    // Solar financial data (panels, system capacity, 20yr savings)
+    const solarProd = solar?.estimatedSolarProduction;
+    const hasSolarFinancial = !!(solarProd?.annualKwh && solarProd?.estimatedPanels);
+    chk(checks, 'solarFinancial', 'Solar — Panels & Production', 'warn', hasSolarFinancial,
+        hasSolarFinancial
+            ? `${solarProd.estimatedPanels} panels, ${solarProd.annualKwh.toLocaleString()} kWh/yr`
+            : 'missing (no panel/kWh data)');
+    const hasSolarSavings = !!(solar?.financialAnalysis?.cashPurchase?.savings?.savingsYear20);
+    chk(checks, 'solarSavings', 'Solar — 20yr Savings', 'warn', hasSolarSavings,
+        hasSolarSavings
+            ? `$${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}`
+            : 'missing');
+
     chk(checks, 'airQuality', 'Air Quality API', 'warn', !!(aqi?.aqi != null),
         aqi ? `AQI ${aqi.aqi} (${aqi.category})` : 'not fetched');
     chk(checks, 'pollen', 'Pollen API', 'warn', !!(pollen?.grass || pollen?.score != null),
@@ -166,6 +181,17 @@ function runChecks(
         noise != null ? `${noise} (${env?.noiseScoreDesc || prop?.noiseScoreDesc || '?'})` : 'not fetched');
     chk(checks, 'neighborhoodPlaces', 'Nearby Places (POI)', 'warn', !!places,
         places ? 'cached' : 'not fetched');
+
+    // ── 6b. Seismic & Historical Disasters ───────────────────────────────────
+    const hd = prop?.historical_disasters;
+    const sz = hd?.seismicZone;
+    chk(checks, 'seismicZone', 'Seismic Zone Data', 'warn', !!(sz?.designCategory),
+        sz?.designCategory
+            ? `Zone ${sz.designCategory}${sz.riskLevel ? ` (${sz.riskLevel})` : ''}${sz.pga ? ` PGA ${sz.pga.toFixed(2)}g` : ''}`
+            : 'missing');
+    const quakes = hd?.earthquakes;
+    chk(checks, 'earthquakeHistory', 'Earthquake History', 'warn', Array.isArray(quakes) && quakes.length > 0,
+        Array.isArray(quakes) ? `${quakes.length} events recorded` : 'missing');
 
     // ── 7. AI Analysis ───────────────────────────────────────────────────────
     // Visual AI (interior / exterior)
@@ -176,6 +202,25 @@ function runChecks(
     chk(checks, 'aiVisualExterior', 'AI Visual — Exterior', 'error', hasVisualExterior,
         hasVisualExterior ? 'analysis present' : 'missing');
 
+    // Visual sub-fields: design_style, condition, room_highlights
+    const hi = visual?.home_interior;
+    chk(checks, 'designStyle', 'AI Visual — Design Style', 'warn', !!(hi?.design_style?.style),
+        hi?.design_style?.style || 'missing');
+    chk(checks, 'conditionFinish', 'AI Visual — Condition & Finish', 'warn', !!(hi?.condition_and_finish && hi.condition_and_finish.length > 10),
+        hi?.condition_and_finish ? `${hi.condition_and_finish.length} chars` : 'missing');
+    const roomCount = Array.isArray(visual?.room_highlights) ? visual.room_highlights.length : 0;
+    chk(checks, 'roomHighlights', 'AI Visual — Room Highlights', 'warn', roomCount >= 3,
+        roomCount > 0 ? `${roomCount} rooms detected` : 'missing');
+
+    // Visual sub-fields: curb appeal, backyard, privacy
+    const ext = visual?.exterior_and_neighborhood;
+    chk(checks, 'curbAppeal', 'AI Visual — Curb Appeal', 'warn', !!(ext?.exterior_and_lot_appeal?.curb_appeal),
+        ext?.exterior_and_lot_appeal?.curb_appeal ? `${ext.exterior_and_lot_appeal.curb_appeal.length} chars` : 'missing');
+    chk(checks, 'backyardPatio', 'AI Visual — Backyard/Patio', 'warn', !!(ext?.exterior_and_lot_appeal?.backyard_and_patio),
+        ext?.exterior_and_lot_appeal?.backyard_and_patio ? `${ext.exterior_and_lot_appeal.backyard_and_patio.length} chars` : 'missing');
+    chk(checks, 'privacyVisual', 'AI Visual — Privacy', 'warn', !!(ext?.views_privacy_orientation?.privacy),
+        ext?.views_privacy_orientation?.privacy || 'missing');
+
     // Neighborhood spatial analysis
     const hasNeighborhood = !!(visual?.neighborhood?.overview && visual.neighborhood.overview.length > 30);
     chk(checks, 'aiNeighborhood', 'AI Neighborhood/Spatial', 'error', hasNeighborhood,
@@ -184,25 +229,36 @@ function runChecks(
     // Orientation AI (may be on properties doc or env doc)
     const orientationAi = prop?.orientation_ai || env?.orientation_ai;
     const hasOrientation = !!(orientationAi?.final_orientation);
-    chk(checks, 'orientationAi', 'Orientation AI', 'warn', hasOrientation,
+    chk(checks, 'orientationAi', 'Front Orientation AI', 'warn', hasOrientation,
         hasOrientation ? orientationAi.final_orientation : 'missing');
 
-    // Street view AI (may be on properties doc or env doc)
-    // UI checks: analysis.privacyRating || analysis.curbAppealScore || analysis.neighborhoodVibe
-    const svAnalysis = prop?.streetViewAnalysis || env?.streetViewAnalysis;
+    // Street view AI (lives on google_environmental_data)
+    const svAnalysis = env?.streetViewAnalysis || prop?.streetViewAnalysis;
     const hasStreetViewAi = !!(svAnalysis?.privacyRating || svAnalysis?.curbAppealScore || svAnalysis?.neighborhoodVibe);
     chk(checks, 'streetViewAi', 'Street View AI', 'warn', hasStreetViewAi,
         hasStreetViewAi ? `curb appeal: ${svAnalysis.curbAppealScore ?? '?'}/10` : 'missing');
 
-    // Pollen AI analysis (pollen raw is in env, analysis may be nested)
-    // UI checks: data.pollen.analysis?.breathe_easy_summary
+    // Pollen AI analysis
     const pollenData = pollen || env?.pollen || prop?.pollen;
     const hasPollenAi = !!(pollenData?.analysis?.breathe_easy_summary);
     chk(checks, 'pollenAi', 'Pollen AI Analysis', 'warn', hasPollenAi,
         hasPollenAi ? 'analysis present' : 'missing');
 
-    // Custom visual analysis (optional — may not be run for all properties)
-    const hasCustomAnalysis = !!(prop?.visual_analysis?.executiveSummary || prop?.analysis?.executiveSummary);
+    // ── 7b. Community Pulse (city-level collection: community_pulse) ─────────
+    const cp = cityData?.communityPulse;
+    const hasCpLike = !!(cp?.what_residents_like?.points?.length);
+    const hasCpComplaint = !!(cp?.common_complaints?.points?.length);
+    chk(checks, 'communityPulse', 'Community Pulse', 'warn', !!(hasCpLike || hasCpComplaint),
+        cp ? `like: ${cp.what_residents_like?.points?.length || 0}, complaints: ${cp.common_complaints?.points?.length || 0}` : 'missing');
+
+    // ── 7c. Deep Investment Research (city-level collection: deep_investment_research)
+    const dir = cityData?.deepInvestmentResearch;
+    const hasDirReport = !!(dir?.structured_report);
+    chk(checks, 'deepInvestResearch', 'Deep Investment Research', 'warn', hasDirReport,
+        hasDirReport ? 'report present' : 'missing');
+
+    // Custom visual analysis (lives on property_analyses_visual doc)
+    const hasCustomAnalysis = !!(visual?.report_title || visual?.home_interior);
     chk(checks, 'customAnalysis', 'Custom AI Analysis', 'warn', hasCustomAnalysis,
         hasCustomAnalysis ? 'present' : 'not run yet');
 
@@ -255,18 +311,25 @@ function runChecks(
     chk(checks, 'nearbySchools', 'Nearby Schools Data', 'warn', schoolCount > 0,
         schoolCount > 0 ? `${schoolCount} schools` : 'no schools on property');
 
-    // Per-school analysis quality (from school_analyses collection)
+    // Per-school analysis quality — validate ALL schema-required fields
     if (schoolCount > 0 && prop?.city) {
-        const staleFields = ['test_scores', 'demographics_summary', 'parent_sentiment_positive',
-            'parent_sentiment_concerns', 'extracurriculars', 'recent_news', 'overall_assessment'];
-        const isFieldEmpty = (val: string | undefined) =>
-            !val || val.toLowerCase().includes('current data not available') ||
-            val.toLowerCase().includes('not possible') ||
-            val.toLowerCase().includes('data not available');
+        const requiredSchoolFields = [
+            'name', 'type', 'level', 'grades_served', 'district_name',
+            'test_scores', 'student_teacher_ratio', 'enrollment',
+            'parent_sentiment_positive', 'parent_sentiment_concerns',
+            'extracurriculars', 'overall_assessment'
+        ];
+        const isFieldEmpty = (val: any) =>
+            val == null || val === '' || (typeof val === 'string' && (
+                val.toLowerCase().includes('current data not available') ||
+                val.toLowerCase().includes('not possible') ||
+                val.toLowerCase().includes('data not available')
+            ));
 
         let analyzedCount = 0;
         let staleCount = 0;
         const staleNames: string[] = [];
+        const missingFieldSummary: string[] = [];
 
         for (const school of prop.schools) {
             const words = school.name.trim().split(/\s+/);
@@ -278,10 +341,16 @@ function runChecks(
             const analysis = schoolAnalyses[key];
             if (analysis?.name) {
                 analyzedCount++;
-                const emptyCount = staleFields.filter(f => isFieldEmpty(analysis[f])).length;
-                if (emptyCount >= 3) {
+                const emptyFields = requiredSchoolFields.filter(f => isFieldEmpty(analysis[f]));
+                if (emptyFields.length >= 3) {
                     staleCount++;
                     staleNames.push(school.name);
+                    missingFieldSummary.push(`${school.name}: missing ${emptyFields.join(', ')}`);
+                }
+                // Check sources
+                const hasSources = Array.isArray(analysis.sources) && analysis.sources.length > 0;
+                if (!hasSources) {
+                    missingFieldSummary.push(`${school.name}: no sources`);
                 }
             }
         }
@@ -292,6 +361,10 @@ function runChecks(
             staleCount === 0
                 ? (analyzedCount > 0 ? 'all schools have valid data' : 'no data to check')
                 : `${staleCount} stale: ${staleNames.join(', ')}`);
+        if (missingFieldSummary.length > 0) {
+            chk(checks, 'schoolFieldGaps', 'School Field Gaps', 'warn', false,
+                missingFieldSummary.join('; '));
+        }
     }
 
     // ── 12. Lifestyle Insights (inside property_analyses_comprehensive) ────────
@@ -408,24 +481,78 @@ export const runCitySmokeTest = async (
         const schoolChunks: string[][] = [];
         for (let i = 0; i < schoolKeyArray.length; i += CHUNK) schoolChunks.push(schoolKeyArray.slice(i, i + CHUNK));
         await Promise.all(schoolChunks.map(async (chunk) => {
-            const snap = await getDocs(query(collection(db!, 'school_analyses'), where(documentId(), 'in', chunk)));
+            const snap = await getDocs(query(collection(db!, 'schools_intelligence'), where(documentId(), 'in', chunk)));
             snap.forEach(d => { allSchoolAnalyses[d.id] = d.data(); });
         }));
     }
 
-    const results = resolvedZpids.map(zpid =>
-        runChecks(
+    // Fetch city-level data (community_pulse, deep_investment_research)
+    // These are keyed by cityStateKey (e.g. "pleasanton-ca"), not by zpid
+    const cityDataMap: Record<string, { communityPulse?: any; deepInvestmentResearch?: any }> = {};
+    const cityKeysSet = new Set<string>();
+    // Build case variants (mirrors getCityDocWithFallback logic)
+    const variantToCanonical: Record<string, string> = {};
+    for (const zpid of resolvedZpids) {
+        const prop = allProps[zpid];
+        const key = generateCityStateKey(prop?.city, prop?.state);
+        if (key) {
+            cityKeysSet.add(key);
+            // Generate case variants: pleasanton-ca, pleasanton-CA
+            const parts = key.split('-');
+            if (parts.length === 2) {
+                const [city, state] = parts;
+                const variants = [
+                    `${city}-${state}`,                         // as-is
+                    `${city}-${state.toUpperCase()}`,            // pleasanton-CA
+                    `${city.toLowerCase()}-${state.toUpperCase()}`, // pleasanton-CA
+                    `${city.toLowerCase()}-${state.toLowerCase()}`, // pleasanton-ca
+                ];
+                for (const v of variants) {
+                    cityKeysSet.add(v);
+                    variantToCanonical[v] = key;
+                }
+            }
+            variantToCanonical[key] = key;
+        }
+    }
+    const cityKeys = Array.from(cityKeysSet);
+    if (cityKeys.length > 0) {
+        const cityChunks: string[][] = [];
+        for (let i = 0; i < cityKeys.length; i += CHUNK) cityChunks.push(cityKeys.slice(i, i + CHUNK));
+        await Promise.all(cityChunks.map(async (chunk) => {
+            const [cpSnap, dirSnap] = await Promise.all([
+                getDocs(query(collection(db!, 'community_pulse'), where(documentId(), 'in', chunk))),
+                getDocs(query(collection(db!, 'deep_investment_research'), where(documentId(), 'in', chunk))),
+            ]);
+            cpSnap.forEach(d => {
+                const canonical = variantToCanonical[d.id] || d.id;
+                if (!cityDataMap[canonical]) cityDataMap[canonical] = {};
+                cityDataMap[canonical].communityPulse = d.data();
+            });
+            dirSnap.forEach(d => {
+                const canonical = variantToCanonical[d.id] || d.id;
+                if (!cityDataMap[canonical]) cityDataMap[canonical] = {};
+                cityDataMap[canonical].deepInvestmentResearch = d.data();
+            });
+        }));
+    }
+
+    const results = resolvedZpids.map(zpid => {
+        const prop = allProps[zpid];
+        const cityKey = generateCityStateKey(prop?.city, prop?.state) || '';
+        return runChecks(
             zpid,
-            allProps[zpid] || null,
+            prop || null,
             allAssets[zpid] || null,
             allVisual[zpid] || null,
             allEnv[zpid] || null,
             allComp[zpid] || null,
             allInvest[zpid] || null,
             allSchoolAnalyses,
-            addressMap?.[zpid]
-        )
-    );
+            addressMap?.[zpid],
+            cityDataMap[cityKey] || undefined
+        );
+    });
 
     const passedCount = results.filter(r => r.passed).length;
 
