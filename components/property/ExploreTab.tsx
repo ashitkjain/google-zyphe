@@ -1873,7 +1873,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
     const [buyerSearching, setBuyerSearching] = useState(false);
-    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; match: string; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
     const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean } | null>(null);
@@ -2202,12 +2202,12 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                             type: Type.OBJECT,
                             properties: {
                                 zpid: { type: Type.STRING },
-                                match: { type: Type.STRING, enum: ['strong', 'weak'] },
+                                score: { type: Type.NUMBER },
                                 reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 misses: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 highlight: { type: Type.STRING }
                             },
-                            required: ['zpid', 'match', 'reasons', 'misses', 'highlight']
+                            required: ['zpid', 'score', 'reasons', 'misses', 'highlight']
                         }
                     }
                 },
@@ -2238,7 +2238,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                 });
 
                 console.log(`[Buyer Match] Chunk ${idx + 1}/${chunks.length}:`, summaries.map(s => ({ zpid: s.zpid, factorCount: Object.keys(s.factors).length, hasKeyMetrics: !!s.keyMetrics, hasSummary: !!s.summary })));
-                const prompt = `Classify each property as "strong" or "weak" match for the buyer.
+                const prompt = `Score each property 0-100 against the buyer story.
 
 ## BUYER STORY
 ${buyerStory}
@@ -2247,13 +2247,13 @@ ${buyerStory}
 ${JSON.stringify(summaries)}
 
 ## INSTRUCTIONS
-- match: "strong" if property satisfies most buyer needs, "weak" otherwise
+- score: 0-100 match quality
 - reasons: 2-3 short facts about what MATCHES
 - misses: buyer criteria this property does NOT satisfy. Empty array if none.
 - highlight: one sentence summary
 - Neutral tone. Return ALL ${summaries.length} properties.`;
 
-                return executeGeminiRequest<{ matches: { zpid: string; match: string; reasons: string[]; misses: string[]; highlight: string }[] }>({
+                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] }>({
                     model: FLASH_LITE_MODEL,
                     contents: prompt,
                     config: { temperature: 0.3, maxOutputTokens: 4096 },
@@ -2273,7 +2273,7 @@ ${JSON.stringify(summaries)}
             const allMatches = chunkResults
                 .flatMap(r => r.data?.matches || [])
                 .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }))
-                .sort((a, b) => (a.match === b.match ? 0 : a.match === 'strong' ? -1 : 1))
+                .sort((a, b) => b.score - a.score)
                 .slice(0, 10);
 
             timings.push({ step: `Gemini ×${chunks.length}`, ms: Math.round(performance.now() - t3), detail: `${allMatches.length} matches` });
@@ -2620,9 +2620,9 @@ ${JSON.stringify(summaries)}
                                                                 {prop.livingArea && <span className="text-[11px] text-slate-500 font-bold">{prop.livingArea.toLocaleString()} sqft</span>}
                                                             </div>
                                                         </div>
-                                                        <div className={`flex-shrink-0 px-3 py-1.5 rounded-xl flex items-center justify-center ${match.match === 'strong' ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
-                                                            <span className={`text-[10px] font-black uppercase tracking-wider ${match.match === 'strong' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                                {match.match}
+                                                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center ${match.score >= 80 ? 'bg-emerald-50 border border-emerald-200' : match.score >= 60 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-200'}`}>
+                                                            <span className={`text-lg font-black ${match.score >= 80 ? 'text-emerald-600' : match.score >= 60 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                                {match.score}
                                                             </span>
                                                         </div>
                                                     </div>
