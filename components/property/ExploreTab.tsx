@@ -2155,7 +2155,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
 
             // ── STEP 3: Parallel Gemini matching (chunked) ──
             const t3 = performance.now();
-            const CHUNK_SIZE = 2;
+            const CHUNK_SIZE = 5;
             const chunks: typeof graphs[] = [];
             for (let i = 0; i < graphs.length; i += CHUNK_SIZE) {
                 chunks.push(graphs.slice(i, i + CHUNK_SIZE));
@@ -2211,7 +2211,8 @@ ${JSON.stringify(summaries)}
                     userId: auth.currentUser?.uid || 'anon',
                     promptFilename: 'buyerStorySearch',
                     extractResultJson: true,
-                    schema
+                    schema,
+                    skipWatchdog: true
                 });
             });
 

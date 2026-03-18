@@ -211,12 +211,13 @@ export const executeGeminiRequest = async <T>(
     extractResultJson?: boolean;
     schema?: any;
     imageUrls?: string[];
+    skipWatchdog?: boolean;  // Skip logging + token counting for parallel batch calls
   }
 ): Promise<{ data: T; usage: AIUsage; sources?: { url: string; title: string }[] | null; rawResponse: any }> => {
-  const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls } = params;
+  const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls, skipWatchdog } = params;
   const ai = getAi();
 
-  const logId = await logLLMCall({
+  const logId = skipWatchdog ? null : await logLLMCall({
     user_id: userId || "unknown",
     zpid,
     address,
@@ -246,34 +247,39 @@ export const executeGeminiRequest = async <T>(
 
   while (true) {
     try {
-      // 1. WATCHDOG: Token Limit Enforcement (Hard limit: 50K total)
-      // Check input tokens first
+      // 1. WATCHDOG: Token Limit Enforcement (skip for parallel batch calls)
       const formattedContents = Array.isArray(contents)
         ? contents
         : (contents && typeof contents === 'object' && 'parts' in contents)
           ? [contents]
           : [{ parts: [{ text: String(contents) }] }];
-      const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
 
-      const tokenCountResponse = await (ai.models as any).countTokens({
-        model,
-        contents: formattedContents,
-        systemInstruction: instructionPart
-      });
+      let finalConfig: any;
+      if (skipWatchdog) {
+        // Fast path: skip token counting
+        finalConfig = { ...config };
+      } else {
+        const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
+        const tokenCountResponse = await (ai.models as any).countTokens({
+          model,
+          contents: formattedContents,
+          systemInstruction: instructionPart
+        });
 
-      const inputTokens = tokenCountResponse.totalTokens;
-      const MAX_TOTAL_TOKENS = 100000; // 100K hard limit (images consume heavy input tokens)
+        const inputTokens = tokenCountResponse.totalTokens;
+        const MAX_TOTAL_TOKENS = 100000;
 
-      if (inputTokens > MAX_TOTAL_TOKENS) {
-        throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
+        if (inputTokens > MAX_TOTAL_TOKENS) {
+          throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
+        }
+
+        // Adjust maxOutputTokens to ensure input + output <= 100K
+        const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
+        finalConfig = {
+          ...config,
+          maxOutputTokens: Math.min(config?.maxOutputTokens || 16384, remainingTokens)
+        };
       }
-
-      // 2. Adjust maxOutputTokens to ensure input + output <= 100K
-      const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
-      const finalConfig = {
-        ...config,
-        maxOutputTokens: Math.min(config?.maxOutputTokens || 16384, remainingTokens)
-      };
 
       const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
       const isGemini3 = model.startsWith('gemini-3');
