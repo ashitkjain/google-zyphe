@@ -1856,7 +1856,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; keywords: string[]; numericFilters?: { field: string; op: string; value: number }[] } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
@@ -2007,18 +2007,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const t0 = performance.now();
             const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const extractionPrompt = `Extract from: "${buyerStory}"
-Prices→absolute dollars($1M=1000000,$900K=900000). beds/baths→integer minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"". keywords→3-5 concepts. search_tags→5-15 lowercase matching phrases.
-numeric_filters ONLY if explicitly mentioned: single story→stories eq 1, walkable→walkScore gte 70, quiet→noiseScore gte 75, top schools→schoolMaxRating gte 8, new construction→yearBuilt gte 2015, large lot→lotSqft gte 7000, low fire risk→fireRisk lte 3, big garage→garageSpaces gte 2. Do NOT invent filters.`;
+Prices→dollars($1M=1000000). beds/baths→minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"".
+must_haves→requirements with "need","must","require","no stairs". nice_to_haves→preferences with "prefer","would be great","if possible".
+single_story→true only if buyer says "single story","no stairs","one level". search_tags→5-10 lowercase phrases.`;
 
-            const numericFilterSchema = {
-                type: Type.OBJECT,
-                properties: {
-                    field: { type: Type.STRING },
-                    op: { type: Type.STRING },
-                    value: { type: Type.NUMBER }
-                },
-                required: ['field', 'op', 'value']
-            };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean; search_tags: string[] };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2027,15 +2020,15 @@ numeric_filters ONLY if explicitly mentioned: single story→stories eq 1, walka
                     beds: { type: Type.NUMBER },
                     baths: { type: Type.NUMBER },
                     home_type: { type: Type.STRING },
-                    keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    numeric_filters: { type: Type.ARRAY, items: numericFilterSchema }
+                    must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    single_story: { type: Type.BOOLEAN },
+                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords', 'search_tags', 'numeric_filters']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story', 'search_tags']
             };
 
-            type NumericFilter = { field: string; op: string; value: number };
-            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] }>({
+            const extractResult = await executeGeminiRequest<ExtResult>({
                 model: FLASH_LITE_MODEL,
                 contents: extractionPrompt,
                 config: { temperature: 0.1, maxOutputTokens: 512 },
@@ -2070,15 +2063,15 @@ numeric_filters ONLY if explicitly mentioned: single story→stories eq 1, walka
             // else: both bounds specified — use as-is
 
             const searchTags = (ext.search_tags || []).map(t => t.toLowerCase().trim());
-            const numericFilters = ext.numeric_filters || [];
 
             const extracted = {
                 priceMin, priceMax,
                 beds: ext.beds > 0 ? ext.beds : undefined,
                 baths: ext.baths > 0 ? ext.baths : undefined,
                 homeType: ext.home_type || undefined,
-                keywords: ext.keywords || [],
-                numericFilters: ext.numeric_filters || []
+                mustHaves: ext.must_haves || [],
+                niceToHaves: ext.nice_to_haves || [],
+                singleStory: ext.single_story || false
             };
             setBuyerExtracted(extracted);
 
@@ -2114,24 +2107,24 @@ numeric_filters ONLY if explicitly mentioned: single story→stories eq 1, walka
             const MAX = 20;
             let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
                 let score = 0;
-                // Text matches in summary + factors descriptions
-                if (searchTags.length > 0) {
-                    const searchText = [
-                        graph.summary || '',
-                        ...(graph.factors || []).map((f: any) => `${f.label || ''} ${f.details || ''}`)
-                    ].join(' ').toLowerCase();
-                    score += searchTags.filter(tag => searchText.includes(tag)).length;
+                const searchText = [
+                    graph.summary || '',
+                    ...(graph.factors || []).map((f: any) => `${f.label || ''} ${f.details || ''}`)
+                ].join(' ').toLowerCase();
+
+                // Must-have tag matches (weight: 3 points each)
+                for (const tag of searchTags) {
+                    if (searchText.includes(tag)) score += 3;
                 }
-                // Numeric filter matches against keyMetrics (stored on graph)
-                const km = graph.keyMetrics || {};
-                for (const nf of numericFilters) {
-                    const val = km[nf.field] ?? graph[nf.field];
-                    if (val != null) {
-                        if (nf.op === 'gte' && val >= nf.value) score += 2;
-                        else if (nf.op === 'lte' && val <= nf.value) score += 2;
-                        else if (nf.op === 'eq' && val === nf.value) score += 2;
-                    }
+
+                // Single story filter — hard penalty if required but not matched
+                if (extracted.singleStory) {
+                    const km = graph.keyMetrics || {};
+                    const stories = km.stories ?? graph.stories;
+                    if (stories != null && stories > 1) score -= 10;
+                    else if (searchText.includes('single story') || searchText.includes('one story') || searchText.includes('single level')) score += 5;
                 }
+
                 return { zpid, graph, score };
             });
 
@@ -2477,13 +2470,14 @@ ${JSON.stringify(summaries)}
                                     {buyerExtracted.homeType && (
                                         <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{buyerExtracted.homeType.replace(/_/g, ' ')}</span>
                                     )}
-                                    {buyerExtracted.keywords.map((kw, i) => (
-                                        <span key={i} className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">{kw}</span>
+                                    {buyerExtracted.singleStory && (
+                                        <span className="font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">⚡ single story</span>
+                                    )}
+                                    {buyerExtracted.mustHaves.map((mh, i) => (
+                                        <span key={`mh-${i}`} className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">{mh}</span>
                                     ))}
-                                    {buyerExtracted.numericFilters && buyerExtracted.numericFilters.length > 0 && buyerExtracted.numericFilters.map((nf, i) => (
-                                        <span key={`nf-${i}`} className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                                            {nf.field} {nf.op === 'gte' ? '≥' : nf.op === 'lte' ? '≤' : '='} {nf.value}
-                                        </span>
+                                    {buyerExtracted.niceToHaves.map((nth, i) => (
+                                        <span key={`nth-${i}`} className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">{nth}</span>
                                     ))}
                                 </div>
                             )}
