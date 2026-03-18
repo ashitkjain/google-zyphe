@@ -2184,10 +2184,18 @@ single_story→true only if buyer says "single story","no stairs","one level". s
 
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
-                const summaries = chunk.map(g => ({
-                    zpid: g.zpid, address: g.address,
-                    summary: g.graph.summary, keyMetrics: g.graph.keyMetrics
-                }));
+                const summaries = chunk.map(g => {
+                    // Compact factor tags — flatten all factor tag arrays into a single list
+                    const factorTags = (g.graph.factors || [])
+                        .flatMap((f: any) => f.tags || [])
+                        .filter((t: string) => t && t.length > 1);
+                    return {
+                        zpid: g.zpid, address: g.address,
+                        summary: g.graph.summary,
+                        keyMetrics: g.graph.keyMetrics,
+                        tags: factorTags
+                    };
+                });
 
                 const prompt = `Score each property against the buyer story.
 
@@ -2495,15 +2503,14 @@ ${JSON.stringify(summaries)}
                             {buyerTimings.map((t, i) => (
                                 <span
                                     key={i}
-                                    className={`font-bold px-2 py-0.5 rounded-md border ${
-                                        t.step === 'TOTAL'
+                                    className={`font-bold px-2 py-0.5 rounded-md border ${t.step === 'TOTAL'
                                             ? t.ms < 5000
                                                 ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black'
                                                 : t.ms < 8000
                                                     ? 'bg-amber-100 text-amber-800 border-amber-300 font-black'
                                                     : 'bg-rose-100 text-rose-800 border-rose-300 font-black'
                                             : 'bg-white text-slate-700 border-slate-200'
-                                    }`}
+                                        }`}
                                     title={t.detail || ''}
                                 >
                                     {t.step}: {t.ms < 1000 ? `${t.ms}ms` : `${(t.ms / 1000).toFixed(1)}s`}
