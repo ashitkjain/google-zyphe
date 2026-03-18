@@ -35,69 +35,31 @@ function calcMonthlyMortgage(price: number, annualRate = 0.07, years = 30): numb
 
 function factor1_priceBracket(p: PropertyData): ExtractedFactor {
     const price = p.price ?? p.zestimate;
-    let value = 'Data not available';
-    let tags: string[] = [];
-
-    if (price != null) {
-        
-        if (price < 800_000) {
-            value = `Entry — ${fmt(price, '$')}`;
-            tags = ['Entry', 'Under $800K'];
-        } else if (price <= 1_500_000) {
-            value = `Mid — ${fmt(price, '$')}`;
-            tags = ['Mid-Range', '$800K–$1.5M'];
-        } else {
-            value = `Luxury — ${fmt(price, '$')}`;
-            tags = ['Luxury', '$1.5M+'];
-        }
-    }
-    return { id: 1, name: 'Price Bracket', value,  tags };
+    if (price == null) return { id: 1, name: 'Price Bracket', tags: [] };
+    const label = fmt(price, '$')!;
+    if (price < 800_000) return { id: 1, name: 'Price Bracket', tags: ['Entry', label] };
+    if (price <= 1_500_000) return { id: 1, name: 'Price Bracket', tags: ['Mid-Range', label] };
+    return { id: 1, name: 'Price Bracket', tags: ['Luxury', label] };
 }
 
 function factor2_hoaFriction(p: PropertyData): ExtractedFactor {
     const raw = p.resoFacts?.feesAndDues ?? (p as any).hoaFees;
-    let value = 'None/Low';
-    let tags = ['No HOA'];
-
-    if (raw != null) {
-        const num = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.]/g, ''));
-        if (!isNaN(num) && num > 0) {
-            value = `$${num.toLocaleString()}/month`;
-            
-            tags = num > 500 ? ['High HOA', `$${num}/mo`] : ['Low HOA', `$${num}/mo`];
-        } else {
-            
-        }
-    }
-    return { id: 2, name: 'HOA Friction', value,  tags };
+    if (raw == null) return { id: 2, name: 'HOA Friction', tags: ['No HOA'] };
+    const num = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+    if (isNaN(num) || num <= 0) return { id: 2, name: 'HOA Friction', tags: ['No HOA'] };
+    return { id: 2, name: 'HOA Friction', tags: [num > 500 ? 'High HOA' : 'Low HOA', `$${num}/mo`] };
 }
 
 function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {
     const price = p.price ?? p.zestimate;
-    if (price == null) {
-        return { id: 4, name: 'True Carrying Cost', value: 'Data not available', tags: [] };
-    }
-
+    if (price == null) return { id: 4, name: 'True Carrying Cost', tags: [] };
     const mortgage = calcMonthlyMortgage(price);
     const taxes = p.propertyTaxRate ? (price * p.propertyTaxRate) / 100 / 12 : price * 0.012 / 12;
     const insurance = p.annualHomeownersInsurance ? p.annualHomeownersInsurance / 12 : price * 0.005 / 12;
     const hoaRaw = p.resoFacts?.feesAndDues ?? (p as any).hoaFees;
     const hoa = hoaRaw ? parseFloat(String(hoaRaw).replace(/[^0-9.]/g, '')) || 0 : 0;
-
     const total = Math.round(mortgage + taxes + insurance + hoa);
-    const breakdownParts = [
-        `Mortgage: $${Math.round(mortgage).toLocaleString()}`,
-        `Taxes: $${Math.round(taxes).toLocaleString()}`,
-        `Insurance: $${Math.round(insurance).toLocaleString()}`,
-        ...(hoa > 0 ? [`HOA: $${Math.round(hoa).toLocaleString()}`] : [])
-    ];
-    return {
-        id: 4,
-        name: 'True Carrying Cost',
-        value: `~$${total.toLocaleString()}/month est.`,
-        
-        tags: [`$${Math.round(total / 1000)}K/mo`, 'Estimated']
-    };
+    return { id: 4, name: 'True Carrying Cost', tags: [`~$${Math.round(total / 1000)}K/mo`, 'Estimated'] };
 }
 
 function factor5_sellerMotivation(p: PropertyData): ExtractedFactor {
@@ -106,28 +68,13 @@ function factor5_sellerMotivation(p: PropertyData): ExtractedFactor {
     const desc = (p.description ?? '').toLowerCase();
     const isHot = desc.includes('hot home') || desc.includes('multiple offers') || desc.includes('offer deadline');
     const backOnMarket = (p.priceHistory ?? []).some(h => h.event?.toLowerCase().includes('back on market'));
-
     const tags: string[] = [];
-    const reasons: string[] = [];
-
-    if (isHot) { tags.push('Hot Home', 'Act Fast'); reasons.push('Hot Home'); }
-    if (backOnMarket) { tags.push('Back on Market'); reasons.push('Back on Market'); }
-    if (cuts > 0) { tags.push('Motivated Seller', 'Negotiable'); reasons.push(`${cuts} price cut${cuts > 1 ? 's' : ''}`); }
-    if (dom != null && dom > 90) { reasons.push(`${dom} DOM`); }
-
-    if (reasons.length > 0) {
-        const level = isHot ? 'Urgent' : cuts > 0 || (dom != null && dom > 90) ? 'High' : 'Moderate';
-        return {
-            id: 5, name: 'Seller Motivation',
-            value: `${level} — ${reasons.join(', ')}`,
-            tags
-        };
-    }
-    return {
-        id: 5, name: 'Seller Motivation',
-        value: dom != null ? `Standard — ${dom} DOM` : 'Standard',
-        tags: ['Standard']
-    };
+    if (isHot) tags.push('Hot Home', 'Act Fast');
+    if (backOnMarket) tags.push('Back on Market');
+    if (cuts > 0) tags.push('Motivated Seller', `${cuts} Price Cut${cuts > 1 ? 's' : ''}`);
+    if (dom != null && dom > 90) tags.push(`${dom} DOM`);
+    if (tags.length === 0) tags.push('Standard', ...(dom != null ? [`${dom} DOM`] : []));
+    return { id: 5, name: 'Seller Motivation', tags };
 }
 
 function factor8_ltrYield(p: PropertyData): ExtractedFactor {
@@ -135,118 +82,72 @@ function factor8_ltrYield(p: PropertyData): ExtractedFactor {
     const rent = p.rentZestimate;
     if (price && rent) {
         const yield_ = ((rent * 12) / price * 100).toFixed(1);
-        return {
-            id: 8, name: 'Long-Term Rental Yield',
-            value: `${yield_}% gross yield ($${rent.toLocaleString()}/mo rent)`,
-            tags: [`${yield_}% Yield`, rent > 4000 ? 'Strong Rent' : 'Moderate Rent']
-        };
+        return { id: 8, name: 'Long-Term Rental Yield', tags: [`${yield_}% Yield`, `$${rent.toLocaleString()}/mo`, rent > 4000 ? 'Strong Rent' : 'Moderate Rent'] };
     }
-    if (price) {
-        return {
-            id: 8, name: 'Long-Term Rental Yield',
-            value: '~5% est. (no rent data)',
-            tags: ['Estimated Yield']
-        };
-    }
-    return { id: 8, name: 'Long-Term Rental Yield', value: 'Data not available', tags: [] };
+    return { id: 8, name: 'Long-Term Rental Yield', tags: price ? ['Estimated Yield'] : [] };
 }
 
 
 function factor14_sqft(p: PropertyData): ExtractedFactor {
     const sqft = p.livingAreaValue;
-    if (sqft == null) return { id: 14, name: 'Usable Square Footage', value: 'Data not available', tags: [] };
+    if (sqft == null) return { id: 14, name: 'Usable Square Footage', tags: [] };
     const tier = sqft < 1500 ? 'Compact' : sqft < 2500 ? 'Mid-Size' : sqft < 4000 ? 'Spacious' : 'Estate';
-
+    const tags = [tier, `${sqft.toLocaleString()} sqft`];
     const taxSqft = (p as any).taxSqft;
-    let discrepancy = '';
-    if (taxSqft && taxSqft > 0) {
-        const pctDiff = ((sqft - taxSqft) / taxSqft) * 100;
-        if (Math.abs(pctDiff) > 10) {
-            discrepancy = ` ⚠️ ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(0)}% vs tax record (${taxSqft.toLocaleString()} sf)`;
-        }
-    }
-    return {
-        id: 14, name: 'Usable Square Footage',
-        value: `${sqft.toLocaleString()} sq ft${discrepancy}`,
-        tags: [tier, ...(discrepancy ? ['Sqft Discrepancy'] : [])]
-    };
+    if (taxSqft && taxSqft > 0 && Math.abs((sqft - taxSqft) / taxSqft) > 0.1) tags.push('Sqft Discrepancy');
+    return { id: 14, name: 'Usable Square Footage', tags };
 }
 
 
 function factor20_constructionEra(p: PropertyData): ExtractedFactor {
     const year = p.yearBuilt;
-    if (year == null) return { id: 20, name: 'Construction Era', value: 'Data not available', tags: [] };
+    if (year == null) return { id: 20, name: 'Construction Era', tags: [] };
     let era: string;
     if (year < 1945) era = 'Pre-War';
     else if (year <= 1975) era = 'Mid-Century';
     else if (year <= 1999) era = '80s–90s';
     else if (year <= 2015) era = '2000s';
     else era = 'New Build';
-    return { id: 20, name: 'Construction Era', value: `${era} (built ${year})`, tags: [era] };
+    return { id: 20, name: 'Construction Era', tags: [era, `Built ${year}`] };
 }
 
 function factor28_flooring(p: PropertyData): ExtractedFactor {
     const f = p.resoFacts?.flooring;
-    if (!f) return { id: 28, name: 'Flooring Material', value: 'Data not available', tags: [] };
-    return { id: 28, name: 'Flooring Material', value: f, tags: f.split(',').map(s => s.trim()).slice(0, 3) };
+    if (!f) return { id: 28, name: 'Flooring Material', tags: [] };
+    return { id: 28, name: 'Flooring Material', tags: f.split(',').map(s => s.trim()).slice(0, 3) };
 }
 
 
 
 function factor43_walkability(p: PropertyData): ExtractedFactor {
     const score = p.walkScore;
-    if (score == null) return { id: 43, name: 'Walkability', value: 'Data not available', tags: [] };
+    if (score == null) return { id: 43, name: 'Walkability', tags: [] };
     const desc = score >= 90 ? "Walker's Paradise" : score >= 70 ? 'Very Walkable' : score >= 50 ? 'Somewhat Walkable' : 'Car-Dependent';
-    return {
-        id: 43, name: 'Walkability',
-        value: `Walk Score ${score} — ${desc}`,
-        tags: [desc, `WS ${score}`]
-    };
+    return { id: 43, name: 'Walkability', tags: [desc, `WS ${score}`] };
 }
-
-
 
 function factor52_airQuality(p: PropertyData): ExtractedFactor {
     const aq = p.airQuality;
-    if (!aq) return { id: 52, name: 'Asthma / Respiratory Safety', value: 'Data not available', tags: [] };
-    return {
-        id: 52, name: 'Asthma / Respiratory Safety',
-        value: `AQI ${aq.aqi} — ${aq.category}`,
-        tags: [aq.category, `AQI ${aq.aqi}`]
-    };
+    if (!aq) return { id: 52, name: 'Asthma / Respiratory Safety', tags: [] };
+    return { id: 52, name: 'Asthma / Respiratory Safety', tags: [aq.category, `AQI ${aq.aqi}`] };
 }
 
 
 function factor59_laundry(p: PropertyData): ExtractedFactor {
     const lf = p.resoFacts?.laundryFeatures;
-    if (!lf) return { id: 59, name: 'Laundry Logistics', value: 'Data not available', tags: [] };
+    if (!lf) return { id: 59, name: 'Laundry Logistics', tags: [] };
     const lower = lf.toLowerCase();
     const indoor = lower.includes('inside') || lower.includes('indoor') || lower.includes('laundry room');
-    return {
-        id: 59, name: 'Laundry Logistics',
-        value: lf,
-        tags: [indoor ? 'Indoor Laundry' : 'Garage/Exterior Laundry']
-    };
+    return { id: 59, name: 'Laundry Logistics', tags: [indoor ? 'Indoor Laundry' : 'Garage/Exterior Laundry'] };
 }
-
-
 
 function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedFactor {
     const str = (visual as any)?.property_investment?.str_performance;
-    if (!str) return { id: 7, name: 'STR Viability', value: 'Data not available', tags: [] };
-
-    const occ = str.occupancy_rate ?? '';
-    const adr = str.adr ?? '';
-    const occMatch = String(occ).match(/(\d+)%/);
-    const adrMatch = String(adr).match(/\$(\d+)/);
-    if (occMatch && adrMatch) {
-        return {
-            id: 7, name: 'STR Viability',
-            value: `${occMatch[1]}% occ @ $${adrMatch[1]}/night`,
-            tags: [`${occMatch[1]}% Occupancy`, `$${adrMatch[1]}/night`, 'STR']
-        };
-    }
-    return { id: 7, name: 'STR Viability', value: 'STR data available — see investment tab', tags: ['STR'] };
+    if (!str) return { id: 7, name: 'STR Viability', tags: [] };
+    const occMatch = String(str.occupancy_rate ?? '').match(/(\d+)%/);
+    const adrMatch = String(str.adr ?? '').match(/\$(\d+)/);
+    if (occMatch && adrMatch) return { id: 7, name: 'STR Viability', tags: [`${occMatch[1]}% Occupancy`, `$${adrMatch[1]}/night`, 'STR'] };
+    return { id: 7, name: 'STR Viability', tags: ['STR'] };
 }
 
 // ── Outdoor Factors from Street View & Visual AI ────────────────────
@@ -257,7 +158,7 @@ function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult |
 
     // Prefer street view rating, fallback to visual analysis
     const rating = sv?.privacyRating || visualPrivacy;
-    if (!rating) return { id: 33, name: 'Privacy Level', value: 'Data not available', tags: [] };
+    if (!rating) return { id: 33, name: 'Privacy Level', tags: [] };
 
     // Truncate to a concise value (max 10 words)
     const valueTrunc = rating.split(/[.!]/).filter(Boolean)[0]?.trim() || rating;
@@ -277,29 +178,27 @@ function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult |
 
 function factor46_wildfireRisk(p: PropertyData): ExtractedFactor {
     const score = p.fireRiskScore;
-    if (score == null) return { id: 46, name: 'Wildfire Risk', value: 'Data not available', tags: [] };
+    if (score == null) return { id: 46, name: 'Wildfire Risk', tags: [] };
     const tier = score <= 3 ? 'Low' : score <= 6 ? 'Moderate' : 'High';
     return {
         id: 46, name: 'Wildfire Risk',
-        value: `${tier} — ${score}/10`,
         tags: [tier, `${score}/10`, ...(score >= 7 ? ['High Fire Risk'] : [])]
     };
 }
 
 function factor47_floodRisk(p: PropertyData): ExtractedFactor {
     const score = p.floodRiskScore;
-    if (score == null) return { id: 47, name: 'Flood Risk', value: 'Data not available', tags: [] };
+    if (score == null) return { id: 47, name: 'Flood Risk', tags: [] };
     const tier = score <= 3 ? 'Low' : score <= 6 ? 'Moderate' : 'High';
     return {
         id: 47, name: 'Flood Risk',
-        value: `${tier} — ${score}/10`,
         tags: [tier, `${score}/10`, ...(score >= 7 ? ['Flood Insurance'] : [])]
     };
 }
 
 function factor48_solarYield(p: PropertyData): ExtractedFactor {
     const solar = p.solarData;
-    if (!solar?.estimatedSolarProduction) return { id: 48, name: 'Solar Yield Potential', value: 'Data not available', tags: [] };
+    if (!solar?.estimatedSolarProduction) return { id: 48, name: 'Solar Yield Potential', tags: [] };
 
     const kwh = solar.estimatedSolarProduction.annualKwh;
     const panels = solar.estimatedSolarProduction.estimatedPanels;
@@ -310,14 +209,13 @@ function factor48_solarYield(p: PropertyData): ExtractedFactor {
 
     return {
         id: 48, name: 'Solar Yield Potential',
-        value: `${tier} — ${kwh.toLocaleString()} kWh/year`,
         tags: [tier, `${Math.round(kwh / 1000)}K kWh`, ...(kwh > 15000 ? ['High Solar'] : [])]
     };
 }
 
 function factor49_pollenSafety(p: PropertyData): ExtractedFactor {
     const pollen = p.pollen;
-    if (!pollen) return { id: 49, name: 'Allergen / Pollen Safety', value: 'Data not available', tags: [] };
+    if (!pollen) return { id: 49, name: 'Allergen / Pollen Safety', tags: [] };
 
     const score = pollen.score;
     const tier = score <= 2 ? 'Low Risk' : score <= 3 ? 'Moderate' : 'High Risk';
@@ -340,7 +238,6 @@ function factor49_pollenSafety(p: PropertyData): ExtractedFactor {
 
     return {
         id: 49, name: 'Allergen / Pollen Safety',
-        value: `${tier} — ${pollen.category} (${dominant})`,
         tags: [...new Set(tags)].slice(0, 8)
     };
 }
@@ -348,7 +245,7 @@ function factor49_pollenSafety(p: PropertyData): ExtractedFactor {
 function factor50_hvacQuality(p: PropertyData): ExtractedFactor {
     const heating = p.resoFacts?.heating;
     const cooling = p.resoFacts?.cooling;
-    if (!heating && !cooling) return { id: 50, name: 'HVAC Quality / Air Filtration', value: 'Data not available', tags: [] };
+    if (!heating && !cooling) return { id: 50, name: 'HVAC Quality / Air Filtration', tags: [] };
 
     const parts: string[] = [];
     const tags: string[] = [];
@@ -365,7 +262,6 @@ function factor50_hvacQuality(p: PropertyData): ExtractedFactor {
 
     return {
         id: 50, name: 'HVAC Quality / Air Filtration',
-        value: parts.join(', '),
         tags
     };
 }
@@ -374,7 +270,7 @@ function factor50_hvacQuality(p: PropertyData): ExtractedFactor {
 
 function factor76_internetConnectivity(p: PropertyData): ExtractedFactor {
     const bb = (p as any).broadband;
-    if (!bb) return { id: 76, name: 'Internet & Connectivity', value: 'Data not available', tags: [] };
+    if (!bb) return { id: 76, name: 'Internet & Connectivity', tags: [] };
 
     const parts: string[] = [];
     if (bb.hasFiber) parts.push('Fiber');
@@ -389,13 +285,12 @@ function factor76_internetConnectivity(p: PropertyData): ExtractedFactor {
 
     return {
         id: 76, name: 'Internet & Connectivity',
-        value: `${tier} — ${parts.join(', ')}`,
         tags: [tier, ...(bb.hasFiber ? ['Fiber'] : []), ...(bb.has5G ? ['5G'] : [])]
     };
 }
 
 function factor77_noiseProfile(p: PropertyData): ExtractedFactor {
-    if (p.noiseScore == null) return { id: 77, name: 'Noise Profile (Measured)', value: 'Data not available', tags: [] };
+    if (p.noiseScore == null) return { id: 77, name: 'Noise Profile (Measured)', tags: [] };
 
     const score = p.noiseScore;
     const label = score >= 90 ? 'Very Quiet' : score >= 80 ? 'Calm' : score >= 70 ? 'Moderate' : score >= 60 ? 'Active' : 'Loud';
@@ -413,17 +308,16 @@ function factor77_noiseProfile(p: PropertyData): ExtractedFactor {
 
     return {
         id: 77, name: 'Noise Profile (Measured)',
-        value: `${label} — Score ${score}/100${details.length ? ` (${details.join(', ')})` : ''}`,
         tags: [label, `Score ${score}`]
     };
 }
 
 function factor78_droughtRisk(p: PropertyData): ExtractedFactor {
     const d = (p as any).drought;
-    if (!d) return { id: 78, name: 'Water & Drought Risk', value: 'Data not available', tags: [] };
+    if (!d) return { id: 78, name: 'Water & Drought Risk', tags: [] };
 
     if (d.severityLevel < 0 || d.none >= 100) {
-        return { id: 78, name: 'Water & Drought Risk', value: `None — ${d.countyName} fully hydrated`, tags: ['No Drought'] };
+        return { id: 78, name: 'Water & Drought Risk', tags: ['No Drought'] };
     }
 
     const pctAffected = Math.round(100 - d.none);
@@ -437,7 +331,6 @@ function factor78_droughtRisk(p: PropertyData): ExtractedFactor {
 
     return {
         id: 78, name: 'Water & Drought Risk',
-        value: `${d.severity} — ${pctAffected}% of ${d.countyName} affected`,
         tags: [d.severity, `${pctAffected}% Affected`]
     };
 }
@@ -448,11 +341,11 @@ function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
     const events = Array.isArray(hd?.events) ? hd.events : [];
 
     if (!hd) {
-        return { id: 79, name: 'Disaster History (FEMA)', value: 'Data not available', tags: [] };
+        return { id: 79, name: 'Disaster History (FEMA)', tags: [] };
     }
 
     if (events.length === 0 && femaDeclarations.length === 0) {
-        return { id: 79, name: 'Disaster History (FEMA)', value: 'Clean Record — No incidents', tags: ['Clean Record', 'No FEMA Declarations'] };
+        return { id: 79, name: 'Disaster History (FEMA)', tags: ['Clean Record', 'No FEMA Declarations'] };
     }
 
     const tags: string[] = [];
@@ -493,14 +386,13 @@ function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
 
     return {
         id: 79, name: 'Disaster History (FEMA)',
-        value: val,
         tags: [...new Set(tags)].slice(0, 8)
     };
 }
 
 function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
     const places = (p as any).neighborhoodPlaces;
-    if (!places?.walkable) return { id: 84, name: 'Walkable Amenity Score', value: 'Data not available', tags: [] };
+    if (!places?.walkable) return { id: 84, name: 'Walkable Amenity Score', tags: [] };
 
     const w = places.walkable;
     const diningCount = w.dining?.length || 0;
@@ -510,7 +402,7 @@ function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
     const total = diningCount + parksCount + shoppingCount + fitnessCount + (w.schools?.length || 0) + (w.community?.length || 0);
 
     if (total === 0) {
-        return { id: 84, name: 'Walkable Amenity Score', value: 'Low — no walkable POIs found', tags: ['Car-Dependent'] };
+        return { id: 84, name: 'Walkable Amenity Score', tags: ['Car-Dependent'] };
     }
 
     const tier = total >= 10 ? 'High' : total >= 5 ? 'Moderate' : 'Low';
@@ -528,7 +420,6 @@ function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
 
     return {
         id: 84, name: 'Walkable Amenity Score',
-        value: `${tier} — ${total} walkable POIs (${parts.join(', ')})`,
         tags: [tier, `${total} Walkable`]
     };
 }
@@ -536,7 +427,7 @@ function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
 function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
     const places = (p as any).neighborhoodPlaces;
     const medical = places?.drivable?.medical || places?.medical || [];
-    if (!medical.length) return { id: 85, name: 'Medical Proximity', value: 'Data not available', tags: [] };
+    if (!medical.length) return { id: 85, name: 'Medical Proximity', tags: [] };
 
     const closest = medical.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
     const closestKm = closest.distanceMeters ? (closest.distanceMeters / 1000).toFixed(1) : '?';
@@ -549,7 +440,6 @@ function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
 
     return {
         id: 85, name: 'Medical Proximity',
-        value: `${medical.length} hospital${medical.length > 1 ? 's' : ''} within 5km, closest ${closestKm}km`,
         tags: [`${medical.length} Hospitals`, `${closestKm}km`]
     };
 }
@@ -586,7 +476,7 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
             ? `${evStations.length} charging station${evStations.length > 1 ? 's' : ''} nearby`
             : 'No EV infrastructure found';
 
-    return { id: 86, name: 'EV Infrastructure', value: val, tags };
+    return { id: 86, name: 'EV Infrastructure', tags };
 }
 
 function factor39_usableYard(p: PropertyData): ExtractedFactor {
@@ -605,7 +495,6 @@ function factor39_usableYard(p: PropertyData): ExtractedFactor {
         else { pct = 20; tags.push('Very Steep'); tags.push('Limited Usability'); }
         return {
             id: 39, name: 'Usable Yard Space',
-            value: `${pct}% usable${cat ? ` — ${cat}` : ''}`,
             tags
         };
     }
@@ -631,19 +520,18 @@ function factor39_usableYard(p: PropertyData): ExtractedFactor {
         const source = arcgisLot ? 'ArcGIS' : 'listing';
         return {
             id: 39, name: 'Usable Yard Space',
-            value: `~${usableYard.toLocaleString()} sqft (${yardPct}% of ${lotSqft.toLocaleString()} ${source} lot)`,
             tags
         };
     }
 
-    return { id: 39, name: 'Usable Yard Space', value: 'Data not available', tags: [] };
+    return { id: 39, name: 'Usable Yard Space', tags: [] };
 }
 
 function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
     const ni = (p as any).neighborhood_identity;
     const gem = ni?.gemini;
     if (!ni?.resolved_name) {
-        return { id: 83, name: 'Micro-Neighborhood Identity', value: 'Data not available', tags: [] };
+        return { id: 83, name: 'Micro-Neighborhood Identity', tags: [] };
     }
     const parts: string[] = [ni.resolved_name];
     if (gem?.price_context?.tier) parts.push(gem.price_context.tier);
@@ -655,7 +543,7 @@ function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
     if (gem?.price_context?.typical_range) tags.push(gem.price_context.typical_range);
     if (gem?.character?.era_built) tags.push(`Built ${gem.character.era_built}`);
     if (gem?.character?.architectural_style) tags.push(gem.character.architectural_style);
-    return { id: 83, name: 'Micro-Neighborhood Identity', value: parts.join(' — '), tags };
+    return { id: 83, name: 'Micro-Neighborhood Identity', tags };
 }
 
 
@@ -663,7 +551,7 @@ function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
 function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
     const hd = p.historical_disasters;
     const sz = hd?.seismicZone;
-    if (!sz) return { id: 106, name: 'Seismic Risk', value: 'Data not available', tags: [] };
+    if (!sz) return { id: 106, name: 'Seismic Risk', tags: [] };
     const tags: string[] = [];
     tags.push(`Zone ${sz.designCategory}`);
     if (sz.riskLevel) tags.push(`${sz.riskLevel.charAt(0).toUpperCase() + sz.riskLevel.slice(1).replace('_', ' ')} Risk`);
@@ -700,24 +588,24 @@ function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
     }
 
     const val = `Zone ${sz.designCategory} — ${sz.riskLevel?.replace('_', ' ')} risk (PGA ${sz.pga?.toFixed(2)}g)${total > 0 ? ` • ${total} quakes` : ''}`;
-    return { id: 106, name: 'Seismic Risk', value: val, tags };
+    return { id: 106, name: 'Seismic Risk', tags };
 }
 
 function factor107_floodZone(p: PropertyData): ExtractedFactor {
     const fz = p.historical_disasters?.floodZone;
-    if (!fz) return { id: 107, name: 'Flood Zone Status', value: 'Data not available', tags: [] };
+    if (!fz) return { id: 107, name: 'Flood Zone Status', tags: [] };
     const tags: string[] = [];
     tags.push(`Zone ${fz.zone}`);
     if (fz.riskLevel) tags.push(`${fz.riskLevel.charAt(0).toUpperCase() + fz.riskLevel.slice(1)} Risk`);
     if (fz.insuranceRequired) tags.push('Flood Insurance Required');
     if (fz.zoneSubtype) tags.push(fz.zoneSubtype);
     const val = `Zone ${fz.zone} — ${fz.riskLevel} risk${fz.insuranceRequired ? ' (Insurance Required)' : ''}`;
-    return { id: 107, name: 'Flood Zone Status', value: val, tags };
+    return { id: 107, name: 'Flood Zone Status', tags };
 }
 
 function factor112_femaDeclarations(p: PropertyData): ExtractedFactor {
     const declarations = p.historical_disasters?.femaDeclarations;
-    if (!declarations?.length) return { id: 112, name: 'FEMA Declarations', value: 'No FEMA declarations on record', tags: ['No Declarations'] };
+    if (!declarations?.length) return { id: 112, name: 'FEMA Declarations', tags: ['No Declarations'] };
 
     const tags: string[] = [];
     const total = declarations.length;
@@ -750,41 +638,41 @@ function factor112_femaDeclarations(p: PropertyData): ExtractedFactor {
     if (recentCount > 0) tags.push(`${recentCount} in Last 5 Years`);
 
     const val = `${total} FEMA declaration${total > 1 ? 's' : ''} on record${recent?.date ? ` • Latest: ${new Date(recent.date).getFullYear()}` : ''}`;
-    return { id: 112, name: 'FEMA Declarations', value: val, tags: [...new Set(tags)].slice(0, 10) };
+    return { id: 112, name: 'FEMA Declarations', tags: [...new Set(tags)].slice(0, 10) };
 }
 
 function factor108_sqftDiscrepancy(p: PropertyData): ExtractedFactor {
     const listed = p.livingAreaValue || (p as any).livingArea;
     const tax = (p as any).taxSqft;
-    if (!listed || !tax) return { id: 108, name: 'Sqft Discrepancy', value: 'No discrepancy data', tags: [] };
+    if (!listed || !tax) return { id: 108, name: 'Sqft Discrepancy', tags: [] };
     const listedNum = typeof listed === 'number' ? listed : parseFloat(String(listed).replace(/[^0-9.]/g, ''));
     const taxNum = typeof tax === 'number' ? tax : parseFloat(String(tax).replace(/[^0-9.]/g, ''));
-    if (!listedNum || !taxNum || isNaN(listedNum) || isNaN(taxNum)) return { id: 108, name: 'Sqft Discrepancy', value: 'No discrepancy data', tags: [] };
+    if (!listedNum || !taxNum || isNaN(listedNum) || isNaN(taxNum)) return { id: 108, name: 'Sqft Discrepancy', tags: [] };
     const diff = Math.abs(listedNum - taxNum);
     const pct = Math.round((diff / taxNum) * 100);
-    if (pct <= 5) return { id: 108, name: 'Sqft Discrepancy', value: `Match — ${pct}% diff (${listedNum.toLocaleString()} vs ${taxNum.toLocaleString()} tax)`, tags: [] };
-    return { id: 108, name: 'Sqft Discrepancy', value: `${pct}% diff (${listedNum.toLocaleString()} vs ${taxNum.toLocaleString()} tax)`, tags: pct > 15 ? ['Major Discrepancy'] : ['Minor Discrepancy'] };
+    if (pct <= 5) return { id: 108, name: 'Sqft Discrepancy', tags: ['Match', `${pct}% Diff`] };
+    return { id: 108, name: 'Sqft Discrepancy', tags: [pct > 15 ? 'Major Discrepancy' : 'Minor Discrepancy', `${pct}% Diff`] };
 }
 
 function factor109_lotSizeVerification(p: PropertyData): ExtractedFactor {
     const raw = (p as any).lotSize;
     const arcgis = (p as any).parcelAreaSqft;
-    if (!raw || !arcgis) return { id: 109, name: 'Lot Size Verification', value: 'Data not available', tags: [] };
+    if (!raw || !arcgis) return { id: 109, name: 'Lot Size Verification', tags: [] };
     // lotSize can be a string like "7,405 sqft" or a number
     const listed = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.]/g, ''));
-    if (!listed || isNaN(listed)) return { id: 109, name: 'Lot Size Verification', value: 'Data not available', tags: [] };
+    if (!listed || isNaN(listed)) return { id: 109, name: 'Lot Size Verification', tags: [] };
     const diff = Math.abs(listed - arcgis);
     const pct = Math.round((diff / arcgis) * 100);
-    if (pct <= 10) return { id: 109, name: 'Lot Size Verification', value: `Verified — ${pct}% diff (${listed.toLocaleString()} sqft vs ${arcgis.toLocaleString()} ArcGIS)`, tags: [] };
-    return { id: 109, name: 'Lot Size Verification', value: `${pct}% diff (${listed.toLocaleString()} sqft vs ${arcgis.toLocaleString()} ArcGIS)`, tags: pct > 20 ? ['Lot Size Mismatch'] : ['Minor Lot Diff'] };
+    if (pct <= 10) return { id: 109, name: 'Lot Size Verification', tags: ['Verified', `${pct}% Diff`] };
+    return { id: 109, name: 'Lot Size Verification', tags: [pct > 20 ? 'Lot Size Mismatch' : 'Minor Lot Diff', `${pct}% Diff`] };
 }
 
 function factor110_listingClaimFlags(p: PropertyData): ExtractedFactor {
     const pv = (p as any).parcelValidation;
     const flags = pv?.flags?.filter((f: any) => f.severity === 'warning' || f.severity === 'error');
-    if (!flags?.length) return { id: 110, name: 'Listing Claim Flags', value: 'No discrepancies found', tags: [] };
+    if (!flags?.length) return { id: 110, name: 'Listing Claim Flags', tags: [] };
     const tags = flags.slice(0, 3).map((f: any) => f.check || 'Flag');
-    return { id: 110, name: 'Listing Claim Flags', value: `${flags.length} flag${flags.length > 1 ? 's' : ''} found`, tags };
+    return { id: 110, name: 'Listing Claim Flags', tags: [`${flags.length} Flags`, ...tags] };
 }
 
 function factor80_professionalLifestyleFit(visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
@@ -796,15 +684,15 @@ function factor80_professionalLifestyleFit(visual: CustomAIAnalysisResult | null
         tags.push(lf.verdict);
         if (lf.strengths?.length) for (const s of lf.strengths.slice(0, 3)) tags.push(s);
         if (lf.weaknesses?.length) for (const w of lf.weaknesses.slice(0, 2)) tags.push(w);
-        return { id: 80, name: 'Professional Lifestyle Fit', value: `${lf.verdict}${lf.strengths?.[0] ? ' — ' + lf.strengths[0] : ''}`, tags };
+        return { id: 80, name: 'Professional Lifestyle Fit', tags };
     }
     // Fallback to comprehensive.lifestyle_insights.professionals
     const text = comprehensive?.lifestyle_insights?.professionals;
     if (text) {
         const val = text.length > 60 ? text.substring(0, 57) + '...' : text;
-        return { id: 80, name: 'Professional Lifestyle Fit', value: val, tags: [text] };
+        return { id: 80, name: 'Professional Lifestyle Fit', tags: [text] };
     }
-    return { id: 80, name: 'Professional Lifestyle Fit', value: 'Data not available', tags: [] };
+    return { id: 80, name: 'Professional Lifestyle Fit', tags: [] };
 }
 
 function factor81_familyLifestyleFit(visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
@@ -814,14 +702,14 @@ function factor81_familyLifestyleFit(visual: CustomAIAnalysisResult | null, comp
         tags.push(lf.verdict);
         if (lf.strengths?.length) for (const s of lf.strengths.slice(0, 3)) tags.push(s);
         if (lf.weaknesses?.length) for (const w of lf.weaknesses.slice(0, 2)) tags.push(w);
-        return { id: 81, name: 'Family Lifestyle Fit', value: `${lf.verdict}${lf.strengths?.[0] ? ' — ' + lf.strengths[0] : ''}`, tags };
+        return { id: 81, name: 'Family Lifestyle Fit', tags };
     }
     const text = comprehensive?.lifestyle_insights?.family;
     if (text) {
         const val = text.length > 60 ? text.substring(0, 57) + '...' : text;
-        return { id: 81, name: 'Family Lifestyle Fit', value: val, tags: [text] };
+        return { id: 81, name: 'Family Lifestyle Fit', tags: [text] };
     }
-    return { id: 81, name: 'Family Lifestyle Fit', value: 'Data not available', tags: [] };
+    return { id: 81, name: 'Family Lifestyle Fit', tags: [] };
 }
 
 function factor82_seniorLifestyleFit(visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
@@ -831,19 +719,19 @@ function factor82_seniorLifestyleFit(visual: CustomAIAnalysisResult | null, comp
         tags.push(lf.verdict);
         if (lf.strengths?.length) for (const s of lf.strengths.slice(0, 3)) tags.push(s);
         if (lf.weaknesses?.length) for (const w of lf.weaknesses.slice(0, 2)) tags.push(w);
-        return { id: 82, name: 'Senior Lifestyle Fit', value: `${lf.verdict}${lf.strengths?.[0] ? ' — ' + lf.strengths[0] : ''}`, tags };
+        return { id: 82, name: 'Senior Lifestyle Fit', tags };
     }
     const text = comprehensive?.lifestyle_insights?.senior;
     if (text) {
         const val = text.length > 60 ? text.substring(0, 57) + '...' : text;
-        return { id: 82, name: 'Senior Lifestyle Fit', value: val, tags: [text] };
+        return { id: 82, name: 'Senior Lifestyle Fit', tags: [text] };
     }
-    return { id: 82, name: 'Senior Lifestyle Fit', value: 'Data not available', tags: [] };
+    return { id: 82, name: 'Senior Lifestyle Fit', tags: [] };
 }
 
 function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
     const places = (p as any).neighborhoodPlaces;
-    if (!places) return { id: 87, name: 'Top Nearby Places', value: 'Data not available', tags: [] };
+    if (!places) return { id: 87, name: 'Top Nearby Places', tags: [] };
 
     const allPlaces = [
         ...(places.walkable?.dining || []),
@@ -856,7 +744,7 @@ function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
       .sort((a: any, b: any) => (a.distanceMeters || 0) - (b.distanceMeters || 0))
       .slice(0, 8);
 
-    if (!allPlaces.length) return { id: 87, name: 'Top Nearby Places', value: 'No places found', tags: [] };
+    if (!allPlaces.length) return { id: 87, name: 'Top Nearby Places', tags: [] };
 
     const tags = allPlaces.map((pl: any) => {
         const dist = pl.distanceMeters < 1000
@@ -867,7 +755,7 @@ function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
 
     const closest = allPlaces[0];
     const val = `${allPlaces.length} places — nearest: ${closest.name}`;
-    return { id: 87, name: 'Top Nearby Places', value: val, tags };
+    return { id: 87, name: 'Top Nearby Places', tags };
 }
 
 // ── Main Export ────────────────────────────────────────────────────
