@@ -2006,26 +2006,9 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             // ── STEP 0: Extract structured attributes via Gemini Flash Lite ──
             const t0 = performance.now();
             const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
-            const extractionPrompt = `Extract search criteria from this buyer story into JSON.
-
-BUYER STORY: ${buyerStory}
-
-RULES:
-- price_min/price_max: Convert to absolute dollars. "$1M-1.5M" → 1000000/1500000. "$900K" → 0/900000. "Around $1.2M" → 1200000/1200000. Default: 0.
-- beds/baths: Integer minimums. "3-4 beds" → 3. Default: 0.
-- home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "".
-- keywords: 3-5 lifestyle concepts.
-- search_tags: 5-15 lowercase phrases for text matching.
-- numeric_filters: Array of {field, op, value}. ONLY include when the buyer EXPLICITLY mentions the concept:
-  "single story/no stairs" → {"field":"stories","op":"eq","value":1}
-  "walkable/walking distance" → {"field":"walkScore","op":"gte","value":70}
-  "quiet" → {"field":"noiseScore","op":"gte","value":75}
-  "good/top schools" → {"field":"schoolMaxRating","op":"gte","value":8}
-  "new construction" → {"field":"yearBuilt","op":"gte","value":2015}
-  "large lot" → {"field":"lotSqft","op":"gte","value":7000}
-  "low fire risk" → {"field":"fireRisk","op":"lte","value":3}
-  "big garage" → {"field":"garageSpaces","op":"gte","value":2}
-  Do NOT invent filters the buyer did not ask for. Empty array if none match.`;
+            const extractionPrompt = `Extract from: "${buyerStory}"
+Prices→absolute dollars($1M=1000000,$900K=900000). beds/baths→integer minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"". keywords→3-5 concepts. search_tags→5-15 lowercase matching phrases.
+numeric_filters ONLY if explicitly mentioned: single story→stories eq 1, walkable→walkScore gte 70, quiet→noiseScore gte 75, top schools→schoolMaxRating gte 8, new construction→yearBuilt gte 2015, large lot→lotSqft gte 7000, low fire risk→fireRisk lte 3, big garage→garageSpaces gte 2. Do NOT invent filters.`;
 
             const numericFilterSchema = {
                 type: Type.OBJECT,
@@ -2055,7 +2038,7 @@ RULES:
             const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] }>({
                 model: FLASH_LITE_MODEL,
                 contents: extractionPrompt,
-                config: { temperature: 0.1, maxOutputTokens: 1024 },
+                config: { temperature: 0.1, maxOutputTokens: 512 },
                 userId: auth.currentUser?.uid || 'anon',
                 promptFilename: 'buyerStoryExtraction',
                 extractResultJson: true,
