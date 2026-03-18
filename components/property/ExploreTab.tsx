@@ -1866,13 +1866,15 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [miningStatus, setMiningStatus] = useState<string>('');
     const [cachedNeighborhoodCount, setCachedNeighborhoodCount] = useState<number | null>(null);
 
-    const handleBrowse = async () => {
-        if (!selectedCity) return;
+    const handleBrowse = async (city?: string) => {
+        const c = city || selectedCity;
+        if (!c) return;
+        setSelectedCity(c);
         setBrowsing(true);
         setHasSearched(true);
         setPage(1);
         try {
-            const data = await getPropertiesByCity(selectedCity);
+            const data = await getPropertiesByCity(c);
             setResults(data);
         } catch (e) {
             console.error('Browse by city failed:', e);
@@ -2280,31 +2282,23 @@ ${JSON.stringify(summaries)}
     return (
         <div className="text-left">
             {/* Controls row */}
-            <div className="flex items-center gap-2">
-                <select
-                    value={selectedCity}
-                    onChange={e => { setSelectedCity(e.target.value); setPage(1); }}
-                    className="px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all cursor-pointer min-w-[150px]"
-                >
-                    <option value="">City...</option>
-                    {BROWSE_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <button
-                    onClick={handleBrowse}
-                    disabled={!selectedCity || browsing}
-                    className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${!selectedCity || browsing
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                        : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
-                        }`}
-                >
-                    {browsing ? (
-                        <><i className="fa-solid fa-spinner animate-spin"></i> Loading...</>
-                    ) : (
-                        <><i className="fa-solid fa-magnifying-glass"></i> Browse</>
-                    )}
-                </button>
-
-
+            <div className="flex items-center gap-2 text-sm">
+                <span className="font-bold text-slate-500">Browse :</span>
+                {BROWSE_CITIES.map((city, i) => (
+                    <button
+                        key={city}
+                        onClick={() => handleBrowse(city)}
+                        disabled={browsing}
+                        className={`font-bold transition-all ${
+                            selectedCity === city
+                                ? 'text-indigo-700 underline underline-offset-4 decoration-2'
+                                : 'text-indigo-500 hover:text-indigo-700 hover:underline underline-offset-4'
+                        } ${browsing ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                    >
+                        {city}
+                    </button>
+                ))}
+                {browsing && <i className="fa-solid fa-spinner animate-spin text-indigo-400 text-xs ml-1"></i>}
             </div>
 
             {/* Results area */}
