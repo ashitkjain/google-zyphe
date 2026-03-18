@@ -2198,15 +2198,15 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => {
-                    // Firestore factors use minified keys: {i, t} or full: {id, tags, name}
+                    // Lean format: ["Name: tag1, tag2", ...] — flat strings, minimal tokens
                     const rawFactors = g.graph.factors || [];
-                    const factors: Record<string, string[]> = {};
+                    const factors: string[] = [];
                     for (const f of rawFactors) {
-                        const tags = f.tags || f.t || [];
-                        const id = f.id ?? f.i;
+                        const tags = (f.tags || f.t || [])
+                            .filter((t: string) => t && !t.includes('Data Not Available') && !t.includes('Estimated'));
                         if (tags.length > 0) {
-                            const key = f.name || `factor_${id}`;
-                            factors[key] = tags;
+                            const name = f.name || f.i;
+                            factors.push(`${name}: ${tags.join(', ')}`);
                         }
                     }
                     return {
