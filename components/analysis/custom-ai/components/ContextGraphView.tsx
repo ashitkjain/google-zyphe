@@ -68,7 +68,7 @@ const FactorCard: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => (
                 <h4 className="text-sm font-bold text-slate-800">{factor.name}</h4>
             </div>
         </div>
-        <p className="text-sm text-slate-600 leading-relaxed mb-1">{factor.value}</p>
+        {factor.value && <p className="text-sm text-slate-600 leading-relaxed mb-1">{factor.value}</p>}
         {factor.tags.length > 0 && (() => {
             const tagStyle = TAG_COLOR_MAP[factor.id] || DEFAULT_TAG_STYLE;
             return (

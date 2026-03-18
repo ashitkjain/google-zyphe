@@ -14,7 +14,7 @@ import { CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types/ai
 export interface ExtractedFactor {
     id: number;
     name: string;
-    value: string;
+    value?: string;
     tags: string[];
 }
 

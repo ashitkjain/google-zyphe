@@ -104,12 +104,11 @@ export const getContextGraphExtractionPrompt = (context: any, skipIds: number[] 
     return `
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
 ${skipNote}
-Given the property data below, extract values for the required decision factors. For each factor, return:
-- The factor ID
-- A concise value (maximum 10 words — use fragments, numbers, and labels, not full sentences)
-
-
-- Tags: short labels (1-3 words each) suitable for graph nodes. For factors 89-105, tags are the PRIMARY output — generate 3-8 concept tags per factor.
+Given the property data below, extract structured decision factors. For each factor, return:
+- The factor ID and name
+- Tags: 2-8 short labels (1-4 words each) that capture ALL key information — numbers, categories, descriptors, and concepts. Tags are the ONLY output per factor, so they must be comprehensive.
+  Example: Price factor → ["Luxury", "$2.1M", "Top 5%", "Premium Market"]
+  Example: Walkability → ["Score 85", "Very Walkable", "Transit Rich", "Errands on Foot"]
 
 ## FACTOR DEFINITIONS
 
@@ -278,9 +277,7 @@ Return a JSON object with this structure:
     {
       "id": 1,
       "name": "Price Bracket",
-      "value": "Luxury - $2.1M",
-
-      "tags": ["Luxury", "$2M+"]
+      "tags": ["Luxury", "$2.1M", "Top 5%", "Premium Market"]
     },
     ...all factors...
   ],
@@ -292,11 +289,11 @@ Return a JSON object with this structure:
 }
 
 CRITICAL RULES:
-- Extract ALL non-skipped factors. If data is missing, set value to "Data not available"
-- value MUST be 10 words or fewer — use fragments and labels, never full sentences (e.g. "Luxury — $2.1M" not "This property is in the luxury tier at $2.1M")
-- Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
-- For factors 89-105: tags are the PRIMARY output — generate 3-8 rich concept tags per factor from the source data
-- Be specific with values - include numbers, percentages, and descriptors
+- Extract ALL non-skipped factors. If data is missing, use tags: ["Data Not Available"]
+- Tags are the ONLY output per factor — they must capture ALL relevant information including numbers, percentages, categories, and concepts
+- Each tag should be 1-4 words, suitable for search indexing and graph nodes
+- Generate 2-8 tags per factor. For factors 89-105, generate 3-8 rich concept tags
+- Be specific — include actual numbers and descriptors ("Score 85" not just "Good")
 - The summary should synthesize the factors into actionable buyer intelligence
 `;
 };
@@ -305,18 +302,15 @@ CRITICAL RULES:
 const factorSchema = {
     type: Type.OBJECT,
     properties: {
-        id: { type: Type.NUMBER, description: "Factor ID (1-111)" },
+        id: { type: Type.NUMBER, description: "Factor ID" },
         name: { type: Type.STRING, description: "Factor name" },
-        value: { type: Type.STRING, description: "Extracted or computed value (max 10 words)" },
-
-
         tags: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: "1-8 short labels for graph nodes. For factors 89-105, generate 3-8 concept tags."
+            description: "2-8 short labels capturing all key info — numbers, categories, concepts"
         }
     },
-    required: ["id", "name", "value", "tags"]
+    required: ["id", "name", "tags"]
 };
 
 const summarySchema = {
