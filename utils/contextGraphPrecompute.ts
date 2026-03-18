@@ -152,43 +152,11 @@ function factor8_ltrYield(p: PropertyData): ExtractedFactor {
 }
 
 
-
-function factor11_propertyTypology(p: PropertyData): ExtractedFactor {
-    const type = p.homeType ?? 'Unknown';
-    const map: Record<string, string> = {
-        SINGLE_FAMILY: 'Single Family', SingleFamily: 'Single Family',
-        CONDO: 'Condo', Condo: 'Condo',
-        TOWNHOUSE: 'Townhouse', Townhouse: 'Townhouse',
-        MULTI_FAMILY: 'Multi-Family', MultiFamily: 'Multi-Family',
-        MANUFACTURED: 'Manufactured', LOT: 'Lot/Land'
-    };
-    const label = map[type] ?? type;
-    return { id: 11, name: 'Property Typology', value: label, tags: [] };
-}
-
-function factor12_bedrooms(p: PropertyData): ExtractedFactor {
-    const b = p.bedrooms;
-    if (b == null) return { id: 12, name: 'Bedroom Count', value: 'Data not available', tags: [] };
-    const tier = b >= 5 ? 'Large Home' : b >= 3 ? 'Family Size' : b >= 2 ? 'Starter/Couple' : 'Studio/1BR';
-    return { id: 12, name: 'Bedroom Count', value: `${b} bedroom${b !== 1 ? 's' : ''}`, tags: [tier] };
-}
-
-function factor13_bathrooms(p: PropertyData): ExtractedFactor {
-    const b = p.bathrooms;
-    if (b == null) return { id: 13, name: 'Bathroom Count', value: 'Data not available', tags: [] };
-    const full = Math.floor(b);
-    const half = b % 1 >= 0.5 ? 1 : 0;
-    const label = half ? `${full} full, 1 half` : `${full} full`;
-    const tier = b >= 4 ? 'Luxury Bath Count' : b >= 3 ? 'Family Friendly' : 'Standard';
-    return { id: 13, name: 'Bathroom Count', value: label, tags: [tier, ...(half ? ['Half Bath'] : [])] };
-}
-
 function factor14_sqft(p: PropertyData): ExtractedFactor {
     const sqft = p.livingAreaValue;
     if (sqft == null) return { id: 14, name: 'Usable Square Footage', value: 'Data not available', tags: [] };
     const tier = sqft < 1500 ? 'Compact' : sqft < 2500 ? 'Mid-Size' : sqft < 4000 ? 'Spacious' : 'Estate';
 
-    // Flag discrepancy vs tax records
     const taxSqft = (p as any).taxSqft;
     let discrepancy = '';
     if (taxSqft && taxSqft > 0) {
@@ -204,43 +172,6 @@ function factor14_sqft(p: PropertyData): ExtractedFactor {
     };
 }
 
-function factor15_lotSize(p: PropertyData): ExtractedFactor {
-    const lot = p.lotSize;
-    if (!lot) return { id: 15, name: 'Lot Size', value: 'Data not available', tags: [] };
-
-    // Enrich with ArcGIS measured area if available
-    const arcgisSqft = (p as any).parcelAreaSqft;
-    let measured = '';
-    if (arcgisSqft && arcgisSqft > 0) {
-        const lotNum = parseFloat(String(lot).replace(/[^0-9.]/g, ''));
-        // lotSize is often in text like "5,200 sqft" or "0.12 acres"
-        if (lotNum > 0 && lotNum < 50) {
-            // Likely acres — convert to sqft for comparison
-            const lotSqft = lotNum * 43560;
-            const pctDiff = ((lotSqft - arcgisSqft) / arcgisSqft) * 100;
-            if (Math.abs(pctDiff) > 5) {
-                measured = ` (ArcGIS: ${arcgisSqft.toLocaleString()} sqft, ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(0)}% diff)`;
-            }
-        } else if (lotNum > 0) {
-            const pctDiff = ((lotNum - arcgisSqft) / arcgisSqft) * 100;
-            if (Math.abs(pctDiff) > 5) {
-                measured = ` (ArcGIS: ${arcgisSqft.toLocaleString()} sqft, ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(0)}% diff)`;
-            }
-        }
-    }
-    const lotNum = parseFloat(String(lot).replace(/[^0-9.]/g, ''));
-    const lotTier = lotNum > 20000 ? 'Estate Lot' : lotNum > 8000 ? 'Large Lot' : lotNum > 5000 ? 'Standard Lot' : 'Compact Lot';
-    return { id: 15, name: 'Lot Size', value: `${lot}${measured}`, tags: [lotTier, ...(measured ? ['Lot Size Discrepancy'] : [])] };
-}
-
-function factor18_garage(p: PropertyData): ExtractedFactor {
-    const cap = p.resoFacts?.garageParkingCapacity ?? (p as any).garageSpaces;
-    if (cap == null) return { id: 18, name: 'Garage & Parking Capacity', value: 'Data not available', tags: [] };
-    const num = typeof cap === 'number' ? cap : parseInt(String(cap));
-    const label = isNaN(num) ? String(cap) : `${num}-car garage`;
-    const tier = num >= 3 ? 'Oversized Garage' : num >= 2 ? 'Standard Garage' : num === 1 ? 'Single Garage' : 'No Garage';
-    return { id: 18, name: 'Garage & Parking Capacity', value: label, tags: [tier] };
-}
 
 function factor20_constructionEra(p: PropertyData): ExtractedFactor {
     const year = p.yearBuilt;
@@ -939,12 +870,8 @@ export function precomputeDataFactors(
         factor7_strViability(visual),
         factor8_ltrYield(property),
 
-        factor11_propertyTypology(property),
-        factor12_bedrooms(property),
-        factor13_bathrooms(property),
         factor14_sqft(property),
-        factor15_lotSize(property),
-        factor18_garage(property),
+
         factor20_constructionEra(property),
         factor28_flooring(property),
         factor33_privacyLevel(property, visual),
@@ -988,6 +915,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 99, 106, 108, 109, 110];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 99, 106, 108, 109, 110];
 
 

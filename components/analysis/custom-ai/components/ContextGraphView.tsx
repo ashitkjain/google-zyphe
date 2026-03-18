@@ -136,7 +136,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     if (!data) return null;
 
     // Group factors by category (filter out retired factor IDs from old cached graphs)
-    const SUPPRESSED_IDS = new Set([10, 16, 53, 55, 56, 107, 110, 112]); // 10=Urgency→5, 16→58, 53→49, 55→48, 56→86, 107→47, 110=ListingFlags, 112→79
+    const SUPPRESSED_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 107, 110, 112]); // 11-13,15,18=keyMetrics duplicates, 10=Urgency→5, 16→58, 53→49, 55→48, 56→86, 107→47, 110=ListingFlags, 112→79
     const grouped: Record<string, ExtractedFactor[]> = {};
     for (const factor of data.factors) {
         if (SUPPRESSED_IDS.has(factor.id)) continue;
@@ -150,9 +150,13 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
         : [activeFilter];
 
     const totalFactors = data.factors.length;
-    const highConfidence = data.factors.filter(f => f.confidence === 'high').length;
     const allTags = data.factors.flatMap(f => f.tags);
     const uniqueTags = new Set(allTags);
+
+    // Estimate token count (~4 chars per token for Gemini)
+    const jsonSize = JSON.stringify(data).length;
+    const estimatedTokens = Math.round(jsonSize / 4);
+    const tokenLabel = estimatedTokens >= 1000 ? `${(estimatedTokens / 1000).toFixed(1)}K` : String(estimatedTokens);
 
     // Extract neighborhood name from factor 83 (Micro-Neighborhood Identity)
     const neighborhoodFactor = data.factors.find(f => f.id === 83);
@@ -168,7 +172,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                     {neighborhoodName && (
                         <><span className="text-slate-600 font-semibold">{neighborhoodName}</span> · </>
                     )}
-                    Extracted {new Date(data.extractedAt).toLocaleDateString()} · {totalFactors} factors
+                    Extracted {new Date(data.extractedAt).toLocaleDateString()} · {totalFactors} factors · ~{tokenLabel} tokens
                 </span>
                 <button onClick={onExtract} title="Re-extract context graph" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                     <i className="fa-solid fa-rotate text-slate-400 hover:text-indigo-500 text-[11px]"></i>
