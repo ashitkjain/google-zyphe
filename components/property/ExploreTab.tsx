@@ -1962,12 +1962,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // When buyer results exist, reorder: matched first (by score desc), then rest
     const displayList = useMemo(() => {
         if (!buyerResults || buyerResults.length === 0) return processed;
-        const matchedZpids = new Set(buyerResults.map(m => m.zpid));
-        const matched = buyerResults
+        // Only show matched properties when AI search is active
+        return buyerResults
             .map(m => processed.find(p => p.zpid === m.zpid))
             .filter(Boolean) as typeof processed;
-        const rest = processed.filter(p => !matchedZpids.has(p.zpid));
-        return [...matched, ...rest];
     }, [processed, buyerResults]);
 
     const totalPages = Math.ceil(displayList.length / PER_PAGE);
