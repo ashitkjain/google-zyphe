@@ -416,7 +416,7 @@ export const useAnalysisActions = (
 
                 // 4. Save to Firestore cache (overwrite on re-extract)
                 if (zpid) {
-                    await saveContextGraphToCloud(zpid, res.data);
+                    await saveContextGraphToCloud(zpid, res.data, propertyData?.city, propertyData?.state);
                     addLog('Cloud Cache', { type: 'info' }, { status: 'Saved', task: 'context_graph', zpid });
                 }
 

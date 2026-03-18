@@ -1082,7 +1082,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const res = await extractContextGraphFactors(property, enrichedVisual, comprehensive || null);
 
                 if (res.data?.factors?.length > 0) {
-                    await saveContextGraphToCloud(zpid, res.data);
+                    await saveContextGraphToCloud(zpid, res.data, property.city, property.state);
                     addLog(`[Context Graph] ✓ Saved ${res.data.factors.length} factors for ${addr}`);
                     return 'done';
                 } else {
@@ -1125,7 +1125,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`[Buyer Search] Starting search with story: "${buyerStory.substring(0, 80)}..."`);
 
         try {
-            const { getContextGraphFromCloud } = await import('../../services/firebase/properties');
+            const { getContextGraphsBatch } = await import('../../services/firebase/properties');
             const { getPropertyFromCloud } = await import('../../services/firebase/properties');
             const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
             const { Type } = await import('@google/genai');
@@ -1166,18 +1166,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 candidateZpids = candidateZpids.slice(0, MAX_PROPERTIES);
             }
 
-            // 2. Load context graphs for filtered candidates
+            // 2. Load context graphs for filtered candidates (single batch query)
             addLog(`[Buyer Search] Loading context graphs for ${candidateZpids.length} properties...`);
+            const graphMap = await getContextGraphsBatch(candidateZpids);
             const graphs: { zpid: string; address: string; graph: any }[] = [];
-            const CHUNK = 10;
-            for (let i = 0; i < candidateZpids.length; i += CHUNK) {
-                const chunk = candidateZpids.slice(i, i + CHUNK);
-                const results = await Promise.all(chunk.map(async zpid => {
-                    const graph = await getContextGraphFromCloud(zpid);
-                    return { zpid, address: zpidToAddressMap[zpid] || zpid, graph };
-                }));
-                for (const r of results) {
-                    if (r.graph?.factors?.length > 0) graphs.push(r);
+            for (const zpid of candidateZpids) {
+                const graph = graphMap.get(zpid);
+                if (graph?.factors?.length > 0) {
+                    graphs.push({ zpid, address: zpidToAddressMap[zpid] || zpid, graph });
                 }
             }
 

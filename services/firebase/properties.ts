@@ -749,15 +749,19 @@ export const getSchoolAnalysisFromCloud = async (cacheKey: string): Promise<any 
 };
 
 
-export const saveContextGraphToCloud = async (zpid: string, data: any) => {
+export const saveContextGraphToCloud = async (zpid: string, data: any, city?: string, state?: string) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
         const docRef = doc(db, "context_graph", String(zpid));
         logFirestoreQuery('setDoc', 'context_graph', { zpid });
-        await setDoc(docRef, {
+        const saveData: any = {
             ...sanitizeForFirestore(data),
             lastUpdated: serverTimestamp()
-        }, { merge: true });
+        };
+        // Store city for city-scoped queries (auto-indexed by Firestore)
+        if (city) saveData.city = city.toLowerCase().trim();
+        if (state) saveData.state = state.toUpperCase().trim();
+        await setDoc(docRef, saveData, { merge: true });
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveContextGraphToCloud") as string };
@@ -774,6 +778,62 @@ export const getContextGraphFromCloud = async (zpid: string): Promise<any | null
     } catch (error) {
         handleFirestoreError(error, "getContextGraphFromCloud");
         return null;
+    }
+};
+
+/**
+ * Fetch ALL context graphs for a city in a single Firestore query.
+ * Requires `city` field on context_graph docs (auto-indexed by Firestore).
+ * Returns a Map<zpid, graphData> for O(1) lookup.
+ */
+export const getContextGraphsForCity = async (cityName: string): Promise<Map<string, any>> => {
+    const results = new Map<string, any>();
+    if (!db || !cityName) return results;
+    try {
+        const normalizedCity = cityName.toLowerCase().trim();
+        logFirestoreQuery('getDocs', 'context_graph', { city: normalizedCity });
+        const q = query(
+            collection(db, "context_graph"),
+            where("city", "==", normalizedCity)
+        );
+        const snap = await getDocs(q);
+        snap.forEach(d => {
+            results.set(d.id, d.data());
+        });
+        console.log(`[Context Graph] City batch: loaded ${results.size} graphs for "${normalizedCity}"`);
+        return results;
+    } catch (error) {
+        handleFirestoreError(error, "getContextGraphsForCity");
+        return results;
+    }
+};
+
+/**
+ * Fetch multiple context graphs by zpid in a single Firestore round trip.
+ * Uses documentId() IN query (max 30 per batch, handles chunking).
+ */
+export const getContextGraphsBatch = async (zpids: string[]): Promise<Map<string, any>> => {
+    const results = new Map<string, any>();
+    if (!db || zpids.length === 0) return results;
+    try {
+        const BATCH = 30; // Firestore 'in' limit
+        for (let i = 0; i < zpids.length; i += BATCH) {
+            const chunk = zpids.slice(i, i + BATCH);
+            logFirestoreQuery('getDocs', 'context_graph', { batch: chunk.length });
+            const q = query(
+                collection(db, "context_graph"),
+                where(documentId(), "in", chunk)
+            );
+            const snap = await getDocs(q);
+            snap.forEach(d => {
+                results.set(d.id, d.data());
+            });
+        }
+        console.log(`[Context Graph] Batch fetch: loaded ${results.size}/${zpids.length} graphs`);
+        return results;
+    } catch (error) {
+        handleFirestoreError(error, "getContextGraphsBatch");
+        return results;
     }
 };
 

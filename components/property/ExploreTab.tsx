@@ -1996,7 +1996,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         setBuyerExtracted(null);
 
         try {
-            const { getContextGraphFromCloud } = await import('../../services/firebase/properties');
+            const { getContextGraphsBatch } = await import('../../services/firebase/properties');
             const { executeGeminiRequest, FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const { Type } = await import('@google/genai');
             const { auth } = await import('../../services/firebase/config');
@@ -2164,17 +2164,14 @@ ${buyerStory}
                 return;
             }
 
-            // ── STEP 2: Load context graphs ──
+            // ── STEP 2: Load context graphs (single batch query) ──
+            const zpidList = candidates.map(p => p.zpid);
+            const graphMap = await getContextGraphsBatch(zpidList);
             const graphs: { zpid: string; address: string; graph: any; listing: any }[] = [];
-            const CHUNK = 10;
-            for (let i = 0; i < candidates.length; i += CHUNK) {
-                const chunk = candidates.slice(i, i + CHUNK);
-                const res = await Promise.all(chunk.map(async p => {
-                    const graph = await getContextGraphFromCloud(p.zpid);
-                    return { zpid: p.zpid, address: p.address, graph, listing: { price: p.listPrice, beds: p.bedrooms, baths: p.bathrooms, sqft: p.livingArea, neighborhood: p.neighborhood } };
-                }));
-                for (const r of res) {
-                    if (r.graph?.factors?.length > 0) graphs.push(r);
+            for (const p of candidates) {
+                const graph = graphMap.get(p.zpid);
+                if (graph?.factors?.length > 0) {
+                    graphs.push({ zpid: p.zpid, address: p.address, graph, listing: { price: p.listPrice, beds: p.bedrooms, baths: p.bathrooms, sqft: p.livingArea, neighborhood: p.neighborhood } });
                 }
             }
 

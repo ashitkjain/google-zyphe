@@ -77,7 +77,7 @@ const ContextGraphPage: React.FC<Props> = ({ zpid, onBack }) => {
 
             if (result.data) {
                 setGraphResult(result.data);
-                await saveContextGraphToCloud(zpid, result.data);
+                await saveContextGraphToCloud(zpid, result.data, propData?.city, propData?.state);
             } else {
                 setError('Failed to extract context graph factors.');
             }
