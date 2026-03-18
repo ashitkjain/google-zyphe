@@ -109,20 +109,28 @@ function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {
 function factor5_sellerMotivation(p: PropertyData): ExtractedFactor {
     const dom = p.timeOnZillow ?? p.resoFacts?.daysOnZillow;
     const cuts = (p.priceHistory ?? []).filter(h => h.event?.toLowerCase().includes('price cut') || h.event?.toLowerCase().includes('reduced')).length;
+    const desc = (p.description ?? '').toLowerCase();
+    const isHot = desc.includes('hot home') || desc.includes('multiple offers') || desc.includes('offer deadline');
+    const backOnMarket = (p.priceHistory ?? []).some(h => h.event?.toLowerCase().includes('back on market'));
 
-    if (cuts > 0 || (dom != null && dom > 90)) {
-        const reasons: string[] = [];
-        if (cuts > 0) reasons.push(`${cuts} price cut${cuts > 1 ? 's' : ''}`);
-        if (dom != null && dom > 90) reasons.push(`${dom} DOM`);
-        // Build detail with actual price history events
+    const tags: string[] = [];
+    const reasons: string[] = [];
+
+    if (isHot) { tags.push('Hot Home', 'Act Fast'); reasons.push('Hot Home'); }
+    if (backOnMarket) { tags.push('Back on Market'); reasons.push('Back on Market'); }
+    if (cuts > 0) { tags.push('Motivated Seller', 'Negotiable'); reasons.push(`${cuts} price cut${cuts > 1 ? 's' : ''}`); }
+    if (dom != null && dom > 90) { reasons.push(`${dom} DOM`); }
+
+    if (reasons.length > 0) {
         const historyDetail = (p.priceHistory ?? []).filter(h => h.price != null).slice(0, 4)
             .map(h => `${h.event} $${(h.price || 0).toLocaleString()} (${h.date})`).join('. ');
+        const level = isHot ? 'Urgent' : cuts > 0 || (dom != null && dom > 90) ? 'High' : 'Moderate';
         return {
             id: 5, name: 'Seller Motivation',
-            value: `High — ${reasons.join(', ')}`,
+            value: `${level} — ${reasons.join(', ')}`,
             detail: historyDetail || undefined,
             confidence: 'high',
-            tags: ['Motivated Seller', 'Negotiable']
+            tags
         };
     }
     return {
@@ -156,15 +164,7 @@ function factor8_ltrYield(p: PropertyData): ExtractedFactor {
     return { id: 8, name: 'Long-Term Rental Yield', value: 'Data not available', confidence: 'low', tags: [] };
 }
 
-function factor10_listingUrgency(p: PropertyData): ExtractedFactor {
-    const desc = (p.description ?? '').toLowerCase();
-    const isHot = desc.includes('hot home') || desc.includes('multiple offers') || desc.includes('offer deadline');
-    const backOnMarket = (p.priceHistory ?? []).some(h => h.event?.toLowerCase().includes('back on market'));
 
-    if (isHot) return { id: 10, name: 'Listing Urgency', value: 'High — Hot Home', confidence: 'high', tags: ['Hot Home', 'Act Fast'] };
-    if (backOnMarket) return { id: 10, name: 'Listing Urgency', value: 'Moderate — back on market', confidence: 'high', tags: ['Back on Market'] };
-    return { id: 10, name: 'Listing Urgency', value: 'Standard', confidence: 'medium', tags: ['Standard'] };
-}
 
 function factor11_propertyTypology(p: PropertyData): ExtractedFactor {
     const type = p.homeType ?? 'Unknown';
@@ -365,20 +365,7 @@ function factor54_topography(p: PropertyData): ExtractedFactor {
     };
 }
 
-function factor55_solar(p: PropertyData): ExtractedFactor {
-    const solar = p.solarData;
-    const est = solar?.estimatedSolarProduction;
-    if (!est) return { id: 55, name: 'Renewable Potential', value: 'Data not available', confidence: 'low', tags: [] };
 
-    const kwh = est.annualKwh;
-    const tier = kwh > 15000 ? 'High' : kwh > 8000 ? 'Medium' : 'Low';
-    return {
-        id: 55, name: 'Renewable Potential',
-        value: `${tier} — ${kwh.toLocaleString()} kWh/yr`,
-        confidence: 'high',
-        tags: [tier, `${Math.round(kwh / 1000)}K kWh/yr`, 'Solar']
-    };
-}
 
 function factor59_laundry(p: PropertyData): ExtractedFactor {
     const lf = p.resoFacts?.laundryFeatures;
@@ -394,24 +381,20 @@ function factor59_laundry(p: PropertyData): ExtractedFactor {
 }
 
 function factor75_marketVelocity(visual: CustomAIAnalysisResult | null, property?: PropertyData): ExtractedFactor {
-    // 1. City-level market intelligence (best source — median DOM for the area)
+    // Only use city-level median DOM — property-level daysOnZillow is just how long THIS listing is up, not market velocity
     const cityDom = (visual as any)?.general_market_intelligence?.market_dynamics?.days_on_market;
-    // 2. Property-level DOM (fallback — this specific listing's days on market)
-    const propDom = property?.resoFacts?.daysOnZillow ?? (property as any)?.timeOnZillow;
 
-    const dom = cityDom ?? propDom;
-    if (!dom) return { id: 75, name: 'Market Velocity (DOM)', value: 'Data not available', confidence: 'low', tags: [] };
+    if (!cityDom) return { id: 75, name: 'Market Velocity (DOM)', value: 'Data not available', confidence: 'low', tags: [] };
 
-    const num = parseFloat(String(dom).replace(/[^0-9.]/g, ''));
+    const num = parseFloat(String(cityDom).replace(/[^0-9.]/g, ''));
     if (isNaN(num)) {
-        return { id: 75, name: 'Market Velocity (DOM)', value: String(dom), confidence: 'medium', tags: [] };
+        return { id: 75, name: 'Market Velocity (DOM)', value: String(cityDom), confidence: 'medium', tags: [] };
     }
     const speed = num < 14 ? 'Fast' : num <= 30 ? 'Moderate' : 'Slow';
-    const source = cityDom ? 'median DOM' : 'listing DOM';
     return {
         id: 75, name: 'Market Velocity (DOM)',
-        value: `${speed} — ${Math.round(num)} days ${source}`,
-        confidence: cityDom ? 'high' : 'medium',
+        value: `${speed} — ${Math.round(num)} days median DOM`,
+        confidence: 'high',
         tags: [speed, `${Math.round(num)} DOM`]
     };
 }
@@ -559,13 +542,28 @@ function factor49_pollenSafety(p: PropertyData): ExtractedFactor {
     const score = pollen.score;
     const tier = score <= 2 ? 'Low Risk' : score <= 3 ? 'Moderate' : 'High Risk';
     const dominant = pollen.dominantPollenType || 'Unknown';
+    const tags: string[] = [tier, dominant, pollen.category];
+
+    // Merge pollen sensitivity triggers (was factor 53)
+    const analysis = pollen.analysis;
+    if (analysis) {
+        const raw = (pollen as any).raw_data;
+        // Extract individual pollen types from raw data if available
+        if (raw?.dailyInfo?.[0]?.plantInfo) {
+            for (const plant of raw.dailyInfo[0].plantInfo) {
+                if (plant.indexInfo?.value >= 2 && plant.displayName) {
+                    tags.push(`${plant.displayName} Pollen`);
+                }
+            }
+        }
+    }
 
     return {
         id: 49, name: 'Allergen / Pollen Safety',
         value: `${tier} — ${pollen.category} (${dominant})`,
         detail: pollen.description || undefined,
         confidence: 'high',
-        tags: [tier, dominant, pollen.category]
+        tags: [...new Set(tags)].slice(0, 8)
     };
 }
 
@@ -682,27 +680,54 @@ function factor78_droughtRisk(p: PropertyData): ExtractedFactor {
 
 function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
     const hd = (p as any).historical_disasters;
-    if (!hd || !hd.events) return { id: 79, name: 'Disaster History', value: 'Data not available', confidence: 'low', tags: [] };
+    const femaDeclarations = hd?.femaDeclarations || [];
+    const events = Array.isArray(hd?.events) ? hd.events : [];
 
-    const events = Array.isArray(hd.events) ? hd.events : [];
+    if (!hd || (events.length === 0 && femaDeclarations.length === 0)) {
+        return { id: 79, name: 'Disaster History (FEMA)', value: 'Data not available', confidence: 'low', tags: [] };
+    }
+
+    const tags: string[] = [];
+
+    // Disaster events
     if (events.length === 0) {
-        return { id: 79, name: 'Disaster History', value: 'Clean — no recent disasters', confidence: 'high', tags: ['Clean Record'] };
+        tags.push('Clean Record');
+    } else {
+        const typeCounts: Record<string, number> = {};
+        for (const e of events) {
+            const type = e.type || e.disasterType || 'Unknown';
+            typeCounts[type] = (typeCounts[type] || 0) + 1;
+        }
+        for (const [t, c] of Object.entries(typeCounts).slice(0, 3)) tags.push(`${c} ${t.toLowerCase()}`);
+        const severity = events.length >= 5 ? 'High Risk' : events.length >= 2 ? 'Moderate' : 'Low';
+        tags.push(severity);
     }
 
-    // Count by type
-    const typeCounts: Record<string, number> = {};
-    for (const e of events) {
-        const type = e.type || e.disasterType || 'Unknown';
-        typeCounts[type] = (typeCounts[type] || 0) + 1;
+    // FEMA declarations
+    if (femaDeclarations.length > 0) {
+        tags.push(`${femaDeclarations.length} FEMA Declaration${femaDeclarations.length > 1 ? 's' : ''}`);
+        const sorted = [...femaDeclarations].sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+        const recent = sorted[0];
+        if (recent?.date) tags.push(`Latest: ${new Date(recent.date).getFullYear()}`);
+        const fiveYearsAgo = new Date();
+        fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+        const recentCount = femaDeclarations.filter((d: any) => d.date && new Date(d.date) >= fiveYearsAgo).length;
+        if (recentCount > 0) tags.push(`${recentCount} in Last 5yr`);
+    } else {
+        tags.push('No FEMA Declarations');
     }
-    const typeList = Object.entries(typeCounts).map(([t, c]) => `${c} ${t.toLowerCase()}`).slice(0, 3).join(', ');
-    const severity = events.length >= 5 ? 'High' : events.length >= 2 ? 'Moderate' : 'Low';
+
+    const parts: string[] = [];
+    if (events.length > 0) parts.push(`${events.length} events`);
+    if (femaDeclarations.length > 0) parts.push(`${femaDeclarations.length} FEMA`);
+    if (parts.length === 0) parts.push('Clean — no records');
+    const val = parts.join(' · ');
 
     return {
-        id: 79, name: 'Disaster History',
-        value: `${events.length} events — ${typeList}`,
+        id: 79, name: 'Disaster History (FEMA)',
+        value: val,
         confidence: 'high',
-        tags: [severity, `${events.length} Events`]
+        tags: [...new Set(tags)].slice(0, 8)
     };
 }
 
@@ -767,28 +792,43 @@ function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
 }
 
 function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
+    const tags: string[] = [];
+
+    // On-property EV features (was factor 56)
+    const desc = (p.description || '').toLowerCase();
+    const garage = (p.resoFacts?.exteriorFeatures || '').toLowerCase();
+    const combined = `${desc} ${garage}`;
+    if (combined.includes('ev charger') || combined.includes('ev charging')) tags.push('EV Charger Installed');
+    else if (combined.includes('240v') || combined.includes('level 2')) tags.push('240V / Level 2 Ready');
+    else if (combined.includes('electric vehicle') || combined.includes('ev-ready')) tags.push('EV-Ready Garage');
+
+    // Nearby EV charging stations
     const places = (p as any).neighborhoodPlaces;
-    // EV charging stations are in the transit bucket
     const transit = [...(places?.walkable?.transit || []), ...(places?.drivable?.transit || [])];
     const evStations = transit.filter((pl: any) => (pl.types || []).some((t: string) => t.includes('electric_vehicle') || t.includes('ev_charging')));
 
-    if (evStations.length === 0) {
-        return { id: 86, name: 'EV Infrastructure', value: 'None nearby — no charging stations found', confidence: 'high', tags: ['No EV Charging'] };
+    if (evStations.length > 0) {
+        const closest = evStations.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
+        const closestKm = closest.distanceMeters ? (closest.distanceMeters / 1000).toFixed(1) : '?';
+        tags.push(`${evStations.length} Stations Nearby`);
+        tags.push(`Closest ${closestKm}km`);
+    } else {
+        tags.push('No Public Charging Nearby');
     }
 
-    const closest = evStations.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
-    const closestKm = closest.distanceMeters ? (closest.distanceMeters / 1000).toFixed(1) : '?';
+    const hasOnProperty = tags.some(t => t.includes('Charger') || t.includes('240V') || t.includes('EV-Ready'));
+    const val = hasOnProperty
+        ? `${tags[0]}${evStations.length > 0 ? ` + ${evStations.length} nearby stations` : ''}`
+        : evStations.length > 0
+            ? `${evStations.length} charging station${evStations.length > 1 ? 's' : ''} nearby`
+            : 'No EV infrastructure found';
 
-    return {
-        id: 86, name: 'EV Infrastructure',
-        value: `${evStations.length} charging station${evStations.length > 1 ? 's' : ''}, closest ${closestKm}km`,
-        confidence: 'high',
-        tags: ['EV Ready', `${evStations.length} Stations`]
-    };
+    return { id: 86, name: 'EV Infrastructure', value: val, confidence: 'high', tags };
 }
 
 function factor39_usableYard(p: PropertyData): ExtractedFactor {
     const pv = (p as any).parcelValidation;
+    console.log('[Factor 39 Debug] parcelValidation:', !!pv, 'slopePercent:', pv?.slopePercent, 'keys:', pv ? Object.keys(pv).join(',') : 'null');
     if (!pv || pv.slopePercent == null) {
         return { id: 39, name: 'Usable Yard Space', value: 'Data not available', confidence: 'low', tags: [] };
     }
@@ -829,65 +869,231 @@ function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
 
 function factor101_schoolConcepts(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
     const si = (visual as any)?.schools_intelligence;
-    const schools = si?.schools || (p as any)?.schools;
-    if (!schools?.length) {
+    const richSchools = si?.schools || [];
+    const basicSchools = (p as any)?.schools || [];
+    const hasRich = richSchools.length > 0;
+    const schoolList = hasRich ? richSchools : basicSchools;
+
+    if (!schoolList?.length) {
         return { id: 101, name: 'School Concepts', value: 'Data not available', confidence: 'low', tags: [] };
     }
     const tags: string[] = [];
+
+    // District info (only from rich data)
     if (si?.district_name) tags.push(si.district_name);
-    if (si?.district_rating) tags.push(`District ${si.district_rating}`);
     if (si?.is_desirable_zone) tags.push('Desirable School Zone');
-    for (const s of (si?.schools || schools).slice(0, 3)) {
-        if (s.name) tags.push(s.name);
-        if (s.mls_rating != null) {
-            const r = parseFloat(String(s.mls_rating));
-            if (r >= 9) tags.push(`${s.name?.split(' ')[0]} ${r}/10 Top Rated`);
-            else if (r >= 7) tags.push(`${s.name?.split(' ')[0]} ${r}/10`);
+
+    for (const s of schoolList.slice(0, 3)) {
+        const shortName = s.name?.split(' ').slice(0, 2).join(' ') || s.name;
+        const rating = s.mls_rating != null ? parseFloat(String(s.mls_rating)) : (s.rating != null ? parseFloat(String(s.rating)) : null);
+
+        // Compact name + rating tag (one tag per school, not separate)
+        if (rating != null) {
+            if (rating >= 9) tags.push(`${shortName} ★${rating}/10`);
+            else if (rating >= 7) tags.push(`${shortName} ${rating}/10`);
+            else if (rating >= 5) tags.push(`${shortName} ${rating}/10`);
+            else tags.push(`${shortName} ${rating}/10 ⚠`);
+        } else {
+            // Fallback: name + level
+            const level = s.level || s.grades_served || '';
+            tags.push(level ? `${shortName} (${level})` : s.name);
         }
-        if (s.ap_ib_programs && s.ap_ib_programs !== 'N/A') tags.push('AP/IB Programs');
-        if (s.college_readiness && s.college_readiness !== 'N/A') tags.push('College Prep');
-        if (s.extracurriculars) tags.push('Strong Extracurriculars');
+
+        // School type — ONLY non-public (charter, private, magnet)
+        if (s.type && s.type.toLowerCase() !== 'public') {
+            tags.push(s.type.charAt(0).toUpperCase() + s.type.slice(1));
+        }
+
+        // === Rich data only below ===
+        if (!hasRich) continue;
+
+        // Test scores
+        if (s.test_scores && !s.test_scores.toLowerCase().includes('not available')) {
+            const pctMatch = s.test_scores.match(/(\d{1,3})%\s*(?:proficien|above|at or above|met)/i);
+            if (pctMatch) tags.push(`${parseInt(pctMatch[1])}% Proficient`);
+        }
+
+        // Student-teacher ratio
+        if (s.student_teacher_ratio) {
+            const ratio = s.student_teacher_ratio.toString().replace(/\s/g, '');
+            if (ratio.includes(':')) {
+                const num = parseInt(ratio.split(':')[0]);
+                if (num <= 18) tags.push(`${ratio} Small Classes`);
+                else if (num >= 28) tags.push(`${ratio} Large Classes`);
+            }
+        }
+
+        // AP/IB Programs
+        if (s.ap_ib_programs && s.ap_ib_programs !== 'N/A' && !s.ap_ib_programs.toLowerCase().includes('not available')) {
+            if (s.ap_ib_programs.toLowerCase().includes('ib')) tags.push('IB Programme');
+            if (s.ap_ib_programs.toLowerCase().includes('ap')) tags.push('AP Courses');
+        }
+
+        // Graduation rate
+        if (s.graduation_rate && s.graduation_rate !== 'N/A' && !s.graduation_rate.toLowerCase().includes('not available')) {
+            const rateNum = parseFloat(s.graduation_rate.replace('%', '').trim());
+            if (rateNum >= 90) tags.push(`${rateNum}% Grad Rate`);
+        }
+
+        // Extracurriculars — deduplicated keywords
+        if (s.extracurriculars && !s.extracurriculars.toLowerCase().includes('not available')) {
+            const ec = s.extracurriculars.toLowerCase();
+            if (ec.includes('stem') || ec.includes('robotics')) tags.push('STEM/Robotics');
+            if (ec.includes('music') || ec.includes('band') || ec.includes('orchestra')) tags.push('Music');
+            if (ec.includes('athletic') || ec.includes('sport')) tags.push('Strong Athletics');
+            if (ec.includes('art') && !ec.includes('martial art')) tags.push('Arts');
+        }
+
+        // Parent sentiment — one positive tag max per school
+        if (s.parent_sentiment_positive && !s.parent_sentiment_positive.toLowerCase().includes('not available')) {
+            const st = s.parent_sentiment_positive.toLowerCase();
+            if (st.includes('teacher') && (st.includes('caring') || st.includes('dedicated') || st.includes('great'))) tags.push('Dedicated Teachers');
+            else if (st.includes('safe')) tags.push('Safe Campus');
+            else if (st.includes('divers')) tags.push('Diverse');
+        }
     }
+
+    // Distance summary (not per-school)
+    const distances = schoolList.slice(0, 3).map((s: any) => {
+        const d = s.distance_miles || (s.distance ? parseFloat(String(s.distance).replace(/[^0-9.]/g, '')) : null);
+        return d;
+    }).filter((d: any) => d != null);
+    if (distances.length > 0) {
+        const closest = Math.min(...distances);
+        if (closest < 0.5) tags.push('Walking Distance');
+        else if (closest <= 1) tags.push('Schools Under 1mi');
+    }
+
+    // Deduplicate and cap
     const unique = [...new Set(tags)].slice(0, 12);
-    const topSchool = (si?.schools || schools)[0];
-    const val = topSchool?.mls_rating
-        ? `${topSchool.name} ${topSchool.mls_rating}/10`
-        : topSchool?.name || 'Schools available';
-    return { id: 101, name: 'School Concepts', value: val, confidence: 'high', tags: unique };
+
+    // Value string
+    const topSchool = schoolList[0];
+    const topRating = topSchool?.mls_rating ?? topSchool?.rating;
+    let val = topSchool?.name || 'Schools available';
+    if (topRating) val = `${topSchool.name} ${topRating}/10`;
+    if (si?.district_name) val += ` • ${si.district_name}`;
+
+    return { id: 101, name: 'School Concepts', value: val, confidence: hasRich ? 'high' : 'medium', tags: unique };
 }
 
 function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
-    const pv = (p as any).parcelValidation;
-    const flags = pv?.flags?.filter((f: any) => f.check?.toLowerCase().includes('seismic') || f.check?.toLowerCase().includes('earthquake'));
-    if (!flags?.length) return { id: 106, name: 'Seismic Risk', value: 'No known seismic flags', confidence: 'medium', tags: [] };
-    return { id: 106, name: 'Seismic Risk', value: flags[0].finding || 'Seismic zone flagged', confidence: 'high', tags: ['Seismic Zone'] };
+    const hd = p.historical_disasters;
+    const sz = hd?.seismicZone;
+    if (!sz) return { id: 106, name: 'Seismic Risk', value: 'Data not available', confidence: 'low', tags: [] };
+    const tags: string[] = [];
+    tags.push(`Zone ${sz.designCategory}`);
+    if (sz.riskLevel) tags.push(`${sz.riskLevel.charAt(0).toUpperCase() + sz.riskLevel.slice(1).replace('_', ' ')} Risk`);
+    if (sz.pga) tags.push(`PGA ${sz.pga.toFixed(2)}g`);
+    if (sz.designCategory === 'D' || sz.designCategory === 'E') tags.push('Seismic Retrofit May Apply');
+
+    // Earthquake counts from historical data
+    const quakes = hd?.earthquakes || [];
+    const currentYear = new Date().getFullYear();
+    const ytd = quakes.filter((q: any) => {
+        const yr = q.date ? new Date(q.date).getFullYear() : 0;
+        return yr === currentYear;
+    });
+    const total = quakes.length;
+
+    if (total > 0) {
+        tags.push(`${total} Quakes Recorded`);
+        if (ytd.length > 0) tags.push(`${ytd.length} YTD (${currentYear})`);
+
+        // Strongest quake
+        const strongest = quakes.reduce((max: any, q: any) => (q.magnitude || 0) > (max.magnitude || 0) ? q : max, quakes[0]);
+        if (strongest?.magnitude) tags.push(`Strongest: M${strongest.magnitude}`);
+
+        // Nearest quake
+        const nearest = quakes.reduce((min: any, q: any) => {
+            const d = q.distanceMi ?? Infinity;
+            return d < (min.distanceMi ?? Infinity) ? q : min;
+        }, quakes[0]);
+        if (nearest?.distanceMi != null && nearest.distanceMi < 50) {
+            tags.push(`Nearest: ${nearest.distanceMi.toFixed(1)}mi`);
+        }
+    } else {
+        tags.push('No Recent Quakes');
+    }
+
+    const val = `Zone ${sz.designCategory} — ${sz.riskLevel?.replace('_', ' ')} risk (PGA ${sz.pga?.toFixed(2)}g)${total > 0 ? ` • ${total} quakes` : ''}`;
+    return { id: 106, name: 'Seismic Risk', value: val, confidence: 'high', tags };
 }
 
 function factor107_floodZone(p: PropertyData): ExtractedFactor {
-    const fz = (p as any).floodZone || (p as any).resoFacts?.floodZone;
+    const fz = p.historical_disasters?.floodZone;
     if (!fz) return { id: 107, name: 'Flood Zone Status', value: 'Data not available', confidence: 'low', tags: [] };
-    const isRisk = typeof fz === 'string' && (fz.includes('A') || fz.includes('V') || fz.toLowerCase().includes('high'));
-    return { id: 107, name: 'Flood Zone Status', value: fz, confidence: 'high', tags: isRisk ? ['Flood Risk'] : [] };
+    const tags: string[] = [];
+    tags.push(`Zone ${fz.zone}`);
+    if (fz.riskLevel) tags.push(`${fz.riskLevel.charAt(0).toUpperCase() + fz.riskLevel.slice(1)} Risk`);
+    if (fz.insuranceRequired) tags.push('Flood Insurance Required');
+    if (fz.zoneSubtype) tags.push(fz.zoneSubtype);
+    const val = `Zone ${fz.zone} — ${fz.riskLevel} risk${fz.insuranceRequired ? ' (Insurance Required)' : ''}`;
+    return { id: 107, name: 'Flood Zone Status', value: val, confidence: 'high', tags };
+}
+
+function factor112_femaDeclarations(p: PropertyData): ExtractedFactor {
+    const declarations = p.historical_disasters?.femaDeclarations;
+    if (!declarations?.length) return { id: 112, name: 'FEMA Declarations', value: 'No FEMA declarations on record', confidence: 'medium', tags: ['No Declarations'] };
+
+    const tags: string[] = [];
+    const total = declarations.length;
+    tags.push(`${total} Declaration${total > 1 ? 's' : ''}`);
+
+    // Count by type
+    const typeCounts: Record<string, number> = {};
+    for (const d of declarations) {
+        const t = d.type || 'other';
+        typeCounts[t] = (typeCounts[t] || 0) + 1;
+    }
+    for (const [type, count] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
+        const label = type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+        tags.push(`${count} ${label}`);
+    }
+
+    // Most recent declaration
+    const sorted = [...declarations].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const recent = sorted[0];
+    if (recent?.date) {
+        const yr = new Date(recent.date).getFullYear();
+        tags.push(`Latest: ${yr}`);
+    }
+    if (recent?.severity) tags.push(recent.severity);
+
+    // Recent 5 years count
+    const fiveYearsAgo = new Date();
+    fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+    const recentCount = declarations.filter((d: any) => d.date && new Date(d.date) >= fiveYearsAgo).length;
+    if (recentCount > 0) tags.push(`${recentCount} in Last 5 Years`);
+
+    const val = `${total} FEMA declaration${total > 1 ? 's' : ''} on record${recent?.date ? ` • Latest: ${new Date(recent.date).getFullYear()}` : ''}`;
+    return { id: 112, name: 'FEMA Declarations', value: val, confidence: 'high', tags: [...new Set(tags)].slice(0, 10) };
 }
 
 function factor108_sqftDiscrepancy(p: PropertyData): ExtractedFactor {
-    const listed = (p as any).livingArea;
+    const listed = p.livingAreaValue || (p as any).livingArea;
     const tax = (p as any).taxSqft;
-    if (!listed || !tax) return { id: 108, name: 'Sqft Discrepancy', value: 'Data not available', confidence: 'low', tags: [] };
-    const diff = Math.abs(listed - tax);
-    const pct = Math.round((diff / tax) * 100);
-    if (pct <= 5) return { id: 108, name: 'Sqft Discrepancy', value: `Match — ${pct}% diff`, confidence: 'high', tags: [] };
-    return { id: 108, name: 'Sqft Discrepancy', value: `${pct}% diff (${listed} vs ${tax} tax)`, confidence: 'high', tags: pct > 15 ? ['Major Discrepancy'] : ['Minor Discrepancy'] };
+    if (!listed || !tax) return { id: 108, name: 'Sqft Discrepancy', value: 'No discrepancy data', confidence: 'medium', tags: [] };
+    const listedNum = typeof listed === 'number' ? listed : parseFloat(String(listed).replace(/[^0-9.]/g, ''));
+    const taxNum = typeof tax === 'number' ? tax : parseFloat(String(tax).replace(/[^0-9.]/g, ''));
+    if (!listedNum || !taxNum || isNaN(listedNum) || isNaN(taxNum)) return { id: 108, name: 'Sqft Discrepancy', value: 'No discrepancy data', confidence: 'medium', tags: [] };
+    const diff = Math.abs(listedNum - taxNum);
+    const pct = Math.round((diff / taxNum) * 100);
+    if (pct <= 5) return { id: 108, name: 'Sqft Discrepancy', value: `Match — ${pct}% diff (${listedNum.toLocaleString()} vs ${taxNum.toLocaleString()} tax)`, confidence: 'high', tags: [] };
+    return { id: 108, name: 'Sqft Discrepancy', value: `${pct}% diff (${listedNum.toLocaleString()} vs ${taxNum.toLocaleString()} tax)`, confidence: 'high', tags: pct > 15 ? ['Major Discrepancy'] : ['Minor Discrepancy'] };
 }
 
 function factor109_lotSizeVerification(p: PropertyData): ExtractedFactor {
-    const listed = (p as any).lotSize;
+    const raw = (p as any).lotSize;
     const arcgis = (p as any).parcelAreaSqft;
-    if (!listed || !arcgis) return { id: 109, name: 'Lot Size Verification', value: 'Data not available', confidence: 'low', tags: [] };
+    if (!raw || !arcgis) return { id: 109, name: 'Lot Size Verification', value: 'Data not available', confidence: 'low', tags: [] };
+    // lotSize can be a string like "7,405 sqft" or a number
+    const listed = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+    if (!listed || isNaN(listed)) return { id: 109, name: 'Lot Size Verification', value: 'Data not available', confidence: 'low', tags: [] };
     const diff = Math.abs(listed - arcgis);
     const pct = Math.round((diff / arcgis) * 100);
-    if (pct <= 10) return { id: 109, name: 'Lot Size Verification', value: `Verified — ${pct}% diff`, confidence: 'high', tags: [] };
-    return { id: 109, name: 'Lot Size Verification', value: `${pct}% diff (${listed.toLocaleString()} vs ${arcgis.toLocaleString()} ArcGIS)`, confidence: 'high', tags: pct > 20 ? ['Lot Size Mismatch'] : ['Minor Lot Diff'] };
+    if (pct <= 10) return { id: 109, name: 'Lot Size Verification', value: `Verified — ${pct}% diff (${listed.toLocaleString()} sqft vs ${arcgis.toLocaleString()} ArcGIS)`, confidence: 'high', tags: [] };
+    return { id: 109, name: 'Lot Size Verification', value: `${pct}% diff (${listed.toLocaleString()} sqft vs ${arcgis.toLocaleString()} ArcGIS)`, confidence: 'high', tags: pct > 20 ? ['Lot Size Mismatch'] : ['Minor Lot Diff'] };
 }
 
 function factor110_listingClaimFlags(p: PropertyData): ExtractedFactor {
@@ -970,7 +1176,7 @@ export function precomputeDataFactors(
         factor5_sellerMotivation(property),
         factor7_strViability(visual),
         factor8_ltrYield(property),
-        factor10_listingUrgency(property),
+
         factor11_propertyTypology(property),
         factor12_bedrooms(property),
         factor13_bathrooms(property),
@@ -992,7 +1198,7 @@ export function precomputeDataFactors(
         factor51_vastu(property),
         factor52_airQuality(property),
         factor54_topography(property),
-        factor55_solar(property),
+
         factor59_laundry(property),
         factor75_marketVelocity(visual, property),
         // ── New factors ──
@@ -1009,10 +1215,12 @@ export function precomputeDataFactors(
         factor86_evInfrastructure(property),
         factor101_schoolConcepts(property, visual),
         factor106_seismicRisk(property),
-        factor107_floodZone(property),
         factor108_sqftDiscrepancy(property),
         factor109_lotSizeVerification(property),
         factor110_listingClaimFlags(property),
+
+        factor113_exteriorStyle(visual),
+        factor114_backyardOutdoor(visual),
     ];
 
     const map = new Map<number, ExtractedFactor>();
@@ -1020,7 +1228,79 @@ export function precomputeDataFactors(
     return map;
 }
 
+function factor113_exteriorStyle(visual: CustomAIAnalysisResult | null): ExtractedFactor {
+    const ext = (visual as any)?.exterior_and_neighborhood?.exterior_and_lot_appeal;
+    const archStyle = ext?.architecture_style;
+    const curbAppeal = ext?.curb_appeal;
+    if (!archStyle && !curbAppeal) return { id: 113, name: 'Exterior Style', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const tags: string[] = [];
+    const text = `${archStyle || ''} ${curbAppeal || ''}`.toLowerCase();
+
+    // Architecture style keywords
+    const styles = ['craftsman', 'ranch', 'colonial', 'mediterranean', 'modern', 'contemporary', 'victorian', 'tudor', 'cape cod', 'farmhouse', 'mid-century', 'spanish', 'bungalow', 'split-level'];
+    for (const s of styles) {
+        if (text.includes(s)) { tags.push(s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')); break; }
+    }
+
+    // Material keywords
+    if (text.includes('stucco')) tags.push('Stucco');
+    if (text.includes('brick')) tags.push('Brick');
+    if (text.includes('stone')) tags.push('Stone');
+    if (text.includes('wood') && text.includes('siding')) tags.push('Wood Siding');
+    if (text.includes('vinyl')) tags.push('Vinyl Siding');
+
+    // Condition keywords
+    if (text.includes('well-maintained') || text.includes('excellent condition')) tags.push('Well-Maintained');
+    if (text.includes('fresh paint') || text.includes('newly painted')) tags.push('Fresh Paint');
+    if (text.includes('new roof')) tags.push('New Roof');
+
+    // Curb appeal features
+    if (text.includes('mature tree') || text.includes('mature landscap')) tags.push('Mature Landscaping');
+    if (text.includes('inviting') || text.includes('welcoming')) tags.push('Inviting Entry');
+
+    const val = archStyle ? archStyle.split('.')[0] : curbAppeal?.split('.')[0] || 'Exterior analyzed';
+    return { id: 113, name: 'Exterior Style', value: val, confidence: 'high', tags: [...new Set(tags)].slice(0, 8) };
+}
+
+function factor114_backyardOutdoor(visual: CustomAIAnalysisResult | null): ExtractedFactor {
+    const ext = (visual as any)?.exterior_and_neighborhood?.exterior_and_lot_appeal;
+    const backyard = ext?.backyard_and_patio;
+    if (!backyard) return { id: 114, name: 'Backyard & Outdoor', value: 'Data not available', confidence: 'low', tags: [] };
+
+    const tags: string[] = [];
+    const text = backyard.toLowerCase();
+
+    // Features
+    if (text.includes('pool')) tags.push('Pool');
+    if (text.includes('spa') || text.includes('hot tub') || text.includes('jacuzzi')) tags.push('Spa/Hot Tub');
+    if (text.includes('patio')) tags.push('Patio');
+    if (text.includes('deck')) tags.push('Deck');
+    if (text.includes('pergola') || text.includes('gazebo') || text.includes('arbor')) tags.push('Pergola/Gazebo');
+    if (text.includes('outdoor kitchen') || text.includes('built-in bbq') || text.includes('built-in grill')) tags.push('Outdoor Kitchen');
+    if (text.includes('fire pit') || text.includes('fireplace') || text.includes('firepit')) tags.push('Fire Pit');
+    if (text.includes('garden') || text.includes('raised bed')) tags.push('Garden');
+    if (text.includes('play') || text.includes('swing') || text.includes('trampoline')) tags.push('Play Area');
+
+    // Privacy & fencing
+    if (text.includes('privacy') || text.includes('private')) tags.push('Private');
+    if (text.includes('fenc')) tags.push('Fenced');
+
+    // Landscape quality
+    if (text.includes('mature') || text.includes('lush') || text.includes('manicured')) tags.push('Mature Landscaping');
+    if (text.includes('artificial') || text.includes('synthetic') || text.includes('turf')) tags.push('Artificial Turf');
+    if (text.includes('concrete') || text.includes('paver')) tags.push('Hardscape');
+    if (text.includes('low maintenance') || text.includes('drought')) tags.push('Low Maintenance');
+
+    // Size
+    if (text.includes('spacious') || text.includes('large') || text.includes('expansive')) tags.push('Spacious Yard');
+    if (text.includes('compact') || text.includes('small') || text.includes('cozy')) tags.push('Compact Yard');
+
+    const val = backyard.split('.')[0];
+    return { id: 114, name: 'Backyard & Outdoor', value: val, confidence: 'high', tags: [...new Set(tags)].slice(0, 10) };
+}
+
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 55, 59, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 107, 108, 109, 110];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110, 113, 114];
 
 

@@ -25,7 +25,7 @@ const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string;
     agentDesc: { label: 'Agent Description', icon: 'fa-clipboard-list', color: 'slate', range: [100, 100] },
     schoolConcepts: { label: 'School Intelligence', icon: 'fa-graduation-cap', color: 'blue', range: [101, 101] },
     commCondition: { label: 'Community & Condition', icon: 'fa-building', color: 'violet', range: [102, 105] },
-    groundTruth: { label: 'Ground Truth Verification', icon: 'fa-shield-halved', color: 'red', range: [106, 110] },
+    groundTruth: { label: 'Ground Truth Verification', icon: 'fa-shield-halved', color: 'red', range: [108, 110] },
     distressed: { label: 'Distressed & Opportunity', icon: 'fa-triangle-exclamation', color: 'orange', range: [111, 111] },
 };
 
@@ -63,6 +63,9 @@ const CONFIDENCE_STYLES: Record<string, string> = {
 };
 
 const getCategoryForFactor = (id: number): string => {
+    // Explicit overrides for factors outside their natural range
+    if (id === 106 || id === 112) return 'environment'; // Seismic & FEMA → Environmental
+    if (id === 113 || id === 114) return 'outdoor'; // Exterior Style & Backyard → Outdoor & Lot
     for (const [key, cat] of Object.entries(CATEGORY_MAP)) {
         if (id >= cat.range[0] && id <= cat.range[1]) return key;
     }
@@ -164,9 +167,11 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
 
     if (!data) return null;
 
-    // Group factors by category
+    // Group factors by category (filter out retired factor IDs from old cached graphs)
+    const SUPPRESSED_IDS = new Set([10, 16, 53, 55, 56, 107, 112]); // 10=Urgency→5, 16→58, 53→49, 55=Solar→48, 56=EV→86, 107→47, 112→79
     const grouped: Record<string, ExtractedFactor[]> = {};
     for (const factor of data.factors) {
+        if (SUPPRESSED_IDS.has(factor.id)) continue;
         const cat = getCategoryForFactor(factor.id);
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(factor);
@@ -183,65 +188,12 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
 
     return (
         <div className="space-y-6">
-            {/* Summary Header */}
-            <div className="bg-gradient-to-r from-indigo-50 via-violet-50 to-purple-50 border border-indigo-100 rounded-2xl p-6">
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
-                    <div>
-                        <h3 className="text-xl font-black text-slate-800 mb-1">
-                            <i className="fa-solid fa-diagram-project text-indigo-500 mr-2"></i>
-                            Context Graph — {data.address}
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                            Extracted {new Date(data.extractedAt).toLocaleString()} · {totalFactors} factors · {uniqueTags.size} unique tags
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2 pr-52">
-                        <button
-                            onClick={onExtract}
-                            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
-                        >
-                            <i className="fa-solid fa-rotate"></i> Re-Extract
-                        </button>
-                        <button
-                            onClick={() => setShowJson(!showJson)}
-                            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
-                        >
-                            <i className="fa-solid fa-code"></i> {showJson ? 'Hide' : 'Show'} JSON
-                        </button>
-                        <button
-                            onClick={() => {
-                                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                                const a = document.createElement('a');
-                                a.href = URL.createObjectURL(blob);
-                                a.download = `context_graph_${data.address?.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
-                                a.click();
-                            }}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[11px] font-black hover:bg-indigo-700 transition-all flex items-center gap-2"
-                        >
-                            <i className="fa-solid fa-download"></i> Download
-                        </button>
-                    </div>
-                </div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-white rounded-xl p-4 border border-slate-100">
-                        <div className="text-2xl font-black text-indigo-600">{totalFactors}</div>
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Factors</div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 border border-slate-100">
-                        <div className="text-2xl font-black text-emerald-600">{highConfidence}</div>
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">High Confidence</div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 border border-slate-100">
-                        <div className="text-2xl font-black text-violet-600">{uniqueTags.size}</div>
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unique Tags</div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 border border-slate-100">
-                        <div className="text-2xl font-black text-amber-600">{Math.round((highConfidence / totalFactors) * 100)}%</div>
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Data Coverage</div>
-                    </div>
-                </div>
+            {/* Minimal header */}
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+                <span>Extracted {new Date(data.extractedAt).toLocaleDateString()} · {totalFactors} factors</span>
+                <button onClick={onExtract} title="Re-extract context graph" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i className="fa-solid fa-rotate text-slate-400 hover:text-indigo-500 text-[11px]"></i>
+                </button>
             </div>
 
             {/* Summary Insights */}
@@ -272,12 +224,14 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         ))}
                     </ul>
                 </div>
+                {data.summary.propertyHighlight && (
                 <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5">
                     <h4 className="text-sm font-black text-indigo-800 mb-3 flex items-center gap-2">
-                        <i className="fa-solid fa-user-tag"></i> Ideal Buyer
+                        <i className="fa-solid fa-star"></i> Property Highlight
                     </h4>
-                    <p className="text-sm text-indigo-700 leading-relaxed">{data.summary.buyerProfile}</p>
+                    <p className="text-sm text-indigo-700 leading-relaxed">{data.summary.propertyHighlight}</p>
                 </div>
+                )}
             </div>
 
             {/* Enrichment Panel */}
@@ -344,24 +298,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                                     <p className="text-[11px] text-slate-500 leading-relaxed">{data.enrichment.neighborhoodCharacter}</p>
                                 </div>
                             )}
-                            {data.enrichment.lifestyleVerdicts && Object.values(data.enrichment.lifestyleVerdicts).some(v => v) && (
-                                <div className="bg-white border border-slate-100 rounded-xl p-4">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                        <i className="fa-solid fa-heart text-[8px]"></i> Lifestyle Verdicts
-                                    </div>
-                                    <div className="space-y-1">
-                                        {data.enrichment.lifestyleVerdicts.professional && (
-                                            <div className="text-[11px] text-slate-500"><span className="font-bold text-slate-600">Professional:</span> {data.enrichment.lifestyleVerdicts.professional}</div>
-                                        )}
-                                        {data.enrichment.lifestyleVerdicts.family && (
-                                            <div className="text-[11px] text-slate-500"><span className="font-bold text-slate-600">Family:</span> {data.enrichment.lifestyleVerdicts.family}</div>
-                                        )}
-                                        {data.enrichment.lifestyleVerdicts.senior && (
-                                            <div className="text-[11px] text-slate-500"><span className="font-bold text-slate-600">Senior:</span> {data.enrichment.lifestyleVerdicts.senior}</div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+
                             {data.enrichment.topNearbyPlaces?.length ? (
                                 <div className="bg-white border border-slate-100 rounded-xl p-4">
                                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">

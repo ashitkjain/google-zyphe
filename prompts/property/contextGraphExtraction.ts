@@ -114,28 +114,28 @@ Given the property data below, extract values for the required decision factors.
 ## FACTOR DEFINITIONS
 
 ### Financial & Market (1-10)
-1. **Price Bracket**: Classify price as "Entry" (<$800K), "Mid" ($800K-$1.5M), "Luxury" (>$1.5M). If price missing, use Zestimate.
-2. **HOA Friction**: Extract amount from resoFacts.feesAndDues or hoaFees. If "None" or missing, set to "None/Low".
-3. **Insurance Risk**: Flag if fireRiskScore >= 7 OR property is in high-risk zone mentioned in description.
-4. **True Carrying Cost**: Estimate monthly cost: Mortgage (Price @ 7%, 30yr) + (Taxes/12) + HOA + (Insurance/12). 
-5. **Seller Motivation**: High if price cuts in priceHistory OR daysOnMarket > 90. Otherwise "Standard".
+1. SKIP (precomputed).
+2. SKIP (precomputed).
+3. SKIP (precomputed).
+4. SKIP (precomputed).
+5. SKIP (precomputed).
 6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
-7. **STR Viability**: Combine legality + performance. Check deep_research/zoningDescription for STR restrictions. Then add occupancy/ADR from property_investment.str_performance. Format: "[Legal/Restricted/Unknown] — [occ]% occ @ $[adr]/night" or "Restricted — STR not permitted".
-8. **Long-Term Rental Yield**: (rentZestimate × 12) / price. If rentZestimate missing, use 0.05 average yield.
+7. SKIP (precomputed).
+8. SKIP (precomputed).
 9. **Historical Appreciation**: From deep_investment_research.macroeconomic_indicators and market_dynamics (look for YoY/5yr appreciation trend, price growth data). Fallback to general_market_intelligence.market_dynamics.historical_appreciation.
-10. **Listing Urgency**: Assess if "Hot Home" from description or price history (back on market, etc.). Also check deep_investment_research.market_dynamics for inventory/supply signals — low supply + low DOM = high urgency.
+10. SKIP (precomputed).
 
 ### Structural & Size (11-20)
-11. **Property Typology**: From homeType (SingleFamily, Condo, etc.).
-12. **Bedroom Count**: Direct from bedrooms.
-13. **Bathroom Ratio**: bathrooms count. Identify "Half Bath" for guest use.
-14. **Usable Square Footage**: Direct from livingAreaValue.
-15. **Lot Size / Acreage**: Direct from lotSize value.
-16. **Single-Story Living**: "Yes" if no stairs mentioned OR room_highlights only on "Floor 1" OR resoFacts says Single Story.
+11. SKIP (precomputed).
+12. SKIP (precomputed).
+13. SKIP (precomputed).
+14. SKIP (precomputed).
+15. SKIP (precomputed).
+16. SKIP (precomputed).
 17. **Dedicated Home Office**: Look for "Den", "Office", "Library", or "Study" in roomTypes or description.
-18. **Garage & Parking Capacity**: From resoFacts.garageParkingCapacity or garageSpaces.
+18. SKIP (precomputed).
 19. **Foundation & Storage**: Basement, Crawl Space, or Slab — use resoFacts.
-20. **Construction Era**: Pre-War (<1945), Mid-Century (1945-75), 80s-90s, 2000s, New Build (>2015).
+20. SKIP (precomputed).
 
 ### Interior Design & Visual (21-30)
 21. **Move-In Readiness**: "Turn-key" if renovated/new, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned.
@@ -145,46 +145,46 @@ Given the property data below, extract values for the required decision factors.
 25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in interior analysis or description.
 26. **Kitchen Profile**: Combines caliber ("Chef's", "Standard") with specific materials ("Wood cabinets", "Quartz counters", "Gas range"). From visualAnalysis.
 27. **Bathroom Profile**: Combines luxury ("Spa-like") with specific finishes ("Tile floors", "Wood vanities", "Soaking tub").
-28. **Flooring Material**: From resoFacts.flooring (Hardwood, Tile, Carpet).
+28. SKIP (precomputed).
 29. **Ceiling Volume**: "High/Vaulted" if mentioned in description or spatial_flow.
 30. **Interior Finishes**: Wall colors ("Neutral", "Warm"), Trim ("Crown molding"), and Window treatments ("Shutters", "Blinds").
 
 ### Outdoor & Lot (31-40)
 31. **Fenced Yard**: Check resoFacts.fencing or backyard_and_patio analysis.
 32. **Outdoor Entertainment**: Look for "Pool", "Spa", "Patio", "Deck", "Outdoor Kitchen" in exterior analysis or description.
-33. **Privacy Level**: From streetViewAnalysis.privacyRating or views_privacy_orientation.
-34. **Curb Appeal**: From streetViewAnalysis.curbAppealScore. If missing, use exterior_and_lot_appeal.
+33. SKIP (precomputed).
+34. SKIP (precomputed).
 35. **Topography**: "Flat" vs "Hillside" from neighborhood analysis or description.
 36. **View Quality**: Hills, City Lights, Water, or None.
 37. **Street Noise / Traffic**: "Quiet" if Cul-de-sac, "Moderate" if through street, "High" if arterial.
 38. **Visual Clutter**: Overhead wires, messy neighbors, or busy streetscape (from streetViewAnalysis).
-39. **Usable Yard Space**: "Large Level Yard" vs "Steep" vs "Compact".
+39. SKIP (precomputed).
 40. **Xeriscape / Low Maintenance**: Drought-tolerant or synthetic turf mentioned.
 
 ### Location & Community (41-45)
-41. **School Quality (Max)**: Highest rating from schools array (e.g., "9/10").
+41. SKIP (precomputed).
 42. **Commute Convenience**: Proximity to highways or transit hubs mentioned in neighborhood description.
-43. **Walkability**: Direct from walkScore. "Walkable" if > 70.
+43. SKIP (precomputed).
 44. **Greenery Proximity**: "Park adjacent" or "Near trails" from neighborhood features.
 45. **Sidewalk Continuity**: From streetViewAnalysis.familySafety or pedestrian_infra.
 
 ### Environmental (46-50)
-46. **Wildfire Risk**: From fireRiskScore (1-10). "Low" if <= 3, "Moderate" 4-6, "High" >= 7. Flag if in WUI zone.
-47. **Flood Risk**: From floodRiskScore (1-10). "Low" if <= 3, "Moderate" 4-6, "High" >= 7. Note any FEMA flood zone mentions.
-48. **Solar Yield Potential**: From solarData.estimatedSolarProduction.annualKwh. "High" if > 15,000 kWh, "Moderate" 8,000-15,000, "Low" < 8,000. Include estimated panels and savings if available.
-49. **Allergen / Pollen Safety**: From pollen.score and pollen.dominantPollenType. "Low Risk" if score <= 2, "Moderate" 3, "High Risk" >= 4. Name the dominant allergen.
-50. **HVAC Quality / Air Filtration**: From resoFacts.heating + resoFacts.cooling. "Central Air" vs "Window Units". Note zoned systems, filtration, or smart thermostats.
+46. SKIP (precomputed).
+47. SKIP (precomputed).
+48. SKIP (precomputed).
+49. SKIP (precomputed).
+50. SKIP (precomputed).
 
 ### Advanced Intelligence (51-70)
-51. **Vastu / Feng Shui Readiness**: Home orientation (North/South facing) — use neighborhood.orientation.
-52. **Asthma / Respiratory Safety**: Check airQuality.aqi and pm25 load.
-53. **Pollen Sensitivity**: Classify triggers like Oak, Grass, etc., from pollen analysis.
-54. **Family-Friendly Level**: "High" if Cul-de-sac + Sidewalks + Backyard + Good Schools.
-55. **Renewable Potential**: Solar production potential (High/Med/Low) from solarData.
-56. **EV Readiness**: Look for "240V", "Level 2", or EV charger in garage description.
+51. SKIP (precomputed).
+52. SKIP (precomputed).
+53. SKIP (precomputed).
+54. SKIP (precomputed).
+55. SKIP (precomputed).
+56. SKIP (precomputed).
 57. **Work-From-Home Score**: Dedicated office + Fiber/High-speed internet mentions.
-58. **Multi-Gen Utility**: Downstairs Bed/Bath or separate entry for in-laws.
-59. **Laundry Logistics**: "Indoor/Separate Room" vs "Garage/Hallway".
+58. **Multi-Gen Utility**: Downstairs Bed/Bath or separate entry for in-laws. If home is single-story (no stairs, resoFacts says Single Story, or all rooms on Floor 1), add "Single-Story Living" as a tag.
+59. SKIP (precomputed).
 60. **Water / Air Systems**: Softeners, RO filters, or Zoned HVAC mentioned.
 61. **Security Infrastructure**: Gated, Security system, or Cameras.
 62. **Digital Presentation**: Quality of staging and photos (find "Hidden Gems").
@@ -195,27 +195,27 @@ Given the property data below, extract values for the required decision factors.
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
 68. **Backyard Potential**: Room for ADU or pool if not already present.
 69. **Streetscape Aesthetic**: Underground utilities vs overhead wires.
-70. **Market Momentum**: From deep_investment_research.market_dynamics and macroeconomic_indicators — is this market appreciating, cooling, or flat? Include inventory trend direction. Fallback to general_market_intelligence.
+70. **Market Momentum**: From deep_investment_research.market_dynamics and macroeconomic_indicators. CRITICAL: Do NOT label as "Seller's Market" based on low inventory alone — you MUST cross-reference median Days on Market (DOM). Low inventory + low DOM (<20) = Seller's Market. Low inventory + high DOM (>30) = Stagnant/Balanced (low supply AND low demand). Include median DOM and months of supply in value. Classify as: Seller's Market / Balanced / Buyer's Market / Stagnant. Fallback to general_market_intelligence.
 
 ### Community & Market Intelligence (71-75)
 71. **Development Maturity**: From neighborhood_features.development_patterns. Classify as \"New Build Area\" (modern rooflines, recent construction), \"Established\" (mature trees, older homes, stable community), or if neither clearly applies, describe the actual blend — e.g. \"Transitional — older homes + new infill\", \"Gentrifying — renovated alongside original stock\", \"Suburban Sprawl — tract homes from multiple eras\". Never use just \"Mixed\" — always qualify what the mix is.
 72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
 73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
 74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
-75. **Market Velocity (DOM)**: From deep_investment_research.market_dynamics — look for "Days on Market" or "DOM" mentions (e.g. "29-43 days"). Classify: "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Fallback to general_market_intelligence.market_dynamics.days_on_market. Signals buyer urgency and negotiation leverage.
+75. SKIP (precomputed).
 
 ### Infrastructure & Environment (76-79)
-76. **Internet & Connectivity**: From property.broadband — hasFiber, has5G, topDownloadMbps, providerCount. Classify speed tier (Gigabit/Fast/Moderate/Basic).
-77. **Noise Profile (Measured)**: From property.noiseScore (50=loud, 100=quiet) + noiseTrafficDesc, noiseAirportDesc. Real measured data from HowLoud.
-78. **Water & Drought Risk**: From property.drought — severity level (None/Abnormally Dry/Moderate/Severe/Extreme/Exceptional) and % of county affected.
-79. **Disaster History**: From property.historical_disasters — count and types of FEMA-declared disasters affecting the county.
+76. SKIP (precomputed).
+77. SKIP (precomputed).
+78. SKIP (precomputed).
+79. SKIP (precomputed).
 
 
 ### Neighborhood & Amenities (83-88)
-83. **Micro-Neighborhood Identity**: From neighborhood_identity if available. Return the social/micro-level neighborhood name (e.g. \"Vintage Hills\", \"Ruby Hill\") + price tier (Entry/Mid/Premium/Ultra-Luxury) + community type (Gated/HOA/Open).
-84. **Walkable Amenity Score**: From property.neighborhoodPlaces.walkable — count of dining, parks, shops within walking distance (~1.5km). Classify density as High/Moderate/Low.
-85. **Medical Proximity**: From property.neighborhoodPlaces — number of hospitals/medical within 5km and distance to closest.
-86. **EV Infrastructure**: From property.neighborhoodPlaces — number of EV charging stations nearby and distance to closest.
+83. SKIP (precomputed).
+84. SKIP (precomputed).
+85. SKIP (precomputed).
+86. SKIP (precomputed).
 87. **Pet Friendliness**: Combine neighborhoodPlaces.parks (dog parks, off-leash areas) + property features (fenced yard, dog door). Also look for vet clinics in nearby places.
 88. **Dining & Entertainment Scene**: From neighborhoodPlaces.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
 
@@ -234,7 +234,7 @@ Given the property data below, extract values for the required decision factors.
 98. **Neighborhood Condition**: From streetViewAnalysis.neighborCondition. Tags = neighborhood concepts like "Well-Maintained Neighborhood", "Consistent Style", "Tidy Yards", "Fresh Paint", "Mixed Condition". Value = condition assessment.
 
 ### Agent Description Concepts (100)
-100. **Agent Highlights**: From property.description (MLS listing). Tags = key selling points the agent emphasizes like "Updated Kitchen", "Pool Ready", "Corner Lot", "Solar Installed", "ADU Potential". Pull the 7-15 most impactful concepts from the listing text. Value = most prominent highlight.
+100. **Agent Highlights**: From property.description (MLS listing). Tags = key selling points the agent emphasizes like "Updated Kitchen", "Pool Ready", "Corner Lot", "Solar Installed", "ADU Potential". Pull the 10-15 most impactful concepts from the listing text. Value = most prominent highlight.
 
 ### Community Sentiment & Condition (102-105) — Tags are the primary output. Generate 3-8 concept tags.
 102. **Resident Sentiment Concepts**: From community_pulse (all sections). Tags = sentiment concepts like "Love the Schools", "Quiet Community", "Great Parks", "HOA Issues", "Traffic Concerns". Value = overall sentiment.
@@ -270,7 +270,7 @@ Return a JSON object with this structure:
   "summary": {
     "topStrengths": ["Top 3-5 property strengths as buyer-facing phrases"],
     "topConcerns": ["Top 3-5 concerns or risks"],
-    "buyerProfile": "Brief description of ideal buyer profile for this property"
+    "propertyHighlight": "1-2 sentence summary of what this property is best suited for based on its features — e.g. 'Move-in ready with top-rated schools within walking distance and a spacious backyard'. Focus on PROPERTY attributes only. Do NOT describe or profile potential buyers."
   }
 }
 
@@ -307,9 +307,9 @@ const summarySchema = {
     properties: {
         topStrengths: { type: Type.ARRAY, items: { type: Type.STRING } },
         topConcerns: { type: Type.ARRAY, items: { type: Type.STRING } },
-        buyerProfile: { type: Type.STRING }
+        propertyHighlight: { type: Type.STRING, description: "Property-focused summary of standout features and use cases. Do NOT describe or profile potential buyers." }
     },
-    required: ["topStrengths", "topConcerns", "buyerProfile"]
+    required: ["topStrengths", "topConcerns", "propertyHighlight"]
 };
 
 export const contextGraphExtractionSchema = {

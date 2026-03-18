@@ -371,6 +371,36 @@ export const useAnalysisActions = (
                 }
             }
 
+            // Fetch schools_intelligence from Firestore if not already on the analysis object
+            if (!enrichedAnalysis.schools_intelligence && propertyData?.schools?.length) {
+                try {
+                    const { getSchoolAnalysisFromCloud } = await import('../../../../services/firebase/properties');
+                    const { getSchoolCacheKey } = await import('../../../../prompts/property/schoolsAnalysis');
+                    const city = propertyData.city || '';
+                    const state = propertyData.state || '';
+                    const schoolResults: any[] = [];
+                    for (const school of propertyData.schools) {
+                        const cacheKey = getSchoolCacheKey(school.name, city, state);
+                        const cached = await getSchoolAnalysisFromCloud(cacheKey);
+                        if (cached?.name) {
+                            schoolResults.push({
+                                ...cached,
+                                distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
+                                mls_rating: school.rating,
+                                is_assigned: true
+                            });
+                        }
+                    }
+                    if (schoolResults.length > 0) {
+                        enrichedAnalysis.schools_intelligence = { schools: schoolResults, district_name: schoolResults[0]?.district_name || '' };
+                        enrichedAny = true;
+                        console.log(`[Context Graph] Loaded schools_intelligence for ${schoolResults.length} schools`);
+                    }
+                } catch (e) {
+                    console.warn('[Context Graph] schools_intelligence fetch failed:', e);
+                }
+            }
+
             if (enrichedAny) {
                 addLog('Cloud Cache', { type: 'info' }, { task: 'enriched_context_for_graph', cityStateKey });
                 onUpdateAnalysis(enrichedAnalysis);
