@@ -1996,7 +1996,6 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         setBuyerExtracted(null);
 
         try {
-            const { getContextGraphsBatch } = await import('../../services/firebase/properties');
             const { executeGeminiRequest, FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const { Type } = await import('@google/genai');
             const { auth } = await import('../../services/firebase/config');
@@ -2109,71 +2108,73 @@ ${buyerStory}
             };
             setBuyerExtracted(extracted);
 
-            // ── STEP 1: Filter properties using extracted criteria ──
-            let candidates = [...results];
-            candidates = candidates.filter(p => {
-                const price = p.listPrice || 0;
-                if (price > 0 && (price < priceMin || price > priceMax)) return false;
-                if (extracted.beds && p.bedrooms && p.bedrooms < extracted.beds) return false;
-                if (extracted.baths && p.bathrooms && p.bathrooms < extracted.baths) return false;
-                if (extracted.homeType && p.homeType && !p.homeType.toUpperCase().includes(extracted.homeType.toUpperCase())) return false;
-                return true;
-            });
-
-            // ── STEP 1b: Rank by search_tags + numeric_filters ──
-            const MAX = 20;
-            if (candidates.length > MAX && (searchTags.length > 0 || numericFilters.length > 0)) {
-                const scored = candidates.map(p => {
-                    let score = 0;
-                    // Text matches in description
-                    if (searchTags.length > 0) {
-                        const desc = (p.description || '').toLowerCase();
-                        score += searchTags.filter(tag => desc.includes(tag)).length;
-                    }
-                    // Numeric filter matches against listing data
-                    for (const nf of numericFilters) {
-                        const fieldMap: Record<string, number | undefined> = {
-                            sqft: p.livingArea,
-                            yearBuilt: p.yearBuilt,
-                            walkScore: p.walkScore,
-                            noiseScore: (p as any).noiseScore,
-                            garageSpaces: (p as any).garageSpaces || (p.resoFacts as any)?.garageParkingCapacity,
-                            lotSqft: (p as any).lotSize,
-                            stories: (p as any).stories,
-                            schoolMaxRating: p.schools?.length ? Math.max(...p.schools.map((s: any) => typeof s.rating === 'number' ? s.rating : parseFloat(String(s.rating)) || 0)) : undefined,
-                            fireRisk: (p as any).fireRiskScore,
-                            floodRisk: (p as any).floodRiskScore,
-                        };
-                        const val = fieldMap[nf.field];
-                        if (val != null) {
-                            if (nf.op === 'gte' && val >= nf.value) score += 2;
-                            else if (nf.op === 'lte' && val <= nf.value) score += 2;
-                            else if (nf.op === 'eq' && val === nf.value) score += 2;
-                        }
-                    }
-                    return { prop: p, score };
-                });
-                scored.sort((a, b) => b.score - a.score);
-                candidates = scored.map(s => s.prop);
-            }
-            candidates = candidates.slice(0, MAX);
-
-            if (candidates.length === 0) {
-                setBuyerError(`No properties match your criteria (${fmt(priceMin)}–${fmt(priceMax)}, ${extracted.beds || 'any'}+ beds). Try adjusting your budget or removing some requirements.`);
+            // ── STEP 1: Query Firestore directly with server-side filters ──
+            // Single round trip: city + price range + beds + baths filtered at Firestore level
+            const cityForQuery = selectedCity || results[0]?.city || '';
+            if (!cityForQuery) {
+                setBuyerError('No city selected. Please browse a city first.');
                 setBuyerSearching(false);
                 return;
             }
 
-            // ── STEP 2: Load context graphs (single batch query) ──
-            const zpidList = candidates.map(p => p.zpid);
-            const graphMap = await getContextGraphsBatch(zpidList);
-            const graphs: { zpid: string; address: string; graph: any; listing: any }[] = [];
-            for (const p of candidates) {
-                const graph = graphMap.get(p.zpid);
-                if (graph?.factors?.length > 0) {
-                    graphs.push({ zpid: p.zpid, address: p.address, graph, listing: { price: p.listPrice, beds: p.bedrooms, baths: p.bathrooms, sqft: p.livingArea, neighborhood: p.neighborhood } });
-                }
+            const { queryContextGraphs } = await import('../../services/firebase/properties');
+            const graphMap = await queryContextGraphs({
+                city: cityForQuery,
+                priceMin: priceMin > 0 ? priceMin : undefined,
+                priceMax: priceMax > 0 ? priceMax : undefined,
+                minBeds: extracted.beds,
+                minBaths: extracted.baths,
+                maxResults: 50
+            });
+
+            if (graphMap.size === 0) {
+                setBuyerError(`No context graphs found matching criteria (${fmt(priceMin)}–${fmt(priceMax)}, ${extracted.beds || 'any'}+ beds in ${cityForQuery}). Run "Context Graphs" batch first from City Data.`);
+                setBuyerSearching(false);
+                return;
             }
+
+            // ── STEP 1b: Rank by search_tags + numeric_filters ──
+            const MAX = 20;
+            let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
+                let score = 0;
+                // Text matches in summary + factors descriptions
+                if (searchTags.length > 0) {
+                    const searchText = [
+                        graph.summary || '',
+                        ...(graph.factors || []).map((f: any) => `${f.label || ''} ${f.details || ''}`)
+                    ].join(' ').toLowerCase();
+                    score += searchTags.filter(tag => searchText.includes(tag)).length;
+                }
+                // Numeric filter matches against keyMetrics (stored on graph)
+                const km = graph.keyMetrics || {};
+                for (const nf of numericFilters) {
+                    const val = km[nf.field] ?? graph[nf.field];
+                    if (val != null) {
+                        if (nf.op === 'gte' && val >= nf.value) score += 2;
+                        else if (nf.op === 'lte' && val <= nf.value) score += 2;
+                        else if (nf.op === 'eq' && val === nf.value) score += 2;
+                    }
+                }
+                return { zpid, graph, score };
+            });
+
+            // Sort by score, take top N
+            graphEntries.sort((a, b) => b.score - a.score);
+            graphEntries = graphEntries.slice(0, MAX);
+
+            const graphs: { zpid: string; address: string; graph: any; listing: any }[] = graphEntries
+                .filter(e => e.graph?.factors?.length > 0)
+                .map(e => ({
+                    zpid: e.zpid,
+                    address: e.graph.address || e.zpid,
+                    graph: e.graph,
+                    listing: {
+                        price: e.graph.price || e.graph.keyMetrics?.price,
+                        beds: e.graph.beds || e.graph.keyMetrics?.beds,
+                        baths: e.graph.baths || e.graph.keyMetrics?.baths,
+                        sqft: e.graph.sqft || e.graph.keyMetrics?.sqft,
+                    }
+                }));
 
             if (graphs.length === 0) {
                 setBuyerError('No context graphs found for matching properties. Run "Context Graphs" batch first from City Data.');
@@ -2234,7 +2235,7 @@ ${JSON.stringify(summaries)}
 
             if (result.data?.matches) {
                 const zpidToAddr: Record<string, string> = {};
-                candidates.forEach(c => { zpidToAddr[c.zpid] = c.address; });
+                graphs.forEach(g => { zpidToAddr[g.zpid] = g.address; });
                 const matches = result.data.matches
                     .sort((a, b) => b.score - a.score)
                     .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }));

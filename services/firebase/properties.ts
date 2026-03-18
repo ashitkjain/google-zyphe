@@ -796,28 +796,101 @@ export const getContextGraphFromCloud = async (zpid: string): Promise<any | null
 };
 
 /**
- * Fetch ALL context graphs for a city in a single Firestore query.
- * Requires `city` field on context_graph docs (auto-indexed by Firestore).
- * Returns a Map<zpid, graphData> for O(1) lookup.
+ * Query context graphs with Firestore-level filtering.
+ * Pushes price/beds/baths filtering to Firestore so only matching docs are transferred.
+ * 
+ * COMPOSITE INDEX REQUIRED: city ASC + price ASC + beds ASC + baths ASC
+ * Firestore auto-suggests the creation URL on first query attempt.
+ * If the index doesn't exist yet, falls back to city-only query + JS filtering.
  */
-export const getContextGraphsForCity = async (cityName: string): Promise<Map<string, any>> => {
+export interface ContextGraphQuery {
+    city: string;
+    priceMin?: number;
+    priceMax?: number;
+    minBeds?: number;
+    minBaths?: number;
+    maxResults?: number;  // default 50
+}
+
+export const queryContextGraphs = async (filters: ContextGraphQuery): Promise<Map<string, any>> => {
     const results = new Map<string, any>();
-    if (!db || !cityName) return results;
+    if (!db || !filters.city) return results;
+
+    const normalizedCity = filters.city.toLowerCase().trim();
+    const maxResults = filters.maxResults || 50;
+
     try {
-        const normalizedCity = cityName.toLowerCase().trim();
-        logFirestoreQuery('getDocs', 'context_graph', { city: normalizedCity });
-        const q = query(
-            collection(db, "context_graph"),
+        // Build composite query — push as many filters to Firestore as possible
+        const constraints: any[] = [
             where("city", "==", normalizedCity)
-        );
+        ];
+
+        // Price range (inequality on same field — always works)
+        if (filters.priceMin && filters.priceMin > 0) {
+            constraints.push(where("price", ">=", filters.priceMin));
+        }
+        if (filters.priceMax && filters.priceMax > 0) {
+            constraints.push(where("price", "<=", filters.priceMax));
+        }
+
+        // Beds/baths — require composite index with price
+        // If index doesn't exist, Firestore error will contain URL to create it
+        if (filters.minBeds && filters.minBeds > 0) {
+            constraints.push(where("beds", ">=", filters.minBeds));
+        }
+        if (filters.minBaths && filters.minBaths > 0) {
+            constraints.push(where("baths", ">=", filters.minBaths));
+        }
+
+        constraints.push(limit(maxResults));
+
+        logFirestoreQuery('getDocs', 'context_graph', { 
+            city: normalizedCity, 
+            priceMin: filters.priceMin, 
+            priceMax: filters.priceMax,
+            minBeds: filters.minBeds,
+            minBaths: filters.minBaths 
+        });
+
+        const q = query(collection(db, "context_graph"), ...constraints);
         const snap = await getDocs(q);
         snap.forEach(d => {
             results.set(d.id, d.data());
         });
-        console.log(`[Context Graph] City batch: loaded ${results.size} graphs for "${normalizedCity}"`);
+        console.log(`[Context Graph] Server-filtered query: ${results.size} results for "${normalizedCity}" (price: ${filters.priceMin || 0}–${filters.priceMax || '∞'}, beds≥${filters.minBeds || 0}, baths≥${filters.minBaths || 0})`);
         return results;
-    } catch (error) {
-        handleFirestoreError(error, "getContextGraphsForCity");
+
+    } catch (error: any) {
+        // If composite index missing, Firestore error contains creation URL
+        if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+            console.warn(`[Context Graph] Composite index needed. Falling back to city-only query + JS filter.`);
+            console.warn(`[Context Graph] Create index at: ${error.message}`);
+
+            // Fallback: city-only query + JS filtering
+            try {
+                const fallbackQuery = query(
+                    collection(db, "context_graph"),
+                    where("city", "==", normalizedCity),
+                    limit(200)
+                );
+                const snap = await getDocs(fallbackQuery);
+                snap.forEach(d => {
+                    const data = d.data();
+                    // Apply filters in JS
+                    if (filters.priceMin && filters.priceMin > 0 && data.price && data.price < filters.priceMin) return;
+                    if (filters.priceMax && filters.priceMax > 0 && data.price && data.price > filters.priceMax) return;
+                    if (filters.minBeds && filters.minBeds > 0 && data.beds && data.beds < filters.minBeds) return;
+                    if (filters.minBaths && filters.minBaths > 0 && data.baths && data.baths < filters.minBaths) return;
+                    results.set(d.id, data);
+                });
+                console.log(`[Context Graph] Fallback: ${results.size} results after JS filtering (from ${snap.size} city docs)`);
+                return results;
+            } catch (fallbackErr) {
+                handleFirestoreError(fallbackErr, "queryContextGraphs-fallback");
+                return results;
+            }
+        }
+        handleFirestoreError(error, "queryContextGraphs");
         return results;
     }
 };
