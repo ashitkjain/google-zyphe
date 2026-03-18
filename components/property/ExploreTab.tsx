@@ -2109,8 +2109,9 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
                 let score = 0;
                 const searchText = [
-                    graph.summary || '',
-                    ...(graph.factors || []).map((f: any) => `${f.label || ''} ${f.details || ''}`)
+                    graph.summary?.propertyHighlight || '',
+                    ...(graph.summary?.topStrengths || []),
+                    ...(graph.factors || []).flatMap((f: any) => (f.tags || f.t || []).map(String))
                 ].join(' ').toLowerCase();
 
                 // Must-have tag matches (weight: 3 points each)
@@ -2197,14 +2198,15 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => {
-                    // Compact: { key: [tags] } — AI factors have {id, tags}, precomputed have {id, name, tags}
+                    // Firestore factors use minified keys: {i, t} or full: {id, tags, name}
                     const rawFactors = g.graph.factors || [];
-                    if (idx === 0) console.log(`[Buyer Match Debug] ${g.address} factors type=${typeof rawFactors}, isArray=${Array.isArray(rawFactors)}, length=${rawFactors.length}, sample=`, rawFactors.slice(0, 2));
                     const factors: Record<string, string[]> = {};
                     for (const f of rawFactors) {
-                        if (f.tags?.length) {
-                            const key = f.name || `factor_${f.id}`;
-                            factors[key] = f.tags;
+                        const tags = f.tags || f.t || [];
+                        const id = f.id ?? f.i;
+                        if (tags.length > 0) {
+                            const key = f.name || `factor_${id}`;
+                            factors[key] = tags;
                         }
                     }
                     return {
