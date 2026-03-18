@@ -202,7 +202,7 @@ Given the property data below, extract values for the required decision factors.
 72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
 73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
 74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
-75. SKIP (precomputed).
+75. **Market Velocity (DOM)**: From deep_investment_research.market_dynamics — find the MEDIAN Days on Market (DOM) for the city/area. Look in chart_data (metric2/value2 series), summary text, and details for DOM figures. Value = "Fast/Moderate/Slow — X days median DOM". Fast = <14 days, Moderate = 14-30 days, Slow = >30 days. Tags = speed label + DOM number. Do NOT use the listing's own daysOnZillow — this must be the MARKET-LEVEL median.
 
 ### Infrastructure & Environment (76-79)
 76. SKIP (precomputed).

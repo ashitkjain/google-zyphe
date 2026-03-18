@@ -74,7 +74,7 @@ export const APP_CONFIG = {
         key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI"
     },
     groq: {
-        key: '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'
+        key: (import.meta as any).env?.VITE_GROQ_API_KEY || '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'
     },
     howLoud: {
         // Free tier: 2,500 req/mo — https://howloud.com/developers

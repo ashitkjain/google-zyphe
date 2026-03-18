@@ -380,24 +380,7 @@ function factor59_laundry(p: PropertyData): ExtractedFactor {
     };
 }
 
-function factor75_marketVelocity(visual: CustomAIAnalysisResult | null, property?: PropertyData): ExtractedFactor {
-    // Only use city-level median DOM — property-level daysOnZillow is just how long THIS listing is up, not market velocity
-    const cityDom = (visual as any)?.general_market_intelligence?.market_dynamics?.days_on_market;
 
-    if (!cityDom) return { id: 75, name: 'Market Velocity (DOM)', value: 'Data not available', confidence: 'low', tags: [] };
-
-    const num = parseFloat(String(cityDom).replace(/[^0-9.]/g, ''));
-    if (isNaN(num)) {
-        return { id: 75, name: 'Market Velocity (DOM)', value: String(cityDom), confidence: 'medium', tags: [] };
-    }
-    const speed = num < 14 ? 'Fast' : num <= 30 ? 'Moderate' : 'Slow';
-    return {
-        id: 75, name: 'Market Velocity (DOM)',
-        value: `${speed} — ${Math.round(num)} days median DOM`,
-        confidence: 'high',
-        tags: [speed, `${Math.round(num)} DOM`]
-    };
-}
 
 function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedFactor {
     const str = (visual as any)?.property_investment?.str_performance;
@@ -828,24 +811,53 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
 
 function factor39_usableYard(p: PropertyData): ExtractedFactor {
     const pv = (p as any).parcelValidation;
-    console.log('[Factor 39 Debug] parcelValidation:', !!pv, 'slopePercent:', pv?.slopePercent, 'keys:', pv ? Object.keys(pv).join(',') : 'null');
-    if (!pv || pv.slopePercent == null) {
-        return { id: 39, name: 'Usable Yard Space', value: 'Data not available', confidence: 'low', tags: [] };
+
+    // Path 1: If we have slope data from parcelValidation, use it
+    if (pv?.slopePercent != null) {
+        const slope = pv.slopePercent;
+        const cat = pv.slopeCategory || '';
+        let pct = 100;
+        const tags: string[] = [];
+        if (slope <= 5) { pct = 100; }
+        else if (slope <= 10) { pct = 85; tags.push('Mild Slope'); }
+        else if (slope <= 20) { pct = 65; tags.push('Hillside Limitation'); }
+        else if (slope <= 35) { pct = 40; tags.push('Steep Terrain'); tags.push('Retaining Walls Likely'); }
+        else { pct = 20; tags.push('Very Steep'); tags.push('Limited Usability'); }
+        return {
+            id: 39, name: 'Usable Yard Space',
+            value: `${pct}% usable${cat ? ` — ${cat}` : ''}`,
+            confidence: 'high', tags
+        };
     }
-    const slope = pv.slopePercent;
-    const cat = pv.slopeCategory || '';
-    let pct = 100;
-    const tags: string[] = [];
-    if (slope <= 5) { pct = 100; }
-    else if (slope <= 10) { pct = 85; tags.push('Mild Slope'); }
-    else if (slope <= 20) { pct = 65; tags.push('Hillside Limitation'); }
-    else if (slope <= 35) { pct = 40; tags.push('Steep Terrain'); tags.push('Retaining Walls Likely'); }
-    else { pct = 20; tags.push('Very Steep'); tags.push('Limited Usability'); }
-    return {
-        id: 39, name: 'Usable Yard Space',
-        value: `${pct}% usable${cat ? ` — ${cat}` : ''}`,
-        confidence: 'high', tags
-    };
+
+    // Path 2: Estimate from lot size vs living area (no slope data)
+    const lotRaw = (p as any).lotSize;
+    const arcgisLot = (p as any).parcelAreaSqft;
+    const livingArea = p.livingAreaValue;
+    const lotSqft = arcgisLot || (typeof lotRaw === 'number' ? lotRaw : (lotRaw ? parseFloat(String(lotRaw).replace(/[^0-9.]/g, '')) : null));
+
+    if (lotSqft && lotSqft > 0 && livingArea && livingArea > 0) {
+        // Standard setback deduction (~25% for lots < 12k sqft)
+        const cappedLot = Math.min(lotSqft, 30000);
+        const setbackDeduction = cappedLot <= 12000 ? cappedLot * 0.25 : 3000 + (cappedLot - 12000) * 0.01;
+        const usableYard = Math.max(0, Math.round(lotSqft - livingArea - setbackDeduction));
+        const yardPct = Math.round((usableYard / lotSqft) * 100);
+        const tags: string[] = [];
+        if (usableYard > 3000) tags.push('Large Yard');
+        else if (usableYard > 1500) tags.push('Moderate Yard');
+        else if (usableYard > 500) tags.push('Small Yard');
+        else tags.push('Minimal Yard');
+        tags.push(`${usableYard.toLocaleString()} sqft`);
+        const source = arcgisLot ? 'ArcGIS' : 'listing';
+        return {
+            id: 39, name: 'Usable Yard Space',
+            value: `~${usableYard.toLocaleString()} sqft (${yardPct}% of ${lotSqft.toLocaleString()} ${source} lot)`,
+            confidence: arcgisLot ? 'high' : 'medium',
+            tags
+        };
+    }
+
+    return { id: 39, name: 'Usable Yard Space', value: 'Data not available', confidence: 'low', tags: [] };
 }
 
 function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
@@ -1200,7 +1212,7 @@ export function precomputeDataFactors(
         factor54_topography(property),
 
         factor59_laundry(property),
-        factor75_marketVelocity(visual, property),
+
         // ── New factors ──
         factor76_internetConnectivity(property),
         factor77_noiseProfile(property),
@@ -1301,6 +1313,6 @@ function factor114_backyardOutdoor(visual: CustomAIAnalysisResult | null): Extra
 }
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110, 113, 114];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110, 113, 114];
 
 
