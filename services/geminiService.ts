@@ -703,11 +703,18 @@ export const extractContextGraphFactors = async (
     return { ...f, tags: filtered };
   });
 
+  // 7. Compact: strip name, shorten keys {id→i, tags→t, value→v} to save tokens
+  const compactFactors = dedupedFactors.map(f => {
+    const compact: any = { i: f.id, t: f.tags };
+    if (f.value) compact.v = f.value;
+    return compact;
+  });
+
   return {
     ...aiResult,
     data: {
       ...aiResult.data,
-      factors: dedupedFactors,
+      factors: compactFactors,
       keyMetrics,
     }
   };

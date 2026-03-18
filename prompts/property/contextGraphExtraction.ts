@@ -276,7 +276,6 @@ Return a JSON object with this structure:
   "factors": [
     {
       "id": 1,
-      "name": "Price Bracket",
       "tags": ["Luxury", "$2.1M", "Top 5%", "Premium Market"]
     },
     ...all factors...
@@ -303,14 +302,13 @@ const factorSchema = {
     type: Type.OBJECT,
     properties: {
         id: { type: Type.NUMBER, description: "Factor ID" },
-        name: { type: Type.STRING, description: "Factor name" },
         tags: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: "2-8 short labels capturing all key info — numbers, categories, concepts"
+            description: "2-8 short labels capturing all key info"
         }
     },
-    required: ["id", "name", "tags"]
+    required: ["id", "tags"]
 };
 
 const summarySchema = {

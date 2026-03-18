@@ -48,6 +48,56 @@ const TAG_COLOR_MAP: Record<number, { bg: string; text: string; border: string }
 };
 const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' };
 
+/** Static factor ID → name lookup (names stripped from stored data to save tokens) */
+const FACTOR_NAMES: Record<number, string> = {
+    1: 'Price Bracket', 2: 'HOA Friction', 3: 'Tax Burden', 4: 'True Carrying Cost',
+    5: 'Seller Motivation', 6: 'ADU / House-Hacking', 7: 'STR Viability', 8: 'LTR Yield',
+    9: 'Historical Appreciation', 14: 'Usable Square Footage',
+    17: 'Home Office', 19: 'Foundation & Storage', 20: 'Construction Era',
+    21: 'Move-In Readiness', 22: 'Renovation Upside', 23: 'Architectural Style',
+    24: 'Natural Light', 25: 'Layout Flow', 26: 'Kitchen Quality',
+    27: 'Bathroom Quality', 28: 'Flooring Material', 29: 'Storage Capacity',
+    30: 'Smart Home Features', 31: 'Commute Access', 32: 'Noise Level',
+    33: 'Privacy Level', 34: 'Curb Appeal', 35: 'Street Character',
+    36: 'View Quality', 37: 'Outdoor Living', 38: 'Pool / Spa',
+    39: 'Usable Yard', 40: 'Landscaping', 41: 'Exterior Style',
+    42: 'Transit Access', 43: 'Walkability', 44: 'Bike Score',
+    45: 'Grocery Access', 46: 'Wildfire Risk', 47: 'Flood Risk',
+    48: 'Solar Yield', 49: 'Pollen Safety', 50: 'HVAC Quality',
+    51: 'Front Orientation / Vastu', 52: 'Air Quality', 54: 'Topography & Elevation',
+    57: 'Permit History', 58: 'Laundry', 59: 'Laundry Logistics',
+    60: 'Parking', 61: 'Pet Friendliness', 62: 'ADA Accessibility',
+    63: 'Insurance Cost', 64: 'Utility Costs', 65: 'Resale Outlook',
+    66: 'Rental Demand', 67: 'Comparable Sales', 68: 'Price History',
+    69: 'Neighborhood Trend', 70: 'Crime Safety', 71: 'School Proximity',
+    72: 'Park Access', 73: 'Dining & Nightlife', 74: 'Shopping Access',
+    75: 'Cultural Amenities', 76: 'Internet Connectivity', 77: 'Noise Profile',
+    78: 'Drought Risk', 79: 'Disaster History', 80: 'Professional Lifestyle Fit',
+    81: 'Family Lifestyle Fit', 82: 'Senior Lifestyle Fit', 83: 'Micro-Neighborhood',
+    84: 'Walkable Amenities', 85: 'Medical Proximity', 86: 'EV Infrastructure',
+    87: 'Top Nearby Places',
+    89: 'Investment Concepts', 90: 'Growth Signals', 91: 'Risk Flags',
+    92: 'Market Position', 93: 'Value Drivers',
+    94: 'Street Scene', 95: 'Exterior Condition', 96: 'Landscaping Assessment',
+    97: 'Parking Assessment', 98: 'Neighborhood Condition',
+    100: 'Agent Highlights', 101: 'School Concepts',
+    102: 'Community Pulse', 103: 'Resident Sentiment', 104: 'Local Issues', 105: 'Community Vibe',
+    106: 'Seismic Risk', 108: 'Sqft Discrepancy', 109: 'Lot Size Verification',
+    110: 'Listing Claim Flags', 111: 'Macro Market Signal',
+    113: 'Kitchen Intelligence', 114: 'Bathroom Intelligence',
+    115: 'Living Spaces', 116: 'Specialty Rooms',
+};
+
+/** Expand compact factor {i, t, v?} to full {id, name, tags, value?} — handles both old and new format */
+const expandFactor = (f: any): ExtractedFactor => {
+    if (f.i != null) {
+        // Compact format
+        return { id: f.i, name: FACTOR_NAMES[f.i] || `Factor ${f.i}`, tags: f.t || [], value: f.v };
+    }
+    // Old format — add name from lookup if missing
+    return { id: f.id, name: f.name || FACTOR_NAMES[f.id] || `Factor ${f.id}`, tags: f.tags || [], value: f.value };
+};
+
 
 
 const getCategoryForFactor = (id: number): string => {
@@ -135,10 +185,11 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
 
     if (!data) return null;
 
-    // Group factors by category (filter out retired factor IDs from old cached graphs)
-    const SUPPRESSED_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 107, 110, 112]); // 11-13,15,18=keyMetrics duplicates, 10=Urgency→5, 16→58, 53→49, 55→48, 56→86, 107→47, 110=ListingFlags, 112→79
+    // Normalize factors: expand compact {i,t,v} and old {id,name,tags} formats
+    const SUPPRESSED_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 107, 110, 112]);
+    const normalizedFactors = data.factors.map(expandFactor);
     const grouped: Record<string, ExtractedFactor[]> = {};
-    for (const factor of data.factors) {
+    for (const factor of normalizedFactors) {
         if (SUPPRESSED_IDS.has(factor.id)) continue;
         const cat = getCategoryForFactor(factor.id);
         if (!grouped[cat]) grouped[cat] = [];
@@ -149,8 +200,8 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
         ? Object.keys(CATEGORY_MAP)
         : [activeFilter];
 
-    const totalFactors = data.factors.length;
-    const allTags = data.factors.flatMap(f => f.tags);
+    const totalFactors = normalizedFactors.length;
+    const allTags = normalizedFactors.flatMap(f => f.tags);
     const uniqueTags = new Set(allTags);
 
     // Estimate token count (~4 chars per token for Gemini)
