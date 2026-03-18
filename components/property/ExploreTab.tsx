@@ -2198,6 +2198,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                     };
                 });
 
+                console.log(`[Buyer Match] Chunk ${idx + 1}/${chunks.length}:`, summaries.map(s => ({ zpid: s.zpid, factorCount: Object.keys(s.factors).length, hasKeyMetrics: !!s.keyMetrics, hasSummary: !!s.summary })));
                 const prompt = `Classify each property as "strong" or "weak" match for the buyer.
 
 ## BUYER STORY
