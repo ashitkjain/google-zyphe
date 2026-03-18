@@ -74,7 +74,7 @@ export const buildGraphExtractionContext = (
     const orientationAI = (property as any).orientation_ai ? {
         final_orientation: (property as any).orientation_ai.final_orientation,
         azimuth_degrees: (property as any).orientation_ai.azimuth_degrees,
-        confidence: (property as any).orientation_ai.confidence,
+
         feng_shui_vastu: (property as any).orientation_ai.feng_shui_vastu,
         buyer_pro: (property as any).orientation_ai.buyer_pro,
         buyer_con: (property as any).orientation_ai.buyer_con,
@@ -108,7 +108,7 @@ Given the property data below, extract values for the required decision factors.
 - The factor ID
 - A concise value (maximum 10 words — use fragments, numbers, and labels, not full sentences)
 
-- A confidence score: "high" (directly from data), "medium" (inferred), "low" (insufficient data)
+
 - Tags: short labels (1-3 words each) suitable for graph nodes. For factors 89-105, tags are the PRIMARY output — generate 3-8 concept tags per factor.
 
 ## FACTOR DEFINITIONS
@@ -234,7 +234,15 @@ Given the property data below, extract values for the required decision factors.
 98. **Neighborhood Condition**: From streetViewAnalysis.neighborCondition. Tags = neighborhood concepts like "Well-Maintained Neighborhood", "Consistent Style", "Tidy Yards", "Fresh Paint", "Mixed Condition". Value = condition assessment.
 
 ### Agent Description Concepts (100)
-100. **Agent Highlights**: From property.description (MLS listing). Tags = key selling points the agent emphasizes like "Updated Kitchen", "Pool Ready", "Corner Lot", "Solar Installed", "ADU Potential". Pull the 10-15 most impactful concepts from the listing text. Value = most prominent highlight.
+100. **Agent Highlights**: Deep-mine property.description (MLS listing) for ALL buyer-relevant details. Extract:
+  - **Recent upgrades** with specifics: "New Roof 2023", "Kitchen Remodel $80K", "Tankless Water Heater", "Dual-Pane Windows"
+  - **Unique features** not captured by other factors: "Wine Cellar", "Tesla Charger", "Whole-House Fan", "Water Softener", "Built-In Speakers", "Smart Home System"
+  - **Lot & location gems**: "Corner Lot", "No Rear Neighbors", "Greenbelt Adjacent", "Cul-de-sac", "Flag Lot"
+  - **Income/ADU potential**: "ADU Permitted", "Separate Entrance", "Casita", "Home Office Suite", "Permitted Addition"
+  - **Seller signals**: "Motivated Seller", "Estate Sale", "Relocating", "Price Reduced", "Bring All Offers"
+  - **Lifestyle cues**: "Entertainer's Backyard", "Chef's Kitchen", "Resort-Style Pool", "Indoor-Outdoor Living"
+  - **Red flags in agent language**: "As-Is", "Investor Special", "Needs TLC", "Deferred Maintenance", "Cash Only"
+  Value = single most impactful highlight. Generate 15-25 tags — be thorough, this is the richest text source.
 
 ### School Intelligence (101)
 101. **School Concepts**: From schools_intelligence and schools data. For each of the top 3 schools, generate tags with school name + rating (e.g. "Amador Valley 10/10"), school type if non-public ("Charter", "Private"), test scores ("85% Proficient"), student-teacher ratio ("22:1 Small Classes"), AP/IB programs, graduation rate, and extracurriculars ("STEM/Robotics", "Strong Athletics"). Also include district name, "Desirable School Zone" if applicable, and proximity tags ("Walking Distance", "Schools Under 1mi"). Value = top school name + rating + district. Generate 5-12 tags.
@@ -271,7 +279,7 @@ Return a JSON object with this structure:
       "id": 1,
       "name": "Price Bracket",
       "value": "Luxury - $2.1M",
-      "confidence": "high",
+
       "tags": ["Luxury", "$2M+"]
     },
     ...all factors...
@@ -284,7 +292,7 @@ Return a JSON object with this structure:
 }
 
 CRITICAL RULES:
-- Extract ALL non-skipped factors. If data is missing, set value to "Data not available" and confidence to "low"
+- Extract ALL non-skipped factors. If data is missing, set value to "Data not available"
 - value MUST be 10 words or fewer — use fragments and labels, never full sentences (e.g. "Luxury — $2.1M" not "This property is in the luxury tier at $2.1M")
 - Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
 - For factors 89-105: tags are the PRIMARY output — generate 3-8 rich concept tags per factor from the source data
@@ -301,14 +309,14 @@ const factorSchema = {
         name: { type: Type.STRING, description: "Factor name" },
         value: { type: Type.STRING, description: "Extracted or computed value (max 10 words)" },
 
-        confidence: { type: Type.STRING, description: "high, medium, or low" },
+
         tags: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
             description: "1-8 short labels for graph nodes. For factors 89-105, generate 3-8 concept tags."
         }
     },
-    required: ["id", "name", "value", "confidence", "tags"]
+    required: ["id", "name", "value", "tags"]
 };
 
 const summarySchema = {

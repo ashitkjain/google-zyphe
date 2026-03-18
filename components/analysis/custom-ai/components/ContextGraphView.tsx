@@ -48,15 +48,12 @@ const TAG_COLOR_MAP: Record<number, { bg: string; text: string; border: string }
 };
 const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' };
 
-const CONFIDENCE_STYLES: Record<string, string> = {
-    high: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    medium: 'bg-amber-100 text-amber-700 border-amber-200',
-    low: 'bg-slate-100 text-slate-500 border-slate-200',
-};
+
 
 const getCategoryForFactor = (id: number): string => {
     // Explicit overrides for factors that belong in a different tab than their ID range
     if (id === 34) return 'intelligence'; // Curb Appeal → AI Intelligence
+    if (id === 100) return 'property';    // Agent Highlights → Property & Financials
     for (const [key, cat] of Object.entries(CATEGORY_MAP)) {
         if (cat.ranges.some(([lo, hi]) => id >= lo && id <= hi)) return key;
     }
@@ -70,9 +67,6 @@ const FactorCard: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => (
                 <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">#{factor.id}</span>
                 <h4 className="text-sm font-bold text-slate-800">{factor.name}</h4>
             </div>
-            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${CONFIDENCE_STYLES[factor.confidence] || CONFIDENCE_STYLES.low}`}>
-                {factor.confidence}
-            </span>
         </div>
         <p className="text-sm text-slate-600 leading-relaxed mb-1">{factor.value}</p>
         {factor.tags.length > 0 && (() => {
@@ -94,30 +88,16 @@ const CategorySection: React.FC<{ categoryKey: string; factors: ExtractedFactor[
     const cat = CATEGORY_MAP[categoryKey];
     if (!cat || factors.length === 0) return null;
 
-    const highCount = factors.filter(f => f.confidence === 'high').length;
-    const coverage = Math.round((highCount / factors.length) * 100);
-
     return (
         <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg bg-${cat.color}-100 flex items-center justify-center`}>
-                        <i className={`fa-solid ${cat.icon} text-${cat.color}-600 text-sm`}></i>
-                    </div>
-                    <h3 className="text-lg font-black text-slate-800">{cat.label}</h3>
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
-                        {factors.length} factors
-                    </span>
+            <div className="flex items-center gap-3 mb-4">
+                <div className={`w-8 h-8 rounded-lg bg-${cat.color}-100 flex items-center justify-center`}>
+                    <i className={`fa-solid ${cat.icon} text-${cat.color}-600 text-sm`}></i>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-emerald-500 rounded-full transition-all"
-                            style={{ width: `${coverage}%` }}
-                        />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400">{coverage}% high confidence</span>
-                </div>
+                <h3 className="text-lg font-black text-slate-800">{cat.label}</h3>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
+                    {factors.length} factors
+                </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {factors.map(f => <FactorCard key={f.id} factor={f} />)}
