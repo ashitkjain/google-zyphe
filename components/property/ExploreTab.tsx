@@ -1936,8 +1936,29 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         onHasResults?.(results.length > 0);
     }, [results.length, onHasResults]);
 
-    const totalPages = Math.ceil(processed.length / PER_PAGE);
-    const pageItems = processed.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+    // Build match lookup from buyer results
+    const matchMap = useMemo(() => {
+        const map: Record<string, { score: number; reasons: string[]; highlight: string; rank: number }> = {};
+        buyerResults?.forEach((m, i) => { map[m.zpid] = { score: m.score, reasons: m.reasons, highlight: m.highlight, rank: i + 1 }; });
+        return map;
+    }, [buyerResults]);
+
+    // When buyer results exist, reorder: matched first (by score desc), then rest
+    const displayList = useMemo(() => {
+        if (!buyerResults || buyerResults.length === 0) return processed;
+        const matchedZpids = new Set(buyerResults.map(m => m.zpid));
+        const matched = buyerResults
+            .map(m => processed.find(p => p.zpid === m.zpid))
+            .filter(Boolean) as typeof processed;
+        const rest = processed.filter(p => !matchedZpids.has(p.zpid));
+        return [...matched, ...rest];
+    }, [processed, buyerResults]);
+
+    const totalPages = Math.ceil(displayList.length / PER_PAGE);
+    const pageItems = displayList.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+    // Tooltip state for hover
+    const [hoveredZpid, setHoveredZpid] = useState<string | null>(null);
 
     const toggleSort = (field: typeof sortField) => {
         if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -2175,8 +2196,8 @@ ${JSON.stringify(summaries)}
 
                         {/* Count */}
                         <span className="ml-auto text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            {processed.length} {processed.length === 1 ? 'property' : 'properties'}
-                            {processed.length !== results.length && ` (of ${results.length})`}
+                            {displayList.length} {displayList.length === 1 ? 'property' : 'properties'}
+                            {displayList.length !== results.length && ` (of ${results.length})`}
                         </span>
 
                         {/* Buyer Search Toggle */}
@@ -2216,90 +2237,88 @@ ${JSON.stringify(summaries)}
                                     )}
                                 </button>
                                 {buyerResults && (
-                                    <span className="text-xs font-bold text-indigo-600">{buyerResults.length} matches found</span>
+                                    <>
+                                        <span className="text-xs font-bold text-indigo-600">{buyerResults.length} matches — results sorted below</span>
+                                        <button onClick={() => setBuyerResults(null)} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors ml-1">
+                                            <i className="fa-solid fa-xmark"></i> Clear
+                                        </button>
+                                    </>
                                 )}
                             </div>
-
-                            {/* Results */}
-                            {buyerResults && buyerResults.length > 0 && (
-                                <div className="space-y-2 pt-2 border-t border-indigo-200">
-                                    {buyerResults.map((match, idx) => (
-                                        <div key={match.zpid} className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-200 transition-all">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${idx === 0 ? 'bg-amber-100 text-amber-700' : idx <= 2 ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
-                                                            #{idx + 1}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => onPropertyClick(match.address)}
-                                                            className="text-xs font-black text-slate-800 hover:text-indigo-600 transition-colors truncate"
-                                                        >
-                                                            {match.address}
-                                                        </button>
-                                                    </div>
-                                                    <p className="text-xs text-indigo-600 font-semibold italic mb-1.5">
-                                                        &ldquo;{match.highlight}&rdquo;
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {match.reasons.map((reason, i) => (
-                                                            <span key={i} className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                                                {reason}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <div className={`w-11 h-11 rounded-lg flex items-center justify-center text-sm font-black flex-shrink-0 ${match.score >= 80 ? 'bg-emerald-100 text-emerald-700' : match.score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                    {match.score}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </div>
                     )}
 
                     {/* ── GALLERY VIEW ── */}
                     {viewMode === 'gallery' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                            {pageItems.map(prop => (
-                                <button
-                                    key={prop.zpid}
-                                    onClick={() => onPropertyClick(prop.address)}
-                                    className="group bg-white rounded-2xl border border-slate-100 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50 transition-all text-left overflow-hidden"
-                                >
-                                    {prop.images?.[0] ? (
-                                        <div className="h-28 bg-slate-100 overflow-hidden">
-                                            <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                                        </div>
-                                    ) : (
-                                        <div className="h-28 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                                            <i className="fa-solid fa-house text-2xl text-slate-300"></i>
-                                        </div>
-                                    )}
-                                    <div className="p-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
-                                                {prop.address}
+                            {pageItems.map(prop => {
+                                const match = matchMap[prop.zpid];
+                                return (
+                                    <div
+                                        key={prop.zpid}
+                                        className="relative"
+                                        onMouseEnter={() => match && setHoveredZpid(prop.zpid)}
+                                        onMouseLeave={() => setHoveredZpid(null)}
+                                    >
+                                        <button
+                                            onClick={() => onPropertyClick(prop.address)}
+                                            className={`group w-full bg-white rounded-2xl border transition-all text-left overflow-hidden ${match ? 'border-indigo-300 ring-2 ring-indigo-100 shadow-md' : 'border-slate-100 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50'}`}
+                                        >
+                                            {/* Score badge overlay */}
+                                            {match && (
+                                                <div className="absolute top-2 left-2 z-10 flex items-center gap-1">
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-sm ${match.rank === 1 ? 'bg-amber-400 text-white' : match.rank <= 3 ? 'bg-indigo-600 text-white' : 'bg-white/90 text-slate-600 border border-slate-200'}`}>
+                                                        #{match.rank}
+                                                    </span>
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-sm ${match.score >= 80 ? 'bg-emerald-500 text-white' : match.score >= 60 ? 'bg-amber-500 text-white' : 'bg-white/90 text-slate-600 border border-slate-200'}`}>
+                                                        {match.score}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {prop.images?.[0] ? (
+                                                <div className="h-28 bg-slate-100 overflow-hidden">
+                                                    <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                                </div>
+                                            ) : (
+                                                <div className="h-28 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                                    <i className="fa-solid fa-house text-2xl text-slate-300"></i>
+                                                </div>
+                                            )}
+                                            <div className="p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
+                                                        {prop.address}
+                                                    </div>
+                                                </div>
+                                                {prop.neighborhood && (
+                                                    <div className="mb-1.5">
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{prop.neighborhood}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold flex-wrap">
+                                                    {prop.listPrice && <span className="text-indigo-600 font-black">{fmt(prop.listPrice)}</span>}
+                                                    {prop.bedrooms && <span>{prop.bedrooms} bd</span>}
+                                                    {prop.bathrooms && <span>{prop.bathrooms} ba</span>}
+                                                    {prop.livingArea && <span>{prop.livingArea.toLocaleString()} sqft</span>}
+                                                    {prop.lotSize && <span>Lot {prop.lotSize}</span>}
+                                                    {prop.homeType && <span>{prop.homeType.replace(/_/g, ' ')}</span>}
+                                                </div>
                                             </div>
-                                        </div>
-                                        {prop.neighborhood && (
-                                            <div className="mb-1.5">
-                                                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{prop.neighborhood}</span>
+                                        </button>
+                                        {/* Hover tooltip */}
+                                        {match && hoveredZpid === prop.zpid && (
+                                            <div className="absolute left-0 right-0 -bottom-2 translate-y-full z-20 bg-white border border-indigo-200 rounded-xl shadow-xl p-3 space-y-1.5 animate-in fade-in duration-150">
+                                                <p className="text-[11px] text-indigo-600 font-semibold italic">&ldquo;{match.highlight}&rdquo;</p>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {match.reasons.map((r, i) => (
+                                                        <span key={i} className="text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">{r}</span>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
-                                        <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold flex-wrap">
-                                            {prop.listPrice && <span className="text-indigo-600 font-black">{fmt(prop.listPrice)}</span>}
-                                            {prop.bedrooms && <span>{prop.bedrooms} bd</span>}
-                                            {prop.bathrooms && <span>{prop.bathrooms} ba</span>}
-                                            {prop.livingArea && <span>{prop.livingArea.toLocaleString()} sqft</span>}
-                                            {prop.lotSize && <span>Lot {prop.lotSize}</span>}
-                                            {prop.homeType && <span>{prop.homeType.replace(/_/g, ' ')}</span>}
-                                        </div>
                                     </div>
-                                </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
@@ -2336,38 +2355,69 @@ ${JSON.stringify(summaries)}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {pageItems.map((prop, i) => (
-                                        <tr
-                                            key={prop.zpid}
-                                            onClick={() => onPropertyClick(prop.address)}
-                                            className={`cursor-pointer hover:bg-indigo-50/50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
-                                        >
-                                            <td className="px-4 py-3 text-xs font-bold text-slate-900 hover:text-indigo-600 max-w-[320px] truncate">
-                                                {prop.address}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-black text-indigo-600 text-right">
-                                                {fmt(prop.listPrice)}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-center">
-                                                {prop.bedrooms || '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-center">
-                                                {prop.bathrooms || '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-right">
-                                                {prop.livingArea ? prop.livingArea.toLocaleString() : '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-bold text-slate-600 text-right">
-                                                {prop.lotSize || '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-bold text-slate-400 text-center">
-                                                {prop.homeType || '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-bold text-emerald-600">
-                                                {prop.neighborhood || '—'}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {pageItems.map((prop, i) => {
+                                        const match = matchMap[prop.zpid];
+                                        return (
+                                            <tr
+                                                key={prop.zpid}
+                                                onClick={() => onPropertyClick(prop.address)}
+                                                onMouseEnter={() => match && setHoveredZpid(prop.zpid)}
+                                                onMouseLeave={() => setHoveredZpid(null)}
+                                                className={`cursor-pointer transition-colors relative ${match ? 'bg-indigo-50/40 hover:bg-indigo-50' : i % 2 === 0 ? 'bg-white hover:bg-indigo-50/50' : 'bg-slate-50/30 hover:bg-indigo-50/50'}`}
+                                            >
+                                                <td className="px-4 py-3 text-xs font-bold text-slate-900 hover:text-indigo-600 max-w-[320px] relative">
+                                                    <div className="flex items-center gap-2">
+                                                        {match && (
+                                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md flex-shrink-0 ${match.rank === 1 ? 'bg-amber-400 text-white' : match.rank <= 3 ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-600'}`}>
+                                                                #{match.rank}
+                                                            </span>
+                                                        )}
+                                                        <span className="truncate">{prop.address}</span>
+                                                    </div>
+                                                    {/* Hover tooltip for table row */}
+                                                    {match && hoveredZpid === prop.zpid && (
+                                                        <div className="absolute left-0 top-full z-30 w-[400px] bg-white border border-indigo-200 rounded-xl shadow-xl p-3 space-y-1.5 animate-in fade-in duration-150">
+                                                            <p className="text-[11px] text-indigo-600 font-semibold italic">&ldquo;{match.highlight}&rdquo;</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {match.reasons.map((r, ri) => (
+                                                                    <span key={ri} className="text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">{r}</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs font-black text-indigo-600 text-right">
+                                                    {fmt(prop.listPrice)}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs font-bold text-slate-600 text-center">
+                                                    {prop.bedrooms || '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs font-bold text-slate-600 text-center">
+                                                    {prop.bathrooms || '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs font-bold text-slate-600 text-right">
+                                                    {prop.livingArea ? prop.livingArea.toLocaleString() : '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs font-bold text-slate-600 text-right">
+                                                    {prop.lotSize || '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs font-bold text-slate-400 text-center">
+                                                    {prop.homeType || '—'}
+                                                </td>
+                                                {match ? (
+                                                    <td className="px-4 py-3">
+                                                        <span className={`text-[10px] font-black px-2 py-1 rounded-md ${match.score >= 80 ? 'bg-emerald-100 text-emerald-700' : match.score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                            {match.score}/100
+                                                        </span>
+                                                    </td>
+                                                ) : (
+                                                    <td className="px-4 py-3 text-xs font-bold text-emerald-600">
+                                                        {prop.neighborhood || '—'}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
