@@ -1842,6 +1842,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerSearching, setBuyerSearching] = useState(false);
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
+    const [buyerError, setBuyerError] = useState<string | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; keywords: string[] } | null>(null);
 
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
@@ -1974,9 +1976,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const fmt = (n?: number) => n ? `$${n.toLocaleString()}` : '—';
 
     const handleBuyerSearch = async () => {
-        if (!buyerStory.trim() || processed.length === 0) return;
+        if (!buyerStory.trim() || results.length === 0) return;
         setBuyerSearching(true);
         setBuyerResults(null);
+        setBuyerError(null);
+        setBuyerExtracted(null);
 
         try {
             const { getContextGraphFromCloud } = await import('../../services/firebase/properties');
@@ -1984,11 +1988,91 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { Type } = await import('@google/genai');
             const { auth } = await import('../../services/firebase/config');
 
-            // Use the already-filtered list, cap at 20
-            const MAX = 20;
-            const candidates = processed.slice(0, MAX);
+            // ── STEP 0: Extract structured attributes from buyer story ──
+            const extractionPrompt = `Extract real estate search criteria from this buyer's story. Return structured JSON.
 
-            // Load context graphs
+## BUYER STORY
+${buyerStory}
+
+## RULES
+- price_min and price_max should be in dollars (not thousands)
+- If buyer says "up to X" or "max X" or "budget X": price_max = X, price_min = X * 0.8
+- If buyer says "at least X" or "min X" or "starting X": price_min = X, price_max = X * 1.2  
+- If buyer gives a range like "$1.2M-1.5M": use those as min/max
+- If buyer says "around X" or "about X": price_min = X * 0.85, price_max = X * 1.15
+- If NO price/budget is mentioned at all, set both to 0
+- beds: minimum bedrooms needed (0 if not specified)
+- baths: minimum bathrooms needed (0 if not specified)
+- home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "" if not specified
+- keywords: 3-5 key lifestyle/feature words from the story (e.g. "schools", "backyard", "modern")`;
+
+            const extractionSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    price_min: { type: Type.NUMBER },
+                    price_max: { type: Type.NUMBER },
+                    beds: { type: Type.NUMBER },
+                    baths: { type: Type.NUMBER },
+                    home_type: { type: Type.STRING },
+                    keywords: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords']
+            };
+
+            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[] }>({
+                model: FLASH_MODEL,
+                contents: extractionPrompt,
+                config: { temperature: 0.1, maxOutputTokens: 1024 },
+                userId: auth.currentUser?.uid || 'anon',
+                promptFilename: 'buyerStoryExtraction',
+                extractResultJson: true,
+                schema: extractionSchema
+            });
+
+            const ext = extractResult.data;
+            if (!ext || (ext.price_min === 0 && ext.price_max === 0)) {
+                setBuyerError('Please mention a budget or price range in your story. For example: "Budget is $1.5M" or "Looking for homes up to $2M".');
+                setBuyerSearching(false);
+                return;
+            }
+
+            // Build final price range with ±20% fallback for single-bound
+            let priceMin = ext.price_min;
+            let priceMax = ext.price_max;
+            if (priceMin > 0 && priceMax === 0) priceMax = priceMin * 1.2;
+            if (priceMax > 0 && priceMin === 0) priceMin = priceMax * 0.8;
+
+            const extracted = {
+                priceMin, priceMax,
+                beds: ext.beds > 0 ? ext.beds : undefined,
+                baths: ext.baths > 0 ? ext.baths : undefined,
+                homeType: ext.home_type || undefined,
+                keywords: ext.keywords || []
+            };
+            setBuyerExtracted(extracted);
+
+            // ── STEP 1: Filter properties using extracted criteria ──
+            let candidates = [...results];
+            candidates = candidates.filter(p => {
+                const price = p.listPrice || 0;
+                if (price > 0 && (price < priceMin || price > priceMax)) return false;
+                if (extracted.beds && p.bedrooms && p.bedrooms < extracted.beds) return false;
+                if (extracted.baths && p.bathrooms && p.bathrooms < extracted.baths) return false;
+                if (extracted.homeType && p.homeType && !p.homeType.toUpperCase().includes(extracted.homeType.toUpperCase())) return false;
+                return true;
+            });
+
+            // Cap at 20
+            const MAX = 20;
+            if (candidates.length > MAX) candidates = candidates.slice(0, MAX);
+
+            if (candidates.length === 0) {
+                setBuyerError(`No properties match your criteria (${fmt(priceMin)}–${fmt(priceMax)}, ${extracted.beds || 'any'}+ beds). Try adjusting your budget or removing some requirements.`);
+                setBuyerSearching(false);
+                return;
+            }
+
+            // ── STEP 2: Load context graphs ──
             const graphs: { zpid: string; address: string; graph: any; listing: any }[] = [];
             const CHUNK = 10;
             for (let i = 0; i < candidates.length; i += CHUNK) {
@@ -2002,8 +2086,13 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 }
             }
 
-            if (graphs.length === 0) { setBuyerSearching(false); return; }
+            if (graphs.length === 0) {
+                setBuyerError('No context graphs found for matching properties. Run "Context Graphs" batch first from City Data.');
+                setBuyerSearching(false);
+                return;
+            }
 
+            // ── STEP 3: Send to Gemini for matching ──
             const summaries = graphs.map(g => ({
                 zpid: g.zpid, address: g.address, listing: g.listing,
                 factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
@@ -2064,6 +2153,7 @@ ${JSON.stringify(summaries)}
             }
         } catch (err: any) {
             console.error('[Buyer Search]', err);
+            setBuyerError(`Search failed: ${err.message}`);
         } finally {
             setBuyerSearching(false);
         }
@@ -2216,35 +2306,65 @@ ${JSON.stringify(summaries)}
                             <div className="flex items-center gap-2">
                                 <i className="fa-solid fa-magnifying-glass-location text-indigo-500"></i>
                                 <span className="text-sm font-black text-indigo-800">Tell Your Story</span>
-                                <span className="text-[10px] font-bold text-indigo-400 ml-auto">Uses current filters · Max 20 properties</span>
+                                <span className="text-[10px] font-bold text-indigo-400 ml-auto">AI extracts filters from your story · Max 20 properties</span>
                             </div>
                             <textarea
                                 value={buyerStory}
-                                onChange={e => setBuyerStory(e.target.value)}
+                                onChange={e => { setBuyerStory(e.target.value); setBuyerError(null); }}
                                 placeholder="Example: I'm a tech worker at Google with 2 young kids. We need good schools, a home office, and a big backyard. Budget is $1.5M. Low wildfire risk is important."
                                 className="w-full h-24 p-3 bg-white border border-indigo-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 outline-none resize-none"
                             />
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                                 <button
                                     onClick={handleBuyerSearch}
-                                    disabled={buyerSearching || !buyerStory.trim() || processed.length === 0}
+                                    disabled={buyerSearching || !buyerStory.trim() || results.length === 0}
                                     className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
                                 >
                                     {buyerSearching ? (
-                                        <><i className="fa-solid fa-spinner animate-spin"></i>Searching {Math.min(processed.length, 20)} properties...</>
+                                        <><i className="fa-solid fa-spinner animate-spin"></i>Analyzing story &amp; matching...</>
                                     ) : (
-                                        <><i className="fa-solid fa-wand-magic-sparkles"></i>Find My Match ({Math.min(processed.length, 20)} props)</>
+                                        <><i className="fa-solid fa-wand-magic-sparkles"></i>Find My Match</>
                                     )}
                                 </button>
                                 {buyerResults && (
                                     <>
                                         <span className="text-xs font-bold text-indigo-600">{buyerResults.length} matches — results sorted below</span>
-                                        <button onClick={() => setBuyerResults(null)} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors ml-1">
+                                        <button onClick={() => { setBuyerResults(null); setBuyerExtracted(null); }} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors ml-1">
                                             <i className="fa-solid fa-xmark"></i> Clear
                                         </button>
                                     </>
                                 )}
                             </div>
+
+                            {/* Error */}
+                            {buyerError && (
+                                <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-start gap-2">
+                                    <i className="fa-solid fa-circle-exclamation text-rose-500 mt-0.5"></i>
+                                    <p className="text-xs font-bold text-rose-700">{buyerError}</p>
+                                </div>
+                            )}
+
+                            {/* Extracted criteria */}
+                            {buyerExtracted && !buyerError && (
+                                <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                                    <span className="font-bold text-slate-500 uppercase tracking-wider">AI Extracted:</span>
+                                    <span className="font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
+                                        {fmt(buyerExtracted.priceMin)}–{fmt(buyerExtracted.priceMax)}
+                                    </span>
+                                    {buyerExtracted.beds && (
+                                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{buyerExtracted.beds}+ beds</span>
+                                    )}
+                                    {buyerExtracted.baths && (
+                                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{buyerExtracted.baths}+ baths</span>
+                                    )}
+                                    {buyerExtracted.homeType && (
+                                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{buyerExtracted.homeType.replace(/_/g, ' ')}</span>
+                                    )}
+                                    {buyerExtracted.keywords.map((kw, i) => (
+                                        <span key={i} className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">{kw}</span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 
