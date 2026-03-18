@@ -2002,20 +2002,21 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { auth } = await import('../../services/firebase/config');
 
             // ── STEP 0: Extract structured attributes from buyer story ──
-            const extractionPrompt = `Extract real estate search criteria from this buyer's story. Return structured JSON.
+            const extractionPrompt = `Extract real estate search criteria from this buyer's story. Return structured JSON with EXACTLY what the buyer specified.
 
 ## BUYER STORY
 ${buyerStory}
 
 ## RULES
-- price_min and price_max should be in dollars (not thousands)
-- If buyer says "up to X" or "max X" or "budget X": price_max = X, price_min = X * 0.8
-- If buyer says "at least X" or "min X" or "starting X": price_min = X, price_max = X * 1.2  
-- If buyer gives a range like "$1.2M-1.5M": use those as min/max
-- If buyer says "around X" or "about X": price_min = X * 0.85, price_max = X * 1.15
+- price_min and price_max should be in dollars (not thousands). 1M = 1000000, 900K = 900000
+- IMPORTANT: Extract the EXACT values the buyer specified. Do NOT compute ranges or adjust values.
+- If buyer gives a range like "$900K-1.3M" or "$1.2M to $1.5M": price_min = lower bound, price_max = upper bound
+- If buyer says "up to X" or "max X" or "budget X" or "under X": price_max = X, price_min = 0
+- If buyer says "at least X" or "min X" or "starting X" or "above X": price_min = X, price_max = 0
+- If buyer says "around X" or "about X": price_min = X, price_max = X (same value — code will expand)
 - If NO price/budget is mentioned at all, set both to 0
-- beds: minimum bedrooms needed (0 if not specified)
-- baths: minimum bathrooms needed (0 if not specified)
+- beds: minimum bedrooms needed (0 if not specified). If "2-3 beds", use 2 as minimum.
+- baths: minimum bathrooms needed (0 if not specified). If "2+ baths", use 2.
 - home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "" if not specified
 - keywords: 3-5 key lifestyle/feature words from the story (e.g. "schools", "backyard", "modern")`;
 
@@ -2049,11 +2050,21 @@ ${buyerStory}
                 return;
             }
 
-            // Build final price range with ±20% fallback for single-bound
+            // Build final price range — only compute ±20% when one bound is missing
             let priceMin = ext.price_min;
             let priceMax = ext.price_max;
-            if (priceMin > 0 && priceMax === 0) priceMax = priceMin * 1.2;
-            if (priceMax > 0 && priceMin === 0) priceMin = priceMax * 0.8;
+            if (priceMin > 0 && priceMax > 0 && priceMin === priceMax) {
+                // "around X" case: expand ±15%
+                priceMin = priceMin * 0.85;
+                priceMax = priceMax * 1.15;
+            } else if (priceMin > 0 && priceMax === 0) {
+                // Only lower bound: expand +20%
+                priceMax = priceMin * 1.2;
+            } else if (priceMax > 0 && priceMin === 0) {
+                // Only upper bound: expand -20%
+                priceMin = priceMax * 0.8;
+            }
+            // else: both bounds specified — use as-is
 
             const extracted = {
                 priceMin, priceMax,
