@@ -2220,8 +2220,7 @@ ${JSON.stringify(summaries)}
                     userId: auth.currentUser?.uid || 'anon',
                     promptFilename: 'buyerStorySearch',
                     extractResultJson: true,
-                    schema,
-                    skipWatchdog: true
+                    schema
                 });
             });
 
