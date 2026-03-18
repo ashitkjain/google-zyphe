@@ -665,7 +665,18 @@ export const extractContextGraphFactors = async (
 
   // 5. Build keyMetrics — hard numbers for downstream filter queries (zero AI)
   const hoaRaw = property.resoFacts?.feesAndDues ?? (property as any).hoaFees;
-  const hoaNum = hoaRaw ? parseFloat(String(hoaRaw).replace(/[^0-9.]/g, '')) || null : null;
+  // Extract the first dollar/number pattern — old regex stripped all non-digits and concatenated multiple numbers
+  const hoaNum = (() => {
+    if (!hoaRaw) return null;
+    const s = String(hoaRaw);
+    // If it's already a plain number, use it directly
+    if (typeof hoaRaw === 'number') return hoaRaw;
+    // Match first dollar amount or standalone number (e.g. "$62.99", "250", "62.99/month")
+    const match = s.match(/\$?([\d,]+(?:\.\d+)?)/);
+    if (!match) return null;
+    const val = parseFloat(match[1].replace(/,/g, ''));
+    return isNaN(val) || val <= 0 ? null : val;
+  })();
   const garageRaw = property.resoFacts?.garageParkingCapacity;
   const garageSpaces = garageRaw != null ? (typeof garageRaw === 'number' ? garageRaw : parseInt(String(garageRaw)) || null) : null;
   const schoolMaxRating = property.schools?.length
