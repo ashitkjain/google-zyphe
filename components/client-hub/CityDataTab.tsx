@@ -87,6 +87,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [buyerSearching, setBuyerSearching] = useState(false);
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
+    const [buyerFilterPrice, setBuyerFilterPrice] = useState<[string, string]>(['', '']);
+    const [buyerFilterBeds, setBuyerFilterBeds] = useState('');
+    const [buyerFilterBaths, setBuyerFilterBaths] = useState('');
 
     // Batch Orientation
     const [orientBatchRunning, setOrientBatchRunning] = useState(false);
@@ -1123,17 +1126,52 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         try {
             const { getContextGraphFromCloud } = await import('../../services/firebase/properties');
+            const { getPropertyFromCloud } = await import('../../services/firebase/properties');
             const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
             const { Type } = await import('@google/genai');
 
-            // 1. Load all context graphs
-            const zpids = Array.from(cachedPropertyIds) as string[];
-            addLog(`[Buyer Search] Loading context graphs for ${zpids.length} properties...`);
+            // 1. Apply filters from listings to narrow candidates
+            const minPrice = buyerFilterPrice[0] ? parseFloat(buyerFilterPrice[0]) * 1000 : 0;
+            const maxPrice = buyerFilterPrice[1] ? parseFloat(buyerFilterPrice[1]) * 1000 : Infinity;
+            const minBeds = buyerFilterBeds ? parseInt(buyerFilterBeds) : 0;
+            const minBaths = buyerFilterBaths ? parseInt(buyerFilterBaths) : 0;
 
+            // Build a zpid → listing lookup from loaded listings
+            const listingByZpid: Record<string, any> = {};
+            for (const l of listings) {
+                const id = String(l.property_id || l.zpid || '');
+                if (id) listingByZpid[id] = l;
+            }
+
+            let candidateZpids = Array.from(cachedPropertyIds) as string[];
+
+            // Filter by listing data if filters are set
+            if (minPrice > 0 || maxPrice < Infinity || minBeds > 0 || minBaths > 0) {
+                candidateZpids = candidateZpids.filter(zpid => {
+                    const l = listingByZpid[zpid];
+                    if (!l) return true; // keep if no listing data (will filter by graph later)
+                    const price = l.list_price || 0;
+                    if (price > 0 && (price < minPrice || price > maxPrice)) return false;
+                    if (minBeds > 0 && l.beds && l.beds < minBeds) return false;
+                    if (minBaths > 0 && l.baths && l.baths < minBaths) return false;
+                    return true;
+                });
+                addLog(`[Buyer Search] Filtered to ${candidateZpids.length} properties (price: $${minPrice/1000}K–$${maxPrice === Infinity ? '∞' : maxPrice/1000 + 'K'}, beds≥${minBeds}, baths≥${minBaths})`);
+            }
+
+            // Cap at 20
+            const MAX_PROPERTIES = 20;
+            if (candidateZpids.length > MAX_PROPERTIES) {
+                addLog(`[Buyer Search] Capping from ${candidateZpids.length} to ${MAX_PROPERTIES} properties`);
+                candidateZpids = candidateZpids.slice(0, MAX_PROPERTIES);
+            }
+
+            // 2. Load context graphs for filtered candidates
+            addLog(`[Buyer Search] Loading context graphs for ${candidateZpids.length} properties...`);
             const graphs: { zpid: string; address: string; graph: any }[] = [];
             const CHUNK = 10;
-            for (let i = 0; i < zpids.length; i += CHUNK) {
-                const chunk = zpids.slice(i, i + CHUNK);
+            for (let i = 0; i < candidateZpids.length; i += CHUNK) {
+                const chunk = candidateZpids.slice(i, i + CHUNK);
                 const results = await Promise.all(chunk.map(async zpid => {
                     const graph = await getContextGraphFromCloud(zpid);
                     return { zpid, address: zpidToAddressMap[zpid] || zpid, graph };
@@ -1676,9 +1714,52 @@ ${JSON.stringify(propertySummaries)}
                                     <i className="fa-solid fa-magnifying-glass-location text-indigo-500"></i>
                                     Tell Your Story — AI Property Matchmaker
                                 </h3>
-                                <p className="text-xs text-indigo-600 mb-4">
-                                    Describe your lifestyle, needs, budget, family situation, and priorities. The AI will search all {cachedPropertyIds.size} properties and find the best matches.
-                                </p>
+
+                                {/* Filters Row */}
+                                <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-white/70 border border-indigo-100 rounded-xl">
+                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Filters</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-slate-500">Price</span>
+                                        <input
+                                            type="text" placeholder="Min (K)" value={buyerFilterPrice[0]}
+                                            onChange={e => setBuyerFilterPrice([e.target.value, buyerFilterPrice[1]])}
+                                            className="w-20 px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-1 focus:ring-indigo-300 outline-none"
+                                        />
+                                        <span className="text-slate-300">–</span>
+                                        <input
+                                            type="text" placeholder="Max (K)" value={buyerFilterPrice[1]}
+                                            onChange={e => setBuyerFilterPrice([buyerFilterPrice[0], e.target.value])}
+                                            className="w-20 px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-1 focus:ring-indigo-300 outline-none"
+                                        />
+                                    </div>
+                                    <div className="w-px h-5 bg-indigo-200"></div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-slate-500">Beds ≥</span>
+                                        <select value={buyerFilterBeds} onChange={e => setBuyerFilterBeds(e.target.value)}
+                                            className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-1 focus:ring-indigo-300 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="2">2+</option>
+                                            <option value="3">3+</option>
+                                            <option value="4">4+</option>
+                                            <option value="5">5+</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-slate-500">Baths ≥</span>
+                                        <select value={buyerFilterBaths} onChange={e => setBuyerFilterBaths(e.target.value)}
+                                            className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-1 focus:ring-indigo-300 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="2">2+</option>
+                                            <option value="3">3+</option>
+                                            <option value="4">4+</option>
+                                        </select>
+                                    </div>
+                                    <div className="w-px h-5 bg-indigo-200"></div>
+                                    <span className="text-[10px] font-bold text-slate-400">
+                                        Max 20 sent to AI · {cachedPropertyIds.size} total
+                                    </span>
+                                </div>
+
                                 <textarea
                                     value={buyerStory}
                                     onChange={e => setBuyerStory(e.target.value)}
