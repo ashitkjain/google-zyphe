@@ -278,30 +278,7 @@ function factor43_walkability(p: PropertyData): ExtractedFactor {
     };
 }
 
-function factor51_vastu(p: PropertyData): ExtractedFactor {
-    // Read from orientation_ai (satellite analysis) — the authoritative source
-    const orientationAI = (p as any).orientation_ai;
-    const orientation = orientationAI?.final_orientation;
-    if (!orientation) return { id: 51, name: 'Front Orientation', value: 'Data not available', confidence: 'low', tags: [] };
 
-    const favorable = ['North', 'East', 'North-East', 'Northeast'].includes(orientation);
-    const confidence = orientationAI.confidence ?? 'medium';
-
-    const parts: string[] = [`${orientation}-facing`];
-    if (orientationAI.buyer_pro) parts.push(orientationAI.buyer_pro);
-    if (orientationAI.buyer_con) parts.push(orientationAI.buyer_con);
-
-    const tags: string[] = [`${orientation}-Facing`];
-    if (favorable) tags.push('Favorable Orientation');
-    if (orientationAI.feng_shui_vastu) tags.push('Vastu/Feng Shui Noted');
-
-    return {
-        id: 51, name: 'Front Orientation',
-        value: parts.join(' — '),
-        confidence,
-        tags
-    };
-}
 
 function factor52_airQuality(p: PropertyData): ExtractedFactor {
     const aq = p.airQuality;
@@ -313,40 +290,6 @@ function factor52_airQuality(p: PropertyData): ExtractedFactor {
         tags: [aq.category, `AQI ${aq.aqi}`]
     };
 }
-
-function factor54_topography(p: PropertyData): ExtractedFactor {
-    const pv = (p as any).parcelValidation;
-    const slopePercent = pv?.slopePercent;
-    const slopeCategory = pv?.slopeCategory;
-    const uphillDir = pv?.uphillDir;
-
-    if (slopePercent == null || !slopeCategory) {
-        return { id: 54, name: 'Topography & Elevation', value: 'Data not available', confidence: 'low', tags: [] };
-    }
-
-    const OPPOSITE: Record<string, string> = { N: 'S', NE: 'SW', E: 'W', SE: 'NW', S: 'N', SW: 'NE', W: 'E', NW: 'SE' };
-    const backyardDir = uphillDir ? (OPPOSITE[uphillDir] || uphillDir) : null;
-    const isSouthFacing = backyardDir ? ['S', 'SE', 'SW'].includes(backyardDir) : false;
-
-    let value = `${slopePercent}% slope (${slopeCategory})`;
-    if (uphillDir) value += `, uphill ${uphillDir}`;
-    if (backyardDir) value += `, backyard faces ${backyardDir}`;
-
-    const tags: string[] = [slopeCategory, `${slopePercent}% Slope`];
-    if (slopePercent > 15) tags.push('Steep — Foundation Cost Impact');
-    if (isSouthFacing) tags.push('South-Facing Backyard');
-    if (slopePercent < 5) tags.push('Flat Lot');
-
-    return {
-        id: 54, name: 'Topography & Elevation',
-        value,
-        confidence: 'high',
-        tags
-    };
-}
-
-
-
 function factor59_laundry(p: PropertyData): ExtractedFactor {
     const lf = p.resoFacts?.laundryFeatures;
     if (!lf) return { id: 59, name: 'Laundry Logistics', value: 'Data not available', confidence: 'low', tags: [] };
@@ -803,115 +746,7 @@ function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
     return { id: 83, name: 'Micro-Neighborhood Identity', value: parts.join(' — '), confidence: 'high', tags };
 }
 
-function factor101_schoolConcepts(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
-    const si = (visual as any)?.schools_intelligence;
-    const richSchools = si?.schools || [];
-    const basicSchools = (p as any)?.schools || [];
-    const hasRich = richSchools.length > 0;
-    const schoolList = hasRich ? richSchools : basicSchools;
 
-    if (!schoolList?.length) {
-        return { id: 101, name: 'School Concepts', value: 'Data not available', confidence: 'low', tags: [] };
-    }
-    const tags: string[] = [];
-
-    // District info (only from rich data)
-    if (si?.district_name) tags.push(si.district_name);
-    if (si?.is_desirable_zone) tags.push('Desirable School Zone');
-
-    for (const s of schoolList.slice(0, 3)) {
-        const shortName = s.name?.split(' ').slice(0, 2).join(' ') || s.name;
-        const rating = s.mls_rating != null ? parseFloat(String(s.mls_rating)) : (s.rating != null ? parseFloat(String(s.rating)) : null);
-
-        // Compact name + rating tag (one tag per school, not separate)
-        if (rating != null) {
-            if (rating >= 9) tags.push(`${shortName} ★${rating}/10`);
-            else if (rating >= 7) tags.push(`${shortName} ${rating}/10`);
-            else if (rating >= 5) tags.push(`${shortName} ${rating}/10`);
-            else tags.push(`${shortName} ${rating}/10 ⚠`);
-        } else {
-            // Fallback: name + level
-            const level = s.level || s.grades_served || '';
-            tags.push(level ? `${shortName} (${level})` : s.name);
-        }
-
-        // School type — ONLY non-public (charter, private, magnet)
-        if (s.type && s.type.toLowerCase() !== 'public') {
-            tags.push(s.type.charAt(0).toUpperCase() + s.type.slice(1));
-        }
-
-        // === Rich data only below ===
-        if (!hasRich) continue;
-
-        // Test scores
-        if (s.test_scores && !s.test_scores.toLowerCase().includes('not available')) {
-            const pctMatch = s.test_scores.match(/(\d{1,3})%\s*(?:proficien|above|at or above|met)/i);
-            if (pctMatch) tags.push(`${parseInt(pctMatch[1])}% Proficient`);
-        }
-
-        // Student-teacher ratio
-        if (s.student_teacher_ratio) {
-            const ratio = s.student_teacher_ratio.toString().replace(/\s/g, '');
-            if (ratio.includes(':')) {
-                const num = parseInt(ratio.split(':')[0]);
-                if (num <= 18) tags.push(`${ratio} Small Classes`);
-                else if (num >= 28) tags.push(`${ratio} Large Classes`);
-            }
-        }
-
-        // AP/IB Programs
-        if (s.ap_ib_programs && s.ap_ib_programs !== 'N/A' && !s.ap_ib_programs.toLowerCase().includes('not available')) {
-            if (s.ap_ib_programs.toLowerCase().includes('ib')) tags.push('IB Programme');
-            if (s.ap_ib_programs.toLowerCase().includes('ap')) tags.push('AP Courses');
-        }
-
-        // Graduation rate
-        if (s.graduation_rate && s.graduation_rate !== 'N/A' && !s.graduation_rate.toLowerCase().includes('not available')) {
-            const rateNum = parseFloat(s.graduation_rate.replace('%', '').trim());
-            if (rateNum >= 90) tags.push(`${rateNum}% Grad Rate`);
-        }
-
-        // Extracurriculars — deduplicated keywords
-        if (s.extracurriculars && !s.extracurriculars.toLowerCase().includes('not available')) {
-            const ec = s.extracurriculars.toLowerCase();
-            if (ec.includes('stem') || ec.includes('robotics')) tags.push('STEM/Robotics');
-            if (ec.includes('music') || ec.includes('band') || ec.includes('orchestra')) tags.push('Music');
-            if (ec.includes('athletic') || ec.includes('sport')) tags.push('Strong Athletics');
-            if (ec.includes('art') && !ec.includes('martial art')) tags.push('Arts');
-        }
-
-        // Parent sentiment — one positive tag max per school
-        if (s.parent_sentiment_positive && !s.parent_sentiment_positive.toLowerCase().includes('not available')) {
-            const st = s.parent_sentiment_positive.toLowerCase();
-            if (st.includes('teacher') && (st.includes('caring') || st.includes('dedicated') || st.includes('great'))) tags.push('Dedicated Teachers');
-            else if (st.includes('safe')) tags.push('Safe Campus');
-            else if (st.includes('divers')) tags.push('Diverse');
-        }
-    }
-
-    // Distance summary (not per-school)
-    const distances = schoolList.slice(0, 3).map((s: any) => {
-        const d = s.distance_miles || (s.distance ? parseFloat(String(s.distance).replace(/[^0-9.]/g, '')) : null);
-        return d;
-    }).filter((d: any) => d != null);
-    if (distances.length > 0) {
-        const closest = Math.min(...distances);
-        if (closest < 0.5) tags.push('Walking Distance');
-        else if (closest <= 1) tags.push('Schools Under 1mi');
-    }
-
-    // Deduplicate and cap
-    const unique = [...new Set(tags)].slice(0, 12);
-
-    // Value string
-    const topSchool = schoolList[0];
-    const topRating = topSchool?.mls_rating ?? topSchool?.rating;
-    let val = topSchool?.name || 'Schools available';
-    if (topRating) val = `${topSchool.name} ${topRating}/10`;
-    if (si?.district_name) val += ` • ${si.district_name}`;
-
-    return { id: 101, name: 'School Concepts', value: val, confidence: hasRich ? 'high' : 'medium', tags: unique };
-}
 
 function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
     const hd = p.historical_disasters;
@@ -1131,9 +966,7 @@ export function precomputeDataFactors(
         factor48_solarYield(property),
         factor49_pollenSafety(property),
         factor50_hvacQuality(property),
-        factor51_vastu(property),
         factor52_airQuality(property),
-        factor54_topography(property),
 
         factor59_laundry(property),
 
@@ -1149,7 +982,6 @@ export function precomputeDataFactors(
         factor84_walkableAmenities(property),
         factor85_medicalProximity(property),
         factor86_evInfrastructure(property),
-        factor101_schoolConcepts(property, visual),
         factor106_seismicRisk(property),
         factor108_sqftDiscrepancy(property),
         factor109_lotSizeVerification(property),
@@ -1164,6 +996,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 106, 108, 109, 110];
 
 

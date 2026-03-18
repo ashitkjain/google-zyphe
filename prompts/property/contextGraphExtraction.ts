@@ -176,10 +176,10 @@ Given the property data below, extract values for the required decision factors.
 50. SKIP (precomputed).
 
 ### Advanced Intelligence (51-70)
-51. SKIP (precomputed).
+51. **Front Orientation / Vastu**: From orientation_ai data. Value = facing direction + buyer pro/con (e.g. "East-Facing — morning sun, favorable Vastu"). Tags = direction tag ("East-Facing"), favorability ("Favorable Orientation"), and Vastu/Feng Shui note if relevant. If orientation_ai is not available, return "Data not available". Generate 2-4 tags.
 52. SKIP (precomputed).
 53. SKIP (precomputed).
-54. SKIP (precomputed).
+54. **Topography & Elevation**: From parcelValidation slope data. Value = slope % + category + uphill direction + backyard facing (e.g. "8% slope (Moderate), uphill NE, backyard faces SW"). Tags = slope category, flat/steep indicators, south-facing backyard if applicable. If no slope data, return "Data not available". Generate 2-4 tags.
 55. SKIP (precomputed).
 56. SKIP (precomputed).
 57. **Work-From-Home Score**: Dedicated office + Fiber/High-speed internet mentions.
@@ -235,6 +235,9 @@ Given the property data below, extract values for the required decision factors.
 
 ### Agent Description Concepts (100)
 100. **Agent Highlights**: From property.description (MLS listing). Tags = key selling points the agent emphasizes like "Updated Kitchen", "Pool Ready", "Corner Lot", "Solar Installed", "ADU Potential". Pull the 10-15 most impactful concepts from the listing text. Value = most prominent highlight.
+
+### School Intelligence (101)
+101. **School Concepts**: From schools_intelligence and schools data. For each of the top 3 schools, generate tags with school name + rating (e.g. "Amador Valley 10/10"), school type if non-public ("Charter", "Private"), test scores ("85% Proficient"), student-teacher ratio ("22:1 Small Classes"), AP/IB programs, graduation rate, and extracurriculars ("STEM/Robotics", "Strong Athletics"). Also include district name, "Desirable School Zone" if applicable, and proximity tags ("Walking Distance", "Schools Under 1mi"). Value = top school name + rating + district. Generate 5-12 tags.
 
 ### Community Sentiment & Condition (102-105) — Tags are the primary output. Generate 3-8 concept tags.
 102. **Resident Sentiment Concepts**: From community_pulse (all sections). Tags = sentiment concepts like "Love the Schools", "Quiet Community", "Great Parks", "HOA Issues", "Traffic Concerns". Value = overall sentiment.
