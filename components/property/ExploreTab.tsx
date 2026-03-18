@@ -2018,7 +2018,18 @@ ${buyerStory}
 - beds: minimum bedrooms needed (0 if not specified). If "2-3 beds", use 2 as minimum.
 - baths: minimum bathrooms needed (0 if not specified). If "2+ baths", use 2.
 - home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "" if not specified
-- keywords: 3-5 key lifestyle/feature words from the story (e.g. "schools", "backyard", "modern")`;
+- keywords: 3-5 key lifestyle/feature words from the story (e.g. "schools", "backyard", "modern")
+- search_tags: 5-15 short lowercase phrases (1-3 words each) that can be searched in a property description or listing data. Be specific and include variations.
+  Examples:
+  - "single story" (not just "single"), "no stairs", "one story"
+  - "drought tolerant", "low maintenance yard", "xeriscape"
+  - "medical", "hospital", "medical facilities"
+  - "park", "parks", "trails", "hiking"
+  - "quiet", "cul-de-sac", "quiet neighborhood"
+  - "home office", "office", "den", "study"
+  - "pool", "spa", "outdoor kitchen"
+  - "solar", "ev charger", "smart home"
+  Generate as many relevant search variations as possible (up to 15).`;
 
             const extractionSchema = {
                 type: Type.OBJECT,
@@ -2028,12 +2039,13 @@ ${buyerStory}
                     beds: { type: Type.NUMBER },
                     baths: { type: Type.NUMBER },
                     home_type: { type: Type.STRING },
-                    keywords: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords', 'search_tags']
             };
 
-            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[] }>({
+            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[] }>({
                 model: FLASH_LITE_MODEL,
                 contents: extractionPrompt,
                 config: { temperature: 0.1, maxOutputTokens: 1024 },
@@ -2066,6 +2078,8 @@ ${buyerStory}
             }
             // else: both bounds specified — use as-is
 
+            const searchTags = (ext.search_tags || []).map(t => t.toLowerCase().trim());
+
             const extracted = {
                 priceMin, priceMax,
                 beds: ext.beds > 0 ? ext.beds : undefined,
@@ -2086,9 +2100,18 @@ ${buyerStory}
                 return true;
             });
 
-            // Cap at 20
+            // ── STEP 1b: Rank by search_tags against property description ──
             const MAX = 20;
-            if (candidates.length > MAX) candidates = candidates.slice(0, MAX);
+            if (candidates.length > MAX && searchTags.length > 0) {
+                const scored = candidates.map(p => {
+                    const desc = (p.description || '').toLowerCase();
+                    const hits = searchTags.filter(tag => desc.includes(tag)).length;
+                    return { prop: p, hits };
+                });
+                scored.sort((a, b) => b.hits - a.hits);
+                candidates = scored.map(s => s.prop);
+            }
+            candidates = candidates.slice(0, MAX);
 
             if (candidates.length === 0) {
                 setBuyerError(`No properties match your criteria (${fmt(priceMin)}–${fmt(priceMax)}, ${extracted.beds || 'any'}+ beds). Try adjusting your budget or removing some requirements.`);
