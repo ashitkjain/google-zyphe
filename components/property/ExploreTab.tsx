@@ -1858,6 +1858,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerError, setBuyerError] = useState<string | null>(null);
     const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; keywords: string[] } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
+    const [sliderIdx, setSliderIdx] = useState(0);
 
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
@@ -2162,6 +2163,7 @@ ${JSON.stringify(summaries)}
                     .sort((a, b) => b.score - a.score)
                     .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }));
                 setBuyerResults(matches);
+                setSliderIdx(0);
             }
         } catch (err: any) {
             console.error('[Buyer Search]', err);
@@ -2405,6 +2407,122 @@ ${JSON.stringify(summaries)}
                             )}
                         </div>
                     )}
+
+                    {/* ── AI MATCH RESULTS SLIDER ── */}
+                    {buyerResults && buyerResults.length > 0 && (() => {
+                        const safeIdx = Math.min(sliderIdx, buyerResults.length - 1);
+                        const match = buyerResults[safeIdx];
+                        const prop = processed.find(p => p.zpid === match.zpid);
+                        if (!prop) return null;
+                        const img = prop.imgSrc || prop.images?.[0] || '';
+                        return (
+                            <div className="bg-white border border-indigo-200 rounded-2xl shadow-lg overflow-hidden">
+                                {/* Slider header */}
+                                <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 flex items-center gap-3">
+                                    <i className="fa-solid fa-trophy text-amber-300"></i>
+                                    <span className="text-sm font-black text-white">AI Match Results</span>
+                                    <span className="text-[10px] font-bold text-indigo-200 ml-1">{safeIdx + 1} of {buyerResults.length}</span>
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <button
+                                            onClick={() => setSliderIdx(i => Math.max(0, i - 1))}
+                                            disabled={safeIdx === 0}
+                                            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all disabled:opacity-30"
+                                        >
+                                            <i className="fa-solid fa-chevron-left text-xs"></i>
+                                        </button>
+                                        <button
+                                            onClick={() => setSliderIdx(i => Math.min(buyerResults!.length - 1, i + 1))}
+                                            disabled={safeIdx === buyerResults.length - 1}
+                                            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all disabled:opacity-30"
+                                        >
+                                            <i className="fa-solid fa-chevron-right text-xs"></i>
+                                        </button>
+                                        <button
+                                            onClick={() => { setBuyerResults(null); setBuyerExtracted(null); setSliderIdx(0); }}
+                                            className="text-[10px] font-bold text-indigo-200 hover:text-white transition-colors ml-2"
+                                        >
+                                            <i className="fa-solid fa-xmark"></i> Clear
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Slider body */}
+                                <div className="flex flex-col md:flex-row">
+                                    {/* Property image + basic info */}
+                                    <div className="md:w-80 flex-shrink-0">
+                                        {img && (
+                                            <div
+                                                className="h-48 md:h-full bg-cover bg-center cursor-pointer"
+                                                style={{ backgroundImage: `url(${img})`, minHeight: 200 }}
+                                                onClick={() => onPropertyClick(prop.address)}
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* Match details */}
+                                    <div className="flex-1 p-5 space-y-4">
+                                        {/* Address + score */}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <button
+                                                    onClick={() => onPropertyClick(prop.address)}
+                                                    className="text-base font-black text-slate-800 hover:text-indigo-600 transition-colors text-left"
+                                                >
+                                                    {prop.address}
+                                                </button>
+                                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                    {prop.listPrice && <span className="text-sm font-black text-emerald-600">{fmt(prop.listPrice)}</span>}
+                                                    {prop.bedrooms && <span className="text-xs text-slate-500 font-bold">{prop.bedrooms} bd</span>}
+                                                    {prop.bathrooms && <span className="text-xs text-slate-500 font-bold">{prop.bathrooms} ba</span>}
+                                                    {prop.livingArea && <span className="text-xs text-slate-500 font-bold">{prop.livingArea.toLocaleString()} sqft</span>}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                                <span className={`text-2xl font-black ${match.score >= 80 ? 'text-emerald-500' : match.score >= 60 ? 'text-amber-500' : 'text-slate-400'}`}>
+                                                    {match.score}
+                                                </span>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase">Score</span>
+                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${safeIdx === 0 ? 'bg-amber-400 text-white' : safeIdx < 3 ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                                    #{safeIdx + 1}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Highlight */}
+                                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                                            <p className="text-sm text-indigo-800 font-semibold italic leading-relaxed">
+                                                "{match.highlight}"
+                                            </p>
+                                        </div>
+
+                                        {/* Reasons */}
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Why this matches</span>
+                                            <div className="flex flex-wrap gap-2 mt-1.5">
+                                                {match.reasons.map((r, ri) => (
+                                                    <span key={ri} className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold">
+                                                        <i className="fa-solid fa-check text-[8px] text-emerald-500"></i>
+                                                        {r}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Dot navigation */}
+                                <div className="flex items-center justify-center gap-1.5 py-3 border-t border-slate-100">
+                                    {buyerResults.map((_, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setSliderIdx(i)}
+                                            className={`w-2 h-2 rounded-full transition-all ${i === safeIdx ? 'bg-indigo-600 w-5' : 'bg-slate-200 hover:bg-slate-300'}`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* ── GALLERY VIEW ── */}
                     {viewMode === 'gallery' && (
