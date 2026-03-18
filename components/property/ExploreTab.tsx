@@ -2008,10 +2008,12 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const extractionPrompt = `Extract from: "${buyerStory}"
 Prices→dollars($1M=1000000). beds/baths→minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"".
-must_haves→requirements with "need","must","require","no stairs". nice_to_haves→preferences with "prefer","would be great","if possible".
-single_story→true only if buyer says "single story","no stairs","one level". search_tags→5-10 lowercase phrases.`;
+must_haves→requirements ("need","must","require"). nice_to_haves→preferences ("prefer","would be great","if possible").
+single_story→true only if "single story","no stairs","one level". search_tags→5-10 lowercase phrases.
+relevant_factors→pick ONLY factor names relevant to the buyer's story from this catalog:
+Price Bracket, HOA Friction, True Carrying Cost, Seller Motivation, ADU/House-Hacking, Long-Term Rental Yield, Historical Appreciation, Usable Square Footage, Dedicated Home Office, Foundation & Storage, Construction Era, Move-In Readiness, Renovation Upside, Architectural Style, Natural Light, Open-Concept Flow, Kitchen Profile, Bathroom Profile, Flooring Material, Ceiling Volume, Interior Finishes, Fenced Yard, Outdoor Entertainment, Privacy Level, Curb Appeal, Topography, View Quality, Street Noise, Visual Clutter, Usable Yard Space, Xeriscape/Low Maintenance, Exterior Style, Commute Convenience, Walkability, Greenery Proximity, Sidewalk Continuity, Wildfire Risk, Flood Risk, Solar Yield Potential, Allergen/Pollen Safety, HVAC Quality, Front Orientation/Vastu, Noise Profile, Water & Drought Risk, Disaster History, Work-From-Home Score, Multi-Gen Utility, Laundry Logistics, Water/Air Systems, Security Infrastructure, Internet & Connectivity, EV Infrastructure, Pet Friendliness, Dining & Entertainment Scene, School Concepts, Agent Highlights, Room-by-Room Character, Interior Vibe, Spatial Flow & Layout, Market Signals, Medical Proximity, Walkable Amenity Score, Micro-Neighborhood Identity, Nearby Amenities Profile, Seismic Risk, Flood Zone Status, FEMA Declarations`;
 
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean; search_tags: string[] };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean; search_tags: string[]; relevant_factors: string[] };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2023,9 +2025,10 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                     must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
                     nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
                     single_story: { type: Type.BOOLEAN },
-                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    relevant_factors: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story', 'search_tags']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story', 'search_tags', 'relevant_factors']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
@@ -2037,9 +2040,10 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                 extractResultJson: true,
                 schema: extractionSchema
             });
-            timings.push({ step: 'Gemini Extract', ms: Math.round(performance.now() - t0), detail: `model: ${FLASH_LITE_MODEL}` });
+
 
             const ext = extractResult.data;
+            timings.push({ step: 'Gemini Extract', ms: Math.round(performance.now() - t0), detail: `model: ${FLASH_LITE_MODEL}, ${ext?.relevant_factors?.length || 0} relevant factors` });
             if (!ext || (ext.price_min === 0 && ext.price_max === 0)) {
                 setBuyerError('Please mention a budget or price range in your story. For example: "Budget is $1.5M" or "Looking for homes up to $2M".');
                 setBuyerSearching(false);
@@ -2185,10 +2189,17 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => {
-                    // Compact: { factorName: [tags] } — preserves context without verbose objects
+                    // Only include factors identified as relevant to the buyer's story
+                    const relevantSet = new Set((ext.relevant_factors || []).map(f => f.toLowerCase()));
                     const factors: Record<string, string[]> = {};
                     for (const f of (g.graph.factors || [])) {
-                        if (f.name && f.tags?.length) factors[f.name] = f.tags;
+                        if (f.name && f.tags?.length) {
+                            // Fuzzy match: check if any relevant factor name is contained in this factor name
+                            const nameLower = f.name.toLowerCase();
+                            const isRelevant = relevantSet.has(nameLower) ||
+                                [...relevantSet].some(rf => nameLower.includes(rf) || rf.includes(nameLower));
+                            if (isRelevant) factors[f.name] = f.tags;
+                        }
                     }
                     return {
                         zpid: g.zpid, address: g.address,
