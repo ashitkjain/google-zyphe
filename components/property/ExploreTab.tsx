@@ -23,6 +23,7 @@ import ChatInterface from '../shared/ChatInterface';
 import { auth } from '../../services/firebase/config';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry, DeepResearchInsights } from '../../types';
 import { getPropertiesByCity, CityPropertySummary } from '../../services/firebase/properties';
+import { hasEssentialData } from '../../utils/propertyValidation';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -2134,17 +2135,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
 
             const graphs: { zpid: string; address: string; graph: any; listing: any }[] = graphEntries
                 .filter(e => e.graph?.factors?.length > 0)
-                .filter(e => {
-                    // Data sanitation: drop properties missing essential fields
-                    const km = e.graph.keyMetrics || {};
-                    const price = e.graph.price || km.price;
-                    const beds = e.graph.beds || km.beds;
-                    const sqft = e.graph.sqft || km.sqft;
-                    const addr = e.graph.address || '';
-                    // Must have price, beds, sqft, and a real street address (not just "City, STATE ZIP")
-                    const hasStreetAddress = /^\d/.test(addr.trim());
-                    return price && beds && sqft && hasStreetAddress;
-                })
+                .filter(e => hasEssentialData(e.graph))
                 .map(e => ({
                     zpid: e.zpid,
                     address: e.graph.address || e.zpid,

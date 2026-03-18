@@ -13,6 +13,7 @@ import {
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
 
 import { PropertyData } from '../../types';
+import { isGhostListing, isSupportedPropertyType, hasEssentialData } from '../../utils/propertyValidation';
 import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
@@ -584,39 +585,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
-
-    /**
-     * Detects ghost/plan listings that will never resolve to a real ZPID.
-     * These are new construction model-home "plans" without real street addresses.
-     * Examples: "Plan 1 Plan, Larkspur at Francis Ranch", "Residence 1 Plan, Parkton"
-     */
-    const isGhostListing = (item: any): boolean => {
-        const addr = item.location?.address?.line || item.address || item.streetAddress || item.full_address || '';
-        const addrLower = addr.toLowerCase().trim();
-
-        // Pattern: starts with "Plan <N>" or "Residence <N> Plan" — new construction model plans
-        if (/^(plan\s+\d|residence\s+\d+\s+plan|homesite|lot\s+\d)/i.test(addrLower)) return true;
-
-        // No street number at all (real addresses start with a number)
-        if (addr && !/^\d/.test(addr.trim())) return true;
-
-        // Address is just a community name (no comma before city, no numbers)
-        if (addr && !addr.includes(',') && !/\d/.test(addr)) return true;
-
-        return false;
-    };
-
-    /**
-     * Only allow Single Family, Townhouse, and Condo listings.
-     * homeType values come from Zillow API: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", etc.
-     */
-    const ALLOWED_HOME_TYPES = ['SINGLE_FAMILY', 'TOWNHOUSE', 'CONDO'];
-
-    const isSupportedPropertyType = (item: any): boolean => {
-        const ht = item.homeType;
-        if (!ht) return true; // no type info yet — let it through
-        return ALLOWED_HOME_TYPES.includes(ht);
-    };
+    // Property validation — imported from central utility (see top-level imports)
 
     const fetchListings = async (zip: string, fallbackCity?: string, fallbackState?: string, forceRefresh = false) => {
         const config = APP_CONFIG.usHousingApi;
@@ -1060,6 +1029,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                 if (!property) {
                     addLog(`[Context Graph] ✗ Skip ${addr} — no property data`);
+                    return 'failed';
+                }
+
+                // 2b. Skip properties missing essential data (no price, beds, sqft, or street address)
+                if (!hasEssentialData(property)) {
+                    addLog(`[Context Graph] ✗ Skip ${addr} — missing essential data (price/beds/sqft/address)`);
                     return 'failed';
                 }
 
