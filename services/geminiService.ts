@@ -636,7 +636,7 @@ export const extractContextGraphFactors = async (
   const aiResult = await executeGeminiRequest<ContextGraphExtractionResult>({
     model: 'gemini-3-flash-preview',
     contents: prompt,
-    config: { temperature: 0.3 },
+    config: { temperature: 0.3, maxOutputTokens: 16384 },
     userId,
     zpid: property.zpid,
     address: property.address,

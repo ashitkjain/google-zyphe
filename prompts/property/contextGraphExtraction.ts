@@ -294,12 +294,7 @@ Return a JSON object with this structure:
 CRITICAL RULES:
 - Extract ALL non-skipped factors. If data is missing, set value to "Data not available"
 - value MUST be 10 words or fewer — use fragments and labels, never full sentences (e.g. "Luxury — $2.1M" not "This property is in the luxury tier at $2.1M")
-- Tags must NEVER repeat or paraphrase the value. Tags add NEW concepts beyond what the value states:
-  - ✅ value: "Walk Score 85 — Very Walkable" → tags: ["Transit Rich", "Errands on Foot"] (new concepts)
-  - ❌ value: "Walk Score 85 — Very Walkable" → tags: ["Very Walkable", "WS 85"] (repeats value)
-  - ✅ value: "Luxury — $2.1M" → tags: ["Top 5% Price", "Premium Market"] (categorization)
-  - ❌ value: "Luxury — $2.1M" → tags: ["Luxury", "$2.1M"] (repeats value)
-- Tags should be short, reusable labels (1-3 words each) suitable for search indexing and graph nodes
+- Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
 - For factors 89-105: tags are the PRIMARY output — generate 3-8 rich concept tags per factor from the source data
 - Be specific with values - include numbers, percentages, and descriptors
 - The summary should synthesize the factors into actionable buyer intelligence
