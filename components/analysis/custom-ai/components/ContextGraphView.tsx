@@ -110,49 +110,44 @@ const getCategoryForFactor = (id: number): string => {
     return 'property';
 };
 
-const FactorCard: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => (
-    <div className="group bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-200 transition-all">
-        <div className="flex items-start justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">#{factor.id}</span>
-                <h4 className="text-sm font-bold text-slate-800">{factor.name}</h4>
-            </div>
-        </div>
-        {factor.value && <p className="text-sm text-slate-600 leading-relaxed mb-1">{factor.value}</p>}
-        {factor.tags.length > 0 && (() => {
-            const tagStyle = TAG_COLOR_MAP[factor.id] || DEFAULT_TAG_STYLE;
-            return (
-                <div className="flex flex-wrap gap-1.5 mt-2">
+const FactorRow: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => {
+    const tagStyle = TAG_COLOR_MAP[factor.id] || DEFAULT_TAG_STYLE;
+    return (
+        <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+            <td className="py-2 px-3 text-sm text-slate-700 font-medium whitespace-nowrap">
+                <span className="text-[9px] font-black text-slate-300 mr-1.5">#{factor.id}</span>
+                {factor.name}
+            </td>
+            <td className="py-2 px-3">
+                <div className="flex flex-wrap gap-1">
                     {factor.tags.map((tag, i) => (
-                        <span key={i} className={`text-[10px] font-bold ${tagStyle.text} ${tagStyle.bg} px-2.5 py-1 rounded-lg border ${tagStyle.border}`}>
+                        <span key={i} className={`text-[10px] font-bold ${tagStyle.text} ${tagStyle.bg} px-2 py-0.5 rounded-md border ${tagStyle.border}`}>
                             {tag}
                         </span>
                     ))}
                 </div>
-            );
-        })()}
-    </div>
-);
+            </td>
+        </tr>
+    );
+};
 
 const CategorySection: React.FC<{ categoryKey: string; factors: ExtractedFactor[] }> = ({ categoryKey, factors }) => {
     const cat = CATEGORY_MAP[categoryKey];
     if (!cat || factors.length === 0) return null;
 
     return (
-        <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-                <div className={`w-8 h-8 rounded-lg bg-${cat.color}-100 flex items-center justify-center`}>
-                    <i className={`fa-solid ${cat.icon} text-${cat.color}-600 text-sm`}></i>
-                </div>
-                <h3 className="text-lg font-black text-slate-800">{cat.label}</h3>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
-                    {factors.length} factors
-                </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {factors.map(f => <FactorCard key={f.id} factor={f} />)}
-            </div>
-        </div>
+        <>
+            <tr className={`bg-${cat.color}-50/50`}>
+                <td colSpan={2} className="py-2.5 px-3">
+                    <div className="flex items-center gap-2">
+                        <i className={`fa-solid ${cat.icon} text-${cat.color}-500 text-xs`}></i>
+                        <span className="text-xs font-black text-slate-700">{cat.label}</span>
+                        <span className="text-[9px] font-bold text-slate-400">{factors.length}</span>
+                    </div>
+                </td>
+            </tr>
+            {factors.map(f => <FactorRow key={f.id} factor={f} />)}
+        </>
     );
 };
 
@@ -312,14 +307,24 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                 ))}
             </div>
 
-            {/* Factor Cards by Category */}
-            {filteredCategories.map(catKey => (
-                <CategorySection
-                    key={catKey}
-                    categoryKey={catKey}
-                    factors={grouped[catKey] || []}
-                />
-            ))}
+            {/* Factors Table */}
+            <table className="w-full border-collapse bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <thead>
+                    <tr className="bg-slate-100 border-b border-slate-200">
+                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-1/3">Factor</th>
+                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Tags</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filteredCategories.map(catKey => (
+                        <CategorySection
+                            key={catKey}
+                            categoryKey={catKey}
+                            factors={grouped[catKey] || []}
+                        />
+                    ))}
+                </tbody>
+            </table>
 
             {/* JSON Preview */}
             {showJson && (
