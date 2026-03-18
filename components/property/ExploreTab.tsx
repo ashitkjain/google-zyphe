@@ -2131,11 +2131,11 @@ ${buyerStory}
 ${JSON.stringify(summaries)}
 
 ## INSTRUCTIONS
-- You are speaking DIRECTLY to the buyer. Use "you" and "your" — never say "the buyer" or "the client".
-- Score each property 0-100 based on how well it matches what they're looking for
+- Use a NEUTRAL tone. Do NOT say "you", "your", "the buyer", or "the client". Just state facts about the property.
+- Score each property 0-100 based on how well it matches the search criteria
 - Return the TOP 10 most relevant properties, ranked by score
-- For each match, give 2-3 short, specific reasons why it's a great fit (e.g. "Single-story — no stairs, just like you wanted")
-- Write a highlight sentence that speaks directly to this person and their lifestyle`;
+- For each match, give 2-3 short, factual reasons (e.g. "Single-story layout, no stairs", "Top-rated schools within 1 mile")
+- Write a concise highlight sentence summarizing why this property stands out`;
 
             const schema = {
                 type: Type.OBJECT,
