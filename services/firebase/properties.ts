@@ -924,6 +924,97 @@ export const getContextGraphsBatch = async (zpids: string[]): Promise<Map<string
     }
 };
 
+/**
+ * Backfill top-level metadata fields on existing context_graph docs.
+ * Reads property data from the `properties` collection and merges
+ * city, state, price, beds, baths, sqft, yearBuilt, homeType, address
+ * onto each context_graph doc WITHOUT touching factors/summary/keyMetrics.
+ * 
+ * Skips docs that already have the `city` field set.
+ */
+export const backfillContextGraphMetadata = async (
+    zpids: string[],
+    onProgress?: (done: number, skipped: number, total: number) => void
+): Promise<{ updated: number; skipped: number; failed: number }> => {
+    if (!db || zpids.length === 0) return { updated: 0, skipped: 0, failed: 0 };
+
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
+    const CHUNK = 10;
+
+    for (let i = 0; i < zpids.length; i += CHUNK) {
+        const chunk = zpids.slice(i, i + CHUNK);
+
+        await Promise.allSettled(chunk.map(async (zpid) => {
+            try {
+                // 1. Read current context_graph doc
+                const graphRef = doc(db, "context_graph", String(zpid));
+                const graphSnap = await getDoc(graphRef);
+                if (!graphSnap.exists()) {
+                    skipped++;
+                    return;
+                }
+
+                const graphData = graphSnap.data();
+
+                // Skip if already backfilled (has city field)
+                if (graphData.city) {
+                    skipped++;
+                    return;
+                }
+
+                // 2. Read property data from properties collection
+                const propRef = doc(db, "properties", String(zpid));
+                const propSnap = await getDoc(propRef);
+                if (!propSnap.exists()) {
+                    // No property data available — still try keyMetrics
+                    const km = graphData.keyMetrics || {};
+                    if (km.price || km.beds) {
+                        await setDoc(graphRef, {
+                            price: km.price ?? null,
+                            beds: km.beds ?? null,
+                            baths: km.baths ?? null,
+                            sqft: km.sqft ?? null,
+                            yearBuilt: km.yearBuilt ?? null,
+                        }, { merge: true });
+                        updated++;
+                    } else {
+                        skipped++;
+                    }
+                    return;
+                }
+
+                const prop = propSnap.data();
+
+                // 3. Merge metadata fields
+                const km = graphData.keyMetrics || {};
+                await setDoc(graphRef, {
+                    city: (prop.city || '').toLowerCase().trim() || null,
+                    state: (prop.state || '').toUpperCase().trim() || null,
+                    price: prop.price ?? prop.zestimate ?? km.price ?? null,
+                    beds: prop.bedrooms ?? km.beds ?? null,
+                    baths: prop.bathrooms ?? km.baths ?? null,
+                    sqft: prop.livingAreaValue ?? km.sqft ?? null,
+                    yearBuilt: prop.yearBuilt ?? km.yearBuilt ?? null,
+                    homeType: prop.homeType ?? null,
+                    address: prop.address ?? null,
+                }, { merge: true });
+
+                updated++;
+            } catch (e) {
+                failed++;
+                console.warn(`[Backfill] Error for ${zpid}:`, e);
+            }
+        }));
+
+        onProgress?.(updated + skipped + failed, skipped, zpids.length);
+    }
+
+    console.log(`[Context Graph Backfill] Done: ${updated} updated, ${skipped} skipped, ${failed} failed / ${zpids.length} total`);
+    return { updated, skipped, failed };
+};
+
 export const setCityResearchFlag = async (cityStateKey: string, status: 'running' | 'completed' | 'failed', error?: string) => {
     if (!db || !cityStateKey) return { success: false };
     try {

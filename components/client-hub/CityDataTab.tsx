@@ -82,6 +82,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [graphBatchRunning, setGraphBatchRunning] = useState(false);
     const [graphBatchProgress, setGraphBatchProgress] = useState<{ done: number; skipped: number; failed: number; total: number } | null>(null);
 
+    // Backfill Context Graph Metadata
+    const [backfillRunning, setBackfillRunning] = useState(false);
+    const [backfillProgress, setBackfillProgress] = useState<{ done: number; skipped: number; total: number } | null>(null);
+
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
     const [buyerSearching, setBuyerSearching] = useState(false);
@@ -1125,6 +1129,31 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setGraphBatchRunning(false);
     };
 
+    // ── Backfill Context Graph Metadata ───────────────────────────────────
+    const handleBackfillMetadata = async () => {
+        if (cachedPropertyIds.size === 0) {
+            addLog('Load listings and check cache first before running backfill.');
+            return;
+        }
+        setBackfillRunning(true);
+        setBackfillProgress({ done: 0, skipped: 0, total: cachedPropertyIds.size });
+        addLog(`[Backfill] Starting metadata backfill for ${cachedPropertyIds.size} context graphs...`);
+
+        try {
+            const { backfillContextGraphMetadata } = await import('../../services/firebase/properties');
+            const zpids = Array.from(cachedPropertyIds) as string[];
+            const result = await backfillContextGraphMetadata(zpids, (done, skipped, total) => {
+                setBackfillProgress({ done, skipped, total });
+            });
+            addLog(`[Backfill] Complete: ${result.updated} updated, ${result.skipped} skipped (already had city), ${result.failed} failed / ${zpids.length} total.`);
+            logPipelineAudit('Backfill Graph Metadata', `${zpids.length} properties`, result.failed === 0 ? 'success' : 'partial', `${result.updated} updated, ${result.skipped} skipped, ${result.failed} failed`);
+        } catch (e: any) {
+            addLog(`[Backfill] Error: ${e.message}`);
+        } finally {
+            setBackfillRunning(false);
+        }
+    };
+
     // ── Buyer Story Search ─────────────────────────────────────────────
     const handleBuyerSearch = async () => {
         if (!buyerStory.trim()) return;
@@ -1620,6 +1649,22 @@ ${JSON.stringify(propertySummaries)}
                                                 </>
                                             ) : (
                                                 <><i className="fa-solid fa-diagram-project text-cyan-500 group-hover:scale-110 transition-transform"></i>Context Graphs</>
+                                            )}
+                                        </button>
+                                    )}
+                                    {cachedPropertyIds.size > 0 && (
+                                        <button
+                                            onClick={handleBackfillMetadata}
+                                            disabled={backfillRunning || loading}
+                                            className="px-6 py-3 bg-white border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3 group disabled:opacity-50"
+                                            title="Backfill city/price/beds/baths metadata on existing context graphs (no AI re-extraction)"
+                                        >
+                                            {backfillRunning ? (
+                                                <><i className="fa-solid fa-spinner animate-spin text-teal-400"></i>
+                                                    {backfillProgress ? `${backfillProgress.done}/${backfillProgress.total}` : 'Starting...'}
+                                                </>
+                                            ) : (
+                                                <><i className="fa-solid fa-database text-teal-500 group-hover:scale-110 transition-transform"></i>Backfill Meta</>
                                             )}
                                         </button>
                                     )}
