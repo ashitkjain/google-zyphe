@@ -82,6 +82,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [graphBatchRunning, setGraphBatchRunning] = useState(false);
     const [graphBatchProgress, setGraphBatchProgress] = useState<{ done: number; skipped: number; failed: number; total: number } | null>(null);
 
+    // Batch Orientation
+    const [orientBatchRunning, setOrientBatchRunning] = useState(false);
+    const [orientBatchProgress, setOrientBatchProgress] = useState<{ computed: number; cached: number; failed: number; total: number } | null>(null);
+
     // Load cities from city_zip_cache filtered to SUPPORTED_STATES on mount
     useEffect(() => {
         getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
@@ -928,23 +932,27 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     // ── Smoke Test ────────────────────────────────────────────────────────────
     const handleSmokeTest = async () => {
-        if (cachedPropertyIds.size === 0) {
-            addLog('Load listings and check cache first before running the smoke test.');
+        // Use selected properties if any are checked, otherwise all cached
+        const targetIds = selectedIds.size > 0
+            ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
+            : cachedPropertyIds;
+        if (targetIds.size === 0) {
+            addLog('Select properties or load listings and check cache first before running the smoke test.');
             return;
         }
         setSmokeRunning(true);
         setSmokeProgress(null);
         setSmokeSummary(null);
         setSmokeExpanded(new Set());
-        addLog(`Starting smoke test for ${cachedPropertyIds.size} cached properties...`);
+        addLog(`Starting smoke test for ${targetIds.size} properties...`);
         try {
-            const zpids = Array.from(cachedPropertyIds) as string[];
+            const zpids = Array.from(targetIds) as string[];
             const summary = await runCitySmokeTest(zpids, (done, total) => {
                 setSmokeProgress({ done, total });
             }, zpidToAddressMap);
             setSmokeSummary(summary);
             addLog(`Smoke test complete: ${summary.passedCount}/${summary.totalProperties} passed, ${summary.failedCount} with errors.`);
-            logPipelineAudit('Smoke Test', `${cachedPropertyIds.size} properties`, summary.failedCount === 0 ? 'success' : 'partial', `${summary.passedCount} passed, ${summary.failedCount} failed`, undefined, { passed: summary.passedCount, failed: summary.failedCount, total: summary.totalProperties });
+            logPipelineAudit('Smoke Test', `${targetIds.size} properties`, summary.failedCount === 0 ? 'success' : 'partial', `${summary.passedCount} passed, ${summary.failedCount} failed`, undefined, { passed: summary.passedCount, failed: summary.failedCount, total: summary.totalProperties });
         } catch (e: any) {
             addLog(`Smoke test failed: ${e.message}`);
         } finally {
@@ -1098,6 +1106,115 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`[Context Graph] Batch complete: ${done} extracted, ${skipped} already existed, ${failed} failed / ${zpids.length} total.`);
         logPipelineAudit('Batch Context Graph', `${zpids.length} properties`, failed === 0 ? 'success' : 'partial', `${done} new, ${skipped} cached, ${failed} failed`, undefined, { done, skipped, failed, total: zpids.length });
         setGraphBatchRunning(false);
+    };
+
+    // ── Batch Orientation Analysis ─────────────────────────────────────────
+    const handleBatchOrientation = async () => {
+        // Use selected properties if any are checked, otherwise use all cached
+        const targetIds = selectedIds.size > 0
+            ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
+            : cachedPropertyIds;
+        if (targetIds.size === 0) {
+            addLog('Select properties or load listings and check cache first before running batch orientation.');
+            return;
+        }
+        setOrientBatchRunning(true);
+        setOrientBatchProgress({ computed: 0, cached: 0, failed: 0, total: targetIds.size });
+        addLog(`[Orientation] Starting batch analysis for ${targetIds.size} properties...`);
+
+        const zpids = Array.from(targetIds) as string[];
+        let computed = 0;
+        let cached = 0;
+        let failed = 0;
+
+        // Lazy imports
+        const { getPropertyFromCloud } = await import('../../services/firebase/properties');
+        const { runSatellitaryAnalysis } = await import('../../services/satellitaryService');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db: firestoreDb } = await import('../../services/firebase/config');
+
+        const CHUNK_SIZE = 3; // conservative — each call hits Gemini + Maps API
+
+        for (let i = 0; i < zpids.length; i += CHUNK_SIZE) {
+            const chunk = zpids.slice(i, i + CHUNK_SIZE);
+
+            const results = await Promise.allSettled(chunk.map(async (zpid) => {
+                const addr = zpidToAddressMap[zpid] || zpid;
+
+                // 1. Check if orientation already exists in properties doc
+                const propDoc = await getPropertyFromCloud(zpid);
+                if (propDoc?.orientation_ai?.final_orientation) {
+                    addLog(`[Orientation] ✓ Skip ${addr} — cached: ${propDoc.orientation_ai.final_orientation}`);
+                    return 'cached';
+                }
+
+                // 2. Get lat/lng from property data
+                const lat = propDoc?.coordinates?.latitude;
+                const lng = propDoc?.coordinates?.longitude;
+                if (!lat || !lng) {
+                    addLog(`[Orientation] ✗ Skip ${addr} — no lat/lng`);
+                    return 'failed';
+                }
+
+                // 3. Get cached street view URL from property_assets
+                let streetViewUrl: string | null = null;
+                if (firestoreDb) {
+                    try {
+                        const assetRef = doc(firestoreDb, 'property_assets', String(zpid));
+                        const assetSnap = await getDoc(assetRef);
+                        if (assetSnap.exists()) {
+                            const assetData = assetSnap.data();
+                            if (assetData.streetView?.includes('firebasestorage')) {
+                                streetViewUrl = assetData.streetView;
+                            }
+                        }
+                    } catch (e) {
+                        // proceed without cached street view
+                    }
+                }
+
+                // 4. Run orientation analysis (uses satellite + street view, saves to Firestore)
+                addLog(`[Orientation] Analyzing ${addr}...`);
+                const result = await runSatellitaryAnalysis(
+                    lat, lng,
+                    streetViewUrl,
+                    'batch-orientation',
+                    zpid,
+                    addr
+                );
+
+                if (result.final_orientation && result.final_orientation !== 'UNCLEAR_IMAGE') {
+                    addLog(`[Orientation] ✓ ${addr} → ${result.final_orientation} (${result.confidence})`);
+                    return 'computed';
+                } else {
+                    addLog(`[Orientation] ✗ ${addr} — unclear image, skipped save`);
+                    return 'failed';
+                }
+            }));
+
+            // Tally
+            for (const r of results) {
+                if (r.status === 'fulfilled') {
+                    if (r.value === 'cached') cached++;
+                    else if (r.value === 'computed') computed++;
+                    else failed++;
+                } else {
+                    failed++;
+                    addLog(`[Orientation] ✗ Error: ${r.reason?.message || r.reason}`);
+                }
+            }
+
+            setOrientBatchProgress({ computed, cached, failed, total: zpids.length });
+
+            // Cooldown between chunks
+            if (i + CHUNK_SIZE < zpids.length) {
+                await new Promise(r => setTimeout(r, 1500));
+            }
+        }
+
+        addLog(`[Orientation] Batch complete: ${computed} computed, ${cached} from cache, ${failed} failed / ${zpids.length} total.`);
+        logPipelineAudit('Batch Orientation', `${zpids.length} properties`, failed === 0 ? 'success' : 'partial', `${computed} computed, ${cached} cached, ${failed} failed`, undefined, { computed, cached, failed, total: zpids.length });
+        setOrientBatchRunning(false);
     };
 
     const loadAuditTrail = useCallback(async () => {
@@ -1332,7 +1449,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                     {smokeProgress ? `Testing ${smokeProgress.done}/${smokeProgress.total}...` : 'Initializing...'}
                                                 </>
                                             ) : (
-                                                <><i className="fa-solid fa-flask text-violet-400 group-hover:scale-110 transition-transform"></i>Smoke Test</>
+                                                <><i className="fa-solid fa-flask text-violet-400 group-hover:scale-110 transition-transform"></i>Smoke Test{visibleSelectedCount > 0 ? ` (${visibleSelectedCount})` : ''}</>
                                             )}
                                         </button>
                                     )}
@@ -1352,6 +1469,34 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 <><i className="fa-solid fa-diagram-project text-cyan-500 group-hover:scale-110 transition-transform"></i>Context Graphs</>
                                             )}
                                         </button>
+                                    )}
+                                    {cachedPropertyIds.size > 0 && (
+                                        <button
+                                            onClick={handleBatchOrientation}
+                                            disabled={orientBatchRunning || loading}
+                                            className="px-6 py-3 bg-white border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                            title="Calculate front orientation for all cached properties (skips already-analyzed)"
+                                        >
+                                            {orientBatchRunning ? (
+                                                <><i className="fa-solid fa-spinner animate-spin text-amber-400"></i>
+                                                    {orientBatchProgress ? `${orientBatchProgress.computed + orientBatchProgress.cached}/${orientBatchProgress.total}` : 'Starting...'}
+                                                </>
+                                            ) : (
+                                                <><i className="fa-solid fa-compass text-amber-500 group-hover:scale-110 transition-transform"></i>Orientation{visibleSelectedCount > 0 ? ` (${visibleSelectedCount})` : ''}</>
+                                            )}
+                                        </button>
+                                    )}
+                                    {orientBatchProgress && !orientBatchRunning && (
+                                        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl animate-in fade-in">
+                                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Orient:</span>
+                                            <span className="text-[11px] font-black text-emerald-600">{orientBatchProgress.computed} computed</span>
+                                            <span className="text-slate-300">|</span>
+                                            <span className="text-[11px] font-semibold text-slate-500">{orientBatchProgress.cached} cached</span>
+                                            {orientBatchProgress.failed > 0 && (<><span className="text-slate-300">|</span><span className="text-[11px] font-black text-rose-600">{orientBatchProgress.failed} failed</span></>)}
+                                            <button onClick={() => setOrientBatchProgress(null)} className="w-5 h-5 flex items-center justify-center text-amber-300 hover:text-amber-500 transition-colors ml-1">
+                                                <i className="fa-solid fa-xmark text-[10px]"></i>
+                                            </button>
+                                        </div>
                                     )}
                                     {graphBatchProgress && !graphBatchRunning && (
                                         <div className="flex items-center gap-2 px-4 py-2.5 bg-cyan-50 border border-cyan-200 rounded-2xl animate-in fade-in">
@@ -2133,6 +2278,51 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Common warnings across all properties */}
+                            {(() => {
+                                const results = smokeSummary.results;
+                                if (results.length < 2) return null;
+                                // Find warning/error check IDs that fail in EVERY property
+                                const allCheckIds = new Set<string>();
+                                results[0]?.checks.forEach(c => allCheckIds.add(c.id));
+                                const commonFailing = Array.from(allCheckIds).filter(checkId =>
+                                    results.every(r => {
+                                        const c = r.checks.find(ch => ch.id === checkId);
+                                        return c && !c.passed;
+                                    })
+                                );
+                                if (commonFailing.length === 0) return null;
+                                const commonChecks = commonFailing.map(id => {
+                                    const c = results[0].checks.find(ch => ch.id === id)!;
+                                    return c;
+                                });
+                                return (
+                                    <div className="mx-6 mt-4 mb-2 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                                        <div className="flex items-center gap-2 mb-2.5">
+                                            <i className="fa-solid fa-triangle-exclamation text-amber-500 text-xs"></i>
+                                            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                                                Common across all {results.length} properties
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {commonChecks.map(c => (
+                                                <span key={c.id}
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                                                        c.severity === 'error'
+                                                            ? 'bg-rose-50 border-rose-200 text-rose-700'
+                                                            : 'bg-amber-100 border-amber-300 text-amber-800'
+                                                    }`}
+                                                >
+                                                    <i className={`fa-solid ${c.severity === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'} text-[8px]`}></i>
+                                                    {c.label}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             {/* Results table */}
                             <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
                                 {smokeSummary.results

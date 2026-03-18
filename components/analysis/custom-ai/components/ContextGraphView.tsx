@@ -8,26 +8,12 @@ interface Props {
     onExtract: () => void;
 }
 
-const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string; range: [number, number] }> = {
-    financial: { label: 'Financial & Market', icon: 'fa-dollar-sign', color: 'emerald', range: [1, 10] },
-    structural: { label: 'Structural & Size', icon: 'fa-ruler-combined', color: 'blue', range: [11, 20] },
-    interior: { label: 'Interior Design', icon: 'fa-couch', color: 'violet', range: [21, 30] },
-    outdoor: { label: 'Outdoor & Lot', icon: 'fa-tree', color: 'amber', range: [31, 40] },
-    location: { label: 'Location & Community', icon: 'fa-map-pin', color: 'rose', range: [41, 45] },
-    environment: { label: 'Environmental', icon: 'fa-leaf', color: 'teal', range: [46, 50] },
-    advanced: { label: 'Advanced Intelligence', icon: 'fa-brain', color: 'fuchsia', range: [51, 70] },
-    community: { label: 'Community & Market Intel', icon: 'fa-users', color: 'cyan', range: [71, 75] },
-    infrastructure: { label: 'Infrastructure & Environment', icon: 'fa-wifi', color: 'sky', range: [76, 79] },
-    lifestyle: { label: 'Lifestyle Fit', icon: 'fa-heart', color: 'pink', range: [80, 82] },
-    neighborhood: { label: 'Neighborhood & Amenities', icon: 'fa-location-dot', color: 'orange', range: [83, 88] },
-    investment: { label: 'Investment Intelligence', icon: 'fa-chart-line', color: 'blue', range: [89, 93] },
-    streetView: { label: 'Street View Intelligence', icon: 'fa-street-view', color: 'cyan', range: [94, 98] },
-    agentDesc: { label: 'Agent Description', icon: 'fa-clipboard-list', color: 'slate', range: [100, 100] },
-    schoolConcepts: { label: 'School Intelligence', icon: 'fa-graduation-cap', color: 'blue', range: [101, 101] },
-    commCondition: { label: 'Community & Condition', icon: 'fa-building', color: 'violet', range: [102, 105] },
-    groundTruth: { label: 'Ground Truth Verification', icon: 'fa-shield-halved', color: 'red', range: [108, 110] },
-    distressed: { label: 'Distressed & Opportunity', icon: 'fa-triangle-exclamation', color: 'orange', range: [111, 111] },
-    interiorRooms: { label: 'Interior Room Intelligence', icon: 'fa-door-open', color: 'violet', range: [113, 116] },
+const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string; ranges: [number, number][] }> = {
+    property: { label: 'Property & Financials', icon: 'fa-house', color: 'emerald', ranges: [[1, 30]] },
+    location: { label: 'Location & Lifestyle', icon: 'fa-map-pin', color: 'rose', ranges: [[31, 50], [76, 88]] },
+    intelligence: { label: 'AI Intelligence', icon: 'fa-brain', color: 'violet', ranges: [[51, 75], [100, 105]] },
+    visual: { label: 'Visual & Street View', icon: 'fa-street-view', color: 'cyan', ranges: [[94, 98], [108, 116]] },
+    investment: { label: 'Investment & Risk', icon: 'fa-chart-line', color: 'amber', ranges: [[89, 93], [111, 111]] },
 };
 
 /** Per-factor-ID tag color styles */
@@ -69,13 +55,12 @@ const CONFIDENCE_STYLES: Record<string, string> = {
 };
 
 const getCategoryForFactor = (id: number): string => {
-    // Explicit overrides for factors outside their natural range
-    if (id === 106 || id === 112) return 'environment'; // Seismic & FEMA → Environmental
-    if (id === 113 || id === 114) return 'outdoor'; // Exterior Style & Backyard → Outdoor & Lot
+    // Explicit overrides for factors that belong in a different tab than their ID range
+    if (id === 34) return 'intelligence'; // Curb Appeal → AI Intelligence
     for (const [key, cat] of Object.entries(CATEGORY_MAP)) {
-        if (id >= cat.range[0] && id <= cat.range[1]) return key;
+        if (cat.ranges.some(([lo, hi]) => id >= lo && id <= hi)) return key;
     }
-    return 'financial';
+    return 'property';
 };
 
 const FactorCard: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => (
@@ -90,9 +75,6 @@ const FactorCard: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => (
             </span>
         </div>
         <p className="text-sm text-slate-600 leading-relaxed mb-1">{factor.value}</p>
-        {factor.detail && (
-            <p className="text-[11px] text-slate-400 italic leading-relaxed mb-2">{factor.detail}</p>
-        )}
         {factor.tags.length > 0 && (() => {
             const tagStyle = TAG_COLOR_MAP[factor.id] || DEFAULT_TAG_STYLE;
             return (
@@ -275,28 +257,12 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                     {/* Qualitative Narratives */}
                     {data.enrichment && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {data.enrichment.agentRemarks && (
-                                <div className="bg-white border border-slate-100 rounded-xl p-4">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                        <i className="fa-solid fa-quote-left text-[8px]"></i> Agent Remarks
-                                    </div>
-                                    <p className="text-[11px] text-slate-500 italic leading-relaxed">{data.enrichment.agentRemarks}</p>
-                                </div>
-                            )}
                             {data.enrichment.conditionNotes && (
                                 <div className="bg-white border border-slate-100 rounded-xl p-4">
                                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                         <i className="fa-solid fa-wrench text-[8px]"></i> Condition Notes
                                     </div>
                                     <p className="text-[11px] text-slate-500 leading-relaxed">{data.enrichment.conditionNotes}</p>
-                                </div>
-                            )}
-                            {data.enrichment.residentSentiment && (
-                                <div className="bg-white border border-slate-100 rounded-xl p-4">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                        <i className="fa-solid fa-users text-[8px]"></i> Resident Sentiment
-                                    </div>
-                                    <p className="text-[11px] text-slate-500 leading-relaxed">{data.enrichment.residentSentiment}</p>
                                 </div>
                             )}
                             {data.enrichment.marketNarrative && (

@@ -15,7 +15,6 @@ export interface ExtractedFactor {
     id: number;
     name: string;
     value: string;
-    detail?: string;  // Optional 1-2 sentence qualitative context behind the value
     confidence: 'high' | 'medium' | 'low';
     tags: string[];
 }
@@ -100,7 +99,6 @@ function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {
         id: 4,
         name: 'True Carrying Cost',
         value: `~$${total.toLocaleString()}/month est.`,
-        detail: `Breakdown (7% 30yr): ${breakdownParts.join(', ')}.`,
         confidence,
         tags: [`$${Math.round(total / 1000)}K/mo`, 'Estimated']
     };
@@ -122,13 +120,10 @@ function factor5_sellerMotivation(p: PropertyData): ExtractedFactor {
     if (dom != null && dom > 90) { reasons.push(`${dom} DOM`); }
 
     if (reasons.length > 0) {
-        const historyDetail = (p.priceHistory ?? []).filter(h => h.price != null).slice(0, 4)
-            .map(h => `${h.event} $${(h.price || 0).toLocaleString()} (${h.date})`).join('. ');
         const level = isHot ? 'Urgent' : cuts > 0 || (dom != null && dom > 90) ? 'High' : 'Moderate';
         return {
             id: 5, name: 'Seller Motivation',
             value: `${level} — ${reasons.join(', ')}`,
-            detail: historyDetail || undefined,
             confidence: 'high',
             tags
         };
@@ -269,26 +264,7 @@ function factor28_flooring(p: PropertyData): ExtractedFactor {
     return { id: 28, name: 'Flooring Material', value: f, confidence: 'high', tags: f.split(',').map(s => s.trim()).slice(0, 3) };
 }
 
-function factor41_schoolQuality(p: PropertyData): ExtractedFactor {
-    const schools = p.schools ?? [];
-    if (!schools.length) return { id: 41, name: 'School Quality (Max)', value: 'Data not available', confidence: 'low', tags: [] };
 
-    let maxRating = 0;
-    let bestSchool = '';
-    for (const s of schools) {
-        const r = typeof s.rating === 'number' ? s.rating : parseFloat(String(s.rating));
-        if (!isNaN(r) && r > maxRating) { maxRating = r; bestSchool = s.name; }
-    }
-    if (maxRating === 0) return { id: 41, name: 'School Quality (Max)', value: 'Ratings unavailable', confidence: 'low', tags: [] };
-
-    const tier = maxRating >= 8 ? 'Top-Rated' : maxRating >= 6 ? 'Good' : 'Average';
-    return {
-        id: 41, name: 'School Quality (Max)',
-        value: `${maxRating}/10 — ${bestSchool}`,
-        confidence: 'high',
-        tags: [tier, `${maxRating}/10`]
-    };
-}
 
 function factor43_walkability(p: PropertyData): ExtractedFactor {
     const score = p.walkScore;
@@ -419,15 +395,10 @@ function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult |
     const valueTrunc = rating.split(/[.!]/).filter(Boolean)[0]?.trim() || rating;
     const value = valueTrunc.split(/\s+/).slice(0, 10).join(' ');
 
-    // Use both sources for detail
-    const detailParts: string[] = [];
-    if (sv?.privacyRating) detailParts.push(`Street View: ${sv.privacyRating}`);
-    if (visualPrivacy && visualPrivacy !== sv?.privacyRating) detailParts.push(`Photo analysis: ${visualPrivacy}`);
 
     return {
         id: 33, name: 'Privacy Level',
         value,
-        detail: detailParts.length ? detailParts.join('. ').substring(0, 300) : undefined,
         confidence: sv ? 'high' : 'medium',
         tags: [rating.toLowerCase().includes('high') || rating.toLowerCase().includes('private') ? 'Private' : rating.toLowerCase().includes('low') || rating.toLowerCase().includes('exposed') ? 'Exposed' : 'Moderate Privacy']
     };
@@ -449,19 +420,13 @@ function factor34_curbAppeal(p: PropertyData, visual: CustomAIAnalysisResult | n
         value = `${tier} — ${score}/10`;
     } else {
         // Use first fragment of the narrative
-        value = (narrative || '').split(/[.!]/).filter(Boolean)[0]?.trim().split(/\s+/).slice(0, 10).join(' ') || 'See detail';
+        value = (narrative || '').split(/[.!]/).filter(Boolean)[0]?.trim().split(/\s+/).slice(0, 10).join(' ') || 'Visual assessment';
     }
 
-    // Rich detail combining both sources
-    const detailParts: string[] = [];
-    if (narrative) detailParts.push(narrative);
-    if (sv?.gardenDescription) detailParts.push(`Garden: ${sv.gardenDescription}`);
-    if (sv?.neighborCondition) detailParts.push(`Neighbors: ${sv.neighborCondition}`);
 
     return {
         id: 34, name: 'Curb Appeal',
         value,
-        detail: detailParts.length ? detailParts.join('. ').substring(0, 400) : undefined,
         confidence: sv ? 'high' : 'medium',
         tags: score != null
             ? [score >= 8 ? 'Great Curb Appeal' : score >= 6 ? 'Good Curb Appeal' : 'Needs Curb Work', `${score}/10`]
@@ -478,7 +443,6 @@ function factor46_wildfireRisk(p: PropertyData): ExtractedFactor {
     return {
         id: 46, name: 'Wildfire Risk',
         value: `${tier} — ${score}/10`,
-        detail: score >= 7 ? `Fire risk score ${score}/10 may impact insurance premiums and evacuaton planning.` : undefined,
         confidence: 'high',
         tags: [tier, `${score}/10`, ...(score >= 7 ? ['High Fire Risk'] : [])]
     };
@@ -491,7 +455,6 @@ function factor47_floodRisk(p: PropertyData): ExtractedFactor {
     return {
         id: 47, name: 'Flood Risk',
         value: `${tier} — ${score}/10`,
-        detail: score >= 7 ? `Flood risk score ${score}/10. Flood insurance may be required. Check FEMA flood zone designation.` : undefined,
         confidence: 'high',
         tags: [tier, `${score}/10`, ...(score >= 7 ? ['Flood Insurance'] : [])]
     };
@@ -506,17 +469,11 @@ function factor48_solarYield(p: PropertyData): ExtractedFactor {
     const capacity = solar.estimatedSolarProduction.systemCapacityKw;
     const tier = kwh > 15000 ? 'High' : kwh > 8000 ? 'Moderate' : 'Low';
 
-    const detailParts: string[] = [];
-    if (panels) detailParts.push(`${panels} panels`);
-    if (capacity) detailParts.push(`${capacity.toFixed(1)}kW system`);
-    if (solar.financialAnalysis?.cashPurchase?.savings?.savingsYear20) {
-        detailParts.push(`20yr savings: $${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}`);
-    }
+
 
     return {
         id: 48, name: 'Solar Yield Potential',
         value: `${tier} — ${kwh.toLocaleString()} kWh/year`,
-        detail: detailParts.length ? `Google Solar API: ${detailParts.join(', ')}.` : undefined,
         confidence: 'high',
         tags: [tier, `${Math.round(kwh / 1000)}K kWh`, ...(kwh > 15000 ? ['High Solar'] : [])]
     };
@@ -548,7 +505,6 @@ function factor49_pollenSafety(p: PropertyData): ExtractedFactor {
     return {
         id: 49, name: 'Allergen / Pollen Safety',
         value: `${tier} — ${pollen.category} (${dominant})`,
-        detail: pollen.description || undefined,
         confidence: 'high',
         tags: [...new Set(tags)].slice(0, 8)
     };
@@ -575,7 +531,6 @@ function factor50_hvacQuality(p: PropertyData): ExtractedFactor {
     return {
         id: 50, name: 'HVAC Quality / Air Filtration',
         value: parts.join(', '),
-        detail: `Heating: ${heating || 'N/A'}. Cooling: ${cooling || 'N/A'}.`,
         confidence: 'high',
         tags
     };
@@ -596,18 +551,11 @@ function factor76_internetConnectivity(p: PropertyData): ExtractedFactor {
     const speed = bb.topDownloadMbps;
     const tier = speed >= 1000 ? 'Gigabit' : speed >= 300 ? 'Fast' : speed >= 100 ? 'Moderate' : speed > 0 ? 'Basic' : 'Unknown';
 
-    // Build rich detail with provider names and cell coverage
-    const detailParts: string[] = [`Max download: ${speed}Mbps`];
-    if (bb.providers?.length) detailParts.push(`Providers: ${bb.providers.slice(0, 3).map((pr: any) => pr.name || pr).join(', ')}`);
-    if (bb.cellCoverage?.length) {
-        const carriers = bb.cellCoverage.slice(0, 3).map((c: any) => `${c.carrier || c.name} (${c.technology || ''})`).join(', ');
-        detailParts.push(`Cell: ${carriers}`);
-    }
+
 
     return {
         id: 76, name: 'Internet & Connectivity',
         value: `${tier} — ${parts.join(', ')}`,
-        detail: detailParts.join('. ') + '.',
         confidence: 'high',
         tags: [tier, ...(bb.hasFiber ? ['Fiber'] : []), ...(bb.has5G ? ['5G'] : [])]
     };
@@ -633,7 +581,6 @@ function factor77_noiseProfile(p: PropertyData): ExtractedFactor {
     return {
         id: 77, name: 'Noise Profile (Measured)',
         value: `${label} — Score ${score}/100${details.length ? ` (${details.join(', ')})` : ''}`,
-        detail: subScores.length ? `HowLoud breakdown: ${subScores.join(', ')}. ${details.join('. ')}.` : undefined,
         confidence: 'high',
         tags: [label, `Score ${score}`]
     };
@@ -659,7 +606,6 @@ function factor78_droughtRisk(p: PropertyData): ExtractedFactor {
     return {
         id: 78, name: 'Water & Drought Risk',
         value: `${d.severity} — ${pctAffected}% of ${d.countyName} affected`,
-        detail: levels.length ? `US Drought Monitor: ${levels.join(', ')}. May impact landscaping costs and water restrictions.` : undefined,
         confidence: 'high',
         tags: [d.severity, `${pctAffected}% Affected`]
     };
@@ -670,8 +616,12 @@ function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
     const femaDeclarations = hd?.femaDeclarations || [];
     const events = Array.isArray(hd?.events) ? hd.events : [];
 
-    if (!hd || (events.length === 0 && femaDeclarations.length === 0)) {
+    if (!hd) {
         return { id: 79, name: 'Disaster History (FEMA)', value: 'Data not available', confidence: 'low', tags: [] };
+    }
+
+    if (events.length === 0 && femaDeclarations.length === 0) {
+        return { id: 79, name: 'Disaster History (FEMA)', value: 'Clean Record — No incidents', confidence: 'high', tags: ['Clean Record', 'No FEMA Declarations'] };
     }
 
     const tags: string[] = [];
@@ -749,7 +699,6 @@ function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
     return {
         id: 84, name: 'Walkable Amenity Score',
         value: `${tier} — ${total} walkable POIs (${parts.join(', ')})`,
-        detail: placeNames ? `Closest: ${placeNames}.` : undefined,
         confidence: 'high',
         tags: [tier, `${total} Walkable`]
     };
@@ -772,7 +721,6 @@ function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
     return {
         id: 85, name: 'Medical Proximity',
         value: `${medical.length} hospital${medical.length > 1 ? 's' : ''} within 5km, closest ${closestKm}km`,
-        detail: hospitalNames ? `Facilities: ${hospitalNames}.` : undefined,
         confidence: 'high',
         tags: [`${medical.length} Hospitals`, `${closestKm}km`]
     };
@@ -1204,7 +1152,7 @@ export function precomputeDataFactors(
         factor33_privacyLevel(property, visual),
         factor34_curbAppeal(property, visual),
         factor39_usableYard(property),
-        factor41_schoolQuality(property),
+
         factor43_walkability(property),
         factor46_wildfireRisk(property),
         factor47_floodRisk(property),
@@ -1235,8 +1183,6 @@ export function precomputeDataFactors(
         factor109_lotSizeVerification(property),
         factor110_listingClaimFlags(property),
 
-        factor113_exteriorStyle(visual),
-        factor114_backyardOutdoor(visual),
     ];
 
     const map = new Map<number, ExtractedFactor>();
@@ -1244,79 +1190,8 @@ export function precomputeDataFactors(
     return map;
 }
 
-function factor113_exteriorStyle(visual: CustomAIAnalysisResult | null): ExtractedFactor {
-    const ext = (visual as any)?.exterior_and_neighborhood?.exterior_and_lot_appeal;
-    const archStyle = ext?.architecture_style;
-    const curbAppeal = ext?.curb_appeal;
-    if (!archStyle && !curbAppeal) return { id: 113, name: 'Exterior Style', value: 'Data not available', confidence: 'low', tags: [] };
-
-    const tags: string[] = [];
-    const text = `${archStyle || ''} ${curbAppeal || ''}`.toLowerCase();
-
-    // Architecture style keywords
-    const styles = ['craftsman', 'ranch', 'colonial', 'mediterranean', 'modern', 'contemporary', 'victorian', 'tudor', 'cape cod', 'farmhouse', 'mid-century', 'spanish', 'bungalow', 'split-level'];
-    for (const s of styles) {
-        if (text.includes(s)) { tags.push(s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')); break; }
-    }
-
-    // Material keywords
-    if (text.includes('stucco')) tags.push('Stucco');
-    if (text.includes('brick')) tags.push('Brick');
-    if (text.includes('stone')) tags.push('Stone');
-    if (text.includes('wood') && text.includes('siding')) tags.push('Wood Siding');
-    if (text.includes('vinyl')) tags.push('Vinyl Siding');
-
-    // Condition keywords
-    if (text.includes('well-maintained') || text.includes('excellent condition')) tags.push('Well-Maintained');
-    if (text.includes('fresh paint') || text.includes('newly painted')) tags.push('Fresh Paint');
-    if (text.includes('new roof')) tags.push('New Roof');
-
-    // Curb appeal features
-    if (text.includes('mature tree') || text.includes('mature landscap')) tags.push('Mature Landscaping');
-    if (text.includes('inviting') || text.includes('welcoming')) tags.push('Inviting Entry');
-
-    const val = archStyle ? archStyle.split('.')[0] : curbAppeal?.split('.')[0] || 'Exterior analyzed';
-    return { id: 113, name: 'Exterior Style', value: val, confidence: 'high', tags: [...new Set(tags)].slice(0, 8) };
-}
-
-function factor114_backyardOutdoor(visual: CustomAIAnalysisResult | null): ExtractedFactor {
-    const ext = (visual as any)?.exterior_and_neighborhood?.exterior_and_lot_appeal;
-    const backyard = ext?.backyard_and_patio;
-    if (!backyard) return { id: 114, name: 'Backyard & Outdoor', value: 'Data not available', confidence: 'low', tags: [] };
-
-    const tags: string[] = [];
-    const text = backyard.toLowerCase();
-
-    // Features
-    if (text.includes('pool')) tags.push('Pool');
-    if (text.includes('spa') || text.includes('hot tub') || text.includes('jacuzzi')) tags.push('Spa/Hot Tub');
-    if (text.includes('patio')) tags.push('Patio');
-    if (text.includes('deck')) tags.push('Deck');
-    if (text.includes('pergola') || text.includes('gazebo') || text.includes('arbor')) tags.push('Pergola/Gazebo');
-    if (text.includes('outdoor kitchen') || text.includes('built-in bbq') || text.includes('built-in grill')) tags.push('Outdoor Kitchen');
-    if (text.includes('fire pit') || text.includes('fireplace') || text.includes('firepit')) tags.push('Fire Pit');
-    if (text.includes('garden') || text.includes('raised bed')) tags.push('Garden');
-    if (text.includes('play') || text.includes('swing') || text.includes('trampoline')) tags.push('Play Area');
-
-    // Privacy & fencing
-    if (text.includes('privacy') || text.includes('private')) tags.push('Private');
-    if (text.includes('fenc')) tags.push('Fenced');
-
-    // Landscape quality
-    if (text.includes('mature') || text.includes('lush') || text.includes('manicured')) tags.push('Mature Landscaping');
-    if (text.includes('artificial') || text.includes('synthetic') || text.includes('turf')) tags.push('Artificial Turf');
-    if (text.includes('concrete') || text.includes('paver')) tags.push('Hardscape');
-    if (text.includes('low maintenance') || text.includes('drought')) tags.push('Low Maintenance');
-
-    // Size
-    if (text.includes('spacious') || text.includes('large') || text.includes('expansive')) tags.push('Spacious Yard');
-    if (text.includes('compact') || text.includes('small') || text.includes('cozy')) tags.push('Compact Yard');
-
-    const val = backyard.split('.')[0];
-    return { id: 114, name: 'Backyard & Outdoor', value: val, confidence: 'high', tags: [...new Set(tags)].slice(0, 10) };
-}
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 41, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110, 113, 114];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110];
 
 

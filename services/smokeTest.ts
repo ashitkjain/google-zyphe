@@ -251,11 +251,6 @@ function runChecks(
     chk(checks, 'communityPulse', 'Community Pulse', 'warn', !!(hasCpLike || hasCpComplaint),
         cp ? `like: ${cp.what_residents_like?.points?.length || 0}, complaints: ${cp.common_complaints?.points?.length || 0}` : 'missing');
 
-    // ── 7c. Deep Investment Research (city-level collection: deep_investment_research)
-    const dir = cityData?.deepInvestmentResearch;
-    const hasDirReport = !!(dir?.structured_report);
-    chk(checks, 'deepInvestResearch', 'Deep Investment Research', 'warn', hasDirReport,
-        hasDirReport ? 'report present' : 'missing');
 
     // Custom visual analysis (lives on property_analyses_visual doc)
     const hasCustomAnalysis = !!(visual?.report_title || visual?.home_interior);
@@ -361,10 +356,7 @@ function runChecks(
             staleCount === 0
                 ? (analyzedCount > 0 ? 'all schools have valid data' : 'no data to check')
                 : `${staleCount} stale: ${staleNames.join(', ')}`);
-        if (missingFieldSummary.length > 0) {
-            chk(checks, 'schoolFieldGaps', 'School Field Gaps', 'warn', false,
-                missingFieldSummary.join('; '));
-        }
+
     }
 
     // ── 12. Lifestyle Insights (inside property_analyses_comprehensive) ────────

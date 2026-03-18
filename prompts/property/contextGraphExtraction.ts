@@ -107,7 +107,7 @@ ${skipNote}
 Given the property data below, extract values for the required decision factors. For each factor, return:
 - The factor ID
 - A concise value (maximum 10 words — use fragments, numbers, and labels, not full sentences)
-- An optional detail (1-2 sentences max) containing the specific qualitative evidence that supports your value. Pull from listing description, visual analysis, or deep research. Do NOT invent details — only include what the data shows. Omit if no additional context beyond the value exists.
+
 - A confidence score: "high" (directly from data), "medium" (inferred), "low" (insufficient data)
 - Tags: short labels (1-3 words each) suitable for graph nodes. For factors 89-105, tags are the PRIMARY output — generate 3-8 concept tags per factor.
 
@@ -162,7 +162,7 @@ Given the property data below, extract values for the required decision factors.
 40. **Xeriscape / Low Maintenance**: Drought-tolerant or synthetic turf mentioned.
 
 ### Location & Community (41-45)
-41. SKIP (precomputed).
+41. **Exterior Style & Architecture**: From visual analysis exterior_and_lot_appeal. Tags = architecture style (e.g. "Craftsman", "Ranch", "Mediterranean", "Colonial"), exterior materials ("Stucco", "Brick", "Wood Siding"), and notable curb features ("Mature Landscaping", "Inviting Entry", "New Roof", "Fresh Paint"). Value = architecture style + overall impression. Generate 3-8 tags.
 42. **Commute Convenience**: Proximity to highways or transit hubs mentioned in neighborhood description.
 43. SKIP (precomputed).
 44. **Greenery Proximity**: "Park adjacent" or "Near trails" from neighborhood features.
@@ -297,7 +297,7 @@ const factorSchema = {
         id: { type: Type.NUMBER, description: "Factor ID (1-111)" },
         name: { type: Type.STRING, description: "Factor name" },
         value: { type: Type.STRING, description: "Extracted or computed value (max 10 words)" },
-        detail: { type: Type.STRING, description: "Optional 1-2 sentence qualitative evidence behind the value. Omit if no extra context." },
+
         confidence: { type: Type.STRING, description: "high, medium, or low" },
         tags: {
             type: Type.ARRAY,
