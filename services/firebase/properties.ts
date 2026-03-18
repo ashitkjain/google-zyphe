@@ -749,7 +749,7 @@ export const getSchoolAnalysisFromCloud = async (cacheKey: string): Promise<any 
 };
 
 
-export const saveContextGraphToCloud = async (zpid: string, data: any, city?: string, state?: string) => {
+export const saveContextGraphToCloud = async (zpid: string, data: any, city?: string, state?: string, propertyMeta?: { price?: number; beds?: number; baths?: number; sqft?: number; yearBuilt?: number; homeType?: string; address?: string }) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
         const docRef = doc(db, "context_graph", String(zpid));
@@ -761,6 +761,20 @@ export const saveContextGraphToCloud = async (zpid: string, data: any, city?: st
         // Store city for city-scoped queries (auto-indexed by Firestore)
         if (city) saveData.city = city.toLowerCase().trim();
         if (state) saveData.state = state.toUpperCase().trim();
+
+        // Promote key attributes to top-level for Firestore indexing & filtering
+        // These are auto-indexed individually; composite indexes (city + price range) 
+        // will be auto-suggested by Firestore on first query attempt
+        const km = data?.keyMetrics || {};
+        const meta = propertyMeta || {};
+        saveData.price = meta.price ?? km.price ?? null;
+        saveData.beds = meta.beds ?? km.beds ?? null;
+        saveData.baths = meta.baths ?? km.baths ?? null;
+        saveData.sqft = meta.sqft ?? km.sqft ?? null;
+        saveData.yearBuilt = meta.yearBuilt ?? km.yearBuilt ?? null;
+        saveData.homeType = meta.homeType ?? null;
+        saveData.address = meta.address ?? null;
+
         await setDoc(docRef, saveData, { merge: true });
         return { success: true };
     } catch (error) {

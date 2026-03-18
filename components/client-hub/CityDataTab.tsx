@@ -1082,7 +1082,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const res = await extractContextGraphFactors(property, enrichedVisual, comprehensive || null);
 
                 if (res.data?.factors?.length > 0) {
-                    await saveContextGraphToCloud(zpid, res.data, property.city, property.state);
+                    await saveContextGraphToCloud(zpid, res.data, property.city, property.state, {
+                        price: property.price ?? property.zestimate,
+                        beds: property.bedrooms,
+                        baths: property.bathrooms,
+                        sqft: property.livingAreaValue,
+                        yearBuilt: property.yearBuilt,
+                        homeType: property.homeType,
+                        address: property.address
+                    });
                     addLog(`[Context Graph] ✓ Saved ${res.data.factors.length} factors for ${addr}`);
                     return 'done';
                 } else {
