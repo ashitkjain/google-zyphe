@@ -2185,15 +2185,16 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => {
-                    // Compact factor tags — flatten all factor tag arrays into a single list
-                    const factorTags = (g.graph.factors || [])
-                        .flatMap((f: any) => f.tags || [])
-                        .filter((t: string) => t && t.length > 1);
+                    // Compact: { factorName: [tags] } — preserves context without verbose objects
+                    const factors: Record<string, string[]> = {};
+                    for (const f of (g.graph.factors || [])) {
+                        if (f.name && f.tags?.length) factors[f.name] = f.tags;
+                    }
                     return {
                         zpid: g.zpid, address: g.address,
                         summary: g.graph.summary,
                         keyMetrics: g.graph.keyMetrics,
-                        tags: factorTags
+                        factors
                     };
                 });
 
