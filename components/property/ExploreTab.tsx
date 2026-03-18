@@ -1853,10 +1853,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
     const [buyerSearching, setBuyerSearching] = useState(false);
-    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; match: string; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean; relevantFactors: string[] } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
@@ -1866,15 +1866,13 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [miningStatus, setMiningStatus] = useState<string>('');
     const [cachedNeighborhoodCount, setCachedNeighborhoodCount] = useState<number | null>(null);
 
-    const handleBrowse = async (city?: string) => {
-        const c = city || selectedCity;
-        if (!c) return;
-        setSelectedCity(c);
+    const handleBrowse = async () => {
+        if (!selectedCity) return;
         setBrowsing(true);
         setHasSearched(true);
         setPage(1);
         try {
-            const data = await getPropertiesByCity(c);
+            const data = await getPropertiesByCity(selectedCity);
             setResults(data);
         } catch (e) {
             console.error('Browse by city failed:', e);
@@ -2010,23 +2008,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const extractionPrompt = `Extract from: "${buyerStory}"
 Prices→dollars($1M=1000000). beds/baths→minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"".
-must_haves→requirements ("need","must","require"). nice_to_haves→preferences ("prefer","would be great","if possible").
-single_story→true only if "single story","no stairs","one level". search_tags→5-10 lowercase phrases.
-relevant_factors→pick factor names from the catalog below that are relevant to the buyer's interests. Think semantically: "mother-in-law suite"→Multi-Gen Utility, "quiet"→Noise Profile+Street Noise, "garage"→Agent Highlights.
-ALWAYS include: Agent Highlights, School Concepts, Spatial Flow & Layout (baseline context for all buyers).
+must_haves→requirements with "need","must","require","no stairs". nice_to_haves→preferences with "prefer","would be great","if possible".
+single_story→true only if buyer says "single story","no stairs","one level". search_tags→5-10 lowercase phrases.`;
 
-FACTOR CATALOG:
-FINANCIAL: Price Bracket (price tier), HOA Friction (monthly dues), True Carrying Cost (mortgage+tax+insurance), Seller Motivation (DOM, price cuts), ADU/House-Hacking (guest house, separate entrance), Long-Term Rental Yield (rent/price ratio), Historical Appreciation (YoY growth)
-STRUCTURAL: Usable Square Footage (home size), Dedicated Home Office (den/study/office), Foundation & Storage (basement/crawlspace), Construction Era (year built), Move-In Readiness (turn-key vs fixer), Renovation Upside (improvement potential)
-INTERIOR: Architectural Style (craftsman/modern/ranch), Natural Light (skylights, large windows), Open-Concept Flow (vaulted, open layout), Kitchen Profile (chef's kitchen, materials), Bathroom Profile (spa, finishes), Flooring Material, Ceiling Volume, Interior Finishes (molding, paint)
-OUTDOOR: Fenced Yard, Outdoor Entertainment (pool/spa/patio/deck/outdoor kitchen), Privacy Level, Curb Appeal, Topography (flat/hillside), View Quality (hills/water/city), Usable Yard Space (backyard size), Xeriscape/Low Maintenance (drought-tolerant)
-STREET: Street Noise (traffic level), Visual Clutter (wires, streetscape), Exterior Style (facade materials), Sidewalk Continuity (pedestrian safety)
-LOCATION: Commute Convenience (highway/transit proximity), Walkability (walk score), Greenery Proximity (parks/trails nearby), Pet Friendliness (dog parks, fenced yard), Dining & Entertainment Scene (walkable restaurants), Medical Proximity (hospitals), Walkable Amenity Score (nearby shops/dining/parks), Micro-Neighborhood Identity (community character), Nearby Amenities Profile (all nearby places)
-ENVIRONMENT: Wildfire Risk, Flood Risk, Solar Yield Potential (roof production), Allergen/Pollen Safety, HVAC Quality (central AC, forced air), Noise Profile (measured noise score), Water & Drought Risk, Disaster History (FEMA), Seismic Risk, Flood Zone Status, FEMA Declarations
-LIFESTYLE: Front Orientation/Vastu (facing direction), Work-From-Home Score (office+internet), Multi-Gen Utility (in-law suite, downstairs bed/bath, single-story), Laundry Logistics (indoor/outdoor), Water/Air Systems (softener, RO filter), Security Infrastructure (gated, cameras), Internet & Connectivity (fiber/5G), EV Infrastructure (charger, 240V)
-INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (MLS description gems: upgrades, unique features, red flags), Room-by-Room Character (per-room details), Interior Vibe (overall quality/style), Spatial Flow & Layout (floor plan, single/two-story, split bedrooms), Market Signals (appreciation, inventory)`;
-
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean; search_tags: string[]; relevant_factors: string[] };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean; search_tags: string[] };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2038,10 +2023,9 @@ INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (M
                     must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
                     nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
                     single_story: { type: Type.BOOLEAN },
-                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    relevant_factors: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story', 'search_tags', 'relevant_factors']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story', 'search_tags']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
@@ -2053,10 +2037,9 @@ INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (M
                 extractResultJson: true,
                 schema: extractionSchema
             });
-
+            timings.push({ step: 'Gemini Extract', ms: Math.round(performance.now() - t0), detail: `model: ${FLASH_LITE_MODEL}` });
 
             const ext = extractResult.data;
-            timings.push({ step: 'Gemini Extract', ms: Math.round(performance.now() - t0), detail: `model: ${FLASH_LITE_MODEL}, ${ext?.relevant_factors?.length || 0} relevant factors` });
             if (!ext || (ext.price_min === 0 && ext.price_max === 0)) {
                 setBuyerError('Please mention a budget or price range in your story. For example: "Budget is $1.5M" or "Looking for homes up to $2M".');
                 setBuyerSearching(false);
@@ -2088,8 +2071,7 @@ INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (M
                 homeType: ext.home_type || undefined,
                 mustHaves: ext.must_haves || [],
                 niceToHaves: ext.nice_to_haves || [],
-                singleStory: ext.single_story || false,
-                relevantFactors: ext.relevant_factors || []
+                singleStory: ext.single_story || false
             };
             setBuyerExtracted(extracted);
 
@@ -2188,12 +2170,12 @@ INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (M
                             type: Type.OBJECT,
                             properties: {
                                 zpid: { type: Type.STRING },
-                                score: { type: Type.NUMBER },
+                                match: { type: Type.STRING, enum: ['strong', 'weak'] },
                                 reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 misses: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 highlight: { type: Type.STRING }
                             },
-                            required: ['zpid', 'score', 'reasons', 'misses', 'highlight']
+                            required: ['zpid', 'match', 'reasons', 'misses', 'highlight']
                         }
                     }
                 },
@@ -2203,17 +2185,10 @@ INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (M
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => {
-                    // Only include factors identified as relevant to the buyer's story
-                    const relevantSet = new Set((ext.relevant_factors || []).map(f => f.toLowerCase()));
+                    // Compact: { factorName: [tags] } — preserves context without verbose objects
                     const factors: Record<string, string[]> = {};
                     for (const f of (g.graph.factors || [])) {
-                        if (f.name && f.tags?.length) {
-                            // Fuzzy match: check if any relevant factor name is contained in this factor name
-                            const nameLower = f.name.toLowerCase();
-                            const isRelevant = relevantSet.has(nameLower) ||
-                                [...relevantSet].some(rf => nameLower.includes(rf) || rf.includes(nameLower));
-                            if (isRelevant) factors[f.name] = f.tags;
-                        }
+                        if (f.name && f.tags?.length) factors[f.name] = f.tags;
                     }
                     return {
                         zpid: g.zpid, address: g.address,
@@ -2223,7 +2198,7 @@ INTELLIGENCE: School Concepts (ratings, district, programs), Agent Highlights (M
                     };
                 });
 
-                const prompt = `Score each property against the buyer story.
+                const prompt = `Classify each property as "strong" or "weak" match for the buyer.
 
 ## BUYER STORY
 ${buyerStory}
@@ -2232,13 +2207,13 @@ ${buyerStory}
 ${JSON.stringify(summaries)}
 
 ## INSTRUCTIONS
-- Score 0-100 based on match quality
-- reasons: 2-3 short facts about what MATCHES the buyer's criteria
-- misses: 1-3 short facts about buyer criteria this property does NOT satisfy (e.g. "Not single story — 2 levels", "No solar panels mentioned"). Empty array if none.
+- match: "strong" if property satisfies most buyer needs, "weak" otherwise
+- reasons: 2-3 short facts about what MATCHES
+- misses: buyer criteria this property does NOT satisfy. Empty array if none.
 - highlight: one sentence summary
-- Neutral tone, no "you"/"your". Return ALL ${summaries.length} properties.`;
+- Neutral tone. Return ALL ${summaries.length} properties.`;
 
-                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] }>({
+                return executeGeminiRequest<{ matches: { zpid: string; match: string; reasons: string[]; misses: string[]; highlight: string }[] }>({
                     model: FLASH_LITE_MODEL,
                     contents: prompt,
                     config: { temperature: 0.3, maxOutputTokens: 4096 },
@@ -2259,7 +2234,7 @@ ${JSON.stringify(summaries)}
             const allMatches = chunkResults
                 .flatMap(r => r.data?.matches || [])
                 .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }))
-                .sort((a, b) => b.score - a.score)
+                .sort((a, b) => (a.match === b.match ? 0 : a.match === 'strong' ? -1 : 1))
                 .slice(0, 10);
 
             timings.push({ step: `Gemini ×${chunks.length}`, ms: Math.round(performance.now() - t3), detail: `${allMatches.length} matches` });
@@ -2282,23 +2257,31 @@ ${JSON.stringify(summaries)}
     return (
         <div className="text-left">
             {/* Controls row */}
-            <div className="flex items-center gap-2 text-sm">
-                <span className="font-bold text-slate-500">Browse :</span>
-                {BROWSE_CITIES.map((city, i) => (
-                    <button
-                        key={city}
-                        onClick={() => handleBrowse(city)}
-                        disabled={browsing}
-                        className={`font-bold transition-all ${
-                            selectedCity === city
-                                ? 'text-indigo-700 underline underline-offset-4 decoration-2'
-                                : 'text-indigo-500 hover:text-indigo-700 hover:underline underline-offset-4'
-                        } ${browsing ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
-                    >
-                        {city}
-                    </button>
-                ))}
-                {browsing && <i className="fa-solid fa-spinner animate-spin text-indigo-400 text-xs ml-1"></i>}
+            <div className="flex items-center gap-2">
+                <select
+                    value={selectedCity}
+                    onChange={e => { setSelectedCity(e.target.value); setPage(1); }}
+                    className="px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all cursor-pointer min-w-[150px]"
+                >
+                    <option value="">City...</option>
+                    {BROWSE_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button
+                    onClick={handleBrowse}
+                    disabled={!selectedCity || browsing}
+                    className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${!selectedCity || browsing
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
+                        }`}
+                >
+                    {browsing ? (
+                        <><i className="fa-solid fa-spinner animate-spin"></i> Loading...</>
+                    ) : (
+                        <><i className="fa-solid fa-magnifying-glass"></i> Browse</>
+                    )}
+                </button>
+
+
             </div>
 
             {/* Results area */}
@@ -2484,7 +2467,6 @@ ${JSON.stringify(summaries)}
 
                             {/* Extracted criteria */}
                             {buyerExtracted && !buyerError && (
-                                <>
                                 <div className="flex flex-wrap items-center gap-2 text-[10px]">
                                     <span className="font-bold text-slate-500 uppercase tracking-wider">AI Extracted:</span>
                                     <span className="font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
@@ -2509,15 +2491,6 @@ ${JSON.stringify(summaries)}
                                         <span key={`nth-${i}`} className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">{nth}</span>
                                     ))}
                                 </div>
-                                {buyerExtracted.relevantFactors.length > 0 && (
-                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                        <span className="text-[9px] font-black text-violet-500 uppercase tracking-wider">🔍 Factors:</span>
-                                        {buyerExtracted.relevantFactors.map((rf, i) => (
-                                            <span key={`rf-${i}`} className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">{rf}</span>
-                                        ))}
-                                    </div>
-                                )}
-                                </>
                             )}
                         </div>
                     )}
@@ -2608,10 +2581,9 @@ ${JSON.stringify(summaries)}
                                                                 {prop.livingArea && <span className="text-[11px] text-slate-500 font-bold">{prop.livingArea.toLocaleString()} sqft</span>}
                                                             </div>
                                                         </div>
-                                                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center ${match.score >= 80 ? 'bg-emerald-50 border border-emerald-200' : match.score >= 60 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-200'
-                                                            }`}>
-                                                            <span className={`text-lg font-black ${match.score >= 80 ? 'text-emerald-600' : match.score >= 60 ? 'text-amber-600' : 'text-slate-400'}`}>
-                                                                {match.score}
+                                                        <div className={`flex-shrink-0 px-3 py-1.5 rounded-xl flex items-center justify-center ${match.match === 'strong' ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+                                                            <span className={`text-[10px] font-black uppercase tracking-wider ${match.match === 'strong' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                                {match.match}
                                                             </span>
                                                         </div>
                                                     </div>
