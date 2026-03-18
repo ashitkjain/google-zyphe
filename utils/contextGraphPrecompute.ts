@@ -216,16 +216,6 @@ function factor52_airQuality(p: PropertyData): ExtractedFactor {
     };
 }
 
-function factor99_agentDescription(p: PropertyData): ExtractedFactor {
-    const desc = p.description;
-    if (!desc) return { id: 99, name: 'Agent Property Description', value: 'No description available', tags: [] };
-    const wordCount = desc.split(/\s+/).length;
-    return {
-        id: 99, name: 'Agent Property Description',
-        value: desc,
-        tags: [`${wordCount} words`]
-    };
-}
 
 function factor59_laundry(p: PropertyData): ExtractedFactor {
     const lf = p.resoFacts?.laundryFeatures;
@@ -905,7 +895,7 @@ export function precomputeDataFactors(
         factor20_constructionEra(property),
         factor28_flooring(property),
         factor33_privacyLevel(property, visual),
-        factor99_agentDescription(property),
+
 
         factor39_usableYard(property),
 
@@ -946,6 +936,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 99, 106, 108, 109, 110];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 110];
 
 

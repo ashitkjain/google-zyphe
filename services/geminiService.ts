@@ -695,11 +695,19 @@ export const extractContextGraphFactors = async (
   };
 
 
+  // 6. Deduplicate: remove tags that are already substrings of the value
+  const dedupedFactors = mergedFactors.map(f => {
+    if (!f.tags?.length || !f.value) return f;
+    const valueLower = f.value.toLowerCase();
+    const filtered = f.tags.filter(tag => !valueLower.includes(tag.toLowerCase()));
+    return { ...f, tags: filtered };
+  });
+
   return {
     ...aiResult,
     data: {
       ...aiResult.data,
-      factors: mergedFactors,
+      factors: dedupedFactors,
       keyMetrics,
     }
   };
