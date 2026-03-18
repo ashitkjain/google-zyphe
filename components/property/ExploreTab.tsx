@@ -1853,7 +1853,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
     const [buyerSearching, setBuyerSearching] = useState(false);
-    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; highlight: string }[] | null>(null);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
     const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean } | null>(null);
@@ -2172,9 +2172,10 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                                 zpid: { type: Type.STRING },
                                 score: { type: Type.NUMBER },
                                 reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                misses: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 highlight: { type: Type.STRING }
                             },
-                            required: ['zpid', 'score', 'reasons', 'highlight']
+                            required: ['zpid', 'score', 'reasons', 'misses', 'highlight']
                         }
                     }
                 },
@@ -2188,22 +2189,22 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                     factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
                 }));
 
-                const prompt = `You are a real estate matchmaker. Score each property against the buyer story.
+                const prompt = `Score each property against the buyer story.
 
 ## BUYER STORY
 ${buyerStory}
 
-## PROPERTIES (chunk ${idx + 1}/${chunks.length}, ${summaries.length} properties)
+## PROPERTIES (${summaries.length})
 ${JSON.stringify(summaries)}
 
 ## INSTRUCTIONS
-- Score each property 0-100 based on how well it matches the buyer's criteria
-- Use a NEUTRAL tone. Do NOT say "you", "your", "the buyer", or "the client". Just state facts.
-- For each property, give 2-3 short, factual reasons (e.g. "Single-story layout, no stairs", "Top-rated schools within 1 mile")
-- Write a concise highlight sentence summarizing why this property stands out
-- Return ALL ${summaries.length} properties with scores`;
+- Score 0-100 based on match quality
+- reasons: 2-3 short facts about what MATCHES the buyer's criteria
+- misses: 1-3 short facts about buyer criteria this property does NOT satisfy (e.g. "Not single story — 2 levels", "No solar panels mentioned"). Empty array if none.
+- highlight: one sentence summary
+- Neutral tone, no "you"/"your". Return ALL ${summaries.length} properties.`;
 
-                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; highlight: string }[] }>({
+                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] }>({
                     model: FLASH_LITE_MODEL,
                     contents: prompt,
                     config: { temperature: 0.3, maxOutputTokens: 4096 },
@@ -2590,6 +2591,12 @@ ${JSON.stringify(summaries)}
                                                             <span key={ri} className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-1 rounded-md text-[10px] font-bold">
                                                                 <i className="fa-solid fa-check text-[7px] text-emerald-500"></i>
                                                                 {r}
+                                                            </span>
+                                                        ))}
+                                                        {match.misses && match.misses.length > 0 && match.misses.map((m, mi) => (
+                                                            <span key={`miss-${mi}`} className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-600 px-2 py-1 rounded-md text-[10px] font-bold">
+                                                                <i className="fa-solid fa-xmark text-[7px] text-rose-400"></i>
+                                                                {m}
                                                             </span>
                                                         ))}
                                                     </div>
