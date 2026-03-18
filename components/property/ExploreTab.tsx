@@ -2002,38 +2002,41 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { auth } = await import('../../services/firebase/config');
 
             // ── STEP 0: Extract structured attributes from buyer story ──
-            const extractionPrompt = `Extract real estate search criteria from this buyer's story. Return structured JSON with EXACTLY what the buyer specified.
+            const extractionPrompt = `# Role
+Act as a Real Estate Data Extraction Engine. Convert the following Buyer Story into a precise JSON search schema.
 
-## BUYER STORY
+# Input: Buyer Story
 ${buyerStory}
 
-## RULES
-- price_min and price_max should be in dollars (not thousands). 1M = 1000000, 900K = 900000
-- IMPORTANT: Extract the EXACT values the buyer specified. Do NOT compute ranges or adjust values.
-- If buyer gives a range like "$900K-1.3M" or "$1.2M to $1.5M": price_min = lower bound, price_max = upper bound
-- If buyer says "up to X" or "max X" or "budget X" or "under X": price_max = X, price_min = 0
-- If buyer says "at least X" or "min X" or "starting X" or "above X": price_min = X, price_max = 0
-- If buyer says "around X" or "about X": price_min = X, price_max = X (same value — code will expand)
-- If NO price/budget is mentioned at all, set both to 0
-- beds: minimum bedrooms needed (0 if not specified). If "2-3 beds", use 2 as minimum.
-- baths: minimum bathrooms needed (0 if not specified). If "2+ baths", use 2.
-- home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "" if not specified
-- keywords: 3-5 key lifestyle/feature words from the story (e.g. "schools", "backyard", "modern")
-- search_tags: 5-15 short lowercase phrases (1-3 words each) that can be text-searched in a property description. Include variations of each concept.
-  Examples: "single story", "no stairs", "one story" | "drought tolerant", "low maintenance yard", "xeriscape" | "hospital", "medical" | "pool", "spa" | "home office", "den", "study"
-- numeric_filters: convert buyer requirements into numeric key-value pairs when possible. Each filter has a "field" (matching a keyMetric name), "op" (eq/gte/lte), and "value" (number).
-  Available fields: sqft, yearBuilt, walkScore, noiseScore, schoolMaxRating, fireRisk, floodRisk, garageSpaces, lotSqft
-  Examples:
-  - "single story" → { field: "stories", op: "eq", value: 1 }
-  - "2+ car garage" → { field: "garageSpaces", op: "gte", value: 2 }
-  - "walkable" → { field: "walkScore", op: "gte", value: 70 }
-  - "quiet neighborhood" → { field: "noiseScore", op: "gte", value: 75 }
-  - "good schools" or "top schools" → { field: "schoolMaxRating", op: "gte", value: 8 }
-  - "new construction" → { field: "yearBuilt", op: "gte", value: 2015 }
-  - "at least 2000 sqft" → { field: "sqft", op: "gte", value: 2000 }
-  - "large lot" → { field: "lotSqft", op: "gte", value: 7000 }
-  - "low fire risk" → { field: "fireRisk", op: "lte", value: 3 }
-  Only include filters that directly map to a buyer requirement. Return empty array if none apply.`;
+# Extraction Schema & Logic
+1. **Price Handling (Absolute Dollars):**
+   - Range (e.g., "$1M-1.5M"): price_min: 1000000, price_max: 1500000
+   - Maximum (e.g., "Under $900k"): price_min: 0, price_max: 900000
+   - Minimum (e.g., "At least $2M"): price_min: 2000000, price_max: 0
+   - Exact/Approx (e.g., "Around $1.2M"): price_min: 1200000, price_max: 1200000
+   - Not mentioned: Default both to 0.
+
+2. **Core Specs (Minimums):**
+   - beds: Integer. Use lower bound of ranges (e.g., "3-4 beds" = 3). 0 if unspecified.
+   - baths: Integer. Use lower bound. 0 if unspecified.
+   - home_type: Enum ["SINGLE_FAMILY", "TOWNHOUSE", "CONDO", ""].
+
+3. **Discovery Data:**
+   - keywords: [String] 3-5 high-level lifestyle concepts.
+   - search_tags: [String] 5-15 lowercase semantic variations for description matching (e.g., ["one story", "no stairs", "ranch style", "single level"]).
+
+4. **Numeric Filter Mapping:**
+   Extract into [{ "field": string, "op": "eq"|"gte"|"lte", "value": number }].
+   Fields: sqft, yearBuilt, walkScore, noiseScore, schoolMaxRating, fireRisk, floodRisk, garageSpaces, lotSqft, stories.
+   Standard Thresholds:
+   - "Single Story" = stories eq 1
+   - "Walkable" = walkScore gte 70
+   - "Quiet" = noiseScore gte 75
+   - "Top Schools" = schoolMaxRating gte 8
+   - "Newer/New Construction" = yearBuilt gte 2015
+   - "Large Lot" = lotSqft gte 7000
+   - "Low Fire Risk" = fireRisk lte 3
+   Only include filters that directly map to a buyer requirement. Empty array if none.`;
 
             const numericFilterSchema = {
                 type: Type.OBJECT,
@@ -2136,6 +2139,10 @@ ${buyerStory}
                             noiseScore: (p as any).noiseScore,
                             garageSpaces: (p as any).garageSpaces || (p.resoFacts as any)?.garageParkingCapacity,
                             lotSqft: (p as any).lotSize,
+                            stories: (p as any).stories,
+                            schoolMaxRating: p.schools?.length ? Math.max(...p.schools.map((s: any) => typeof s.rating === 'number' ? s.rating : parseFloat(String(s.rating)) || 0)) : undefined,
+                            fireRisk: (p as any).fireRiskScore,
+                            floodRisk: (p as any).floodRiskScore,
                         };
                         const val = fieldMap[nf.field];
                         if (val != null) {
