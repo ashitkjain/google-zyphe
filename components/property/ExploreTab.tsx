@@ -1856,7 +1856,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; keywords: string[] } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; keywords: string[]; numericFilters?: { field: string; op: string; value: number }[] } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
@@ -2005,50 +2005,37 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
             // ── STEP 0: Extract structured attributes from buyer story via Groq ──
             const t0 = performance.now();
-            const extractionPrompt = `# Role
-Act as a Real Estate Data Extraction Engine. Convert the following Buyer Story into a precise JSON search schema.
+            const extractionPrompt = `Extract search criteria from this buyer story into JSON.
 
-# Input: Buyer Story
-${buyerStory}
+BUYER STORY: ${buyerStory}
 
-# Extraction Schema & Logic
-1. **Price Handling (Absolute Dollars):**
-   - Range (e.g., "$1M-1.5M"): price_min: 1000000, price_max: 1500000
-   - Maximum (e.g., "Under $900k"): price_min: 0, price_max: 900000
-   - Minimum (e.g., "At least $2M"): price_min: 2000000, price_max: 0
-   - Exact/Approx (e.g., "Around $1.2M"): price_min: 1200000, price_max: 1200000
-   - Not mentioned: Default both to 0.
+RULES:
+- price_min/price_max: Convert to absolute dollars. "$1M-1.5M" → 1000000/1500000. "$900K" → 0/900000. "Around $1.2M" → 1200000/1200000. Default: 0.
+- beds/baths: Integer minimums. "3-4 beds" → 3. Default: 0.
+- home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "".
+- keywords: 3-5 lifestyle concepts.
+- search_tags: 5-15 lowercase phrases for text matching.
+- numeric_filters: Array of {field, op, value}. IMPORTANT — you MUST include these when applicable:
+  "single story/no stairs" → {"field":"stories","op":"eq","value":1}
+  "walkable/walking distance" → {"field":"walkScore","op":"gte","value":70}
+  "quiet" → {"field":"noiseScore","op":"gte","value":75}
+  "good/top schools" → {"field":"schoolMaxRating","op":"gte","value":8}
+  "new construction" → {"field":"yearBuilt","op":"gte","value":2015}
+  "large lot" → {"field":"lotSqft","op":"gte","value":7000}
+  "low fire risk" → {"field":"fireRisk","op":"lte","value":3}
+  Fields: sqft, yearBuilt, walkScore, noiseScore, schoolMaxRating, fireRisk, floodRisk, garageSpaces, lotSqft, stories.
 
-2. **Core Specs (Minimums):**
-   - beds: Integer. Use lower bound of ranges (e.g., "3-4 beds" = 3). 0 if unspecified.
-   - baths: Integer. Use lower bound. 0 if unspecified.
-   - home_type: Enum ["SINGLE_FAMILY", "TOWNHOUSE", "CONDO", ""].
+EXAMPLE OUTPUT for "Single story home, 3+ beds, walkable, quiet, budget $1M-1.3M":
+{"price_min":1000000,"price_max":1300000,"beds":3,"baths":0,"home_type":"SINGLE_FAMILY","keywords":["single story","walkable","quiet neighborhood"],"search_tags":["one story","single level","no stairs","ranch","rambler","walk score","walkable","quiet street","low noise"],"numeric_filters":[{"field":"stories","op":"eq","value":1},{"field":"walkScore","op":"gte","value":70},{"field":"noiseScore","op":"gte","value":75}]}
 
-3. **Discovery Data:**
-   - keywords: [String] 3-5 high-level lifestyle concepts.
-   - search_tags: [String] 5-15 lowercase semantic variations for description matching (e.g., ["one story", "no stairs", "ranch style", "single level"]).
-
-4. **Numeric Filter Mapping:**
-   Extract into [{ "field": string, "op": "eq"|"gte"|"lte", "value": number }].
-   Fields: sqft, yearBuilt, walkScore, noiseScore, schoolMaxRating, fireRisk, floodRisk, garageSpaces, lotSqft, stories.
-   Standard Thresholds:
-   - "Single Story" = stories eq 1
-   - "Walkable" = walkScore gte 70
-   - "Quiet" = noiseScore gte 75
-   - "Top Schools" = schoolMaxRating gte 8
-   - "Newer/New Construction" = yearBuilt gte 2015
-   - "Large Lot" = lotSqft gte 7000
-   - "Low Fire Risk" = fireRisk lte 3
-   Only include filters that directly map to a buyer requirement. Empty array if none.
-
-Return a single JSON object with keys: price_min, price_max, beds, baths, home_type, keywords, search_tags, numeric_filters.`;
+Return ONLY the JSON object. No markdown, no explanation.`;
 
             const { executeGroqRequest } = await import('../../services/groqService');
             type NumericFilter = { field: string; op: string; value: number };
             type ExtractionResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] };
 
             const extractResult = await executeGroqRequest<ExtractionResult>(
-                'You are a real estate data extraction engine. Output ONLY valid JSON matching the requested schema.',
+                'You are a JSON extraction engine. Output ONLY a single valid JSON object with keys: price_min, price_max, beds, baths, home_type, keywords, search_tags, numeric_filters. No text before or after the JSON.',
                 extractionPrompt,
                 { temperature: 0.1, maxTokens: 1024 }
             );
@@ -2085,7 +2072,8 @@ Return a single JSON object with keys: price_min, price_max, beds, baths, home_t
                 beds: ext.beds > 0 ? ext.beds : undefined,
                 baths: ext.baths > 0 ? ext.baths : undefined,
                 homeType: ext.home_type || undefined,
-                keywords: ext.keywords || []
+                keywords: ext.keywords || [],
+                numericFilters: ext.numeric_filters || []
             };
             setBuyerExtracted(extracted);
 
@@ -2470,6 +2458,11 @@ ${JSON.stringify(summaries)}
                                     )}
                                     {buyerExtracted.keywords.map((kw, i) => (
                                         <span key={i} className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">{kw}</span>
+                                    ))}
+                                    {buyerExtracted.numericFilters && buyerExtracted.numericFilters.length > 0 && buyerExtracted.numericFilters.map((nf, i) => (
+                                        <span key={`nf-${i}`} className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                            {nf.field} {nf.op === 'gte' ? '≥' : nf.op === 'lte' ? '≤' : '='} {nf.value}
+                                        </span>
                                     ))}
                                 </div>
                             )}
