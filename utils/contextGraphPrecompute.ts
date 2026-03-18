@@ -416,7 +416,7 @@ function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
         .filter((pl: any) => pl.name && pl.distanceMeters)
         .sort((a: any, b: any) => (a.distanceMeters || 0) - (b.distanceMeters || 0))
         .slice(0, 5);
-    const placeNames = allWalkable.map((pl: any) => `${pl.name} (${(pl.distanceMeters / 1000).toFixed(1)}km)`).join(', ');
+    const placeNames = allWalkable.map((pl: any) => `${pl.name} (${(pl.distanceMeters / 1609.34).toFixed(1)}mi)`).join(', ');
 
     return {
         id: 84, name: 'Walkable Amenity Score',
@@ -430,17 +430,17 @@ function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
     if (!medical.length) return { id: 85, name: 'Medical Proximity', tags: [] };
 
     const closest = medical.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
-    const closestKm = closest.distanceMeters ? (closest.distanceMeters / 1000).toFixed(1) : '?';
+    const closestMi = closest.distanceMeters ? (closest.distanceMeters / 1609.34).toFixed(1) : '?';
 
     // Detail: name the hospitals
     const hospitalNames = medical.slice(0, 3).map((h: any) => {
-        const km = h.distanceMeters ? `${(h.distanceMeters / 1000).toFixed(1)}km` : '';
-        return `${h.name}${km ? ` (${km})` : ''}`;
+        const mi = h.distanceMeters ? `${(h.distanceMeters / 1609.34).toFixed(1)}mi` : '';
+        return `${h.name}${mi ? ` (${mi})` : ''}`;
     }).join(', ');
 
     return {
         id: 85, name: 'Medical Proximity',
-        tags: [`${medical.length} Hospitals`, `${closestKm}km`]
+        tags: [`${medical.length} Hospitals`, `${closestMi}mi`]
     };
 }
 
@@ -462,9 +462,9 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
 
     if (evStations.length > 0) {
         const closest = evStations.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
-        const closestKm = closest.distanceMeters ? (closest.distanceMeters / 1000).toFixed(1) : '?';
+        const closestMi = closest.distanceMeters ? (closest.distanceMeters / 1609.34).toFixed(1) : '?';
         tags.push(`${evStations.length} Stations Nearby`);
-        tags.push(`Closest ${closestKm}km`);
+        tags.push(`Closest ${closestMi}mi`);
     } else {
         tags.push('No Public Charging Nearby');
     }
@@ -747,9 +747,7 @@ function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
     if (!allPlaces.length) return { id: 87, name: 'Top Nearby Places', tags: [] };
 
     const tags = allPlaces.map((pl: any) => {
-        const dist = pl.distanceMeters < 1000
-            ? `${Math.round(pl.distanceMeters)}m`
-            : `${(pl.distanceMeters / 1000).toFixed(1)}km`;
+        const dist = `${(pl.distanceMeters / 1609.34).toFixed(1)}mi`;
         return `${pl.name} (${dist})`;
     });
 
@@ -800,9 +798,7 @@ function factor120_nearbyAmenitiesProfile(p: PropertyData): ExtractedFactor {
         // Top 1-2 closest with distance
         for (const pl of merged.slice(0, 2)) {
             const dist = pl.distanceMeters
-                ? pl.distanceMeters < 1000
-                    ? `${Math.round(pl.distanceMeters)}m`
-                    : `${(pl.distanceMeters / 1000).toFixed(1)}km`
+                ? `${(pl.distanceMeters / 1609.34).toFixed(1)}mi`
                 : '';
             tags.push(`${cat.label}: ${pl.name}${dist ? ` (${dist})` : ''}`);
         }
