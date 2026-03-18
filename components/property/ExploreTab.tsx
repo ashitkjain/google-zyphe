@@ -2100,7 +2100,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                 setBuyerSearching(false);
                 return;
             }
-            timings.push({ step: 'Firestore Query', ms: Math.round(performance.now() - t1), detail: `${graphMap.size} docs returned` });
+            timings.push({ step: `Firestore (${graphMap.size} docs)`, ms: Math.round(performance.now() - t1) });
 
             // ── STEP 1b: Rank by search_tags + numeric_filters ──
             const t1b = performance.now();
@@ -2151,7 +2151,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                 setBuyerSearching(false);
                 return;
             }
-            timings.push({ step: 'Rank & Filter', ms: Math.round(performance.now() - t1b), detail: `${graphs.length} candidates` });
+            timings.push({ step: `Rank (${graphs.length} kept)`, ms: Math.round(performance.now() - t1b) });
 
             // ── STEP 3: Parallel Gemini matching (chunked) ──
             const t3 = performance.now();
@@ -2226,7 +2226,7 @@ ${JSON.stringify(summaries)}
                 .sort((a, b) => b.score - a.score)
                 .slice(0, 10);
 
-            timings.push({ step: 'Gemini Match', ms: Math.round(performance.now() - t3), detail: `${chunks.length} parallel chunks → ${allMatches.length} matches` });
+            timings.push({ step: `Gemini ×${chunks.length}`, ms: Math.round(performance.now() - t3), detail: `${allMatches.length} matches` });
             const totalMs = timings.reduce((s, t) => s + t.ms, 0);
             timings.push({ step: 'TOTAL', ms: totalMs });
             setBuyerTimings(timings);
