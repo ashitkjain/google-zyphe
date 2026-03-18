@@ -261,6 +261,9 @@ Given the property data below, extract structured decision factors. For each fac
 115. **Flooring & Materials Palette**: From room_highlights + condition_and_finish. Tags = material concepts found across the home like "Vinyl Plank", "Hardwood", "Tile", "Carpet", "Granite Counters", "Wood Cabinets", "Stainless Steel", "Marble". Value = dominant flooring type. Generate 4-8 tags.
 116. **Spatial Flow & Layout**: From room_highlights + spatial descriptions. Tags = layout concepts like "Open Floor Plan", "Split Bedrooms", "Indoor-Outdoor Flow", "Single Story", "Two-Story", "Formal Dining Separate", "Kitchen Open to Living", "Jack-and-Jill Bath", "En-Suite Primary". Value = layout summary. Generate 4-8 tags.
 
+### Location Amenities (120)
+120. SKIP (precomputed).
+
 ## PROPERTY DATA
 
 \`\`\`json
