@@ -153,7 +153,7 @@ Given the property data below, extract values for the required decision factors.
 31. **Fenced Yard**: Check resoFacts.fencing or backyard_and_patio analysis.
 32. **Outdoor Entertainment**: Look for "Pool", "Spa", "Patio", "Deck", "Outdoor Kitchen" in exterior analysis or description.
 33. SKIP (precomputed).
-34. SKIP (precomputed).
+34. **Curb Appeal**: Synthesize from streetViewAnalysis, visual analysis exterior_and_lot_appeal, and listing description. Value = overall rating (e.g. "Excellent — 9/10", "Good — 7/10", "Average — 5/10"). Tags = descriptive concepts like "Well-Maintained", "Mature Landscaping", "Fresh Paint", "Dated Exterior", "Overgrown", "Attractive Entry". Generate 3-6 tags.
 35. **Topography**: "Flat" vs "Hillside" from neighborhood analysis or description.
 36. **View Quality**: Hills, City Lights, Water, or None.
 37. **Street Noise / Traffic**: "Quiet" if Cul-de-sac, "Moderate" if through street, "High" if arterial.

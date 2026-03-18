@@ -404,35 +404,7 @@ function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult |
     };
 }
 
-function factor34_curbAppeal(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
-    const sv = p.streetViewAnalysis;
-    const visualCurb = visual?.exterior_and_neighborhood?.exterior_and_lot_appeal?.curb_appeal;
 
-    const score = sv?.curbAppealScore;
-    const narrative = visualCurb;
-
-    if (score == null && !narrative) return { id: 34, name: 'Curb Appeal', value: 'Data not available', confidence: 'low', tags: [] };
-
-    // Build value from score + first sentence of narrative
-    let value: string;
-    if (score != null) {
-        const tier = score >= 8 ? 'Excellent' : score >= 6 ? 'Good' : score >= 4 ? 'Average' : 'Below Average';
-        value = `${tier} — ${score}/10`;
-    } else {
-        // Use first fragment of the narrative
-        value = (narrative || '').split(/[.!]/).filter(Boolean)[0]?.trim().split(/\s+/).slice(0, 10).join(' ') || 'Visual assessment';
-    }
-
-
-    return {
-        id: 34, name: 'Curb Appeal',
-        value,
-        confidence: sv ? 'high' : 'medium',
-        tags: score != null
-            ? [score >= 8 ? 'Great Curb Appeal' : score >= 6 ? 'Good Curb Appeal' : 'Needs Curb Work', `${score}/10`]
-            : ['Visual Assessment']
-    };
-}
 
 // ── Environmental Factors (46-50) ───────────────────────────────────
 
@@ -1150,7 +1122,7 @@ export function precomputeDataFactors(
         factor20_constructionEra(property),
         factor28_flooring(property),
         factor33_privacyLevel(property, visual),
-        factor34_curbAppeal(property, visual),
+
         factor39_usableYard(property),
 
         factor43_walkability(property),
@@ -1192,6 +1164,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 34, 39, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 11, 12, 13, 14, 15, 18, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 51, 52, 54, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 101, 106, 108, 109, 110];
 
 
