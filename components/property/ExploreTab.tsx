@@ -2003,8 +2003,9 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { Type } = await import('@google/genai');
             const { auth } = await import('../../services/firebase/config');
 
-            // ── STEP 0: Extract structured attributes from buyer story via Groq ──
+            // ── STEP 0: Extract structured attributes via Gemini Flash Lite ──
             const t0 = performance.now();
+            const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const extractionPrompt = `Extract search criteria from this buyer story into JSON.
 
 BUYER STORY: ${buyerStory}
@@ -2015,7 +2016,7 @@ RULES:
 - home_type: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", or "".
 - keywords: 3-5 lifestyle concepts.
 - search_tags: 5-15 lowercase phrases for text matching.
-- numeric_filters: Array of {field, op, value}. IMPORTANT — you MUST include these when applicable:
+- numeric_filters: Array of {field, op, value}. ONLY include when the buyer EXPLICITLY mentions the concept:
   "single story/no stairs" → {"field":"stories","op":"eq","value":1}
   "walkable/walking distance" → {"field":"walkScore","op":"gte","value":70}
   "quiet" → {"field":"noiseScore","op":"gte","value":75}
@@ -2023,23 +2024,44 @@ RULES:
   "new construction" → {"field":"yearBuilt","op":"gte","value":2015}
   "large lot" → {"field":"lotSqft","op":"gte","value":7000}
   "low fire risk" → {"field":"fireRisk","op":"lte","value":3}
-  Fields: sqft, yearBuilt, walkScore, noiseScore, schoolMaxRating, fireRisk, floodRisk, garageSpaces, lotSqft, stories.
+  "big garage" → {"field":"garageSpaces","op":"gte","value":2}
+  Do NOT invent filters the buyer did not ask for. Empty array if none match.`;
 
-EXAMPLE OUTPUT for "Single story home, 3+ beds, walkable, quiet, budget $1M-1.3M":
-{"price_min":1000000,"price_max":1300000,"beds":3,"baths":0,"home_type":"SINGLE_FAMILY","keywords":["single story","walkable","quiet neighborhood"],"search_tags":["one story","single level","no stairs","ranch","rambler","walk score","walkable","quiet street","low noise"],"numeric_filters":[{"field":"stories","op":"eq","value":1},{"field":"walkScore","op":"gte","value":70},{"field":"noiseScore","op":"gte","value":75}]}
+            const numericFilterSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    field: { type: Type.STRING },
+                    op: { type: Type.STRING },
+                    value: { type: Type.NUMBER }
+                },
+                required: ['field', 'op', 'value']
+            };
+            const extractionSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    price_min: { type: Type.NUMBER },
+                    price_max: { type: Type.NUMBER },
+                    beds: { type: Type.NUMBER },
+                    baths: { type: Type.NUMBER },
+                    home_type: { type: Type.STRING },
+                    keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    numeric_filters: { type: Type.ARRAY, items: numericFilterSchema }
+                },
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords', 'search_tags', 'numeric_filters']
+            };
 
-Return ONLY the JSON object. No markdown, no explanation.`;
-
-            const { executeGroqRequest } = await import('../../services/groqService');
             type NumericFilter = { field: string; op: string; value: number };
-            type ExtractionResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] };
-
-            const extractResult = await executeGroqRequest<ExtractionResult>(
-                'You are a JSON extraction engine. Output ONLY a single valid JSON object with keys: price_min, price_max, beds, baths, home_type, keywords, search_tags, numeric_filters. No text before or after the JSON.',
-                extractionPrompt,
-                { temperature: 0.1, maxTokens: 1024 }
-            );
-            timings.push({ step: 'Groq Extract', ms: Math.round(performance.now() - t0), detail: `model: ${extractResult.model}` });
+            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] }>({
+                model: FLASH_LITE_MODEL,
+                contents: extractionPrompt,
+                config: { temperature: 0.1, maxOutputTokens: 1024 },
+                userId: auth.currentUser?.uid || 'anon',
+                promptFilename: 'buyerStoryExtraction',
+                extractResultJson: true,
+                schema: extractionSchema
+            });
+            timings.push({ step: 'Gemini Extract', ms: Math.round(performance.now() - t0), detail: `model: ${FLASH_LITE_MODEL}` });
 
             const ext = extractResult.data;
             if (!ext || (ext.price_min === 0 && ext.price_max === 0)) {
@@ -2157,7 +2179,6 @@ Return ONLY the JSON object. No markdown, no explanation.`;
 
             // ── STEP 3: Send to Gemini for matching ──
             const t3 = performance.now();
-            const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const summaries = graphs.map(g => ({
                 zpid: g.zpid, address: g.address, listing: g.listing,
                 factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
