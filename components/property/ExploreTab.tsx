@@ -2185,8 +2185,8 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => ({
-                    zpid: g.zpid, address: g.address, listing: g.listing,
-                    factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
+                    zpid: g.zpid, address: g.address,
+                    summary: g.graph.summary, keyMetrics: g.graph.keyMetrics
                 }));
 
                 const prompt = `Score each property against the buyer story.
