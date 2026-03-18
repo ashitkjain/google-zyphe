@@ -549,7 +549,7 @@ export interface AIUsage {
 export interface AIResponseWithUsage<T> {
     data: T;
     usage: AIUsage;
-    sources?: {url: string; title: string}[] | null;
+    sources?: { url: string; title: string }[] | null;
 }
 
 export interface DailyPulseResult {

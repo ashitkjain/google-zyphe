@@ -87,6 +87,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [activeTab, setActiveTab] = useState<InternalTab>(mapViewToTab(viewMode));
     const [activeSubTab, setActiveSubTab] = useState<string>('interior');
     const [isRefreshingPulse, setIsRefreshingPulse] = useState(false);
+    const [pulseExpanded, setPulseExpanded] = useState(false);
     const [lifestyleInsights, setLifestyleInsights] = useState<any>(null);
     const [lifestyleLoading, setLifestyleLoading] = useState(false);
     const [lifestyleFit, setLifestyleFit] = useState<any>(null);
@@ -1364,7 +1365,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                                                         {/* Community Pulse */}
-                                                        {analysis?.detailed_analysis?.community_pulse && (
+                                                        {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse) && (
                                                             <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                                 <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                     <div className="p-4">
@@ -1390,11 +1391,69 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                                 </button>
                                                                             )}
                                                                         </div>
-                                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                                            {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                                            ))}
-                                                                        </p>
+                                                                        {/* Structured green/red points from raw community_pulse */}
+                                                                        {(() => {
+                                                                            const cp = customAnalysis?.community_pulse as any;
+                                                                            if (!cp) {
+                                                                                // Fallback: show comprehensive analysis paragraph
+                                                                                return analysis?.detailed_analysis?.community_pulse ? (
+                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                                        {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                                        ))}
+                                                                                    </p>
+                                                                                ) : null;
+                                                                            }
+                                                                            const positives = cp.what_residents_like?.points || [];
+                                                                            const negatives = [
+                                                                                ...(cp.common_complaints?.points || []),
+                                                                                ...(cp.safety_and_concerns?.points || []).filter((p: string) => {
+                                                                                    const lower = p.toLowerCase();
+                                                                                    return lower.includes('concern') || lower.includes('crime') || lower.includes('complaint') || lower.includes('issue') || lower.includes('risk') || lower.includes('noise') || lower.includes('traffic');
+                                                                                }),
+                                                                            ];
+                                                                            const PULSE_LIMIT = 3;
+                                                                            const showPos = pulseExpanded ? positives : positives.slice(0, PULSE_LIMIT);
+                                                                            const showNeg = pulseExpanded ? negatives : negatives.slice(0, PULSE_LIMIT);
+                                                                            const hasMore = positives.length > PULSE_LIMIT || negatives.length > PULSE_LIMIT;
+                                                                            return (
+                                                                                <div>
+                                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                                        {positives.length > 0 && (
+                                                                                            <div className="space-y-1.5">
+                                                                                                <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">What Residents Love</div>
+                                                                                                {showPos.map((item: string, i: number) => (
+                                                                                                    <div key={i} className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-[12px] text-emerald-800 flex items-start gap-2">
+                                                                                                        <i className="fa-solid fa-circle-check text-emerald-400 text-[10px] mt-0.5 flex-shrink-0"></i>
+                                                                                                        {item}
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {negatives.length > 0 && (
+                                                                                            <div className="space-y-1.5">
+                                                                                                <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Common Complaints</div>
+                                                                                                {showNeg.map((item: string, i: number) => (
+                                                                                                    <div key={i} className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-[12px] text-red-800 flex items-start gap-2">
+                                                                                                        <i className="fa-solid fa-circle-exclamation text-red-400 text-[10px] mt-0.5 flex-shrink-0"></i>
+                                                                                                        {item}
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    {hasMore && (
+                                                                                        <button
+                                                                                            onClick={() => setPulseExpanded(!pulseExpanded)}
+                                                                                            className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+                                                                                        >
+                                                                                            <i className={`fa-solid ${pulseExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[8px]`}></i>
+                                                                                            {pulseExpanded ? 'Show less' : 'Show more'}
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                 </div>
                                                             </div>

@@ -211,7 +211,7 @@ export const executeGeminiRequest = async <T>(
     schema?: any;
     imageUrls?: string[];
   }
-): Promise<{ data: T; usage: AIUsage; sources?: {url: string; title: string}[] | null; rawResponse: any }> => {
+): Promise<{ data: T; usage: AIUsage; sources?: { url: string; title: string }[] | null; rawResponse: any }> => {
   const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls } = params;
   const ai = getAi();
 

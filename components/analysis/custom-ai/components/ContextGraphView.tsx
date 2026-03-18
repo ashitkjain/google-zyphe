@@ -51,7 +51,7 @@ const TAG_COLOR_MAP: Record<number, { bg: string; text: string; border: string }
     // Other
     100: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' },
     101: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-    83:  { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+    83: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
     111: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
 };
 const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' };
@@ -168,7 +168,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     if (!data) return null;
 
     // Group factors by category (filter out retired factor IDs from old cached graphs)
-    const SUPPRESSED_IDS = new Set([10, 16, 53, 55, 56, 107, 112]); // 10=Urgency→5, 16→58, 53→49, 55=Solar→48, 56=EV→86, 107→47, 112→79
+    const SUPPRESSED_IDS = new Set([10, 16, 53, 55, 56, 107, 110, 112]); // 10=Urgency→5, 16→58, 53→49, 55→48, 56→86, 107→47, 110=ListingFlags, 112→79
     const grouped: Record<string, ExtractedFactor[]> = {};
     for (const factor of data.factors) {
         if (SUPPRESSED_IDS.has(factor.id)) continue;
@@ -186,11 +186,22 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     const allTags = data.factors.flatMap(f => f.tags);
     const uniqueTags = new Set(allTags);
 
+    // Extract neighborhood name from factor 83 (Micro-Neighborhood Identity)
+    const neighborhoodFactor = data.factors.find(f => f.id === 83);
+    const neighborhoodName = neighborhoodFactor?.value && neighborhoodFactor.value !== 'Data not available'
+        ? neighborhoodFactor.value.split(' — ')[0].split(',')[0].trim()
+        : null;
+
     return (
         <div className="space-y-6">
             {/* Minimal header */}
             <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-                <span>Extracted {new Date(data.extractedAt).toLocaleDateString()} · {totalFactors} factors</span>
+                <span>
+                    {neighborhoodName && (
+                        <><span className="text-slate-600 font-semibold">{neighborhoodName}</span> · </>
+                    )}
+                    Extracted {new Date(data.extractedAt).toLocaleDateString()} · {totalFactors} factors
+                </span>
                 <button onClick={onExtract} title="Re-extract context graph" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                     <i className="fa-solid fa-rotate text-slate-400 hover:text-indigo-500 text-[11px]"></i>
                 </button>
@@ -225,12 +236,12 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                     </ul>
                 </div>
                 {data.summary.propertyHighlight && (
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5">
-                    <h4 className="text-sm font-black text-indigo-800 mb-3 flex items-center gap-2">
-                        <i className="fa-solid fa-star"></i> Property Highlight
-                    </h4>
-                    <p className="text-sm text-indigo-700 leading-relaxed">{data.summary.propertyHighlight}</p>
-                </div>
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5">
+                        <h4 className="text-sm font-black text-indigo-800 mb-3 flex items-center gap-2">
+                            <i className="fa-solid fa-star"></i> Property Highlight
+                        </h4>
+                        <p className="text-sm text-indigo-700 leading-relaxed">{data.summary.propertyHighlight}</p>
+                    </div>
                 )}
             </div>
 
