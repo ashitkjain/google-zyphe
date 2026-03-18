@@ -1792,6 +1792,19 @@ const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any
     );
 };
 
+const BUYER_STORY_EXAMPLES = [
+    { title: 'Tech Couple, First Home', icon: 'fa-solid fa-laptop-code', story: "We're a dual-income tech couple (Google + Apple) in our early 30s, no kids yet. Budget $1.2-1.6M. We both work from home 3 days a week so need fast internet and 2 separate office spaces. Love cooking — a great kitchen is a must. Walkable dining and nightlife are important. Low maintenance yard preferred." },
+    { title: 'Growing Family, Schools', icon: 'fa-solid fa-graduation-cap', story: "Family with 3 kids (ages 4, 7, 10). Top-rated schools are non-negotiable — need 8+ rated elementary and middle. Want 4+ bedrooms, big backyard for the kids, and a quiet cul-de-sac. Budget $1.5-2M. Neighborhood safety is critical. Would love a pool." },
+    { title: 'Multi-Gen Living', icon: 'fa-solid fa-people-roof', story: "Indian family looking for multi-gen living. My parents will live with us — need a bedroom and bathroom on the ground floor, separate entrance preferred. East-facing (Vastu) is very important. 4+ beds, modern kitchen. Budget up to $2.5M. Good schools for our 2 teenagers." },
+    { title: 'Investor — Cash Flow', icon: 'fa-solid fa-chart-line', story: "Real estate investor looking for properties with ADU potential or house-hacking opportunity. Prefer homes with separate entrances, guest houses, or large lots that allow ADU construction. Budget $1-1.8M. Strong rental demand area. Don't care about schools." },
+    { title: 'Retiring, Single-Story', icon: 'fa-solid fa-couch', story: "We're in our 60s, downsizing from a 4-bedroom. Need single-story living — no stairs. 2-3 beds, 2+ baths. Low maintenance landscape (drought-tolerant preferred). Walking distance to medical facilities and parks. Budget $900K-1.3M. Quiet neighborhood." },
+    { title: 'Outdoor Lifestyle', icon: 'fa-solid fa-person-hiking', story: "Active family of 4. Trail access and parks are our top priority. Need space for bikes, kayaks, RV parking if possible. Big garage or extra storage. Solar panels already installed would be great. Budget $1.4-1.9M. Don't mind fixer-uppers if the location is right." },
+    { title: 'WFH Entrepreneur', icon: 'fa-solid fa-house-laptop', story: "I run an e-commerce business from home. Need a dedicated office or den plus extra garage/workshop space for inventory. Fast fiber internet is critical. Prefer newer construction with smart home features. 3+ beds for when family visits. Budget $1.1-1.5M. Don't need great schools." },
+    { title: 'Safety-Conscious', icon: 'fa-solid fa-shield-halved', story: "Moving from out of state, very concerned about natural disasters. Low wildfire risk is #1 priority. Also want low flood and seismic risk. Prefer flat terrain, not hillside. Newer construction (2000+) for modern building codes. Good air quality. Budget $1.3-1.8M. Family with 2 young kids." },
+    { title: 'Luxury Entertainer', icon: 'fa-solid fa-champagne-glasses', story: "We entertain frequently. Need a chef's kitchen, open floor plan, resort-style backyard with pool and outdoor kitchen. Views would be amazing — hills or valley. High-end finishes throughout. 5+ beds, 4+ baths. Don't mind higher HOA if the community is gated. Budget $2.5M+." },
+    { title: 'First-Time, Value', icon: 'fa-solid fa-piggy-bank', story: "First-time buyer, single income software engineer. Budget is tight: $800K-1.1M. Looking for best value — maybe a fixer with renovation upside. Townhomes OK. Need at least 2 beds. Close to BART or highway for commute to SF. Walkable to grocery and coffee shops. Low HOA preferred." },
+];
+
 const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void; onHasResults?: (has: boolean) => void }> = ({ onPropertyClick, onHasResults }) => {
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [browsing, setBrowsing] = useState(false);
@@ -1844,6 +1857,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
     const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; keywords: string[] } | null>(null);
+    const [showExamples, setShowExamples] = useState(false);
 
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
@@ -2306,8 +2320,34 @@ ${JSON.stringify(summaries)}
                             <div className="flex items-center gap-2">
                                 <i className="fa-solid fa-magnifying-glass-location text-indigo-500"></i>
                                 <span className="text-sm font-black text-indigo-800">Tell Your Story</span>
+                                <button
+                                    onClick={() => setShowExamples(!showExamples)}
+                                    className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors flex items-center gap-1"
+                                >
+                                    <i className={`fa-solid ${showExamples ? 'fa-chevron-up' : 'fa-lightbulb'} text-[9px]`}></i>
+                                    {showExamples ? 'Hide' : 'Examples'}
+                                </button>
                                 <span className="text-[10px] font-bold text-indigo-400 ml-auto">AI extracts filters from your story · Max 20 properties</span>
                             </div>
+
+                            {/* Examples Grid */}
+                            {showExamples && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {BUYER_STORY_EXAMPLES.map((ex, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => { setBuyerStory(ex.story); setShowExamples(false); setBuyerError(null); }}
+                                            className="text-left bg-white border border-indigo-100 hover:border-indigo-300 hover:shadow-md rounded-xl p-3 transition-all group"
+                                        >
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <i className={`${ex.icon} text-[10px] text-indigo-400 group-hover:text-indigo-600`}></i>
+                                                <span className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">{ex.title}</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{ex.story}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <textarea
                                 value={buyerStory}
                                 onChange={e => { setBuyerStory(e.target.value); setBuyerError(null); }}
