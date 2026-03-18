@@ -851,7 +851,37 @@ function factor82_seniorLifestyleFit(visual: CustomAIAnalysisResult | null, comp
     return { id: 82, name: 'Senior Lifestyle Fit', value: 'Data not available', tags: [] };
 }
 
+function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
+    const places = (p as any).neighborhoodPlaces;
+    if (!places) return { id: 87, name: 'Top Nearby Places', value: 'Data not available', tags: [] };
+
+    const allPlaces = [
+        ...(places.walkable?.dining || []),
+        ...(places.walkable?.parks || []),
+        ...(places.walkable?.shopping || []),
+        ...(places.drivable?.medical || []),
+        ...(places.drivable?.transit || []),
+    ]
+      .filter((pl: any) => pl.name && pl.distanceMeters)
+      .sort((a: any, b: any) => (a.distanceMeters || 0) - (b.distanceMeters || 0))
+      .slice(0, 8);
+
+    if (!allPlaces.length) return { id: 87, name: 'Top Nearby Places', value: 'No places found', tags: [] };
+
+    const tags = allPlaces.map((pl: any) => {
+        const dist = pl.distanceMeters < 1000
+            ? `${Math.round(pl.distanceMeters)}m`
+            : `${(pl.distanceMeters / 1000).toFixed(1)}km`;
+        return `${pl.name} (${dist})`;
+    });
+
+    const closest = allPlaces[0];
+    const val = `${allPlaces.length} places — nearest: ${closest.name}`;
+    return { id: 87, name: 'Top Nearby Places', value: val, tags };
+}
+
 // ── Main Export ────────────────────────────────────────────────────
+
 
 /**
  * Pre-computes all pure-data factors from property fields.
@@ -901,6 +931,7 @@ export function precomputeDataFactors(
         factor84_walkableAmenities(property),
         factor85_medicalProximity(property),
         factor86_evInfrastructure(property),
+        factor87_nearbyPlaces(property),
         factor106_seismicRisk(property),
         factor108_sqftDiscrepancy(property),
         factor109_lotSizeVerification(property),
@@ -915,6 +946,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 99, 106, 108, 109, 110];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 99, 106, 108, 109, 110];
 
 
