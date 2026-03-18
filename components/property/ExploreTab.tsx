@@ -2163,6 +2163,16 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                 chunks.push(graphs.slice(i, i + CHUNK_SIZE));
             }
 
+            // Warmup: high-temperature flush to prime Gemini backend
+            await executeGeminiRequest<any>({
+                model: FLASH_LITE_MODEL,
+                contents: 'Say hi',
+                config: { temperature: 2.0, maxOutputTokens: 1 },
+                userId: auth.currentUser?.uid || 'anon',
+                promptFilename: 'warmup',
+                skipWatchdog: true
+            }).catch(() => {}); // ignore errors
+
             const schema = {
                 type: Type.OBJECT,
                 properties: {
