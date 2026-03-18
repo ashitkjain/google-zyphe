@@ -2544,7 +2544,7 @@ ${JSON.stringify(summaries)}
                                                     <div
                                                         className="sm:w-56 h-40 sm:h-auto flex-shrink-0 bg-cover bg-center cursor-pointer relative"
                                                         style={{ backgroundImage: `url(${img})`, minHeight: 160 }}
-                                                        onClick={() => onPropertyClick(prop.address)}
+                                                        onClick={() => window.open(`/explore?address=${encodeURIComponent(prop.address)}`, '_blank')}
                                                     >
                                                         {/* Rank badge */}
                                                         <span className={`absolute top-2 left-2 text-[10px] font-black px-2 py-1 rounded-lg shadow-md ${idx === 0 ? 'bg-amber-400 text-white' : idx < 3 ? 'bg-indigo-600 text-white' : 'bg-white/95 text-slate-600 border border-slate-200'
@@ -2560,7 +2560,7 @@ ${JSON.stringify(summaries)}
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div>
                                                             <button
-                                                                onClick={() => onPropertyClick(prop.address)}
+                                                                onClick={() => window.open(`/explore?address=${encodeURIComponent(prop.address)}`, '_blank')}
                                                                 className="text-sm font-black text-slate-800 hover:text-indigo-600 transition-colors text-left"
                                                             >
                                                                 {prop.address}
