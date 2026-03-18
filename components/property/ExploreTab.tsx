@@ -1859,6 +1859,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; keywords: string[] } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
+    const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
 
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
@@ -1994,13 +1995,16 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         setBuyerResults(null);
         setBuyerError(null);
         setBuyerExtracted(null);
+        setBuyerTimings(null);
+        const timings: { step: string; ms: number; detail?: string }[] = [];
 
         try {
-            const { executeGeminiRequest, FLASH_LITE_MODEL } = await import('../../services/geminiService');
+            const { executeGeminiRequest } = await import('../../services/geminiService');
             const { Type } = await import('@google/genai');
             const { auth } = await import('../../services/firebase/config');
 
-            // ── STEP 0: Extract structured attributes from buyer story ──
+            // ── STEP 0: Extract structured attributes from buyer story via Groq ──
+            const t0 = performance.now();
             const extractionPrompt = `# Role
 Act as a Real Estate Data Extraction Engine. Convert the following Buyer Story into a precise JSON search schema.
 
@@ -2035,43 +2039,20 @@ ${buyerStory}
    - "Newer/New Construction" = yearBuilt gte 2015
    - "Large Lot" = lotSqft gte 7000
    - "Low Fire Risk" = fireRisk lte 3
-   Only include filters that directly map to a buyer requirement. Empty array if none.`;
+   Only include filters that directly map to a buyer requirement. Empty array if none.
 
-            const numericFilterSchema = {
-                type: Type.OBJECT,
-                properties: {
-                    field: { type: Type.STRING },
-                    op: { type: Type.STRING },
-                    value: { type: Type.NUMBER }
-                },
-                required: ['field', 'op', 'value']
-            };
+Return a single JSON object with keys: price_min, price_max, beds, baths, home_type, keywords, search_tags, numeric_filters.`;
 
-            const extractionSchema = {
-                type: Type.OBJECT,
-                properties: {
-                    price_min: { type: Type.NUMBER },
-                    price_max: { type: Type.NUMBER },
-                    beds: { type: Type.NUMBER },
-                    baths: { type: Type.NUMBER },
-                    home_type: { type: Type.STRING },
-                    keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    numeric_filters: { type: Type.ARRAY, items: numericFilterSchema }
-                },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'keywords', 'search_tags', 'numeric_filters']
-            };
-
+            const { executeGroqRequest } = await import('../../services/groqService');
             type NumericFilter = { field: string; op: string; value: number };
-            const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] }>({
-                model: FLASH_LITE_MODEL,
-                contents: extractionPrompt,
-                config: { temperature: 0.1, maxOutputTokens: 1024 },
-                userId: auth.currentUser?.uid || 'anon',
-                promptFilename: 'buyerStoryExtraction',
-                extractResultJson: true,
-                schema: extractionSchema
-            });
+            type ExtractionResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[]; search_tags: string[]; numeric_filters: NumericFilter[] };
+
+            const extractResult = await executeGroqRequest<ExtractionResult>(
+                'You are a real estate data extraction engine. Output ONLY valid JSON matching the requested schema.',
+                extractionPrompt,
+                { temperature: 0.1, maxTokens: 1024 }
+            );
+            timings.push({ step: 'Groq Extract', ms: Math.round(performance.now() - t0), detail: `model: ${extractResult.model}` });
 
             const ext = extractResult.data;
             if (!ext || (ext.price_min === 0 && ext.price_max === 0)) {
@@ -2110,6 +2091,7 @@ ${buyerStory}
 
             // ── STEP 1: Query Firestore directly with server-side filters ──
             // Single round trip: city + price range + beds + baths filtered at Firestore level
+            const t1 = performance.now();
             const cityForQuery = selectedCity || results[0]?.city || '';
             if (!cityForQuery) {
                 setBuyerError('No city selected. Please browse a city first.');
@@ -2132,8 +2114,10 @@ ${buyerStory}
                 setBuyerSearching(false);
                 return;
             }
+            timings.push({ step: 'Firestore Query', ms: Math.round(performance.now() - t1), detail: `${graphMap.size} docs returned` });
 
             // ── STEP 1b: Rank by search_tags + numeric_filters ──
+            const t1b = performance.now();
             const MAX = 20;
             let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
                 let score = 0;
@@ -2181,8 +2165,11 @@ ${buyerStory}
                 setBuyerSearching(false);
                 return;
             }
+            timings.push({ step: 'Rank & Filter', ms: Math.round(performance.now() - t1b), detail: `${graphs.length} candidates` });
 
             // ── STEP 3: Send to Gemini for matching ──
+            const t3 = performance.now();
+            const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const summaries = graphs.map(g => ({
                 zpid: g.zpid, address: g.address, listing: g.listing,
                 factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
@@ -2234,6 +2221,10 @@ ${JSON.stringify(summaries)}
             });
 
             if (result.data?.matches) {
+                timings.push({ step: 'Gemini Match', ms: Math.round(performance.now() - t3), detail: `${result.data.matches.length} matches` });
+                const totalMs = timings.reduce((s, t) => s + t.ms, 0);
+                timings.push({ step: 'TOTAL', ms: totalMs });
+                setBuyerTimings(timings);
                 const zpidToAddr: Record<string, string> = {};
                 graphs.forEach(g => { zpidToAddr[g.zpid] = g.address; });
                 const matches = result.data.matches
@@ -2482,6 +2473,32 @@ ${JSON.stringify(summaries)}
                                     ))}
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* ── STEP TIMINGS ── */}
+                    {buyerTimings && (
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
+                            <span className="font-black text-slate-500 uppercase tracking-wider mr-1">
+                                <i className="fa-solid fa-stopwatch text-teal-500 mr-1"></i>Pipeline:
+                            </span>
+                            {buyerTimings.map((t, i) => (
+                                <span
+                                    key={i}
+                                    className={`font-bold px-2 py-0.5 rounded-md border ${
+                                        t.step === 'TOTAL'
+                                            ? t.ms < 5000
+                                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black'
+                                                : t.ms < 8000
+                                                    ? 'bg-amber-100 text-amber-800 border-amber-300 font-black'
+                                                    : 'bg-rose-100 text-rose-800 border-rose-300 font-black'
+                                            : 'bg-white text-slate-700 border-slate-200'
+                                    }`}
+                                    title={t.detail || ''}
+                                >
+                                    {t.step}: {t.ms < 1000 ? `${t.ms}ms` : `${(t.ms / 1000).toFixed(1)}s`}
+                                </span>
+                            ))}
                         </div>
                     )}
 
