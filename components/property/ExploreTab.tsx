@@ -2198,8 +2198,10 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => {
                     // Compact: { key: [tags] } — AI factors have {id, tags}, precomputed have {id, name, tags}
+                    const rawFactors = g.graph.factors || [];
+                    if (idx === 0) console.log(`[Buyer Match Debug] ${g.address} factors type=${typeof rawFactors}, isArray=${Array.isArray(rawFactors)}, length=${rawFactors.length}, sample=`, rawFactors.slice(0, 2));
                     const factors: Record<string, string[]> = {};
-                    for (const f of (g.graph.factors || [])) {
+                    for (const f of rawFactors) {
                         if (f.tags?.length) {
                             const key = f.name || `factor_${f.id}`;
                             factors[key] = f.tags;
