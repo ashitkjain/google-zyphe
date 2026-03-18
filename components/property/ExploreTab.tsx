@@ -2131,11 +2131,11 @@ ${buyerStory}
 ${JSON.stringify(summaries)}
 
 ## INSTRUCTIONS
-- Analyze the buyer's needs, lifestyle, priorities, and constraints
-- Score each property 0-100 based on how well it matches the buyer's story
+- You are speaking DIRECTLY to the buyer. Use "you" and "your" — never say "the buyer" or "the client".
+- Score each property 0-100 based on how well it matches what they're looking for
 - Return the TOP 10 most relevant properties, ranked by score
-- For each match, explain WHY this property fits the buyer's story (2-3 specific reasons)
-- Write a highlight sentence that would resonate with this specific buyer`;
+- For each match, give 2-3 short, specific reasons why it's a great fit (e.g. "Single-story — no stairs, just like you wanted")
+- Write a highlight sentence that speaks directly to this person and their lifestyle`;
 
             const schema = {
                 type: Type.OBJECT,
