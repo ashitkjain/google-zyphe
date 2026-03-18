@@ -2177,27 +2177,13 @@ RULES:
             }
             timings.push({ step: 'Rank & Filter', ms: Math.round(performance.now() - t1b), detail: `${graphs.length} candidates` });
 
-            // ── STEP 3: Send to Gemini for matching ──
+            // ── STEP 3: Parallel Gemini matching (chunked) ──
             const t3 = performance.now();
-            const summaries = graphs.map(g => ({
-                zpid: g.zpid, address: g.address, listing: g.listing,
-                factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
-            }));
-
-            const prompt = `You are a real estate matchmaker. A buyer has described their story and preferences below. Match them to the most relevant properties from the portfolio.
-
-## BUYER STORY
-${buyerStory}
-
-## PROPERTY PORTFOLIO (${summaries.length} properties)
-${JSON.stringify(summaries)}
-
-## INSTRUCTIONS
-- Use a NEUTRAL tone. Do NOT say "you", "your", "the buyer", or "the client". Just state facts about the property.
-- Score each property 0-100 based on how well it matches the search criteria
-- Return the TOP 10 most relevant properties, ranked by score
-- For each match, give 2-3 short, factual reasons (e.g. "Single-story layout, no stairs", "Top-rated schools within 1 mile")
-- Write a concise highlight sentence summarizing why this property stands out`;
+            const CHUNK_SIZE = 5;
+            const chunks: typeof graphs[] = [];
+            for (let i = 0; i < graphs.length; i += CHUNK_SIZE) {
+                chunks.push(graphs.slice(i, i + CHUNK_SIZE));
+            }
 
             const schema = {
                 type: Type.OBJECT,
@@ -2219,27 +2205,58 @@ ${JSON.stringify(summaries)}
                 required: ['matches']
             };
 
-            const result = await executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; highlight: string }[] }>({
-                model: FLASH_LITE_MODEL,
-                contents: prompt,
-                config: { temperature: 0.3, maxOutputTokens: 8192 },
-                userId: auth.currentUser?.uid || 'anon',
-                promptFilename: 'buyerStorySearch',
-                extractResultJson: true,
-                schema
+            // Fire all chunks in parallel
+            const chunkPromises = chunks.map((chunk, idx) => {
+                const summaries = chunk.map(g => ({
+                    zpid: g.zpid, address: g.address, listing: g.listing,
+                    factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
+                }));
+
+                const prompt = `You are a real estate matchmaker. Score each property against the buyer story.
+
+## BUYER STORY
+${buyerStory}
+
+## PROPERTIES (chunk ${idx + 1}/${chunks.length}, ${summaries.length} properties)
+${JSON.stringify(summaries)}
+
+## INSTRUCTIONS
+- Score each property 0-100 based on how well it matches the buyer's criteria
+- Use a NEUTRAL tone. Do NOT say "you", "your", "the buyer", or "the client". Just state facts.
+- For each property, give 2-3 short, factual reasons (e.g. "Single-story layout, no stairs", "Top-rated schools within 1 mile")
+- Write a concise highlight sentence summarizing why this property stands out
+- Return ALL ${summaries.length} properties with scores`;
+
+                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; highlight: string }[] }>({
+                    model: FLASH_LITE_MODEL,
+                    contents: prompt,
+                    config: { temperature: 0.3, maxOutputTokens: 4096 },
+                    userId: auth.currentUser?.uid || 'anon',
+                    promptFilename: 'buyerStorySearch',
+                    extractResultJson: true,
+                    schema
+                });
             });
 
-            if (result.data?.matches) {
-                timings.push({ step: 'Gemini Match', ms: Math.round(performance.now() - t3), detail: `${result.data.matches.length} matches` });
-                const totalMs = timings.reduce((s, t) => s + t.ms, 0);
-                timings.push({ step: 'TOTAL', ms: totalMs });
-                setBuyerTimings(timings);
-                const zpidToAddr: Record<string, string> = {};
-                graphs.forEach(g => { zpidToAddr[g.zpid] = g.address; });
-                const matches = result.data.matches
-                    .sort((a, b) => b.score - a.score)
-                    .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }));
-                setBuyerResults(matches);
+            const chunkResults = await Promise.all(chunkPromises);
+
+            // Merge all matches from all chunks, sort by score
+            const zpidToAddr: Record<string, string> = {};
+            graphs.forEach(g => { zpidToAddr[g.zpid] = g.address; });
+
+            const allMatches = chunkResults
+                .flatMap(r => r.data?.matches || [])
+                .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 10);
+
+            timings.push({ step: 'Gemini Match', ms: Math.round(performance.now() - t3), detail: `${chunks.length} parallel chunks → ${allMatches.length} matches` });
+            const totalMs = timings.reduce((s, t) => s + t.ms, 0);
+            timings.push({ step: 'TOTAL', ms: totalMs });
+            setBuyerTimings(timings);
+
+            if (allMatches.length > 0) {
+                setBuyerResults(allMatches);
                 setSliderIdx(0);
             }
         } catch (err: any) {
