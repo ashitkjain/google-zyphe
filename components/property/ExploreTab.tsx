@@ -2185,10 +2185,13 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             // Fire all chunks in parallel
             const chunkPromises = chunks.map((chunk, idx) => {
                 const summaries = chunk.map(g => {
-                    // Compact: { factorName: [tags] } — preserves context without verbose objects
+                    // Compact: { key: [tags] } — AI factors have {id, tags}, precomputed have {id, name, tags}
                     const factors: Record<string, string[]> = {};
                     for (const f of (g.graph.factors || [])) {
-                        if (f.name && f.tags?.length) factors[f.name] = f.tags;
+                        if (f.tags?.length) {
+                            const key = f.name || `factor_${f.id}`;
+                            factors[key] = f.tags;
+                        }
                     }
                     return {
                         zpid: g.zpid, address: g.address,
