@@ -1984,7 +1984,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
         try {
             const { getContextGraphFromCloud } = await import('../../services/firebase/properties');
-            const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
+            const { executeGeminiRequest, FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const { Type } = await import('@google/genai');
             const { auth } = await import('../../services/firebase/config');
 
@@ -2020,7 +2020,7 @@ ${buyerStory}
             };
 
             const extractResult = await executeGeminiRequest<{ price_min: number; price_max: number; beds: number; baths: number; home_type: string; keywords: string[] }>({
-                model: FLASH_MODEL,
+                model: FLASH_LITE_MODEL,
                 contents: extractionPrompt,
                 config: { temperature: 0.1, maxOutputTokens: 1024 },
                 userId: auth.currentUser?.uid || 'anon',
@@ -2134,7 +2134,7 @@ ${JSON.stringify(summaries)}
             };
 
             const result = await executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; highlight: string }[] }>({
-                model: FLASH_MODEL,
+                model: FLASH_LITE_MODEL,
                 contents: prompt,
                 config: { temperature: 0.3, maxOutputTokens: 8192 },
                 userId: auth.currentUser?.uid || 'anon',

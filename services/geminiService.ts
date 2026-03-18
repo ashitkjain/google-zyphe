@@ -62,6 +62,7 @@ import { optimizePropertyForAi, optimizeVisualForAi } from "../utils/aiOptimizat
 
 // Use config for model selection
 export const FLASH_MODEL = APP_CONFIG.models.flash;
+export const FLASH_LITE_MODEL = APP_CONFIG.models.flashLite;
 export const GEMINI_MODEL = FLASH_MODEL;
 export const CHAT_MODEL = FLASH_MODEL;
 
