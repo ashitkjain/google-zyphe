@@ -82,6 +82,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [graphBatchRunning, setGraphBatchRunning] = useState(false);
     const [graphBatchProgress, setGraphBatchProgress] = useState<{ done: number; skipped: number; failed: number; total: number } | null>(null);
 
+    // Buyer Story Search
+    const [buyerStory, setBuyerStory] = useState('');
+    const [buyerSearching, setBuyerSearching] = useState(false);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; highlight: string }[] | null>(null);
+    const [showBuyerSearch, setShowBuyerSearch] = useState(false);
+
     // Batch Orientation
     const [orientBatchRunning, setOrientBatchRunning] = useState(false);
     const [orientBatchProgress, setOrientBatchProgress] = useState<{ computed: number; cached: number; failed: number; total: number } | null>(null);
@@ -1108,6 +1114,111 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setGraphBatchRunning(false);
     };
 
+    // ── Buyer Story Search ─────────────────────────────────────────────
+    const handleBuyerSearch = async () => {
+        if (!buyerStory.trim()) return;
+        setBuyerSearching(true);
+        setBuyerResults(null);
+        addLog(`[Buyer Search] Starting search with story: "${buyerStory.substring(0, 80)}..."`);
+
+        try {
+            const { getContextGraphFromCloud } = await import('../../services/firebase/properties');
+            const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
+            const { Type } = await import('@google/genai');
+
+            // 1. Load all context graphs
+            const zpids = Array.from(cachedPropertyIds) as string[];
+            addLog(`[Buyer Search] Loading context graphs for ${zpids.length} properties...`);
+
+            const graphs: { zpid: string; address: string; graph: any }[] = [];
+            const CHUNK = 10;
+            for (let i = 0; i < zpids.length; i += CHUNK) {
+                const chunk = zpids.slice(i, i + CHUNK);
+                const results = await Promise.all(chunk.map(async zpid => {
+                    const graph = await getContextGraphFromCloud(zpid);
+                    return { zpid, address: zpidToAddressMap[zpid] || zpid, graph };
+                }));
+                for (const r of results) {
+                    if (r.graph?.factors?.length > 0) graphs.push(r);
+                }
+            }
+
+            addLog(`[Buyer Search] Loaded ${graphs.length} context graphs. Sending to Gemini...`);
+
+            // 2. Build compact property summaries for the prompt
+            const propertySummaries = graphs.map(g => ({
+                zpid: g.zpid,
+                address: g.address,
+                factors: g.graph.factors,
+                keyMetrics: g.graph.keyMetrics,
+                summary: g.graph.summary
+            }));
+
+            const prompt = `You are a real estate matchmaker. A buyer has described their story and preferences below. Match them to the most relevant properties from the portfolio.
+
+## BUYER STORY
+${buyerStory}
+
+## PROPERTY PORTFOLIO (${propertySummaries.length} properties)
+${JSON.stringify(propertySummaries)}
+
+## INSTRUCTIONS
+- Analyze the buyer's needs, lifestyle, priorities, and constraints
+- Score each property 0-100 based on how well it matches the buyer's story
+- Return the TOP 10 most relevant properties, ranked by score
+- For each match, explain WHY this property fits the buyer's story (2-3 specific reasons)
+- Write a highlight sentence that would resonate with this specific buyer`;
+
+            const schema = {
+                type: Type.OBJECT,
+                properties: {
+                    matches: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                zpid: { type: Type.STRING },
+                                score: { type: Type.NUMBER },
+                                reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                highlight: { type: Type.STRING }
+                            },
+                            required: ['zpid', 'score', 'reasons', 'highlight']
+                        }
+                    }
+                },
+                required: ['matches']
+            };
+
+            const result = await executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; highlight: string }[] }>({
+                model: FLASH_MODEL,
+                contents: prompt,
+                config: { temperature: 0.3, maxOutputTokens: 8192 },
+                userId: auth.currentUser?.uid || 'admin',
+                promptFilename: 'buyerStorySearch',
+                extractResultJson: true,
+                schema
+            });
+
+            if (result.data?.matches) {
+                const matches = result.data.matches
+                    .sort((a, b) => b.score - a.score)
+                    .map(m => ({
+                        ...m,
+                        address: zpidToAddressMap[m.zpid] || m.zpid
+                    }));
+                setBuyerResults(matches);
+                addLog(`[Buyer Search] Found ${matches.length} matches. Top: ${matches[0]?.address} (${matches[0]?.score}/100)`);
+            } else {
+                addLog('[Buyer Search] No matches returned from Gemini');
+            }
+        } catch (err: any) {
+            addLog(`[Buyer Search] Error: ${err.message}`);
+            console.error('[Buyer Search]', err);
+        } finally {
+            setBuyerSearching(false);
+        }
+    };
+
     // ── Batch Orientation Analysis ─────────────────────────────────────────
     const handleBatchOrientation = async () => {
         // Use selected properties if any are checked, otherwise use all cached
@@ -1472,6 +1583,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     )}
                                     {cachedPropertyIds.size > 0 && (
                                         <button
+                                            onClick={() => setShowBuyerSearch(!showBuyerSearch)}
+                                            className={`px-6 py-3 border-2 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3 group ${showBuyerSearch ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-700'}`}
+                                            title="Search properties by buyer story using AI"
+                                        >
+                                            <i className={`fa-solid fa-magnifying-glass-location ${showBuyerSearch ? 'text-indigo-200' : 'text-indigo-500'} group-hover:scale-110 transition-transform`}></i>
+                                            Buyer Search
+                                        </button>
+                                    )}
+                                    {cachedPropertyIds.size > 0 && (
+                                        <button
                                             onClick={handleBatchOrientation}
                                             disabled={orientBatchRunning || loading}
                                             className="px-6 py-3 bg-white border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
@@ -1547,6 +1668,84 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 </div>
                             )}
                         </>
+                    ) : viewMode === 'table' && showBuyerSearch ? (
+                        /* ── Buyer Story Search Panel ── */
+                        <div className="space-y-4">
+                            <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-200 rounded-2xl p-6">
+                                <h3 className="text-sm font-black text-indigo-800 flex items-center gap-2 mb-3">
+                                    <i className="fa-solid fa-magnifying-glass-location text-indigo-500"></i>
+                                    Tell Your Story — AI Property Matchmaker
+                                </h3>
+                                <p className="text-xs text-indigo-600 mb-4">
+                                    Describe your lifestyle, needs, budget, family situation, and priorities. The AI will search all {cachedPropertyIds.size} properties and find the best matches.
+                                </p>
+                                <textarea
+                                    value={buyerStory}
+                                    onChange={e => setBuyerStory(e.target.value)}
+                                    placeholder="Example: I'm a tech worker at Google with 2 young kids. We need good schools, a home office, and a big backyard for the kids. Budget is $1.5M. My wife works from home too so we need fast internet. Prefer newer construction or recently renovated. Low wildfire risk is important to us."
+                                    className="w-full h-32 p-4 bg-white border border-indigo-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 outline-none resize-none"
+                                />
+                                <div className="flex items-center gap-3 mt-3">
+                                    <button
+                                        onClick={handleBuyerSearch}
+                                        disabled={buyerSearching || !buyerStory.trim()}
+                                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {buyerSearching ? (
+                                            <><i className="fa-solid fa-spinner animate-spin"></i>Searching {cachedPropertyIds.size} properties...</>
+                                        ) : (
+                                            <><i className="fa-solid fa-wand-magic-sparkles"></i>Find My Match</>
+                                        )}
+                                    </button>
+                                    {buyerResults && (
+                                        <span className="text-xs font-bold text-indigo-600">
+                                            {buyerResults.length} matches found
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Results */}
+                            {buyerResults && buyerResults.length > 0 && (
+                                <div className="space-y-3">
+                                    {buyerResults.map((match, idx) => (
+                                        <div key={match.zpid} className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md hover:border-indigo-200 transition-all">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${idx === 0 ? 'bg-amber-100 text-amber-700 border border-amber-200' : idx <= 2 ? 'bg-indigo-100 text-indigo-600 border border-indigo-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                                                            #{idx + 1}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => onNavigate?.('explore', match.address)}
+                                                            className="text-sm font-black text-slate-800 hover:text-indigo-600 transition-colors cursor-pointer"
+                                                        >
+                                                            {match.address}
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-sm text-indigo-600 font-semibold italic mt-2 mb-2">
+                                                        &ldquo;{match.highlight}&rdquo;
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                        {match.reasons.map((reason, i) => (
+                                                            <span key={i} className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                                                                {reason}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-center">
+                                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-lg font-black ${match.score >= 80 ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-200' : match.score >= 60 ? 'bg-amber-100 text-amber-700 border-2 border-amber-200' : 'bg-slate-100 text-slate-600 border-2 border-slate-200'}`}>
+                                                        {match.score}
+                                                    </div>
+                                                    <span className="text-[9px] font-black text-slate-400 mt-1 uppercase">Score</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         <button
                             onClick={() => {
