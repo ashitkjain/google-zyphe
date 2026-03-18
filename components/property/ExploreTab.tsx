@@ -1837,6 +1837,12 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         return () => window.removeEventListener('browse-city', handler);
     }, []);
 
+    // Buyer Story Search
+    const [buyerStory, setBuyerStory] = useState('');
+    const [buyerSearching, setBuyerSearching] = useState(false);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; highlight: string }[] | null>(null);
+    const [showBuyerSearch, setShowBuyerSearch] = useState(false);
+
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
     const [miningStatus, setMiningStatus] = useState<string>('');
@@ -1945,6 +1951,102 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     };
 
     const fmt = (n?: number) => n ? `$${n.toLocaleString()}` : '—';
+
+    const handleBuyerSearch = async () => {
+        if (!buyerStory.trim() || processed.length === 0) return;
+        setBuyerSearching(true);
+        setBuyerResults(null);
+
+        try {
+            const { getContextGraphFromCloud } = await import('../../services/firebase/properties');
+            const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
+            const { Type } = await import('@google/genai');
+            const { auth } = await import('../../services/firebase/config');
+
+            // Use the already-filtered list, cap at 20
+            const MAX = 20;
+            const candidates = processed.slice(0, MAX);
+
+            // Load context graphs
+            const graphs: { zpid: string; address: string; graph: any; listing: any }[] = [];
+            const CHUNK = 10;
+            for (let i = 0; i < candidates.length; i += CHUNK) {
+                const chunk = candidates.slice(i, i + CHUNK);
+                const res = await Promise.all(chunk.map(async p => {
+                    const graph = await getContextGraphFromCloud(p.zpid);
+                    return { zpid: p.zpid, address: p.address, graph, listing: { price: p.listPrice, beds: p.bedrooms, baths: p.bathrooms, sqft: p.livingArea, neighborhood: p.neighborhood } };
+                }));
+                for (const r of res) {
+                    if (r.graph?.factors?.length > 0) graphs.push(r);
+                }
+            }
+
+            if (graphs.length === 0) { setBuyerSearching(false); return; }
+
+            const summaries = graphs.map(g => ({
+                zpid: g.zpid, address: g.address, listing: g.listing,
+                factors: g.graph.factors, keyMetrics: g.graph.keyMetrics, summary: g.graph.summary
+            }));
+
+            const prompt = `You are a real estate matchmaker. A buyer has described their story and preferences below. Match them to the most relevant properties from the portfolio.
+
+## BUYER STORY
+${buyerStory}
+
+## PROPERTY PORTFOLIO (${summaries.length} properties)
+${JSON.stringify(summaries)}
+
+## INSTRUCTIONS
+- Analyze the buyer's needs, lifestyle, priorities, and constraints
+- Score each property 0-100 based on how well it matches the buyer's story
+- Return the TOP 10 most relevant properties, ranked by score
+- For each match, explain WHY this property fits the buyer's story (2-3 specific reasons)
+- Write a highlight sentence that would resonate with this specific buyer`;
+
+            const schema = {
+                type: Type.OBJECT,
+                properties: {
+                    matches: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                zpid: { type: Type.STRING },
+                                score: { type: Type.NUMBER },
+                                reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                highlight: { type: Type.STRING }
+                            },
+                            required: ['zpid', 'score', 'reasons', 'highlight']
+                        }
+                    }
+                },
+                required: ['matches']
+            };
+
+            const result = await executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; highlight: string }[] }>({
+                model: FLASH_MODEL,
+                contents: prompt,
+                config: { temperature: 0.3, maxOutputTokens: 8192 },
+                userId: auth.currentUser?.uid || 'anon',
+                promptFilename: 'buyerStorySearch',
+                extractResultJson: true,
+                schema
+            });
+
+            if (result.data?.matches) {
+                const zpidToAddr: Record<string, string> = {};
+                candidates.forEach(c => { zpidToAddr[c.zpid] = c.address; });
+                const matches = result.data.matches
+                    .sort((a, b) => b.score - a.score)
+                    .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }));
+                setBuyerResults(matches);
+            }
+        } catch (err: any) {
+            console.error('[Buyer Search]', err);
+        } finally {
+            setBuyerSearching(false);
+        }
+    };
 
     return (
         <div className="text-left">
@@ -2076,7 +2178,87 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             {processed.length} {processed.length === 1 ? 'property' : 'properties'}
                             {processed.length !== results.length && ` (of ${results.length})`}
                         </span>
+
+                        {/* Buyer Search Toggle */}
+                        <button
+                            onClick={() => setShowBuyerSearch(!showBuyerSearch)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${showBuyerSearch ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50'}`}
+                        >
+                            <i className="fa-solid fa-wand-magic-sparkles text-[9px]"></i>
+                            AI Match
+                        </button>
                     </div>
+
+                    {/* ── BUYER STORY SEARCH PANEL ── */}
+                    {showBuyerSearch && (
+                        <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-200 rounded-2xl p-5 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <i className="fa-solid fa-magnifying-glass-location text-indigo-500"></i>
+                                <span className="text-sm font-black text-indigo-800">Tell Your Story</span>
+                                <span className="text-[10px] font-bold text-indigo-400 ml-auto">Uses current filters · Max 20 properties</span>
+                            </div>
+                            <textarea
+                                value={buyerStory}
+                                onChange={e => setBuyerStory(e.target.value)}
+                                placeholder="Example: I'm a tech worker at Google with 2 young kids. We need good schools, a home office, and a big backyard. Budget is $1.5M. Low wildfire risk is important."
+                                className="w-full h-24 p-3 bg-white border border-indigo-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 outline-none resize-none"
+                            />
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handleBuyerSearch}
+                                    disabled={buyerSearching || !buyerStory.trim() || processed.length === 0}
+                                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {buyerSearching ? (
+                                        <><i className="fa-solid fa-spinner animate-spin"></i>Searching {Math.min(processed.length, 20)} properties...</>
+                                    ) : (
+                                        <><i className="fa-solid fa-wand-magic-sparkles"></i>Find My Match ({Math.min(processed.length, 20)} props)</>
+                                    )}
+                                </button>
+                                {buyerResults && (
+                                    <span className="text-xs font-bold text-indigo-600">{buyerResults.length} matches found</span>
+                                )}
+                            </div>
+
+                            {/* Results */}
+                            {buyerResults && buyerResults.length > 0 && (
+                                <div className="space-y-2 pt-2 border-t border-indigo-200">
+                                    {buyerResults.map((match, idx) => (
+                                        <div key={match.zpid} className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-200 transition-all">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${idx === 0 ? 'bg-amber-100 text-amber-700' : idx <= 2 ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                                                            #{idx + 1}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => onPropertyClick(match.address)}
+                                                            className="text-xs font-black text-slate-800 hover:text-indigo-600 transition-colors truncate"
+                                                        >
+                                                            {match.address}
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-xs text-indigo-600 font-semibold italic mb-1.5">
+                                                        &ldquo;{match.highlight}&rdquo;
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {match.reasons.map((reason, i) => (
+                                                            <span key={i} className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                                {reason}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className={`w-11 h-11 rounded-lg flex items-center justify-center text-sm font-black flex-shrink-0 ${match.score >= 80 ? 'bg-emerald-100 text-emerald-700' : match.score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {match.score}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* ── GALLERY VIEW ── */}
                     {viewMode === 'gallery' && (
