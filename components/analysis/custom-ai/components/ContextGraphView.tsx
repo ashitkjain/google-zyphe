@@ -76,7 +76,7 @@ const FACTOR_NAMES: Record<number, string> = {
     73: 'Resident Satisfaction', 74: 'Perceived Safety', 75: 'Market Velocity (DOM)',
     76: 'Internet Connectivity', 77: 'Noise Profile', 78: 'Drought Risk',
     79: 'Disaster History', 80: 'Professional Lifestyle Fit',
-    81: 'Family Lifestyle Fit', 82: 'Senior Lifestyle Fit', 83: 'Micro-Neighborhood',
+    81: 'Family Lifestyle Fit', 82: 'Senior Lifestyle Fit', 83: 'Neighborhood Character',
     84: 'Walkable Amenities', 85: 'Medical Proximity', 86: 'EV Infrastructure',
     87: 'Top Nearby Places', 88: 'Dining & Entertainment',
     89: 'Market Signals', 90: 'Growth Catalysts', 91: 'Investment Risks',
