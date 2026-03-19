@@ -925,6 +925,21 @@ function factor121_microclimate(p: PropertyData): ExtractedFactor {
     return { id: 121, name: 'Microclimate (Thermal Fingerprint)', tags: tags.slice(0, 8) };
 }
 
+function factor122_censusDemographics(p: PropertyData): ExtractedFactor {
+    const census = (p as any).censusDemographics;
+    if (!census) return { id: 122, name: 'Census Demographics', tags: [] };
+    const tags: string[] = [];
+    if (census.medianHouseholdIncome) tags.push(`Median household income: $${census.medianHouseholdIncome.toLocaleString()}`);
+    if (census.medianAge) tags.push(`Median age: ${census.medianAge}`);
+    if (census.ownerPct != null) tags.push(`Owner-occupied: ${census.ownerPct}%`);
+    if (census.renterPct != null) tags.push(`Renter-occupied: ${census.renterPct}%`);
+    if (census.medianHomeValue) tags.push(`Median home value: $${census.medianHomeValue.toLocaleString()}`);
+    if (census.bachelorsPlusPct != null) tags.push(`College-educated (bachelor's+): ${census.bachelorsPlusPct}%`);
+    if (census.totalPopulation) tags.push(`Tract population: ${census.totalPopulation.toLocaleString()}`);
+    if (census.tractLabel) tags.push(census.tractLabel);
+    return { id: 122, name: 'Census Demographics', tags: tags.slice(0, 8) };
+}
+
 /**
  * Pre-computes all pure-data factors from property fields.
  * Returns a map of factorId → ExtractedFactor for fast merging.
@@ -981,6 +996,7 @@ export function precomputeDataFactors(
         factor109_lotSizeVerification(property),
         factor65_upcomingDevImpact(property),
         factor121_microclimate(property),
+        factor122_censusDemographics(property),
 
 
     ];
@@ -992,6 +1008,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120, 121];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120, 121, 122];
 
 

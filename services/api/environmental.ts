@@ -447,6 +447,157 @@ export const fetchNearbyEVChargers = async (
     }
 };
 
+// ─── Census ACS Demographics ──────────────────────────────────────────────────
+
+export interface CensusDemographics {
+    tractId: string;               // e.g. "451502"
+    countyFips: string;
+    stateFips: string;
+    medianHouseholdIncome: number | null;
+    medianAge: number | null;
+    totalPopulation: number | null;
+    ownerOccupied: number | null;
+    renterOccupied: number | null;
+    ownerPct: number | null;       // 0-100
+    renterPct: number | null;
+    medianHomeValue: number | null;
+    bachelorsPlusPct: number | null; // % with bachelor's or higher
+    tractLabel: string;            // human-friendly label e.g. "Census Tract 4515.02"
+    insight: string;
+    fetchedAt: string;
+}
+
+// ACS 5-Year variable codes
+const ACS_VARIABLES = [
+    'B19013_001E', // Median household income
+    'B01002_001E', // Median age
+    'B01003_001E', // Total population
+    'B25003_001E', // Total housing units (tenure)
+    'B25003_002E', // Owner-occupied
+    'B25003_003E', // Renter-occupied
+    'B25077_001E', // Median home value
+    'B15003_001E', // Total education (25+)
+    'B15003_022E', // Bachelor's degree
+    'B15003_023E', // Master's degree
+    'B15003_024E', // Professional degree
+    'B15003_025E', // Doctorate degree
+].join(',');
+
+export const fetchCensusDemographics = async (
+    lat: number,
+    lng: number,
+    zpid?: string,
+    address?: string,
+): Promise<CensusDemographics | null> => {
+    const start = Date.now();
+    const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        zpid,
+        address,
+        api_name: 'U.S. Census ACS',
+        endpoint: 'acs5 + geocoder',
+        params: { lat, lng },
+        status: 'pending',
+    });
+
+    try {
+        // Step 1: Geocode lat/lng → Census Tract FIPS
+        const geoUrl = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
+        const geoRes = await fetch(geoUrl);
+        if (!geoRes.ok) throw new Error(`Census Geocoder failed: ${geoRes.status}`);
+        const geoData = await geoRes.json();
+
+        const geographies = geoData?.result?.geographies?.['Census Tracts'];
+        if (!geographies || geographies.length === 0) {
+            throw new Error('No census tract found for coordinates');
+        }
+
+        const tract = geographies[0];
+        const stateFips = tract.STATE;   // e.g. "06" (California)
+        const countyFips = tract.COUNTY; // e.g. "001" (Alameda)
+        const tractId = tract.TRACT;     // e.g. "451502"
+        const tractName = tract.BASENAME || `Tract ${tractId}`;
+
+        // Step 2: Fetch ACS 5-Year Estimates for this tract
+        const acsUrl = `https://api.census.gov/data/2022/acs/acs5?get=${ACS_VARIABLES}&for=tract:${tractId}&in=state:${stateFips}&in=county:${countyFips}`;
+        const acsRes = await fetch(acsUrl);
+        if (!acsRes.ok) throw new Error(`Census ACS failed: ${acsRes.status}`);
+        const acsData = await acsRes.json();
+
+        // ACS returns [headers[], values[]]
+        if (!acsData || acsData.length < 2) throw new Error('No ACS data returned');
+        const headers: string[] = acsData[0];
+        const values: string[] = acsData[1];
+
+        const getVal = (varCode: string): number | null => {
+            const idx = headers.indexOf(varCode);
+            if (idx === -1) return null;
+            const v = parseInt(values[idx], 10);
+            return isNaN(v) || v < 0 ? null : v;
+        };
+
+        const medianIncome = getVal('B19013_001E');
+        const medianAge = (() => {
+            const idx = headers.indexOf('B01002_001E');
+            if (idx === -1) return null;
+            const v = parseFloat(values[idx]);
+            return isNaN(v) || v < 0 ? null : v;
+        })();
+        const totalPop = getVal('B01003_001E');
+        const totalTenure = getVal('B25003_001E');
+        const ownerOcc = getVal('B25003_002E');
+        const renterOcc = getVal('B25003_003E');
+        const medianHomeVal = getVal('B25077_001E');
+
+        // Education: bachelor's + master's + professional + doctorate
+        const totalEdu = getVal('B15003_001E');
+        const bachelors = getVal('B15003_022E') || 0;
+        const masters = getVal('B15003_023E') || 0;
+        const professional = getVal('B15003_024E') || 0;
+        const doctorate = getVal('B15003_025E') || 0;
+        const collegeTotal = bachelors + masters + professional + doctorate;
+        const bachelorsPlusPct = totalEdu && totalEdu > 0 ? Math.round((collegeTotal / totalEdu) * 100) : null;
+
+        const ownerPct = totalTenure && totalTenure > 0 && ownerOcc != null ? Math.round((ownerOcc / totalTenure) * 100) : null;
+        const renterPct = totalTenure && totalTenure > 0 && renterOcc != null ? Math.round((renterOcc / totalTenure) * 100) : null;
+
+        // Generate insight
+        let insight = `Census Tract ${tractName}`;
+        if (medianIncome) insight += ` · Median income $${medianIncome.toLocaleString()}`;
+        if (ownerPct != null) insight += ` · ${ownerPct}% owner-occupied`;
+        if (bachelorsPlusPct != null) insight += ` · ${bachelorsPlusPct}% college-educated`;
+        insight += '.';
+
+        if (logId) {
+            updateAPICall(logId, { status: 'completed', response_time_ms: Date.now() - start });
+        }
+
+        return {
+            tractId,
+            countyFips,
+            stateFips,
+            medianHouseholdIncome: medianIncome,
+            medianAge,
+            totalPopulation: totalPop,
+            ownerOccupied: ownerOcc,
+            renterOccupied: renterOcc,
+            ownerPct,
+            renterPct,
+            medianHomeValue: medianHomeVal,
+            bachelorsPlusPct,
+            tractLabel: `Census Tract ${tractName}`,
+            insight,
+            fetchedAt: new Date().toISOString(),
+        };
+    } catch (e) {
+        console.error('[Census ACS] Failed to fetch', e);
+        if (logId) {
+            updateAPICall(logId, { status: 'failed', response_time_ms: Date.now() - start, error: (e as any).message });
+        }
+        return null;
+    }
+};
+
 // ─── Microclimate Delta (Tomorrow.io) ─────────────────────────────────────────
 
 // Downtown baselines per city (lat, lng) — the "valley floor" reference points

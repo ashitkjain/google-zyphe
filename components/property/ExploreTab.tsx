@@ -17,7 +17,7 @@ import ParcelValidationCard from './ParcelValidationCard';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import LifestyleInsightsSection from './LifestyleInsightsSection';
 import SeasonalSunCard from './SeasonalSunCard';
-import { fetchMicroclimateDelta, MicroclimateDelta } from '../../services/api/environmental';
+import { fetchMicroclimateDelta, MicroclimateDelta, fetchCensusDemographics, CensusDemographics } from '../../services/api/environmental';
 import { StickyNotesLayer } from '../analysis/custom-ai/components/StickyNotesLayer';
 
 
@@ -1201,8 +1201,83 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                             </div>
                                                         );
                                                     })()}
-                                                </div>
                                             </div>
+                                        </div>
+
+                                            {/* Census Demographics */}
+                                            {propertyData.coordinates && (() => {
+                                                const [census, setCensus] = React.useState<CensusDemographics | null>(null);
+                                                React.useEffect(() => {
+                                                    fetchCensusDemographics(
+                                                        propertyData.coordinates!.latitude, propertyData.coordinates!.longitude,
+                                                        (propertyData as any).zpid, propertyData.address
+                                                    ).then(r => { if (r) setCensus(r); });
+                                                }, []);
+                                                if (!census) return null;
+                                                const fmt = (n: number | null) => n != null ? `$${n.toLocaleString()}` : '—';
+                                                return (
+                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                            <div className="p-4">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                                        <i className="fa-solid fa-users text-indigo-600 text-[12px]"></i>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Census Demographics</span>
+                                                                        <div className="text-[9px] text-slate-400">{census.tractLabel} · ACS 5-Year Estimates</div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-3 gap-2 mb-3">
+                                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Median Income</div>
+                                                                        <div className="text-[15px] font-black text-emerald-600">{fmt(census.medianHouseholdIncome)}</div>
+                                                                    </div>
+                                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Median Age</div>
+                                                                        <div className="text-[15px] font-black text-slate-700">{census.medianAge ?? '—'}</div>
+                                                                    </div>
+                                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Population</div>
+                                                                        <div className="text-[15px] font-black text-slate-700">{census.totalPopulation?.toLocaleString() ?? '—'}</div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-3 gap-2 mb-3">
+                                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Owner-Occupied</div>
+                                                                        <div className="text-[15px] font-black text-blue-600">{census.ownerPct != null ? `${census.ownerPct}%` : '—'}</div>
+                                                                    </div>
+                                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Value</div>
+                                                                        <div className="text-[15px] font-black text-emerald-600">{fmt(census.medianHomeValue)}</div>
+                                                                    </div>
+                                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">College Educated</div>
+                                                                        <div className="text-[15px] font-black text-violet-600">{census.bachelorsPlusPct != null ? `${census.bachelorsPlusPct}%` : '—'}</div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Owner vs Renter bar */}
+                                                                {census.ownerPct != null && census.renterPct != null && (
+                                                                    <div className="mb-2">
+                                                                        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1">
+                                                                            <span className="text-blue-600">Owner {census.ownerPct}%</span>
+                                                                            <span className="text-amber-600">Renter {census.renterPct}%</span>
+                                                                        </div>
+                                                                        <div className="h-2 rounded-full bg-amber-100 overflow-hidden">
+                                                                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${census.ownerPct}%` }}></div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                <div className="text-[8px] text-slate-400 text-right">U.S. Census Bureau · ACS 2022</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* Row: Unified Lifestyle Fit */}
                                             {(() => {
