@@ -189,7 +189,7 @@ Given the property data below, extract structured decision factors. For each fac
 62. SKIP (deleted).
 63. SKIP (deleted).
 64. **Job Hub Connectivity**: Proximity to major corporate campuses (Google, Apple, etc.).
-65. **Upcoming Dev Impact**: From deep_investment_research.investment_outlook.long_term and local_risks — look for mentions of new construction, transit projects, or commercial development nearby. Fallback to general_market_intelligence.regulatory_and_growth.upcoming_developments.
+65. **Upcoming Dev Impact**: From visualAnalysis.neighborhood.neighborhood_features.development_patterns — look for mentions of new construction, transit projects, commercial development, or infrastructure changes nearby. Fallback to deep_investment_research.investment_outlook.long_term or general_market_intelligence.regulatory_and_growth.upcoming_developments.
 66. **Soil / Geo Consistency**: Soil type or liquefaction risk from deep_research.
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
 68. **Backyard Potential**: Room for ADU or pool if not already present.
