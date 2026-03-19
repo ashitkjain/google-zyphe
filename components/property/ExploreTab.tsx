@@ -1808,7 +1808,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
     // View, sort, filter, pagination state
     const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table'>('gallery');
-    const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea'>('address');
+    const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea' | 'lotSize' | 'homeType' | 'neighborhood'>('address');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [filterMinPrice, setFilterMinPrice] = useState('');
     const [filterMaxPrice, setFilterMaxPrice] = useState('');
@@ -2382,6 +2382,10 @@ ${JSON.stringify(summaries)}
                             <option value="bathrooms-desc">Baths Most→Least</option>
                             <option value="livingArea-desc">Sqft Largest</option>
                             <option value="livingArea-asc">Sqft Smallest</option>
+                            <option value="lotSize-desc">Lot Largest</option>
+                            <option value="lotSize-asc">Lot Smallest</option>
+                            <option value="homeType-asc">Type A→Z</option>
+                            <option value="neighborhood-asc">Neighborhood A→Z</option>
                         </select>
 
                         {/* Filters */}
@@ -2752,14 +2756,14 @@ ${JSON.stringify(summaries)}
                                         <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-right" onClick={() => toggleSort('livingArea')}>
                                             Sq Ft <i className={`fa-solid ${sortIcon('livingArea')} ml-1`}></i>
                                         </th>
-                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">
-                                            Lot
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-right" onClick={() => toggleSort('lotSize')}>
+                                            Lot <i className={`fa-solid ${sortIcon('lotSize')} ml-1`}></i>
                                         </th>
-                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">
-                                            Type
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-center" onClick={() => toggleSort('homeType')}>
+                                            Type <i className={`fa-solid ${sortIcon('homeType')} ml-1`}></i>
                                         </th>
-                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">
-                                            Neighborhood
+                                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:text-indigo-600 transition-colors text-left" onClick={() => toggleSort('neighborhood')}>
+                                            Neighborhood <i className={`fa-solid ${sortIcon('neighborhood')} ml-1`}></i>
                                         </th>
                                     </tr>
                                 </thead>
