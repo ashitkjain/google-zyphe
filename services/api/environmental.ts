@@ -491,8 +491,8 @@ export const fetchMicroclimateDelta = async (
     zpid?: string,
     address?: string,
 ): Promise<MicroclimateDelta | null> => {
-    const TOMORROW_KEY = (import.meta as any).env?.VITE_TOMORROW_API_KEY;
-    if (!TOMORROW_KEY) {
+    const TOMORROW_KEY = APP_CONFIG.tomorrow.key;
+    if (!TOMORROW_KEY || TOMORROW_KEY === 'placeholder') {
         console.warn('[Microclimate] No VITE_TOMORROW_API_KEY configured');
         return null;
     }
@@ -507,6 +507,7 @@ export const fetchMicroclimateDelta = async (
         address,
         api_name: 'Tomorrow.io Microclimate',
         endpoint: 'weather/realtime',
+        params: { lat: propertyLat, lng: propertyLng, city: cityKey },
         status: 'pending',
     });
 
@@ -556,7 +557,7 @@ export const fetchMicroclimateDelta = async (
         }
 
         if (logId) {
-            updateAPICall(logId, { status: 'success', response_time_ms: Date.now() - start });
+            updateAPICall(logId, { status: 'completed', response_time_ms: Date.now() - start });
         }
 
         return {

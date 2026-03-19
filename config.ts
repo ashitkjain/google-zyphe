@@ -87,5 +87,8 @@ export const APP_CONFIG = {
     },
     foursquare: {
         key: (import.meta as any).env?.VITE_FOURSQUARE_API_KEY || 'fsq3_placeholder_key'
+    },
+    tomorrow: {
+        key: (import.meta as any).env?.VITE_TOMORROW_API_KEY || 'MjeAe3gXkWtxpAouHLhDAXqcs4Ukgjaj'
     }
 };
