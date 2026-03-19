@@ -16,6 +16,7 @@ import StaticParcelMap from './StaticParcelMap';
 import ParcelValidationCard from './ParcelValidationCard';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import LifestyleInsightsSection from './LifestyleInsightsSection';
+import SeasonalSunCard from './SeasonalSunCard';
 import { StickyNotesLayer } from '../analysis/custom-ai/components/StickyNotesLayer';
 
 
@@ -830,6 +831,17 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                     </p>
                                                                 </div>
                                                             </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Seasonal Sun */}
+                                                    {propertyData.coordinates && (
+                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                                                            <SeasonalSunCard
+                                                                lat={propertyData.coordinates.latitude}
+                                                                lng={propertyData.coordinates.longitude}
+                                                                orientation={(propertyData as any).orientation_ai?.final_orientation}
+                                                            />
                                                         </div>
                                                     )}
 

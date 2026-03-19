@@ -6,7 +6,7 @@ import { calculateSolarPotential } from '../../utils/solarCalculations';
 import { computeSolarBenchmarks, computeNaturalLightScore, computeSolarSmartTags } from '../../utils/solarCityBenchmarks';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import CommuteCalculator from './CommuteCalculator';
-import SeasonalSunCard from './SeasonalSunCard';
+
 
 interface Props {
     data: PropertyData;
@@ -322,10 +322,15 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                                     {smartTags.slice(0, 5).map((tag: string, i: number) => (
                                                         <span key={i} className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${pillColor(tag)}`}>
                                                             {tag}
-                                                        </span>
+                                                         </span>
                                                     ))}
                                                 </div>
                                             )}
+                                            {/* Methodology note */}
+                                            <div className="mt-1.5 text-[8px] text-slate-400 leading-relaxed">
+                                                <i className="fa-solid fa-circle-info mr-0.5"></i>
+                                                Light score derived from Google Solar API's 3D roof model — accounts for roof pitch, nearby trees, buildings, and orientation vs {(() => { const b = computeSolarBenchmarks(solar, data.city, data.state); return b?.benchmarkCity || 'local'; })()} averages.
+                                            </div>
                                         </>
                                     );
                                 })()}
@@ -460,15 +465,6 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                 <div className="text-[8px] text-slate-700 mt-2 text-right">Google Solar API</div>
                             </div>
                         </div>
-                    )}
-
-                    {/* Seasonal Sun */}
-                    {data.coordinates && (
-                        <SeasonalSunCard
-                            lat={data.coordinates.latitude}
-                            lng={data.coordinates.longitude}
-                            orientation={(data as any).orientation_ai?.final_orientation}
-                        />
                     )}
 
                     {/* EV Charging */}
