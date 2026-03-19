@@ -299,9 +299,27 @@ function factor48_solarYield(p: PropertyData): ExtractedFactor {
         tags.push(`Yr1 Savings: $${Math.round(cash.savings.savingsYear1).toLocaleString()}`);
     }
 
+    // City benchmark + natural light + smart tags
+    try {
+        const { computeSolarBenchmarks, computeNaturalLightScore, computeSolarSmartTags } = require('./solarCityBenchmarks');
+        const bench = computeSolarBenchmarks(solar, p.city, p.state);
+        if (bench) {
+            tags.push(`${bench.sunshinePctOfAvg}% of ${bench.benchmarkCity} avg sunshine`);
+        }
+        const light = computeNaturalLightScore(solar, p.city, p.state);
+        if (light) {
+            tags.push(...light.tags);
+        }
+        const smartTags = computeSolarSmartTags(solar, (p as any).lotSize, p.city, p.state);
+        tags.push(...smartTags);
+    } catch (_) { /* benchmark module not critical */ }
+
+    // Deduplicate
+    const unique = [...new Set(tags)];
+
     return {
         id: 48, name: 'Solar Yield Potential',
-        tags: tags.slice(0, 6)
+        tags: unique.slice(0, 12)
     };
 }
 

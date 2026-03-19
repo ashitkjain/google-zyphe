@@ -119,6 +119,11 @@ export const fetchSolarData = async (lat: number, lng: number, zpid?: string, ad
         return {
             maxSunshineHoursPerYear,
             carbonOffsetFactorKgPerMwh,
+            panelCapacityWatts,
+            maxArrayPanelsCount: (solarPanels || []).length,
+            solarPanels: (solarPanels || []).map((p: any) => ({
+                yearlyEnergyDcKwh: p.yearlyEnergyDcKwh
+            })),
             estimatedSolarProduction: production,
             financialAnalysis,
             wholeRoofStats: wholeRoofStats ? {

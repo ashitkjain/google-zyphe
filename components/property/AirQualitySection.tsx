@@ -3,6 +3,7 @@ import React from 'react';
 import { PropertyData } from '../../types';
 
 import { calculateSolarPotential } from '../../utils/solarCalculations';
+import { computeSolarBenchmarks } from '../../utils/solarCityBenchmarks';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import CommuteCalculator from './CommuteCalculator';
 import SeasonalSunCard from './SeasonalSunCard';
@@ -248,7 +249,7 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">Solar</span>
                                     </div>
                                 </div>
-                                {/* Sunshine + Production row */}
+                                {/* Sunshine + Production + City Benchmark row */}
                                 <div className="flex items-center gap-3 mt-2 text-[12px]">
                                     <div className="flex flex-col">
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Sunshine</span>
@@ -263,7 +264,45 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                             </div>
                                         </>
                                     )}
+                                    {(() => {
+                                        const bench = computeSolarBenchmarks(solar, data.city, data.state);
+                                        if (!bench) return null;
+                                        const pct = bench.sunshinePctOfAvg;
+                                        let label: string;
+                                        let labelColor: string;
+                                        if (pct >= 102) { label = 'Sun-Drenched'; labelColor = 'emerald'; }
+                                        else if (pct >= 95) { label = 'Average'; labelColor = 'slate'; }
+                                        else if (pct >= 85) { label = 'Below Avg'; labelColor = 'amber'; }
+                                        else { label = 'Likely Shaded'; labelColor = 'orange'; }
+                                        return (
+                                            <>
+                                                <div className="w-px h-6 bg-slate-200"></div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">vs {bench.benchmarkCity}</span>
+                                                    <span className={`font-black text-${labelColor}-600`}>{pct}% <span className={`text-[9px] font-bold text-${labelColor}-500`}>{label}</span></span>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
+
+                                {/* Natural Light Score */}
+                                {(() => {
+                                    const { computeNaturalLightScore } = require('../../utils/solarCityBenchmarks');
+                                    const light = computeNaturalLightScore(solar, data.city, data.state);
+                                    if (!light) return null;
+                                    const barColor = light.score >= 80 ? 'bg-emerald-500' : light.score >= 60 ? 'bg-blue-500' : light.score >= 45 ? 'bg-slate-400' : light.score >= 30 ? 'bg-amber-500' : 'bg-orange-500';
+                                    const textColor = light.score >= 80 ? 'text-emerald-700' : light.score >= 60 ? 'text-blue-700' : light.score >= 45 ? 'text-slate-600' : light.score >= 30 ? 'text-amber-700' : 'text-orange-700';
+                                    return (
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Light</span>
+                                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${light.score}%` }}></div>
+                                            </div>
+                                            <span className={`text-[11px] font-black ${textColor} whitespace-nowrap`}>{light.score} <span className="text-[9px] font-bold">{light.label}</span></span>
+                                        </div>
+                                    );
+                                })()}
 
 
                                 <>
@@ -323,16 +362,6 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                                 </div>
                                             )}
 
-                                            {/* Lifetime cost without solar */}
-                                            {solar.financialAnalysis.costOfElectricityWithoutSolar != null && (
-                                                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                                    <i className="fa-solid fa-bolt text-[10px] text-slate-400"></i>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Lifetime Cost (No Solar)</div>
-                                                        <div className="text-[13px] font-normal text-slate-700 leading-snug">${solar.financialAnalysis.costOfElectricityWithoutSolar.toLocaleString()}</div>
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
 
@@ -400,6 +429,8 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                         )}
                                     </div>
                                 </>
+
+
                                 <div className="text-[8px] text-slate-700 mt-2 text-right">Google Solar API</div>
                             </div>
                         </div>
