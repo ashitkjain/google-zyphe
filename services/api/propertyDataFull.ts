@@ -33,6 +33,9 @@ export const fetchPropertyDataFull = async (
     const promise = (async () => {
         const _t0 = performance.now();
         const _elapsed = () => `${(performance.now() - _t0).toFixed(0)}ms`;
+        const _elapsedMs = () => Math.round(performance.now() - _t0);
+        const _timings: { step: string; ms: number; dur?: number }[] = [];
+        const _mark = (step: string) => { _timings.push({ step, ms: _elapsedMs() }); };
         console.log(`[⏱ DataPipeline] START fetchPropertyDataFull: "${addressOrZpid}" (isZpid=${isZpid})`);
         let mappedData: PropertyData | null = null;
 
@@ -40,6 +43,7 @@ export const fetchPropertyDataFull = async (
             const cached = await getPropertyFromCloud(addressOrZpid);
             if (cached) {
                 mappedData = cached;
+                _mark('Firestore cache HIT (ZPID)');
                 console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache HIT for ZPID: ${addressOrZpid}`);
             } else {
                 console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache MISS for ZPID: ${addressOrZpid}`);
@@ -124,6 +128,7 @@ export const fetchPropertyDataFull = async (
 
             if (!response || !response.ok) throw new Error(`Property API error: ${response?.status || 'Unknown'}`);
             console.log(`[⏱ DataPipeline] +${_elapsed()} — RapidAPI response received`);
+            _mark('RapidAPI response');
             const data = await response.json();
 
             // Universal ZPID extraction: Check root, property wrapper, or props wrapper
@@ -138,6 +143,7 @@ export const fetchPropertyDataFull = async (
                 const cached = await getPropertyFromCloud(zpidStr);
                 if (cached) {
                     mappedData = cached;
+                    _mark('Firestore cache HIT (resolved ZPID)');
                     console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache HIT for resolved ZPID: ${zpidStr}`);
                 }
             }
@@ -272,6 +278,7 @@ export const fetchPropertyDataFull = async (
             const needsPlacesFetch = coordsForPlaces && (!placesFresh || forceEnvironment || !cachedPlaces?.isUnified);
 
             console.log(`[⏱ DataPipeline] +${_elapsed()} — scores/images/places parallel fetch start`);
+            _mark('Scores/images/places start');
             const [scores, images, nearbyPlaces] = await Promise.all([
                 needsScores ? fetchScores(mappedData.zpid) : Promise.resolve(null),
                 needsImages ? fetchPropertyImages(mappedData.zpid) : Promise.resolve(mappedData.images ?? []),
@@ -280,6 +287,7 @@ export const fetchPropertyDataFull = async (
                     : Promise.resolve(cachedPlaces ?? null),
             ]);
             console.log(`[⏱ DataPipeline] +${_elapsed()} — scores/images/places done`);
+            _mark('Scores/images/places done');
 
             const cachedEnvEarly = envDocForPlaces;
 
@@ -356,6 +364,7 @@ export const fetchPropertyDataFull = async (
             }
 
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought})`);
+            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought'].filter(Boolean).join(', ') || 'all cached'})`);
             const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
@@ -366,6 +375,7 @@ export const fetchPropertyDataFull = async (
                 needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
             ]);
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch done`);
+            _mark('Environmental done');
 
             // 1. Solar
             mappedData.solarData = needsSolar ? freshSolar : cachedEnvData.solarData;
@@ -435,6 +445,7 @@ export const fetchPropertyDataFull = async (
             if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating && !forceEnvironment) {
                 console.log('[fetchPropertyDataFull] Using cached Street View analysis.');
                 mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
+                _mark('Street View (cached)');
             } else {
                 onStep?.('Analyzing curb appeal with AI...');
 
@@ -474,6 +485,7 @@ export const fetchPropertyDataFull = async (
                     console.log('[fetchPropertyDataFull] No Street View imagery available — skipping AI analysis.');
                     mappedData.streetViewAnalysis = undefined;
                 }
+                _mark('Street View analysis done');
             }
 
             // Save back to cache (merge with existing)
@@ -498,12 +510,14 @@ export const fetchPropertyDataFull = async (
             } else {
                 console.warn('[EnvironmentalCache] Skipping save: No ZPID or Address available for key.');
             }
+            _mark('Environmental cache saved');
         }
 
         // ── PARCEL DATA (previously lazy-loaded by ParcelValidationCard) ────────
         // Fetch ArcGIS parcel polygon, APN, and area if not already cached.
         if (mappedData.coordinates && mappedData.zpid && !mappedData.parcelPolygon) {
             onStep?.('Fetching parcel data from ArcGIS...');
+            _mark('Parcel fetch start');
             console.log(`[⏱ DataPipeline] +${_elapsed()} — parcel fetch start`);
             try {
                 const { fetchParcelFromCounty, polygonToFirestore } = await import('../arcgis/countyParcels');
@@ -532,6 +546,7 @@ export const fetchPropertyDataFull = async (
         // Fetch Google satellite image and upload to Firebase Storage if not already cached.
         if (mappedData.coordinates && mappedData.zpid && !mappedData.satelliteImageUrl) {
             onStep?.('Caching satellite image...');
+            _mark('Satellite image start');
             console.log(`[⏱ DataPipeline] +${_elapsed()} — satellite image fetch start`);
             try {
                 const { getOrCacheAerialSatelliteUrl } = await import('../satellitaryService');
@@ -554,6 +569,12 @@ export const fetchPropertyDataFull = async (
             await savePropertyToCloud(mappedData.zpid, mappedData);
         }
 
+        _mark('COMPLETE');
+        // Compute per-step durations
+        for (let i = 1; i < _timings.length; i++) {
+            _timings[i].dur = _timings[i].ms - _timings[i - 1].ms;
+        }
+        (mappedData as any).__pipeline_timings = _timings;
         console.log(`%c[⏱ DataPipeline] +${_elapsed()} — COMPLETE`, 'color: #22c55e; font-weight: bold;');
         return mappedData;
     })();

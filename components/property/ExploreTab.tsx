@@ -95,6 +95,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [lifestyleFitTab, setLifestyleFitTab] = useState<string>('working_professionals');
     const [schoolsIntelligence, setSchoolsIntelligence] = useState<any>(null);
     const [schoolsExpanded, setSchoolsExpanded] = useState<Record<number, boolean>>({});
+    const [showTimings, setShowTimings] = useState(false);
 
     // Sync external viewMode changes to internal tab
     React.useEffect(() => {
@@ -407,6 +408,72 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             <div className="animate-in fade-in duration-500 px-5">
                 {propertyData && (
                     <>
+                        {/* ── Pipeline Timing Waterfall ── */}
+                        {(() => {
+                            const timings = (propertyData as any)?.__pipeline_timings as { step: string; ms: number; dur?: number }[] | undefined;
+                            if (!timings || timings.length < 2) return null;
+                            const total = timings[timings.length - 1].ms;
+                            const barColors = [
+                                'bg-indigo-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500',
+                                'bg-cyan-500', 'bg-purple-500', 'bg-orange-500', 'bg-teal-500',
+                                'bg-pink-500', 'bg-blue-500'
+                            ];
+                            return (
+                                <div className="max-w-4xl mx-auto px-4 pt-3">
+                                    <button
+                                        onClick={() => setShowTimings(v => !v)}
+                                        className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-500 transition-colors"
+                                    >
+                                        <i className={`fa-solid fa-stopwatch text-xs ${total < 1000 ? 'text-emerald-400' : total < 3000 ? 'text-amber-400' : 'text-rose-400'}`}></i>
+                                        Pipeline: {(total / 1000).toFixed(1)}s
+                                        <i className={`fa-solid fa-chevron-${showTimings ? 'up' : 'down'} text-[8px] ml-1`}></i>
+                                    </button>
+                                    {showTimings && (
+                                        <div className="mt-2 bg-white rounded-xl border border-slate-100 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            {/* Waterfall bar */}
+                                            <div className="flex h-5 rounded-lg overflow-hidden mb-3">
+                                                {timings.slice(1).map((t, i) => {
+                                                    const pct = total > 0 ? ((t.dur || 0) / total) * 100 : 0;
+                                                    if (pct < 1) return null;
+                                                    return (
+                                                        <div
+                                                            key={i}
+                                                            className={`${barColors[i % barColors.length]} relative group cursor-default`}
+                                                            style={{ width: `${pct}%` }}
+                                                            title={`${t.step}: ${t.dur}ms`}
+                                                        >
+                                                            {pct > 8 && (
+                                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white/90 truncate px-1">
+                                                                    {t.dur}ms
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {/* Step list */}
+                                            <div className="space-y-1">
+                                                {timings.map((t, i) => (
+                                                    <div key={i} className="flex items-center gap-2 text-[10px]">
+                                                        {i > 0 && (
+                                                            <div className={`w-2.5 h-2.5 rounded-sm ${barColors[(i - 1) % barColors.length]}`}></div>
+                                                        )}
+                                                        {i === 0 && <div className="w-2.5 h-2.5 rounded-sm bg-slate-200"></div>}
+                                                        <span className="font-bold text-slate-600 flex-1 truncate">{t.step}</span>
+                                                        <span className="font-mono text-slate-400 tabular-nums">+{t.ms}ms</span>
+                                                        {t.dur != null && (
+                                                            <span className={`font-mono font-bold tabular-nums ${(t.dur) > 500 ? 'text-rose-500' : (t.dur) > 200 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                                                ({t.dur}ms)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                         {/* Deprecated banner */}
                         {propertyData.deprecated && (
                             <div className="max-w-4xl mx-auto px-4 pt-4 animate-in slide-in-from-top-2 duration-300">
