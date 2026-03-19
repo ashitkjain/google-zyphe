@@ -446,3 +446,136 @@ export const fetchNearbyEVChargers = async (
         return null;
     }
 };
+
+// ─── Microclimate Delta (Tomorrow.io) ─────────────────────────────────────────
+
+// Downtown baselines per city (lat, lng) — the "valley floor" reference points
+const CITY_BASELINES: Record<string, { lat: number; lng: number; label: string }> = {
+    'pleasanton': { lat: 37.6624, lng: -121.8747, label: 'Downtown Pleasanton' },
+    'dublin': { lat: 37.7022, lng: -121.9358, label: 'Downtown Dublin' },
+    'livermore': { lat: 37.6819, lng: -121.7680, label: 'Downtown Livermore' },
+    'san ramon': { lat: 37.7799, lng: -121.9780, label: 'Downtown San Ramon' },
+    'danville': { lat: 37.8216, lng: -121.9999, label: 'Downtown Danville' },
+};
+
+// In-memory cache for downtown baseline temps (saves 50% of API calls)
+const baselineCache: Record<string, { temp: number; apparentTemp: number; fetchedAt: number }> = {};
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+export interface MicroclimateDelta {
+    propertyTemp: number;        // °C
+    propertyApparentTemp: number;
+    baselineTemp: number;        // °C
+    baselineApparentTemp: number;
+    delta: number;               // °C (negative = cooler than baseline)
+    deltaF: number;              // °F equivalent
+    baselineLabel: string;
+    survivalRating: { score: string; label: string; tip: string; color: string };
+    insight: string;
+    fetchedAt: string;
+}
+
+function getSurvivalRating(delta: number): { score: string; label: string; tip: string; color: string } {
+    if (delta <= -3.0) return { score: '10/10', label: 'Arctic Oasis', tip: 'Natural hill breezes keep this area significantly cooler.', color: 'blue' };
+    if (delta <= -1.5) return { score: '8/10', label: 'Cool Retreat', tip: 'Escapes valley heat with noticeable cooling.', color: 'emerald' };
+    if (delta <= -0.5) return { score: '7/10', label: 'Slightly Cooler', tip: 'Marginally cooler microclimate than the valley floor.', color: 'emerald' };
+    if (delta <= 0.5) return { score: '6/10', label: 'Typical', tip: 'Standard local climate, no significant deviation.', color: 'slate' };
+    if (delta <= 1.5) return { score: '5/10', label: 'Warm Pocket', tip: 'Slightly warmer — may need extra cooling in summer.', color: 'amber' };
+    return { score: '4/10', label: 'Heat Pocket', tip: 'Urban heat island effect — higher AC usage expected.', color: 'orange' };
+}
+
+export const fetchMicroclimateDelta = async (
+    propertyLat: number,
+    propertyLng: number,
+    city?: string,
+    zpid?: string,
+    address?: string,
+): Promise<MicroclimateDelta | null> => {
+    const TOMORROW_KEY = (import.meta as any).env?.VITE_TOMORROW_API_KEY;
+    if (!TOMORROW_KEY) {
+        console.warn('[Microclimate] No VITE_TOMORROW_API_KEY configured');
+        return null;
+    }
+
+    const cityKey = (city || 'pleasanton').toLowerCase().trim();
+    const baseline = CITY_BASELINES[cityKey] || CITY_BASELINES['pleasanton'];
+
+    const start = Date.now();
+    const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        zpid,
+        address,
+        api_name: 'Tomorrow.io Microclimate',
+        endpoint: 'weather/realtime',
+        status: 'pending',
+    });
+
+    try {
+        // 1. Check baseline cache
+        let baseTemp: number;
+        let baseApparent: number;
+        const cached = baselineCache[cityKey];
+        if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
+            baseTemp = cached.temp;
+            baseApparent = cached.apparentTemp;
+        } else {
+            // Fetch baseline
+            const baseRes = await fetch(
+                `https://api.tomorrow.io/v4/weather/realtime?location=${baseline.lat},${baseline.lng}&apikey=${TOMORROW_KEY}`
+            );
+            if (!baseRes.ok) throw new Error(`Baseline fetch failed: ${baseRes.status}`);
+            const baseData = await baseRes.json();
+            baseTemp = baseData.data.values.temperature;
+            baseApparent = baseData.data.values.temperatureApparent;
+            baselineCache[cityKey] = { temp: baseTemp, apparentTemp: baseApparent, fetchedAt: Date.now() };
+        }
+
+        // 2. Fetch property temperature
+        const propRes = await fetch(
+            `https://api.tomorrow.io/v4/weather/realtime?location=${propertyLat},${propertyLng}&apikey=${TOMORROW_KEY}`
+        );
+        if (!propRes.ok) throw new Error(`Property fetch failed: ${propRes.status}`);
+        const propData = await propRes.json();
+        const propTemp = propData.data.values.temperature;
+        const propApparent = propData.data.values.temperatureApparent;
+
+        // 3. Compute delta (using RealFeel/apparent temp)
+        const delta = parseFloat((propApparent - baseApparent).toFixed(1));
+        const deltaF = parseFloat((delta * 9 / 5).toFixed(1));
+        const survivalRating = getSurvivalRating(delta);
+
+        // 4. Generate insight
+        const absDeltaF = Math.abs(deltaF);
+        let insight: string;
+        if (delta <= -1.5) {
+            insight = `This property feels ~${absDeltaF}°F cooler than ${baseline.label}. Elevated terrain or tree cover creates a natural cooling effect — lower AC bills in summer.`;
+        } else if (delta >= 1.5) {
+            insight = `This property runs ~${absDeltaF}°F warmer than ${baseline.label}. Heat retention from nearby structures may increase cooling costs.`;
+        } else {
+            insight = `Temperature at this property closely matches ${baseline.label} (within ${absDeltaF}°F) — a typical microclimate for the area.`;
+        }
+
+        if (logId) {
+            updateAPICall(logId, { status: 'success', response_time_ms: Date.now() - start });
+        }
+
+        return {
+            propertyTemp: propTemp,
+            propertyApparentTemp: propApparent,
+            baselineTemp: baseTemp,
+            baselineApparentTemp: baseApparent,
+            delta,
+            deltaF,
+            baselineLabel: baseline.label,
+            survivalRating,
+            insight,
+            fetchedAt: new Date().toISOString(),
+        };
+    } catch (e) {
+        console.error('[Microclimate] Failed to fetch', e);
+        if (logId) {
+            updateAPICall(logId, { status: 'failed', response_time_ms: Date.now() - start, error: (e as any).message });
+        }
+        return null;
+    }
+};
