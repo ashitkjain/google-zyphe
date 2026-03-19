@@ -1876,7 +1876,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; singleStory: boolean } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[] } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
@@ -2028,10 +2028,9 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
             const extractionPrompt = `Extract from: "${buyerStory}"
 Prices→dollars($1M=1000000). beds/baths→minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"".
-must_haves→requirements with "need","must","require","no stairs". nice_to_haves→preferences with "prefer","would be great","if possible".
-single_story→true only if buyer says "single story","no stairs","one level".`;
+must_haves→requirements with "need","must","require","no stairs". nice_to_haves→preferences with "prefer","would be great","if possible".`;
 
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[] };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2041,10 +2040,9 @@ single_story→true only if buyer says "single story","no stairs","one level".`;
                     baths: { type: Type.NUMBER },
                     home_type: { type: Type.STRING },
                     must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    single_story: { type: Type.BOOLEAN }
+                    nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
@@ -2090,8 +2088,7 @@ single_story→true only if buyer says "single story","no stairs","one level".`;
                 baths: ext.baths > 0 ? ext.baths : undefined,
                 homeType: ext.home_type || undefined,
                 mustHaves: ext.must_haves || [],
-                niceToHaves: ext.nice_to_haves || [],
-                singleStory: ext.single_story || false
+                niceToHaves: ext.nice_to_haves || []
             };
             setBuyerExtracted(extracted);
 
@@ -2138,13 +2135,6 @@ single_story→true only if buyer says "single story","no stairs","one level".`;
                     if (searchText.includes(tag)) score += 3;
                 }
 
-                // Single story filter — hard penalty if required but not matched
-                if (extracted.singleStory) {
-                    const km = graph.keyMetrics || {};
-                    const stories = km.stories ?? graph.stories;
-                    if (stories != null && stories > 1) score -= 10;
-                    else if (searchText.includes('single story') || searchText.includes('one story') || searchText.includes('single level')) score += 5;
-                }
 
                 return { zpid, graph, score };
             });
