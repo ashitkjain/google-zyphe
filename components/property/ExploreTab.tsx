@@ -1813,7 +1813,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [hasSearched, setHasSearched] = useState(false);
 
     // View, sort, filter, pagination state
-    const [viewMode, setViewModeLocal] = useState<'gallery' | 'table'>('gallery');
+    const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table'>('gallery');
     const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea'>('address');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [filterMinPrice, setFilterMinPrice] = useState('');
@@ -2344,6 +2344,12 @@ ${JSON.stringify(summaries)}
                         {/* View toggle */}
                         <div className="flex bg-slate-100 rounded-xl p-1">
                             <button
+                                onClick={() => { setViewModeLocal('zypheai'); setShowBuyerSearch(true); }}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'zypheai' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <i className="fa-solid fa-wand-magic-sparkles mr-1"></i> ZypheAI
+                            </button>
+                            <button
                                 onClick={() => setViewModeLocal('gallery')}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
@@ -2424,18 +2430,11 @@ ${JSON.stringify(summaries)}
                             {displayList.length !== results.length && ` (of ${results.length})`}
                         </span>
 
-                        {/* Buyer Search Toggle */}
-                        <button
-                            onClick={() => setShowBuyerSearch(!showBuyerSearch)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${showBuyerSearch ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50'}`}
-                        >
-                            <i className="fa-solid fa-wand-magic-sparkles text-[9px]"></i>
-                            AI Match
-                        </button>
+
                     </div>
 
-                    {/* ── BUYER STORY SEARCH PANEL ── */}
-                    {showBuyerSearch && (
+                    {/* ── BUYER STORY SEARCH PANEL (ZypheAI mode only) ── */}
+                    {viewMode === 'zypheai' && showBuyerSearch && (
                         <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-200 rounded-2xl p-5 space-y-3">
                             <div className="flex items-center gap-2">
                                 <i className="fa-solid fa-magnifying-glass-location text-indigo-500"></i>
@@ -2560,7 +2559,7 @@ ${JSON.stringify(summaries)}
                     )}
 
                     {/* ── AI MATCH RESULTS (VERTICAL SCROLL) ── */}
-                    {buyerResults && buyerResults.length > 0 && (
+                    {viewMode === 'zypheai' && buyerResults && buyerResults.length > 0 && (
                         <div className="space-y-3">
                             {/* Header */}
                             <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl px-5 py-3 flex items-center gap-3">
@@ -2657,7 +2656,7 @@ ${JSON.stringify(summaries)}
                     )}
 
                     {/* ── GALLERY VIEW ── */}
-                    {viewMode === 'gallery' && !buyerResults && (
+                    {viewMode === 'gallery' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                             {pageItems.map(prop => {
                                 const match = matchMap[prop.zpid];
@@ -2731,7 +2730,7 @@ ${JSON.stringify(summaries)}
                     )}
 
                     {/* ── TABLE VIEW ── */}
-                    {viewMode === 'table' && !buyerResults && (
+                    {viewMode === 'table' && (
                         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
                             <table className="w-full text-left">
                                 <thead>
