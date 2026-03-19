@@ -3,7 +3,7 @@ import React from 'react';
 import { PropertyData } from '../../types';
 
 import { calculateSolarPotential } from '../../utils/solarCalculations';
-import { computeSolarBenchmarks, computeNaturalLightScore } from '../../utils/solarCityBenchmarks';
+import { computeSolarBenchmarks, computeNaturalLightScore, computeSolarSmartTags } from '../../utils/solarCityBenchmarks';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import CommuteCalculator from './CommuteCalculator';
 import SeasonalSunCard from './SeasonalSunCard';
@@ -286,20 +286,47 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                     })()}
                                 </div>
 
-                                {/* Natural Light Score */}
+                                {/* Natural Light Score + Smart Tags */}
                                 {(() => {
                                     const light = computeNaturalLightScore(solar, data.city, data.state);
-                                    if (!light) return null;
-                                    const barColor = light.score >= 80 ? 'bg-emerald-500' : light.score >= 60 ? 'bg-blue-500' : light.score >= 45 ? 'bg-slate-400' : light.score >= 30 ? 'bg-amber-500' : 'bg-orange-500';
-                                    const textColor = light.score >= 80 ? 'text-emerald-700' : light.score >= 60 ? 'text-blue-700' : light.score >= 45 ? 'text-slate-600' : light.score >= 30 ? 'text-amber-700' : 'text-orange-700';
+                                    const smartTags: string[] = computeSolarSmartTags(solar, (data as any).lotSize, data.city, data.state) || [];
+                                    if (!light && smartTags.length === 0) return null;
+
+                                    const barColor = light && light.score >= 80 ? 'bg-emerald-500' : light && light.score >= 60 ? 'bg-blue-500' : light && light.score >= 45 ? 'bg-slate-400' : light && light.score >= 30 ? 'bg-amber-500' : 'bg-orange-500';
+                                    const textColor = light && light.score >= 80 ? 'text-emerald-700' : light && light.score >= 60 ? 'text-blue-700' : light && light.score >= 45 ? 'text-slate-600' : light && light.score >= 30 ? 'text-amber-700' : 'text-orange-700';
+
+                                    // Choose pill color based on tag sentiment
+                                    const pillColor = (tag: string) => {
+                                        if (tag.includes('Sun-Drenched') || tag.includes('Great Natural') || tag.includes('Top Solar') || tag.includes('Garden') || tag.includes('Pool'))
+                                            return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                        if (tag.includes('High Solar') || tag.includes('Energy Efficient') || tag.includes('Solar Ready') || tag.includes('Good Natural') || tag.includes('Open Sky'))
+                                            return 'bg-blue-50 text-blue-700 border-blue-200';
+                                        if (tag.includes('Shaded') || tag.includes('Limited') || tag.includes('Dark'))
+                                            return 'bg-orange-50 text-orange-700 border-orange-200';
+                                        return 'bg-slate-50 text-slate-600 border-slate-200';
+                                    };
+
                                     return (
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Light</span>
-                                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${light.score}%` }}></div>
-                                            </div>
-                                            <span className={`text-[11px] font-black ${textColor} whitespace-nowrap`}>{light.score} <span className="text-[9px] font-bold">{light.label}</span></span>
-                                        </div>
+                                        <>
+                                            {light && (
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Light</span>
+                                                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${light.score}%` }}></div>
+                                                    </div>
+                                                    <span className={`text-[11px] font-black ${textColor} whitespace-nowrap`}>{light.score} <span className="text-[9px] font-bold">{light.label}</span></span>
+                                                </div>
+                                            )}
+                                            {smartTags.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                    {smartTags.slice(0, 5).map((tag: string, i: number) => (
+                                                        <span key={i} className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${pillColor(tag)}`}>
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
                                     );
                                 })()}
 
