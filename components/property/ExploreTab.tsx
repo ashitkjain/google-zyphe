@@ -2230,16 +2230,26 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
                 });
 
                 console.log(`[Buyer Match] Chunk ${idx + 1}/${chunks.length}:`, summaries.map(s => ({ zpid: s.zpid, factorCount: Object.keys(s.factors).length, hasKeyMetrics: !!s.keyMetrics, hasSummary: !!s.summary })));
+                const mustHavesList = (extracted.mustHaves || []).map((m, i) => `${i + 1}. ${m}`).join('\n');
+                const niceToHavesList = (extracted.niceToHaves || []).map((n, i) => `${i + 1}. ${n}`).join('\n');
                 const prompt = `Score each property 0-100 against the buyer story.
 
 ## BUYER STORY
 ${buyerStory}
+
+## MUST-HAVES (weight heavily, earlier = more important)
+${mustHavesList || 'None specified'}
+
+## NICE-TO-HAVES (lower weight, earlier = more important)
+${niceToHavesList || 'None specified'}
 
 ## PROPERTIES (${summaries.length})
 ${JSON.stringify(summaries)}
 
 ## INSTRUCTIONS
 - score: 0-100 match quality
+- Must-haves weigh 3× more than nice-to-haves
+- Earlier items in each list are more important than later ones
 - reasons: 2-3 short facts about what MATCHES
 - misses: buyer criteria this property does NOT satisfy. Empty array if none.
 - highlight: one sentence summary
