@@ -1514,3 +1514,83 @@ export const getDeprecatedProperties = async (): Promise<any[]> => {
         return [];
     }
 };
+
+// ── Address Index (lightweight address→ZPID lookup for autocomplete) ──────
+
+export interface AddressIndexEntry {
+    /** Short address string */
+    a: string;
+    /** ZPID */
+    z: string;
+}
+
+/**
+ * Build (or rebuild) the address index for a city.
+ * Reads all property docs for the city and writes a compact {address, zpid}[]
+ * to a single `address_index/{city}` document.
+ */
+export const buildAddressIndex = async (city: string): Promise<number> => {
+    if (!db || !city) return 0;
+    try {
+        const props = await getPropertiesByCity(city, 500);
+        const entries: AddressIndexEntry[] = props.map(p => ({ a: p.address, z: p.zpid }));
+        const cityKey = city.toLowerCase().trim();
+        await setDoc(doc(db, "address_index", cityKey), {
+            entries,
+            count: entries.length,
+            lastUpdated: serverTimestamp()
+        });
+        console.log(`[AddressIndex] Built index for "${cityKey}" — ${entries.length} entries`);
+        return entries.length;
+    } catch (error) {
+        handleFirestoreError(error, "buildAddressIndex");
+        return 0;
+    }
+};
+
+/**
+ * Load address index entries for one or more cities.
+ * Returns a flat array of {address, zpid} pairs for instant client-side search.
+ */
+export const loadAddressIndex = async (cities: string[]): Promise<AddressIndexEntry[]> => {
+    if (!db || cities.length === 0) return [];
+    try {
+        const all: AddressIndexEntry[] = [];
+        for (const city of cities) {
+            const cityKey = city.toLowerCase().trim();
+            logFirestoreQuery('getDoc', 'address_index', { cityKey });
+            const snap = await getDoc(doc(db, "address_index", cityKey));
+            if (snap.exists()) {
+                const data = snap.data();
+                if (Array.isArray(data.entries)) {
+                    all.push(...data.entries);
+                }
+            }
+        }
+        console.log(`[AddressIndex] Loaded ${all.length} entries from ${cities.length} cities`);
+        return all;
+    } catch (error) {
+        handleFirestoreError(error, "loadAddressIndex");
+        return [];
+    }
+};
+
+/**
+ * Add a single property to the address index (fire-and-forget after saving a new property).
+ */
+export const updateAddressIndex = async (city: string, address: string, zpid: string): Promise<void> => {
+    if (!db || !city || !address || !zpid) return;
+    try {
+        const cityKey = city.toLowerCase().trim();
+        const indexRef = doc(db, "address_index", cityKey);
+        const snap = await getDoc(indexRef);
+        const entries: AddressIndexEntry[] = snap.exists() ? (snap.data().entries || []) : [];
+        // Don't duplicate
+        if (entries.some(e => e.z === zpid)) return;
+        entries.push({ a: address, z: zpid });
+        await setDoc(indexRef, { entries, count: entries.length, lastUpdated: serverTimestamp() });
+        console.log(`[AddressIndex] Added "${address}" (${zpid}) to "${cityKey}" index`);
+    } catch (error) {
+        handleFirestoreError(error, "updateAddressIndex");
+    }
+};

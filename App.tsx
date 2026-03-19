@@ -36,7 +36,10 @@ import {
   saveContextGraphToCloud,
   getPropertyAssetsFromCloud,
   getDeepInvestmentResearchFromCloud,
+  loadAddressIndex,
+  updateAddressIndex,
 } from './services/firebaseService';
+import type { AddressIndexEntry } from './services/firebase/properties';
 import {
   trackLogin,
   trackPageView,
@@ -123,6 +126,8 @@ const App: React.FC = () => {
   const [contextGraphZpid, setContextGraphZpid] = useState<string>('');
   const [showPreload, setShowPreload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [addressIndex, setAddressIndex] = useState<AddressIndexEntry[]>([]);
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AddressIndexEntry[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -402,13 +407,15 @@ const App: React.FC = () => {
 
         // Fetch cloud data regardless of profile existence as long as we have a UID
         try {
-          const [history, favs] = await Promise.all([
+          const [history, favs, indexEntries] = await Promise.all([
             getUserViewHistory(user.uid),
-            getUserFavorites(user.uid)
+            getUserFavorites(user.uid),
+            loadAddressIndex(['pleasanton', 'dublin']),
           ]);
           setCloudHistory(history);
           console.log("[Auth] Loaded favorites for user:", favs.length);
           setFavorites(favs);
+          if (indexEntries.length > 0) setAddressIndex(indexEntries);
         } catch (e) {
           console.warn("Could not retrieve cloud data:", e);
         }
@@ -416,6 +423,10 @@ const App: React.FC = () => {
         setCurrentUser(null);
         setCloudHistory([]);
         setFavorites([]);
+        // Still load address index for non-authenticated users
+        loadAddressIndex(['pleasanton', 'dublin']).then(entries => {
+          if (entries.length > 0) setAddressIndex(entries);
+        }).catch(() => {});
       }
     });
     return () => unsubscribe();
@@ -577,6 +588,16 @@ const App: React.FC = () => {
 
       if (currentUser && mergedData.zpid) {
         trackUserPropertyView(currentUser.uid, mergedData);
+      }
+
+      // Fire-and-forget: update address index so this property is instantly searchable next time
+      if (mergedData.zpid && mergedData.city && mergedData.address) {
+        updateAddressIndex(mergedData.city, mergedData.address, mergedData.zpid).catch(() => {});
+        // Also update in-memory index
+        setAddressIndex(prev => {
+          if (prev.some(e => e.z === mergedData.zpid)) return prev;
+          return [...prev, { a: mergedData.address, z: mergedData.zpid! }];
+        });
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred during property retrieval.');
@@ -996,13 +1017,27 @@ const App: React.FC = () => {
 
   /* ---------------------- Render Helpers ---------------------- */
   const searchBar = (
-    <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50 w-full">
+    <form onSubmit={(e) => { e.preventDefault(); setAutocompleteSuggestions([]); performSearch(address); }} className="flex-1 relative z-50 w-full">
       <div className="relative group">
         <input
           type="text"
           value={address}
           onFocus={() => setShowHistory(true)}
-          onChange={(e) => setAddress(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setAddress(val);
+            // Autocomplete: filter address index
+            if (val.length >= 3 && addressIndex.length > 0) {
+              const q = val.toLowerCase();
+              const matches = addressIndex
+                .filter(entry => entry.a.toLowerCase().includes(q))
+                .slice(0, 8);
+              setAutocompleteSuggestions(matches);
+              if (matches.length > 0) setShowHistory(false);
+            } else {
+              setAutocompleteSuggestions([]);
+            }
+          }}
           placeholder="Enter property address..."
           className="w-full pl-12 pr-48 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
         />
@@ -1122,6 +1157,44 @@ const App: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Autocomplete suggestions from address index */}
+      {autocompleteSuggestions.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
+          <div className="flex items-center justify-between px-4 py-2 bg-indigo-50/50 border-b border-indigo-100">
+            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1.5">
+              <i className="fa-solid fa-bolt"></i>
+              Instant Match
+            </span>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAutocompleteSuggestions([]); }}
+              className="w-6 h-6 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center"
+            >
+              <i className="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+          <div className="max-h-[300px] overflow-y-auto p-2">
+            {autocompleteSuggestions.map((entry, idx) => (
+              <button
+                key={`ac-${idx}`}
+                onClick={() => {
+                  setAddress(entry.a);
+                  setAutocompleteSuggestions([]);
+                  setShowHistory(false);
+                  // Search by ZPID → skips RapidAPI, hits Firestore cache directly
+                  performSearch(entry.z);
+                }}
+                className="w-full text-left px-4 py-3 rounded-xl hover:bg-indigo-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+              >
+                <span className="truncate">{entry.a}</span>
+                <span className="flex items-center gap-1 text-[9px] font-bold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <i className="fa-solid fa-bolt text-[8px]"></i>Cached
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       )}
