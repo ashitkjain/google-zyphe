@@ -1751,7 +1751,7 @@ const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any
     const [browseHasResults, setBrowseHasResults] = useState(false);
 
     return (
-        <div className="max-w-5xl mx-auto py-6 text-center space-y-8">
+        <div className="w-full px-6 py-6 text-center space-y-8">
             {/* Search bar always centered at top */}
             {searchBar && (
                 <div className="w-full max-w-2xl mx-auto">
