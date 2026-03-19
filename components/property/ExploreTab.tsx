@@ -1853,21 +1853,21 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
     // Factor ID → Name lookup (Firestore stores {i, t} without names)
     const FACTOR_NAMES: Record<number, string> = {
-        1:'Price',2:'HOA',4:'Carrying Cost',5:'Seller Motivation',6:'ADU Potential',7:'STR',8:'Rental Yield',9:'Appreciation',
-        14:'Sqft',17:'Home Office',19:'Foundation',20:'Construction Era',21:'Move-In Ready',22:'Renovation Upside',
-        23:'Architecture',24:'Natural Light',25:'Open Concept',26:'Kitchen',27:'Bathroom',28:'Flooring',29:'Ceilings',30:'Finishes',
-        31:'Fenced Yard',32:'Outdoor Entertainment',33:'Privacy',34:'Curb Appeal',35:'Topography',36:'View',37:'Street Noise',
-        38:'Visual Clutter',39:'Yard Space',40:'Low Maintenance',41:'Exterior Style',42:'Commute',43:'Walkability',44:'Greenery',45:'Sidewalks',
-        46:'Fire Risk',47:'Flood Risk',48:'Solar',49:'Pollen',50:'HVAC',51:'Orientation/Vastu',52:'Air Quality',54:'Slope',
-        57:'WFH Score',58:'Multi-Gen',59:'Laundry',60:'Water/Air Systems',61:'Security',62:'Presentation',
-        64:'Job Hubs',65:'Dev Impact',66:'Soil/Geo',67:'Luxury Finishes',68:'Backyard Potential',69:'Streetscape',70:'Market Momentum',
-        71:'Development',72:'Complaints',73:'Satisfaction',74:'Safety',75:'Market Velocity',76:'Internet',77:'Noise',78:'Drought',79:'Disasters',
-        80:'Professional Fit',81:'Family Fit',82:'Senior Fit',83:'Neighborhood',84:'Walkable Amenities',85:'Medical',86:'EV Infrastructure',
-        87:'Pet Friendly',88:'Dining Scene',89:'Market Signals',90:'Growth Catalysts',91:'Investment Risk',92:'Market Friction',93:'Zoning',
-        94:'Street Character',95:'Curbside Risks',96:'Landscaping',97:'Parking',98:'Neighborhood Condition',
-        100:'Agent Highlights',101:'Schools',102:'Sentiment',103:'Market Narrative',104:'Condition',105:'Convenience',
-        106:'Seismic',107:'Flood Zone',108:'Sqft Discrepancy',109:'Lot Verification',110:'Listing Flags',111:'Distressed Signal',
-        113:'Room Character',114:'Interior Vibe',115:'Materials',116:'Layout',120:'Amenities Profile',112:'FEMA'
+        1: 'Price', 2: 'HOA', 4: 'Carrying Cost', 5: 'Seller Motivation', 6: 'ADU Potential', 7: 'STR', 8: 'Rental Yield', 9: 'Appreciation',
+        14: 'Sqft', 17: 'Home Office', 19: 'Foundation', 20: 'Construction Era', 21: 'Move-In Ready', 22: 'Renovation Upside',
+        23: 'Architecture', 24: 'Natural Light', 25: 'Open Concept', 26: 'Kitchen', 27: 'Bathroom', 28: 'Flooring', 29: 'Ceilings', 30: 'Finishes',
+        31: 'Fenced Yard', 32: 'Outdoor Entertainment', 33: 'Privacy', 34: 'Curb Appeal', 35: 'Topography', 36: 'View', 37: 'Street Noise',
+        38: 'Visual Clutter', 39: 'Yard Space', 40: 'Low Maintenance', 41: 'Exterior Style', 42: 'Commute', 43: 'Walkability', 44: 'Greenery', 45: 'Sidewalks',
+        46: 'Fire Risk', 47: 'Flood Risk', 48: 'Solar', 49: 'Pollen', 50: 'HVAC', 51: 'Orientation/Vastu', 52: 'Air Quality', 54: 'Slope',
+        57: 'WFH Score', 58: 'Multi-Gen', 59: 'Laundry', 60: 'Water/Air Systems', 61: 'Security', 62: 'Presentation',
+        64: 'Job Hubs', 65: 'Dev Impact', 66: 'Soil/Geo', 67: 'Luxury Finishes', 68: 'Backyard Potential', 69: 'Streetscape', 70: 'Market Momentum',
+        71: 'Development', 72: 'Complaints', 73: 'Satisfaction', 74: 'Safety', 75: 'Market Velocity', 76: 'Internet', 77: 'Noise', 78: 'Drought', 79: 'Disasters',
+        80: 'Professional Fit', 81: 'Family Fit', 82: 'Senior Fit', 83: 'Neighborhood', 84: 'Walkable Amenities', 85: 'Medical', 86: 'EV Infrastructure',
+        87: 'Pet Friendly', 88: 'Dining Scene', 89: 'Market Signals', 90: 'Growth Catalysts', 91: 'Investment Risk', 92: 'Market Friction', 93: 'Zoning',
+        94: 'Street Character', 95: 'Curbside Risks', 96: 'Landscaping', 97: 'Parking', 98: 'Neighborhood Condition',
+        100: 'Agent Highlights', 101: 'Schools', 102: 'Sentiment', 103: 'Market Narrative', 104: 'Condition', 105: 'Convenience',
+        106: 'Seismic', 107: 'Flood Zone', 108: 'Sqft Discrepancy', 109: 'Lot Verification', 110: 'Listing Flags', 111: 'Distressed Signal',
+        113: 'Room Character', 114: 'Interior Vibe', 115: 'Materials', 116: 'Layout', 120: 'Amenities Profile', 112: 'FEMA'
     };
 
     // Buyer Story Search
@@ -1886,13 +1886,15 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [miningStatus, setMiningStatus] = useState<string>('');
     const [cachedNeighborhoodCount, setCachedNeighborhoodCount] = useState<number | null>(null);
 
-    const handleBrowse = async () => {
-        if (!selectedCity) return;
+    const handleBrowse = async (city?: string) => {
+        const target = city || selectedCity;
+        if (!target) return;
+        if (city) setSelectedCity(city);
         setBrowsing(true);
         setHasSearched(true);
         setPage(1);
         try {
-            const data = await getPropertiesByCity(selectedCity);
+            const data = await getPropertiesByCity(target);
             setResults(data);
         } catch (e) {
             console.error('Browse by city failed:', e);
@@ -2183,7 +2185,7 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
                 userId: auth.currentUser?.uid || 'anon',
                 promptFilename: 'warmup',
                 skipWatchdog: true
-            }).catch(() => {}); // ignore errors
+            }).catch(() => { }); // ignore errors
 
             const schema = {
                 type: Type.OBJECT,
@@ -2250,7 +2252,7 @@ ${JSON.stringify(summaries)}
 - score: 0-100 match quality
 - Must-haves weigh 3× more than nice-to-haves
 - Earlier items in each list are more important than later ones
-- reasons: 2-3 short facts about what MATCHES
+- reasons: the facts about what MATCHES
 - misses: buyer criteria this property does NOT satisfy. Empty array if none.
 - highlight: one sentence summary
 - Neutral tone. Return ALL ${summaries.length} properties.`;
@@ -2299,30 +2301,26 @@ ${JSON.stringify(summaries)}
         <div className="text-left">
             {/* Controls row */}
             <div className="flex items-center gap-2">
-                <select
-                    value={selectedCity}
-                    onChange={e => { setSelectedCity(e.target.value); setPage(1); }}
-                    className="px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all cursor-pointer min-w-[150px]"
-                >
-                    <option value="">City...</option>
-                    {BROWSE_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <button
-                    onClick={handleBrowse}
-                    disabled={!selectedCity || browsing}
-                    className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${!selectedCity || browsing
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                        : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
-                        }`}
-                >
-                    {browsing ? (
-                        <><i className="fa-solid fa-spinner animate-spin"></i> Loading...</>
-                    ) : (
-                        <><i className="fa-solid fa-magnifying-glass"></i> Browse</>
-                    )}
-                </button>
-
-
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Browse:</span>
+                {BROWSE_CITIES.map((c, i) => (
+                    <span key={c} className="flex items-center gap-2">
+                        {i > 0 && <span className="text-slate-300">|</span>}
+                        <button
+                            onClick={() => { setPage(1); handleBrowse(c); }}
+                            disabled={browsing}
+                            className={`text-sm font-bold transition-all ${browsing && selectedCity === c
+                                ? 'text-indigo-400 cursor-wait'
+                                : selectedCity === c && results.length > 0
+                                    ? 'text-indigo-700 underline underline-offset-4'
+                                    : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
+                                }`}
+                        >
+                            {browsing && selectedCity === c ? (
+                                <><i className="fa-solid fa-spinner animate-spin mr-1"></i>{c}</>
+                            ) : c}
+                        </button>
+                    </span>
+                ))}
             </div>
 
             {/* Results area */}
@@ -2546,12 +2544,12 @@ ${JSON.stringify(summaries)}
                                 <span
                                     key={i}
                                     className={`font-bold px-2 py-0.5 rounded-md border ${t.step === 'TOTAL'
-                                            ? t.ms < 5000
-                                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black'
-                                                : t.ms < 8000
-                                                    ? 'bg-amber-100 text-amber-800 border-amber-300 font-black'
-                                                    : 'bg-rose-100 text-rose-800 border-rose-300 font-black'
-                                            : 'bg-white text-slate-700 border-slate-200'
+                                        ? t.ms < 5000
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black'
+                                            : t.ms < 8000
+                                                ? 'bg-amber-100 text-amber-800 border-amber-300 font-black'
+                                                : 'bg-rose-100 text-rose-800 border-rose-300 font-black'
+                                        : 'bg-white text-slate-700 border-slate-200'
                                         }`}
                                     title={t.detail || ''}
                                 >
