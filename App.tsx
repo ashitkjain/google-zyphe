@@ -80,6 +80,11 @@ type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' 
 // Initialize PostHog immediately (synchronous) so it's ready before any events fire
 initPostHog();
 
+// Dev helper: expose buildAddressIndex on window for seeding from console
+// Usage: window.buildAddressIndex('Pleasanton') or window.buildAddressIndex('Dublin')
+import { buildAddressIndex } from './services/firebaseService';
+(window as any).buildAddressIndex = buildAddressIndex;
+
 const App: React.FC = () => {
   // Initialize session-recording tools that need the DOM
   useEffect(() => {
