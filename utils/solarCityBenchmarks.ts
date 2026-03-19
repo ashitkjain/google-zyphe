@@ -390,20 +390,25 @@ export function computeSolarSmartTags(
     const roofArea = solarData.wholeRoofStats?.areaMeters2 || 0;
     const groundArea = solarData.wholeRoofStats?.groundAreaMeters2 || 0;
 
-    // Sun-Drenched / Natural Light
-    if (sunshine > 1500) {
+    // City-relative sunshine comparison (single source of truth)
+    const bench = getCityBenchmark(city, state);
+    const pct = bench.avgSunshineHoursPerYear > 0
+        ? (sunshine / bench.avgSunshineHoursPerYear) * 100
+        : 0;
+
+    if (pct >= 110) {
         tags.push('Sun-Drenched');
         tags.push('Great Natural Light');
-    } else if (sunshine > 1200) {
+        tags.push(`Top Solar Exposure in ${city || 'area'}`);
+    } else if (pct >= 95) {
         tags.push('Good Natural Light');
-    } else if (sunshine < 800) {
-        tags.push('Limited Natural Light');
+    } else if (pct < 70) {
+        tags.push('Likely Shaded by Obstructions');
     }
 
-    // High Solar Potential
+    // High Solar Potential (panel count)
     if (panelCount > 20) {
         tags.push('High Solar Potential');
-        tags.push('Energy Efficient');
     } else if (panelCount > 10) {
         tags.push('Solar Ready');
     }
@@ -417,25 +422,14 @@ export function computeSolarSmartTags(
         }
     }
 
-    // High flux = Garden-Ready / Pool-Prime
+    // High flux = Garden-Ready / Pool-Prime (only if sunshine is decent)
     const production = solarData.estimatedSolarProduction?.annualKwh || 0;
-    if (groundArea > 0 && production > 0) {
+    if (groundArea > 0 && production > 0 && pct >= 85) {
         const fluxPerM2 = production / groundArea;
         if (fluxPerM2 > 200) {
             tags.push('Garden-Ready (High Solar Flux)');
             tags.push('Pool-Prime');
         }
-    }
-
-    // City benchmark-aware tags
-    const bench = getCityBenchmark(city, state);
-    const pct = bench.avgSunshineHoursPerYear > 0
-        ? (sunshine / bench.avgSunshineHoursPerYear) * 100
-        : 0;
-    if (pct >= 110) {
-        tags.push(`Top Solar Exposure in ${city || 'area'}`);
-    } else if (pct < 70) {
-        tags.push('Likely Shaded by Obstructions');
     }
 
     return tags;

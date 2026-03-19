@@ -235,34 +235,6 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                     </div>
                 </div>
 
-                {/* Shadow info */}
-                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 mb-2">
-                    <i className="fa-solid fa-mountain-sun text-[10px] text-slate-400"></i>
-                    <div className="min-w-0 flex-1">
-                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Noon Shadow</div>
-                        <div className="text-[12px] font-bold text-slate-600 leading-snug">
-                            {current.shadowMultiplier < 10
-                                ? `${current.shadowMultiplier.toFixed(1)}× object height`
-                                : 'Very long shadows'}
-                            {current.shadowMultiplier < 0.5 && <span className="text-[9px] text-emerald-500 ml-1">(minimal shading)</span>}
-                            {current.shadowMultiplier >= 0.5 && current.shadowMultiplier < 1.5 && <span className="text-[9px] text-amber-500 ml-1">(moderate shading)</span>}
-                            {current.shadowMultiplier >= 1.5 && current.shadowMultiplier < 10 && <span className="text-[9px] text-orange-500 ml-1">(long shadows)</span>}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Golden Hour */}
-                {current.goldenEnd && current.goldenStart && (
-                    <div className="flex items-center gap-2 p-2 bg-amber-50/60 rounded-lg border border-amber-100/60 mb-3">
-                        <i className="fa-solid fa-camera text-[10px] text-amber-500"></i>
-                        <div className="min-w-0">
-                            <div className="text-[11px] font-black uppercase text-amber-500 tracking-wider">Golden Hour</div>
-                            <div className="text-[12px] font-bold text-amber-700 leading-snug">
-                                AM {formatTime(current.goldenEnd)} · PM {formatTime(current.goldenStart)}
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* Insight */}
                 <div className="p-2.5 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
