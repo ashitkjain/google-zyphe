@@ -2177,6 +2177,17 @@ single_story→true only if buyer says "single story","no stairs","one level". s
 
             // ── STEP 3: Parallel Gemini matching (chunked) ──
             const t3 = performance.now();
+
+            // Fetch descriptions from properties collection (parallel, non-blocking)
+            const { getPropertyFromCloud } = await import('../../services/firebase/properties');
+            const descMap: Record<string, string> = {};
+            await Promise.all(graphs.map(async g => {
+                try {
+                    const prop = await getPropertyFromCloud(g.zpid);
+                    if (prop?.description) descMap[g.zpid] = prop.description;
+                } catch {}
+            }));
+
             const CHUNK_SIZE = 5;
             const chunks: typeof graphs[] = [];
             for (let i = 0; i < graphs.length; i += CHUNK_SIZE) {
@@ -2233,7 +2244,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                         zpid: g.zpid, address: g.address,
                         summary: g.graph.summary,
                         keyMetrics: g.graph.keyMetrics,
-                        description: g.graph.description || undefined,
+                        description: descMap[g.zpid] || undefined,
                         factors
                     };
                 });

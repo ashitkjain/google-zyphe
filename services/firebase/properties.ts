@@ -749,7 +749,7 @@ export const getSchoolAnalysisFromCloud = async (cacheKey: string): Promise<any 
 };
 
 
-export const saveContextGraphToCloud = async (zpid: string, data: any, city?: string, state?: string, propertyMeta?: { price?: number; beds?: number; baths?: number; sqft?: number; yearBuilt?: number; homeType?: string; address?: string; description?: string }) => {
+export const saveContextGraphToCloud = async (zpid: string, data: any, city?: string, state?: string, propertyMeta?: { price?: number; beds?: number; baths?: number; sqft?: number; yearBuilt?: number; homeType?: string; address?: string }) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
         const docRef = doc(db, "context_graph", String(zpid));
@@ -774,7 +774,6 @@ export const saveContextGraphToCloud = async (zpid: string, data: any, city?: st
         saveData.yearBuilt = meta.yearBuilt ?? km.yearBuilt ?? null;
         saveData.homeType = meta.homeType ?? null;
         saveData.address = meta.address ?? null;
-        if (meta.description) saveData.description = meta.description;
 
         await setDoc(docRef, saveData, { merge: true });
         return { success: true };
