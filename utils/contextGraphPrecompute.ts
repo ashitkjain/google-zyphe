@@ -908,6 +908,23 @@ function factor120_nearbyAmenitiesProfile(p: PropertyData): ExtractedFactor {
 // ── Main Export ────────────────────────────────────────────────────
 
 
+
+function factor121_microclimate(p: PropertyData): ExtractedFactor {
+    const micro = (p as any).microclimate;
+    if (!micro) return { id: 121, name: 'Microclimate (Thermal Fingerprint)', tags: [] };
+    const tags: string[] = [];
+    const cToF = (c: number) => Math.round(c * 9 / 5 + 32);
+    tags.push(`RealFeel: ${cToF(micro.propertyApparentTemp)}°F vs ${micro.baselineLabel} ${cToF(micro.baselineApparentTemp)}°F`);
+    tags.push(`Delta: ${micro.deltaF > 0 ? '+' : ''}${micro.deltaF}°F`);
+    tags.push(`${micro.survivalRating.score} — ${micro.survivalRating.label}`);
+    tags.push(`Mechanism: ${micro.survivalRating.mechanism}`);
+    if (micro.windSpeed > 3) tags.push(`Canyon/Gap wind effect (${Math.round(micro.windSpeed * 2.237)} mph)`);
+    if (micro.humidity > 60) tags.push(`High humidity (${Math.round(micro.humidity)}%)`);
+    if (micro.delta <= -1.5) tags.push('Summer Survival Property — cooler than city baseline');
+    if (micro.delta >= 1.5) tags.push('Heat pocket — higher AC costs expected');
+    return { id: 121, name: 'Microclimate (Thermal Fingerprint)', tags: tags.slice(0, 8) };
+}
+
 /**
  * Pre-computes all pure-data factors from property fields.
  * Returns a map of factorId → ExtractedFactor for fast merging.
@@ -963,6 +980,7 @@ export function precomputeDataFactors(
         factor108_sqftDiscrepancy(property),
         factor109_lotSizeVerification(property),
         factor65_upcomingDevImpact(property),
+        factor121_microclimate(property),
 
 
     ];
@@ -974,6 +992,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120, 121];
 
 

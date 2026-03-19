@@ -459,7 +459,7 @@ const CITY_BASELINES: Record<string, { lat: number; lng: number; label: string }
 };
 
 // In-memory cache for downtown baseline temps (saves 50% of API calls)
-const baselineCache: Record<string, { temp: number; apparentTemp: number; fetchedAt: number }> = {};
+const baselineCache: Record<string, { temp: number; apparentTemp: number; humidity: number; windSpeed: number; fetchedAt: number }> = {};
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export interface MicroclimateDelta {
@@ -470,18 +470,50 @@ export interface MicroclimateDelta {
     delta: number;               // °C (negative = cooler than baseline)
     deltaF: number;              // °F equivalent
     baselineLabel: string;
-    survivalRating: { score: string; label: string; tip: string; color: string };
+    // Extra weather fields for richer insights
+    humidity: number;            // % relative humidity at property
+    windSpeed: number;           // m/s at property
+    windGust: number;            // m/s at property
+    survivalRating: { score: string; label: string; tip: string; color: string; mechanism: string };
     insight: string;
     fetchedAt: string;
 }
 
-function getSurvivalRating(delta: number): { score: string; label: string; tip: string; color: string } {
-    if (delta <= -3.0) return { score: '10/10', label: 'Arctic Oasis', tip: 'Natural hill breezes keep this area significantly cooler.', color: 'blue' };
-    if (delta <= -1.5) return { score: '8/10', label: 'Cool Retreat', tip: 'Escapes valley heat with noticeable cooling.', color: 'emerald' };
-    if (delta <= -0.5) return { score: '7/10', label: 'Slightly Cooler', tip: 'Marginally cooler microclimate than the valley floor.', color: 'emerald' };
-    if (delta <= 0.5) return { score: '6/10', label: 'Typical', tip: 'Standard local climate, no significant deviation.', color: 'slate' };
-    if (delta <= 1.5) return { score: '5/10', label: 'Warm Pocket', tip: 'Slightly warmer — may need extra cooling in summer.', color: 'amber' };
-    return { score: '4/10', label: 'Heat Pocket', tip: 'Urban heat island effect — higher AC usage expected.', color: 'orange' };
+function getSurvivalRating(delta: number, windSpeed: number, humidity: number): { score: string; label: string; tip: string; color: string; mechanism: string } {
+    if (delta <= -3.0) return {
+        score: '10/10', label: 'Cool Pocket', color: 'blue',
+        mechanism: 'Thermal Buffering + Elevation',
+        tip: 'Hill breezes and tree canopy create a natural cooling zone — perfect for summer dinners without the valley heat.'
+    };
+    if (delta <= -1.5) return {
+        score: '8/10', label: 'Cool Retreat', color: 'emerald',
+        mechanism: windSpeed > 3 ? 'Gap Wind Cooling' : 'Canopy Shade',
+        tip: windSpeed > 3
+            ? 'Canyon breezes reach this lot before the rest of the city — a natural AC.'
+            : 'Dense vegetation and shade lower the effective temperature.'
+    };
+    if (delta <= -0.5) return {
+        score: '7/10', label: 'Slightly Cooler', color: 'emerald',
+        mechanism: 'Mild Elevation Benefit',
+        tip: 'A subtle but real cooling effect — every degree counts on 100°F days.'
+    };
+    if (delta <= 0.5) return {
+        score: '6/10', label: 'Typical Valley', color: 'slate',
+        mechanism: 'Valley Floor Baseline',
+        tip: 'Standard microclimate — matches the official weather station.'
+    };
+    if (delta <= 1.5) return {
+        score: '5/10', label: 'Warm Pocket', color: 'amber',
+        mechanism: humidity > 50 ? 'Humidity Trap' : 'Surface Albedo',
+        tip: humidity > 50
+            ? 'Higher humidity makes this lot feel warmer than official readings.'
+            : 'Concrete and dark roofing absorb extra solar radiation.'
+    };
+    return {
+        score: '4/10', label: 'Heat Island', color: 'orange',
+        mechanism: 'Urban Heat Island',
+        tip: 'Dense paving and low vegetation trap heat — budget for higher AC costs.'
+    };
 }
 
 export const fetchMicroclimateDelta = async (
@@ -515,45 +547,57 @@ export const fetchMicroclimateDelta = async (
         // 1. Check baseline cache
         let baseTemp: number;
         let baseApparent: number;
+        let baseHumidity: number;
+        let baseWindSpeed: number;
         const cached = baselineCache[cityKey];
         if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
             baseTemp = cached.temp;
             baseApparent = cached.apparentTemp;
+            baseHumidity = cached.humidity;
+            baseWindSpeed = cached.windSpeed;
         } else {
-            // Fetch baseline
             const baseRes = await fetch(
                 `https://api.tomorrow.io/v4/weather/realtime?location=${baseline.lat},${baseline.lng}&apikey=${TOMORROW_KEY}`
             );
             if (!baseRes.ok) throw new Error(`Baseline fetch failed: ${baseRes.status}`);
             const baseData = await baseRes.json();
-            baseTemp = baseData.data.values.temperature;
-            baseApparent = baseData.data.values.temperatureApparent;
-            baselineCache[cityKey] = { temp: baseTemp, apparentTemp: baseApparent, fetchedAt: Date.now() };
+            const v = baseData.data.values;
+            baseTemp = v.temperature;
+            baseApparent = v.temperatureApparent;
+            baseHumidity = v.humidity || 0;
+            baseWindSpeed = v.windSpeed || 0;
+            baselineCache[cityKey] = { temp: baseTemp, apparentTemp: baseApparent, humidity: baseHumidity, windSpeed: baseWindSpeed, fetchedAt: Date.now() };
         }
 
-        // 2. Fetch property temperature
+        // 2. Fetch property temperature + wind + humidity
         const propRes = await fetch(
             `https://api.tomorrow.io/v4/weather/realtime?location=${propertyLat},${propertyLng}&apikey=${TOMORROW_KEY}`
         );
         if (!propRes.ok) throw new Error(`Property fetch failed: ${propRes.status}`);
         const propData = await propRes.json();
-        const propTemp = propData.data.values.temperature;
-        const propApparent = propData.data.values.temperatureApparent;
+        const pv = propData.data.values;
+        const propTemp = pv.temperature;
+        const propApparent = pv.temperatureApparent;
+        const propHumidity = pv.humidity || 0;
+        const propWindSpeed = pv.windSpeed || 0;
+        const propWindGust = pv.windGust || 0;
 
         // 3. Compute delta (using RealFeel/apparent temp)
         const delta = parseFloat((propApparent - baseApparent).toFixed(1));
         const deltaF = parseFloat((delta * 9 / 5).toFixed(1));
-        const survivalRating = getSurvivalRating(delta);
+        const survivalRating = getSurvivalRating(delta, propWindSpeed, propHumidity);
 
-        // 4. Generate insight
+        // 4. Generate "Thermal Fingerprint" insight
         const absDeltaF = Math.abs(deltaF);
+        const officialF = Math.round(baseApparent * 9 / 5 + 32);
+        const actualFeelF = Math.round(propApparent * 9 / 5 + 32);
         let insight: string;
         if (delta <= -1.5) {
-            insight = `This property feels ~${absDeltaF}°F cooler than ${baseline.label}. Elevated terrain or tree cover creates a natural cooling effect — lower AC bills in summer.`;
+            insight = `Every home has a unique thermal fingerprint. While the official temperature at ${baseline.label} is ${officialF}°F, this specific lot actually feels like ${actualFeelF}°F — a ${absDeltaF}°F "Summer Survival Gap." ${survivalRating.mechanism === 'Gap Wind Cooling' ? 'Canyon breezes reach this location before the rest of town.' : 'Elevation and tree canopy create a natural cooling buffer.'}`;
         } else if (delta >= 1.5) {
-            insight = `This property runs ~${absDeltaF}°F warmer than ${baseline.label}. Heat retention from nearby structures may increase cooling costs.`;
+            insight = `This lot's thermal fingerprint runs ${absDeltaF}°F warmer than ${baseline.label} (${officialF}°F vs ${actualFeelF}°F here). ${survivalRating.mechanism === 'Humidity Trap' ? 'Higher local humidity amplifies the warmth.' : 'Dark roofing and paved surroundings absorb extra solar radiation.'}`;
         } else {
-            insight = `Temperature at this property closely matches ${baseline.label} (within ${absDeltaF}°F) — a typical microclimate for the area.`;
+            insight = `This property's thermal fingerprint closely matches ${baseline.label} (${officialF}°F official vs ${actualFeelF}°F here). No significant microclimate variation detected at this time.`;
         }
 
         if (logId) {
@@ -568,6 +612,9 @@ export const fetchMicroclimateDelta = async (
             delta,
             deltaF,
             baselineLabel: baseline.label,
+            humidity: propHumidity,
+            windSpeed: propWindSpeed,
+            windGust: propWindGust,
             survivalRating,
             insight,
             fetchedAt: new Date().toISOString(),

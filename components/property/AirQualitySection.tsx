@@ -853,7 +853,21 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                     <div className={`flex items-center gap-2 p-2 rounded-lg border ${colors} mb-2`}>
                                         <span className="text-[12px] font-black">{r.score}</span>
                                         <span className="text-[11px] font-black">{r.label}</span>
-                                        <span className="text-[9px] opacity-70 ml-auto">{r.tip}</span>
+                                        <span className="px-1.5 py-0.5 rounded-full bg-white/60 text-[8px] font-black uppercase tracking-wider">{r.mechanism}</span>
+                                    </div>
+                                    <div className="text-[9px] text-slate-500 mb-2">{r.tip}</div>
+
+                                    {/* Wind + Humidity mini row */}
+                                    <div className="flex gap-2 mb-2">
+                                        <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-100 text-[10px]">
+                                            <i className="fa-solid fa-wind text-[8px] text-blue-400"></i>
+                                            <span className="font-black text-slate-600">{Math.round(micro.windSpeed * 2.237)} mph</span>
+                                            {micro.windGust > micro.windSpeed * 1.5 && <span className="text-[8px] text-amber-500 font-bold">gusts {Math.round(micro.windGust * 2.237)}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-100 text-[10px]">
+                                            <i className="fa-solid fa-droplet text-[8px] text-blue-400"></i>
+                                            <span className="font-black text-slate-600">{Math.round(micro.humidity)}%</span>
+                                        </div>
                                     </div>
 
                                     {/* Insight */}
