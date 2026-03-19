@@ -453,9 +453,6 @@ export const fetchNearbyEVChargers = async (
 const CITY_BASELINES: Record<string, { lat: number; lng: number; label: string }> = {
     'pleasanton': { lat: 37.6624, lng: -121.8747, label: 'Downtown Pleasanton' },
     'dublin': { lat: 37.7022, lng: -121.9358, label: 'Downtown Dublin' },
-    'livermore': { lat: 37.6819, lng: -121.7680, label: 'Downtown Livermore' },
-    'san ramon': { lat: 37.7799, lng: -121.9780, label: 'Downtown San Ramon' },
-    'danville': { lat: 37.8216, lng: -121.9999, label: 'Downtown Danville' },
 };
 
 // In-memory cache for downtown baseline temps (saves 50% of API calls)
