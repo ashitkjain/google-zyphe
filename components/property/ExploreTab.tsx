@@ -2168,15 +2168,6 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
             // ── STEP 3: Parallel Gemini matching (chunked) ──
             const t3 = performance.now();
 
-            // Fetch descriptions from properties collection (parallel, non-blocking)
-            const { getPropertyFromCloud } = await import('../../services/firebase/properties');
-            const descMap: Record<string, string> = {};
-            await Promise.all(graphs.map(async g => {
-                try {
-                    const prop = await getPropertyFromCloud(g.zpid);
-                    if (prop?.description) descMap[g.zpid] = prop.description;
-                } catch {}
-            }));
 
             const CHUNK_SIZE = 5;
             const chunks: typeof graphs[] = [];
@@ -2234,7 +2225,6 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
                         zpid: g.zpid, address: g.address,
                         summary: g.graph.summary,
                         keyMetrics: g.graph.keyMetrics,
-                        description: descMap[g.zpid] || undefined,
                         factors
                     };
                 });
