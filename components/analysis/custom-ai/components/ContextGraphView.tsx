@@ -10,7 +10,7 @@ interface Props {
 
 const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string; ranges: [number, number][] }> = {
     property: { label: 'Property & Financials', icon: 'fa-house', color: 'emerald', ranges: [[1, 30]] },
-    location: { label: 'Location & Lifestyle', icon: 'fa-map-pin', color: 'rose', ranges: [[31, 50], [76, 88]] },
+    location: { label: 'Location & Lifestyle', icon: 'fa-map-pin', color: 'rose', ranges: [[31, 50], [76, 88], [120, 120]] },
     intelligence: { label: 'AI Intelligence', icon: 'fa-brain', color: 'violet', ranges: [[51, 75], [100, 105]] },
     visual: { label: 'Visual & Street View', icon: 'fa-street-view', color: 'cyan', ranges: [[94, 98], [108, 116]] },
     investment: { label: 'Investment & Risk', icon: 'fa-chart-line', color: 'amber', ranges: [[89, 93], [111, 111]] },
@@ -89,6 +89,7 @@ const FACTOR_NAMES: Record<number, string> = {
     110: 'Listing Claim Flags', 111: 'Distressed Sale Signal',
     113: 'Room-by-Room Character', 114: 'Interior Vibe & Quality',
     115: 'Living Spaces', 116: 'Specialty Rooms',
+    120: 'Nearby Amenities Profile',
 };
 
 /** Expand compact factor {i, t, v?} to full {id, name, tags, value?} — handles both old and new format */
