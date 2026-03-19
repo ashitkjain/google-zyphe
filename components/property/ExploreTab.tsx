@@ -2340,9 +2340,8 @@ ${JSON.stringify(summaries)}
 
             {!browsing && results.length > 0 && (
                 <div className="mt-6 space-y-4">
-                    {/* Toolbar: view toggle, filters, sort, count */}
+                    {/* Row 1: View toggle */}
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* View toggle */}
                         <div className="flex bg-slate-100 rounded-xl p-1">
                             <button
                                 onClick={() => { setViewModeLocal('zypheai'); setShowBuyerSearch(true); }}
@@ -2363,8 +2362,10 @@ ${JSON.stringify(summaries)}
                                 <i className="fa-solid fa-table-list mr-1"></i> Table
                             </button>
                         </div>
+                    </div>
 
-                        {/* Sort */}
+                    {/* Row 2: Filters, sort, count */}
+                    <div className="flex flex-wrap items-center gap-3">
                         <select
                             value={`${sortField}-${sortDir}`}
                             onChange={e => {
@@ -2684,11 +2685,11 @@ ${JSON.stringify(summaries)}
                                                 </div>
                                             )}
                                             {prop.images?.[0] ? (
-                                                <div className="h-28 bg-slate-100 overflow-hidden">
+                                                <div className="aspect-square bg-slate-100 overflow-hidden">
                                                     <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                                                 </div>
                                             ) : (
-                                                <div className="h-28 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                                <div className="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
                                                     <i className="fa-solid fa-house text-2xl text-slate-300"></i>
                                                 </div>
                                             )}
