@@ -1752,22 +1752,16 @@ const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any
 
     return (
         <div className="w-full px-6 py-6 text-center space-y-8">
-            {/* Search bar + Browse links on same row */}
-            <div className="flex items-center gap-6 w-full">
-                <BrowseByCitySection
-                    onPropertyClick={(addr) => {
-                        if (typeof (setViewMode as any) === 'function') {
-                            (setViewMode as any)('explore', addr);
-                        }
-                    }}
-                    onHasResults={setBrowseHasResults}
-                />
-                {searchBar && (
-                    <div className="flex-1 max-w-2xl">
-                        {searchBar}
-                    </div>
-                )}
-            </div>
+            {/* Browse + Search bar rendered together inside BrowseByCitySection */}
+            <BrowseByCitySection
+                onPropertyClick={(addr) => {
+                    if (typeof (setViewMode as any) === 'function') {
+                        (setViewMode as any)('explore', addr);
+                    }
+                }}
+                onHasResults={setBrowseHasResults}
+                searchBar={searchBar}
+            />
 
             {!browseHasResults && (
                 <>
@@ -1806,7 +1800,7 @@ const BUYER_STORY_EXAMPLES = [
     { title: 'First-Time, Value', icon: 'fa-solid fa-piggy-bank', story: "First-time buyer, single income software engineer. Budget is tight: $800K-1.1M. Looking for best value — maybe a fixer with renovation upside. Townhomes OK. Need at least 2 beds. Close to BART or highway for commute to SF. Walkable to grocery and coffee shops. Low HOA preferred." },
 ];
 
-const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void; onHasResults?: (has: boolean) => void }> = ({ onPropertyClick, onHasResults }) => {
+const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void; onHasResults?: (has: boolean) => void; searchBar?: React.ReactNode }> = ({ onPropertyClick, onHasResults, searchBar }) => {
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
@@ -2300,27 +2294,34 @@ ${JSON.stringify(summaries)}
     return (
         <div className="text-left">
             {/* Controls row */}
-            <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Browse:</span>
-                {BROWSE_CITIES.map((c, i) => (
-                    <span key={c} className="flex items-center gap-2">
-                        {i > 0 && <span className="text-slate-300">|</span>}
-                        <button
-                            onClick={() => { setPage(1); handleBrowse(c); }}
-                            disabled={browsing}
-                            className={`text-sm font-bold transition-all ${browsing && selectedCity === c
-                                ? 'text-indigo-400 cursor-wait'
-                                : selectedCity === c && results.length > 0
-                                    ? 'text-indigo-700 underline underline-offset-4'
-                                    : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
-                                }`}
-                        >
-                            {browsing && selectedCity === c ? (
-                                <><i className="fa-solid fa-spinner animate-spin mr-1"></i>{c}</>
-                            ) : c}
-                        </button>
-                    </span>
-                ))}
+            <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Browse:</span>
+                    {BROWSE_CITIES.map((c, i) => (
+                        <span key={c} className="flex items-center gap-2">
+                            {i > 0 && <span className="text-slate-300">|</span>}
+                            <button
+                                onClick={() => { setPage(1); handleBrowse(c); }}
+                                disabled={browsing}
+                                className={`text-sm font-bold transition-all ${browsing && selectedCity === c
+                                    ? 'text-indigo-400 cursor-wait'
+                                    : selectedCity === c && results.length > 0
+                                        ? 'text-indigo-700 underline underline-offset-4'
+                                        : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
+                                    }`}
+                            >
+                                {browsing && selectedCity === c ? (
+                                    <><i className="fa-solid fa-spinner animate-spin mr-1"></i>{c}</>
+                                ) : c}
+                            </button>
+                        </span>
+                    ))}
+                </div>
+                {searchBar && (
+                    <div className="flex-1">
+                        {searchBar}
+                    </div>
+                )}
             </div>
 
             {/* Results area */}
@@ -2363,6 +2364,8 @@ ${JSON.stringify(summaries)}
                             </button>
                         </div>
 
+                        {viewMode !== 'zypheai' && (
+                        <>
                         {/* Sort */}
                         <select
                             value={`${sortField}-${sortDir}`}
@@ -2429,6 +2432,8 @@ ${JSON.stringify(summaries)}
                             {displayList.length} {displayList.length === 1 ? 'property' : 'properties'}
                             {displayList.length !== results.length && ` (of ${results.length})`}
                         </span>
+                        </>
+                        )}
 
 
                     </div>
