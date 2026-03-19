@@ -1122,7 +1122,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                             <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors">
                                                                                 <i className="fa-solid fa-map-location-dot text-violet-600 group-hover:text-white text-[11px]"></i>
                                                                             </div>
-                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">{nid.resolved_name}</span>
+                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood: {nid.resolved_name}</span>
                                                                         </div>
                                                                         {gem?.character?.description && (
                                                                             <p className="text-[11px] text-slate-600 leading-relaxed mb-3">{gem.character.description}</p>
