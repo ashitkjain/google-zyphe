@@ -190,6 +190,31 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
 };
 
 /**
+ * Lookup a property by its address string.
+ * Used to resolve address→ZPID without calling RapidAPI.
+ * Returns the first matching property or null.
+ */
+export const getPropertyByAddress = async (address: string): Promise<PropertyData | null> => {
+    if (!db || !address) return null;
+    try {
+        const q = query(
+            collection(db, "properties"),
+            where("address", "==", address),
+            limit(1)
+        );
+        logFirestoreQuery('getDocs', 'properties', { address, scope: 'address_lookup' });
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            return snapshot.docs[0].data() as PropertyData;
+        }
+        return null;
+    } catch (error: any) {
+        handleFirestoreError(error, "getPropertyByAddress");
+        return null;
+    }
+};
+
+/**
  * Get all property zpids that belong to a given city.
  * Queries the 'properties' collection filtering by city field.
  */

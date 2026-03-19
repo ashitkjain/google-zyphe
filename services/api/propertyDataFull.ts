@@ -1,13 +1,10 @@
 import { PropertyData } from '../../types';
-import { savePropertyToCloud, getPropertyFromCloud, getUserProfile } from '../firebaseService';
+import { savePropertyToCloud, getPropertyFromCloud, getPropertyByAddress } from '../firebaseService';
 import { APP_CONFIG } from '../../config';
-import { logAPICall, updateAPICall } from '../firebase/api_logs';
 import { auth } from '../firebase/config';
 import { getGoogleDataFromCloud, saveGoogleDataToCloud } from '../firebaseService';
 import { analyzeStreetView, analyzePollen } from '../geminiService';
-import { fetchResoPropertyData } from '../resoService';
 import { NeighborhoodPlaces } from './places';
-import { extractNumericValue, safeStringify, formatAddress } from './utils';
 import { normalizeAddress } from './geocoding';
 import { fetchScores, fetchPropertyImages } from './property';
 import { fetchNearbyPlaces } from './places';
@@ -39,208 +36,40 @@ export const fetchPropertyDataFull = async (
         console.log(`[⏱ DataPipeline] START fetchPropertyDataFull: "${addressOrZpid}" (isZpid=${isZpid})`);
         let mappedData: PropertyData | null = null;
 
+        // ── STEP 1: Resolve property from Firestore (no RapidAPI) ─────────────
         if (isZpid) {
+            onStep?.('Looking up property by ID...');
             const cached = await getPropertyFromCloud(addressOrZpid);
             if (cached) {
                 mappedData = cached;
                 _mark('Firestore cache HIT (ZPID)');
                 console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache HIT for ZPID: ${addressOrZpid}`);
             } else {
+                _mark('Firestore cache MISS (ZPID)');
                 console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache MISS for ZPID: ${addressOrZpid}`);
             }
+        } else {
+            // Address-based search: query Firestore properties by address field
+            onStep?.('Looking up property...');
+            const cached = await getPropertyByAddress(addressOrZpid);
+            if (cached) {
+                mappedData = cached;
+                _mark('Firestore cache HIT (address)');
+                console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache HIT for address: "${addressOrZpid}"`);
+            } else {
+                _mark('Firestore cache MISS (address)');
+                console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache MISS for address: "${addressOrZpid}"`);
+            }
         }
 
+        // If neither lookup found the property, it's not in our system
         if (!mappedData) {
-            // Hybrid Ingest Logic: Try RESO Web API first if the user (Realtor) has provided keys
-            const uid = auth?.currentUser?.uid;
-            if (uid) {
-                const profile = await getUserProfile(uid);
-                const resoConfig = profile?.realtor?.resoConfig;
-
-                if (resoConfig) {
-                    onStep?.('Accessing RESO Web API...');
-                    try {
-                        const resoData = await fetchResoPropertyData(resoConfig, addressOrZpid, isZpid);
-                        if (resoData) {
-                            console.log('[fetchPropertyDataFull] RESO API Success:', addressOrZpid);
-                            mappedData = resoData;
-                        }
-                    } catch (e) {
-                        console.warn('[RESO] Fetch failed, falling back to legacy ingest:', e);
-                    }
-                }
-            }
+            throw new Error(
+                `Property not found in Zyphe database. We currently support properties in Pleasanton and Dublin. ` +
+                `Please search using the Browse feature or autocomplete suggestions.`
+            );
         }
 
-        if (!mappedData) {
-            const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
-            const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
-
-            const url = isZpid
-                ? `https://${RAPID_API_HOST}/property?zpid=${addressOrZpid}`
-                : `https://${RAPID_API_HOST}/property?address=${encodeURIComponent(addressOrZpid)}`;
-
-            let response;
-            const retries = 3;
-            for (let attempt = 1; attempt <= retries; attempt++) {
-                onStep?.(`Fetching property facts... ${attempt > 1 ? `(Retry ${attempt - 1})` : ''}`);
-
-                const logId = await logAPICall({
-                    user_id: auth?.currentUser?.uid || 'unknown',
-                    zpid: isZpid ? addressOrZpid : undefined,
-                    address: isZpid ? undefined : addressOrZpid,
-                    api_name: 'RapidAPI',
-                    endpoint: 'property',
-                    params: { addressOrZpid, isZpid, attempt },
-                    status: 'pending'
-                });
-                const start = Date.now();
-
-                response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'x-rapidapi-host': RAPID_API_HOST,
-                        'x-rapidapi-key': RAPID_API_KEY,
-                    },
-                    cache: 'no-store'
-                });
-
-                if (logId) {
-                    updateAPICall(logId, {
-                        status: response.ok ? 'completed' : 'failed',
-                        response_time_ms: Date.now() - start,
-                        error: response.ok ? undefined : `Status ${response.status}`
-                    });
-                }
-
-                if (response.ok) break;
-
-                if (response.status === 429 && attempt < retries) {
-                    const delay = Math.pow(2, attempt) * 1000;
-                    console.warn(`[API] Rate limit (429) hit on attempt ${attempt}. Retrying in ${delay / 1000}s...`);
-                    onStep?.(`Rate limit hit. Retrying in ${delay / 1000}s...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    continue;
-                }
-
-                throw new Error(`Property API error: ${response.status}`);
-            }
-
-            if (!response || !response.ok) throw new Error(`Property API error: ${response?.status || 'Unknown'}`);
-            console.log(`[⏱ DataPipeline] +${_elapsed()} — RapidAPI response received`);
-            _mark('RapidAPI response');
-            const data = await response.json();
-
-            // Universal ZPID extraction: Check root, property wrapper, or props wrapper
-            const rawZpid = data.zpid || data.property?.zpid || data.props?.zpid;
-            const zpidStr = rawZpid ? String(rawZpid) : undefined;
-
-            if (!zpidStr) {
-                console.warn("API Warning: Response missing 'zpid'. Proceeding with limited data.", JSON.stringify(data, null, 2));
-            }
-
-            if (!isZpid && zpidStr) {
-                const cached = await getPropertyFromCloud(zpidStr);
-                if (cached) {
-                    mappedData = cached;
-                    _mark('Firestore cache HIT (resolved ZPID)');
-                    console.log(`[⏱ DataPipeline] +${_elapsed()} — Firestore cache HIT for resolved ZPID: ${zpidStr}`);
-                }
-            }
-
-            if (!mappedData) {
-                const root = data.property || data.props || data;
-                const addrRoot = root.address || data.address;
-
-                mappedData = {
-                    address: formatAddress(addrRoot) || (isZpid ? '' : addressOrZpid),
-                    city: (addrRoot && typeof addrRoot === 'object') ? addrRoot.city : undefined,
-                    state: (addrRoot && typeof addrRoot === 'object') ? addrRoot.state : undefined,
-                    zipCode: (addrRoot && typeof addrRoot === 'object') ? (addrRoot.zipcode || addrRoot.zipCode) : undefined,
-                    zpid: zpidStr,
-                    homeStatus: root.homeStatus,
-                    homeType: root.homeType,
-                    listingSubType: root.listingSubType ?? null,
-                    livingAreaValue: extractNumericValue(root.livingAreaValue || root.livingArea),
-                    bedrooms: extractNumericValue(root.bedrooms),
-                    bathrooms: extractNumericValue(root.bathrooms),
-                    yearBuilt: extractNumericValue(root.yearBuilt),
-                    lotSize: safeStringify(root.resoFacts?.lotSize || root.lotSize) || 'N/A',
-                    price: extractNumericValue(root.price || root.listPrice),
-                    zestimate: extractNumericValue(root.zestimate),
-                    rentZestimate: extractNumericValue(root.rentZestimate),
-                    annualHomeownersInsurance: extractNumericValue(root.annualHomeownersInsurance),
-                    windRiskScore: extractNumericValue(root.climate?.windSources?.primary?.riskScore),
-                    floodRiskScore: extractNumericValue(root.climate?.floodSources?.primary?.riskScore),
-                    fireRiskScore: extractNumericValue(root.climate?.fireSources?.primary?.riskScore),
-                    heatRiskScore: extractNumericValue(root.climate?.heatRiskScore),
-                    description: root.description || 'No description available.',
-                    images: Array.isArray(root.images) ? root.images : (Array.isArray(root.photos) ? root.photos : []),
-                    schools: Array.isArray(root.schools) ? root.schools : [],
-                    listedDate: root.datePosted || null,
-                    priceHistory: (Array.isArray(root.priceHistory) ? root.priceHistory : []).map((item: any) => ({
-                        date: item.date || 'N/A',
-                        price: extractNumericValue(item.price),
-                        event: item.event || 'Price Change'
-                    })),
-                    resoFacts: {
-                        flooring: safeStringify(root.resoFacts?.flooring),
-                        foundationDetails: safeStringify(root.resoFacts?.foundationDetails),
-                        rooms: safeStringify(root.resoFacts?.rooms),
-                        roomTypes: safeStringify(root.resoFacts?.roomTypes),
-                        feesAndDues: safeStringify(root.resoFacts?.feesAndDues),
-                        exteriorFeatures: safeStringify(root.resoFacts?.exteriorFeatures),
-                        architecturalStyle: safeStringify(root.resoFacts?.architecturalStyle),
-                        garageParkingCapacity: extractNumericValue(root.resoFacts?.garageParkingCapacity),
-                        lotFeatures: safeStringify(root.resoFacts?.lotFeatures),
-                        roofType: safeStringify(root.resoFacts?.roofType),
-                        daysOnZillow: extractNumericValue(root.daysOnZillow || root.resoFacts?.daysOnZillow),
-                        constructionMaterials: safeStringify(root.resoFacts?.constructionMaterials),
-                        fireplaceFeatures: safeStringify(root.resoFacts?.fireplaceFeatures),
-                        appliances: safeStringify(root.resoFacts?.appliances),
-                        fencing: safeStringify(root.resoFacts?.fencing),
-                        cooling: safeStringify(root.resoFacts?.cooling),
-                        laundryFeatures: safeStringify(root.resoFacts?.laundryFeatures),
-                        heating: safeStringify(root.resoFacts?.heating),
-                        basement: safeStringify(root.resoFacts?.basement),
-                        utilities: safeStringify(root.resoFacts?.utilities),
-                        sewer: safeStringify(root.resoFacts?.sewer),
-                        waterSource: safeStringify(root.resoFacts?.waterSource),
-                        securityFeatures: safeStringify(root.resoFacts?.securityFeatures),
-                        windowFeatures: safeStringify(root.resoFacts?.windowFeatures),
-                        roomFeatures: safeStringify(root.resoFacts?.roomFeatures),
-                    },
-                    // ─── HOA / Association ───────────────────────────────────────────────
-                    hoa: (() => {
-                        const rf = root.resoFacts;
-                        if (!rf) return undefined;
-                        const assoc = Array.isArray(rf.associations) && rf.associations.length > 0
-                            ? rf.associations[0]
-                            : null;
-                        const name = assoc?.name || rf.associationName || undefined;
-                        const fee = assoc?.feeFrequency || rf.associationFee || undefined;
-                        const phone = assoc?.phone || rf.associationPhone || undefined;
-                        const amenities: string[] = Array.isArray(rf.associationAmenities) ? rf.associationAmenities.filter(Boolean) : [];
-                        const feeIncludes: string[] = Array.isArray(rf.associationFeeIncludes) ? rf.associationFeeIncludes.filter(Boolean) : [];
-                        if (!name && !fee && amenities.length === 0) return undefined;
-                        return { name, fee, phone, amenities, feeIncludes };
-                    })(),
-                    coordinates: root.longitude && root.latitude ? { latitude: root.latitude, longitude: root.longitude } : undefined,
-                    attribution: root.attributionInfo || data.attributionInfo ? {
-                        listingAgentName: (root.attributionInfo || data.attributionInfo)?.agentName,
-                        listingAgentNumber: data.attributionInfo?.agentPhoneNumber || data.props?.attributionInfo?.agentPhoneNumber,
-                        brokerageName: data.attributionInfo?.brokerageName || data.props?.attributionInfo?.brokerageName,
-                        mlsName: data.attributionInfo?.mlsName || data.props?.attributionInfo?.mlsName,
-                        mlsId: data.attributionInfo?.mlsId || data.props?.attributionInfo?.mlsId,
-                    } : undefined
-                };
-            }
-        }
-
-        // At this point, mappedData is populated either from Cache or API.
-        if (!mappedData) {
-            throw new Error('Failed to resolve property data.');
-        }
 
         // Ensure fallback coordinate geocoding runs if needed (even for cached data if they are missing)
         if ((!mappedData.coordinates || !mappedData.mapZoomOut) && mappedData.address) {
@@ -351,13 +180,15 @@ export const fetchPropertyDataFull = async (
             const lat = mappedData.coordinates.latitude;
             const lng = mappedData.coordinates.longitude;
 
-            const needsSolar = !cachedEnvData?.solarData || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_SOLAR);
-            const needsAirQual = !cachedEnvData?.airQuality || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY);
-            const needsPollen = !cachedEnvData?.pollen?.analysis || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN);
-            const needsNoise = cachedEnvData?.noiseScore == null || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
-            const needsDisasters = !cachedEnvData?.historical_disasters || forceEnvironment || isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS);
-            const needsBroadband = !cachedEnvData?.broadband || forceEnvironment || isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND);
-            const needsDrought = !cachedEnvData?.drought || forceEnvironment || isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT);
+            // SLA: Also check if broadband/drought data already exists on the property document itself.
+            // This happens when the data was saved by a previous pipeline run. If it's fresh, skip the fetch entirely.
+            const needsSolar = !cachedEnvData?.solarData && !mappedData.solarData || forceEnvironment || (cachedEnvData?.solarData && isCacheExpired(cachedEnvData.lastUpdated, TTL_SOLAR));
+            const needsAirQual = !cachedEnvData?.airQuality && !mappedData.airQuality || forceEnvironment || (cachedEnvData?.airQuality && isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY));
+            const needsPollen = (!cachedEnvData?.pollen?.analysis && !mappedData.pollen) || forceEnvironment || (cachedEnvData?.pollen?.analysis && isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN));
+            const needsNoise = (cachedEnvData?.noiseScore == null && mappedData.noiseScore == null) || forceEnvironment || (cachedEnvData?.noiseScore != null && isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE));
+            const needsDisasters = (!cachedEnvData?.historical_disasters && !mappedData.historical_disasters) || forceEnvironment || (cachedEnvData?.historical_disasters && isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS));
+            const needsBroadband = (!cachedEnvData?.broadband && !mappedData.broadband) || forceEnvironment || (!mappedData.broadband && cachedEnvData?.broadband && isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND));
+            const needsDrought = (!cachedEnvData?.drought && !mappedData.drought) || forceEnvironment || (!mappedData.drought && cachedEnvData?.drought && isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT));
 
             if (needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought) {
                 onStep?.('Fetching environmental data...');
