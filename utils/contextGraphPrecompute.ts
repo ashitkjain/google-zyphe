@@ -597,23 +597,65 @@ function factor39_usableYard(p: PropertyData): ExtractedFactor {
     return { id: 39, name: 'Usable Yard Space', tags: [] };
 }
 
-function factor83_microNeighborhood(p: PropertyData): ExtractedFactor {
+function factor83_microNeighborhood(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
     const ni = (p as any).neighborhood_identity;
     const gem = ni?.gemini;
-    if (!ni?.resolved_name) {
-        return { id: 83, name: 'Micro-Neighborhood Identity', tags: [] };
-    }
-    const parts: string[] = [ni.resolved_name];
-    if (gem?.price_context?.tier) parts.push(gem.price_context.tier);
-    if (gem?.character?.community_type) parts.push(gem.character.community_type);
+    const nf = visual?.neighborhood?.neighborhood_features;
+
     const tags: string[] = [];
+
+    if (ni?.resolved_name) {
+        tags.push(ni.resolved_name);
+    }
     if (gem?.unique_features?.length) {
-        for (const feat of gem.unique_features.slice(0, 5)) tags.push(feat);
+        for (const feat of gem.unique_features.slice(0, 3)) tags.push(feat);
     }
     if (gem?.price_context?.typical_range) tags.push(gem.price_context.typical_range);
     if (gem?.character?.era_built) tags.push(`Built ${gem.character.era_built}`);
     if (gem?.character?.architectural_style) tags.push(gem.character.architectural_style);
-    return { id: 83, name: 'Micro-Neighborhood Identity', tags };
+    if (gem?.price_context?.tier) tags.push(gem.price_context.tier);
+    if (gem?.character?.community_type) tags.push(gem.character.community_type);
+
+    // Neighborhood infrastructure from visual AI neighborhood analysis
+    if (nf) {
+        const extractKeyword = (text: string, keywords: [string, string][]) => {
+            const lower = text.toLowerCase();
+            for (const [match, tag] of keywords) {
+                if (lower.includes(match)) return tag;
+            }
+            return null;
+        };
+
+        if (nf.neighborhood_density) {
+            const d = extractKeyword(nf.neighborhood_density, [
+                ['low density', 'Low Density'], ['sparse', 'Low Density'],
+                ['high density', 'High Density'], ['dense', 'High Density'],
+                ['moderate', 'Medium Density'], ['suburban', 'Suburban Density'],
+            ]);
+            if (d) tags.push(d);
+        }
+
+        if (nf.street_layout_and_traffic) {
+            const s = extractKeyword(nf.street_layout_and_traffic, [
+                ['cul-de-sac', 'Cul-de-sac'], ['quiet', 'Quiet Streets'],
+                ['grid', 'Grid Layout'], ['wide', 'Wide Streets'],
+                ['busy', 'Busy Traffic'], ['heavy traffic', 'Heavy Traffic'],
+            ]);
+            if (s) tags.push(s);
+        }
+
+        if (nf.sidewalks_and_pedestrian_infra) {
+            const sw = extractKeyword(nf.sidewalks_and_pedestrian_infra, [
+                ['well-maintained', 'Good Sidewalks'], ['continuous', 'Good Sidewalks'],
+                ['no sidewalk', 'No Sidewalks'], ['limited', 'Limited Sidewalks'],
+            ]);
+            if (sw) tags.push(sw);
+        }
+    }
+
+    if (tags.length === 0) return { id: 83, name: 'Neighborhood Character', tags: [] };
+
+    return { id: 83, name: 'Neighborhood Character', tags: [...new Set(tags)].slice(0, 8) };
 }
 
 
@@ -873,7 +915,7 @@ export function precomputeDataFactors(
         factor80_professionalLifestyleFit(visual, comprehensive),
         factor81_familyLifestyleFit(visual, comprehensive),
         factor82_seniorLifestyleFit(visual, comprehensive),
-        factor83_microNeighborhood(property),
+        factor83_microNeighborhood(property, visual),
         factor84_walkableAmenities(property),
         factor85_medicalProximity(property),
         factor86_evInfrastructure(property),
