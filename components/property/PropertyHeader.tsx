@@ -295,7 +295,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           <div className="flex flex-wrap gap-1.5">
             {data.neighborhood_identity?.resolved_name && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-50 border border-violet-200 rounded-md text-[11px] font-bold text-violet-700">
-                <i className="fa-solid fa-map-location-dot text-[7px]" />{data.neighborhood_identity.resolved_name}
+                <i className="fa-solid fa-map-location-dot text-[7px]" />Neighborhood: {data.neighborhood_identity.resolved_name}
               </span>
             )}
             {data.homeType && (
