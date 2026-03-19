@@ -161,7 +161,7 @@ Given the property data below, extract structured decision factors. For each fac
 40. **Xeriscape / Low Maintenance**: Drought-tolerant or synthetic turf mentioned.
 
 ### Location & Community (41-45)
-41. **Exterior Style & Architecture**: From visual analysis exterior_and_lot_appeal. Tags = architecture style (e.g. "Craftsman", "Ranch", "Mediterranean", "Colonial"), exterior materials ("Stucco", "Brick", "Wood Siding"), and notable curb features ("Mature Landscaping", "Inviting Entry", "New Roof", "Fresh Paint"). Value = architecture style + overall impression. Generate 3-8 tags.
+41. SKIP (precomputed).
 42. **Commute Convenience**: Proximity to highways or transit hubs mentioned in neighborhood description.
 43. SKIP (precomputed).
 44. **Greenery Proximity**: "Park adjacent" or "Near trails" from neighborhood features.
@@ -186,8 +186,8 @@ Given the property data below, extract structured decision factors. For each fac
 59. SKIP (precomputed).
 60. **Water / Air Systems**: Softeners, RO filters, or Zoned HVAC mentioned.
 61. **Security Infrastructure**: Gated, Security system, or Cameras.
-62. **Digital Presentation**: Quality of staging and photos (find "Hidden Gems").
-63. **Solar ROI Obstructors**: Large trees or neighbors blocking roof sunshine.
+62. SKIP (deleted).
+63. SKIP (deleted).
 64. **Job Hub Connectivity**: Proximity to major corporate campuses (Google, Apple, etc.).
 65. **Upcoming Dev Impact**: From deep_investment_research.investment_outlook.long_term and local_risks — look for mentions of new construction, transit projects, or commercial development nearby. Fallback to general_market_intelligence.regulatory_and_growth.upcoming_developments.
 66. **Soil / Geo Consistency**: Soil type or liquefaction risk from deep_research.
