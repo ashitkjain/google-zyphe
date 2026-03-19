@@ -1068,7 +1068,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         sqft: property.livingAreaValue,
                         yearBuilt: property.yearBuilt,
                         homeType: property.homeType,
-                        address: property.address
+                        address: property.address,
+                        description: property.description
                     });
                     addLog(`[Context Graph] ✓ Saved ${res.data.factors.length} factors for ${addr}`);
                     return 'done';

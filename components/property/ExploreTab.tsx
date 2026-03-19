@@ -2233,6 +2233,7 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                         zpid: g.zpid, address: g.address,
                         summary: g.graph.summary,
                         keyMetrics: g.graph.keyMetrics,
+                        description: g.graph.description || undefined,
                         factors
                     };
                 });
