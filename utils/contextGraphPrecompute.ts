@@ -152,38 +152,50 @@ function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedF
 
 function factor41_exteriorStyle(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
     const tags: string[] = [];
+    let value: string | undefined;
 
-    // 1. Architecture style from resoFacts (listing data)
+    // 1. Architecture style from resoFacts (listing data) — short keyword like "Contemporary"
     const resoStyle = p.resoFacts?.architecturalStyle;
     if (resoStyle && resoStyle !== 'N/A') {
         tags.push(resoStyle.split(',')[0].trim());
     }
 
-    // 2. From visual AI exterior analysis
+    // 2. From visual AI exterior analysis — use full text as value, not as tag
     const ext = visual?.exterior_and_neighborhood?.exterior_and_lot_appeal;
     if (ext?.architecture_style) {
-        const aiStyle = ext.architecture_style.split(/[.,;]/)[0].trim();
-        // Only add if different from reso style
-        if (aiStyle && !tags.some(t => t.toLowerCase() === aiStyle.toLowerCase())) {
-            tags.push(aiStyle);
+        // Store full description as the value
+        const fullText = ext.architecture_style;
+        value = fullText.split(/[.!]/).filter(Boolean)[0]?.trim().split(/\s+/).slice(0, 12).join(' ');
+
+        // Only extract the style keyword if we don't already have one from reso
+        if (tags.length === 0) {
+            // Try to extract a style name (e.g., "Contemporary", "Mediterranean")
+            const stylePatterns = ['contemporary', 'mediterranean', 'craftsman', 'colonial', 'ranch', 'modern', 'traditional', 'tudor', 'victorian', 'spanish', 'cape cod', 'farmhouse', 'mid-century', 'bungalow', 'split-level'];
+            const lower = fullText.toLowerCase();
+            for (const style of stylePatterns) {
+                if (lower.includes(style)) {
+                    tags.push(style.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));
+                    break;
+                }
+            }
         }
     }
 
     // 3. Exterior materials from resoFacts
-    const materials = p.resoFacts?.constructionMaterials;
+    const materials = (p.resoFacts as any)?.constructionMaterials;
     if (materials && materials !== 'N/A') {
-        for (const mat of materials.split(',').map(s => s.trim()).slice(0, 2)) {
+        for (const mat of materials.split(',').map((s: string) => s.trim()).slice(0, 2)) {
             if (mat && !tags.some(t => t.toLowerCase() === mat.toLowerCase())) tags.push(mat);
         }
     }
 
     // 4. Roof type
-    const roof = p.resoFacts?.roofType;
+    const roof = (p.resoFacts as any)?.roofType;
     if (roof && roof !== 'N/A') {
         tags.push(`${roof.split(',')[0].trim()} Roof`);
     }
 
-    // 5. Curb appeal note from visual or street view
+    // 5. Curb appeal note from visual
     if (ext?.curb_appeal) {
         const curbLower = ext.curb_appeal.toLowerCase();
         if (curbLower.includes('excellent') || curbLower.includes('stunning')) tags.push('Excellent Curb Appeal');
@@ -191,11 +203,12 @@ function factor41_exteriorStyle(p: PropertyData, visual: CustomAIAnalysisResult 
         else if (curbLower.includes('dated') || curbLower.includes('needs')) tags.push('Dated Exterior');
     }
 
-    if (tags.length === 0) return { id: 41, name: 'Exterior Style & Architecture', tags: [] };
+    if (tags.length === 0 && !value) return { id: 41, name: 'Exterior Style & Architecture', tags: [] };
 
     return {
         id: 41, name: 'Exterior Style & Architecture',
-        tags: [...new Set(tags)].slice(0, 6)
+        value,
+        tags: [...new Set(tags)].slice(0, 5)
     };
 }
 
