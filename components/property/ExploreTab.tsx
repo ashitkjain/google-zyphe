@@ -17,6 +17,7 @@ import ParcelValidationCard from './ParcelValidationCard';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import LifestyleInsightsSection from './LifestyleInsightsSection';
 import SeasonalSunCard from './SeasonalSunCard';
+import { fetchMicroclimateDelta, MicroclimateDelta } from '../../services/api/environmental';
 import { StickyNotesLayer } from '../analysis/custom-ai/components/StickyNotesLayer';
 
 
@@ -829,6 +830,26 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                             </span>
                                                                         )}
                                                                     </p>
+                                                                    {/* Microclimate Thermal Fingerprint */}
+                                                                    {propertyData.coordinates && (() => {
+                                                                        const [micro, setMicro] = React.useState<MicroclimateDelta | null>(null);
+                                                                        React.useEffect(() => {
+                                                                            fetchMicroclimateDelta(
+                                                                                propertyData.coordinates!.latitude, propertyData.coordinates!.longitude,
+                                                                                propertyData.city, (propertyData as any).zpid, propertyData.address
+                                                                            ).then(r => { if (r) setMicro(r); });
+                                                                        }, []);
+                                                                        if (!micro) return null;
+                                                                        return (
+                                                                            <div className="mt-3 pt-3 border-t border-slate-100">
+                                                                                <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                                                                                    <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
+                                                                                    "{micro.insight}"
+                                                                                </p>
+                                                                                <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
                                                                 </div>
                                                             </div>
                                                         </div>

@@ -4,7 +4,6 @@ import { PropertyData } from '../../types';
 
 import { calculateSolarPotential } from '../../utils/solarCalculations';
 import { computeSolarBenchmarks, computeNaturalLightScore, computeSolarSmartTags } from '../../utils/solarCityBenchmarks';
-import { fetchMicroclimateDelta, MicroclimateDelta } from '../../services/api/environmental';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import CommuteCalculator from './CommuteCalculator';
 
@@ -774,111 +773,6 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
 
                 {/* MODULE: CLIMATE RISK + HAZARD ZONES (in 4th column) */}
                 <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 overflow-visible hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-
-                    {/* Microclimate Delta */}
-                    {data.coordinates && (() => {
-                        const [micro, setMicro] = React.useState<MicroclimateDelta | null>((data as any).microclimate || null);
-                        const [loading, setLoading] = React.useState(false);
-
-                        const doFetch = async () => {
-                            setLoading(true);
-                            try {
-                                const result = await fetchMicroclimateDelta(
-                                    data.coordinates!.latitude, data.coordinates!.longitude,
-                                    data.city, (data as any).zpid, data.address
-                                );
-                                if (result) setMicro(result);
-                            } finally { setLoading(false); }
-                        };
-
-                        if (!micro) return (
-                            <button onClick={doFetch} disabled={loading}
-                                className="flex items-center gap-2 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100/60 hover:shadow-md transition-all text-left group">
-                                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                                    <i className={`fa-solid ${loading ? 'fa-spinner fa-spin' : 'fa-temperature-half'} text-blue-600 group-hover:text-white text-[11px]`}></i>
-                                </div>
-                                <div>
-                                    <div className="text-[12px] font-black text-slate-700">Microclimate Delta</div>
-                                    <div className="text-[9px] text-slate-400">Compare temperature vs downtown — click to fetch</div>
-                                </div>
-                            </button>
-                        );
-
-                        const r = micro.survivalRating;
-                        const colorMap: Record<string, string> = {
-                            blue: 'bg-blue-50 border-blue-100 text-blue-700',
-                            emerald: 'bg-emerald-50 border-emerald-100 text-emerald-700',
-                            slate: 'bg-slate-50 border-slate-100 text-slate-600',
-                            amber: 'bg-amber-50 border-amber-100 text-amber-700',
-                            orange: 'bg-orange-50 border-orange-100 text-orange-700',
-                        };
-                        const colors = colorMap[r.color] || colorMap.slate;
-                        const cToF = (c: number) => Math.round(c * 9 / 5 + 32);
-
-                        return (
-                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                <div className="p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                                                <i className="fa-solid fa-temperature-half text-blue-600 text-[12px]"></i>
-                                            </div>
-                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Microclimate</span>
-                                        </div>
-                                        <button onClick={doFetch} disabled={loading}
-                                            className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-50 transition-colors">
-                                            <i className={`fa-solid ${loading ? 'fa-spinner fa-spin' : 'fa-rotate'} text-[9px] text-slate-400`}></i>
-                                        </button>
-                                    </div>
-
-                                    {/* Delta display */}
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Here</span>
-                                            <span className="text-[18px] font-black text-slate-700">{cToF(micro.propertyApparentTemp)}°F</span>
-                                        </div>
-                                        <div className="flex flex-col items-center px-2">
-                                            <span className={`text-[14px] font-black ${micro.delta <= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                                                {micro.delta <= 0 ? '↓' : '↑'} {Math.abs(micro.deltaF)}°F
-                                            </span>
-                                            <span className="text-[8px] font-bold text-slate-400">vs baseline</span>
-                                        </div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Downtown</span>
-                                            <span className="text-[18px] font-black text-slate-400">{cToF(micro.baselineApparentTemp)}°F</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Survival rating */}
-                                    <div className={`flex items-center gap-2 p-2 rounded-lg border ${colors} mb-2`}>
-                                        <span className="text-[12px] font-black">{r.score}</span>
-                                        <span className="text-[11px] font-black">{r.label}</span>
-                                        <span className="px-1.5 py-0.5 rounded-full bg-white/60 text-[8px] font-black uppercase tracking-wider">{r.mechanism}</span>
-                                    </div>
-                                    <div className="text-[9px] text-slate-500 mb-2">{r.tip}</div>
-
-                                    {/* Wind + Humidity mini row */}
-                                    <div className="flex gap-2 mb-2">
-                                        <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-100 text-[10px]">
-                                            <i className="fa-solid fa-wind text-[8px] text-blue-400"></i>
-                                            <span className="font-black text-slate-600">{Math.round(micro.windSpeed * 2.237)} mph</span>
-                                            {micro.windGust > micro.windSpeed * 1.5 && <span className="text-[8px] text-amber-500 font-bold">gusts {Math.round(micro.windGust * 2.237)}</span>}
-                                        </div>
-                                        <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-100 text-[10px]">
-                                            <i className="fa-solid fa-droplet text-[8px] text-blue-400"></i>
-                                            <span className="font-black text-slate-600">{Math.round(micro.humidity)}%</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Insight */}
-                                    <div className="text-[10px] text-slate-500 leading-relaxed italic">
-                                        "{micro.insight}"
-                                    </div>
-                                    <div className="text-[8px] text-slate-400 mt-1 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
-                                </div>
-                            </div>
-                        );
-                    })()}
                     {/* Climate Risk */}
                     {hasClimate && (
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
