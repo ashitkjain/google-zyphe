@@ -3,7 +3,7 @@ import React from 'react';
 import { PropertyData } from '../../types';
 
 import { calculateSolarPotential } from '../../utils/solarCalculations';
-import { computeSolarBenchmarks } from '../../utils/solarCityBenchmarks';
+import { computeSolarBenchmarks, computeNaturalLightScore } from '../../utils/solarCityBenchmarks';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import CommuteCalculator from './CommuteCalculator';
 import SeasonalSunCard from './SeasonalSunCard';
@@ -288,7 +288,6 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
 
                                 {/* Natural Light Score */}
                                 {(() => {
-                                    const { computeNaturalLightScore } = require('../../utils/solarCityBenchmarks');
                                     const light = computeNaturalLightScore(solar, data.city, data.state);
                                     if (!light) return null;
                                     const barColor = light.score >= 80 ? 'bg-emerald-500' : light.score >= 60 ? 'bg-blue-500' : light.score >= 45 ? 'bg-slate-400' : light.score >= 30 ? 'bg-amber-500' : 'bg-orange-500';
