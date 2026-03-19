@@ -1753,12 +1753,7 @@ const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any
     return (
         <div className="w-full px-6 py-6 text-center space-y-8">
             {/* Search bar + Browse links on same row */}
-            <div className="flex items-center gap-4 w-full">
-                {searchBar && (
-                    <div className="flex-1 max-w-2xl">
-                        {searchBar}
-                    </div>
-                )}
+            <div className="flex items-center gap-6 w-full">
                 <BrowseByCitySection
                     onPropertyClick={(addr) => {
                         if (typeof (setViewMode as any) === 'function') {
@@ -1767,6 +1762,11 @@ const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any
                     }}
                     onHasResults={setBrowseHasResults}
                 />
+                {searchBar && (
+                    <div className="flex-1 max-w-2xl">
+                        {searchBar}
+                    </div>
+                )}
             </div>
 
             {!browseHasResults && (
