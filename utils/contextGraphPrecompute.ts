@@ -661,55 +661,7 @@ function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
     return { id: 106, name: 'Seismic Risk', tags };
 }
 
-function factor107_floodZone(p: PropertyData): ExtractedFactor {
-    const fz = p.historical_disasters?.floodZone;
-    if (!fz) return { id: 107, name: 'Flood Zone Status', tags: [] };
-    const tags: string[] = [];
-    tags.push(`Zone ${fz.zone}`);
-    if (fz.riskLevel) tags.push(`${fz.riskLevel.charAt(0).toUpperCase() + fz.riskLevel.slice(1)} Risk`);
-    if (fz.insuranceRequired) tags.push('Flood Insurance Required');
-    if (fz.zoneSubtype) tags.push(fz.zoneSubtype);
-    const val = `Zone ${fz.zone} — ${fz.riskLevel} risk${fz.insuranceRequired ? ' (Insurance Required)' : ''}`;
-    return { id: 107, name: 'Flood Zone Status', tags };
-}
 
-function factor112_femaDeclarations(p: PropertyData): ExtractedFactor {
-    const declarations = p.historical_disasters?.femaDeclarations;
-    if (!declarations?.length) return { id: 112, name: 'FEMA Declarations', tags: ['No Declarations'] };
-
-    const tags: string[] = [];
-    const total = declarations.length;
-    tags.push(`${total} Declaration${total > 1 ? 's' : ''}`);
-
-    // Count by type
-    const typeCounts: Record<string, number> = {};
-    for (const d of declarations) {
-        const t = d.type || 'other';
-        typeCounts[t] = (typeCounts[t] || 0) + 1;
-    }
-    for (const [type, count] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
-        const label = type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-        tags.push(`${count} ${label}`);
-    }
-
-    // Most recent declaration
-    const sorted = [...declarations].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    const recent = sorted[0];
-    if (recent?.date) {
-        const yr = new Date(recent.date).getFullYear();
-        tags.push(`Latest: ${yr}`);
-    }
-    if (recent?.severity) tags.push(recent.severity);
-
-    // Recent 5 years count
-    const fiveYearsAgo = new Date();
-    fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-    const recentCount = declarations.filter((d: any) => d.date && new Date(d.date) >= fiveYearsAgo).length;
-    if (recentCount > 0) tags.push(`${recentCount} in Last 5 Years`);
-
-    const val = `${total} FEMA declaration${total > 1 ? 's' : ''} on record${recent?.date ? ` • Latest: ${new Date(recent.date).getFullYear()}` : ''}`;
-    return { id: 112, name: 'FEMA Declarations', tags: [...new Set(tags)].slice(0, 10) };
-}
 
 function factor108_sqftDiscrepancy(p: PropertyData): ExtractedFactor {
     const listed = p.livingAreaValue || (p as any).livingArea;
@@ -737,13 +689,7 @@ function factor109_lotSizeVerification(p: PropertyData): ExtractedFactor {
     return { id: 109, name: 'Lot Size Verification', tags: [pct > 20 ? 'Lot Size Mismatch' : 'Minor Lot Diff', `${pct}% Diff`] };
 }
 
-function factor110_listingClaimFlags(p: PropertyData): ExtractedFactor {
-    const pv = (p as any).parcelValidation;
-    const flags = pv?.flags?.filter((f: any) => f.severity === 'warning' || f.severity === 'error');
-    if (!flags?.length) return { id: 110, name: 'Listing Claim Flags', tags: [] };
-    const tags = flags.slice(0, 3).map((f: any) => f.check || 'Flag');
-    return { id: 110, name: 'Listing Claim Flags', tags: [`${flags.length} Flags`, ...tags] };
-}
+
 
 function factor80_professionalLifestyleFit(visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
     // Try structured lifestyle_fit first
@@ -936,7 +882,7 @@ export function precomputeDataFactors(
         factor106_seismicRisk(property),
         factor108_sqftDiscrepancy(property),
         factor109_lotSizeVerification(property),
-        factor110_listingClaimFlags(property),
+
 
     ];
 
@@ -947,6 +893,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 110, 120];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120];
 
 
