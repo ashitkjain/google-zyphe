@@ -2029,9 +2029,9 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const extractionPrompt = `Extract from: "${buyerStory}"
 Prices→dollars($1M=1000000). beds/baths→minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"".
 must_haves→requirements with "need","must","require","no stairs". nice_to_haves→preferences with "prefer","would be great","if possible".
-single_story→true only if buyer says "single story","no stairs","one level". search_tags→5-10 lowercase phrases.`;
+single_story→true only if buyer says "single story","no stairs","one level".`;
 
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean; search_tags: string[] };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; single_story: boolean };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2042,10 +2042,9 @@ single_story→true only if buyer says "single story","no stairs","one level". s
                     home_type: { type: Type.STRING },
                     must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
                     nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    single_story: { type: Type.BOOLEAN },
-                    search_tags: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    single_story: { type: Type.BOOLEAN }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story', 'search_tags']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'single_story']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
@@ -2082,7 +2081,8 @@ single_story→true only if buyer says "single story","no stairs","one level". s
             }
             // else: both bounds specified — use as-is
 
-            const searchTags = (ext.search_tags || []).map(t => t.toLowerCase().trim());
+            // Build search tags from must_haves + nice_to_haves for local ranking
+            const searchTags = [...(ext.must_haves || []), ...(ext.nice_to_haves || [])].map(t => t.toLowerCase().trim());
 
             const extracted = {
                 priceMin, priceMax,
