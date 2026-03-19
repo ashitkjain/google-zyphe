@@ -185,7 +185,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     if (!data) return null;
 
     // Normalize factors: expand compact {i,t,v} and old {id,name,tags} formats
-    const SUPPRESSED_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 107, 110, 112]);
+    const SUPPRESSED_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 107, 110, 112]);
     const normalizedFactors = data.factors.map(expandFactor);
     const grouped: Record<string, ExtractedFactor[]> = {};
     for (const factor of normalizedFactors) {
