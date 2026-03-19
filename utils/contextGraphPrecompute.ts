@@ -152,23 +152,41 @@ function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedF
 
 // ── Outdoor Factors from Street View & Visual AI ────────────────────
 
-function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
+function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
     const sv = p.streetViewAnalysis;
     const visualPrivacy = visual?.exterior_and_neighborhood?.views_privacy_orientation?.privacy;
 
-    // Prefer street view rating, fallback to visual analysis
-    const rating = sv?.privacyRating || visualPrivacy;
+    // Prefer street view rating, fallback to visual analysis, then comprehensive
+    const rating = sv?.privacyRating || visualPrivacy || comprehensive?.detailed_analysis?.privacy_layout;
     if (!rating) return { id: 33, name: 'Privacy Level', tags: [] };
 
     // Truncate to a concise value (max 10 words)
     const valueTrunc = rating.split(/[.!]/).filter(Boolean)[0]?.trim() || rating;
     const value = valueTrunc.split(/\s+/).slice(0, 10).join(' ');
 
+    const lower = rating.toLowerCase();
+    const tags: string[] = [];
+
+    // Primary privacy level tag
+    if (lower.includes('high') || lower.includes('private') || lower.includes('secluded') || lower.includes('excellent privacy')) {
+        tags.push('Private');
+    } else if (lower.includes('low') || lower.includes('exposed') || lower.includes('minimal privacy') || lower.includes('limited privacy')) {
+        tags.push('Exposed');
+    } else {
+        tags.push('Moderate Privacy');
+    }
+
+    // Additional detail tags from the rating text
+    if (lower.includes('fence') || lower.includes('fenced')) tags.push('Fenced');
+    if (lower.includes('hedge') || lower.includes('screening')) tags.push('Hedge Screening');
+    if (lower.includes('tree') || lower.includes('mature')) tags.push('Mature Trees');
+    if (lower.includes('neighbor') && (lower.includes('close') || lower.includes('overlook'))) tags.push('Close Neighbors');
+    if (lower.includes('cul-de-sac') || lower.includes('cul de sac')) tags.push('Cul-de-sac');
 
     return {
         id: 33, name: 'Privacy Level',
         value,
-        tags: [rating.toLowerCase().includes('high') || rating.toLowerCase().includes('private') ? 'Private' : rating.toLowerCase().includes('low') || rating.toLowerCase().includes('exposed') ? 'Exposed' : 'Moderate Privacy']
+        tags: [...new Set(tags)].slice(0, 5)
     };
 }
 
@@ -833,7 +851,7 @@ export function precomputeDataFactors(
 
         factor20_constructionEra(property),
         factor28_flooring(property),
-        factor33_privacyLevel(property, visual),
+        factor33_privacyLevel(property, visual, comprehensive),
 
 
         factor39_usableYard(property),
