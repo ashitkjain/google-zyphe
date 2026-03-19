@@ -2833,7 +2833,7 @@ ${JSON.stringify(summaries)}
                     )}
 
                     {/* ── PAGINATION ── */}
-                    {totalPages > 1 && !buyerResults && (
+                    {totalPages > 1 && displayList.length > 0 && !buyerResults && viewMode !== 'zypheai' && (
                         <div className="flex items-center justify-center gap-2 pt-2">
                             <button
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
