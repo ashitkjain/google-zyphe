@@ -150,6 +150,55 @@ function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedF
     return { id: 7, name: 'STR Viability', tags: ['STR'] };
 }
 
+function factor41_exteriorStyle(p: PropertyData, visual: CustomAIAnalysisResult | null): ExtractedFactor {
+    const tags: string[] = [];
+
+    // 1. Architecture style from resoFacts (listing data)
+    const resoStyle = p.resoFacts?.architecturalStyle;
+    if (resoStyle && resoStyle !== 'N/A') {
+        tags.push(resoStyle.split(',')[0].trim());
+    }
+
+    // 2. From visual AI exterior analysis
+    const ext = visual?.exterior_and_neighborhood?.exterior_and_lot_appeal;
+    if (ext?.architecture_style) {
+        const aiStyle = ext.architecture_style.split(/[.,;]/)[0].trim();
+        // Only add if different from reso style
+        if (aiStyle && !tags.some(t => t.toLowerCase() === aiStyle.toLowerCase())) {
+            tags.push(aiStyle);
+        }
+    }
+
+    // 3. Exterior materials from resoFacts
+    const materials = p.resoFacts?.constructionMaterials;
+    if (materials && materials !== 'N/A') {
+        for (const mat of materials.split(',').map(s => s.trim()).slice(0, 2)) {
+            if (mat && !tags.some(t => t.toLowerCase() === mat.toLowerCase())) tags.push(mat);
+        }
+    }
+
+    // 4. Roof type
+    const roof = p.resoFacts?.roofType;
+    if (roof && roof !== 'N/A') {
+        tags.push(`${roof.split(',')[0].trim()} Roof`);
+    }
+
+    // 5. Curb appeal note from visual or street view
+    if (ext?.curb_appeal) {
+        const curbLower = ext.curb_appeal.toLowerCase();
+        if (curbLower.includes('excellent') || curbLower.includes('stunning')) tags.push('Excellent Curb Appeal');
+        else if (curbLower.includes('good') || curbLower.includes('attractive')) tags.push('Good Curb Appeal');
+        else if (curbLower.includes('dated') || curbLower.includes('needs')) tags.push('Dated Exterior');
+    }
+
+    if (tags.length === 0) return { id: 41, name: 'Exterior Style & Architecture', tags: [] };
+
+    return {
+        id: 41, name: 'Exterior Style & Architecture',
+        tags: [...new Set(tags)].slice(0, 6)
+    };
+}
+
 // ── Outdoor Factors from Street View & Visual AI ────────────────────
 
 function factor33_privacyLevel(p: PropertyData, visual: CustomAIAnalysisResult | null, comprehensive: ComprehensiveAnalysisResult | null): ExtractedFactor {
@@ -852,6 +901,7 @@ export function precomputeDataFactors(
         factor20_constructionEra(property),
         factor28_flooring(property),
         factor33_privacyLevel(property, visual, comprehensive),
+        factor41_exteriorStyle(property, visual),
 
 
         factor39_usableYard(property),
@@ -894,6 +944,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 110, 120];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 110, 120];
 
 
