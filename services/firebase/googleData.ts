@@ -22,6 +22,8 @@ export interface GoogleEnvironmentalData {
     neighborhoodPlaces?: any;
     /** Historical disaster data (USGS + FEMA). 365-day TTL. */
     historical_disasters?: HistoricalDisasterData | null;
+    /** NREL nearby EV charging station data. 60-day TTL. */
+    evChargers?: import('../api/environmental').EVChargerData | null;
     lastUpdated?: any;
 }
 

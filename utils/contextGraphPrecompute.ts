@@ -270,16 +270,38 @@ function factor48_solarYield(p: PropertyData): ExtractedFactor {
     const solar = p.solarData;
     if (!solar?.estimatedSolarProduction) return { id: 48, name: 'Solar Yield Potential', tags: [] };
 
+    const tags: string[] = [];
+
+    // Sunshine hours
+    if (solar.maxSunshineHoursPerYear) {
+        tags.push(`${Math.round(solar.maxSunshineHoursPerYear).toLocaleString()} hrs sun/yr`);
+    }
+
+    // Annual production
     const kwh = solar.estimatedSolarProduction.annualKwh;
-    const panels = solar.estimatedSolarProduction.estimatedPanels;
-    const capacity = solar.estimatedSolarProduction.systemCapacityKw;
-    const tier = kwh > 15000 ? 'High' : kwh > 8000 ? 'Moderate' : 'Low';
+    if (kwh) {
+        tags.push(`${Math.round(kwh).toLocaleString()} kWh/yr`);
+    }
 
+    // System cost (upfront)
+    const cash = solar.financialAnalysis?.cashPurchase;
+    if (cash?.outOfPocketCost) {
+        tags.push(`Cost: $${Math.round(cash.outOfPocketCost).toLocaleString()}`);
+    }
 
+    // Payback period
+    if (cash?.paybackYears) {
+        tags.push(`Payback: ${cash.paybackYears} yrs`);
+    }
+
+    // Year 1 savings
+    if (cash?.savings?.savingsYear1) {
+        tags.push(`Yr1 Savings: $${Math.round(cash.savings.savingsYear1).toLocaleString()}`);
+    }
 
     return {
         id: 48, name: 'Solar Yield Potential',
-        tags: [tier, `${Math.round(kwh / 1000)}K kWh`, ...(kwh > 15000 ? ['High Solar'] : [])]
+        tags: tags.slice(0, 6)
     };
 }
 
@@ -287,23 +309,26 @@ function factor49_pollenSafety(p: PropertyData): ExtractedFactor {
     const pollen = p.pollen;
     if (!pollen) return { id: 49, name: 'Allergen / Pollen Safety', tags: [] };
 
-    const score = pollen.score;
-    const tier = score <= 2 ? 'Low Risk' : score <= 3 ? 'Moderate' : 'High Risk';
-    const dominant = pollen.dominantPollenType || 'Unknown';
-    const tags: string[] = [tier, dominant, pollen.category];
-
-    // Merge pollen sensitivity triggers (was factor 53)
     const analysis = pollen.analysis;
-    if (analysis) {
-        const raw = (pollen as any).raw_data;
-        // Extract individual pollen types from raw data if available
-        if (raw?.dailyInfo?.[0]?.plantInfo) {
-            for (const plant of raw.dailyInfo[0].plantInfo) {
-                if (plant.indexInfo?.value >= 2 && plant.displayName) {
-                    tags.push(`${plant.displayName} Pollen`);
-                }
-            }
+    if (!analysis) return { id: 49, name: 'Allergen / Pollen Safety', tags: [] };
+
+    const tags: string[] = [];
+
+    // Primary triggers (e.g. ["Oak", "Cedar"])
+    if (analysis.primary_triggers?.length) {
+        for (const trigger of analysis.primary_triggers) {
+            tags.push(trigger);
         }
+    }
+
+    // Seasonality window (e.g. "March–June")
+    if (analysis.seasonality_window) {
+        tags.push(`Season: ${analysis.seasonality_window}`);
+    }
+
+    // Breathe easy summary as a tag
+    if (analysis.breathe_easy_summary) {
+        tags.push(analysis.breathe_easy_summary);
     }
 
     return {
@@ -382,28 +407,7 @@ function factor77_noiseProfile(p: PropertyData): ExtractedFactor {
     };
 }
 
-function factor78_droughtRisk(p: PropertyData): ExtractedFactor {
-    const d = (p as any).drought;
-    if (!d) return { id: 78, name: 'Water & Drought Risk', tags: [] };
 
-    if (d.severityLevel < 0 || d.none >= 100) {
-        return { id: 78, name: 'Water & Drought Risk', tags: ['No Drought'] };
-    }
-
-    const pctAffected = Math.round(100 - d.none);
-    // Detail with full severity breakdown
-    const levels: string[] = [];
-    if (d.d0 > 0) levels.push(`${d.d0.toFixed(0)}% Abnormally Dry`);
-    if (d.d1 > 0) levels.push(`${d.d1.toFixed(0)}% Moderate`);
-    if (d.d2 > 0) levels.push(`${d.d2.toFixed(0)}% Severe`);
-    if (d.d3 > 0) levels.push(`${d.d3.toFixed(0)}% Extreme`);
-    if (d.d4 > 0) levels.push(`${d.d4.toFixed(0)}% Exceptional`);
-
-    return {
-        id: 78, name: 'Water & Drought Risk',
-        tags: [d.severity, `${pctAffected}% Affected`]
-    };
-}
 
 function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
     const hd = (p as any).historical_disasters;
@@ -517,7 +521,7 @@ function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
 function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
     const tags: string[] = [];
 
-    // On-property EV features (was factor 56)
+    // On-property EV features from listing description
     const desc = (p.description || '').toLowerCase();
     const garage = (p.resoFacts?.exteriorFeatures || '').toLowerCase();
     const combined = `${desc} ${garage}`;
@@ -525,28 +529,37 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
     else if (combined.includes('240v') || combined.includes('level 2')) tags.push('240V / Level 2 Ready');
     else if (combined.includes('electric vehicle') || combined.includes('ev-ready')) tags.push('EV-Ready Garage');
 
-    // Nearby EV charging stations
-    const places = (p as any).neighborhoodPlaces;
-    const transit = [...(places?.walkable?.transit || []), ...(places?.drivable?.transit || [])];
-    const evStations = transit.filter((pl: any) => (pl.types || []).some((t: string) => t.includes('electric_vehicle') || t.includes('ev_charging')));
-
-    if (evStations.length > 0) {
-        const closest = evStations.reduce((a: any, b: any) => (a.distanceMeters || Infinity) < (b.distanceMeters || Infinity) ? a : b);
-        const closestMi = closest.distanceMeters ? (closest.distanceMeters / 1609.34).toFixed(1) : '?';
-        tags.push(`${evStations.length} Stations Nearby`);
-        tags.push(`Closest ${closestMi}mi`);
+    // NREL EV charger data (nearby public stations)
+    const ev = (p as any).evChargers;
+    if (ev && ev.totalStations > 0) {
+        tags.push(`${ev.totalStations} Stations Nearby`);
+        if (ev.closestDistanceMi != null) {
+            tags.push(`Closest ${ev.closestDistanceMi}mi`);
+        }
+        if (ev.dcFastPorts > 0) {
+            tags.push(`${ev.dcFastPorts} DC Fast Ports`);
+        }
+        if (ev.level2Ports > 0) {
+            tags.push(`${ev.level2Ports} Level 2 Ports`);
+        }
+        if (ev.networks?.length > 0) {
+            tags.push(ev.networks.slice(0, 3).join(', '));
+        }
+    } else if (!ev) {
+        // Fallback to Google Places data if NREL hasn't been fetched yet
+        const places = (p as any).neighborhoodPlaces;
+        const transit = [...(places?.walkable?.transit || []), ...(places?.drivable?.transit || [])];
+        const evStations = transit.filter((pl: any) => (pl.types || []).some((t: string) => t.includes('electric_vehicle') || t.includes('ev_charging')));
+        if (evStations.length > 0) {
+            tags.push(`${evStations.length} Stations Nearby`);
+        } else {
+            tags.push('No Public Charging Nearby');
+        }
     } else {
         tags.push('No Public Charging Nearby');
     }
 
-    const hasOnProperty = tags.some(t => t.includes('Charger') || t.includes('240V') || t.includes('EV-Ready'));
-    const val = hasOnProperty
-        ? `${tags[0]}${evStations.length > 0 ? ` + ${evStations.length} nearby stations` : ''}`
-        : evStations.length > 0
-            ? `${evStations.length} charging station${evStations.length > 1 ? 's' : ''} nearby`
-            : 'No EV infrastructure found';
-
-    return { id: 86, name: 'EV Infrastructure', tags };
+    return { id: 86, name: 'EV Infrastructure', tags: [...new Set(tags)].slice(0, 8) };
 }
 
 function factor39_usableYard(p: PropertyData): ExtractedFactor {
@@ -659,6 +672,13 @@ function factor83_microNeighborhood(p: PropertyData, visual: CustomAIAnalysisRes
 }
 
 
+function factor65_upcomingDevImpact(p: PropertyData): ExtractedFactor {
+    const upcoming = (p as any).neighborhood_identity?.gemini?.upcoming_changes;
+    if (!upcoming || upcoming === 'None known' || upcoming === 'N/A') {
+        return { id: 65, name: 'Upcoming Dev Impact', tags: [] };
+    }
+    return { id: 65, name: 'Upcoming Dev Impact', tags: [upcoming] };
+}
 
 function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
     const hd = p.historical_disasters;
@@ -910,7 +930,7 @@ export function precomputeDataFactors(
         // ── New factors ──
         factor76_internetConnectivity(property),
         factor77_noiseProfile(property),
-        factor78_droughtRisk(property),
+
         factor79_disasterHistory(property),
         factor80_professionalLifestyleFit(visual, comprehensive),
         factor81_familyLifestyleFit(visual, comprehensive),
@@ -924,6 +944,7 @@ export function precomputeDataFactors(
         factor106_seismicRisk(property),
         factor108_sqftDiscrepancy(property),
         factor109_lotSizeVerification(property),
+        factor65_upcomingDevImpact(property),
 
 
     ];
@@ -935,6 +956,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120];
 
 

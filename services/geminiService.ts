@@ -714,7 +714,7 @@ export const extractContextGraphFactors = async (
 
 
   // 6. Remove deleted/suppressed factors — never store or send downstream
-  const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 107, 110, 112]);
+  const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 107, 110, 112]);
   const cleanedFactors = mergedFactors.filter(f => !DELETED_FACTOR_IDS.has(f.id));
 
   // 7. Deduplicate: remove tags that are already substrings of the value

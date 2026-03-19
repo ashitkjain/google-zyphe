@@ -338,3 +338,106 @@ export const fetchNoiseScore = async (
         return null;
     }
 };
+
+// ─── EV Chargers (NREL Alternative Fuel Station Locator) ─────────────────────
+const NREL_API_KEY = 'tJazmG4548XD5humNAdLvG55RxdDCmxDbcBrxfDb';
+
+export interface EVChargerData {
+    totalStations: number;
+    totalPorts: number;
+    dcFastPorts: number;
+    level2Ports: number;
+    closestStationName: string | null;
+    closestDistanceMi: number | null;
+    networks: string[];
+    connectorTypes: string[];
+    fetchedAt: string;
+}
+
+export const fetchNearbyEVChargers = async (
+    lat: number,
+    lng: number,
+    zpid?: string,
+    address?: string
+): Promise<EVChargerData | null> => {
+    const url = `https://developer.nrel.gov/api/alt-fuel-stations/v1/nearest.json?api_key=${NREL_API_KEY}&latitude=${lat}&longitude=${lng}&radius=5&fuel_type=ELEC&status=E&access=public&limit=20`;
+
+    const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        zpid,
+        address,
+        api_name: 'NREL EV Stations',
+        endpoint: 'nearest',
+        params: { lat, lng },
+        status: 'pending'
+    });
+    const start = Date.now();
+
+    try {
+        const response = await fetch(url);
+
+        if (logId) {
+            updateAPICall(logId, {
+                status: response.ok ? 'completed' : 'failed',
+                response_time_ms: Date.now() - start,
+                error: response.ok ? undefined : `Status ${response.status}`
+            });
+        }
+
+        if (!response.ok) {
+            console.warn(`[NREL EV API] Error: ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        const stations = data.fuel_stations || [];
+
+        if (stations.length === 0) {
+            return {
+                totalStations: 0,
+                totalPorts: 0,
+                dcFastPorts: 0,
+                level2Ports: 0,
+                closestStationName: null,
+                closestDistanceMi: null,
+                networks: [],
+                connectorTypes: [],
+                fetchedAt: new Date().toISOString(),
+            };
+        }
+
+        let totalDcFast = 0;
+        let totalLevel2 = 0;
+        const networkSet = new Set<string>();
+        const connectorSet = new Set<string>();
+
+        for (const s of stations) {
+            totalDcFast += s.ev_dc_fast_num || 0;
+            totalLevel2 += s.ev_level2_evse_num || 0;
+            if (s.ev_network) networkSet.add(s.ev_network);
+            if (s.ev_connector_types) {
+                for (const c of s.ev_connector_types) connectorSet.add(c);
+            }
+        }
+
+        const closest = stations[0]; // API returns sorted by distance
+
+        return {
+            totalStations: stations.length,
+            totalPorts: totalDcFast + totalLevel2,
+            dcFastPorts: totalDcFast,
+            level2Ports: totalLevel2,
+            closestStationName: closest.station_name || null,
+            closestDistanceMi: closest.distance != null ? Math.round(closest.distance * 10) / 10 : null,
+            networks: [...networkSet],
+            connectorTypes: [...connectorSet],
+            fetchedAt: new Date().toISOString(),
+        };
+    } catch (e) {
+        console.error('[NREL EV API] Failed to fetch EV charger data', e);
+        if (logId) {
+            updateAPICall(logId, { status: 'failed', response_time_ms: Date.now() - start, error: (e as any).message });
+        }
+        return null;
+    }
+};

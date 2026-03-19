@@ -5,6 +5,7 @@ import { PropertyData } from '../../types';
 import { calculateSolarPotential } from '../../utils/solarCalculations';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import CommuteCalculator from './CommuteCalculator';
+import SeasonalSunCard from './SeasonalSunCard';
 
 interface Props {
     data: PropertyData;
@@ -230,56 +231,8 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
 
                 </div>
 
-                {/* MODULE: CLIMATE RISK + SOLAR (stacked) */}
+                {/* MODULE: SOLAR + EV (stacked) */}
                 <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                    {/* Climate Risk */}
-                    {hasClimate && (
-                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                            <div className="p-4">
-                                {/* Header */}
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                                            <i className="fa-solid fa-shield-halved text-amber-600 text-[13px]"></i>
-                                        </div>
-                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Climate Risk</span>
-                                        <RefreshBtn />
-                                    </div>
-                                    <div className="flex items-center gap-3 text-[13px]">
-                                        {data.annualHomeownersInsurance && (
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Insurance</span>
-                                                <span className="font-black text-slate-700">${data.annualHomeownersInsurance.toLocaleString()}/yr</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                {/* Risk grid */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    {[
-                                        { icon: 'fa-wind', label: 'Wind', score: data.windRiskScore },
-                                        { icon: 'fa-droplet', label: 'Flood', score: data.floodRiskScore },
-                                        { icon: 'fa-fire', label: 'Fire', score: data.fireRiskScore },
-                                        { icon: 'fa-temperature-high', label: 'Heat', score: data.heatRiskScore },
-                                    ].map(({ icon, label, score }) => {
-                                        const isCritical = !!(score && score > 5);
-                                        return (
-                                            <div key={label} className={`flex items-center gap-2 p-2 rounded-lg border ${isCritical ? 'bg-red-50/50 border-red-100' : 'bg-white border-slate-100'}`}>
-                                                <i className={`fa-solid ${icon} text-[10px] ${isCritical ? 'text-red-500' : 'text-slate-300'}`}></i>
-                                                <div className="min-w-0">
-                                                    <div className={`text-[11px] font-black uppercase tracking-wider ${isCritical ? 'text-red-400' : 'text-slate-400'}`}>{label}</div>
-                                                    <div className={`text-[13px] font-black leading-none ${isCritical ? 'text-red-600' : 'text-slate-700'}`}>
-                                                        {score ? `${score}/10` : 'N/A'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <div className="text-[8px] text-slate-700 mt-2 text-right">ClimateCheck</div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Solar */}
                     {solar && (
@@ -451,6 +404,154 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                             </div>
                         </div>
                     )}
+
+                    {/* Seasonal Sun */}
+                    {data.coordinates && (
+                        <SeasonalSunCard
+                            lat={data.coordinates.latitude}
+                            lng={data.coordinates.longitude}
+                            orientation={(data as any).orientation_ai?.final_orientation}
+                        />
+                    )}
+
+                    {/* EV Charging */}
+                    {(() => {
+                        const ev = (data as any).evChargers;
+                        const [evLoading, setEvLoading] = React.useState(false);
+                        const [liveEv, setLiveEv] = React.useState<any>(null);
+                        const evData = liveEv || ev;
+
+                        const handleRefreshEV = async () => {
+                            if (!data.coordinates) return;
+                            setEvLoading(true);
+                            try {
+                                const { fetchNearbyEVChargers } = await import('../../services/api/environmental');
+                                const fresh = await fetchNearbyEVChargers(
+                                    data.coordinates.latitude,
+                                    data.coordinates.longitude,
+                                    data.zpid,
+                                    data.address
+                                );
+                                if (fresh) {
+                                    setLiveEv(fresh);
+                                    // Save to cache
+                                    const key = data.zpid || data.address?.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                                    if (key) {
+                                        const { saveGoogleDataToCloud } = await import('../../services/firebaseService');
+                                        await saveGoogleDataToCloud(key, { evChargers: fresh });
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('[EV Refresh] Failed', e);
+                            }
+                            setEvLoading(false);
+                        };
+
+                        return (
+                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                <div className="p-4">
+                                    {/* Header */}
+                                    <div className="flex items-center justify-between gap-3 mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                <i className="fa-solid fa-charging-station text-emerald-600 text-[12px]"></i>
+                                            </div>
+                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">EV Charging</span>
+                                        </div>
+                                        <button
+                                            onClick={handleRefreshEV}
+                                            disabled={evLoading}
+                                            className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${evLoading ? 'text-emerald-400 animate-spin' : 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50'}`}
+                                            title="Fetch EV chargers from NREL"
+                                        >
+                                            <i className="fa-solid fa-arrows-rotate text-[9px]"></i>
+                                        </button>
+                                    </div>
+
+                                    {!evData ? (
+                                        <div className="flex flex-col items-center py-4 gap-2">
+                                            <i className="fa-solid fa-plug-circle-xmark text-slate-300 text-lg"></i>
+                                            <span className="text-[11px] font-bold text-slate-400">No data yet</span>
+                                            <button
+                                                onClick={handleRefreshEV}
+                                                disabled={evLoading}
+                                                className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+                                            >
+                                                {evLoading ? 'Fetching...' : 'Fetch from NREL'}
+                                            </button>
+                                        </div>
+                                    ) : evData.totalStations === 0 ? (
+                                        <div className="flex items-center gap-2 p-2 bg-amber-50 rounded-lg border border-amber-100">
+                                            <i className="fa-solid fa-circle-exclamation text-amber-500 text-[10px]"></i>
+                                            <span className="text-[12px] font-bold text-amber-700">No public chargers within 5 mi</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Top stat row */}
+                                            <div className="flex items-center gap-3 text-[12px] mb-3">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Stations</span>
+                                                    <span className="font-black text-slate-700">{evData.totalStations}</span>
+                                                </div>
+                                                <div className="w-px h-6 bg-slate-200"></div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Closest</span>
+                                                    <span className="font-black text-emerald-600">{evData.closestDistanceMi} mi</span>
+                                                </div>
+                                                <div className="w-px h-6 bg-slate-200"></div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Total Ports</span>
+                                                    <span className="font-black text-slate-700">{evData.totalPorts}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Port breakdown */}
+                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                                {evData.dcFastPorts > 0 && (
+                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                        <i className="fa-solid fa-bolt text-[10px] text-amber-400"></i>
+                                                        <div className="min-w-0">
+                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">DC Fast</div>
+                                                            <div className="text-[13px] font-black text-amber-600 leading-snug">{evData.dcFastPorts} ports</div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {evData.level2Ports > 0 && (
+                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                        <i className="fa-solid fa-plug text-[10px] text-blue-400"></i>
+                                                        <div className="min-w-0">
+                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Level 2</div>
+                                                            <div className="text-[13px] font-black text-blue-600 leading-snug">{evData.level2Ports} ports</div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Networks */}
+                                            {evData.networks?.length > 0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {evData.networks.slice(0, 5).map((n: string, i: number) => (
+                                                        <span key={i} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-wider border border-emerald-100">
+                                                            {n}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Closest station name */}
+                                            {evData.closestStationName && (
+                                                <div className="mt-2 text-[11px] text-slate-500 font-medium truncate">
+                                                    <i className="fa-solid fa-location-dot text-emerald-400 mr-1 text-[9px]"></i>
+                                                    {evData.closestStationName}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                                <div className="text-[8px] text-slate-700 text-right px-4 pb-1.5">NREL Alt-Fuel API</div>
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* MODULE: AIR QUALITY */}
@@ -617,8 +718,56 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                     )}
                 </div>
 
-                {/* MODULE: HAZARD ZONES (in 4th column, replacing pollen) */}
+                {/* MODULE: CLIMATE RISK + HAZARD ZONES (in 4th column) */}
                 <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 overflow-visible hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    {/* Climate Risk */}
+                    {hasClimate && (
+                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                            <div className="p-4">
+                                {/* Header */}
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                                            <i className="fa-solid fa-shield-halved text-amber-600 text-[13px]"></i>
+                                        </div>
+                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Climate Risk</span>
+                                        <RefreshBtn />
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[13px]">
+                                        {data.annualHomeownersInsurance && (
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Insurance</span>
+                                                <span className="font-black text-slate-700">${data.annualHomeownersInsurance.toLocaleString()}/yr</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Risk grid */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { icon: 'fa-wind', label: 'Wind', score: data.windRiskScore },
+                                        { icon: 'fa-droplet', label: 'Flood', score: data.floodRiskScore },
+                                        { icon: 'fa-fire', label: 'Fire', score: data.fireRiskScore },
+                                        { icon: 'fa-temperature-high', label: 'Heat', score: data.heatRiskScore },
+                                    ].map(({ icon, label, score }) => {
+                                        const isCritical = !!(score && score > 5);
+                                        return (
+                                            <div key={label} className={`flex items-center gap-2 p-2 rounded-lg border ${isCritical ? 'bg-red-50/50 border-red-100' : 'bg-white border-slate-100'}`}>
+                                                <i className={`fa-solid ${icon} text-[10px] ${isCritical ? 'text-red-500' : 'text-slate-300'}`}></i>
+                                                <div className="min-w-0">
+                                                    <div className={`text-[11px] font-black uppercase tracking-wider ${isCritical ? 'text-red-400' : 'text-slate-400'}`}>{label}</div>
+                                                    <div className={`text-[13px] font-black leading-none ${isCritical ? 'text-red-600' : 'text-slate-700'}`}>
+                                                        {score ? `${score}/10` : 'N/A'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="text-[8px] text-slate-700 mt-2 text-right">ClimateCheck</div>
+                            </div>
+                        </div>
+                    )}
                     {disasterData && (
                         <>
                             <HistoricalDisasterSection data={disasterData} drought={data.drought} compact onRefresh={onRefresh} refreshing={refreshing} />

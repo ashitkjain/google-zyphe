@@ -18,7 +18,7 @@ export type { NearbyPlace, NeighborhoodCategorySet, NeighborhoodPlaces } from '.
 export { fetchNearbyPlaces } from './places';
 
 // Environmental data
-export { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } from './environmental';
+export { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore, fetchNearbyEVChargers } from './environmental';
 
 // Historical disaster data (USGS Earthquake + FEMA)
 export type { DisasterEvent, SeismicZone, FloodZone, HistoricalDisasterData } from './disasters';

@@ -8,7 +8,7 @@ import { NeighborhoodPlaces } from './places';
 import { normalizeAddress } from './geocoding';
 import { fetchScores, fetchPropertyImages } from './property';
 import { fetchNearbyPlaces } from './places';
-import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } from './environmental';
+import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore, fetchNearbyEVChargers } from './environmental';
 import { fetchHistoricalDisasters } from './disasters';
 import { fetchBroadbandData } from './broadband';
 import { fetchDroughtData } from './drought';
@@ -145,6 +145,8 @@ export const fetchPropertyDataFull = async (
 
         // INDEPENDENT ENVIRONMENTAL CHECK:
         // Even if we don't have a ZPID, if we have coordinates, we can fetch Solar/Air/Pollen/AI.
+        let parcelDirty = false;
+        let satelliteDirty = false;
         if (mappedData.coordinates) {
             const storageKey = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
 
@@ -156,6 +158,7 @@ export const fetchPropertyDataFull = async (
             const TTL_DISASTERS = TTL_ENV;
             const TTL_BROADBAND = TTL_ENV;
             const TTL_DROUGHT = TTL_ENV;
+            const TTL_EV = TTL_ENV;
 
             const isCacheExpired = (lastUpdated: any, ttl: number) => {
                 if (!lastUpdated) return true;
@@ -189,14 +192,18 @@ export const fetchPropertyDataFull = async (
             const needsDisasters = (!cachedEnvData?.historical_disasters && !mappedData.historical_disasters) || forceEnvironment || (cachedEnvData?.historical_disasters && isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS));
             const needsBroadband = (!cachedEnvData?.broadband && !mappedData.broadband) || forceEnvironment || (!mappedData.broadband && cachedEnvData?.broadband && isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND));
             const needsDrought = (!cachedEnvData?.drought && !mappedData.drought) || forceEnvironment || (!mappedData.drought && cachedEnvData?.drought && isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT));
+            const needsEV = (!cachedEnvData?.evChargers && !(mappedData as any).evChargers) || forceEnvironment || (cachedEnvData?.evChargers && isCacheExpired(cachedEnvData?.evChargers?.fetchedAt, TTL_EV));
 
-            if (needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought) {
+            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsEV;
+            let streetViewDirty = false;
+
+            if (envDirty) {
                 onStep?.('Fetching environmental data...');
             }
 
-            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought})`);
-            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought'].filter(Boolean).join(', ') || 'all cached'})`);
-            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought] = await Promise.all([
+            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} ev=${needsEV})`);
+            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsEV && 'ev'].filter(Boolean).join(', ') || 'all cached'})`);
+            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshEV] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
@@ -204,6 +211,7 @@ export const fetchPropertyDataFull = async (
                 needsDisasters ? fetchHistoricalDisasters(lat, lng, mappedData.state, mappedData.city, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsBroadband ? fetchBroadbandData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                needsEV ? fetchNearbyEVChargers(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
             ]);
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch done`);
             _mark('Environmental done');
@@ -272,6 +280,13 @@ export const fetchPropertyDataFull = async (
                 mappedData.drought = cachedEnvData.drought;
             }
 
+            // 8. EV Chargers (NREL)
+            if (needsEV && freshEV) {
+                (mappedData as any).evChargers = freshEV;
+            } else if (!needsEV && cachedEnvData?.evChargers) {
+                (mappedData as any).evChargers = cachedEnvData.evChargers;
+            }
+
             // 6. AI Street View Analysis
             if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating && !forceEnvironment) {
                 console.log('[fetchPropertyDataFull] Using cached Street View analysis.');
@@ -316,12 +331,13 @@ export const fetchPropertyDataFull = async (
                     console.log('[fetchPropertyDataFull] No Street View imagery available — skipping AI analysis.');
                     mappedData.streetViewAnalysis = undefined;
                 }
+                streetViewDirty = true;
                 _mark('Street View analysis done');
             }
 
-            // Save back to cache (merge with existing)
-            if (storageKey) {
-                console.log(`[EnvironmentalCache] Saving data to cache key: ${storageKey}`);
+            // Save back to cache ONLY if something was freshly fetched
+            if ((envDirty || streetViewDirty) && storageKey) {
+                console.log(`[EnvironmentalCache] Saving data to cache key: ${storageKey} (envDirty=${envDirty}, svDirty=${streetViewDirty})`);
                 await saveGoogleDataToCloud(storageKey, {
                     solarData: mappedData.solarData,
                     airQuality: mappedData.airQuality,
@@ -336,12 +352,14 @@ export const fetchPropertyDataFull = async (
                     noiseLocalDesc: mappedData.noiseLocalDesc ?? null,
                     noiseAirportScore: mappedData.noiseAirportScore ?? null,
                     noiseAirportDesc: mappedData.noiseAirportDesc ?? null,
-                    zpid: mappedData.zpid || storageKey
+                    zpid: mappedData.zpid || storageKey,
+                    evChargers: (mappedData as any).evChargers ?? null,
                 });
+                _mark('Environmental cache saved');
             } else {
-                console.warn('[EnvironmentalCache] Skipping save: No ZPID or Address available for key.');
+                console.log(`[EnvironmentalCache] Skipping save — all data was cached, nothing new to write.`);
+                _mark('Environmental cache skipped (clean)');
             }
-            _mark('Environmental cache saved');
         }
 
         // ── PARCEL DATA (previously lazy-loaded by ParcelValidationCard) ────────
@@ -367,6 +385,7 @@ export const fetchPropertyDataFull = async (
                         (mappedData as any).taxSqftSource = `ArcGIS ${parcelResult.county}`;
                     }
                     console.log(`[Pipeline] Parcel data fetched: APN=${parcelResult.apn}, area=${parcelResult.areaSqft}sf, county=${parcelResult.county}`);
+                    parcelDirty = true;
                 }
             } catch (e: any) {
                 console.warn('[Pipeline] ArcGIS parcel fetch failed (non-blocking):', e.message);
@@ -388,6 +407,7 @@ export const fetchPropertyDataFull = async (
                 );
                 if (satUrl) {
                     mappedData.satelliteImageUrl = satUrl;
+                    satelliteDirty = true;
                     console.log('[Pipeline] Satellite image cached:', satUrl.substring(0, 80) + '...');
                 }
             } catch (e: any) {
@@ -395,9 +415,12 @@ export const fetchPropertyDataFull = async (
             }
         }
 
-        // Final save attempt if we have a ZPID (in case we added environmental data)
-        if (mappedData.zpid) {
+        // Final save ONLY if parcel or satellite data was freshly fetched
+        if (mappedData.zpid && (parcelDirty || satelliteDirty)) {
+            console.log(`[Pipeline] Saving property (parcelDirty=${parcelDirty}, satelliteDirty=${satelliteDirty})`);
             await savePropertyToCloud(mappedData.zpid, mappedData);
+        } else {
+            console.log(`[Pipeline] Skipping final property save — nothing new to write.`);
         }
 
         _mark('COMPLETE');

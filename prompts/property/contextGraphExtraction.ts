@@ -189,11 +189,11 @@ Given the property data below, extract structured decision factors. For each fac
 62. SKIP (deleted).
 63. SKIP (deleted).
 64. **Job Hub Connectivity**: Proximity to major corporate campuses (Google, Apple, etc.).
-65. **Upcoming Dev Impact**: From visualAnalysis.neighborhood.neighborhood_features.development_patterns — look for mentions of new construction, transit projects, commercial development, or infrastructure changes nearby. Fallback to deep_investment_research.investment_outlook.long_term or general_market_intelligence.regulatory_and_growth.upcoming_developments.
-66. **Soil / Geo Consistency**: Soil type or liquefaction risk from deep_research.
+65. SKIP (precomputed).
+66. SKIP (deleted).
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
 68. **Backyard Potential**: Room for ADU or pool if not already present.
-69. **Streetscape Aesthetic**: Underground utilities vs overhead wires.
+69. SKIP (deleted).
 70. **Market Momentum**: From deep_investment_research.market_dynamics and macroeconomic_indicators. CRITICAL: Do NOT label as "Seller's Market" based on low inventory alone — you MUST cross-reference median Days on Market (DOM). Low inventory + low DOM (<20) = Seller's Market. Low inventory + high DOM (>30) = Stagnant/Balanced (low supply AND low demand). Include median DOM and months of supply in value. Classify as: Seller's Market / Balanced / Buyer's Market / Stagnant. Fallback to general_market_intelligence.
 
 ### Community & Market Intelligence (71-75)
