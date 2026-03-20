@@ -128,10 +128,12 @@ export interface PropertyData {
     fireRiskScore?: number | null;
     heatRiskScore?: number | null;
 
-    // Full climate risk detail from First Street Foundation (via RapidAPI)
-    climateRisk?: {
+    // Extra climate detail from First Street Foundation (via RapidAPI)
+    // Numeric risk scores live in the flat fields above ({type}RiskScore).
+    // This object carries supplementary data only.
+    climateRiskDetail?: {
         flood?: {
-            score: number; label: string; max: number;
+            label?: string;                              // e.g. "MINIMAL"
             femaZone?: string;                           // e.g. "X_UNSHADED"
             insuranceRec?: string;                       // e.g. "NOT_CRITICAL"
             insuranceSeparatePolicy?: string;             // e.g. "NOT_REQUIRED"
@@ -140,7 +142,7 @@ export interface PropertyData {
             sourceUrl?: string;
         };
         fire?: {
-            score: number; label: string; max: number;
+            label?: string;
             insuranceRec?: string;
             insuranceSeparatePolicy?: string;
             historicCount?: number;
@@ -148,7 +150,7 @@ export interface PropertyData {
             sourceUrl?: string;
         };
         wind?: {
-            score: number; label: string; max: number;
+            label?: string;
             insuranceRec?: string;
             insuranceSeparatePolicy?: string;
             historicCount?: number;
@@ -156,13 +158,13 @@ export interface PropertyData {
             sourceUrl?: string;
         };
         heat?: {
-            score: number; label: string; max: number;
+            label?: string;
             percentile98Temp?: number;                   // e.g. 97°F
             hotDays?: { dayCount: number; relativeYear: number }[];
             sourceUrl?: string;
         };
         air?: {
-            score: number; label: string; max: number;
+            label?: string;
             badAirDays?: { dayCount: number; relativeYear: number }[];
             sourceUrl?: string;
         };

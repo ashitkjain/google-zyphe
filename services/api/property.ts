@@ -200,16 +200,14 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
 
 // ─── Climate Risk Extractor ──────────────────────────────────────────────────
 
-function extractClimateRisk(climate: any) {
+function extractClimateRiskDetail(climate: any) {
     if (!climate) return undefined;
 
-    const extractRiskType = (src: any) => {
+    const extractDetail = (src: any) => {
         if (!src?.primary?.riskScore) return undefined;
         const p = src.primary;
         return {
-            score: p.riskScore.value,
-            label: p.riskScore.label,
-            max: p.riskScore.max ?? 10,
+            label: p.riskScore.label || undefined,
             insuranceRec: p.insuranceRecommendation || undefined,
             insuranceSeparatePolicy: p.insuranceSeparatePolicy || undefined,
             historicCount: p.historicCountAll ?? p.historicCountPropertyAll ?? undefined,
@@ -223,14 +221,12 @@ function extractClimateRisk(climate: any) {
     const air = climate.airSources?.primary;
 
     const result: any = {};
-    if (climate.floodSources) result.flood = extractRiskType(climate.floodSources);
-    if (climate.fireSources) result.fire = extractRiskType(climate.fireSources);
-    if (climate.windSources) result.wind = extractRiskType(climate.windSources);
+    if (climate.floodSources) result.flood = extractDetail(climate.floodSources);
+    if (climate.fireSources) result.fire = extractDetail(climate.fireSources);
+    if (climate.windSources) result.wind = extractDetail(climate.windSources);
     if (heat?.riskScore) {
         result.heat = {
-            score: heat.riskScore.value,
-            label: heat.riskScore.label,
-            max: heat.riskScore.max ?? 10,
+            label: heat.riskScore.label || undefined,
             percentile98Temp: heat.percentile98Temp ?? undefined,
             hotDays: Array.isArray(heat.hotDays) && heat.hotDays.length > 0 ? heat.hotDays : undefined,
             sourceUrl: heat.source?.url || undefined,
@@ -238,9 +234,7 @@ function extractClimateRisk(climate: any) {
     }
     if (air?.riskScore) {
         result.air = {
-            score: air.riskScore.value,
-            label: air.riskScore.label,
-            max: air.riskScore.max ?? 10,
+            label: air.riskScore.label || undefined,
             badAirDays: Array.isArray(air.badAirDays) && air.badAirDays.length > 0 ? air.badAirDays : undefined,
             sourceUrl: air.source?.url || undefined,
         };
@@ -335,7 +329,7 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.riskFactors?.heat ?? root.climate?.heatSources?.primary?.riskScore?.value ?? root.heatSources?.primary?.riskScore?.value),
 
                 // Full climate risk detail (First Street Foundation)
-                climateRisk: root.climate ? extractClimateRisk(root.climate) : undefined,
+                climateRiskDetail: root.climate ? extractClimateRiskDetail(root.climate) : undefined,
 
                 // Dates
                 lastSoldDate: root.datePosted || root.dateSold || null,
