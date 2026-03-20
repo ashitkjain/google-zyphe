@@ -677,6 +677,129 @@ export const runFullIntelligencePipeline = async (
       onProgress({ step: 'AI:Narrative', status: 'completed', message: 'Ran' });
     }
 
+    // ── POST-PIPELINE SMOKE TEST ─────────────────────────────────────────
+    // Run smoke test on the final state and retry any steps with errors/warnings
+    onProgress({ step: 'Validation', status: 'running', message: 'Running smoke test...' });
+    try {
+      const { runChecks } = await import('./smokeTest');
+      const { getSchoolCacheKey } = await import('../prompts/property/schoolsAnalysis');
+
+      // Reload all data from Firestore for accurate check
+      const [finalProp, finalAssets, finalVisual, finalEnv, finalComp, finalInv] = await Promise.all([
+        getPropertyFromCloud(zpid),
+        import('./firebase/properties').then(m => m.getPropertyAssetsFromCloud(zpid)).catch(() => null),
+        getVisualAnalysisFromCloud(zpid),
+        import('./firebase/googleData').then(m => m.getGoogleDataFromCloud(zpid)).catch(() => null),
+        getComprehensiveAnalysisFromCloud(zpid),
+        getPropertyInvestmentFromCloud(zpid).catch(() => null),
+      ]);
+
+      // Build school analyses map
+      const schoolAnalyses: Record<string, any> = {};
+      if (finalProp?.schools?.length && finalProp.city) {
+        const { getSchoolAnalysisFromCloud } = await import('./firebase/properties');
+        for (const s of finalProp.schools) {
+          const key = getSchoolCacheKey(s.name, finalProp.city, finalProp.state || '');
+          const sa = await getSchoolAnalysisFromCloud(key).catch(() => null);
+          if (sa) schoolAnalyses[key] = sa;
+        }
+      }
+
+      const smoke = runChecks(zpid, finalProp, finalAssets, finalVisual, finalEnv, finalComp, finalInv, schoolAnalyses);
+      const failed = smoke.checks.filter(c => !c.passed);
+
+      if (failed.length > 0) {
+        onLog?.(`[Smoke Test] ${failed.length} issues found: ${failed.map(c => `${c.id}(${c.severity})`).join(', ')}`);
+
+        // Map check IDs to remediation actions
+        const RAPIDAPI_CHECKS = ['bedrooms', 'bathrooms', 'livingArea', 'price', 'description', 'coordinates', 'yearBuilt', 'homeType'];
+        const VISUAL_CHECKS = ['aiVisualInterior', 'aiVisualExterior', 'designStyle', 'conditionFinish', 'roomHighlights', 'curbAppeal', 'backyardPatio', 'privacyVisual'];
+        const NARRATIVE_CHECKS = ['compSummary', 'compRisks', 'intSummary', 'intRooms', 'intVibe', 'intTags', 'schoolsSummary', 'lifestyleInsights'];
+        const NEIGHBORHOOD_CHECKS = ['aiNeighborhood'];
+
+        const failedIds = new Set(failed.map(c => c.id));
+
+        // 1. Re-fetch from RapidAPI if core data is missing
+        const needsRapidApi = RAPIDAPI_CHECKS.some(id => failedIds.has(id));
+        if (needsRapidApi && finalProp?.zpid) {
+          onLog?.(`[Smoke Retry] Re-fetching core data from RapidAPI...`);
+          try {
+            const { fetchPropertySpecs } = await import('./api/property');
+            const fresh = await fetchPropertySpecs(finalProp.zpid);
+            if (fresh) {
+              const healed = { ...finalProp };
+              for (const [key, value] of Object.entries(fresh)) {
+                if (value != null && (healed as any)[key] == null) {
+                  (healed as any)[key] = value;
+                }
+              }
+              await savePropertyToCloud(zpid, healed);
+              enrichedData = healed as PropertyData;
+              onLog?.(`[Smoke Retry] Core data healed from RapidAPI.`);
+            }
+          } catch (e: any) {
+            onLog?.(`[Smoke Retry] RapidAPI heal failed: ${e.message}`);
+          }
+        }
+
+        // 2. Re-run Visual AI if critical visual checks failed
+        const needsVisual = VISUAL_CHECKS.filter(id => failedIds.has(id));
+        if (needsVisual.some(id => ['aiVisualInterior', 'aiVisualExterior'].includes(id)) && enrichedData.images?.length) {
+          onLog?.(`[Smoke Retry] Re-running Visual AI...`);
+          try {
+            const res = await analyzePropertyImages(enrichedData.images, enrichedData, userId);
+            if (res.data?.home_interior?.overall_description) {
+              const merged = { ...finalVisual, ...res.data };
+              await saveVisualAnalysisToCloud(zpid, merged);
+              onLog?.(`[Smoke Retry] Visual AI healed.`);
+            }
+          } catch (e: any) {
+            onLog?.(`[Smoke Retry] Visual AI retry failed: ${e.message}`);
+          }
+        }
+
+        // 3. Re-run Narrative if critical checks failed
+        const needsNarrative = NARRATIVE_CHECKS.some(id => failedIds.has(id));
+        if (needsNarrative) {
+          onLog?.(`[Smoke Retry] Re-running Narrative synthesis...`);
+          try {
+            const reloadedVisual = await getVisualAnalysisFromCloud(zpid);
+            const freshContext = {
+              ...finalVisualResult,
+              ...(reloadedVisual || {}),
+            };
+            const resultComp2 = await analyzeComprehensive(enrichedData, freshContext, userId);
+            await saveComprehensiveAnalysisToCloud(zpid, resultComp2.data);
+            onLog?.(`[Smoke Retry] Narrative healed.`);
+          } catch (e: any) {
+            onLog?.(`[Smoke Retry] Narrative retry failed: ${e.message}`);
+          }
+        }
+
+        // Re-run smoke test after retries to log final state
+        const finalSmoke = runChecks(zpid, 
+          needsRapidApi ? enrichedData : finalProp,
+          finalAssets, 
+          needsVisual.length ? await getVisualAnalysisFromCloud(zpid) : finalVisual,
+          finalEnv,
+          needsNarrative ? await getComprehensiveAnalysisFromCloud(zpid) : finalComp,
+          finalInv, schoolAnalyses);
+        const remaining = finalSmoke.checks.filter(c => !c.passed);
+        const errors = remaining.filter(c => c.severity === 'error');
+        const warns = remaining.filter(c => c.severity === 'warn');
+        onLog?.(`[Smoke Test] Final: ${errors.length} errors, ${warns.length} warnings remaining.`);
+        if (errors.length > 0) {
+          warnings.push(...errors.map(c => c.id));
+        }
+      } else {
+        onLog?.(`[Smoke Test] All checks passed ✓`);
+      }
+      onProgress({ step: 'Validation', status: 'completed', message: `Smoke test: ${smoke.errorCount} errors, ${smoke.warnCount} warnings` });
+    } catch (e: any) {
+      onLog?.(`[Smoke Test] Validation failed (non-blocking): ${e.message}`);
+      onProgress({ step: 'Validation', status: 'completed', message: 'Validation skipped' });
+    }
+
     if (warnings.length > 0) {
       onProgress({ step: 'Status', status: 'completed', message: `Intelligence Suite ready (with warnings: ${warnings.join(', ')} needs retry).` });
     } else {

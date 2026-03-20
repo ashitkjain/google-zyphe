@@ -66,7 +66,7 @@ const isFirebaseStorageUrl = (url?: string | null) =>
 
 // ─── Per-property checker ─────────────────────────────────────────────────────
 
-function runChecks(
+export function runChecks(
     zpid: string,
     prop: any,
     assets: any | null,
