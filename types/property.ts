@@ -81,8 +81,6 @@ export interface ResoFacts {
     securityFeatures?: string;
     windowFeatures?: string;
     roomFeatures?: string;
-    associationAmenities?: string[];     // e.g. ["Clubhouse", "Pool", "Spa/Hot Tub"]
-    associationFeeIncludes?: string[];   // e.g. ["Common Area Maint", "Reserve Fund"]
     taxAnnualAmount?: number | null;
     taxAssessedValue?: number | null;
     numberOfUnitsInCommunity?: number | null;

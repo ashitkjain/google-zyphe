@@ -395,8 +395,6 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                     windowFeatures: resoRaw.windowFeatures,
                     roomFeatures: resoRaw.roomFeatures,
                     // New fields
-                    associationAmenities: resoRaw.associationAmenities || undefined,
-                    associationFeeIncludes: resoRaw.associationFeeIncludes || undefined,
                     taxAnnualAmount: extractNumericValue(resoRaw.taxAnnualAmount),
                     taxAssessedValue: extractNumericValue(resoRaw.taxAssessedValue),
                     numberOfUnitsInCommunity: extractNumericValue(resoRaw.numberOfUnitsInCommunity),
