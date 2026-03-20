@@ -1021,20 +1021,19 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     };
 
 
-    // ── Batch Context Graph Generator ──────────────────────────────────────
-    const handleBatchContextGraph = async (forceRegenerate = false) => {
+    // ── Batch Context Graph Generator (smart staleness) ───────────────────
+    const handleBatchContextGraph = async () => {
         // Use selected properties if any are checked, otherwise all cached
         const targetIds = selectedIds.size > 0
             ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
             : cachedPropertyIds;
         if (targetIds.size === 0) {
-            addLog('Load listings and check cache first before running batch context graph.');
+            addLog('Load listings and check cache first before running context graph sync.');
             return;
         }
         setGraphBatchRunning(true);
         setGraphBatchProgress({ done: 0, skipped: 0, failed: 0, total: targetIds.size });
-        const mode = forceRegenerate ? 'FORCE REGENERATION' : 'batch extraction';
-        addLog(`[Context Graph] Starting ${mode} for ${targetIds.size}${selectedIds.size > 0 ? ' selected' : ' cached'} properties...`);
+        addLog(`[Context Graph] Smart sync for ${targetIds.size}${selectedIds.size > 0 ? ' selected' : ' cached'} properties — checking staleness...`);
 
         const zpids = Array.from(targetIds) as string[];
         let done = 0;
@@ -1047,25 +1046,96 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const { getVisualAnalysisFromCloud, getComprehensiveAnalysisFromCloud } = await import('../../services/firebaseService');
         const { extractContextGraphFactors } = await import('../../services/geminiService');
         const { getCommunityPulseFromCloud, getGeneralMarketIntelligenceFromCloud, getDeepInvestmentResearchFromCloud, generateCityStateKey } = await import('../../services/firebaseService');
+        const { getDocs, query, collection, where, documentId } = await import('firebase/firestore');
+        const { db: firestoreDb } = await import('../../services/firebase/config');
+
+        // ── Phase 1: Batch-fetch timestamps from all source collections + context graphs ──
+        const BATCH = 10;
+        const graphTimestamps: Record<string, number> = {};   // zpid → context_graph.lastUpdated (ms)
+        const sourceTimestamps: Record<string, number> = {};  // zpid → max(source lastUpdated) (ms)
+        const graphExists: Record<string, boolean> = {};
+
+        const toMs = (ts: any): number => {
+            if (!ts) return 0;
+            if (ts.toMillis) return ts.toMillis();          // Firestore Timestamp
+            if (ts.seconds) return ts.seconds * 1000;        // Firestore Timestamp plain object
+            if (ts instanceof Date) return ts.getTime();
+            if (typeof ts === 'number') return ts;
+            return 0;
+        };
+
+        addLog(`[Context Graph] Phase 1: Fetching timestamps from 4 source collections...`);
+        for (let i = 0; i < zpids.length; i += BATCH) {
+            const chunk = zpids.slice(i, i + BATCH);
+            if (!firestoreDb) break;
+
+            const [graphSnap, propSnap, visualSnap, compSnap] = await Promise.all([
+                getDocs(query(collection(firestoreDb, 'context_graph'), where(documentId(), 'in', chunk))),
+                getDocs(query(collection(firestoreDb, 'properties'), where(documentId(), 'in', chunk))),
+                getDocs(query(collection(firestoreDb, 'property_analyses_visual'), where(documentId(), 'in', chunk))),
+                getDocs(query(collection(firestoreDb, 'property_analyses_comprehensive'), where(documentId(), 'in', chunk))),
+            ]);
+
+            // Context graph timestamps
+            graphSnap.forEach(d => {
+                const data = d.data();
+                graphTimestamps[d.id] = toMs(data.lastUpdated);
+                graphExists[d.id] = !!(data.factors?.length > 0);
+            });
+
+            // Source collection timestamps — take the MAX
+            const updateMax = (zpid: string, ts: any) => {
+                const ms = toMs(ts);
+                if (ms > (sourceTimestamps[zpid] || 0)) sourceTimestamps[zpid] = ms;
+            };
+            propSnap.forEach(d => updateMax(d.id, d.data().lastUpdated));
+            visualSnap.forEach(d => updateMax(d.id, d.data().timestamp));
+            compSnap.forEach(d => updateMax(d.id, d.data().timestamp));
+        }
+
+        // ── Phase 2: Classify each property ──
+        const needsGeneration: string[] = [];  // new — no graph exists
+        const needsRegen: string[] = [];       // stale — source updated after graph
+        const upToDate: string[] = [];         // fresh — graph is newer than all sources
+
+        for (const zpid of zpids) {
+            if (!graphExists[zpid]) {
+                needsGeneration.push(zpid);
+            } else {
+                const graphTs = graphTimestamps[zpid] || 0;
+                const sourceTs = sourceTimestamps[zpid] || 0;
+                if (sourceTs > graphTs) {
+                    needsRegen.push(zpid);
+                } else {
+                    upToDate.push(zpid);
+                }
+            }
+        }
+
+        addLog(`[Context Graph] Phase 1 results: ${needsGeneration.length} new, ${needsRegen.length} stale, ${upToDate.length} up-to-date`);
+        skipped = upToDate.length;
+        setGraphBatchProgress({ done, skipped, failed, total: zpids.length });
+
+        // ── Phase 3: Generate/regenerate only what's needed ──
+        const toProcess = [...needsGeneration, ...needsRegen];
+        if (toProcess.length === 0) {
+            addLog(`[Context Graph] All ${zpids.length} graphs are up-to-date. Nothing to do.`);
+            setGraphBatchRunning(false);
+            return;
+        }
+
+        addLog(`[Context Graph] Phase 2: Extracting ${toProcess.length} context graphs (${needsGeneration.length} new + ${needsRegen.length} stale)...`);
 
         const CHUNK_SIZE = 5;
 
-        for (let i = 0; i < zpids.length; i += CHUNK_SIZE) {
-            const chunk = zpids.slice(i, i + CHUNK_SIZE);
+        for (let i = 0; i < toProcess.length; i += CHUNK_SIZE) {
+            const chunk = toProcess.slice(i, i + CHUNK_SIZE);
 
             const results = await Promise.allSettled(chunk.map(async (zpid) => {
                 const addr = zpidToAddressMap[zpid] || zpid;
+                const isRegen = needsRegen.includes(zpid);
 
-                // 1. Check if context graph already exists (skip in forceRegenerate mode)
-                if (!forceRegenerate) {
-                    const existing = await getContextGraphFromCloud(zpid);
-                    if (existing?.factors?.length > 0) {
-                        addLog(`[Context Graph] ✓ Skip ${addr} — already has ${existing.factors.length} factors`);
-                        return 'skipped';
-                    }
-                }
-
-                // 2. Load property, visual, and comprehensive from Firestore
+                // Load property, visual, and comprehensive from Firestore
                 const [property, visual, comprehensive, lifestyleFit] = await Promise.all([
                     getPropertyFromCloud(zpid),
                     getVisualAnalysisFromCloud(zpid),
@@ -1078,13 +1148,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     return 'failed';
                 }
 
-                // 2b. Skip properties missing essential data (no price, beds, sqft, or street address)
                 if (!hasEssentialData(property)) {
                     addLog(`[Context Graph] ✗ Skip ${addr} — missing essential data (price/beds/sqft/address)`);
                     return 'failed';
                 }
 
-                // 3. Enrich visual with city-level data for richer graph extraction
+                // Enrich visual with city-level data
                 const city = property.city || '';
                 const state = property.state || '';
                 const cityStateKey = generateCityStateKey(city, state);
@@ -1102,8 +1171,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     if (deep) enrichedVisual = { ...enrichedVisual, deep_investment_research: deep };
                 }
 
-                // 4. Extract context graph via Gemini
-                addLog(`[Context Graph] Extracting for ${addr}...`);
+                // Extract context graph via Gemini
+                addLog(`[Context Graph] ${isRegen ? '↻ Regen' : '▶ New'} ${addr}...`);
                 const res = await extractContextGraphFactors(property, enrichedVisual, comprehensive || null);
 
                 if (res.data?.factors?.length > 0) {
@@ -1127,8 +1196,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             // Tally results
             for (const r of results) {
                 if (r.status === 'fulfilled') {
-                    if (r.value === 'skipped') skipped++;
-                    else if (r.value === 'done') done++;
+                    if (r.value === 'done') done++;
                     else failed++;
                 } else {
                     failed++;
@@ -1140,13 +1208,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             setGraphBatchProgress({ done, skipped, failed, total: zpids.length });
 
             // Brief cooldown between chunks
-            if (i + CHUNK_SIZE < zpids.length) {
+            if (i + CHUNK_SIZE < toProcess.length) {
                 await new Promise(r => setTimeout(r, 2000));
             }
         }
 
-        addLog(`[Context Graph] Batch complete: ${done} extracted, ${skipped} already existed, ${failed} failed / ${zpids.length} total.`);
-        logPipelineAudit('Batch Context Graph', `${zpids.length} properties`, failed === 0 ? 'success' : 'partial', `${done} new, ${skipped} cached, ${failed} failed`, undefined, { done, skipped, failed, total: zpids.length });
+        addLog(`[Context Graph] Sync complete: ${done} generated/regenerated, ${skipped} up-to-date, ${failed} failed / ${zpids.length} total.`);
+        logPipelineAudit('Sync Context Graphs', `${zpids.length} properties`, failed === 0 ? 'success' : 'partial', `${done} new/regen, ${skipped} up-to-date, ${failed} failed`, undefined, { done, skipped, failed, total: zpids.length, newCount: needsGeneration.length, staleCount: needsRegen.length });
         setGraphBatchRunning(false);
     };
 
@@ -1658,34 +1726,18 @@ ${JSON.stringify(propertySummaries)}
                                     )}
                                     {cachedPropertyIds.size > 0 && (
                                         <button
-                                            onClick={handleBatchContextGraph}
+                                            onClick={() => handleBatchContextGraph()}
                                             disabled={graphBatchRunning || loading}
                                             className="px-6 py-3 bg-white border-2 border-cyan-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
-                                            title="Generate context graphs for all cached properties (skips already-generated)"
+                                            title="Smart sync: generates new context graphs + regenerates stale ones (compares source data timestamps vs graph timestamp)"
                                         >
                                             {graphBatchRunning ? (
                                                 <>
                                                     <i className="fa-solid fa-spinner animate-spin text-cyan-400"></i>
-                                                    {graphBatchProgress ? `${graphBatchProgress.done + graphBatchProgress.skipped}/${graphBatchProgress.total}` : 'Starting...'}
+                                                    {graphBatchProgress ? `${graphBatchProgress.done + graphBatchProgress.skipped}/${graphBatchProgress.total}` : 'Checking...'}
                                                 </>
                                             ) : (
-                                                <><i className="fa-solid fa-diagram-project text-cyan-500 group-hover:scale-110 transition-transform"></i>Context Graphs</>
-                                            )}
-                                        </button>
-                                    )}
-                                    {cachedPropertyIds.size > 0 && (
-                                        <button
-                                            onClick={() => handleBatchContextGraph(true)}
-                                            disabled={graphBatchRunning || loading}
-                                            className="px-6 py-3 bg-white border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3 group disabled:opacity-50"
-                                            title="Force-regenerate context graphs for all cached properties (overwrites existing graphs to capture new fields)"
-                                        >
-                                            {graphBatchRunning ? (
-                                                <><i className="fa-solid fa-spinner animate-spin text-orange-400"></i>
-                                                    {graphBatchProgress ? `${graphBatchProgress.done + graphBatchProgress.skipped}/${graphBatchProgress.total}` : 'Starting...'}
-                                                </>
-                                            ) : (
-                                                <><i className="fa-solid fa-arrows-rotate text-orange-500 group-hover:scale-110 transition-transform"></i>Regen Graphs</>
+                                                <><i className="fa-solid fa-diagram-project text-cyan-500 group-hover:scale-110 transition-transform"></i>Sync Graphs</>
                                             )}
                                         </button>
                                     )}
