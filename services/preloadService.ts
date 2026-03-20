@@ -712,10 +712,10 @@ export const runFullIntelligencePipeline = async (
         onLog?.(`[Smoke Test] ${failed.length} issues found: ${failed.map(c => `${c.id}(${c.severity})`).join(', ')}`);
 
         // Map check IDs to remediation actions
-        const RAPIDAPI_CHECKS = ['bedrooms', 'bathrooms', 'livingArea', 'price', 'description', 'coordinates', 'yearBuilt', 'homeType'];
+        const RAPIDAPI_CHECKS = ['bedrooms', 'bathrooms', 'livingArea', 'price', 'description', 'coordinates', 'yearBuilt', 'homeType', 'resoFacts', 'priceHistory', 'attribution'];
         const VISUAL_CHECKS = ['aiVisualInterior', 'aiVisualExterior', 'designStyle', 'conditionFinish', 'roomHighlights', 'curbAppeal', 'backyardPatio', 'privacyVisual'];
-        const NARRATIVE_CHECKS = ['compSummary', 'compRisks', 'intSummary', 'intRooms', 'intVibe', 'intTags', 'schoolsSummary', 'lifestyleInsights'];
-        const NEIGHBORHOOD_CHECKS = ['aiNeighborhood'];
+        const NARRATIVE_CHECKS = ['compSummary', 'compRisks', 'intSummary', 'intRooms', 'intVibe', 'intTags', 'schoolsSummary', 'lifestyleInsights', 'lifestyleFit'];
+        const NEIGHBORHOOD_CHECKS = ['aiNeighborhood', 'neighborhoodIdentity'];
 
         const failedIds = new Set(failed.map(c => c.id));
 

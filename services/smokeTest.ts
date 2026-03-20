@@ -378,6 +378,62 @@ export function runChecks(
         prop?.floodRiskScore != null ? String(prop.floodRiskScore) : 'missing');
     chk(checks, 'fireRisk', 'Fire Risk Score', 'warn', prop?.fireRiskScore != null,
         prop?.fireRiskScore != null ? String(prop.fireRiskScore) : 'missing');
+    chk(checks, 'heatRisk', 'Heat Risk Score', 'warn', prop?.heatRiskScore != null,
+        prop?.heatRiskScore != null ? String(prop.heatRiskScore) : 'missing');
+    chk(checks, 'windRisk', 'Wind Risk Score', 'warn', prop?.windRiskScore != null,
+        prop?.windRiskScore != null ? String(prop.windRiskScore) : 'missing');
+
+    // ── 17. Broadband / Connectivity (on google_environmental_data or properties) ─
+    const bb = env?.broadband || prop?.broadband;
+    chk(checks, 'broadband', 'Broadband Data', 'warn', !!(bb?.providerCount),
+        bb ? `${bb.providerCount} ISPs, ↓${bb.topDownloadMbps || '?'} Mbps${bb.hasFiber ? ', Fiber ✓' : ''}${bb.has5G ? ', 5G ✓' : ''}` : 'not fetched');
+
+    // ── 18. Drought Data (on properties doc) ──────────────────────────────────
+    const droughtData = prop?.drought;
+    chk(checks, 'drought', 'Drought Monitor', 'warn', !!(droughtData?.currentLevel != null || droughtData?.status),
+        droughtData ? `${droughtData.status || droughtData.currentLevel || 'present'}` : 'not fetched');
+
+    // ── 19. EV Charger Data (on google_environmental_data or properties) ──────
+    const evData = env?.evChargers || (prop as any)?.evChargers;
+    const evCount = Array.isArray(evData) ? evData.length : (evData?.stations?.length || 0);
+    chk(checks, 'evChargers', 'EV Charging Stations', 'warn', evCount > 0,
+        evCount > 0 ? `${evCount} stations nearby` : 'not fetched');
+
+    // ── 20. ResoFacts — Property Details ──────────────────────────────────────
+    const reso = prop?.resoFacts;
+    const resoFieldCount = reso ? Object.values(reso).filter((v: any) => v != null && v !== '').length : 0;
+    chk(checks, 'resoFacts', 'Property Details (ResoFacts)', 'warn', resoFieldCount >= 3,
+        resoFieldCount > 0 ? `${resoFieldCount} fields populated` : 'missing');
+
+    // ── 21. HOA Info ──────────────────────────────────────────────────────────
+    // Only flag if the property is likely in an HOA (condo, townhouse, or fee field present)
+    const isHoaExpected = prop?.homeType?.toLowerCase()?.includes('condo') || prop?.homeType?.toLowerCase()?.includes('town');
+    const hasHoa = !!(prop?.hoa?.fee);
+    if (isHoaExpected) {
+        chk(checks, 'hoaInfo', 'HOA Info', 'warn', hasHoa,
+            hasHoa ? prop.hoa.fee : 'expected for this property type but missing');
+    }
+
+    // ── 22. Price History ─────────────────────────────────────────────────────
+    const phCount = Array.isArray(prop?.priceHistory) ? prop.priceHistory.length : 0;
+    chk(checks, 'priceHistory', 'Price History', 'warn', phCount > 0,
+        phCount > 0 ? `${phCount} events` : 'missing');
+
+    // ── 23. Neighborhood Identity (Gemini + ArcGIS) ───────────────────────────
+    const nid = prop?.neighborhood_identity;
+    chk(checks, 'neighborhoodIdentity', 'Neighborhood Identity', 'warn', !!(nid?.resolved_name),
+        nid?.resolved_name ? `${nid.resolved_name}${nid.city_plan_data?.specific_plan ? ` (${nid.city_plan_data.specific_plan})` : ''}` : 'not resolved');
+
+    // ── 24. Lifestyle Fit (3 persona verdicts) ────────────────────────────────
+    const lf = comprehensive?.lifestyle_fit;
+    const lfComplete = !!(lf?.working_professionals?.verdict && lf?.families_with_kids?.verdict && lf?.seniors?.verdict);
+    chk(checks, 'lifestyleFit', 'Lifestyle Fit Analysis', 'warn', lfComplete,
+        lfComplete ? `WP: ${lf.working_professionals.verdict}, Fam: ${lf.families_with_kids.verdict}, Sr: ${lf.seniors.verdict}` : 'missing or incomplete');
+
+    // ── 25. Attribution (Agent / Brokerage) ───────────────────────────────────
+    const attr = prop?.attribution;
+    chk(checks, 'attribution', 'Listing Attribution', 'warn', !!(attr?.listingAgentName || attr?.brokerageName),
+        attr?.listingAgentName ? `${attr.listingAgentName}${attr.brokerageName ? ` — ${attr.brokerageName}` : ''}` : 'missing');
 
     const errorCount = checks.filter(c => c.severity === 'error' && !c.passed).length;
     const warnCount = checks.filter(c => c.severity === 'warn' && !c.passed).length;
