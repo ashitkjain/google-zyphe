@@ -81,6 +81,17 @@ export interface ResoFacts {
     securityFeatures?: string;
     windowFeatures?: string;
     roomFeatures?: string;
+    associationAmenities?: string[];     // e.g. ["Clubhouse", "Pool", "Spa/Hot Tub"]
+    associationFeeIncludes?: string[];   // e.g. ["Common Area Maint", "Reserve Fund"]
+    taxAnnualAmount?: number | null;
+    taxAssessedValue?: number | null;
+    numberOfUnitsInCommunity?: number | null;
+    stories?: number | null;
+    parkingFeatures?: string[];
+    interiorFeatures?: string[];
+    propertyCondition?: string;
+    propertySubType?: string[];
+    electric?: string[];
 }
 
 
@@ -99,6 +110,11 @@ export interface PropertyData {
     city?: string;
     state?: string;
     zipCode?: string;
+    subdivision?: string;              // e.g. "Dublin Ranch"
+    county?: string;                   // e.g. "Alameda County"
+    countyFIPS?: string;               // e.g. "06001"
+    pageViewCount?: number | null;     // Zillow listing page views
+    favoriteCount?: number | null;     // Zillow favorites / saves
     homeStatus?: string;
     homeType?: string;
     livingAreaValue?: number | null;
@@ -116,6 +132,46 @@ export interface PropertyData {
     floodRiskScore?: number | null;
     fireRiskScore?: number | null;
     heatRiskScore?: number | null;
+
+    // Full climate risk detail from First Street Foundation (via RapidAPI)
+    climateRisk?: {
+        flood?: {
+            score: number; label: string; max: number;
+            femaZone?: string;                           // e.g. "X_UNSHADED"
+            insuranceRec?: string;                       // e.g. "NOT_CRITICAL"
+            insuranceSeparatePolicy?: string;             // e.g. "NOT_REQUIRED"
+            historicCount?: number;
+            probability?: { probability: number; relativeYear: number }[];
+            sourceUrl?: string;
+        };
+        fire?: {
+            score: number; label: string; max: number;
+            insuranceRec?: string;
+            insuranceSeparatePolicy?: string;
+            historicCount?: number;
+            probability?: { probability: number; relativeYear: number }[];
+            sourceUrl?: string;
+        };
+        wind?: {
+            score: number; label: string; max: number;
+            insuranceRec?: string;
+            insuranceSeparatePolicy?: string;
+            historicCount?: number;
+            probability?: { probability: number; relativeYear: number }[];
+            sourceUrl?: string;
+        };
+        heat?: {
+            score: number; label: string; max: number;
+            percentile98Temp?: number;                   // e.g. 97°F
+            hotDays?: { dayCount: number; relativeYear: number }[];
+            sourceUrl?: string;
+        };
+        air?: {
+            score: number; label: string; max: number;
+            badAirDays?: { dayCount: number; relativeYear: number }[];
+            sourceUrl?: string;
+        };
+    } | null;
     walkScore?: number | null;
     walkScoreDesc?: string;
     transitScore?: number | null;

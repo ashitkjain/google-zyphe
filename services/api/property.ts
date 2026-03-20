@@ -198,6 +198,57 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
     }
 };
 
+// ─── Climate Risk Extractor ──────────────────────────────────────────────────
+
+function extractClimateRisk(climate: any) {
+    if (!climate) return undefined;
+
+    const extractRiskType = (src: any) => {
+        if (!src?.primary?.riskScore) return undefined;
+        const p = src.primary;
+        return {
+            score: p.riskScore.value,
+            label: p.riskScore.label,
+            max: p.riskScore.max ?? 10,
+            insuranceRec: p.insuranceRecommendation || undefined,
+            insuranceSeparatePolicy: p.insuranceSeparatePolicy || undefined,
+            historicCount: p.historicCountAll ?? p.historicCountPropertyAll ?? undefined,
+            femaZone: p.femaZone || undefined,
+            probability: Array.isArray(p.probability) && p.probability.length > 0 ? p.probability : undefined,
+            sourceUrl: p.source?.url || undefined,
+        };
+    };
+
+    const heat = climate.heatSources?.primary;
+    const air = climate.airSources?.primary;
+
+    const result: any = {};
+    if (climate.floodSources) result.flood = extractRiskType(climate.floodSources);
+    if (climate.fireSources) result.fire = extractRiskType(climate.fireSources);
+    if (climate.windSources) result.wind = extractRiskType(climate.windSources);
+    if (heat?.riskScore) {
+        result.heat = {
+            score: heat.riskScore.value,
+            label: heat.riskScore.label,
+            max: heat.riskScore.max ?? 10,
+            percentile98Temp: heat.percentile98Temp ?? undefined,
+            hotDays: Array.isArray(heat.hotDays) && heat.hotDays.length > 0 ? heat.hotDays : undefined,
+            sourceUrl: heat.source?.url || undefined,
+        };
+    }
+    if (air?.riskScore) {
+        result.air = {
+            score: air.riskScore.value,
+            label: air.riskScore.label,
+            max: air.riskScore.max ?? 10,
+            badAirDays: Array.isArray(air.badAirDays) && air.badAirDays.length > 0 ? air.badAirDays : undefined,
+            sourceUrl: air.source?.url || undefined,
+        };
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
 // ─── Lightweight Property Specs (comp enrichment) ────────────────────────────
 
 export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Record<string, any> | null> => {
@@ -254,6 +305,11 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 city: addrRoot?.city,
                 state: addrRoot?.state,
                 zipCode: addrRoot?.zipcode || addrRoot?.zipCode,
+                subdivision: addrRoot?.subdivision || addrRoot?.community || undefined,
+                county: root.county || undefined,
+                countyFIPS: root.countyFIPS || root.countyFips || undefined,
+                pageViewCount: extractNumericValue(root.pageViewCount),
+                favoriteCount: extractNumericValue(root.favoriteCount),
 
                 // Core Specs
                 homeStatus: root.homeStatus,
@@ -277,6 +333,9 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 floodRiskScore: extractNumericValue(root.floodRiskScore ?? root.riskFactors?.flood ?? root.climate?.floodSources?.primary?.riskScore?.value ?? root.floodSources?.primary?.riskScore?.value),
                 fireRiskScore: extractNumericValue(root.fireRiskScore ?? root.riskFactors?.fire ?? root.climate?.fireSources?.primary?.riskScore?.value ?? root.fireSources?.primary?.riskScore?.value),
                 heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.riskFactors?.heat ?? root.climate?.heatSources?.primary?.riskScore?.value ?? root.heatSources?.primary?.riskScore?.value),
+
+                // Full climate risk detail (First Street Foundation)
+                climateRisk: root.climate ? extractClimateRisk(root.climate) : undefined,
 
                 // Dates
                 lastSoldDate: root.datePosted || root.dateSold || null,
@@ -335,6 +394,18 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                     securityFeatures: resoRaw.securityFeatures,
                     windowFeatures: resoRaw.windowFeatures,
                     roomFeatures: resoRaw.roomFeatures,
+                    // New fields
+                    associationAmenities: resoRaw.associationAmenities || undefined,
+                    associationFeeIncludes: resoRaw.associationFeeIncludes || undefined,
+                    taxAnnualAmount: extractNumericValue(resoRaw.taxAnnualAmount),
+                    taxAssessedValue: extractNumericValue(resoRaw.taxAssessedValue),
+                    numberOfUnitsInCommunity: extractNumericValue(resoRaw.numberOfUnitsInCommunity),
+                    stories: extractNumericValue(resoRaw.stories ?? resoRaw.storiesDecimal),
+                    parkingFeatures: resoRaw.parkingFeatures || undefined,
+                    interiorFeatures: resoRaw.interiorFeatures || undefined,
+                    propertyCondition: resoRaw.propertyCondition || undefined,
+                    propertySubType: resoRaw.propertySubType || undefined,
+                    electric: resoRaw.electric || undefined,
                 } : undefined,
 
                 // HOA
