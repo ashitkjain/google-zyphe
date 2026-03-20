@@ -1022,16 +1022,21 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
 
     // ── Batch Context Graph Generator ──────────────────────────────────────
-    const handleBatchContextGraph = async () => {
-        if (cachedPropertyIds.size === 0) {
+    const handleBatchContextGraph = async (forceRegenerate = false) => {
+        // Use selected properties if any are checked, otherwise all cached
+        const targetIds = selectedIds.size > 0
+            ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
+            : cachedPropertyIds;
+        if (targetIds.size === 0) {
             addLog('Load listings and check cache first before running batch context graph.');
             return;
         }
         setGraphBatchRunning(true);
-        setGraphBatchProgress({ done: 0, skipped: 0, failed: 0, total: cachedPropertyIds.size });
-        addLog(`[Context Graph] Starting batch extraction for ${cachedPropertyIds.size} cached properties...`);
+        setGraphBatchProgress({ done: 0, skipped: 0, failed: 0, total: targetIds.size });
+        const mode = forceRegenerate ? 'FORCE REGENERATION' : 'batch extraction';
+        addLog(`[Context Graph] Starting ${mode} for ${targetIds.size}${selectedIds.size > 0 ? ' selected' : ' cached'} properties...`);
 
-        const zpids = Array.from(cachedPropertyIds) as string[];
+        const zpids = Array.from(targetIds) as string[];
         let done = 0;
         let skipped = 0;
         let failed = 0;
@@ -1051,11 +1056,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const results = await Promise.allSettled(chunk.map(async (zpid) => {
                 const addr = zpidToAddressMap[zpid] || zpid;
 
-                // 1. Check if context graph already exists
-                const existing = await getContextGraphFromCloud(zpid);
-                if (existing?.factors?.length > 0) {
-                    addLog(`[Context Graph] ✓ Skip ${addr} — already has ${existing.factors.length} factors`);
-                    return 'skipped';
+                // 1. Check if context graph already exists (skip in forceRegenerate mode)
+                if (!forceRegenerate) {
+                    const existing = await getContextGraphFromCloud(zpid);
+                    if (existing?.factors?.length > 0) {
+                        addLog(`[Context Graph] ✓ Skip ${addr} — already has ${existing.factors.length} factors`);
+                        return 'skipped';
+                    }
                 }
 
                 // 2. Load property, visual, and comprehensive from Firestore
@@ -1663,6 +1670,22 @@ ${JSON.stringify(propertySummaries)}
                                                 </>
                                             ) : (
                                                 <><i className="fa-solid fa-diagram-project text-cyan-500 group-hover:scale-110 transition-transform"></i>Context Graphs</>
+                                            )}
+                                        </button>
+                                    )}
+                                    {cachedPropertyIds.size > 0 && (
+                                        <button
+                                            onClick={() => handleBatchContextGraph(true)}
+                                            disabled={graphBatchRunning || loading}
+                                            className="px-6 py-3 bg-white border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3 group disabled:opacity-50"
+                                            title="Force-regenerate context graphs for all cached properties (overwrites existing graphs to capture new fields)"
+                                        >
+                                            {graphBatchRunning ? (
+                                                <><i className="fa-solid fa-spinner animate-spin text-orange-400"></i>
+                                                    {graphBatchProgress ? `${graphBatchProgress.done + graphBatchProgress.skipped}/${graphBatchProgress.total}` : 'Starting...'}
+                                                </>
+                                            ) : (
+                                                <><i className="fa-solid fa-arrows-rotate text-orange-500 group-hover:scale-110 transition-transform"></i>Regen Graphs</>
                                             )}
                                         </button>
                                     )}
