@@ -611,7 +611,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         />
                                     </div>
 
-                                    {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRisk || propertyData.pollenIndex || propertyData.historical_disasters || propertyData.broadband || propertyData.drought) && (
+                                    {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRiskDetail || propertyData.pollenIndex || propertyData.historical_disasters || propertyData.broadband || propertyData.drought) && (
                                         <>
                                             {/* 3rd Party Data heading */}
                                             <div className="flex items-center gap-2 mt-6 mb-2">
