@@ -2132,7 +2132,7 @@ const PlatformHelpTab: React.FC = () => {
                                     How to Read This
                                 </h2>
                                 <p className="text-slate-600 font-medium leading-relaxed mb-0">
-                                    The smoke test reads from <strong>6 Firestore collections</strong> in parallel. Each check below shows which collection the data comes from, the exact field path, and the UI component that renders it. When a field says <strong>"→ fallback"</strong>, it means the smoke test checks both locations.
+                                    The smoke test reads from <strong>6 Firestore collections</strong> in parallel. Each check below shows which collection the data comes from, the exact field path, and the UI component that renders it. All fields reference a <strong>single source of truth</strong> — no duplicate fallback chains.
                                 </p>
                             </section>
 
@@ -2145,7 +2145,10 @@ const PlatformHelpTab: React.FC = () => {
                                 <div className="space-y-3">
                                     {[
                                         { from: 'price / list_price / ListPrice', to: 'listPrice', note: 'normalizePropertyFields() renames on every write' },
-                                        { from: 'sqft / square_footage / LivingArea', to: 'squareFootage', note: 'normalizePropertyFields() normalizes to squareFootage' },
+                                        { from: 'sqft / square_footage / LivingArea', to: 'livingAreaValue', note: 'Single source: livingAreaValue (number)' },
+                                        { from: 'hoaFees / monthlyHoaFee', to: 'resoFacts.feesAndDues + hoa.fee', note: 'feesAndDues for numeric parsing, hoa.fee for display. No hoaFees fallback.' },
+                                        { from: 'climateRisk.*.score', to: '{type}RiskScore (flat)', note: 'Scores on flat fields. climateRiskDetail carries supplementary data only (FEMA, insurance, projections).' },
+                                        { from: 'datePosted → lastSoldDate', to: 'lastSoldDate ← dateSold only', note: 'datePosted is listing date (listedDate), not sale date' },
                                         { from: 'google_places', to: '(stripped)', note: 'Removed from properties doc — only in google_environmental_data' },
                                         { from: 'streetViewAnalysis.overall_assessment', to: '(does not exist)', note: 'Phantom field — use privacyRating / curbAppealScore / neighborhoodVibe' },
                                         { from: 'pollen.analysis.summary', to: 'pollen.analysis.breathe_easy_summary', note: 'PollenAnalysisResult type uses breathe_easy_summary' },
@@ -2228,8 +2231,10 @@ const PlatformHelpTab: React.FC = () => {
                                     { check: 'Lifestyle Insights', severity: 'warn', source: 'property_analyses_comprehensive', field: 'lifestyle_insights.outdoor / .family', ui: 'LifestyleInsightsSection' },
                                     { check: 'STR Performance', severity: 'warn', source: 'property_investment_research', field: 'str_performance.adr', ui: 'ComprehensiveAnalysis' },
                                     { check: 'LTR Analysis', severity: 'warn', source: 'property_investment_research', field: 'ltr_analysis.monthly_rent', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Flood Risk Score', severity: 'warn', source: 'properties', field: 'floodRiskScore', ui: 'ExploreTab Risk section' },
-                                    { check: 'Fire Risk Score', severity: 'warn', source: 'properties', field: 'fireRiskScore', ui: 'ExploreTab Risk section' },
+                                    { check: 'Wind Risk Score', severity: 'warn', source: 'properties', field: 'windRiskScore', ui: 'AirQualitySection Climate Risk grid' },
+                                    { check: 'Flood Risk Score', severity: 'warn', source: 'properties', field: 'floodRiskScore', ui: 'AirQualitySection Climate Risk grid' },
+                                    { check: 'Fire Risk Score', severity: 'warn', source: 'properties', field: 'fireRiskScore', ui: 'AirQualitySection Climate Risk grid' },
+                                    { check: 'Heat Risk Score', severity: 'warn', source: 'properties', field: 'heatRiskScore', ui: 'AirQualitySection Climate Risk grid' },
                                 ].map(row => {
                                     const colColors: Record<string, string> = {
                                         'properties': 'bg-indigo-50 text-indigo-600 border-indigo-200',
