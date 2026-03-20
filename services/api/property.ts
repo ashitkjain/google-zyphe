@@ -272,11 +272,11 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 propertyTaxRate: extractNumericValue(root.propertyTaxRate),
                 annualHomeownersInsurance: extractNumericValue(root.annualHomeownersInsurance),
 
-                // Risk Scores
-                windRiskScore: extractNumericValue(root.windRiskScore ?? root.riskFactors?.wind),
-                floodRiskScore: extractNumericValue(root.floodRiskScore ?? root.riskFactors?.flood),
-                fireRiskScore: extractNumericValue(root.fireRiskScore ?? root.riskFactors?.fire),
-                heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.riskFactors?.heat),
+                // Risk Scores — check flat fields, riskFactors, and nested climate structure
+                windRiskScore: extractNumericValue(root.windRiskScore ?? root.riskFactors?.wind ?? root.climate?.windSources?.primary?.riskScore?.value ?? root.windSources?.primary?.riskScore?.value),
+                floodRiskScore: extractNumericValue(root.floodRiskScore ?? root.riskFactors?.flood ?? root.climate?.floodSources?.primary?.riskScore?.value ?? root.floodSources?.primary?.riskScore?.value),
+                fireRiskScore: extractNumericValue(root.fireRiskScore ?? root.riskFactors?.fire ?? root.climate?.fireSources?.primary?.riskScore?.value ?? root.fireSources?.primary?.riskScore?.value),
+                heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.riskFactors?.heat ?? root.climate?.heatSources?.primary?.riskScore?.value ?? root.heatSources?.primary?.riskScore?.value),
 
                 // Dates
                 lastSoldDate: root.datePosted || root.dateSold || null,

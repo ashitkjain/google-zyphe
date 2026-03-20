@@ -390,10 +390,15 @@ export function runChecks(
     chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'warn', 'ai_investment', hasLTR,
         hasLTR ? `Rent: ${investment.ltr_analysis.monthly_rent}` : 'missing');
 
-    // ── 16. Risk Scores — REMOVED ────────────────────────────────────────────
-    // Zillow RapidAPI does not expose First Street Foundation risk scores
-    // (flood, fire, heat, wind). These were permanent false warnings on every
-    // property. If a free API source is added later, re-add checks here.
+    // ── 16. Risk Scores (properties doc — from RapidAPI / nested climate structure) ──
+    const floodRisk = prop?.floodRiskScore ?? (prop as any)?.floodSources?.primary?.riskScore?.value ?? (prop as any)?.climate?.floodSources?.primary?.riskScore?.value;
+    const fireRisk = prop?.fireRiskScore ?? (prop as any)?.fireSources?.primary?.riskScore?.value ?? (prop as any)?.climate?.fireSources?.primary?.riskScore?.value;
+    const heatRisk = prop?.heatRiskScore ?? (prop as any)?.heatSources?.primary?.riskScore?.value ?? (prop as any)?.climate?.heatSources?.primary?.riskScore?.value;
+    const windRisk = prop?.windRiskScore ?? (prop as any)?.windSources?.primary?.riskScore?.value ?? (prop as any)?.climate?.windSources?.primary?.riskScore?.value;
+    chk(checks, 'floodRisk', 'Flood Risk Score', 'warn', 'rapidapi', floodRisk != null, floodRisk != null ? String(floodRisk) : 'missing');
+    chk(checks, 'fireRisk', 'Fire Risk Score', 'warn', 'rapidapi', fireRisk != null, fireRisk != null ? String(fireRisk) : 'missing');
+    chk(checks, 'heatRisk', 'Heat Risk Score', 'warn', 'rapidapi', heatRisk != null, heatRisk != null ? String(heatRisk) : 'missing');
+    chk(checks, 'windRisk', 'Wind Risk Score', 'warn', 'rapidapi', windRisk != null, windRisk != null ? String(windRisk) : 'missing');
 
     // ── 17. Broadband / Connectivity (on google_environmental_data or properties) ─
     const bb = env?.broadband;
