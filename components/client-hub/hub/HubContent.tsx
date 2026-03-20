@@ -35,6 +35,7 @@ import ContextGraphTab from '../ContextGraphTab';
 import DistressedFinderTab from '../DistressedFinderTab';
 import PropertyCompsTab from '../PropertyCompsTab';
 import SoldListingsTab from '../SoldListingsTab';
+import AgentManagerTab from '../AgentManagerTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -243,6 +244,8 @@ const HubContent: React.FC<HubContentProps> = ({
                     role={userRole || realtorProfile?.role || 'buyer'}
                 />
             )}
+
+            {activeTab === 'agent_manager' && <AgentManagerTab />}
         </div>
     );
 };

@@ -11,6 +11,7 @@ import {
     getCachedCities
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
+import { fetchPropertySpecs } from '../../services/api/property';
 
 import { PropertyData } from '../../types';
 import { isGhostListing, isSupportedPropertyType, hasEssentialData } from '../../utils/propertyValidation';
@@ -140,7 +141,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const zpidToAddressMap = useMemo(() => {
         const map: Record<string, string> = {};
         listings.forEach(item => {
-            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const id = String(item.zpid);
             const addrObj = item.location?.address;
             const builtAddress = addrObj
                 ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
@@ -190,7 +191,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const fetchStatuses = async (targetListings: any[]) => {
         if (targetListings.length === 0) return;
         setIsCheckingCache(true);
-        const allIds = targetListings.map(l => String(l.property_id || l.listing_id || l.mls_id || l.mls?.id));
+        const allIds = targetListings.map(l => String(l.zpid));
         const statusMap = await getPropertyStatusesBatch(allIds);
         setPropertyStatuses(statusMap);
 
@@ -223,7 +224,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const visibleIds = useMemo(() =>
         new Set(Object.values(groupedListings)
             .flat()
-            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id))
+            .map((item: any) => String(item.zpid))
         ),
         [groupedListings]);
 
@@ -246,10 +247,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const targetIds = Object.values(groupedListings)
             .flat()
             .filter((item: any) => {
-                const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const id = String(item.zpid);
                 return !propertyStatuses[id]?.assets?.images;
             })
-            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id));
+            .map((item: any) => String(item.zpid));
 
         setSelectedIds(new Set(targetIds));
     };
@@ -266,7 +267,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`Starting Bulk Image Secure pipeline...`);
 
         const targets = listings.filter(l => {
-            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            const id = String(l.zpid);
             return selectedIds.has(id);
         });
 
@@ -275,7 +276,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         // Initialize Queue
         const newJobs: IngestionJob[] = targets.map(item => {
-            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const id = String(item.zpid);
             const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
             return {
                 zpid: id,
@@ -294,7 +295,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             addLog(`Phase: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
 
             const chunkPromises = chunk.map(async (item) => {
-                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const zpid = String(item.zpid);
                 const addrObj = item.location?.address;
                 const builtAddress = addrObj
                     ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
@@ -312,7 +313,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         addLog(`[System] Removing ghost listing with no ZPID from cache: ${builtAddress}`);
                         await removePropertyFromZipCache(zip, zpid);
                         // Refresh local state by removing it from listings
-                        setListings(prev => prev.filter(l => String(l.property_id || l.listing_id || l.mls_id || l.mls?.id) !== zpid));
+                        setListings(prev => prev.filter(l => String(l.zpid) !== zpid));
                     }
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: 'No valid ZPID found. Listing removed from cache.' } : j));
                     return false;
@@ -357,13 +358,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`Starting Property Data pipeline (RapidAPI only, no images)...`);
 
         const targets = listings.filter(l => {
-            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            const id = String(l.zpid);
             return selectedIds.has(id);
         });
         addLog(`Processing ${targets.length} properties...`);
 
         const newJobs: IngestionJob[] = targets.map(item => {
-            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const id = String(item.zpid);
             const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
             return { zpid: id, address: fullAddress, status: 'pending', progress: null };
         });
@@ -378,7 +379,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             addLog(`Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
 
             const chunkPromises = chunk.map(async (item) => {
-                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const zpid = String(item.zpid);
                 const addrObj = item.location?.address;
                 const builtAddress = addrObj
                     ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
@@ -424,7 +425,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`Starting Parallel Bulk Ingest & Intelligence Pipeline...`);
 
         const targets = listings.filter(l => {
-            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            const id = String(l.zpid);
             return selectedIds.has(id);
         });
 
@@ -434,7 +435,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         // Initialize Queue
         const newJobs: IngestionJob[] = targets.map(item => {
-            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const id = String(item.zpid);
             const addrObj = item.location?.address;
             const fullAddress = addrObj
                 ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
@@ -488,7 +489,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             addLog(`Phase 2: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)} (${chunk.length} properties)...`);
 
             const chunkPromises = chunk.map(async (item, index) => {
-                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const zpid = String(item.zpid);
                 const addrObj = item.location?.address;
                 const builtAddress = addrObj
                     ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
@@ -597,7 +598,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 if (cloudCached && (cloudCached.listings?.length ?? 0) > 0) {
                     const allCached = cloudCached.listings || [];
                     const cachedListings = allCached
-                        .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
+                        .filter((item: any) => !!item.zpid)
                         .filter((item: any) => !isGhostListing(item))
                         .filter((item: any) => isSupportedPropertyType(item))
                         .map((item: any) => ({
@@ -649,7 +650,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`Fetching live data (paginated) for ${zip}…`);
 
         const mapPage = (rawData: any[]) => rawData
-            .filter((item: any) => !!(item.zpid || item.property_id || item.listing_id || item.id || item.mls_id))
+            .filter((item: any) => !!item.zpid)
             .filter((item: any) => !isGhostListing(item))
             .filter((item: any) => isSupportedPropertyType(item))
             .map((item: any) => {
@@ -659,7 +660,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
             return {
                 ...item,
-                property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
+                zpid: item.zpid,
+                property_id: String(item.zpid),
                 location: {
                     address: {
                         line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
@@ -825,7 +827,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const deduplicate = (items: any[]) => {
                 const seenIds = new Set<string>();
                 return items.filter(item => {
-                    const id = item.property_id || item.listing_id || item.mls_id || item.mls?.id;
+                    const id = item.zpid;
                     const addrId = item.location?.address?.line;
 
                     // Create a composite string ID to handle number/string type differences
@@ -896,6 +898,43 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             if (results.length === 0) {
                 setError('No listings found in the resolved areas.');
+            } else {
+                // ── Step 5: Enrich new properties via fetchPropertySpecs ──────────
+                // For every discovered zpid NOT already in Firestore, call the
+                // RapidAPI /property endpoint to get ALL fields (risk scores,
+                // schools, resoFacts, attribution, etc.) and save to `properties`.
+                const allZpids = results.map((r: any) => String(r.zpid)).filter(Boolean);
+                const existingSet = await checkExistingPropertiesBatch(allZpids);
+                const newZpids = allZpids.filter((z: string) => !existingSet.has(z));
+                if (newZpids.length > 0) {
+                    addLog(`Enriching ${newZpids.length} new properties (${existingSet.size} already in Firestore)...`);
+                    const ENRICH_CHUNK = 3; // RapidAPI rate limit safe
+                    let enriched = 0;
+                    let enrichFailed = 0;
+                    for (let i = 0; i < newZpids.length; i += ENRICH_CHUNK) {
+                        const chunk = newZpids.slice(i, i + ENRICH_CHUNK);
+                        const enrichResults = await Promise.allSettled(
+                            chunk.map(async (zpid: string) => {
+                                const specs = await fetchPropertySpecs(zpid);
+                                if (specs && specs.zpid) {
+                                    await savePropertyToCloud(String(specs.zpid), specs as any);
+                                    return true;
+                                }
+                                return false;
+                            })
+                        );
+                        enrichResults.forEach(r => {
+                            if (r.status === 'fulfilled' && r.value) enriched++;
+                            else enrichFailed++;
+                        });
+                        addLog(`  Enriched ${Math.min(i + ENRICH_CHUNK, newZpids.length)}/${newZpids.length}...`);
+                        if (i + ENRICH_CHUNK < newZpids.length) await new Promise(r => setTimeout(r, 1200));
+                    }
+                    addLog(`Enrichment complete: ${enriched} saved, ${enrichFailed} failed.`);
+                    logPipelineAudit('Property Enrichment', city.trim(), enrichFailed === 0 ? 'success' : 'partial', `${enriched}/${newZpids.length} enriched`, undefined, { enriched, failed: enrichFailed, skipped: existingSet.size });
+                } else {
+                    addLog(`All ${allZpids.length} properties already in Firestore — enrichment skipped.`);
+                }
             }
 
         } catch (err: any) {
@@ -961,7 +1000,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const scopedCities = new Set<string>();
 
             listings.forEach(item => {
-                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id || '');
+                const zpid = String(item.zpid || '');
                 if (zpid) allActiveZpids.add(zpid);
                 const city = item.location?.address?.city || '';
                 if (city) scopedCities.add(city);
@@ -1388,7 +1427,7 @@ ${JSON.stringify(propertySummaries)}
 
     // Table Row Component
     const ListingRow = ({ item }: { item: any, key?: any }) => {
-        const itemId = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+        const itemId = String(item.zpid);
         const isSelected = selectedIds.has(itemId);
         const isCached = cachedPropertyIds.has(itemId);
         const isDeprecated = sweepResult?.deprecated.includes(itemId) ?? false;
@@ -2052,7 +2091,7 @@ ${JSON.stringify(propertySummaries)}
                                                     const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
                                                     return {
                                                         ...item,
-                                                        property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
+                                                        property_id: String(item.zpid),
                                                         location: {
                                                             address: {
                                                                 line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
@@ -2107,7 +2146,7 @@ ${JSON.stringify(propertySummaries)}
                                     // Deduplicate and update the UI table
                                     const seenIds = new Set<string>();
                                     const deduped = allForSaleResults.filter(item => {
-                                        const id = item.property_id || item.listing_id || item.mls_id || item.mls?.id;
+                                        const id = item.zpid;
                                         const addrId = item.location?.address?.line;
                                         const compositeId = id ? String(id) : (addrId ? addrId.toLowerCase().replace(/\s+/g, '') : null);
                                         if (!compositeId || seenIds.has(compositeId)) return false;
@@ -2115,8 +2154,8 @@ ${JSON.stringify(propertySummaries)}
                                         return true;
                                     });
                                     // Compare old vs new listings to report changes
-                                    const oldIds = new Set<string>(listings.map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id || '')));
-                                    const newIds = new Set<string>(deduped.map((item: any) => String(item.property_id || '')));
+                                    const oldIds = new Set<string>(listings.map((item: any) => String(item.zpid || '')));
+                                    const newIds = new Set<string>(deduped.map((item: any) => String(item.zpid || '')));
                                     const removedCount = Array.from(oldIds).filter(id => id && !newIds.has(id)).length;
                                     const addedCount = Array.from(newIds).filter(id => id && !oldIds.has(id)).length;
 
@@ -2400,7 +2439,7 @@ ${JSON.stringify(propertySummaries)}
                                                             const total = groupItems.length;
                                                             if (total === 0 || isCheckingCache) return null;
                                                             const stats = groupItems.reduce((acc, item) => {
-                                                                const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                                                                const id = String(item.zpid);
                                                                 const s = propertyStatuses[id];
                                                                 if (!s) return acc;
                                                                 if (s.assets?.images) acc.images++;

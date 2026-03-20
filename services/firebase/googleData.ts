@@ -19,11 +19,15 @@ export interface GoogleEnvironmentalData {
     noiseAirportScore?: number | null;
     noiseAirportDesc?: string | null;
     /** Google Places Nearby Search results. 30-day TTL — set when data is first fetched. */
-    neighborhoodPlaces?: any;
+    google_places?: any;
     /** Historical disaster data (USGS + FEMA). 365-day TTL. */
     historical_disasters?: HistoricalDisasterData | null;
     /** NREL nearby EV charging station data. 60-day TTL. */
     evChargers?: import('../api/environmental').EVChargerData | null;
+    /** US Drought Monitor data. 7-day TTL. */
+    drought?: any;
+    /** FCC Broadband data. 90-day TTL. */
+    broadband?: any;
     lastUpdated?: any;
 }
 

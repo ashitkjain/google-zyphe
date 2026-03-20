@@ -136,12 +136,12 @@ export const propertyCollections: CollectionSchema[] = [
             { name: 'image_by_image_analysis', type: 'object[]', source: 'gemini', description: 'Per-image AI notes.', usedBy: 'Image gallery tooltips' },
             {
                 name: 'neighborhood', type: 'object', source: 'gemini',
-                description: 'Spatial/map AI analysis. Populated from map images + neighborhoodPlaces context.',
+                description: 'Spatial/map AI analysis. Populated from map images + google_places context.',
                 usedBy: 'Explore tab Neighbourhood section, smoke test',
                 children: [
                     { name: 'walkability_insights', type: 'string', source: 'gemini', description: 'AI walkability commentary' },
                     { name: 'transit_quality', type: 'string', source: 'gemini', description: 'Transit accessibility assessment' },
-                    { name: 'poi_highlights', type: 'string', source: 'gemini', description: 'Nearby POI commentary derived from neighborhoodPlaces' },
+                    { name: 'poi_highlights', type: 'string', source: 'gemini', description: 'Nearby POI commentary derived from google_places' },
                     { name: 'overall_score', type: 'number', source: 'gemini', description: '1-10 neighbourhood quality score' },
                 ]
             },
@@ -219,7 +219,7 @@ export const propertyCollections: CollectionSchema[] = [
             },
             { name: 'noise', type: 'object', source: 'google', description: '{ noiseScore (0-100), noiseDescription }.', usedBy: 'ExploreTab Noise card, smoke test' },
             {
-                name: 'neighborhoodPlaces', type: 'object', source: 'google',
+                name: 'google_places', type: 'object', source: 'google',
                 description: 'Google Places Nearby Search results. 30-day TTL cache — skipped on load if fresh.',
                 usedBy: 'neighborhoodAnalysis Gemini prompt, smoke test',
                 children: [

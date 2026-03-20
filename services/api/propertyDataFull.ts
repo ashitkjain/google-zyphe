@@ -117,7 +117,7 @@ export const fetchPropertyDataFull = async (
 
             // Cache guard for Google Places: skip if already fetched within 30 days.
             const envDocForPlaces = storageKeyForEnv ? await getGoogleDataFromCloud(storageKeyForEnv).catch(() => null) : null;
-            const cachedPlaces = (envDocForPlaces as any)?.neighborhoodPlaces as NeighborhoodPlaces | undefined;
+            const cachedPlaces = ((envDocForPlaces as any)?.google_places || (envDocForPlaces as any)?.neighborhoodPlaces) as NeighborhoodPlaces | undefined;
             const placesCachedAt = cachedPlaces?.fetchedAt;
             const placesFresh = placesCachedAt && (Date.now() - placesCachedAt) < 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -148,11 +148,11 @@ export const fetchPropertyDataFull = async (
 
             if (needsImages && images.length > 0) mappedData.images = images;
             const placesForUI = nearbyPlaces ?? cachedPlaces ?? null;
-            if (placesForUI) mappedData.neighborhoodPlaces = placesForUI;
+            if (placesForUI) mappedData.google_places = placesForUI;
 
             // Fire-and-forget save — don't block the rest of the pipeline on a write.
             if (nearbyPlaces && needsPlacesFetch) {
-                saveGoogleDataToCloud(String(mappedData.zpid), { neighborhoodPlaces: nearbyPlaces })
+                saveGoogleDataToCloud(String(mappedData.zpid), { google_places: nearbyPlaces } as any)
                     .catch(e => console.warn('[fetchPropertyDataFull] Places save to env doc failed:', e));
             }
             savePropertyToCloud(mappedData.zpid, mappedData).catch(e => console.warn('[fetchPropertyDataFull] Non-blocking save failed:', e));
@@ -371,6 +371,8 @@ export const fetchPropertyDataFull = async (
                     noiseAirportDesc: mappedData.noiseAirportDesc ?? null,
                     zpid: mappedData.zpid || storageKey,
                     evChargers: (mappedData as any).evChargers ?? null,
+                    drought: mappedData.drought ?? null,
+                    broadband: (mappedData as any).broadband ?? null,
                 });
                 _mark('Environmental cache saved');
             } else {

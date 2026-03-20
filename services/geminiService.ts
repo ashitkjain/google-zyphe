@@ -507,7 +507,7 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
     urlToBase64(mapZoomOut)
   ]);
 
-  const prompt = getNeighborhoodAnalysisPrompt(property, (property as any).neighborhoodPlaces ?? undefined);
+  const prompt = getNeighborhoodAnalysisPrompt(property, (property as any).google_places ?? undefined);
 
   return executeGeminiRequest<NeighborhoodAnalysis>({
     model: FLASH_MODEL,

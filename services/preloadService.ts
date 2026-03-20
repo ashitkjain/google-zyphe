@@ -113,35 +113,84 @@ export const runFullIntelligencePipeline = async (
         onLog?.(`[Discovery] Cache hit — loaded ${cached.address} from database (${cached.images?.length || 0} images, maps present).`);
         enrichedData = cached;
 
-        // Proactively heal missing error-level fields from RapidAPI
-        const resoFieldCount = enrichedData.resoFacts ? Object.values(enrichedData.resoFacts).filter((v: any) => v != null && v !== '').length : 0;
-        const missingCoreFields = !enrichedData.description
-          || resoFieldCount < 3
-          || !enrichedData.attribution
-          || !enrichedData.priceHistory?.length;
-        if (missingCoreFields) {
-          onLog?.(`[Discovery] Cached record missing core fields (description/resoFacts/attribution/priceHistory) — healing from RapidAPI...`);
+        // ── Dynamic healing driven by smoke test ─────────────────────────────
+        // Run smoke checks on the cached data to find which fields are missing.
+        // Group failures by source and only call the APIs the smoke test says are needed.
+        // This is extensible: adding new checks to smokeTest.ts automatically extends healing.
+        // Cooldown: skip healing if already attempted within the last 24 hours to avoid
+        // wasteful API calls when upstream genuinely doesn't have the data.
+        const healCooldownMs = 24 * 60 * 60 * 1000; // 24 hours
+        const lastHeal = (enrichedData as any)._healAttemptedAt;
+        const healRecent = lastHeal && (Date.now() - new Date(lastHeal).getTime()) < healCooldownMs;
+
+        if (healRecent) {
+          onLog?.(`[Discovery] Heal already attempted ${Math.round((Date.now() - new Date(lastHeal).getTime()) / 60000)}m ago — skipping.`);
+        } else {
           try {
-            const fresh = await fetchPropertySpecs(zpid);
-            if (fresh) {
-              // Backfill: fresh data fills gaps without overwriting existing values
-              for (const [key, value] of Object.entries(fresh)) {
-                if (value != null && (enrichedData as any)[key] == null) {
-                  (enrichedData as any)[key] = value;
+            const { runChecks } = await import('./smokeTest');
+            const { getGoogleDataFromCloud } = await import('./firebase/googleData');
+            const envDoc = await getGoogleDataFromCloud(zpid).catch(() => null);
+            const smokeResult = runChecks(zpid, enrichedData, null, null, envDoc, null, null, {}, enrichedData.address);
+            const failedSources = new Set(
+              smokeResult.checks.filter(c => !c.passed).map(c => c.source)
+            );
+            const failedLabels = smokeResult.checks.filter(c => !c.passed).map(c => c.label);
+
+            if (failedSources.size === 0) {
+              onLog?.(`[Discovery] Smoke checks all pass — no healing needed.`);
+            } else {
+              onLog?.(`[Discovery] ${failedLabels.length} smoke checks failed: ${failedLabels.slice(0, 8).join(', ')}${failedLabels.length > 8 ? '...' : ''}`);
+
+              // 1. RapidAPI source → call fetchPropertySpecs and merge
+              if (failedSources.has('rapidapi')) {
+                onLog?.(`[Discovery] Healing RapidAPI fields...`);
+                try {
+                  const fresh = await fetchPropertySpecs(zpid);
+                  if (fresh) {
+                    let healed = 0;
+                    for (const [key, value] of Object.entries(fresh)) {
+                      if (value != null && (enrichedData as any)[key] == null) {
+                        (enrichedData as any)[key] = value;
+                        healed++;
+                      }
+                    }
+                    // Force-set structured fields that may be empty arrays/objects
+                    const resoFieldCount = enrichedData.resoFacts ? Object.values(enrichedData.resoFacts).filter((v: any) => v != null && v !== '').length : 0;
+                    if (!enrichedData.description && fresh.description) { enrichedData.description = fresh.description as string; healed++; }
+                    if (resoFieldCount < 3 && fresh.resoFacts) { enrichedData.resoFacts = fresh.resoFacts as any; healed++; }
+                    if (!(enrichedData as any).attribution && fresh.attribution) { (enrichedData as any).attribution = fresh.attribution; healed++; }
+                    if (!enrichedData.priceHistory?.length && fresh.priceHistory) { enrichedData.priceHistory = fresh.priceHistory as any; healed++; }
+                    if (healed > 0) {
+                      await savePropertyToCloud(zpid, enrichedData);
+                      onLog?.(`[Discovery] Healed ${healed} RapidAPI fields.`);
+                    }
+                  }
+                } catch (e: any) {
+                  onLog?.(`[Discovery] RapidAPI heal failed (non-blocking): ${e.message}`);
                 }
               }
-              // Force-set fields that were explicitly missing (even if old value was empty string/array)
-              if (!enrichedData.description && fresh.description) enrichedData.description = fresh.description as string;
-              if (resoFieldCount < 3 && fresh.resoFacts) enrichedData.resoFacts = fresh.resoFacts as any;
-              if (!enrichedData.attribution && fresh.attribution) (enrichedData as any).attribution = fresh.attribution;
-              if (!enrichedData.priceHistory?.length && fresh.priceHistory) enrichedData.priceHistory = fresh.priceHistory as any;
-              await savePropertyToCloud(zpid, enrichedData);
-              onLog?.(`[Discovery] Core fields healed from RapidAPI.`);
+
+              // 2. Environmental source → call fetchPropertyDataFull
+              // This saves directly to google_environmental_data (single source of truth).
+              // No need to merge into enrichedData/properties doc.
+              if (failedSources.has('environmental')) {
+                onLog?.(`[Discovery] Healing environmental fields...`);
+                try {
+                  onProgress({ step: 'Discovery', status: 'running', message: 'Fetching missing environmental data...' });
+                  await fetchPropertyDataFull(zpid, true, false);
+                  onLog?.(`[Discovery] Environmental heal completed — data saved to google_environmental_data.`);
+                } catch (e: any) {
+                  onLog?.(`[Discovery] Environmental heal failed (non-blocking): ${e.message}`);
+                }
+              }
             }
+            // Stamp heal attempt so we don't retry for 24 hours
+            (enrichedData as any)._healAttemptedAt = new Date().toISOString();
+            await savePropertyToCloud(zpid, enrichedData);
           } catch (e: any) {
-            onLog?.(`[Discovery] RapidAPI heal failed (non-blocking): ${e.message}`);
+            onLog?.(`[Discovery] Smoke-driven heal failed (non-blocking): ${e.message}`);
           }
-        }
+        } // end healRecent else
 
         onProgress({ step: 'Discovery', status: 'completed', message: `Loaded ${cached.address} from cache` });
       }
@@ -206,6 +255,54 @@ export const runFullIntelligencePipeline = async (
     }
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
+
+    // Track which subtasks had issues
+    const warnings: string[] = [];
+
+    // --- FRONT ORIENTATION ANALYSIS ---
+    // Uses satellite + street view to determine compass orientation of the front door
+    if (enrichedData.coordinates?.latitude && enrichedData.coordinates?.longitude) {
+      const existingOrientation = (enrichedData as any).orientation_ai;
+      if (existingOrientation?.final_orientation && existingOrientation.final_orientation !== 'UNCLEAR_IMAGE') {
+        onLog?.(`[Orientation] Cache hit — ${existingOrientation.final_orientation} (${existingOrientation.confidence})`);
+        onProgress({ step: 'Orientation', status: 'completed', message: `Cached: ${existingOrientation.final_orientation}` });
+      } else {
+        onProgress({ step: 'Orientation', status: 'running', message: 'Analyzing front orientation...' });
+        try {
+          const { runSatellitaryAnalysis } = await import('./satellitaryService');
+
+          // Get cached street view URL from assets
+          let streetViewUrl: string | null = null;
+          try {
+            const assetDoc = await getPropertyAssetsFromCloud(zpid);
+            if (assetDoc?.streetView?.includes('firebasestorage')) {
+              streetViewUrl = assetDoc.streetView;
+            }
+          } catch { /* proceed without */ }
+
+          const orientResult = await runSatellitaryAnalysis(
+            enrichedData.coordinates.latitude,
+            enrichedData.coordinates.longitude,
+            streetViewUrl,
+            userId,
+            zpid,
+            enrichedData.address
+          );
+
+          if (orientResult.final_orientation && orientResult.final_orientation !== 'UNCLEAR_IMAGE') {
+            onLog?.(`[Orientation] → ${orientResult.final_orientation} (${orientResult.confidence})`);
+            onProgress({ step: 'Orientation', status: 'completed', message: `${orientResult.final_orientation}` });
+          } else {
+            onLog?.(`[Orientation] Image quality too low — skipped`);
+            onProgress({ step: 'Orientation', status: 'completed', message: 'Unclear image — skipped' });
+          }
+        } catch (e: any) {
+          onLog?.(`[Orientation] Failed (non-blocking): ${e.message}`);
+          warnings.push('orientation');
+          onProgress({ step: 'Orientation', status: 'completed', message: 'Failed — will retry' });
+        }
+      }
+    }
 
     // --- PARALLEL AI INTELLIGENCE BLOCK ---
     onProgress({ step: 'Intelligence', status: 'running', message: 'Running parallel AI evaluation suite...' });
@@ -518,7 +615,13 @@ export const runFullIntelligencePipeline = async (
       try {
         const { saveNeighborhoodIdentityToCloud } = await import('./firebase/properties');
 
-        // BRUTE FORCE: always re-run all sources (no cache check)
+        // Cache check: skip if already resolved with a valid name
+        const existing = (enrichedData as any).neighborhood_identity;
+        if (existing?.resolved_name && existing.resolved_name !== 'Unknown') {
+          onLog?.(`[Neighborhood ID] Cache hit — "${existing.resolved_name}" (skipping Gemini + ArcGIS)`);
+          return existing;
+        }
+
         const lat = enrichedData.coordinates?.latitude || 0;
         const lng = enrichedData.coordinates?.longitude || 0;
         onLog?.(`[Neighborhood ID] Running all sources fresh — coords: ${lat}, ${lng}, address: "${enrichedData.address}"`);
@@ -612,8 +715,7 @@ export const runFullIntelligencePipeline = async (
     reportSubtask('Schools', schoolsResult?.schools || schoolsResult, !!(schoolsResult && schoolsResult._allCached));
     reportSubtask('Neighborhood ID', neighborhoodIdentity, !!(neighborhoodIdentity?.gemini?.neighborhood_name));
 
-    // Track which subtasks had issues
-    const warnings: string[] = [];
+    // Check for visual AI issues
     if (!visualResult) warnings.push(`Visual AI${visualError ? `: ${visualError}` : ''}`);
 
     // Assembly - Keep visualResult lean (only item-specific data)

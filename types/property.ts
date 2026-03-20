@@ -217,7 +217,7 @@ export interface PropertyData {
         }[];
     };
     streetViewAnalysis?: StreetViewAnalysisResult;
-    neighborhoodPlaces?: import('../services/apiService').NeighborhoodPlaces;
+    google_places?: import('../services/apiService').NeighborhoodPlaces;
 
     pollen?: {
         score: number;

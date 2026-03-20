@@ -1789,7 +1789,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         </div>
                                     </div>
 
-                                    {propertyData.neighborhoodPlaces && (
+                                    {propertyData.google_places && (
                                         <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                             <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} neighborhoodOverview={neighborhoodOverview} hoaAmenities={propertyData.hoa?.amenities} />
                                         </div>

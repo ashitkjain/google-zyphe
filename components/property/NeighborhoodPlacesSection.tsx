@@ -130,7 +130,7 @@ const CategoryCard: React.FC<{
 const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels, mapZoomOut, address, neighborhoodOverview, hoaAmenities }) => {
     const [mode, setMode] = useState<'places' | 'map'>('places');
     const [expandedMap, setExpandedMap] = useState<string | null>(null);
-    const rawPlaces = data.neighborhoodPlaces;
+    const rawPlaces = data.google_places;
     if (!rawPlaces && !visualPoi && (!mapLabels || mapLabels.length === 0)) return null;
 
     const collections: Record<string, NearbyPlace[]> = {};

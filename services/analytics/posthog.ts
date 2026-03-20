@@ -7,8 +7,8 @@ import posthog from 'posthog-js';
  * You can find these in your PostHog Project Settings.
  */
 
-const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY || 'phc_tIO5TwDC0OBLRsQ4qhXM6I57dyw2smaNCuMMUuIZsKm';
-const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
+const POSTHOG_KEY = (import.meta as any).env?.VITE_POSTHOG_KEY || 'phc_tIO5TwDC0OBLRsQ4qhXM6I57dyw2smaNCuMMUuIZsKm';
+const POSTHOG_HOST = (import.meta as any).env?.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 export const initPostHog = () => {
     if (typeof window === 'undefined' || !POSTHOG_KEY) return;
@@ -32,7 +32,7 @@ export const initPostHog = () => {
 
         loaded: (ph) => {
             ph.startSessionRecording();  // start recording for every session
-            if (import.meta.env.DEV) ph.debug();
+            if ((import.meta as any).env?.DEV) ph.debug();
         }
     });
 };
@@ -71,7 +71,7 @@ export const setCurrentPage = (pageKey: string, pageLabel: string) => {
             current_page_key: pageKey,
             current_page_label: pageLabel,
         });
-        if (import.meta.env.DEV) {
+        if ((import.meta as any).env?.DEV) {
             console.log(`[PostHog] setCurrentPage → key="${pageKey}" label="${pageLabel}"`);
         }
     }

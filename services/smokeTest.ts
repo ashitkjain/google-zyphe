@@ -22,10 +22,25 @@ import { db, generateCityStateKey } from './firebase/config';
 
 export type CheckSeverity = 'error' | 'warn';
 
+/**
+ * Declares which API/system can fix a failed check.
+ * Used by the pipeline to dynamically decide which APIs to call for healing.
+ */
+export type CheckSource =
+    | 'rapidapi'          // RapidAPI /property endpoint (fetchPropertySpecs)
+    | 'environmental'     // Google/USGS/NREL environmental APIs (fetchPropertyDataFull)
+    | 'assets'            // Firebase Storage asset pipeline (securePropertyAssets)
+    | 'ai_visual'         // Gemini visual analysis (analyzePropertyImages + analyzeNeighborhood)
+    | 'ai_comprehensive'  // Gemini comprehensive/narrative analysis
+    | 'ai_investment'     // Investment research analysis
+    | 'city_data'         // City-level community pulse / market intelligence
+    | 'computed';         // Derived/computed fields — no single API can fix
+
 export interface SmokeCheck {
     id: string;
     label: string;
     severity: CheckSeverity;
+    source: CheckSource;
     passed: boolean;
     detail?: string;  // e.g. "3 images found" or "missing"
 }
@@ -55,10 +70,11 @@ function chk(
     id: string,
     label: string,
     severity: CheckSeverity,
+    source: CheckSource,
     passed: boolean,
     detail?: string
 ) {
-    checks.push({ id, label, severity, passed, detail });
+    checks.push({ id, label, severity, source, passed, detail });
 }
 
 const isFirebaseStorageUrl = (url?: string | null) =>
@@ -81,54 +97,54 @@ export function runChecks(
     const checks: SmokeCheck[] = [];
 
     // ── 1. Core listing data ─────────────────────────────────────────────────
-    chk(checks, 'bedrooms', 'Bedrooms', 'error', prop?.bedrooms != null && prop.bedrooms > 0,
+    chk(checks, 'bedrooms', 'Bedrooms', 'error', 'rapidapi', prop?.bedrooms != null && prop.bedrooms > 0,
         prop?.bedrooms != null ? `${prop.bedrooms} bd` : 'missing');
-    chk(checks, 'bathrooms', 'Bathrooms', 'error', prop?.bathrooms != null && prop.bathrooms > 0,
+    chk(checks, 'bathrooms', 'Bathrooms', 'error', 'rapidapi', prop?.bathrooms != null && prop.bathrooms > 0,
         prop?.bathrooms != null ? `${prop.bathrooms} ba` : 'missing');
-    chk(checks, 'livingArea', 'Living Area (sqft)', 'error', prop?.livingAreaValue != null && prop.livingAreaValue > 0,
+    chk(checks, 'livingArea', 'Living Area (sqft)', 'error', 'rapidapi', prop?.livingAreaValue != null && prop.livingAreaValue > 0,
         prop?.livingAreaValue ? `${prop.livingAreaValue.toLocaleString()} sf` : 'missing');
-    chk(checks, 'lotSize', 'Lot Size', 'warn', !!(prop?.lotSize || prop?.lotAreaValue),
+    chk(checks, 'lotSize', 'Lot Size', 'warn', 'rapidapi', !!(prop?.lotSize || prop?.lotAreaValue),
         prop?.lotSize || prop?.lotAreaValue ? String(prop.lotSize || prop.lotAreaValue) : 'missing');
     const priceVal = prop?.listPrice ?? prop?.price ?? null;
-    chk(checks, 'price', 'Listing Price', 'error', priceVal != null && priceVal > 0,
+    chk(checks, 'price', 'Listing Price', 'error', 'rapidapi', priceVal != null && priceVal > 0,
         priceVal ? `$${priceVal.toLocaleString()}` : 'missing');
-    chk(checks, 'description', 'Description', 'error', !!(prop?.description && prop.description.length > 50),
+    chk(checks, 'description', 'Description', 'error', 'rapidapi', !!(prop?.description && prop.description.length > 50),
         prop?.description ? `${prop.description.length} chars` : 'missing/too short');
-    chk(checks, 'yearBuilt', 'Year Built', 'warn', prop?.yearBuilt != null && prop.yearBuilt > 1800,
+    chk(checks, 'yearBuilt', 'Year Built', 'warn', 'rapidapi', prop?.yearBuilt != null && prop.yearBuilt > 1800,
         prop?.yearBuilt ? String(prop.yearBuilt) : 'missing');
-    chk(checks, 'homeType', 'Home Type', 'warn', !!prop?.homeType,
+    chk(checks, 'homeType', 'Home Type', 'warn', 'rapidapi', !!prop?.homeType,
         prop?.homeType || 'missing');
-    chk(checks, 'coordinates', 'Coordinates', 'error', !!(prop?.coordinates?.latitude && prop.coordinates?.longitude),
+    chk(checks, 'coordinates', 'Coordinates', 'error', 'rapidapi', !!(prop?.coordinates?.latitude && prop.coordinates?.longitude),
         prop?.coordinates ? `${prop.coordinates.latitude.toFixed(4)}, ${prop.coordinates.longitude.toFixed(4)}` : 'missing');
 
     // ── 2. Walk/Transit/Bike scores ──────────────────────────────────────────
     const hasWalkScoreApi = prop?.walkScore != null || prop?.bikeScore != null;
-    chk(checks, 'walkScore', 'Walk Score', 'warn', prop?.walkScore != null,
+    chk(checks, 'walkScore', 'Walk Score', 'warn', 'environmental', prop?.walkScore != null,
         prop?.walkScore != null ? String(prop.walkScore) : 'missing');
     // Transit score may legitimately be null for suburban areas with no transit service.
     // Only warn if the Walk Score API was never called at all.
     const transitAvailable = prop?.transitScore != null;
-    chk(checks, 'transitScore', 'Transit Score', 'warn',
+    chk(checks, 'transitScore', 'Transit Score', 'warn', 'environmental',
         transitAvailable || hasWalkScoreApi, // pass if score exists OR if API was called (area has no transit)
         transitAvailable ? String(prop.transitScore) : (hasWalkScoreApi ? 'not available for this area' : 'missing'));
-    chk(checks, 'bikeScore', 'Bike Score', 'warn', prop?.bikeScore != null,
+    chk(checks, 'bikeScore', 'Bike Score', 'warn', 'environmental', prop?.bikeScore != null,
         prop?.bikeScore != null ? String(prop.bikeScore) : 'missing');
 
     // ── 3. Images ────────────────────────────────────────────────────────────
     const imgCount = (prop?.images?.length || assets?.images?.length || 0);
-    chk(checks, 'images', 'Property Images', 'error', imgCount >= 3,
+    chk(checks, 'images', 'Property Images', 'error', 'assets', imgCount >= 3,
         imgCount > 0 ? `${imgCount} images` : 'none downloaded');
 
     // ── 4. Firebase Storage assets ───────────────────────────────────────────
-    chk(checks, 'mapZoomIn', 'Map Zoom-In (Storage)', 'error', isFirebaseStorageUrl(assets?.mapZoomIn || prop?.mapZoomIn),
+    chk(checks, 'mapZoomIn', 'Map Zoom-In (Storage)', 'error', 'assets', isFirebaseStorageUrl(assets?.mapZoomIn || prop?.mapZoomIn),
         isFirebaseStorageUrl(assets?.mapZoomIn || prop?.mapZoomIn) ? 'present' : 'missing/not in Storage');
-    chk(checks, 'mapZoomOut', 'Map Zoom-Out (Storage)', 'error', isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut),
+    chk(checks, 'mapZoomOut', 'Map Zoom-Out (Storage)', 'error', 'assets', isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut),
         isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut) ? 'present' : 'missing/not in Storage');
-    const svImgUrl = assets?.streetView || prop?.streetView || prop?.streetViewAnalysis?.imageUrl || env?.streetViewAnalysis?.imageUrl;
-    chk(checks, 'streetView', 'Street View (Storage)', 'warn', isFirebaseStorageUrl(svImgUrl),
+    const svImgUrl = assets?.streetView || env?.streetViewAnalysis?.imageUrl;
+    chk(checks, 'streetView', 'Street View (Storage)', 'warn', 'assets', isFirebaseStorageUrl(svImgUrl),
         isFirebaseStorageUrl(svImgUrl) ? 'present' : 'missing');
     const satUrl = assets?.satelliteImageUrl || assets?.satellite || prop?.satelliteImageUrl;
-    chk(checks, 'satellite', 'Satellite Image (Storage)', 'warn', isFirebaseStorageUrl(satUrl),
+    chk(checks, 'satellite', 'Satellite Image (Storage)', 'warn', 'assets', isFirebaseStorageUrl(satUrl),
         isFirebaseStorageUrl(satUrl) ? 'present' : (satUrl ? 'present (not in Storage)' : 'missing'));
 
     // ── 5. Parcel / APN data ─────────────────────────────────────────────────
@@ -136,150 +152,150 @@ export function runChecks(
     // Also check the parcelValidation sub-object which caches validation results.
     const polygon = prop?.parcelPolygon || prop?.parcel_polygon || prop?.parcelValidation?.polygon;
     const hasPolygon = Array.isArray(polygon) && polygon.length > 3;
-    chk(checks, 'parcelPolygon', 'Parcel Polygon', 'warn', hasPolygon,
+    chk(checks, 'parcelPolygon', 'Parcel Polygon', 'warn', 'environmental', hasPolygon,
         hasPolygon ? `${polygon.length} vertices` : 'not fetched');
     const apnVal = prop?.parcelApn || prop?.parcel_apn || prop?.apn || prop?.APN;
-    chk(checks, 'parcelApn', 'APN', 'warn', !!apnVal,
+    chk(checks, 'parcelApn', 'APN', 'warn', 'environmental', !!apnVal,
         apnVal || 'not fetched');
     const parcelArea = prop?.parcelAreaSqft || prop?.parcel_area_sqft || prop?.parcelArea;
-    chk(checks, 'parcelArea', 'Parcel Area (sqft)', 'warn', parcelArea != null && parcelArea > 0,
+    chk(checks, 'parcelArea', 'Parcel Area (sqft)', 'warn', 'environmental', parcelArea != null && parcelArea > 0,
         parcelArea ? `${parcelArea.toLocaleString()} sf` : 'not fetched');
-    chk(checks, 'taxSqft', 'Tax Record Sqft', 'warn', prop?.taxSqft != null && prop.taxSqft > 0,
+    chk(checks, 'taxSqft', 'Tax Record Sqft', 'warn', 'environmental', prop?.taxSqft != null && prop.taxSqft > 0,
         prop?.taxSqft ? `${prop.taxSqft.toLocaleString()} sf (${prop.taxSqftSource || 'unknown source'})` : 'not fetched');
 
     // ── 6. Google Environmental APIs ─────────────────────────────────────────
     // These now primarily live in google_environmental_data
-    const solar = env?.solarData || prop?.solarData;
-    const aqi = env?.airQuality || prop?.airQuality;
-    const pollen = env?.pollen || prop?.pollen;
-    const noise = env?.noiseScore ?? prop?.noiseScore;
-    const places = env?.neighborhoodPlaces || prop?.neighborhoodPlaces;
+    const solar = env?.solarData;
+    const aqi = env?.airQuality;
+    const pollen = env?.pollen;
+    const noise = env?.noiseScore;
+    const places = env?.google_places;
 
     // Solar: check both maxSunshineHoursPerYear and solarPotential as indicators
     const hasSolar = !!(solar?.maxSunshineHoursPerYear || solar?.solarPotential || solar?.yearlyEnergyDcKwh);
-    chk(checks, 'solarData', 'Solar API', 'warn', hasSolar,
+    chk(checks, 'solarData', 'Solar API', 'warn', 'environmental', hasSolar,
         solar ? `${solar.maxSunshineHoursPerYear || solar.yearlyEnergyDcKwh || '?'} hrs/yr sunshine` : 'not fetched');
 
     // Solar financial data (panels, system capacity, 20yr savings)
     const solarProd = solar?.estimatedSolarProduction;
     const hasSolarFinancial = !!(solarProd?.annualKwh && solarProd?.estimatedPanels);
-    chk(checks, 'solarFinancial', 'Solar — Panels & Production', 'warn', hasSolarFinancial,
+    chk(checks, 'solarFinancial', 'Solar — Panels & Production', 'warn', 'environmental', hasSolarFinancial,
         hasSolarFinancial
             ? `${solarProd.estimatedPanels} panels, ${solarProd.annualKwh.toLocaleString()} kWh/yr`
             : 'missing (no panel/kWh data)');
     const hasSolarSavings = !!(solar?.financialAnalysis?.cashPurchase?.savings?.savingsYear20);
-    chk(checks, 'solarSavings', 'Solar — 20yr Savings', 'warn', hasSolarSavings,
+    chk(checks, 'solarSavings', 'Solar — 20yr Savings', 'warn', 'environmental', hasSolarSavings,
         hasSolarSavings
             ? `$${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}`
             : 'missing');
 
-    chk(checks, 'airQuality', 'Air Quality API', 'warn', !!(aqi?.aqi != null),
+    chk(checks, 'airQuality', 'Air Quality API', 'warn', 'environmental', !!(aqi?.aqi != null),
         aqi ? `AQI ${aqi.aqi} (${aqi.category})` : 'not fetched');
-    chk(checks, 'pollen', 'Pollen API', 'warn', !!(pollen?.grass || pollen?.score != null),
+    chk(checks, 'pollen', 'Pollen API', 'warn', 'environmental', !!(pollen?.grass || pollen?.score != null),
         pollen ? `Fetched (${pollen.category || 'present'})` : 'not fetched');
-    chk(checks, 'noiseScore', 'Noise Score API', 'warn', noise != null,
-        noise != null ? `${noise} (${env?.noiseScoreDesc || prop?.noiseScoreDesc || '?'})` : 'not fetched');
-    chk(checks, 'neighborhoodPlaces', 'Nearby Places (POI)', 'warn', !!places,
+    chk(checks, 'noiseScore', 'Noise Score API', 'warn', 'environmental', noise != null,
+        noise != null ? `${noise} (${env?.noiseScoreDesc || '?'})` : 'not fetched');
+    chk(checks, 'googlePlaces', 'Nearby Places (POI)', 'warn', 'environmental', !!places,
         places ? 'cached' : 'not fetched');
 
     // ── 6b. Seismic & Historical Disasters ───────────────────────────────────
-    const hd = prop?.historical_disasters;
+    const hd = env?.historical_disasters;
     const sz = hd?.seismicZone;
-    chk(checks, 'seismicZone', 'Seismic Zone Data', 'warn', !!(sz?.designCategory),
+    chk(checks, 'seismicZone', 'Seismic Zone Data', 'warn', 'environmental', !!(sz?.designCategory),
         sz?.designCategory
             ? `Zone ${sz.designCategory}${sz.riskLevel ? ` (${sz.riskLevel})` : ''}${sz.pga ? ` PGA ${sz.pga.toFixed(2)}g` : ''}`
             : 'missing');
     const quakes = hd?.earthquakes;
-    chk(checks, 'earthquakeHistory', 'Earthquake History', 'warn', Array.isArray(quakes) && quakes.length > 0,
+    chk(checks, 'earthquakeHistory', 'Earthquake History', 'warn', 'environmental', Array.isArray(quakes) && quakes.length > 0,
         Array.isArray(quakes) ? `${quakes.length} events recorded` : 'missing');
 
     // ── 7. AI Analysis ───────────────────────────────────────────────────────
     // Visual AI (interior / exterior)
     const hasVisualInterior = !!(visual?.home_interior?.overall_description && visual.home_interior.overall_description.length > 30);
     const hasVisualExterior = !!(visual?.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
-    chk(checks, 'aiVisualInterior', 'AI Visual — Interior', 'error', hasVisualInterior,
+    chk(checks, 'aiVisualInterior', 'AI Visual — Interior', 'error', 'ai_visual', hasVisualInterior,
         hasVisualInterior ? 'analysis present' : 'missing (needs Full Intel)');
-    chk(checks, 'aiVisualExterior', 'AI Visual — Exterior', 'error', hasVisualExterior,
+    chk(checks, 'aiVisualExterior', 'AI Visual — Exterior', 'error', 'ai_visual', hasVisualExterior,
         hasVisualExterior ? 'analysis present' : 'missing');
 
     // Visual sub-fields: design_style, condition, room_highlights
     const hi = visual?.home_interior;
-    chk(checks, 'designStyle', 'AI Visual — Design Style', 'warn', !!(hi?.design_style?.style),
+    chk(checks, 'designStyle', 'AI Visual — Design Style', 'warn', 'ai_visual', !!(hi?.design_style?.style),
         hi?.design_style?.style || 'missing');
-    chk(checks, 'conditionFinish', 'AI Visual — Condition & Finish', 'warn', !!(hi?.condition_and_finish && hi.condition_and_finish.length > 10),
+    chk(checks, 'conditionFinish', 'AI Visual — Condition & Finish', 'warn', 'ai_visual', !!(hi?.condition_and_finish && hi.condition_and_finish.length > 10),
         hi?.condition_and_finish ? `${hi.condition_and_finish.length} chars` : 'missing');
     const roomCount = Array.isArray(visual?.room_highlights) ? visual.room_highlights.length : 0;
-    chk(checks, 'roomHighlights', 'AI Visual — Room Highlights', 'warn', roomCount >= 3,
+    chk(checks, 'roomHighlights', 'AI Visual — Room Highlights', 'warn', 'ai_visual', roomCount >= 3,
         roomCount > 0 ? `${roomCount} rooms detected` : 'missing');
 
     // Visual sub-fields: curb appeal, backyard, privacy
     const ext = visual?.exterior_and_neighborhood;
-    chk(checks, 'curbAppeal', 'AI Visual — Curb Appeal', 'warn', !!(ext?.exterior_and_lot_appeal?.curb_appeal),
+    chk(checks, 'curbAppeal', 'AI Visual — Curb Appeal', 'warn', 'ai_visual', !!(ext?.exterior_and_lot_appeal?.curb_appeal),
         ext?.exterior_and_lot_appeal?.curb_appeal ? `${ext.exterior_and_lot_appeal.curb_appeal.length} chars` : 'missing');
-    chk(checks, 'backyardPatio', 'AI Visual — Backyard/Patio', 'warn', !!(ext?.exterior_and_lot_appeal?.backyard_and_patio),
+    chk(checks, 'backyardPatio', 'AI Visual — Backyard/Patio', 'warn', 'ai_visual', !!(ext?.exterior_and_lot_appeal?.backyard_and_patio),
         ext?.exterior_and_lot_appeal?.backyard_and_patio ? `${ext.exterior_and_lot_appeal.backyard_and_patio.length} chars` : 'missing');
-    chk(checks, 'privacyVisual', 'AI Visual — Privacy', 'warn', !!(ext?.views_privacy_orientation?.privacy),
+    chk(checks, 'privacyVisual', 'AI Visual — Privacy', 'warn', 'ai_visual', !!(ext?.views_privacy_orientation?.privacy),
         ext?.views_privacy_orientation?.privacy || 'missing');
 
     // Neighborhood spatial analysis
     const hasNeighborhood = !!(visual?.neighborhood?.overview && visual.neighborhood.overview.length > 30);
-    chk(checks, 'aiNeighborhood', 'AI Neighborhood/Spatial', 'error', hasNeighborhood,
+    chk(checks, 'aiNeighborhood', 'AI Neighborhood/Spatial', 'error', 'ai_visual', hasNeighborhood,
         hasNeighborhood ? 'analysis present' : 'missing');
 
-    // Orientation AI (may be on properties doc or env doc)
-    const orientationAi = prop?.orientation_ai || env?.orientation_ai;
+    // Orientation AI (saved on properties doc)
+    const orientationAi = prop?.orientation_ai;
     const hasOrientation = !!(orientationAi?.final_orientation);
-    chk(checks, 'orientationAi', 'Front Orientation AI', 'warn', hasOrientation,
+    chk(checks, 'orientationAi', 'Front Orientation AI', 'warn', 'ai_visual', hasOrientation,
         hasOrientation ? orientationAi.final_orientation : 'missing');
 
     // Street view AI (lives on google_environmental_data)
-    const svAnalysis = env?.streetViewAnalysis || prop?.streetViewAnalysis;
+    const svAnalysis = env?.streetViewAnalysis;
     const hasStreetViewAi = !!(svAnalysis?.privacyRating || svAnalysis?.curbAppealScore || svAnalysis?.neighborhoodVibe);
-    chk(checks, 'streetViewAi', 'Street View AI', 'warn', hasStreetViewAi,
+    chk(checks, 'streetViewAi', 'Street View AI', 'warn', 'environmental', hasStreetViewAi,
         hasStreetViewAi ? `curb appeal: ${svAnalysis.curbAppealScore ?? '?'}/10` : 'missing');
 
-    // Pollen AI analysis
-    const pollenData = pollen || env?.pollen || prop?.pollen;
+    // Pollen AI analysis (env is source of truth for pollen)
+    const pollenData = env?.pollen;
     const hasPollenAi = !!(pollenData?.analysis?.breathe_easy_summary);
-    chk(checks, 'pollenAi', 'Pollen AI Analysis', 'warn', hasPollenAi,
+    chk(checks, 'pollenAi', 'Pollen AI Analysis', 'warn', 'environmental', hasPollenAi,
         hasPollenAi ? 'analysis present' : 'missing');
 
     // ── 7b. Community Pulse (city-level collection: community_pulse) ─────────
     const cp = cityData?.communityPulse;
     const hasCpLike = !!(cp?.what_residents_like?.points?.length);
     const hasCpComplaint = !!(cp?.common_complaints?.points?.length);
-    chk(checks, 'communityPulse', 'Community Pulse', 'warn', !!(hasCpLike || hasCpComplaint),
+    chk(checks, 'communityPulse', 'Community Pulse', 'warn', 'city_data', !!(hasCpLike || hasCpComplaint),
         cp ? `like: ${cp.what_residents_like?.points?.length || 0}, complaints: ${cp.common_complaints?.points?.length || 0}` : 'missing');
 
 
     // Custom visual analysis (lives on property_analyses_visual doc)
     const hasCustomAnalysis = !!(visual?.report_title || visual?.home_interior);
-    chk(checks, 'customAnalysis', 'Custom AI Analysis', 'warn', hasCustomAnalysis,
+    chk(checks, 'customAnalysis', 'Custom AI Analysis', 'warn', 'ai_visual', hasCustomAnalysis,
         hasCustomAnalysis ? 'present' : 'not run yet');
 
     // ── 8. Data sanity checks ────────────────────────────────────────────────
     // Listing sqft vs tax record sqft anomaly (>20% discrepancy = red flag)
     if (prop?.livingAreaValue && prop?.taxSqft) {
         const diff = Math.abs(prop.livingAreaValue - prop.taxSqft) / prop.taxSqft;
-        chk(checks, 'sqftSanity', 'Sqft Discrepancy (>20%)', 'warn', diff <= 0.20,
+        chk(checks, 'sqftSanity', 'Sqft Discrepancy (>20%)', 'warn', 'computed', diff <= 0.20,
             `${Math.round(diff * 100)}% diff — listing ${prop.livingAreaValue.toLocaleString()} vs tax ${prop.taxSqft.toLocaleString()}`);
     }
     // Price per sqft sanity ($100–$5000/sf)
     if (priceVal && prop?.livingAreaValue && prop.livingAreaValue > 0) {
         const ppsf = priceVal / prop.livingAreaValue;
-        chk(checks, 'ppsfSanity', 'Price/Sqft Sanity', 'warn', ppsf >= 100 && ppsf <= 5000,
+        chk(checks, 'ppsfSanity', 'Price/Sqft Sanity', 'warn', 'computed', ppsf >= 100 && ppsf <= 5000,
             `$${Math.round(ppsf)}/sf`);
     }
     // Image count sanity
     if (imgCount > 0 && imgCount < 3) {
-        chk(checks, 'imageCountSanity', 'Image Count (<3)', 'warn', false, `only ${imgCount} image(s) — may be incomplete`);
+        chk(checks, 'imageCountSanity', 'Image Count (<3)', 'warn', 'assets', false, `only ${imgCount} image(s) — may be incomplete`);
     }
 
     // ── 9. Comprehensive Narrative (property_analyses_comprehensive) ──────────
     const hasSummary = !!(comprehensive?.summary && comprehensive.summary.length > 30);
-    chk(checks, 'compSummary', 'Narrative Summary', 'error', hasSummary,
+    chk(checks, 'compSummary', 'Narrative Summary', 'error', 'ai_comprehensive', hasSummary,
         hasSummary ? `${comprehensive.summary.length} chars` : 'missing');
-    chk(checks, 'compRisks', 'Risks & Considerations', 'warn', !!(comprehensive?.risks_considerations),
+    chk(checks, 'compRisks', 'Risks & Considerations', 'warn', 'ai_comprehensive', !!(comprehensive?.risks_considerations),
         comprehensive?.risks_considerations ? 'present' : 'missing');
 
     // ── 10. Interior Summary (inside property_analyses_comprehensive) ─────────
@@ -288,22 +304,22 @@ export function runChecks(
     const hasRoomsSummary = !!(intSum?.rooms_summary && intSum.rooms_summary.length > 20);
     const hasVibe = !!(intSum?.vibe);
     const hasTags = Array.isArray(intSum?.objective_tags) && intSum.objective_tags.length > 0;
-    chk(checks, 'intSummary', 'Interior Summary', 'error', hasIntSummary,
+    chk(checks, 'intSummary', 'Interior Summary', 'error', 'ai_comprehensive', hasIntSummary,
         hasIntSummary ? `${intSum.interior_summary.length} chars` : 'missing');
-    chk(checks, 'intRooms', 'Rooms Summary', 'error', hasRoomsSummary,
+    chk(checks, 'intRooms', 'Rooms Summary', 'error', 'ai_comprehensive', hasRoomsSummary,
         hasRoomsSummary ? `${intSum.rooms_summary.length} chars` : 'missing');
-    chk(checks, 'intVibe', 'Interior Vibe', 'warn', hasVibe,
+    chk(checks, 'intVibe', 'Interior Vibe', 'warn', 'ai_comprehensive', hasVibe,
         hasVibe ? intSum.vibe : 'missing');
-    chk(checks, 'intTags', 'Interior Tags', 'warn', hasTags,
+    chk(checks, 'intTags', 'Interior Tags', 'warn', 'ai_comprehensive', hasTags,
         hasTags ? `${intSum.objective_tags.length} tags` : 'missing');
 
     // ── 11. Schools Summary (inside property_analyses_comprehensive) ──────────
-    chk(checks, 'schoolsSummary', 'Schools Summary (Narrative)', 'warn', !!(comprehensive?.schools_summary),
+    chk(checks, 'schoolsSummary', 'Schools Summary (Narrative)', 'warn', 'ai_comprehensive', !!(comprehensive?.schools_summary),
         comprehensive?.schools_summary ? 'present' : 'missing');
 
     // Schools data on the property (from RapidAPI)
     const schoolCount = Array.isArray(prop?.schools) ? prop.schools.length : 0;
-    chk(checks, 'nearbySchools', 'Nearby Schools Data', 'warn', schoolCount > 0,
+    chk(checks, 'nearbySchools', 'Nearby Schools Data', 'warn', 'rapidapi', schoolCount > 0,
         schoolCount > 0 ? `${schoolCount} schools` : 'no schools on property');
 
     // Per-school analysis quality — validate ALL schema-required fields
@@ -350,9 +366,9 @@ export function runChecks(
             }
         }
 
-        chk(checks, 'schoolAnalyses', 'School Intelligence', 'warn', analyzedCount > 0,
+        chk(checks, 'schoolAnalyses', 'School Intelligence', 'warn', 'ai_comprehensive', analyzedCount > 0,
             analyzedCount > 0 ? `${analyzedCount}/${schoolCount} analyzed` : 'none analyzed');
-        chk(checks, 'schoolQuality', 'School Analysis Quality', 'warn', staleCount === 0,
+        chk(checks, 'schoolQuality', 'School Analysis Quality', 'warn', 'ai_comprehensive', staleCount === 0,
             staleCount === 0
                 ? (analyzedCount > 0 ? 'all schools have valid data' : 'no data to check')
                 : `${staleCount} stale: ${staleNames.join(', ')}`);
@@ -362,47 +378,47 @@ export function runChecks(
     // ── 12. Lifestyle Insights (inside property_analyses_comprehensive) ────────
     const life = comprehensive?.lifestyle_insights;
     const hasLifestyle = !!(life?.outdoor && life?.family);
-    chk(checks, 'lifestyleInsights', 'Lifestyle Insights', 'warn', hasLifestyle,
+    chk(checks, 'lifestyleInsights', 'Lifestyle Insights', 'warn', 'ai_comprehensive', hasLifestyle,
         hasLifestyle ? 'present (outdoor, family, etc.)' : 'missing');
 
     // ── 13. Property Investment Research (property_investment_research) ───────
     const hasSTR = !!(investment?.str_performance?.adr);
     const hasLTR = !!(investment?.ltr_analysis?.monthly_rent);
-    chk(checks, 'investmentSTR', 'STR Performance (ADR)', 'warn', hasSTR,
+    chk(checks, 'investmentSTR', 'STR Performance (ADR)', 'warn', 'ai_investment', hasSTR,
         hasSTR ? `ADR: ${investment.str_performance.adr}` : 'missing');
-    chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'warn', hasLTR,
+    chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'warn', 'ai_investment', hasLTR,
         hasLTR ? `Rent: ${investment.ltr_analysis.monthly_rent}` : 'missing');
 
-    // ── 16. Risk Scores (on properties doc) ──────────────────────────────────
-    chk(checks, 'floodRisk', 'Flood Risk Score', 'warn', prop?.floodRiskScore != null,
+    // ── 16. Risk Scores (properties doc — from RapidAPI) ──────────────────────
+    chk(checks, 'floodRisk', 'Flood Risk Score', 'warn', 'rapidapi', prop?.floodRiskScore != null,
         prop?.floodRiskScore != null ? String(prop.floodRiskScore) : 'missing');
-    chk(checks, 'fireRisk', 'Fire Risk Score', 'warn', prop?.fireRiskScore != null,
+    chk(checks, 'fireRisk', 'Fire Risk Score', 'warn', 'rapidapi', prop?.fireRiskScore != null,
         prop?.fireRiskScore != null ? String(prop.fireRiskScore) : 'missing');
-    chk(checks, 'heatRisk', 'Heat Risk Score', 'warn', prop?.heatRiskScore != null,
+    chk(checks, 'heatRisk', 'Heat Risk Score', 'warn', 'rapidapi', prop?.heatRiskScore != null,
         prop?.heatRiskScore != null ? String(prop.heatRiskScore) : 'missing');
-    chk(checks, 'windRisk', 'Wind Risk Score', 'warn', prop?.windRiskScore != null,
+    chk(checks, 'windRisk', 'Wind Risk Score', 'warn', 'rapidapi', prop?.windRiskScore != null,
         prop?.windRiskScore != null ? String(prop.windRiskScore) : 'missing');
 
     // ── 17. Broadband / Connectivity (on google_environmental_data or properties) ─
-    const bb = env?.broadband || prop?.broadband;
-    chk(checks, 'broadband', 'Broadband Data', 'warn', !!(bb?.providerCount),
+    const bb = env?.broadband;
+    chk(checks, 'broadband', 'Broadband Data', 'warn', 'environmental', !!(bb?.providerCount),
         bb ? `${bb.providerCount} ISPs, ↓${bb.topDownloadMbps || '?'} Mbps${bb.hasFiber ? ', Fiber ✓' : ''}${bb.has5G ? ', 5G ✓' : ''}` : 'not fetched');
 
-    // ── 18. Drought Data (on properties doc) ──────────────────────────────────
-    const droughtData = prop?.drought;
-    chk(checks, 'drought', 'Drought Monitor', 'warn', !!(droughtData?.currentLevel != null || droughtData?.status),
+    // ── 18. Drought Data (on google_environmental_data or properties) ──────────
+    const droughtData = env?.drought;
+    chk(checks, 'drought', 'Drought Monitor', 'warn', 'environmental', !!(droughtData?.currentLevel != null || droughtData?.status),
         droughtData ? `${droughtData.status || droughtData.currentLevel || 'present'}` : 'not fetched');
 
     // ── 19. EV Charger Data (on google_environmental_data or properties) ──────
-    const evData = env?.evChargers || (prop as any)?.evChargers;
+    const evData = env?.evChargers;
     const evCount = Array.isArray(evData) ? evData.length : (evData?.stations?.length || 0);
-    chk(checks, 'evChargers', 'EV Charging Stations', 'warn', evCount > 0,
+    chk(checks, 'evChargers', 'EV Charging Stations', 'warn', 'environmental', evCount > 0,
         evCount > 0 ? `${evCount} stations nearby` : 'not fetched');
 
     // ── 20. ResoFacts — Property Details ──────────────────────────────────────
     const reso = prop?.resoFacts;
     const resoFieldCount = reso ? Object.values(reso).filter((v: any) => v != null && v !== '').length : 0;
-    chk(checks, 'resoFacts', 'Property Details (ResoFacts)', 'error', resoFieldCount >= 3,
+    chk(checks, 'resoFacts', 'Property Details (ResoFacts)', 'error', 'rapidapi', resoFieldCount >= 3,
         resoFieldCount > 0 ? `${resoFieldCount} fields populated` : 'missing');
 
     // ── 21. HOA Info ──────────────────────────────────────────────────────────
@@ -410,29 +426,29 @@ export function runChecks(
     const isHoaExpected = prop?.homeType?.toLowerCase()?.includes('condo') || prop?.homeType?.toLowerCase()?.includes('town');
     const hasHoa = !!(prop?.hoa?.fee);
     if (isHoaExpected) {
-        chk(checks, 'hoaInfo', 'HOA Info', 'warn', hasHoa,
+        chk(checks, 'hoaInfo', 'HOA Info', 'warn', 'rapidapi', hasHoa,
             hasHoa ? prop.hoa.fee : 'expected for this property type but missing');
     }
 
     // ── 22. Price History ─────────────────────────────────────────────────────
     const phCount = Array.isArray(prop?.priceHistory) ? prop.priceHistory.length : 0;
-    chk(checks, 'priceHistory', 'Price History', 'warn', phCount > 0,
+    chk(checks, 'priceHistory', 'Price History', 'warn', 'rapidapi', phCount > 0,
         phCount > 0 ? `${phCount} events` : 'missing');
 
     // ── 23. Neighborhood Identity (Gemini + ArcGIS) ───────────────────────────
     const nid = prop?.neighborhood_identity;
-    chk(checks, 'neighborhoodIdentity', 'Neighborhood Identity', 'warn', !!(nid?.resolved_name),
+    chk(checks, 'neighborhoodIdentity', 'Neighborhood Identity', 'warn', 'ai_comprehensive', !!(nid?.resolved_name),
         nid?.resolved_name ? `${nid.resolved_name}${nid.city_plan_data?.specific_plan ? ` (${nid.city_plan_data.specific_plan})` : ''}` : 'not resolved');
 
     // ── 24. Lifestyle Fit (3 persona verdicts) ────────────────────────────────
     const lf = comprehensive?.lifestyle_fit;
     const lfComplete = !!(lf?.working_professionals?.verdict && lf?.families_with_kids?.verdict && lf?.seniors?.verdict);
-    chk(checks, 'lifestyleFit', 'Lifestyle Fit Analysis', 'warn', lfComplete,
+    chk(checks, 'lifestyleFit', 'Lifestyle Fit Analysis', 'warn', 'ai_comprehensive', lfComplete,
         lfComplete ? `WP: ${lf.working_professionals.verdict}, Fam: ${lf.families_with_kids.verdict}, Sr: ${lf.seniors.verdict}` : 'missing or incomplete');
 
     // ── 25. Attribution (Agent / Brokerage) ───────────────────────────────────
     const attr = prop?.attribution;
-    chk(checks, 'attribution', 'Listing Attribution', 'error', !!(attr?.listingAgentName || attr?.brokerageName),
+    chk(checks, 'attribution', 'Listing Attribution', 'error', 'rapidapi', !!(attr?.listingAgentName || attr?.brokerageName),
         attr?.listingAgentName ? `${attr.listingAgentName}${attr.brokerageName ? ` — ${attr.brokerageName}` : ''}` : 'missing');
 
     const errorCount = checks.filter(c => c.severity === 'error' && !c.passed).length;

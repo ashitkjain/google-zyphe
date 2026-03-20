@@ -215,8 +215,8 @@ Given the property data below, extract structured decision factors. For each fac
 84. SKIP (precomputed).
 85. SKIP (precomputed).
 86. SKIP (precomputed).
-87. **Pet Friendliness**: Combine neighborhoodPlaces.parks (dog parks, off-leash areas) + property features (fenced yard, dog door). Also look for vet clinics in nearby places.
-88. **Dining & Entertainment Scene**: From neighborhoodPlaces.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
+87. **Pet Friendliness**: Combine google_places.parks (dog parks, off-leash areas) + property features (fenced yard, dog door). Also look for vet clinics in nearby places.
+88. **Dining & Entertainment Scene**: From google_places.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
 
 ### Investment Intelligence (89-93) — Tags are the primary output. Generate 3-8 concept tags per factor.
 89. **Market Signals**: From deep_investment_research.market_dynamics + macroeconomic_indicators. Tags = market concepts like "Seller's Market", "Low Inventory", "3% YoY Growth", "Rising Rates", "Declining DOM". Value = overall market direction (Appreciating/Cooling/Flat).
@@ -250,7 +250,7 @@ Given the property data below, extract structured decision factors. For each fac
 102. **Resident Sentiment Concepts**: From community_pulse (all sections). Tags = sentiment concepts like "Love the Schools", "Quiet Community", "Great Parks", "HOA Issues", "Traffic Concerns". Value = overall sentiment.
 103. **Market Narrative Concepts**: From deep_investment_research (all sections). Tags = narrative concepts like "Tech Worker Suburb", "Family-Oriented", "Investor-Friendly", "Appreciation Play", "Cash Flow Market". Value = dominant narrative.
 104. **Condition & Renovation Concepts**: From visual analysis condition_and_finish + room_highlights potential_improvements. Tags = condition concepts like "Needs Kitchen Update", "New Roof", "Original Hardwood", "Remodeled Bathrooms", "Dated HVAC". Value = overall condition.
-105. **Lifestyle Convenience Concepts**: From neighborhoodPlaces + walkScore + community_pulse. Tags = convenience concepts like "Walkable Dining", "Near BART", "Great Dog Parks", "Close to Costco", "Farmer's Market". Value = top convenience.
+105. **Lifestyle Convenience Concepts**: From google_places + walkScore + community_pulse. Tags = convenience concepts like "Walkable Dining", "Near BART", "Great Dog Parks", "Close to Costco", "Farmer's Market". Value = top convenience.
 
 ### Distressed & Opportunity Signals (111)
 111. **Distressed Sale Signal**: Analyze property.description, priceHistory, daysOnMarket, condition_and_finish, and deep_investment_research for distress indicators. Tags = distress concepts like "Foreclosure/REO", "As-Is Sale", "Estate Sale", "Probate", "Short Sale", "Investor Special", "Bank-Owned", "Price Slashed 3x", "Deferred Maintenance", "Vacant Property", "Court-Ordered", "Fixer-Upper". Value = distress level (None/Mild/Moderate/Heavy). Generate 3-8 tags if any distress signals found.

@@ -483,7 +483,7 @@ function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
 }
 
 function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
-    const places = (p as any).neighborhoodPlaces;
+    const places = (p as any).google_places;
     if (!places?.walkable) return { id: 84, name: 'Walkable Amenity Score', tags: [] };
 
     const w = places.walkable;
@@ -517,7 +517,7 @@ function factor84_walkableAmenities(p: PropertyData): ExtractedFactor {
 }
 
 function factor85_medicalProximity(p: PropertyData): ExtractedFactor {
-    const places = (p as any).neighborhoodPlaces;
+    const places = (p as any).google_places;
     const medical = places?.drivable?.medical || places?.medical || [];
     if (!medical.length) return { id: 85, name: 'Medical Proximity', tags: [] };
 
@@ -565,7 +565,7 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
         }
     } else if (!ev) {
         // Fallback to Google Places data if NREL hasn't been fetched yet
-        const places = (p as any).neighborhoodPlaces;
+        const places = (p as any).google_places;
         const transit = [...(places?.walkable?.transit || []), ...(places?.drivable?.transit || [])];
         const evStations = transit.filter((pl: any) => (pl.types || []).some((t: string) => t.includes('electric_vehicle') || t.includes('ev_charging')));
         if (evStations.length > 0) {
@@ -826,7 +826,7 @@ function factor82_seniorLifestyleFit(visual: CustomAIAnalysisResult | null, comp
 }
 
 function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
-    const places = (p as any).neighborhoodPlaces;
+    const places = (p as any).google_places;
     if (!places) return { id: 87, name: 'Top Nearby Places', tags: [] };
 
     const allPlaces = [
@@ -853,7 +853,7 @@ function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
 }
 
 function factor120_nearbyAmenitiesProfile(p: PropertyData): ExtractedFactor {
-    const places = (p as any).neighborhoodPlaces;
+    const places = (p as any).google_places;
     if (!places) return { id: 120, name: 'Nearby Amenities Profile', tags: [] };
 
     const tags: string[] = [];

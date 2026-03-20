@@ -2146,7 +2146,7 @@ const PlatformHelpTab: React.FC = () => {
                                     {[
                                         { from: 'price / list_price / ListPrice', to: 'listPrice', note: 'normalizePropertyFields() renames on every write' },
                                         { from: 'sqft / square_footage / LivingArea', to: 'squareFootage', note: 'normalizePropertyFields() normalizes to squareFootage' },
-                                        { from: 'neighborhoodPlaces', to: '(stripped)', note: 'Removed from properties doc — only in google_environmental_data' },
+                                        { from: 'google_places', to: '(stripped)', note: 'Removed from properties doc — only in google_environmental_data' },
                                         { from: 'streetViewAnalysis.overall_assessment', to: '(does not exist)', note: 'Phantom field — use privacyRating / curbAppealScore / neighborhoodVibe' },
                                         { from: 'pollen.analysis.summary', to: 'pollen.analysis.breathe_easy_summary', note: 'PollenAnalysisResult type uses breathe_easy_summary' },
                                     ].map(g => (
@@ -2209,7 +2209,7 @@ const PlatformHelpTab: React.FC = () => {
                                     { check: 'Air Quality API', severity: 'warn', source: 'google_environmental_data', field: 'airQuality.aqi', ui: 'AirQualitySection', fallback: 'properties.airQuality' },
                                     { check: 'Pollen API', severity: 'warn', source: 'google_environmental_data', field: 'pollen.score / .category', ui: 'AirQualitySection', fallback: 'properties.pollen' },
                                     { check: 'Noise Score', severity: 'warn', source: 'google_environmental_data', field: 'noiseScore', ui: 'AirQualitySection', fallback: 'properties.noiseScore' },
-                                    { check: 'Nearby Places (POI)', severity: 'warn', source: 'google_environmental_data', field: 'neighborhoodPlaces', ui: 'NeighborhoodPlacesSection' },
+                                    { check: 'Nearby Places (POI)', severity: 'warn', source: 'google_environmental_data', field: 'google_places', ui: 'NeighborhoodPlacesSection' },
                                     { check: 'AI Visual — Interior', severity: 'error', source: 'property_analyses_visual', field: 'home_interior.overall_description', ui: 'InteriorView (Full Intel tab)' },
                                     { check: 'AI Visual — Exterior', severity: 'error', source: 'property_analyses_visual', field: 'exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style', ui: 'ExteriorView (Full Intel tab)' },
                                     { check: 'AI Neighborhood/Spatial', severity: 'error', source: 'property_analyses_visual', field: 'neighborhood.overview', ui: 'ExploreTab Neighborhood section' },

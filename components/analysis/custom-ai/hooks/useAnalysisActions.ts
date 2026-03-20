@@ -457,7 +457,7 @@ export const useAnalysisActions = (
         try {
             // 1. Proactively refresh/unify nearby places (Google + Foursquare) to ensure the prompt has fresh context
             addLog('Places Intelligence', { type: 'info' }, { task: 'places_refresh_start', zpid });
-            let places = propertyData.neighborhoodPlaces;
+            let places = propertyData.google_places;
             if (propertyData.coordinates?.latitude && propertyData.coordinates?.longitude) {
                 addLog('Local Search', { type: 'request' }, { task: 'refreshing_unified_places', zpid });
                 const freshPlaces = await fetchNearbyPlaces(
@@ -472,7 +472,7 @@ export const useAnalysisActions = (
                     places = freshPlaces;
                     addLog('Local Search', { type: 'response' }, { task: 'refreshing_unified_places', status: 'success', venue_count: Object.values(freshPlaces).flat().length });
                     // Persist to cloud environmental doc so UI sees it on next poll/refresh
-                    saveGoogleDataToCloud(String(zpid), { neighborhoodPlaces: freshPlaces })
+                    saveGoogleDataToCloud(String(zpid), { google_places: freshPlaces } as any)
                         .catch(e => console.warn('[handleRunNeighborhoodAnalysis] Places save failed:', e));
                 } else {
                     addLog('Local Search', { type: 'info' }, { task: 'refreshing_unified_places', status: 'no_update', message: 'Proceeding with cached places.' });
@@ -481,7 +481,7 @@ export const useAnalysisActions = (
 
             // 2. Trigger Gemini Visual Analysis
             addLog('Gemini AI', { type: 'request' }, { task: 'neighborhood_analysis', zpid, model: APP_CONFIG.models.flash, message: "Synthesizing visual and place context..." });
-            const res = await aiAnalyzeNeighborhood(propertyData.mapZoomIn, propertyData.mapZoomOut, { ...propertyData, neighborhoodPlaces: places });
+            const res = await aiAnalyzeNeighborhood(propertyData.mapZoomIn, propertyData.mapZoomOut, { ...propertyData, google_places: places });
             const result = res.data;
 
             if (!result || !result.overview) {

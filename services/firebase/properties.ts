@@ -128,7 +128,7 @@ function normalizePropertyFields(doc: Record<string, any>): Record<string, any> 
     // google_environmental_data) to avoid the 1MB Firestore limit, but may still
     // be present on the data object for frontend rendering. We strip them here 
     // to keep the `properties` collection lean.
-    delete out.neighborhoodPlaces;
+    delete out.google_places;
 
     return out;
 }
