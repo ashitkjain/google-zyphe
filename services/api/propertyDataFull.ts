@@ -117,7 +117,7 @@ export const fetchPropertyDataFull = async (
 
             // Cache guard for Google Places: skip if already fetched within 30 days.
             const envDocForPlaces = storageKeyForEnv ? await getGoogleDataFromCloud(storageKeyForEnv).catch(() => null) : null;
-            const cachedPlaces = ((envDocForPlaces as any)?.google_places || (envDocForPlaces as any)?.neighborhoodPlaces) as NeighborhoodPlaces | undefined;
+            const cachedPlaces = (envDocForPlaces as any)?.google_places as NeighborhoodPlaces | undefined;
             const placesCachedAt = cachedPlaces?.fetchedAt;
             const placesFresh = placesCachedAt && (Date.now() - placesCachedAt) < 30 * 24 * 60 * 60 * 1000; // 30 days
 

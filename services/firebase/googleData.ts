@@ -31,6 +31,18 @@ export interface GoogleEnvironmentalData {
     lastUpdated?: any;
 }
 
+/**
+ * One-time field migration for env docs written before the rename.
+ * Apply on read until all docs have been re-written. Then delete this function.
+ */
+export const normalizeEnvDoc = (data: Record<string, any>): GoogleEnvironmentalData => {
+    if (data.neighborhoodPlaces && !data.google_places) {
+        data.google_places = data.neighborhoodPlaces;
+        delete data.neighborhoodPlaces;
+    }
+    return data as GoogleEnvironmentalData;
+};
+
 export const saveGoogleDataToCloud = async (zpid: string, data: Partial<GoogleEnvironmentalData>) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
 
@@ -57,12 +69,7 @@ export const getGoogleDataFromCloud = async (zpid: string): Promise<GoogleEnviro
         logFirestoreQuery('getDoc', 'google_environmental_data', { zpid });
         const docSnap = await getDoc(docRef);
         if (!docSnap.exists()) return null;
-        const data = docSnap.data() as any;
-        // Backward compat: migrate old field name to new
-        if (data.neighborhoodPlaces && !data.google_places) {
-            data.google_places = data.neighborhoodPlaces;
-        }
-        return data as GoogleEnvironmentalData;
+        return normalizeEnvDoc(docSnap.data() as Record<string, any>);
     } catch (error) {
         handleFirestoreError(error, "getGoogleDataFromCloud");
         return null;
