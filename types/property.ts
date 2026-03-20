@@ -81,14 +81,11 @@ export interface ResoFacts {
     securityFeatures?: string;
     windowFeatures?: string;
     roomFeatures?: string;
-    taxAnnualAmount?: number | null;
-    taxAssessedValue?: number | null;
     numberOfUnitsInCommunity?: number | null;
     stories?: number | null;
     parkingFeatures?: string[];
     interiorFeatures?: string[];
     propertyCondition?: string;
-    propertySubType?: string[];
     electric?: string[];
 }
 
