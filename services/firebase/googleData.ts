@@ -56,7 +56,13 @@ export const getGoogleDataFromCloud = async (zpid: string): Promise<GoogleEnviro
         const docRef = doc(db, "google_environmental_data", zpid);
         logFirestoreQuery('getDoc', 'google_environmental_data', { zpid });
         const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as GoogleEnvironmentalData) : null;
+        if (!docSnap.exists()) return null;
+        const data = docSnap.data() as any;
+        // Backward compat: migrate old field name to new
+        if (data.neighborhoodPlaces && !data.google_places) {
+            data.google_places = data.neighborhoodPlaces;
+        }
+        return data as GoogleEnvironmentalData;
     } catch (error) {
         handleFirestoreError(error, "getGoogleDataFromCloud");
         return null;

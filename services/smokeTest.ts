@@ -512,7 +512,14 @@ export const runCitySmokeTest = async (
         propSnap.forEach(d => { allProps[d.id] = d.data(); });
         assetSnap.forEach(d => { allAssets[d.id] = d.data(); });
         visualSnap.forEach(d => { allVisual[d.id] = d.data(); });
-        envSnap.forEach(d => { allEnv[d.id] = d.data(); });
+        envSnap.forEach(d => {
+            const envData = d.data() as any;
+            // Backward compat: normalize old field name
+            if (envData.neighborhoodPlaces && !envData.google_places) {
+                envData.google_places = envData.neighborhoodPlaces;
+            }
+            allEnv[d.id] = envData;
+        });
         compSnap.forEach(d => { allComp[d.id] = d.data(); });
         investSnap.forEach(d => { allInvest[d.id] = d.data(); });
         done += chunk.length;

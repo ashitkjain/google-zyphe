@@ -200,16 +200,16 @@ export const fetchPropertyDataFull = async (
             const lat = mappedData.coordinates.latitude;
             const lng = mappedData.coordinates.longitude;
 
-            // SLA: Also check if broadband/drought data already exists on the property document itself.
-            // This happens when the data was saved by a previous pipeline run. If it's fresh, skip the fetch entirely.
-            const needsSolar = !cachedEnvData?.solarData && !mappedData.solarData || forceEnvironment || (cachedEnvData?.solarData && isCacheExpired(cachedEnvData.lastUpdated, TTL_SOLAR));
-            const needsAirQual = !cachedEnvData?.airQuality && !mappedData.airQuality || forceEnvironment || (cachedEnvData?.airQuality && isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY));
-            const needsPollen = (!cachedEnvData?.pollen?.analysis && !mappedData.pollen) || forceEnvironment || (cachedEnvData?.pollen?.analysis && isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN));
-            const needsNoise = (cachedEnvData?.noiseScore == null && mappedData.noiseScore == null) || forceEnvironment || (cachedEnvData?.noiseScore != null && isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE));
-            const needsDisasters = (!cachedEnvData?.historical_disasters && !mappedData.historical_disasters) || forceEnvironment || (cachedEnvData?.historical_disasters && isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS));
-            const needsBroadband = (!cachedEnvData?.broadband && !mappedData.broadband) || forceEnvironment || (!mappedData.broadband && cachedEnvData?.broadband && isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND));
-            const needsDrought = (!cachedEnvData?.drought && !mappedData.drought) || forceEnvironment || (!mappedData.drought && cachedEnvData?.drought && isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT));
-            const needsEV = (!cachedEnvData?.evChargers && !(mappedData as any).evChargers) || forceEnvironment || (cachedEnvData?.evChargers && isCacheExpired(cachedEnvData?.evChargers?.fetchedAt, TTL_EV));
+            // google_environmental_data is the single source of truth for all env fields.
+            // Do NOT check mappedData (properties doc) — it's not the canonical location.
+            const needsSolar = !cachedEnvData?.solarData || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_SOLAR);
+            const needsAirQual = !cachedEnvData?.airQuality || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY);
+            const needsPollen = !cachedEnvData?.pollen?.analysis || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN);
+            const needsNoise = cachedEnvData?.noiseScore == null || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
+            const needsDisasters = !cachedEnvData?.historical_disasters || forceEnvironment || isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS);
+            const needsBroadband = !cachedEnvData?.broadband || forceEnvironment || isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND);
+            const needsDrought = !cachedEnvData?.drought || forceEnvironment || isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT);
+            const needsEV = !cachedEnvData?.evChargers || forceEnvironment || isCacheExpired(cachedEnvData?.evChargers?.fetchedAt, TTL_EV);
 
             const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsEV;
             let streetViewDirty = false;
