@@ -140,17 +140,50 @@ export const runFullIntelligencePipeline = async (
                 if (fresh) {
                   let healed = 0;
                   for (const [key, value] of Object.entries(fresh)) {
+                    // Skip nested objects that need deep-merge (handled below)
+                    if (key === 'resoFacts' || key === 'hoa') continue;
                     if (value != null && (enrichedData as any)[key] == null) {
                       (enrichedData as any)[key] = value;
                       healed++;
                     }
                   }
                   // Force-set structured fields that may be empty arrays/objects
-                  const resoFieldCount = enrichedData.resoFacts ? Object.values(enrichedData.resoFacts).filter((v: any) => v != null && v !== '').length : 0;
                   if (!enrichedData.description && fresh.description) { enrichedData.description = fresh.description as string; healed++; }
-                  if (resoFieldCount < 3 && fresh.resoFacts) { enrichedData.resoFacts = fresh.resoFacts as any; healed++; }
                   if (!(enrichedData as any).attribution && fresh.attribution) { (enrichedData as any).attribution = fresh.attribution; healed++; }
                   if (!enrichedData.priceHistory?.length && fresh.priceHistory) { enrichedData.priceHistory = fresh.priceHistory as any; healed++; }
+
+                  // Deep-merge resoFacts: fill in missing sub-fields (e.g. stories, parkingFeatures added later)
+                  if (fresh.resoFacts) {
+                    const existing = enrichedData.resoFacts || {} as any;
+                    let resoHealed = 0;
+                    for (const [k, v] of Object.entries(fresh.resoFacts)) {
+                      if (v != null && v !== '' && ((existing as any)[k] == null || (existing as any)[k] === '')) {
+                        (existing as any)[k] = v;
+                        resoHealed++;
+                      }
+                    }
+                    if (resoHealed > 0) {
+                      enrichedData.resoFacts = existing as any;
+                      healed += resoHealed;
+                    }
+                  }
+
+                  // Deep-merge hoa: fill in missing sub-fields (amenities, feeIncludes, etc.)
+                  if (fresh.hoa) {
+                    const existingHoa = (enrichedData as any).hoa || {} as any;
+                    let hoaHealed = 0;
+                    for (const [k, v] of Object.entries(fresh.hoa as any)) {
+                      if (v != null && existingHoa[k] == null) {
+                        existingHoa[k] = v;
+                        hoaHealed++;
+                      }
+                    }
+                    if (hoaHealed > 0) {
+                      (enrichedData as any).hoa = existingHoa;
+                      healed += hoaHealed;
+                    }
+                  }
+
                   if (healed > 0) {
                     await savePropertyToCloud(zpid, enrichedData);
                     onLog?.(`[Discovery] Healed ${healed} RapidAPI fields.`);
