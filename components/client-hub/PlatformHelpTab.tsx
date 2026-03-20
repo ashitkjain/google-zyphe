@@ -2187,14 +2187,8 @@ const PlatformHelpTab: React.FC = () => {
                             <h3 className="text-xl font-black text-slate-800 mb-6 border-l-4 border-amber-600 pl-6">Full Smoke Test Field Map</h3>
                             <div className="space-y-3 mb-12">
                                 {[
-                                    { check: 'Listing Price', severity: 'error', source: 'properties', field: 'listPrice (← price)', ui: 'PropertyHeader', fallback: 'price' },
-                                    { check: 'Bedrooms', severity: 'error', source: 'properties', field: 'bedrooms', ui: 'PropertyHeader' },
-                                    { check: 'Bathrooms', severity: 'error', source: 'properties', field: 'bathrooms', ui: 'PropertyHeader' },
-                                    { check: 'Living Area', severity: 'error', source: 'properties', field: 'livingAreaValue', ui: 'PropertyHeader' },
-                                    { check: 'Lot Size', severity: 'warn', source: 'properties', field: 'lotSize / lotAreaValue', ui: 'PropertyFacts' },
+                                    { check: 'Core Listing (beds/baths/sqft/price)', severity: 'error', source: 'properties', field: 'bedrooms + bathrooms + livingAreaValue + listPrice', ui: 'PropertyHeader' },
                                     { check: 'Description', severity: 'error', source: 'properties', field: 'description', ui: 'PropertyDescription' },
-                                    { check: 'Year Built', severity: 'warn', source: 'properties', field: 'yearBuilt', ui: 'PropertyFacts' },
-                                    { check: 'Home Type', severity: 'warn', source: 'properties', field: 'homeType', ui: 'PropertyFacts' },
                                     { check: 'Coordinates', severity: 'error', source: 'properties', field: 'coordinates.latitude / .longitude', ui: 'PropertyMaps' },
                                     { check: 'Walk Score', severity: 'warn', source: 'properties', field: 'walkScore', ui: 'AirQualitySection' },
                                     { check: 'Transit Score', severity: 'warn', source: 'properties', field: 'transitScore', ui: 'AirQualitySection' },
@@ -2231,10 +2225,11 @@ const PlatformHelpTab: React.FC = () => {
                                     { check: 'Lifestyle Insights', severity: 'warn', source: 'property_analyses_comprehensive', field: 'lifestyle_insights.outdoor / .family', ui: 'LifestyleInsightsSection' },
                                     { check: 'STR Performance', severity: 'warn', source: 'property_investment_research', field: 'str_performance.adr', ui: 'ComprehensiveAnalysis' },
                                     { check: 'LTR Analysis', severity: 'warn', source: 'property_investment_research', field: 'ltr_analysis.monthly_rent', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Wind Risk Score', severity: 'warn', source: 'properties', field: 'windRiskScore', ui: 'AirQualitySection Climate Risk grid' },
-                                    { check: 'Flood Risk Score', severity: 'warn', source: 'properties', field: 'floodRiskScore', ui: 'AirQualitySection Climate Risk grid' },
-                                    { check: 'Fire Risk Score', severity: 'warn', source: 'properties', field: 'fireRiskScore', ui: 'AirQualitySection Climate Risk grid' },
-                                    { check: 'Heat Risk Score', severity: 'warn', source: 'properties', field: 'heatRiskScore', ui: 'AirQualitySection Climate Risk grid' },
+                                    { check: 'Climate Risk Scores (4)', severity: 'warn', source: 'properties', field: 'floodRiskScore + fireRiskScore + heatRiskScore + windRiskScore', ui: 'AirQualitySection Climate Risk grid' },
+                                    { check: 'ResoFacts (≥5 fields)', severity: 'error', source: 'properties', field: 'resoFacts.*', ui: 'PropertyHeader details' },
+                                    { check: 'RESO Structure', severity: 'warn', source: 'properties', field: 'resoFacts.stories / .parkingFeatures / .propertyCondition', ui: 'PropertyHeader structure card' },
+                                    { check: 'RESO Interior/Systems', severity: 'warn', source: 'properties', field: 'resoFacts.interiorFeatures / .electric', ui: 'PropertyHeader interior + utilities cards' },
+                                    { check: 'HOA Detail', severity: 'warn', source: 'properties', field: 'hoa.amenities + .feeIncludes + resoFacts.numberOfUnitsInCommunity', ui: 'PropertyHeader HOA section' },
                                 ].map(row => {
                                     const colColors: Record<string, string> = {
                                         'properties': 'bg-indigo-50 text-indigo-600 border-indigo-200',

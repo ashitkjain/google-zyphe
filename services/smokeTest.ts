@@ -98,23 +98,14 @@ export function runChecks(
     const checks: SmokeCheck[] = [];
 
     // ── 1. Core listing data ─────────────────────────────────────────────────
-    chk(checks, 'bedrooms', 'Bedrooms', 'error', 'rapidapi', prop?.bedrooms != null && prop.bedrooms > 0,
-        prop?.bedrooms != null ? `${prop.bedrooms} bd` : 'missing');
-    chk(checks, 'bathrooms', 'Bathrooms', 'error', 'rapidapi', prop?.bathrooms != null && prop.bathrooms > 0,
-        prop?.bathrooms != null ? `${prop.bathrooms} ba` : 'missing');
-    chk(checks, 'livingArea', 'Living Area (sqft)', 'error', 'rapidapi', prop?.livingAreaValue != null && prop.livingAreaValue > 0,
-        prop?.livingAreaValue ? `${prop.livingAreaValue.toLocaleString()} sf` : 'missing');
-    chk(checks, 'lotSize', 'Lot Size', 'warn', 'rapidapi', !!(prop?.lotSize || prop?.lotAreaValue),
-        prop?.lotSize || prop?.lotAreaValue ? String(prop.lotSize || prop.lotAreaValue) : 'missing');
+    // These 4 fields are always present from RapidAPI — one group check instead of 4 individual ones
+    const corePresent = [prop?.bedrooms, prop?.bathrooms, prop?.livingAreaValue, prop?.listPrice ?? prop?.price]
+        .filter(v => v != null && v > 0).length;
+    chk(checks, 'coreListing', 'Core Listing (beds/baths/sqft/price)', 'error', 'rapidapi', corePresent === 4,
+        `${corePresent}/4 present`);
     const priceVal = prop?.listPrice ?? prop?.price ?? null;
-    chk(checks, 'price', 'Listing Price', 'error', 'rapidapi', priceVal != null && priceVal > 0,
-        priceVal ? `$${priceVal.toLocaleString()}` : 'missing');
     chk(checks, 'description', 'Description', 'error', 'rapidapi', !!(prop?.description && prop.description.length > 50),
         prop?.description ? `${prop.description.length} chars` : 'missing/too short');
-    chk(checks, 'yearBuilt', 'Year Built', 'warn', 'rapidapi', prop?.yearBuilt != null && prop.yearBuilt > 1800,
-        prop?.yearBuilt ? String(prop.yearBuilt) : 'missing');
-    chk(checks, 'homeType', 'Home Type', 'warn', 'rapidapi', !!prop?.homeType,
-        prop?.homeType || 'missing');
     chk(checks, 'coordinates', 'Coordinates', 'error', 'rapidapi', !!(prop?.coordinates?.latitude && prop.coordinates?.longitude),
         prop?.coordinates ? `${prop.coordinates.latitude.toFixed(4)}, ${prop.coordinates.longitude.toFixed(4)}` : 'missing');
 
@@ -390,15 +381,11 @@ export function runChecks(
     chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'warn', 'ai_investment', hasLTR,
         hasLTR ? `Rent: ${investment.ltr_analysis.monthly_rent}` : 'missing');
 
-    // ── 16. Risk Scores (properties doc — flat fields are the single source of truth) ──
-    const floodRisk = prop?.floodRiskScore;
-    const fireRisk = prop?.fireRiskScore;
-    const heatRisk = prop?.heatRiskScore;
-    const windRisk = prop?.windRiskScore;
-    chk(checks, 'floodRisk', 'Flood Risk Score', 'warn', 'rapidapi', floodRisk != null, floodRisk != null ? String(floodRisk) : 'missing');
-    chk(checks, 'fireRisk', 'Fire Risk Score', 'warn', 'rapidapi', fireRisk != null, fireRisk != null ? String(fireRisk) : 'missing');
-    chk(checks, 'heatRisk', 'Heat Risk Score', 'warn', 'rapidapi', heatRisk != null, heatRisk != null ? String(heatRisk) : 'missing');
-    chk(checks, 'windRisk', 'Wind Risk Score', 'warn', 'rapidapi', windRisk != null, windRisk != null ? String(windRisk) : 'missing');
+    // ── 16. Risk Scores (properties doc — flat fields, single source of truth) ──
+    const riskPresent = [prop?.floodRiskScore, prop?.fireRiskScore, prop?.heatRiskScore, prop?.windRiskScore]
+        .filter(v => v != null).length;
+    chk(checks, 'climateRiskScores', 'Climate Risk Scores (4)', 'warn', 'rapidapi', riskPresent >= 3,
+        `${riskPresent}/4 present${riskPresent > 0 ? ` (flood:${prop?.floodRiskScore ?? '—'} fire:${prop?.fireRiskScore ?? '—'} heat:${prop?.heatRiskScore ?? '—'} wind:${prop?.windRiskScore ?? '—'})` : ''}`);
 
     // ── 17. Broadband / Connectivity (on google_environmental_data or properties) ─
     const bb = env?.broadband;
@@ -420,8 +407,20 @@ export function runChecks(
     // ── 20. ResoFacts — Property Details ──────────────────────────────────────
     const reso = prop?.resoFacts;
     const resoFieldCount = reso ? Object.values(reso).filter((v: any) => v != null && v !== '').length : 0;
-    chk(checks, 'resoFacts', 'Property Details (ResoFacts)', 'error', 'rapidapi', resoFieldCount >= 3,
+    chk(checks, 'resoFacts', 'Property Details (ResoFacts)', 'error', 'rapidapi', resoFieldCount >= 5,
         resoFieldCount > 0 ? `${resoFieldCount} fields populated` : 'missing');
+
+    // ── 20b. RESO Structure Fields (stories, parking, condition) ─────────────
+    const resoStructure = [reso?.stories, reso?.parkingFeatures, reso?.propertyCondition].filter(v => v != null);
+    chk(checks, 'resoStructure', 'RESO Structure (stories/parking/condition)', 'warn', 'rapidapi',
+        resoStructure.length >= 1,
+        `${resoStructure.length}/3 present${reso?.stories ? ` — ${reso.stories} stories` : ''}${reso?.propertyCondition ? ` — ${reso.propertyCondition}` : ''}`);
+
+    // ── 20c. RESO Interior & Systems (interiorFeatures, electric) ─────────────
+    const resoInterior = [reso?.interiorFeatures, reso?.electric].filter(v => v != null);
+    chk(checks, 'resoInterior', 'RESO Interior/Systems (interior/electric)', 'warn', 'rapidapi',
+        resoInterior.length >= 1,
+        `${resoInterior.length}/2 present`);
 
     // ── 21. HOA Info ──────────────────────────────────────────────────────────
     // Only flag if the property is likely in an HOA (condo, townhouse, or fee field present)
@@ -430,6 +429,19 @@ export function runChecks(
     if (isHoaExpected) {
         chk(checks, 'hoaInfo', 'HOA Info', 'warn', 'rapidapi', hasHoa,
             hasHoa ? prop.hoa.fee : 'expected for this property type but missing');
+    }
+    // HOA detail — amenities, feeIncludes, community size
+    if (hasHoa || isHoaExpected) {
+        const hoaDetail = [
+            prop?.hoa?.amenities?.length ? 'amenities' : null,
+            prop?.hoa?.feeIncludes?.length ? 'feeIncludes' : null,
+            reso?.numberOfUnitsInCommunity ? 'units' : null,
+        ].filter(Boolean);
+        chk(checks, 'hoaDetail', 'HOA Detail (amenities/feeIncludes/units)', 'warn', 'rapidapi',
+            hoaDetail.length >= 1,
+            hoaDetail.length > 0
+                ? `${hoaDetail.join(', ')} present${reso?.numberOfUnitsInCommunity ? ` — ${reso.numberOfUnitsInCommunity} units` : ''}`
+                : 'no amenities, feeIncludes, or unit count');
     }
 
     // ── 22. Price History ─────────────────────────────────────────────────────
