@@ -49,6 +49,7 @@ const ExpandableList: React.FC<{ items: React.ReactNode[]; limit?: number; class
 
 const parseValue = (val: any) => {
   if (val === null || val === undefined || val === '') return null;
+  if (Array.isArray(val)) return val.filter(Boolean).join(', ') || null;
   if (typeof val === 'string' && val.startsWith('[')) {
     try {
       const p = JSON.parse(val);
@@ -112,10 +113,13 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             <ExpandableList
               items={[
                 { icon: 'fa-landmark', label: 'Architectural Style', value: parseValue(data.resoFacts?.architecturalStyle) },
+                { icon: 'fa-stairs', label: 'Stories', value: data.resoFacts?.stories ? `${data.resoFacts.stories}` : null },
                 { icon: 'fa-hammer', label: 'Construction', value: parseValue(data.resoFacts?.constructionMaterials) },
                 { icon: 'fa-rug', label: 'Flooring', value: parseValue(data.resoFacts?.flooring) },
                 { icon: 'fa-house-chimney-window', label: 'Roof Type', value: parseValue(data.resoFacts?.roofType) },
                 { icon: 'fa-car-side', label: 'Garage', value: parseValue(data.resoFacts?.garageParkingCapacity) },
+                { icon: 'fa-square-parking', label: 'Parking', value: parseValue(data.resoFacts?.parkingFeatures) },
+                { icon: 'fa-clipboard-check', label: 'Condition', value: parseValue(data.resoFacts?.propertyCondition) },
               ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
             />
 
@@ -165,6 +169,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 { icon: 'fa-snowflake', label: 'Cooling', value: parseValue(data.resoFacts?.cooling) },
                 { icon: 'fa-blender', label: 'Appliances', value: parseValue(data.resoFacts?.appliances) },
                 { icon: 'fa-arrow-down-wide-short', label: 'Basement', value: parseValue(data.resoFacts?.basement) },
+                { icon: 'fa-couch', label: 'Interior Features', value: parseValue(data.resoFacts?.interiorFeatures) },
               ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
             />
           </div>
@@ -173,6 +178,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           {(() => {
             const utilItems = [
               { icon: 'fa-plug', label: 'Utilities', value: parseValue(data.resoFacts?.utilities) },
+              { icon: 'fa-bolt', label: 'Electric', value: parseValue(data.resoFacts?.electric) },
               { icon: 'fa-faucet', label: 'Sewer', value: parseValue(data.resoFacts?.sewer) },
               { icon: 'fa-droplet', label: 'Water Source', value: parseValue(data.resoFacts?.waterSource) },
             ].filter(m => m.value);
@@ -239,6 +245,23 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               {data.hoa.amenities.filter((a: string) => a !== 'Other').map((amenity: string, i: number) => (
                 <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
                   {amenity}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* HOA Fee Includes — full width */}
+        {data.hoa?.feeIncludes && data.hoa.feeIncludes.filter((a: string) => a !== 'Other' && a !== 'None').length > 0 && (
+          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+            <div className="flex items-center gap-2 mb-2">
+              <i className="fa-solid fa-receipt text-[10px] text-slate-300"></i>
+              <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">HOA Fee Includes</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {data.hoa.feeIncludes.filter((a: string) => a !== 'Other' && a !== 'None').map((item: string, i: number) => (
+                <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
+                  {item}
                 </span>
               ))}
             </div>

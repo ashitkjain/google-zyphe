@@ -98,6 +98,78 @@ function factor14_sqft(p: PropertyData): ExtractedFactor {
     return { id: 14, name: 'Usable Square Footage', tags };
 }
 
+function factor16_singleStoryFlow(p: PropertyData): ExtractedFactor {
+    const stories = p.resoFacts?.stories;
+    if (stories == null) return { id: 16, name: 'Single-Story Flow', tags: [] };
+    if (stories === 1) return { id: 16, name: 'Single-Story Flow', tags: ['Single Story', 'No Stairs'] };
+    if (stories === 2) return { id: 16, name: 'Single-Story Flow', tags: ['Two Story'] };
+    if (stories === 3) return { id: 16, name: 'Single-Story Flow', tags: ['Three Story'] };
+    return { id: 16, name: 'Single-Story Flow', tags: [`${stories} Stories`] };
+}
+
+function factor18_garageParkingCapacity(p: PropertyData): ExtractedFactor {
+    const capacity = p.resoFacts?.garageParkingCapacity;
+    const features = p.resoFacts?.parkingFeatures;
+    if (capacity == null && !features) return { id: 18, name: 'Garage & Parking', tags: [] };
+    const tags: string[] = [];
+    if (capacity != null) {
+        const cap = typeof capacity === 'number' ? capacity : parseInt(String(capacity)) || 0;
+        if (cap >= 3) tags.push('3+ Car Garage');
+        else if (cap === 2) tags.push('2-Car Garage');
+        else if (cap === 1) tags.push('1-Car Garage');
+        else tags.push('No Garage');
+    }
+    if (features) {
+        const lower = String(features).toLowerCase();
+        if (lower.includes('attached')) tags.push('Attached');
+        else if (lower.includes('detached')) tags.push('Detached');
+        if (lower.includes('ev') || lower.includes('electric vehicle') || lower.includes('240v')) tags.push('EV-Ready');
+        if (lower.includes('tandem')) tags.push('Tandem');
+    }
+    return { id: 18, name: 'Garage & Parking', tags: [...new Set(tags)].slice(0, 4) };
+}
+
+function factor21_moveInReadiness(p: PropertyData): ExtractedFactor {
+    const condition = p.resoFacts?.propertyCondition;
+    if (!condition) return { id: 21, name: 'Move-In Readiness', tags: [] };
+    const lower = String(condition).toLowerCase();
+    const tags: string[] = [];
+    if (lower.includes('new') || lower.includes('excellent') || lower.includes('updated') || lower.includes('remodel')) {
+        tags.push('Turn-Key');
+    } else if (lower.includes('good') || lower.includes('well') || lower.includes('maintain')) {
+        tags.push('Well Maintained');
+    } else if (lower.includes('fair') || lower.includes('average')) {
+        tags.push('Average Condition');
+    } else if (lower.includes('fixer') || lower.includes('tlc') || lower.includes('needs') || lower.includes('dated')) {
+        tags.push('Needs TLC');
+    } else {
+        // Use condition value directly as a tag
+        tags.push(condition.split(',')[0].trim());
+    }
+    return { id: 21, name: 'Move-In Readiness', tags };
+}
+
+function factor30_interiorFinishes(p: PropertyData): ExtractedFactor {
+    const interior = p.resoFacts?.interiorFeatures;
+    if (!interior) return { id: 30, name: 'Interior Finishes', tags: [] };
+    const features = String(interior).split(',').map(s => s.trim()).filter(Boolean);
+    const tags: string[] = [];
+    const lower = features.map(f => f.toLowerCase());
+    // Extract key keywords
+    if (lower.some(f => f.includes('granite') || f.includes('quartz') || f.includes('marble'))) tags.push('Stone Counters');
+    if (lower.some(f => f.includes('hardwood'))) tags.push('Hardwood');
+    if (lower.some(f => f.includes('crown') || f.includes('molding'))) tags.push('Crown Molding');
+    if (lower.some(f => f.includes('skylight'))) tags.push('Skylight');
+    if (lower.some(f => f.includes('fireplace'))) tags.push('Fireplace');
+    if (lower.some(f => f.includes('smart') || f.includes('wired'))) tags.push('Smart Home');
+    if (lower.some(f => f.includes('open') || f.includes('great room'))) tags.push('Open Floor Plan');
+    // If no keywords matched, take first few features as-is
+    if (tags.length === 0) {
+        for (const feat of features.slice(0, 3)) tags.push(feat);
+    }
+    return { id: 30, name: 'Interior Finishes', tags: [...new Set(tags)].slice(0, 5) };
+}
+
 
 function factor20_constructionEra(p: PropertyData): ExtractedFactor {
     const year = p.yearBuilt;
@@ -958,9 +1030,13 @@ export function precomputeDataFactors(
         factor8_ltrYield(property),
 
         factor14_sqft(property),
+        factor16_singleStoryFlow(property),
+        factor18_garageParkingCapacity(property),
 
         factor20_constructionEra(property),
+        factor21_moveInReadiness(property),
         factor28_flooring(property),
+        factor30_interiorFinishes(property),
         factor33_privacyLevel(property, visual, comprehensive),
         factor41_exteriorStyle(property, visual),
 
@@ -1008,6 +1084,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 20, 28, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120, 121, 122];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 16, 18, 20, 21, 28, 30, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120, 121, 122];
 
 

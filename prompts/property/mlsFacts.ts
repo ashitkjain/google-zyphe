@@ -18,11 +18,13 @@ export function buildMlsFactsBlock(property: PropertyData): string {
     if (property.livingAreaValue) lines.push(`• Living Area: ${property.livingAreaValue.toLocaleString()} sqft`);
     if (property.lotSize) lines.push(`• Lot Size: ${property.lotSize}`);
     if (property.yearBuilt) lines.push(`• Year Built: ${property.yearBuilt}`);
+    if (r?.stories) lines.push(`• Stories: ${r.stories}`);
 
     // Garage & parking — frequently mis-guessed by vision models
     const garage = r?.garageParkingCapacity ?? null;
     if (garage !== null && garage !== undefined)
         lines.push(`• Garage/Parking Capacity: ${garage} car(s)`);
+    if (r?.parkingFeatures) lines.push(`• Parking Features: ${r.parkingFeatures}`);
 
     // Structure & finishes
     if (r?.architecturalStyle) lines.push(`• Architectural Style: ${r.architecturalStyle}`);
@@ -31,6 +33,8 @@ export function buildMlsFactsBlock(property: PropertyData): string {
     if (r?.flooring) lines.push(`• Flooring: ${r.flooring}`);
     if (r?.basement) lines.push(`• Basement: ${r.basement}`);
     if (r?.foundationDetails) lines.push(`• Foundation: ${r.foundationDetails}`);
+    if (r?.propertyCondition) lines.push(`• Property Condition: ${r.propertyCondition}`);
+    if (r?.interiorFeatures) lines.push(`• Interior Features: ${r.interiorFeatures}`);
 
     // Systems
     if (r?.heating) lines.push(`• Heating: ${r.heating}`);
@@ -38,6 +42,7 @@ export function buildMlsFactsBlock(property: PropertyData): string {
     if (r?.utilities) lines.push(`• Utilities: ${r.utilities}`);
     if (r?.sewer) lines.push(`• Sewer: ${r.sewer}`);
     if (r?.waterSource) lines.push(`• Water Source: ${r.waterSource}`);
+    if (r?.electric) lines.push(`• Electric: ${r.electric}`);
 
     // Exterior & lot
     if (r?.exteriorFeatures) lines.push(`• Exterior Features: ${r.exteriorFeatures}`);
@@ -46,6 +51,8 @@ export function buildMlsFactsBlock(property: PropertyData): string {
 
     // HOA / community
     if (property.resoFacts?.feesAndDues) lines.push(`• HOA / Fees & Dues: ${r?.feesAndDues}`);
+    if (property.hoa?.feeIncludes?.length) lines.push(`• HOA Fee Includes: ${property.hoa.feeIncludes.join(', ')}`);
+    if (property.hoa?.amenities?.length) lines.push(`• HOA Amenities: ${property.hoa.amenities.filter((a: string) => a !== 'Other').join(', ')}`);
 
     // Environmental / neighbourhood scores
     if (property.noiseScore != null)
