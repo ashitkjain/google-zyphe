@@ -390,15 +390,10 @@ export function runChecks(
     chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'warn', 'ai_investment', hasLTR,
         hasLTR ? `Rent: ${investment.ltr_analysis.monthly_rent}` : 'missing');
 
-    // ── 16. Risk Scores (properties doc — from RapidAPI) ──────────────────────
-    chk(checks, 'floodRisk', 'Flood Risk Score', 'warn', 'rapidapi', prop?.floodRiskScore != null,
-        prop?.floodRiskScore != null ? String(prop.floodRiskScore) : 'missing');
-    chk(checks, 'fireRisk', 'Fire Risk Score', 'warn', 'rapidapi', prop?.fireRiskScore != null,
-        prop?.fireRiskScore != null ? String(prop.fireRiskScore) : 'missing');
-    chk(checks, 'heatRisk', 'Heat Risk Score', 'warn', 'rapidapi', prop?.heatRiskScore != null,
-        prop?.heatRiskScore != null ? String(prop.heatRiskScore) : 'missing');
-    chk(checks, 'windRisk', 'Wind Risk Score', 'warn', 'rapidapi', prop?.windRiskScore != null,
-        prop?.windRiskScore != null ? String(prop.windRiskScore) : 'missing');
+    // ── 16. Risk Scores — REMOVED ────────────────────────────────────────────
+    // Zillow RapidAPI does not expose First Street Foundation risk scores
+    // (flood, fire, heat, wind). These were permanent false warnings on every
+    // property. If a free API source is added later, re-add checks here.
 
     // ── 17. Broadband / Connectivity (on google_environmental_data or properties) ─
     const bb = env?.broadband;
