@@ -1,5 +1,6 @@
 
 import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService.ts';
+import { fetchPropertySpecs } from './api/property';
 import {
   analyzePropertyImages,
   analyzeNeighborhood,
@@ -111,6 +112,37 @@ export const runFullIntelligencePipeline = async (
       if (cached && cached.address && cached.images?.length && cached.coordinates && cached.mapZoomIn) {
         onLog?.(`[Discovery] Cache hit — loaded ${cached.address} from database (${cached.images?.length || 0} images, maps present).`);
         enrichedData = cached;
+
+        // Proactively heal missing error-level fields from RapidAPI
+        const resoFieldCount = enrichedData.resoFacts ? Object.values(enrichedData.resoFacts).filter((v: any) => v != null && v !== '').length : 0;
+        const missingCoreFields = !enrichedData.description
+          || resoFieldCount < 3
+          || !enrichedData.attribution
+          || !enrichedData.priceHistory?.length;
+        if (missingCoreFields) {
+          onLog?.(`[Discovery] Cached record missing core fields (description/resoFacts/attribution/priceHistory) — healing from RapidAPI...`);
+          try {
+            const fresh = await fetchPropertySpecs(zpid);
+            if (fresh) {
+              // Backfill: fresh data fills gaps without overwriting existing values
+              for (const [key, value] of Object.entries(fresh)) {
+                if (value != null && (enrichedData as any)[key] == null) {
+                  (enrichedData as any)[key] = value;
+                }
+              }
+              // Force-set fields that were explicitly missing (even if old value was empty string/array)
+              if (!enrichedData.description && fresh.description) enrichedData.description = fresh.description as string;
+              if (resoFieldCount < 3 && fresh.resoFacts) enrichedData.resoFacts = fresh.resoFacts as any;
+              if (!enrichedData.attribution && fresh.attribution) (enrichedData as any).attribution = fresh.attribution;
+              if (!enrichedData.priceHistory?.length && fresh.priceHistory) enrichedData.priceHistory = fresh.priceHistory as any;
+              await savePropertyToCloud(zpid, enrichedData);
+              onLog?.(`[Discovery] Core fields healed from RapidAPI.`);
+            }
+          } catch (e: any) {
+            onLog?.(`[Discovery] RapidAPI heal failed (non-blocking): ${e.message}`);
+          }
+        }
+
         onProgress({ step: 'Discovery', status: 'completed', message: `Loaded ${cached.address} from cache` });
       }
     }

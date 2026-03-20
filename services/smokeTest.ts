@@ -402,7 +402,7 @@ export function runChecks(
     // ── 20. ResoFacts — Property Details ──────────────────────────────────────
     const reso = prop?.resoFacts;
     const resoFieldCount = reso ? Object.values(reso).filter((v: any) => v != null && v !== '').length : 0;
-    chk(checks, 'resoFacts', 'Property Details (ResoFacts)', 'warn', resoFieldCount >= 3,
+    chk(checks, 'resoFacts', 'Property Details (ResoFacts)', 'error', resoFieldCount >= 3,
         resoFieldCount > 0 ? `${resoFieldCount} fields populated` : 'missing');
 
     // ── 21. HOA Info ──────────────────────────────────────────────────────────
@@ -432,7 +432,7 @@ export function runChecks(
 
     // ── 25. Attribution (Agent / Brokerage) ───────────────────────────────────
     const attr = prop?.attribution;
-    chk(checks, 'attribution', 'Listing Attribution', 'warn', !!(attr?.listingAgentName || attr?.brokerageName),
+    chk(checks, 'attribution', 'Listing Attribution', 'error', !!(attr?.listingAgentName || attr?.brokerageName),
         attr?.listingAgentName ? `${attr.listingAgentName}${attr.brokerageName ? ` — ${attr.brokerageName}` : ''}` : 'missing');
 
     const errorCount = checks.filter(c => c.severity === 'error' && !c.passed).length;
