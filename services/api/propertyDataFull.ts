@@ -6,7 +6,7 @@ import { getGoogleDataFromCloud, saveGoogleDataToCloud } from '../firebaseServic
 import { analyzeStreetView, analyzePollen } from '../geminiService';
 import { NeighborhoodPlaces } from './places';
 import { normalizeAddress } from './geocoding';
-import { fetchScores, fetchPropertyImages } from './property';
+import { fetchScores, fetchPropertyImages, fetchPropertySpecs } from './property';
 import { fetchNearbyPlaces } from './places';
 import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore, fetchNearbyEVChargers } from './environmental';
 import { fetchHistoricalDisasters } from './disasters';
@@ -62,14 +62,31 @@ export const fetchPropertyDataFull = async (
             }
         }
 
-        // If neither lookup found the property, it's not in our system
+        // If neither lookup found the property, try RapidAPI to create a new record
         if (!mappedData) {
-            throw new Error(
-                `Property not found in Zyphe database. We currently support properties in Pleasanton and Dublin. ` +
-                `Please search using the Browse feature or autocomplete suggestions.`
-            );
-        }
+            const zpidToFetch = isZpid ? addressOrZpid : null;
+            if (zpidToFetch) {
+                console.log(`[DataPipeline] Property not in Firestore — fetching from RapidAPI: ${zpidToFetch}`);
+                onStep?.('New property — fetching from RapidAPI...');
+                try {
+                    const freshSpecs = await fetchPropertySpecs(zpidToFetch);
+                    if (freshSpecs) {
+                        mappedData = freshSpecs as PropertyData;
+                        _mark('RapidAPI fetch (new property)');
+                        console.log(`[⏱ DataPipeline] +${_elapsed()} — Created new property from RapidAPI: ${zpidToFetch}`);
+                    }
+                } catch (e: any) {
+                    console.warn(`[DataPipeline] RapidAPI fetch failed for ${zpidToFetch}:`, e.message);
+                }
+            }
 
+            if (!mappedData) {
+                throw new Error(
+                    `Property not found in Zyphe database or RapidAPI. We currently support properties in Pleasanton and Dublin. ` +
+                    `Please search using the Browse feature or autocomplete suggestions.`
+                );
+            }
+        }
 
         // Ensure fallback coordinate geocoding runs if needed (even for cached data if they are missing)
         if ((!mappedData.coordinates || !mappedData.mapZoomOut) && mappedData.address) {

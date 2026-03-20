@@ -244,26 +244,119 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
             const data = await response.json();
             const root = data.property || data.props || data;
             const addrRoot = root.address || data.address;
+            const resoRaw = root.resoFacts || {};
 
-            return {
+            // Map ALL available fields from RapidAPI to PropertyData schema
+            const mapped: Record<string, any> = {
+                // Identity
                 zpid,
                 address: formatAddress(addrRoot) || undefined,
                 city: addrRoot?.city,
                 state: addrRoot?.state,
                 zipCode: addrRoot?.zipcode || addrRoot?.zipCode,
+
+                // Core Specs
                 homeStatus: root.homeStatus,
                 homeType: root.homeType,
                 bedrooms: extractNumericValue(root.bedrooms),
                 bathrooms: extractNumericValue(root.bathrooms),
                 livingAreaValue: extractNumericValue(root.livingAreaValue || root.livingArea),
                 yearBuilt: extractNumericValue(root.yearBuilt),
-                lotSize: root.resoFacts?.lotSize || root.lotSize || undefined,
+                lotSize: resoRaw.lotSize || root.lotSize || undefined,
+                description: root.description || undefined,
+
+                // Pricing
                 price: extractNumericValue(root.price || root.listPrice),
                 zestimate: extractNumericValue(root.zestimate),
                 rentZestimate: extractNumericValue(root.rentZestimate),
-                lastSoldDate: root.datePosted || null,
-                coordinates: root.longitude && root.latitude ? { latitude: root.latitude, longitude: root.longitude } : undefined,
+                propertyTaxRate: extractNumericValue(root.propertyTaxRate),
+                annualHomeownersInsurance: extractNumericValue(root.annualHomeownersInsurance),
+
+                // Risk Scores
+                windRiskScore: extractNumericValue(root.windRiskScore ?? root.riskFactors?.wind),
+                floodRiskScore: extractNumericValue(root.floodRiskScore ?? root.riskFactors?.flood),
+                fireRiskScore: extractNumericValue(root.fireRiskScore ?? root.riskFactors?.fire),
+                heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.riskFactors?.heat),
+
+                // Dates
+                lastSoldDate: root.datePosted || root.dateSold || null,
+                listedDate: root.datePosted || root.listingDateTimeOnMarket || undefined,
+                timeOnZillow: extractNumericValue(root.timeOnZillow || resoRaw.daysOnZillow),
+
+                // Location
+                coordinates: root.longitude && root.latitude
+                    ? { latitude: root.latitude, longitude: root.longitude }
+                    : undefined,
+
+                // Images from the property endpoint
+                images: root.images || root.responsivePhotos?.map((p: any) => p.mixedSources?.jpeg?.[0]?.url || p.url) || undefined,
+
+                // Schools
+                schools: root.schools?.map((s: any) => ({
+                    name: s.name || s.link?.split('/')?.pop()?.replace(/-/g, ' ') || 'Unknown',
+                    level: s.level || s.grades || 'N/A',
+                    rating: s.rating ?? s.score ?? 'N/A',
+                    distance: s.distance ? `${s.distance} mi` : 'N/A',
+                })) || undefined,
+
+                // Price History
+                priceHistory: root.priceHistory?.map((ph: any) => ({
+                    date: ph.date || '',
+                    price: extractNumericValue(ph.price),
+                    event: ph.event || ph.priceChangeRate ? `${ph.event || 'Change'} (${ph.priceChangeRate})` : (ph.event || ''),
+                })) || undefined,
+
+                // ResoFacts (detailed property features)
+                resoFacts: Object.keys(resoRaw).length > 0 ? {
+                    flooring: resoRaw.flooring,
+                    foundationDetails: resoRaw.foundationDetails,
+                    rooms: resoRaw.rooms,
+                    roomTypes: resoRaw.roomTypes,
+                    feesAndDues: resoRaw.feesAndDues,
+                    exteriorFeatures: resoRaw.exteriorFeatures,
+                    architecturalStyle: resoRaw.architecturalStyle,
+                    garageParkingCapacity: resoRaw.garageParkingCapacity,
+                    lotFeatures: resoRaw.lotFeatures,
+                    roofType: resoRaw.roofType,
+                    daysOnZillow: extractNumericValue(resoRaw.daysOnZillow),
+                    zoningDescription: resoRaw.zoningDescription,
+                    constructionMaterials: resoRaw.constructionMaterials,
+                    fireplaceFeatures: resoRaw.fireplaceFeatures,
+                    appliances: resoRaw.appliances,
+                    fencing: resoRaw.fencing,
+                    cooling: resoRaw.cooling,
+                    laundryFeatures: resoRaw.laundryFeatures,
+                    heating: resoRaw.heating,
+                    mlsid: resoRaw.mlsid,
+                    utilities: resoRaw.utilities,
+                    sewer: resoRaw.sewer,
+                    waterSource: resoRaw.waterSource,
+                    basement: resoRaw.basement,
+                    securityFeatures: resoRaw.securityFeatures,
+                    windowFeatures: resoRaw.windowFeatures,
+                    roomFeatures: resoRaw.roomFeatures,
+                } : undefined,
+
+                // HOA
+                hoa: root.monthlyHoaFee || root.hoaFee ? {
+                    fee: root.monthlyHoaFee ? `$${root.monthlyHoaFee} monthly` : (root.hoaFee || undefined),
+                } : undefined,
+
+                // Attribution
+                attribution: root.listingAgent || root.brokerageName ? {
+                    listingAgentName: root.listingAgent?.name || root.attributionInfo?.agentName,
+                    listingAgentNumber: root.listingAgent?.phone || root.attributionInfo?.agentPhoneNumber,
+                    brokerageName: root.brokerageName || root.attributionInfo?.brokerName,
+                    mlsName: root.attributionInfo?.mlsName,
+                    mlsId: root.attributionInfo?.mlsId || resoRaw.mlsid,
+                } : undefined,
+
+                // Listing subtype flags
+                listingSubType: root.listingSubType || undefined,
             };
+
+            // Strip undefined values to avoid overwriting existing data with undefined on merge
+            return Object.fromEntries(Object.entries(mapped).filter(([_, v]) => v !== undefined));
         } catch (e: any) {
             if (logId) {
                 updateAPICall(logId, {

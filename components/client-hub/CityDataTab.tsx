@@ -321,7 +321,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 try {
                     await runImageOnlyPipeline(builtAddress, (progress) => {
                         setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                    }, undefined, (msg) => addLog(`[${builtAddress}] ${msg}`));
+                    }, zpid, (msg) => addLog(`[${builtAddress}] ${msg}`));
 
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
                     return true;
