@@ -98,11 +98,33 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     const [schoolsIntelligence, setSchoolsIntelligence] = useState<any>(null);
     const [schoolsExpanded, setSchoolsExpanded] = useState<Record<number, boolean>>({});
     const [showTimings, setShowTimings] = useState(false);
+    const [census, setCensus] = React.useState<CensusDemographics | null>(null);
+    const [micro, setMicro] = React.useState<MicroclimateDelta | null>(null);
 
     // Sync external viewMode changes to internal tab
     React.useEffect(() => {
         setActiveTab(mapViewToTab(viewMode));
     }, [viewMode]);
+
+    // Census Demographics fetch
+    React.useEffect(() => {
+        if (propertyData?.coordinates) {
+            fetchCensusDemographics(
+                propertyData.coordinates.latitude, propertyData.coordinates.longitude,
+                (propertyData as any).zpid, propertyData.address
+            ).then(r => { if (r) setCensus(r); });
+        }
+    }, [propertyData?.coordinates?.latitude, propertyData?.coordinates?.longitude]);
+
+    // Microclimate Thermal Fingerprint fetch
+    React.useEffect(() => {
+        if (propertyData?.coordinates) {
+            fetchMicroclimateDelta(
+                propertyData.coordinates.latitude, propertyData.coordinates.longitude,
+                propertyData.city, (propertyData as any).zpid, propertyData.address
+            ).then(r => { if (r) setMicro(r); });
+        }
+    }, [propertyData?.coordinates?.latitude, propertyData?.coordinates?.longitude]);
 
     // Fetch design_style, market dynamics, and LTR from cloud cache if customAnalysis is not loaded
     const [cachedDesignStyle, setCachedDesignStyle] = useState<{ style?: string; reasoning?: string } | null>(null);
@@ -831,25 +853,15 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                         )}
                                                                     </p>
                                                                     {/* Microclimate Thermal Fingerprint */}
-                                                                    {propertyData.coordinates && (() => {
-                                                                        const [micro, setMicro] = React.useState<MicroclimateDelta | null>(null);
-                                                                        React.useEffect(() => {
-                                                                            fetchMicroclimateDelta(
-                                                                                propertyData.coordinates!.latitude, propertyData.coordinates!.longitude,
-                                                                                propertyData.city, (propertyData as any).zpid, propertyData.address
-                                                                            ).then(r => { if (r) setMicro(r); });
-                                                                        }, []);
-                                                                        if (!micro) return null;
-                                                                        return (
-                                                                            <div className="mt-3 pt-3 border-t border-slate-100">
-                                                                                <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                                                                                    <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
-                                                                                    "{micro.insight}"
-                                                                                </p>
-                                                                                <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
+                                                                    {micro && (
+                                                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                                                            <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                                                                                <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
+                                                                                "{micro.insight}"
+                                                                            </p>
+                                                                            <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1205,15 +1217,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         </div>
 
                                             {/* Census Demographics */}
-                                            {propertyData.coordinates && (() => {
-                                                const [census, setCensus] = React.useState<CensusDemographics | null>(null);
-                                                React.useEffect(() => {
-                                                    fetchCensusDemographics(
-                                                        propertyData.coordinates!.latitude, propertyData.coordinates!.longitude,
-                                                        (propertyData as any).zpid, propertyData.address
-                                                    ).then(r => { if (r) setCensus(r); });
-                                                }, []);
-                                                if (!census) return null;
+                                            {census && (() => {
                                                 const fmt = (n: number | null) => n != null ? `$${n.toLocaleString()}` : '—';
                                                 return (
                                                     <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
