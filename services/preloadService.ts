@@ -117,80 +117,67 @@ export const runFullIntelligencePipeline = async (
         // Run smoke checks on the cached data to find which fields are missing.
         // Group failures by source and only call the APIs the smoke test says are needed.
         // This is extensible: adding new checks to smokeTest.ts automatically extends healing.
-        // Cooldown: skip healing if already attempted within the last 24 hours to avoid
-        // wasteful API calls when upstream genuinely doesn't have the data.
-        const healCooldownMs = 24 * 60 * 60 * 1000; // 24 hours
-        const lastHeal = (enrichedData as any)._healAttemptedAt;
-        const healRecent = lastHeal && (Date.now() - new Date(lastHeal).getTime()) < healCooldownMs;
+        try {
+          const { runChecks } = await import('./smokeTest');
+          const { getGoogleDataFromCloud } = await import('./firebase/googleData');
+          const envDoc = await getGoogleDataFromCloud(zpid).catch(() => null);
+          const smokeResult = runChecks(zpid, enrichedData, null, null, envDoc, null, null, {}, enrichedData.address);
+          const failedSources = new Set(
+            smokeResult.checks.filter(c => !c.passed).map(c => c.source)
+          );
+          const failedLabels = smokeResult.checks.filter(c => !c.passed).map(c => c.label);
 
-        if (healRecent) {
-          onLog?.(`[Discovery] Heal already attempted ${Math.round((Date.now() - new Date(lastHeal).getTime()) / 60000)}m ago — skipping.`);
-        } else {
-          try {
-            const { runChecks } = await import('./smokeTest');
-            const { getGoogleDataFromCloud } = await import('./firebase/googleData');
-            const envDoc = await getGoogleDataFromCloud(zpid).catch(() => null);
-            const smokeResult = runChecks(zpid, enrichedData, null, null, envDoc, null, null, {}, enrichedData.address);
-            const failedSources = new Set(
-              smokeResult.checks.filter(c => !c.passed).map(c => c.source)
-            );
-            const failedLabels = smokeResult.checks.filter(c => !c.passed).map(c => c.label);
+          if (failedSources.size === 0) {
+            onLog?.(`[Discovery] Smoke checks all pass — no healing needed.`);
+          } else {
+            onLog?.(`[Discovery] ${failedLabels.length} smoke checks failed: ${failedLabels.slice(0, 8).join(', ')}${failedLabels.length > 8 ? '...' : ''}`);
 
-            if (failedSources.size === 0) {
-              onLog?.(`[Discovery] Smoke checks all pass — no healing needed.`);
-            } else {
-              onLog?.(`[Discovery] ${failedLabels.length} smoke checks failed: ${failedLabels.slice(0, 8).join(', ')}${failedLabels.length > 8 ? '...' : ''}`);
-
-              // 1. RapidAPI source → call fetchPropertySpecs and merge
-              if (failedSources.has('rapidapi')) {
-                onLog?.(`[Discovery] Healing RapidAPI fields...`);
-                try {
-                  const fresh = await fetchPropertySpecs(zpid);
-                  if (fresh) {
-                    let healed = 0;
-                    for (const [key, value] of Object.entries(fresh)) {
-                      if (value != null && (enrichedData as any)[key] == null) {
-                        (enrichedData as any)[key] = value;
-                        healed++;
-                      }
-                    }
-                    // Force-set structured fields that may be empty arrays/objects
-                    const resoFieldCount = enrichedData.resoFacts ? Object.values(enrichedData.resoFacts).filter((v: any) => v != null && v !== '').length : 0;
-                    if (!enrichedData.description && fresh.description) { enrichedData.description = fresh.description as string; healed++; }
-                    if (resoFieldCount < 3 && fresh.resoFacts) { enrichedData.resoFacts = fresh.resoFacts as any; healed++; }
-                    if (!(enrichedData as any).attribution && fresh.attribution) { (enrichedData as any).attribution = fresh.attribution; healed++; }
-                    if (!enrichedData.priceHistory?.length && fresh.priceHistory) { enrichedData.priceHistory = fresh.priceHistory as any; healed++; }
-                    if (healed > 0) {
-                      await savePropertyToCloud(zpid, enrichedData);
-                      onLog?.(`[Discovery] Healed ${healed} RapidAPI fields.`);
+            // 1. RapidAPI source → call fetchPropertySpecs and merge
+            if (failedSources.has('rapidapi')) {
+              onLog?.(`[Discovery] Healing RapidAPI fields...`);
+              try {
+                const fresh = await fetchPropertySpecs(zpid);
+                if (fresh) {
+                  let healed = 0;
+                  for (const [key, value] of Object.entries(fresh)) {
+                    if (value != null && (enrichedData as any)[key] == null) {
+                      (enrichedData as any)[key] = value;
+                      healed++;
                     }
                   }
-                } catch (e: any) {
-                  onLog?.(`[Discovery] RapidAPI heal failed (non-blocking): ${e.message}`);
+                  // Force-set structured fields that may be empty arrays/objects
+                  const resoFieldCount = enrichedData.resoFacts ? Object.values(enrichedData.resoFacts).filter((v: any) => v != null && v !== '').length : 0;
+                  if (!enrichedData.description && fresh.description) { enrichedData.description = fresh.description as string; healed++; }
+                  if (resoFieldCount < 3 && fresh.resoFacts) { enrichedData.resoFacts = fresh.resoFacts as any; healed++; }
+                  if (!(enrichedData as any).attribution && fresh.attribution) { (enrichedData as any).attribution = fresh.attribution; healed++; }
+                  if (!enrichedData.priceHistory?.length && fresh.priceHistory) { enrichedData.priceHistory = fresh.priceHistory as any; healed++; }
+                  if (healed > 0) {
+                    await savePropertyToCloud(zpid, enrichedData);
+                    onLog?.(`[Discovery] Healed ${healed} RapidAPI fields.`);
+                  }
                 }
-              }
-
-              // 2. Environmental source → call fetchPropertyDataFull
-              // This saves directly to google_environmental_data (single source of truth).
-              // No need to merge into enrichedData/properties doc.
-              if (failedSources.has('environmental')) {
-                onLog?.(`[Discovery] Healing environmental fields...`);
-                try {
-                  onProgress({ step: 'Discovery', status: 'running', message: 'Fetching missing environmental data...' });
-                  await fetchPropertyDataFull(zpid, true, false);
-                  onLog?.(`[Discovery] Environmental heal completed — data saved to google_environmental_data.`);
-                } catch (e: any) {
-                  onLog?.(`[Discovery] Environmental heal failed (non-blocking): ${e.message}`);
-                }
+              } catch (e: any) {
+                onLog?.(`[Discovery] RapidAPI heal failed (non-blocking): ${e.message}`);
               }
             }
-            // Stamp heal attempt so we don't retry for 24 hours
-            (enrichedData as any)._healAttemptedAt = new Date().toISOString();
-            await savePropertyToCloud(zpid, enrichedData);
-          } catch (e: any) {
-            onLog?.(`[Discovery] Smoke-driven heal failed (non-blocking): ${e.message}`);
+
+            // 2. Environmental source → call fetchPropertyDataFull
+            // This saves directly to google_environmental_data (single source of truth).
+            // No need to merge into enrichedData/properties doc.
+            if (failedSources.has('environmental')) {
+              onLog?.(`[Discovery] Healing environmental fields...`);
+              try {
+                onProgress({ step: 'Discovery', status: 'running', message: 'Fetching missing environmental data...' });
+                await fetchPropertyDataFull(zpid, true, false);
+                onLog?.(`[Discovery] Environmental heal completed — data saved to google_environmental_data.`);
+              } catch (e: any) {
+                onLog?.(`[Discovery] Environmental heal failed (non-blocking): ${e.message}`);
+              }
+            }
           }
-        } // end healRecent else
+        } catch (e: any) {
+          onLog?.(`[Discovery] Smoke-driven heal failed (non-blocking): ${e.message}`);
+        }
 
         onProgress({ step: 'Discovery', status: 'completed', message: `Loaded ${cached.address} from cache` });
       }

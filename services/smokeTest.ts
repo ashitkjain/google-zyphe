@@ -405,16 +405,17 @@ export function runChecks(
     chk(checks, 'broadband', 'Broadband Data', 'warn', 'environmental', !!(bb?.providerCount),
         bb ? `${bb.providerCount} ISPs, ↓${bb.topDownloadMbps || '?'} Mbps${bb.hasFiber ? ', Fiber ✓' : ''}${bb.has5G ? ', 5G ✓' : ''}` : 'not fetched');
 
-    // ── 18. Drought Data (on google_environmental_data or properties) ──────────
+    // ── 18. Drought Data (google_environmental_data) ──────────────────────────
     const droughtData = env?.drought;
-    chk(checks, 'drought', 'Drought Monitor', 'warn', 'environmental', !!(droughtData?.currentLevel != null || droughtData?.status),
-        droughtData ? `${droughtData.status || droughtData.currentLevel || 'present'}` : 'not fetched');
+    chk(checks, 'drought', 'Drought Monitor', 'warn', 'environmental',
+        !!(droughtData?.severity || droughtData?.severityLevel != null),
+        droughtData ? `${droughtData.severity || 'Level ' + droughtData.severityLevel}` : 'not fetched');
 
-    // ── 19. EV Charger Data (on google_environmental_data or properties) ──────
+    // ── 19. EV Charger Data (google_environmental_data) ──────────────────────
     const evData = env?.evChargers;
-    const evCount = Array.isArray(evData) ? evData.length : (evData?.stations?.length || 0);
-    chk(checks, 'evChargers', 'EV Charging Stations', 'warn', 'environmental', evCount > 0,
-        evCount > 0 ? `${evCount} stations nearby` : 'not fetched');
+    const evCount = evData?.totalStations ?? 0;
+    chk(checks, 'evChargers', 'EV Charging Stations', 'warn', 'environmental', evCount > 0 || evData != null,
+        evData ? `${evCount} stations nearby` : 'not fetched');
 
     // ── 20. ResoFacts — Property Details ──────────────────────────────────────
     const reso = prop?.resoFacts;
