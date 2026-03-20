@@ -1182,6 +1182,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                                     Built {gem.character.era_built}
                                                                                 </span>
                                                                             )}
+                                                                            {propertyData?.subdivision && (
+                                                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
+                                                                                    <i className="fa-solid fa-location-dot mr-1 text-[8px]" />Subdivision: {propertyData.subdivision}
+                                                                                </span>
+                                                                            )}
                                                                         </div>
                                                                         {/* Standout Features */}
                                                                         {gem?.unique_features?.length > 0 && (
