@@ -157,6 +157,12 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                     {data.hoa.fee && <span className="text-emerald-600 ml-2 font-black tracking-tight">{data.hoa.fee}</span>}
                   </span>
                 </div>
+                {data.resoFacts?.numberOfUnitsInCommunity != null && data.resoFacts.numberOfUnitsInCommunity > 0 && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[12px] font-bold text-slate-600 shadow-sm">
+                    <i className="fa-solid fa-people-roof text-[9px] text-slate-300"></i>
+                    {data.resoFacts.numberOfUnitsInCommunity} units
+                  </div>
+                )}
               </div>
             </div>
           )}

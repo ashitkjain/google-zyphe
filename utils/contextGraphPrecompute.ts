@@ -47,7 +47,14 @@ function factor2_hoaFriction(p: PropertyData): ExtractedFactor {
     if (raw == null) return { id: 2, name: 'HOA Friction', tags: ['No HOA'] };
     const num = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.]/g, ''));
     if (isNaN(num) || num <= 0) return { id: 2, name: 'HOA Friction', tags: ['No HOA'] };
-    return { id: 2, name: 'HOA Friction', tags: [num > 500 ? 'High HOA' : 'Low HOA', `$${num}/mo`] };
+    const tags = [num > 500 ? 'High HOA' : 'Low HOA', `$${num}/mo`];
+    const units = p.resoFacts?.numberOfUnitsInCommunity;
+    if (units != null && units > 0) {
+        tags.push(`${units} Units`);
+        if (units >= 200) tags.push('Large Community');
+        else if (units <= 20) tags.push('Small Community');
+    }
+    return { id: 2, name: 'HOA Friction', tags };
 }
 
 function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {

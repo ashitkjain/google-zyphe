@@ -51,6 +51,7 @@ export function buildMlsFactsBlock(property: PropertyData): string {
 
     // HOA / community
     if (property.resoFacts?.feesAndDues) lines.push(`• HOA / Fees & Dues: ${r?.feesAndDues}`);
+    if (r?.numberOfUnitsInCommunity) lines.push(`• Community Size: ${r.numberOfUnitsInCommunity} units`);
     if (property.hoa?.feeIncludes?.length) lines.push(`• HOA Fee Includes: ${property.hoa.feeIncludes.join(', ')}`);
     if (property.hoa?.amenities?.length) lines.push(`• HOA Amenities: ${property.hoa.amenities.filter((a: string) => a !== 'Other').join(', ')}`);
 
