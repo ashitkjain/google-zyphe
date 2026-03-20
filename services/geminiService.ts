@@ -670,7 +670,7 @@ export const extractContextGraphFactors = async (
   mergedFactors.sort((a, b) => a.id - b.id);
 
   // 5. Build keyMetrics — hard numbers for downstream filter queries (zero AI)
-  const hoaRaw = property.resoFacts?.feesAndDues ?? (property as any).hoaFees;
+  const hoaRaw = property.resoFacts?.feesAndDues;
   // Extract the first dollar/number pattern — old regex stripped all non-digits and concatenated multiple numbers
   const hoaNum = (() => {
     if (!hoaRaw) return null;

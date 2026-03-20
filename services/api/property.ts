@@ -322,17 +322,17 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 propertyTaxRate: extractNumericValue(root.propertyTaxRate),
                 annualHomeownersInsurance: extractNumericValue(root.annualHomeownersInsurance),
 
-                // Risk Scores — check flat fields, riskFactors, and nested climate structure
-                windRiskScore: extractNumericValue(root.windRiskScore ?? root.riskFactors?.wind ?? root.climate?.windSources?.primary?.riskScore?.value ?? root.windSources?.primary?.riskScore?.value),
-                floodRiskScore: extractNumericValue(root.floodRiskScore ?? root.riskFactors?.flood ?? root.climate?.floodSources?.primary?.riskScore?.value ?? root.floodSources?.primary?.riskScore?.value),
-                fireRiskScore: extractNumericValue(root.fireRiskScore ?? root.riskFactors?.fire ?? root.climate?.fireSources?.primary?.riskScore?.value ?? root.fireSources?.primary?.riskScore?.value),
-                heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.riskFactors?.heat ?? root.climate?.heatSources?.primary?.riskScore?.value ?? root.heatSources?.primary?.riskScore?.value),
+                // Risk Scores — mapper normalizes from various RapidAPI response shapes into flat fields
+                windRiskScore: extractNumericValue(root.windRiskScore ?? root.climate?.windSources?.primary?.riskScore?.value),
+                floodRiskScore: extractNumericValue(root.floodRiskScore ?? root.climate?.floodSources?.primary?.riskScore?.value),
+                fireRiskScore: extractNumericValue(root.fireRiskScore ?? root.climate?.fireSources?.primary?.riskScore?.value),
+                heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.climate?.heatSources?.primary?.riskScore?.value),
 
                 // Full climate risk detail (First Street Foundation)
                 climateRiskDetail: root.climate ? extractClimateRiskDetail(root.climate) : undefined,
 
                 // Dates
-                lastSoldDate: root.datePosted || root.dateSold || null,
+                lastSoldDate: root.dateSold || null,
                 listedDate: root.datePosted || root.listingDateTimeOnMarket || undefined,
                 timeOnZillow: extractNumericValue(root.timeOnZillow || resoRaw.daysOnZillow),
 
@@ -407,12 +407,12 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 } : undefined,
 
                 // Attribution
-                attribution: root.listingAgent || root.brokerageName ? {
-                    listingAgentName: root.listingAgent?.name || root.attributionInfo?.agentName,
-                    listingAgentNumber: root.listingAgent?.phone || root.attributionInfo?.agentPhoneNumber,
-                    brokerageName: root.brokerageName || root.attributionInfo?.brokerName,
-                    mlsName: root.attributionInfo?.mlsName,
-                    mlsId: root.attributionInfo?.mlsId || resoRaw.mlsid,
+                attribution: root.attributionInfo ? {
+                    listingAgentName: root.attributionInfo.agentName || undefined,
+                    listingAgentNumber: root.attributionInfo.agentPhoneNumber || undefined,
+                    brokerageName: root.attributionInfo.brokerName || undefined,
+                    mlsName: root.attributionInfo.mlsName || undefined,
+                    mlsId: root.attributionInfo.mlsId || resoRaw.mlsid || undefined,
                 } : undefined,
 
                 // Listing subtype flags

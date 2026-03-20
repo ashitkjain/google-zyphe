@@ -43,7 +43,7 @@ function factor1_priceBracket(p: PropertyData): ExtractedFactor {
 }
 
 function factor2_hoaFriction(p: PropertyData): ExtractedFactor {
-    const raw = p.resoFacts?.feesAndDues ?? (p as any).hoaFees;
+    const raw = p.resoFacts?.feesAndDues;
     if (raw == null) return { id: 2, name: 'HOA Friction', tags: ['No HOA'] };
     const num = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.]/g, ''));
     if (isNaN(num) || num <= 0) return { id: 2, name: 'HOA Friction', tags: ['No HOA'] };
@@ -56,7 +56,7 @@ function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {
     const mortgage = calcMonthlyMortgage(price);
     const taxes = p.propertyTaxRate ? (price * p.propertyTaxRate) / 100 / 12 : price * 0.012 / 12;
     const insurance = p.annualHomeownersInsurance ? p.annualHomeownersInsurance / 12 : price * 0.005 / 12;
-    const hoaRaw = p.resoFacts?.feesAndDues ?? (p as any).hoaFees;
+    const hoaRaw = p.resoFacts?.feesAndDues;
     const hoa = hoaRaw ? parseFloat(String(hoaRaw).replace(/[^0-9.]/g, '')) || 0 : 0;
     const total = Math.round(mortgage + taxes + insurance + hoa);
     return { id: 4, name: 'True Carrying Cost', tags: [`~$${Math.round(total / 1000)}K/mo`, 'Estimated'] };
@@ -744,7 +744,7 @@ function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
 
 
 function factor108_sqftDiscrepancy(p: PropertyData): ExtractedFactor {
-    const listed = p.livingAreaValue || (p as any).livingArea;
+    const listed = p.livingAreaValue;
     const tax = (p as any).taxSqft;
     if (!listed || !tax) return { id: 108, name: 'Sqft Discrepancy', tags: [] };
     const listedNum = typeof listed === 'number' ? listed : parseFloat(String(listed).replace(/[^0-9.]/g, ''));
