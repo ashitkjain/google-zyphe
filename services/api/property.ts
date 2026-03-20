@@ -409,8 +409,12 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 } : undefined,
 
                 // HOA
-                hoa: root.monthlyHoaFee || root.hoaFee ? {
-                    fee: root.monthlyHoaFee ? `$${root.monthlyHoaFee} monthly` : (root.hoaFee || undefined),
+                hoa: (root.monthlyHoaFee || root.hoaFee || resoRaw.associationAmenities) ? {
+                    fee: root.monthlyHoaFee ? `$${root.monthlyHoaFee} monthly` : (root.hoaFee || resoRaw.hoaFee || undefined),
+                    name: resoRaw.associationName || undefined,
+                    phone: resoRaw.associationPhone || undefined,
+                    amenities: resoRaw.associationAmenities || undefined,
+                    feeIncludes: resoRaw.associationFeeIncludes || undefined,
                 } : undefined,
 
                 // Attribution
