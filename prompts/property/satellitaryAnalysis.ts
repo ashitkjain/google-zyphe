@@ -12,21 +12,14 @@
 
 import { Type } from '@google/genai';
 
-/**
- * Extracts an explicit orientation mention from a listing description,
- * e.g. "north facing", "south-facing", "faces east", "northwest facing".
- * Returns the direction string (e.g. "north") if found, else null.
- */
-function extractDescriptionOrientation(description?: string | null): string | null {
-    if (!description) return null;
-    const lower = (Array.isArray(description) ? description.join(' ') : description).toLowerCase();
-    // Match patterns like: "north facing", "south-facing", "faces north", "north-east facing"
-    const match = lower.match(
-        /\b(north(?:[- ]?east|[- ]?west)?|south(?:[- ]?east|[- ]?west)?|east|west|northeast|northwest|southeast|southwest)(?:[- ]facing|(?:\s+facing))|(?:faces|facing)\s+(north(?:[- ]?east|[- ]?west)?|south(?:[- ]?east|[- ]?west)?|east|west|northeast|northwest|southeast|southwest)/i
-    );
-    if (!match) return null;
-    // Return whichever capture group matched
-    return (match[1] || match[2]).replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+/** Builds a listing description hint block for orientation prompts. */
+function buildDescriptionHint(description?: string | null): string {
+    if (!description) return '';
+    const text = (Array.isArray(description) ? description.join(' ') : description).slice(0, 800);
+    return `\n\n🏷️  LISTING DESCRIPTION (seller-provided — highest priority signal):\n"${text}"\n` +
+        `If the description explicitly states a facing direction (e.g. "north facing", "south-facing",\n` +
+        `"faces east"), treat it as ground truth and make your final_orientation match it UNLESS\n` +
+        `the satellite image makes it physically impossible. Acknowledge it in your explanation.`;
 }
 
 // ─── Dual-Image Prompt (Aerial + Street View) ────────────────────────────────
@@ -61,16 +54,7 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
         `address road. Use the camera heading and/or aerial cues to find the true front orientation.`
         : '';
 
-    // Extract any explicit facing direction from the listing description
-    const descriptionDirection = extractDescriptionOrientation(description);
-    const descriptionOverride = descriptionDirection
-        ? `\n\n🏷️  LISTING DESCRIPTION OVERRIDE — HIGHEST PRIORITY SIGNAL:\n` +
-          `The property listing description explicitly states the home is "${descriptionDirection} facing".\n` +
-          `This is a direct seller disclosure, not an inference. Treat it as ground truth UNLESS\n` +
-          `the satellite image makes it physically impossible (e.g. the stated direction faces a solid wall with no entrance).\n` +
-          `Your final_orientation MUST match "${descriptionDirection}" unless you have a very strong conflicting reason.\n` +
-          `In your explanation, acknowledge "Listing description states ${descriptionDirection} facing — used as primary signal."`
-        : '';
+    const descriptionOverride = buildDescriptionHint(description);
 
     const headingAuthority = streetViewHeading != null
         ? `\n\nCAMERA HEADING: ${streetViewHeading}° (0°=North, 90°=East, 180°=South, 270°=West)\n` +
@@ -193,16 +177,7 @@ export function buildOrientationPromptAerialOnly(address?: string, description?:
         `A wide arterial road carrying the address name often borders the BACK or SIDE of the property.`
         : '';
 
-    // Extract any explicit facing direction from the listing description
-    const descriptionDirection = extractDescriptionOrientation(description);
-    const descriptionOverride = descriptionDirection
-        ? `\n\n🏷️  LISTING DESCRIPTION OVERRIDE — HIGHEST PRIORITY SIGNAL:\n` +
-          `The property listing description explicitly states the home is "${descriptionDirection} facing".\n` +
-          `This is a direct seller disclosure, not an inference. Treat it as ground truth UNLESS\n` +
-          `the satellite image makes it physically impossible (e.g. the stated direction faces a solid wall with no entrance).\n` +
-          `Your final_orientation MUST match "${descriptionDirection}" unless you have a very strong conflicting reason.\n` +
-          `In your explanation, acknowledge "Listing description states ${descriptionDirection} facing — used as primary signal."`
-        : '';
+    const descriptionOverride = buildDescriptionHint(description);
 
     return `
 You are a spatial analysis expert. I am providing one aerial satellite image of a property.
