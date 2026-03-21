@@ -571,43 +571,22 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         const existing = await getPropertyFromCloud(zpid);
                         const fresh = await fetchPropertySpecs(zpid);
                         if (fresh && existing) {
+                            // Generic deep-merge: fills null/empty primitives, deep-merges objects, replaces empty arrays
                             let healed = 0;
-                            for (const [key, value] of Object.entries(fresh)) {
-                                if (key === 'resoFacts' || key === 'hoa' || key === 'attribution') continue;
-                                if (value != null && (existing as any)[key] == null) {
-                                    (existing as any)[key] = value;
-                                    healed++;
-                                }
-                            }
-                            if (fresh.resoFacts) {
-                                const existingReso = (existing as any).resoFacts || {};
-                                for (const [k, v] of Object.entries(fresh.resoFacts)) {
-                                    if (v != null && v !== '' && (existingReso[k] == null || existingReso[k] === '')) {
-                                        existingReso[k] = v;
-                                        healed++;
+                            for (const [key, freshVal] of Object.entries(fresh)) {
+                                if (freshVal == null) continue;
+                                const ev = (existing as any)[key];
+                                if (Array.isArray(freshVal)) {
+                                    if (!ev?.length && freshVal.length > 0) { (existing as any)[key] = freshVal; healed++; }
+                                } else if (typeof freshVal === 'object') {
+                                    const obj = ev || {};
+                                    for (const [k, v] of Object.entries(freshVal)) {
+                                        if (v != null && v !== '' && (obj[k] == null || obj[k] === '')) { obj[k] = v; healed++; }
                                     }
+                                    (existing as any)[key] = obj;
+                                } else if (ev == null || ev === '') {
+                                    (existing as any)[key] = freshVal; healed++;
                                 }
-                                (existing as any).resoFacts = existingReso;
-                            }
-                            if (fresh.hoa) {
-                                const existingHoa = (existing as any).hoa || {};
-                                for (const [k, v] of Object.entries(fresh.hoa as any)) {
-                                    if (v != null && existingHoa[k] == null) {
-                                        existingHoa[k] = v;
-                                        healed++;
-                                    }
-                                }
-                                (existing as any).hoa = existingHoa;
-                            }
-                            if (fresh.attribution) {
-                                const existingAttr = (existing as any).attribution || {};
-                                for (const [k, v] of Object.entries(fresh.attribution as any)) {
-                                    if (v != null && (existingAttr[k] == null || existingAttr[k] === '')) {
-                                        existingAttr[k] = v;
-                                        healed++;
-                                    }
-                                }
-                                (existing as any).attribution = existingAttr;
                             }
                             if (healed > 0) {
                                 await savePropertyToCloud(zpid, existing);

@@ -41,6 +41,54 @@ import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 import { securePropertyAssets } from './assetService';
 
 /**
+ * Generic deep-merge for healing: fills in null/empty fields from `fresh` into `target`.
+ * - Plain values: set if target is null/undefined/empty-string
+ * - Plain objects: deep-merge sub-fields
+ * - Arrays: replace if target array is empty
+ * Returns count of fields healed.
+ */
+function healMerge(target: Record<string, any>, fresh: Record<string, any>): number {
+  let healed = 0;
+  for (const [key, freshVal] of Object.entries(fresh)) {
+    if (freshVal == null) continue;
+    const existingVal = target[key];
+
+    // Array: replace if target is empty/missing
+    if (Array.isArray(freshVal)) {
+      if (!existingVal?.length && freshVal.length > 0) {
+        target[key] = freshVal;
+        healed++;
+      }
+      continue;
+    }
+
+    // Plain object (not array, not null): deep-merge sub-fields
+    if (typeof freshVal === 'object') {
+      const existingObj = existingVal || {};
+      let subHealed = 0;
+      for (const [k, v] of Object.entries(freshVal)) {
+        if (v != null && v !== '' && (existingObj[k] == null || existingObj[k] === '')) {
+          existingObj[k] = v;
+          subHealed++;
+        }
+      }
+      if (subHealed > 0) {
+        target[key] = existingObj;
+        healed += subHealed;
+      }
+      continue;
+    }
+
+    // Primitive: fill if missing
+    if (existingVal == null || existingVal === '') {
+      target[key] = freshVal;
+      healed++;
+    }
+  }
+  return healed;
+}
+
+/**
  * Query Alameda County Surveyor Tract Map layer for a property's historic subdivision.
  * Uses spatial intersection to find the tract polygon containing the given coordinates.
  */
@@ -138,67 +186,7 @@ export const runFullIntelligencePipeline = async (
               try {
                 const fresh = await fetchPropertySpecs(zpid);
                 if (fresh) {
-                  let healed = 0;
-                  for (const [key, value] of Object.entries(fresh)) {
-                    // Skip nested objects that need deep-merge (handled below)
-                    if (key === 'resoFacts' || key === 'hoa' || key === 'attribution') continue;
-                    if (value != null && (enrichedData as any)[key] == null) {
-                      (enrichedData as any)[key] = value;
-                      healed++;
-                    }
-                  }
-                  // Force-set structured fields that may be empty arrays/objects
-                  if (!enrichedData.description && fresh.description) { enrichedData.description = fresh.description as string; healed++; }
-                  if (!enrichedData.priceHistory?.length && fresh.priceHistory) { enrichedData.priceHistory = fresh.priceHistory as any; healed++; }
-
-                  // Deep-merge resoFacts: fill in missing sub-fields (e.g. stories, parkingFeatures added later)
-                  if (fresh.resoFacts) {
-                    const existing = enrichedData.resoFacts || {} as any;
-                    let resoHealed = 0;
-                    for (const [k, v] of Object.entries(fresh.resoFacts)) {
-                      if (v != null && v !== '' && ((existing as any)[k] == null || (existing as any)[k] === '')) {
-                        (existing as any)[k] = v;
-                        resoHealed++;
-                      }
-                    }
-                    if (resoHealed > 0) {
-                      enrichedData.resoFacts = existing as any;
-                      healed += resoHealed;
-                    }
-                  }
-
-                  // Deep-merge hoa: fill in missing sub-fields (amenities, feeIncludes, etc.)
-                  if (fresh.hoa) {
-                    const existingHoa = (enrichedData as any).hoa || {} as any;
-                    let hoaHealed = 0;
-                    for (const [k, v] of Object.entries(fresh.hoa as any)) {
-                      if (v != null && existingHoa[k] == null) {
-                        existingHoa[k] = v;
-                        hoaHealed++;
-                      }
-                    }
-                    if (hoaHealed > 0) {
-                      (enrichedData as any).hoa = existingHoa;
-                      healed += hoaHealed;
-                    }
-                  }
-
-                  // Deep-merge attribution: fill in missing sub-fields (broker fallback, etc.)
-                  if (fresh.attribution) {
-                    const existingAttr = (enrichedData as any).attribution || {} as any;
-                    let attrHealed = 0;
-                    for (const [k, v] of Object.entries(fresh.attribution as any)) {
-                      if (v != null && (existingAttr[k] == null || existingAttr[k] === '')) {
-                        existingAttr[k] = v;
-                        attrHealed++;
-                      }
-                    }
-                    if (attrHealed > 0) {
-                      (enrichedData as any).attribution = existingAttr;
-                      healed += attrHealed;
-                    }
-                  }
-
+                  const healed = healMerge(enrichedData as any, fresh);
                   if (healed > 0) {
                     await savePropertyToCloud(zpid, enrichedData);
                     onLog?.(`[Discovery] Healed ${healed} RapidAPI fields.`);
