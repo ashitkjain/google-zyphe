@@ -15,7 +15,7 @@ import { Type } from '@google/genai';
 /** Builds a listing description hint block for orientation prompts. */
 function buildDescriptionHint(description?: string | null): string {
     if (!description) return '';
-    const text = (Array.isArray(description) ? description.join(' ') : description).slice(0, 800);
+    const text = Array.isArray(description) ? description.join(' ') : description;
     return `\n\n🏷️  LISTING DESCRIPTION (seller-provided — highest priority signal):\n"${text}"\n` +
         `If the description explicitly states a facing direction (e.g. "north facing", "south-facing",\n` +
         `"faces east"), treat it as ground truth and make your final_orientation match it UNLESS\n` +
