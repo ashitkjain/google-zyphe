@@ -322,7 +322,8 @@ export const runFullIntelligencePipeline = async (
             streetViewUrl,
             userId,
             zpid,
-            enrichedData.address
+            enrichedData.address,
+            enrichedData.description ?? null
           );
 
           if (orientResult.final_orientation && orientResult.final_orientation !== 'UNCLEAR_IMAGE') {

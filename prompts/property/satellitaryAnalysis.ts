@@ -12,6 +12,23 @@
 
 import { Type } from '@google/genai';
 
+/**
+ * Extracts an explicit orientation mention from a listing description,
+ * e.g. "north facing", "south-facing", "faces east", "northwest facing".
+ * Returns the direction string (e.g. "north") if found, else null.
+ */
+function extractDescriptionOrientation(description?: string | null): string | null {
+    if (!description) return null;
+    const lower = (Array.isArray(description) ? description.join(' ') : description).toLowerCase();
+    // Match patterns like: "north facing", "south-facing", "faces north", "north-east facing"
+    const match = lower.match(
+        /\b(north(?:[- ]?east|[- ]?west)?|south(?:[- ]?east|[- ]?west)?|east|west|northeast|northwest|southeast|southwest)(?:[- ]facing|(?:\s+facing))|(?:faces|facing)\s+(north(?:[- ]?east|[- ]?west)?|south(?:[- ]?east|[- ]?west)?|east|west|northeast|northwest|southeast|southwest)/i
+    );
+    if (!match) return null;
+    // Return whichever capture group matched
+    return (match[1] || match[2]).replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // ─── Dual-Image Prompt (Aerial + Street View) ────────────────────────────────
 
 /**
@@ -19,7 +36,7 @@ import { Type } from '@google/genai';
  * When the street-view camera heading is known we inject it directly into the
  * prompt so Gemini does NOT need to guess which compass direction it was facing.
  */
-export function buildOrientationPromptDual(streetViewHeading?: number | null, address?: string): string {
+export function buildOrientationPromptDual(streetViewHeading?: number | null, address?: string, description?: string | null): string {
     const addressClue = address
         ? `\n\nPROPERTY ADDRESS: "${address}"
 ` +
@@ -42,6 +59,17 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
         `Use the address as context to identify the area, but do NOT assume the front door faces the
 ` +
         `address road. Use the camera heading and/or aerial cues to find the true front orientation.`
+        : '';
+
+    // Extract any explicit facing direction from the listing description
+    const descriptionDirection = extractDescriptionOrientation(description);
+    const descriptionOverride = descriptionDirection
+        ? `\n\n🏷️  LISTING DESCRIPTION OVERRIDE — HIGHEST PRIORITY SIGNAL:\n` +
+          `The property listing description explicitly states the home is "${descriptionDirection} facing".\n` +
+          `This is a direct seller disclosure, not an inference. Treat it as ground truth UNLESS\n` +
+          `the satellite image makes it physically impossible (e.g. the stated direction faces a solid wall with no entrance).\n` +
+          `Your final_orientation MUST match "${descriptionDirection}" unless you have a very strong conflicting reason.\n` +
+          `In your explanation, acknowledge "Listing description states ${descriptionDirection} facing — used as primary signal."`
         : '';
 
     const headingAuthority = streetViewHeading != null
@@ -78,7 +106,7 @@ IMAGE A (Aerial Satellite): A top-down satellite view of the property parcel (zo
 IMPORTANT: In this image, North is ALWAYS at the top of the frame, East is to the right,
 South is at the bottom, and West is to the left.
 
-IMAGE B (Street View): A street-level photograph taken from the street directly in front of the property.${headingAuthority}${addressClue}
+IMAGE B (Street View): A street-level photograph taken from the street directly in front of the property.${headingAuthority}${addressClue}${descriptionOverride}
 
 STEP 0 — IMAGE QUALITY CHECK (do this first, before any analysis):
 Assess the sharpness and resolution of Image A (Aerial Satellite).
@@ -150,7 +178,7 @@ MULTI-ROAD / COMPLEX HEURISTIC:
  * Gemini uses indirect cues — road adjacency, driveway, front yard, shadow angle,
  * and garage doors — to infer which face of the building is the "street-facing" front.
  */
-export function buildOrientationPromptAerialOnly(address?: string): string {
+export function buildOrientationPromptAerialOnly(address?: string, description?: string | null): string {
     const addressClue = address
         ? `\nPROPERTY ADDRESS: "${address}"
 ` +
@@ -165,13 +193,24 @@ export function buildOrientationPromptAerialOnly(address?: string): string {
         `A wide arterial road carrying the address name often borders the BACK or SIDE of the property.`
         : '';
 
+    // Extract any explicit facing direction from the listing description
+    const descriptionDirection = extractDescriptionOrientation(description);
+    const descriptionOverride = descriptionDirection
+        ? `\n\n🏷️  LISTING DESCRIPTION OVERRIDE — HIGHEST PRIORITY SIGNAL:\n` +
+          `The property listing description explicitly states the home is "${descriptionDirection} facing".\n` +
+          `This is a direct seller disclosure, not an inference. Treat it as ground truth UNLESS\n` +
+          `the satellite image makes it physically impossible (e.g. the stated direction faces a solid wall with no entrance).\n` +
+          `Your final_orientation MUST match "${descriptionDirection}" unless you have a very strong conflicting reason.\n` +
+          `In your explanation, acknowledge "Listing description states ${descriptionDirection} facing — used as primary signal."`
+        : '';
+
     return `
 You are a spatial analysis expert. I am providing one aerial satellite image of a property.
 
 IMAGE A (Aerial Satellite): A top-down satellite view at high zoom (zoom level 20, scale 2 — 1280×1280 px).
 IMPORTANT: North is ALWAYS at the top of the frame, East is to the right,
 South is at the bottom, and West is to the left.
-${addressClue}
+${addressClue}${descriptionOverride}
 STEP 0 — IMAGE QUALITY CHECK (do this first, before any analysis):
 Assess the sharpness and resolution of Image A.
 - If the image is blurry, heavily pixelated, or too low-resolution to distinguish individual

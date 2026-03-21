@@ -185,7 +185,8 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             propertyData?.streetViewAnalysis?.imageUrl || propertyData?.streetView || null,
             'unknown',
             zpid || undefined,
-            propertyData?.address
+            propertyData?.address,
+            propertyData?.description ?? null
         )
             .then(res => {
                 setOrientationAI({

@@ -179,7 +179,8 @@ export async function forceRefreshAllImagesAndAnalyze(
     lat: number,
     lng: number,
     userId: string = 'unknown',
-    address?: string
+    address?: string,
+    description?: string | null
 ): Promise<SatellitaryResult & { freshAerialUrl: string; freshStreetViewUrl: string }> {
 
 
@@ -199,7 +200,8 @@ export async function forceRefreshAllImagesAndAnalyze(
         freshStreetViewUrl || null,
         userId,
         zpid,
-        address
+        address,
+        description
     );
 
     return { ...result, freshAerialUrl, freshStreetViewUrl };
@@ -301,7 +303,8 @@ export async function runSatellitaryAnalysis(
     cachedStreetViewUrl?: string | null,
     userId: string = 'unknown',
     zpid?: string,
-    address?: string
+    address?: string,
+    description?: string | null
 ): Promise<SatellitaryResult> {
     // ── 1. Resolve image URLs ──────────────────────────────────────────────────
     const aerialUrl = buildAerialUrl(lat, lng);
@@ -341,10 +344,11 @@ export async function runSatellitaryAnalysis(
     ]);
 
     const usesDualImage = !!streetB64;
-    // Pass the known camera heading and address into the prompt so Gemini has maximum context
+    // Pass the known camera heading, address, and listing description into the prompt
+    // so Gemini has maximum context (description may contain explicit facing direction)
     const prompt = usesDualImage
-        ? buildOrientationPromptDual(streetViewHeading, address)
-        : buildOrientationPromptAerialOnly(address);
+        ? buildOrientationPromptDual(streetViewHeading, address, description)
+        : buildOrientationPromptAerialOnly(address, description);
 
     // ── 3. Call Gemini ────────────────────────────────────────────────────────
     const parts: any[] = [

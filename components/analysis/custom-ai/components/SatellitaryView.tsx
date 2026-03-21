@@ -8,6 +8,7 @@ interface Props {
     cachedStreetViewUrl?: string | null;
     address?: string;
     zpid?: string;
+    description?: string | null;
     onResult?: (result: SatellitaryResult) => void;
 }
 
@@ -76,7 +77,7 @@ const CompassRose: React.FC<{ azimuth: number }> = ({ azimuth }) => (
     </svg>
 );
 
-const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, address, zpid, onResult }) => {
+const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, address, zpid, description, onResult }) => {
     const [result, setResult] = useState<SatellitaryResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -92,7 +93,7 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
         const interval = window.setInterval(() => setTimer(t => t + 1), 1000);
 
         try {
-            const res = await runSatellitaryAnalysis(lat, lng, cachedStreetViewUrl, 'unknown', zpid, address);
+            const res = await runSatellitaryAnalysis(lat, lng, cachedStreetViewUrl, 'unknown', zpid, address, description);
             setResult(res);
             onResult?.(res);
         } catch (e: any) {
