@@ -29,9 +29,6 @@ export const isGhostListing = (item: any): boolean => {
     // No street number at all (real addresses start with a number)
     if (addr && !/^\d/.test(addr.trim())) return true;
 
-    // Street number 0 = vacant lot placeholder (e.g. "0 Santos Ranch Rd")
-    if (/^0\s/.test(addr.trim())) return true;
-
     // Address is just a community name (no comma before city, no numbers)
     if (addr && !addr.includes(',') && !/\d/.test(addr)) return true;
 
