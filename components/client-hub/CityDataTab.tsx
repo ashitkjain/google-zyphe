@@ -420,152 +420,304 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setError(null);
         setPipelineType('full');
         setViewMode('ingestion');
-        setIngestionReport(null); // Reset previous report
+        setIngestionReport(null);
         const batchStartTime = Date.now();
-        addLog(`Starting Parallel Bulk Ingest & Intelligence Pipeline...`);
+        addLog(`Starting Optimized Full Intel Suite...`);
 
         const targets = listings.filter(l => {
             const id = String(l.zpid);
             return selectedIds.has(id);
         });
 
+        addLog(`Selected ${targets.length} properties. Running smoke triage...`);
 
+        // ── PHASE 0: Smoke Test Triage ─────────────────────────────────────
+        // Run smoke test on all selected to classify what each property needs
+        const targetZpids = targets.map(t => String(t.zpid));
+        let smokeResults: CitySmokeSummary;
+        try {
+            smokeResults = await runCitySmokeTest(targetZpids, (done, total) => {
+                addLog(`[Triage] Smoke testing ${done}/${total}...`);
+            }, zpidToAddressMap);
+        } catch (e: any) {
+            addLog(`[Triage] Smoke test failed: ${e.message}. Falling back to full run.`);
+            // Fallback: treat all as needing Gemini
+            smokeResults = { totalProperties: targets.length, passedCount: 0, failedCount: targets.length, results: [], ranAt: new Date() };
+        }
 
-        addLog(`Processing ${targets.length} properties...`);
+        // Build per-zpid classification
+        const smokeByZpid: Record<string, PropertySmokeResult> = {};
+        smokeResults.results.forEach(r => { smokeByZpid[r.zpid] = r; });
 
-        // Initialize Queue
-        const newJobs: IngestionJob[] = targets.map(item => {
-            const id = String(item.zpid);
-            const addrObj = item.location?.address;
-            const fullAddress = addrObj
-                ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                : (item.location?.address?.line || id);
-            return {
-                zpid: id,
-                address: fullAddress,
-                status: 'pending',
-                progress: null
-            };
-        });
-        setIngestionQueue(newJobs);
+        // ── PHASE 1: Image Gate ────────────────────────────────────────────
+        // Properties with <3 images AND no existing visual analysis can't run Gemini visual
+        const GEMINI_SOURCES = new Set(['ai_visual', 'ai_comprehensive', 'ai_investment']);
+        const NON_GEMINI_SOURCES = new Set(['rapidapi', 'environmental', 'assets', 'computed']);
 
-        // Step 1: Prefetch City-Level Intelligence (Pulse & General Market)
-        // We find all unique city/state combinations in our target properties
-        const cityContexts = new Set<string>();
-        const stateMap: Record<string, string> = {
-            'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA',
-            'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA',
-            'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
-            'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD',
-            'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO',
-            'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
-            'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
-            'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
-            'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT',
-            'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY'
-        };
+        const fullyPassed: string[] = [];
+        const noImages: string[] = [];
+        const needsNonGeminiOnly: string[] = [];
+        const needsGemini: string[] = [];
 
-        targets.forEach(t => {
-            const city = t.location?.address?.city;
-            const stateRaw = t.location?.address?.state_code || t.location?.address?.state;
-
-            if (city && stateRaw) {
-                const normState = stateRaw.trim().toUpperCase();
-                const state = (stateMap[normState] || (normState.length === 2 ? normState : normState));
-                cityContexts.add(`${city.trim()}|${state.trim()}`);
+        for (const zpid of targetZpids) {
+            const smoke = smokeByZpid[zpid];
+            if (!smoke) {
+                // No smoke result = no property doc → needs full pipeline
+                needsGemini.push(zpid);
+                continue;
             }
-        });
 
-        // Phase 1 (city-level intelligence warm-up) is intentionally skipped here.
-        // Deep Research, Community Pulse, and Market Intelligence are city-level tasks
-        // that run separately via the "Run City Research" button — not per-property ingestion.
+            // Already fully healthy
+            if (smoke.errorCount === 0 && smoke.warnCount === 0) {
+                fullyPassed.push(zpid);
+                continue;
+            }
 
+            // Check image status
+            const imgCheck = smoke.checks.find(c => c.id === 'images');
+            if (imgCheck && !imgCheck.passed) {
+                noImages.push(zpid);
+                continue;
+            }
 
-        const CHUNK_SIZE = 3; // 3 parallel properties × ~5 Gemini calls each = ~15 concurrent requests (safe limit)
-        let successCount = 0;
+            // Classify by failed check sources
+            const failedSources = new Set(smoke.checks.filter(c => !c.passed).map(c => c.source));
+            const hasGeminiNeeds = [...failedSources].some(s => GEMINI_SOURCES.has(s));
 
-        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
-            const chunk = targets.slice(i, i + CHUNK_SIZE);
-            addLog(`Phase 2: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)} (${chunk.length} properties)...`);
-
-            const chunkPromises = chunk.map(async (item, index) => {
-                const zpid = String(item.zpid);
-                const addrObj = item.location?.address;
-                const builtAddress = addrObj
-                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                    : (item.location?.address?.line || zpid);
-
-                // Small stagger within chunk to avoid hitting API rate limit bursts
-                if (index > 0) {
-                    await new Promise(r => setTimeout(r, index * 1000));
-                }
-
-                const startTime = Date.now();
-                addLog(`Starting pipeline for property: ${builtAddress}`);
-                // Mark running
-                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
-
-                try {
-                    const userId = auth?.currentUser?.uid || 'unknown';
-                    // Run Full Intelligence Pipeline
-                    const { zpid: resultZpid, warnings } = await runFullIntelligencePipeline(builtAddress, (progress) => {
-                        // Accumulate AI sub-task outcomes
-                        if (progress.step.startsWith('AI:')) {
-                            const name = progress.step.replace('AI:', '');
-                            const outcome = progress.status === 'error' ? 'failed' as const
-                                : progress.status === 'pending' ? 'skipped' as const
-                                : progress.message === 'Cache hit' ? 'cached' as const
-                                : 'ran' as const;
-                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
-                                ...j,
-                                completedSteps: [...(j.completedSteps || []), { name, outcome }]
-                            } : j));
-                        } else {
-                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                        }
-                    }, zpid, userId, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
-
-                    if (warnings && warnings.length > 0) {
-                        addLog(`Completed with warnings for: ${builtAddress} — ${warnings.join(', ')} needs retry.`);
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
-                            ...j,
-                            status: 'partial',
-                            endTime: Date.now(),
-                            error: `Needs retry: ${warnings.join(', ')}`
-                        } : j));
-                        return 'partial';
-                    } else {
-                        addLog(`Successfully completed intelligence suite for: ${builtAddress}`);
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                        return true;
-                    }
-                } catch (e: any) {
-                    console.error(`Ingestion failed for ${zpid}:`, e);
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                    return false;
-                }
-            });
-
-            // Wait for current batch to complete
-            const results = await Promise.all(chunkPromises);
-            successCount += results.filter(r => r === true).length;
-            const partialCount = results.filter(r => r === 'partial').length;
-            if (partialCount > 0) addLog(`${partialCount} properties completed with warnings (Visual AI needs retry).`);
-
-            // Rest between chunks — give Gemini quota time to recover before next burst
-            if (i + CHUNK_SIZE < targets.length) {
-                addLog(`[System] Cooling down 5s before next batch...`);
-                await new Promise(r => setTimeout(r, 5000));
+            if (hasGeminiNeeds) {
+                needsGemini.push(zpid);
+            } else {
+                needsNonGeminiOnly.push(zpid);
             }
         }
 
-        const partialTotal = ingestionQueue.filter(j => j.status === 'partial').length;
+        addLog(`[Triage] Classification complete:`);
+        addLog(`  ✓ ${fullyPassed.length} fully passed — skipping`);
+        addLog(`  ✗ ${noImages.length} missing images — skipping (need manual image upload)`);
+        addLog(`  ⚡ ${needsNonGeminiOnly.length} need data healing only (no Gemini cost)`);
+        addLog(`  🤖 ${needsGemini.length} need Gemini AI analysis`);
+
+        // ── Time Estimation ────────────────────────────────────────────────
+        const NON_GEMINI_BATCH = 10;
+        const GEMINI_BATCH = 3;
+        const NON_GEMINI_PER_PROP_SEC = 3;   // ~3s per property (API + Firestore)
+        const GEMINI_PER_PROP_SEC = 45;       // ~45s per property (5-8 Gemini calls)
+        const COOLDOWN_SEC = 5;               // between Gemini batches
+
+        const nonGeminiBatches = Math.ceil(needsNonGeminiOnly.length / NON_GEMINI_BATCH);
+        const geminiBatches = Math.ceil(needsGemini.length / GEMINI_BATCH);
+
+        const nonGeminiTimeSec = nonGeminiBatches * NON_GEMINI_PER_PROP_SEC;
+        const geminiTimeSec = geminiBatches > 0
+            ? (needsGemini.length * GEMINI_PER_PROP_SEC / GEMINI_BATCH) + ((geminiBatches - 1) * COOLDOWN_SEC)
+            : 0;
+        const totalEstSec = nonGeminiTimeSec + geminiTimeSec;
+
+        const formatTime = (sec: number) => {
+            if (sec < 60) return `${sec}s`;
+            const min = Math.floor(sec / 60);
+            const rem = Math.round(sec % 60);
+            return rem > 0 ? `${min}m ${rem}s` : `${min}m`;
+        };
+
+        addLog(`[ETA] Estimated time: ${formatTime(totalEstSec)} (data healing: ~${formatTime(nonGeminiTimeSec)}, AI analysis: ~${formatTime(geminiTimeSec)})`);
+
+        // Initialize job queue for all properties that will be processed
+        const processableZpids = new Set([...needsNonGeminiOnly, ...needsGemini]);
+        const newJobs: IngestionJob[] = targets
+            .filter(t => processableZpids.has(String(t.zpid)))
+            .map(item => {
+                const id = String(item.zpid);
+                const addrObj = item.location?.address;
+                const fullAddress = addrObj
+                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                    : (item.location?.address?.line || id);
+                return { zpid: id, address: fullAddress, status: 'pending' as const, progress: null };
+            });
+        setIngestionQueue(newJobs);
+
+        let successCount = 0;
+        let partialTotal = 0;
+
+        // ── PHASE 2: Non-Gemini Healing (fast, parallel batches of 10) ────
+        if (needsNonGeminiOnly.length > 0) {
+            addLog(`\n═══ Phase 1: Data Healing (${needsNonGeminiOnly.length} properties, batches of ${NON_GEMINI_BATCH}) ═══`);
+
+            for (let i = 0; i < needsNonGeminiOnly.length; i += NON_GEMINI_BATCH) {
+                const chunk = needsNonGeminiOnly.slice(i, i + NON_GEMINI_BATCH);
+                addLog(`Healing batch ${Math.floor(i / NON_GEMINI_BATCH) + 1}/${nonGeminiBatches} (${chunk.length} properties)...`);
+
+                const results = await Promise.allSettled(chunk.map(async (zpid) => {
+                    const addr = zpidToAddressMap[zpid] || zpid;
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
+
+                    try {
+                        const smoke = smokeByZpid[zpid];
+                        const failedSources = new Set(smoke?.checks.filter(c => !c.passed).map(c => c.source) || []);
+
+                        // Only call APIs for failed sources
+                        if (failedSources.has('rapidapi')) {
+                            const { fetchPropertySpecs } = await import('../../services/api/property');
+                            const { savePropertyToCloud, getPropertyFromCloud } = await import('../../services/firebase/properties');
+                            const existing = await getPropertyFromCloud(zpid);
+                            const fresh = await fetchPropertySpecs(zpid);
+                            if (fresh && existing) {
+                                let healed = 0;
+                                for (const [key, value] of Object.entries(fresh)) {
+                                    if (key === 'resoFacts' || key === 'hoa') continue;
+                                    if (value != null && (existing as any)[key] == null) {
+                                        (existing as any)[key] = value;
+                                        healed++;
+                                    }
+                                }
+                                // Deep-merge resoFacts
+                                if (fresh.resoFacts) {
+                                    const existingReso = (existing as any).resoFacts || {};
+                                    for (const [k, v] of Object.entries(fresh.resoFacts)) {
+                                        if (v != null && v !== '' && (existingReso[k] == null || existingReso[k] === '')) {
+                                            existingReso[k] = v;
+                                            healed++;
+                                        }
+                                    }
+                                    (existing as any).resoFacts = existingReso;
+                                }
+                                // Deep-merge hoa
+                                if (fresh.hoa) {
+                                    const existingHoa = (existing as any).hoa || {};
+                                    for (const [k, v] of Object.entries(fresh.hoa as any)) {
+                                        if (v != null && existingHoa[k] == null) {
+                                            existingHoa[k] = v;
+                                            healed++;
+                                        }
+                                    }
+                                    (existing as any).hoa = existingHoa;
+                                }
+                                if (healed > 0) {
+                                    await savePropertyToCloud(zpid, existing);
+                                    addLog(`[Heal] ✓ ${addr} — healed ${healed} fields`);
+                                }
+                            }
+                        }
+
+                        if (failedSources.has('environmental')) {
+                            const { fetchPropertyDataFull } = await import('../../services/apiService');
+                            await fetchPropertyDataFull(zpid, true, false);
+                            addLog(`[Heal] ✓ ${addr} — environmental data refreshed`);
+                        }
+
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                        return true;
+                    } catch (e: any) {
+                        addLog(`[Heal] ✗ ${addr} — ${e.message}`);
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
+                        return false;
+                    }
+                }));
+
+                successCount += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+                if (i + NON_GEMINI_BATCH < needsNonGeminiOnly.length) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
+
+            addLog(`Phase 1 complete: ${successCount}/${needsNonGeminiOnly.length} healed.`);
+        }
+
+        // ── PHASE 3: Gemini Intelligence (groups of 3) ────────────────────
+        if (needsGemini.length > 0) {
+            addLog(`\n═══ Phase 2: AI Intelligence (${needsGemini.length} properties, batches of ${GEMINI_BATCH}) ═══`);
+
+            const geminiTargets = targets.filter(t => needsGemini.includes(String(t.zpid)));
+            let geminiSuccess = 0;
+
+            for (let i = 0; i < geminiTargets.length; i += GEMINI_BATCH) {
+                const chunk = geminiTargets.slice(i, i + GEMINI_BATCH);
+                addLog(`AI batch ${Math.floor(i / GEMINI_BATCH) + 1}/${geminiBatches} (${chunk.length} properties)...`);
+
+                const chunkPromises = chunk.map(async (item, index) => {
+                    const zpid = String(item.zpid);
+                    const addrObj = item.location?.address;
+                    const builtAddress = addrObj
+                        ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                        : (item.location?.address?.line || zpid);
+
+                    // Small stagger within chunk
+                    if (index > 0) {
+                        await new Promise(r => setTimeout(r, index * 1000));
+                    }
+
+                    const startTime = Date.now();
+                    addLog(`🤖 Starting AI pipeline for: ${builtAddress}`);
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
+
+                    try {
+                        const userId = auth?.currentUser?.uid || 'unknown';
+                        const { zpid: resultZpid, warnings } = await runFullIntelligencePipeline(builtAddress, (progress) => {
+                            if (progress.step.startsWith('AI:')) {
+                                const name = progress.step.replace('AI:', '');
+                                const outcome = progress.status === 'error' ? 'failed' as const
+                                    : progress.status === 'pending' ? 'skipped' as const
+                                    : progress.message === 'Cache hit' ? 'cached' as const
+                                    : 'ran' as const;
+                                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
+                                    ...j,
+                                    completedSteps: [...(j.completedSteps || []), { name, outcome }]
+                                } : j));
+                            } else {
+                                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                            }
+                        }, zpid, userId, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
+
+                        if (warnings && warnings.length > 0) {
+                            addLog(`⚠ Completed with warnings for: ${builtAddress} — ${warnings.join(', ')}`);
+                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
+                                ...j, status: 'partial', endTime: Date.now(),
+                                error: `Needs retry: ${warnings.join(', ')}`
+                            } : j));
+                            return 'partial';
+                        } else {
+                            addLog(`✓ Intelligence complete for: ${builtAddress}`);
+                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                            return true;
+                        }
+                    } catch (e: any) {
+                        console.error(`Ingestion failed for ${zpid}:`, e);
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
+                        return false;
+                    }
+                });
+
+                const results = await Promise.all(chunkPromises);
+                geminiSuccess += results.filter(r => r === true).length;
+                partialTotal += results.filter(r => r === 'partial').length;
+
+                // Cooldown between Gemini batches
+                if (i + GEMINI_BATCH < geminiTargets.length) {
+                    addLog(`[System] Cooling down ${COOLDOWN_SEC}s before next AI batch...`);
+                    await new Promise(r => setTimeout(r, COOLDOWN_SEC * 1000));
+                }
+            }
+
+            successCount += geminiSuccess;
+            addLog(`Phase 2 complete: ${geminiSuccess} AI analyses done, ${partialTotal} partial.`);
+        }
+
+        // ── Summary ────────────────────────────────────────────────────────
         const ingestDuration = Date.now() - batchStartTime;
-        addLog(`Bulk Ingest Complete. ${successCount} fully processed, ${partialTotal} partial (need retry) / ${targets.length} total.`);
-        logPipelineAudit('Full Intel Suite', `${targets.length} properties`, successCount === targets.length ? 'success' : (successCount > 0 ? 'partial' : 'error'), `${successCount} done, ${partialTotal} partial, ${targets.length - successCount - partialTotal} failed`, ingestDuration, { successCount, partialTotal, total: targets.length });
+        const totalProcessed = needsNonGeminiOnly.length + needsGemini.length;
+        addLog(`\n═══ Full Intel Suite Complete ═══`);
+        addLog(`  ✓ ${fullyPassed.length} already healthy (skipped)`);
+        addLog(`  ✗ ${noImages.length} missing images (skipped)`);
+        addLog(`  ⚡ ${needsNonGeminiOnly.length} data-healed`);
+        addLog(`  🤖 ${needsGemini.length} AI-analyzed (${partialTotal} partial)`);
+        addLog(`  ⏱ Total time: ${formatTime(Math.round(ingestDuration / 1000))}`);
+
+        logPipelineAudit('Full Intel Suite', `${targets.length} properties`, successCount === totalProcessed ? 'success' : (successCount > 0 ? 'partial' : 'error'),
+            `${fullyPassed.length} skipped (healthy), ${successCount} done, ${partialTotal} partial, ${noImages.length} no images`,
+            ingestDuration, { successCount, partialTotal, fullyPassed: fullyPassed.length, noImages: noImages.length, nonGeminiOnly: needsNonGeminiOnly.length, gemini: needsGemini.length, total: targets.length });
         setLoading(false);
 
-        if (successCount === targets.length) {
+        if (successCount === totalProcessed && noImages.length === 0) {
             setSelectedIds(new Set());
         }
 
