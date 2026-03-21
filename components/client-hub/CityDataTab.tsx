@@ -1325,12 +1325,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const addr = zpidToAddressMap[zpid] || zpid;
                 const isRegen = needsRegen.includes(zpid);
 
-                // Load property, visual, and comprehensive from Firestore
-                const [property, visual, comprehensive, lifestyleFit] = await Promise.all([
+                // Load property, visual, comprehensive, and google_environmental_data from Firestore
+                const { getGoogleDataFromCloud } = await import('../../services/firebase/googleData');
+                const [property, visual, comprehensive, lifestyleFit, envData] = await Promise.all([
                     getPropertyFromCloud(zpid),
                     getVisualAnalysisFromCloud(zpid),
                     getComprehensiveAnalysisFromCloud(zpid),
-                    import('../../services/firebase/properties').then(m => m.getLifestyleFitFromCloud(zpid))
+                    import('../../services/firebase/properties').then(m => m.getLifestyleFitFromCloud(zpid)),
+                    getGoogleDataFromCloud(zpid).catch(() => null),
                 ]);
 
                 if (!property) {
@@ -1342,6 +1344,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     addLog(`[Context Graph] ✗ Skip ${addr} — missing essential data (price/beds/sqft/address)`);
                     return 'failed';
                 }
+
+                // Merge google_environmental_data fields onto property so precompute factors
+                // have access to google_places (walkable amenities, medical, nearby places),
+                // noiseScore, solarData, evChargers, pollen, broadband, etc.
+                // These fields are stripped from the `properties` doc to stay under 1MB.
+                const enrichedProperty = envData
+                    ? { ...property, ...envData }
+                    : property;
 
                 // Enrich visual with city-level data
                 const city = property.city || '';
@@ -1363,17 +1373,17 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                 // Extract context graph via Gemini
                 addLog(`[Context Graph] ${isRegen ? '↻ Regen' : '▶ New'} ${addr}...`);
-                const res = await extractContextGraphFactors(property, enrichedVisual, comprehensive || null);
+                const res = await extractContextGraphFactors(enrichedProperty as any, enrichedVisual, comprehensive || null);
 
                 if (res.data?.factors?.length > 0) {
-                    await saveContextGraphToCloud(zpid, res.data, property.city, property.state, {
-                        price: property.price ?? property.zestimate,
-                        beds: property.bedrooms,
-                        baths: property.bathrooms,
-                        sqft: property.livingAreaValue,
-                        yearBuilt: property.yearBuilt,
-                        homeType: property.homeType,
-                        address: property.address
+                    await saveContextGraphToCloud(zpid, res.data, enrichedProperty.city, enrichedProperty.state, {
+                        price: enrichedProperty.price ?? enrichedProperty.zestimate,
+                        beds: enrichedProperty.bedrooms,
+                        baths: enrichedProperty.bathrooms,
+                        sqft: enrichedProperty.livingAreaValue,
+                        yearBuilt: enrichedProperty.yearBuilt,
+                        homeType: enrichedProperty.homeType,
+                        address: enrichedProperty.address
                     });
                     addLog(`[Context Graph] ✓ Saved ${res.data.factors.length} factors for ${addr}`);
                     return 'done';
