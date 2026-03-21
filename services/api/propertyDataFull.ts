@@ -341,14 +341,16 @@ export const fetchPropertyDataFull = async (
                         const svAnalysis = await analyzeStreetView(streetViewUrl, mappedData, userId);
                         mappedData.streetViewAnalysis = svAnalysis.data;
                         console.log('[fetchPropertyDataFull] Street View analysis complete. Image URL:', mappedData.streetViewAnalysis?.imageUrl);
+                        streetViewDirty = true; // Definitive: AI succeeded
                     } catch (e: any) {
                         console.warn('[fetchPropertyDataFull] Street View analysis failed.', e.message || e);
+                        // DON'T set streetViewDirty — this was an AI failure, not "source unavailable"
                     }
                 } else {
                     console.log('[fetchPropertyDataFull] No Street View imagery available — skipping AI analysis.');
                     mappedData.streetViewAnalysis = undefined;
+                    streetViewDirty = true; // Definitive: imagery confirmed unavailable
                 }
-                streetViewDirty = true;
                 _mark('Street View analysis done');
             }
 
