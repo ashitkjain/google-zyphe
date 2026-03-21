@@ -414,7 +414,8 @@ export const fetchPropertyDataFull = async (
 
         // ── PARCEL DATA (previously lazy-loaded by ParcelValidationCard) ────────
         // Fetch ArcGIS parcel polygon, APN, and area if not already cached.
-        if (mappedData.coordinates && mappedData.zpid && !mappedData.parcelPolygon) {
+        // Skip if parcelNotFound is stamped — ArcGIS confirmed it has no record for this address.
+        if (mappedData.coordinates && mappedData.zpid && !mappedData.parcelPolygon && !(mappedData as any).parcelNotFound) {
             onStep?.('Fetching parcel data from ArcGIS...');
             _mark('Parcel fetch start');
             console.log(`[⏱ DataPipeline] +${_elapsed()} — parcel fetch start`);
@@ -424,6 +425,9 @@ export const fetchPropertyDataFull = async (
                     mappedData.coordinates.latitude,
                     mappedData.coordinates.longitude
                 );
+                // Always stamp fetchedAt so the smoke check can distinguish
+                // "never fetched" from "fetched but ArcGIS has no record"
+                (mappedData as any).parcelFetchedAt = new Date().toISOString();
                 if (parcelResult) {
                     (mappedData as any).parcelPolygon = polygonToFirestore(parcelResult.polygon);
                     (mappedData as any).parcelApn = parcelResult.apn;
@@ -435,6 +439,11 @@ export const fetchPropertyDataFull = async (
                         (mappedData as any).taxSqftSource = `ArcGIS ${parcelResult.county}`;
                     }
                     console.log(`[Pipeline] Parcel data fetched: APN=${parcelResult.apn}, area=${parcelResult.areaSqft}sf, county=${parcelResult.county}`);
+                    parcelDirty = true;
+                } else {
+                    // ArcGIS returned no record — stamp as not-found to skip future redundant fetches
+                    (mappedData as any).parcelNotFound = true;
+                    console.log(`[Pipeline] Parcel data: ArcGIS has no record for these coordinates.`);
                     parcelDirty = true;
                 }
             } catch (e: any) {

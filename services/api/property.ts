@@ -3,6 +3,8 @@ import { logAPICall, updateAPICall } from '../firebase/api_logs';
 import { auth } from '../firebase/config';
 import { PropertyComp } from '../../types';
 import { extractNumericValue, formatAddress } from './utils';
+import { RESO_AUDITED_SUBFIELDS, resoFieldKey } from '../../utils/propertyFieldConfig';
+
 
 const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
@@ -469,6 +471,17 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                     // else: field absent from raw response — don't record opinion
                 } else {
                     fieldsPopulated.push(key);
+                }
+            }
+
+            // Also audit resoFacts sub-fields: the API confirmed resoFacts exists,
+            // so any sub-field missing there is source-null (agent didn't fill it in).
+            if (resoRaw && Object.keys(resoRaw).length > 0) {
+                for (const sf of RESO_AUDITED_SUBFIELDS) {
+                    const val = resoRaw[sf];
+                    const absent = val == null || val === '' || (Array.isArray(val) && val.length === 0);
+                    if (absent) fieldsNull.push(resoFieldKey(sf));
+                    else fieldsPopulated.push(resoFieldKey(sf));
                 }
             }
 

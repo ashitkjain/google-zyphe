@@ -19,6 +19,7 @@ import {
     CommunityPulseResult,
     DeepInvestmentResearchResult
 } from "../../types";
+import { ALLOWED_HOME_TYPES } from "../../utils/propertyValidation";
 
 export const savePropertyAssetsToCloud = async (zpid: string, assets: PropertyAssets) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
@@ -1478,6 +1479,17 @@ export const runDeprecationSweep = async (
             await Promise.all(chunk.map(async (d) => {
                 const zpid = d.id;
                 const data = d.data();
+
+                // ── INVALID TYPE CHECK ───────────────────────────────────────
+                // Delete properties with unsupported homeTypes (LOT, LAND, etc.)
+                // that were ingested before the filter existed.
+                const homeType = data.homeType || '';
+                if (homeType && !ALLOWED_HOME_TYPES.includes(homeType)) {
+                    log(`[Sweep] Deleting unsupported type (${homeType}): ${data.address || zpid}`);
+                    await deletePropertyAnalysis(zpid, 'all').catch(() => {});
+                    deprecated.push(zpid);
+                    return;
+                }
 
                 // ── SCOPE CHECK ──────────────────────────────────────────────
                 // Only evaluate properties whose city is in the loaded listings.

@@ -14,7 +14,8 @@ import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalys
 import { fetchPropertySpecs } from '../../services/api/property';
 
 import { PropertyData } from '../../types';
-import { isGhostListing, isSupportedPropertyType, hasEssentialData } from '../../utils/propertyValidation';
+import { isSupportedPropertyType, hasEssentialData } from '../../utils/propertyValidation';
+import { GEMINI_CHECK_SOURCES, NON_GEMINI_CHECK_SOURCES } from '../../utils/pipelineCheckConfig';
 import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
@@ -443,6 +444,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             return selectedIds.has(id);
         });
 
+
+        if (targets.length === 0) {
+            addLog(`[Filter] No supported properties to process. Done.`);
+            setLoading(false);
+            return;
+        }
+
         addLog(`Selected ${targets.length} properties. Running smoke triage...`);
 
         // ── PHASE 0: Smoke Test Triage ─────────────────────────────────────
@@ -465,8 +473,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         // ── PHASE 1: Image Gate ────────────────────────────────────────────
         // Properties with <3 images AND no existing visual analysis can't run Gemini visual
-        const GEMINI_SOURCES = new Set(['ai_visual', 'ai_comprehensive', 'ai_investment']);
-        const NON_GEMINI_SOURCES = new Set(['rapidapi', 'environmental', 'assets', 'computed']);
+        const GEMINI_SOURCES = GEMINI_CHECK_SOURCES;
+        const NON_GEMINI_SOURCES = NON_GEMINI_CHECK_SOURCES;
 
         const fullyPassed: string[] = [];
         const noImages: string[] = [];
@@ -475,6 +483,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         for (const zpid of targetZpids) {
             const smoke = smokeByZpid[zpid];
+
+
             if (!smoke) {
                 // No smoke result = no property doc → needs full pipeline
                 needsGemini.push(zpid);
@@ -496,7 +506,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             // Classify by failed check sources
             const failedSources = new Set(smoke.checks.filter(c => !c.passed).map(c => c.source));
-            const hasGeminiNeeds = [...failedSources].some(s => GEMINI_SOURCES.has(s));
+            const hasGeminiNeeds = [...failedSources].some(s => GEMINI_SOURCES.has(s as string));
 
             if (hasGeminiNeeds) {
                 needsGemini.push(zpid);
@@ -571,10 +581,17 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         const existing = await getPropertyFromCloud(zpid);
                         const fresh = await fetchPropertySpecs(zpid);
                         if (fresh && existing) {
+                            // _fetchMeta is audit metadata — always overwrite, never merge.
+                            // Without this, a stale _fetchMeta.fieldsNull would be kept even
+                            // after a re-fetch that produces a new (more complete) null field list.
+                            if (fresh._fetchMeta) {
+                                (existing as any)._fetchMeta = fresh._fetchMeta;
+                            }
+
                             // Generic deep-merge: fills null/empty primitives, deep-merges objects, replaces empty arrays
                             let healed = 0;
                             for (const [key, freshVal] of Object.entries(fresh)) {
-                                if (freshVal == null) continue;
+                                if (freshVal == null || key === '_fetchMeta') continue;
                                 const ev = (existing as any)[key];
                                 if (Array.isArray(freshVal)) {
                                     if (!ev?.length && freshVal.length > 0) { (existing as any)[key] = freshVal; healed++; }
@@ -588,11 +605,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     (existing as any)[key] = freshVal; healed++;
                                 }
                             }
+                            await savePropertyToCloud(zpid, existing);
                             if (healed > 0) {
-                                await savePropertyToCloud(zpid, existing);
                                 addLog(`  ✓ Healed ${healed} fields`);
                             } else {
-                                addLog(`  ✓ No fields needed healing`);
+                                addLog(`  ✓ fetch metadata updated`);
                             }
                         }
                     }
@@ -601,6 +618,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         const { fetchPropertyDataFull } = await import('../../services/apiService');
                         await fetchPropertyDataFull(zpid, true, false);
                         addLog(`  ✓ Environmental data refreshed`);
+                    }
+
+                    if (failedSources.has('parcel')) {
+                        const { runPropertyDataOnlyPipeline } = await import('../../services/preloadService');
+                        await runPropertyDataOnlyPipeline(addr, () => {}, zpid, (msg) => addLog(msg));
                     }
 
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
@@ -655,8 +677,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 const name = progress.step.replace('AI:', '');
                                 const outcome = progress.status === 'error' ? 'failed' as const
                                     : progress.status === 'pending' ? 'skipped' as const
-                                    : progress.message === 'Cache hit' ? 'cached' as const
-                                    : 'ran' as const;
+                                        : progress.message === 'Cache hit' ? 'cached' as const
+                                            : 'ran' as const;
                                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
                                     ...j,
                                     completedSteps: [...(j.completedSteps || []), { name, outcome }]
@@ -743,23 +765,31 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const allCached = cloudCached.listings || [];
                     const cachedListings = allCached
                         .filter((item: any) => !!item.zpid)
-                        .filter((item: any) => !isGhostListing(item))
                         .filter((item: any) => isSupportedPropertyType(item))
                         .map((item: any) => ({
-                        ...item,
-                        location: {
-                            ...item.location,
-                            address: {
-                                ...item.location?.address,
-                                city: item.location?.address?.city === 'Unknown City' ? (fallbackCity || 'Unknown City') : (item.location?.address?.city || fallbackCity || 'Unknown City'),
-                                state_code: item.location?.address?.state_code === 'Unknown State' ? (fallbackState || 'Unknown State') : (item.location?.address?.state_code || fallbackState || 'Unknown State')
+                            ...item,
+                            location: {
+                                ...item.location,
+                                address: {
+                                    ...item.location?.address,
+                                    city: item.location?.address?.city === 'Unknown City' ? (fallbackCity || 'Unknown City') : (item.location?.address?.city || fallbackCity || 'Unknown City'),
+                                    state_code: item.location?.address?.state_code === 'Unknown State' ? (fallbackState || 'Unknown State') : (item.location?.address?.state_code || fallbackState || 'Unknown State')
+                                }
                             }
-                        }
-                    }));
-                    const removed = allCached.length - cachedListings.length;
-                    if (removed > 0) {
-                        addLog(`Cleaned ${removed} ghost/unsupported listing(s) from cache for zip ${zip}`);
+                        }));
+                    const removed = allCached.filter((item: any) => !!item.zpid && !isSupportedPropertyType(item));
+                    if (removed.length > 0) {
+                        addLog(`Cleaning ${removed.length} unsupported listing(s) from zip ${zip}...`);
+                        // Update zip cache synchronously
                         saveZipListings(zip, cachedListings).catch(console.error);
+                        // Delete from Firestore — fire and forget, non-blocking
+                        import('../../services/firebase/properties').then(({ deletePropertyAnalysis }) => {
+                            for (const item of removed) {
+                                const zpid = String(item.zpid);
+                                addLog(`  ✗ Deleting (${item.homeType || 'no type'}): ${item.location?.address?.line || zpid}`);
+                                deletePropertyAnalysis(zpid, 'all').catch(() => {});
+                            }
+                        });
                     }
                     addLog(`Cloud Cache Hit for Zip: ${zip} (${cachedListings.length} items)`);
                     return cachedListings;
@@ -795,29 +825,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         const mapPage = (rawData: any[]) => rawData
             .filter((item: any) => !!item.zpid)
-            .filter((item: any) => !isGhostListing(item))
             .filter((item: any) => isSupportedPropertyType(item))
             .map((item: any) => {
-            const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
-            const legacyAddr = legacyLoc.address || {};
-            const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
-            const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
-            return {
-                ...item,
-                zpid: item.zpid,
-                property_id: String(item.zpid),
-                location: {
-                    address: {
-                        line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
-                        city: legacyAddr.city || item.city || item.town || fallbackCity || 'Unknown City',
-                        state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
-                        postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
-                    }
-                },
-                list_price: numericPrice,
-                primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
-            };
-        });
+                const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
+                const legacyAddr = legacyLoc.address || {};
+                const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
+                const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+                return {
+                    ...item,
+                    zpid: item.zpid,
+                    property_id: String(item.zpid),
+                    location: {
+                        address: {
+                            line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
+                            city: legacyAddr.city || item.city || item.town || fallbackCity || 'Unknown City',
+                            state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
+                            postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
+                        }
+                    },
+                    list_price: numericPrice,
+                    primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
+                };
+            });
 
         try {
             const allData: any[] = [];
@@ -1055,27 +1084,44 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const ENRICH_CHUNK = 3; // RapidAPI rate limit safe
                     let enriched = 0;
                     let enrichFailed = 0;
+                    let enrichSkipped = 0;
                     for (let i = 0; i < newZpids.length; i += ENRICH_CHUNK) {
                         const chunk = newZpids.slice(i, i + ENRICH_CHUNK);
                         const enrichResults = await Promise.allSettled(
                             chunk.map(async (zpid: string) => {
                                 const specs = await fetchPropertySpecs(zpid);
-                                if (specs && specs.zpid) {
-                                    await savePropertyToCloud(String(specs.zpid), specs as any);
-                                    return true;
+                                if (!specs?.zpid) return false;
+
+                                // Validate before saving: reject unsupported homeType OR no bedrooms
+                                const isValidType = isSupportedPropertyType(specs);
+                                const hasBedrooms = (specs.bedrooms ?? 0) > 0;
+                                if (!isValidType || !hasBedrooms) {
+                                    const reason = !isValidType
+                                        ? `unsupported type (${(specs as any).homeType || 'unknown'})`
+                                        : `no bedrooms (homeType=${(specs as any).homeType})`;
+                                    addLog(`  ✗ Skipping ${zpid}: ${reason}`);
+                                    // Remove from zip cache so it won't reappear
+                                    const matchedListing = results.find((r: any) => String(r.zpid) === zpid);
+                                    const zip = matchedListing?.location?.address?.postal_code;
+                                    if (zip) await removePropertyFromZipCache(zip, zpid).catch(() => {});
+                                    setListings(prev => prev.filter(l => String(l.zpid) !== zpid));
+                                    enrichSkipped++;
+                                    return false;
                                 }
-                                return false;
+
+                                await savePropertyToCloud(String(specs.zpid), specs as any);
+                                return true;
                             })
                         );
                         enrichResults.forEach(r => {
                             if (r.status === 'fulfilled' && r.value) enriched++;
-                            else enrichFailed++;
+                            else if (r.status === 'rejected') enrichFailed++;
                         });
                         addLog(`  Enriched ${Math.min(i + ENRICH_CHUNK, newZpids.length)}/${newZpids.length}...`);
                         if (i + ENRICH_CHUNK < newZpids.length) await new Promise(r => setTimeout(r, 1200));
                     }
-                    addLog(`Enrichment complete: ${enriched} saved, ${enrichFailed} failed.`);
-                    logPipelineAudit('Property Enrichment', city.trim(), enrichFailed === 0 ? 'success' : 'partial', `${enriched}/${newZpids.length} enriched`, undefined, { enriched, failed: enrichFailed, skipped: existingSet.size });
+                    addLog(`Enrichment complete: ${enriched} saved, ${enrichSkipped} skipped (invalid type/no rooms), ${enrichFailed} failed.`);
+                    logPipelineAudit('Property Enrichment', city.trim(), enrichFailed === 0 ? 'success' : 'partial', `${enriched}/${newZpids.length} enriched`, undefined, { enriched, skipped: enrichSkipped, failed: enrichFailed, existing: existingSet.size });
                 } else {
                     addLog(`All ${allZpids.length} properties already in Firestore — enrichment skipped.`);
                 }
@@ -1426,7 +1472,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     if (minBaths > 0 && l.baths && l.baths < minBaths) return false;
                     return true;
                 });
-                addLog(`[Buyer Search] Filtered to ${candidateZpids.length} properties (price: $${minPrice/1000}K–$${maxPrice === Infinity ? '∞' : maxPrice/1000 + 'K'}, beds≥${minBeds}, baths≥${minBaths})`);
+                addLog(`[Buyer Search] Filtered to ${candidateZpids.length} properties (price: $${minPrice / 1000}K–$${maxPrice === Infinity ? '∞' : maxPrice / 1000 + 'K'}, beds≥${minBeds}, baths≥${minBaths})`);
             }
 
             // Cap at 20
@@ -2301,28 +2347,27 @@ ${JSON.stringify(propertySummaries)}
                                             if (allForSale.length > 0) {
                                                 // Normalize listings WITH fallback state before saving to cache
                                                 const mapped = allForSale
-                                                    .filter((item: any) => !isGhostListing(item))
                                                     .filter((item: any) => isSupportedPropertyType(item))
                                                     .map((item: any) => {
-                                                    const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
-                                                    const legacyAddr = legacyLoc.address || {};
-                                                    const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
-                                                    const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
-                                                    return {
-                                                        ...item,
-                                                        property_id: String(item.zpid),
-                                                        location: {
-                                                            address: {
-                                                                line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
-                                                                city: legacyAddr.city || item.city || item.town || normalizedCity || 'Unknown City',
-                                                                state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
-                                                                postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
-                                                            }
-                                                        },
-                                                        list_price: numericPrice,
-                                                        primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
-                                                    };
-                                                });
+                                                        const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
+                                                        const legacyAddr = legacyLoc.address || {};
+                                                        const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
+                                                        const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+                                                        return {
+                                                            ...item,
+                                                            property_id: String(item.zpid),
+                                                            location: {
+                                                                address: {
+                                                                    line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
+                                                                    city: legacyAddr.city || item.city || item.town || normalizedCity || 'Unknown City',
+                                                                    state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
+                                                                    postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
+                                                                }
+                                                            },
+                                                            list_price: numericPrice,
+                                                            primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
+                                                        };
+                                                    });
                                                 const filtered = allForSale.length - mapped.length;
                                                 await saveZipListings(zip, mapped);
                                                 allForSaleResults.push(...mapped);
@@ -2500,11 +2545,10 @@ ${JSON.stringify(propertySummaries)}
                                     setNeighborhoodMining(false);
                                 }}
                                 disabled={loading || !city || neighborhoodMining}
-                                className={`px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 disabled:opacity-50 ${
-                                    cachedNeighborhoodCount && cachedNeighborhoodCount > 0
-                                        ? 'bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                                        : 'bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100'
-                                }`}
+                                className={`px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 disabled:opacity-50 ${cachedNeighborhoodCount && cachedNeighborhoodCount > 0
+                                    ? 'bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                                    : 'bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100'
+                                    }`}
                                 title={cachedNeighborhoodCount ? `${cachedNeighborhoodCount} neighborhoods cached — click to re-mine` : 'Mine all neighborhoods for this city using Gemini 3 Flash Preview'}
                             >
                                 {neighborhoodMining ? (
@@ -2889,11 +2933,10 @@ ${JSON.stringify(propertySummaries)}
                                                 {sortedFails.map(([id, { label, severity, count }]) => (
                                                     <button key={id}
                                                         onClick={() => setSmokeCheckFilter(smokeCheckFilter === id ? null : id)}
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all ${
-                                                            severity === 'error'
-                                                                ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
-                                                                : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-                                                        } ${smokeCheckFilter === id ? 'ring-2 ring-offset-1 ' + (severity === 'error' ? 'ring-rose-400' : 'ring-amber-400') : ''}`}
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all ${severity === 'error'
+                                                            ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                                                            : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                                                            } ${smokeCheckFilter === id ? 'ring-2 ring-offset-1 ' + (severity === 'error' ? 'ring-rose-400' : 'ring-amber-400') : ''}`}
                                                         title={`Click to filter: ${label} — ${count}/${smokeSummary.totalProperties} properties failing`}
                                                     >
                                                         {label} <span className="font-black">{count}</span>
@@ -2958,11 +3001,10 @@ ${JSON.stringify(propertySummaries)}
                                         <div className="flex flex-wrap gap-2">
                                             {commonChecks.map(c => (
                                                 <span key={c.id}
-                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
-                                                        c.severity === 'error'
-                                                            ? 'bg-rose-50 border-rose-200 text-rose-700'
-                                                            : 'bg-amber-100 border-amber-300 text-amber-800'
-                                                    }`}
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${c.severity === 'error'
+                                                        ? 'bg-rose-50 border-rose-200 text-rose-700'
+                                                        : 'bg-amber-100 border-amber-300 text-amber-800'
+                                                        }`}
                                                 >
                                                     <i className={`fa-solid ${c.severity === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'} text-[8px]`}></i>
                                                     {c.label}
@@ -3035,14 +3077,12 @@ ${JSON.stringify(propertySummaries)}
                                                     <div className="px-12 pb-5 pt-1 grid grid-cols-2 lg:grid-cols-3 gap-2 bg-slate-50/40 border-t border-slate-100 animate-in fade-in duration-200">
                                                         {result.checks.map(check => (
                                                             <div key={check.id}
-                                                                className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-[10px] ${
-                                                                    check.sourceNull
-                                                                        ? 'bg-slate-50 border-slate-200 text-slate-400'
-                                                                        : check.passed ? 'bg-white border-slate-100 text-slate-600' : check.severity === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-                                                                <i className={`fa-solid mt-0.5 text-[9px] shrink-0 ${
-                                                                    check.sourceNull
-                                                                        ? 'fa-ban text-slate-300'
-                                                                        : check.passed ? 'fa-check text-emerald-500' : check.severity === 'error' ? 'fa-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'}`}></i>
+                                                                className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-[10px] ${check.sourceNull
+                                                                    ? 'bg-slate-50 border-slate-200 text-slate-400'
+                                                                    : check.passed ? 'bg-white border-slate-100 text-slate-600' : check.severity === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                                                                <i className={`fa-solid mt-0.5 text-[9px] shrink-0 ${check.sourceNull
+                                                                    ? 'fa-ban text-slate-300'
+                                                                    : check.passed ? 'fa-check text-emerald-500' : check.severity === 'error' ? 'fa-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'}`}></i>
                                                                 <div className="min-w-0">
                                                                     <div className="font-black truncate">{check.label}{check.sourceNull ? ' ᴺ/ᴬ' : ''}</div>
                                                                     {check.detail && <div className="font-medium opacity-70 truncate mt-0.5" title={check.detail}>{check.detail}</div>}
@@ -3639,11 +3679,10 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                     setNeighborhoodData(null);
                                     setShowNeighborhoods(true);
                                 }}
-                                className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all ${
-                                    selectedKey === c.key
-                                        ? 'bg-emerald-100 border border-emerald-300 text-emerald-800 shadow-sm'
-                                        : 'bg-slate-50 border border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                                }`}
+                                className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all ${selectedKey === c.key
+                                    ? 'bg-emerald-100 border border-emerald-300 text-emerald-800 shadow-sm'
+                                    : 'bg-slate-50 border border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                                    }`}
                             >
                                 {c.city}, {c.state} ({c.count})
                             </span>
@@ -3663,9 +3702,8 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                 <button
                                     key={c.key}
                                     onClick={() => { setSelectedKey(c.key); setNeighborhoodData(null); }}
-                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                        selectedKey === c.key ? 'bg-slate-900 text-white shadow' : 'bg-white border border-slate-200 text-slate-400'
-                                    }`}
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${selectedKey === c.key ? 'bg-slate-900 text-white shadow' : 'bg-white border border-slate-200 text-slate-400'
+                                        }`}
                                 >
                                     {c.city}, {c.state} ({c.count})
                                 </button>

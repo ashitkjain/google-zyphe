@@ -23,34 +23,22 @@ export const isGhostListing = (item: any): boolean => {
     const addr = item.location?.address?.line || item.address || item.streetAddress || item.full_address || '';
     const addrLower = addr.toLowerCase().trim();
 
-    // Pattern: starts with "Plan <N>" or "Residence <N> Plan" — new construction model plans
+    // New construction model-home plans and community placeholders
     if (/^(plan\s+\d|residence\s+\d+\s+plan|homesite|lot\s+\d)/i.test(addrLower)) return true;
-
-    // No street number at all (real addresses start with a number)
-    if (addr && !/^\d/.test(addr.trim())) return true;
-
-    // Address is just a community name (no comma before city, no numbers)
-    if (addr && !addr.includes(',') && !/\d/.test(addr)) return true;
 
     return false;
 };
 
-// ── Property type filter ────────────────────────────────────────────
-
-// Types to always exclude (vacant land, lots)
-const BLOCKED_HOME_TYPES = ['LOT', 'LAND', 'VACANT_LAND'];
-
 /**
  * Only allow Single Family, Townhouse, and Condo listings.
- * homeType values come from Zillow API: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", etc.
- * Explicitly blocks LOT / LAND / VACANT_LAND.
- * If no type info, let it through (will be filtered later when data is enriched).
+ * Uses an allowlist: if homeType is set and not in ALLOWED_HOME_TYPES, block it.
+ * This handles all variants (LOT, LAND, LOT_LAND, VACANT_LAND, MULTI_FAMILY, etc.)
+ * without maintaining a separate blocklist.
+ * If no type info, let it through (will be filtered when data is enriched).
  */
 export const isSupportedPropertyType = (item: any): boolean => {
-    const ht = item.homeType || item.home_type || '';
+    const ht = item.homeType || '';
     if (!ht) return true; // no type info yet — let it through
-    const upper = ht.toUpperCase();
-    if (BLOCKED_HOME_TYPES.includes(upper)) return false;
     return ALLOWED_HOME_TYPES.includes(ht);
 };
 
@@ -105,5 +93,5 @@ export const hasEssentialData = (item: any): boolean => {
  * Use this as the single entry point when you want all checks.
  */
 export const isValidProperty = (item: any): boolean => {
-    return !isGhostListing(item) && isSupportedPropertyType(item) && hasEssentialData(item);
+    return isSupportedPropertyType(item) && hasEssentialData(item);
 };

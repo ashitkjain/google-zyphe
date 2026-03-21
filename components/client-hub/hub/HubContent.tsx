@@ -36,6 +36,7 @@ import DistressedFinderTab from '../DistressedFinderTab';
 import PropertyCompsTab from '../PropertyCompsTab';
 import SoldListingsTab from '../SoldListingsTab';
 import AgentManagerTab from '../AgentManagerTab';
+import CostDashboardTab from '../CostDashboardTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -246,6 +247,8 @@ const HubContent: React.FC<HubContentProps> = ({
             )}
 
             {activeTab === 'agent_manager' && <AgentManagerTab />}
+
+            {activeTab === 'cost_dashboard' && <CostDashboardTab />}
         </div>
     );
 };

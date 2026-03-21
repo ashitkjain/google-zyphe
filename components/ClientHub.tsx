@@ -91,6 +91,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             premium_mls: 'Premium MLS', reminder_rules: 'Reminder Rules',
             my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
             sold_listings: 'Sold Listings', agent_manager: 'Agent Manager',
+            cost_dashboard: 'Cost Dashboard',
         };
         const label = PAGE_LABELS[activeTab] || activeTab;
         setCurrentPage(activeTab, label);          // sets super property on ALL future events
@@ -205,6 +206,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
         { id: 'context_graph_builder', label: 'Context Graph', icon: 'fa-diagram-project' },
         { id: 'agent_manager', label: 'Agent Manager', icon: 'fa-robot' },
+        { id: 'cost_dashboard', label: 'Cost Dashboard', icon: 'fa-dollar-sign' },
     ] : [];
 
     // Investor tabs — visible to investors AND admins

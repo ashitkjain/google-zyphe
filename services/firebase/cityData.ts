@@ -154,7 +154,7 @@ export const removePropertyFromZipCache = async (zipCode: string, propertyId: st
         if (docSnap.exists()) {
             const data = docSnap.data() as ZipListingsCache;
             const updatedListings = (data.listings || []).filter(l =>
-                String(l.property_id || l.listing_id || l.zpid) !== String(propertyId)
+                String(l.zpid) !== String(propertyId)
             );
 
             await setDoc(docRef, {

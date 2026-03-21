@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db, generateCityStateKey } from './firebase/config';
 import { normalizeEnvDoc } from './firebase/googleData';
+import { resoFieldKey } from '../utils/propertyFieldConfig';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ export type CheckSource =
     | 'rapidapi'          // RapidAPI /property endpoint (fetchPropertySpecs)
     | 'environmental'     // Google/USGS/NREL environmental APIs (fetchPropertyDataFull)
     | 'assets'            // Firebase Storage asset pipeline (securePropertyAssets)
+    | 'parcel'            // ArcGIS parcel lookup + Gemini tax record fallback
     | 'ai_visual'         // Gemini visual analysis (analyzePropertyImages + analyzeNeighborhood)
     | 'ai_comprehensive'  // Gemini comprehensive/narrative analysis
     | 'ai_investment'     // Investment research analysis
@@ -178,20 +180,35 @@ export function runChecks(
     chk(checks, 'satellite', 'Satellite Image (Storage)', 'warn', 'assets', isFirebaseStorageUrl(satUrl),
         isFirebaseStorageUrl(satUrl) ? 'present' : (satUrl ? 'present (not in Storage)' : 'missing'));
 
-    // ── 5. Parcel / APN data ─────────────────────────────────────────────────
-    // Parcel data is fetched lazily by ParcelValidationCard on first Explore visit.
-    // Also check the parcelValidation sub-object which caches validation results.
+    // ── 5. Parcel / APN data ──────────────────────────────────────────────────
+    // parcelNotFound = ArcGIS was called but has no record for this address (source confirmed)
+    // parcelFetchedAt = ArcGIS was called; without parcelNotFound means it succeeded
+    const parcelFetched = !!(prop?.parcelFetchedAt || prop?.parcelCachedAt || prop?.parcelPolygon);
+    const parcelNotFound = !!(prop as any)?.parcelNotFound;
+
     const polygon = prop?.parcelPolygon || prop?.parcel_polygon || prop?.parcelValidation?.polygon;
     const hasPolygon = Array.isArray(polygon) && polygon.length > 3;
-    chkWithMeta(checks, 'parcelPolygon', 'Parcel Polygon', 'warn', 'environmental', hasPolygon,
-        hasPolygon ? `${polygon.length} vertices` : 'not fetched', envMeta, 'parcelPolygon');
+    checks.push({
+        id: 'parcelPolygon', label: 'Parcel Polygon', severity: 'warn', source: 'parcel',
+        passed: hasPolygon || parcelNotFound,
+        detail: hasPolygon ? `${polygon.length} vertices` : parcelNotFound ? 'no ArcGIS record for address' : 'not fetched',
+        sourceNull: !hasPolygon && parcelNotFound,
+    });
     const apnVal = prop?.parcelApn || prop?.parcel_apn || prop?.apn || prop?.APN;
-    chkWithMeta(checks, 'parcelApn', 'APN', 'warn', 'environmental', !!apnVal,
-        apnVal || 'not fetched', envMeta, 'parcelApn');
+    checks.push({
+        id: 'parcelApn', label: 'APN', severity: 'warn', source: 'parcel',
+        passed: !!apnVal || parcelNotFound,
+        detail: apnVal ? String(apnVal) : parcelNotFound ? 'no ArcGIS record' : 'not fetched',
+        sourceNull: !apnVal && parcelNotFound,
+    });
     const parcelArea = prop?.parcelAreaSqft || prop?.parcel_area_sqft || prop?.parcelArea;
-    chkWithMeta(checks, 'parcelArea', 'Parcel Area (sqft)', 'warn', 'environmental', parcelArea != null && parcelArea > 0,
-        parcelArea ? `${parcelArea.toLocaleString()} sf` : 'not fetched', envMeta, 'parcelArea');
-    chkWithMeta(checks, 'taxSqft', 'Tax Record Sqft', 'warn', 'environmental', prop?.taxSqft != null && prop.taxSqft > 0,
+    checks.push({
+        id: 'parcelArea', label: 'Parcel Area (sqft)', severity: 'warn', source: 'parcel',
+        passed: (parcelArea != null && parcelArea > 0) || parcelNotFound,
+        detail: parcelArea ? `${parcelArea.toLocaleString()} sf` : parcelNotFound ? 'no ArcGIS record' : 'not fetched',
+        sourceNull: !parcelArea && parcelNotFound,
+    });
+    chkWithMeta(checks, 'taxSqft', 'Tax Record Sqft', 'warn', 'parcel', prop?.taxSqft != null && prop.taxSqft > 0,
         prop?.taxSqft ? `${prop.taxSqft.toLocaleString()} sf (${prop.taxSqftSource || 'unknown source'})` : 'not fetched', envMeta, 'taxSqft');
 
     // ── 6. Google Environmental APIs ─────────────────────────────────────────
@@ -232,8 +249,19 @@ export function runChecks(
             ? `Zone ${sz.designCategory}${sz.riskLevel ? ` (${sz.riskLevel})` : ''}${sz.pga ? ` PGA ${sz.pga.toFixed(2)}g` : ''}`
             : 'missing', envMeta, 'historical_disasters');
     const quakes = hd?.earthquakes;
-    chkWithMeta(checks, 'earthquakeHistory', 'Earthquake History', 'warn', 'environmental', Array.isArray(quakes) && quakes.length > 0,
-        Array.isArray(quakes) ? `${quakes.length} events recorded` : 'missing', envMeta, 'historical_disasters');
+    // An empty array from USGS means the API was called and genuinely found no M3.0+ events
+    // within the search radius — it's source-confirmed "none nearby", not a missing fetch.
+    const disastersFetched = !!(hd?.fetchedAt);
+    const earthquakeSourceNull = disastersFetched && Array.isArray(quakes) && quakes.length === 0;
+    checks.push({
+        id: 'earthquakeHistory',
+        label: 'Earthquake History',
+        severity: 'warn',
+        source: 'environmental',
+        passed: earthquakeSourceNull || (Array.isArray(quakes) && quakes.length > 0),
+        detail: Array.isArray(quakes) ? (quakes.length > 0 ? `${quakes.length} events recorded` : 'none within 5mi radius') : 'not fetched',
+        sourceNull: earthquakeSourceNull,
+    });
 
     // ── 7. AI Analysis ───────────────────────────────────────────────────────
     // Visual AI (interior / exterior)
@@ -251,8 +279,14 @@ export function runChecks(
     chk(checks, 'conditionFinish', 'AI Visual — Condition & Finish', 'warn', 'ai_visual', !!(hi?.condition_and_finish && hi.condition_and_finish.length > 10),
         hi?.condition_and_finish ? `${hi.condition_and_finish.length} chars` : 'missing');
     const roomCount = Array.isArray(visual?.room_highlights) ? visual.room_highlights.length : 0;
-    chk(checks, 'roomHighlights', 'AI Visual — Room Highlights', 'warn', 'ai_visual', roomCount >= 3,
-        roomCount > 0 ? `${roomCount} rooms detected` : 'missing');
+    // Compare AI rooms against property bedrooms — the AI should document at least every bedroom.
+    // resoFacts.rooms is the total room count (often 8-10+), but bedrooms is the reliable minimum.
+    const bedroomCount = prop?.bedrooms ?? 0;
+    const roomCoverageOk = roomCount >= 1 && (bedroomCount === 0 || roomCount >= bedroomCount);
+    chk(checks, 'roomHighlights', 'AI Visual — Room Highlights', 'warn', 'ai_visual', roomCoverageOk,
+        roomCount > 0
+            ? `${roomCount} rooms vs ${bedroomCount}BR${!roomCoverageOk ? ' — incomplete coverage' : ''}`
+            : 'missing');
 
     // Visual sub-fields: curb appeal, backyard, privacy
     const ext = visual?.exterior_and_neighborhood;
@@ -448,13 +482,17 @@ export function runChecks(
     const resoStructure = [reso?.stories, reso?.parkingFeatures, reso?.propertyCondition].filter(v => v != null);
     chkWithMeta(checks, 'resoStructure', 'RESO Structure (stories/parking/condition)', 'warn', 'rapidapi',
         resoStructure.length >= 1,
-        `${resoStructure.length}/3 present${reso?.stories ? ` — ${reso.stories} stories` : ''}${reso?.propertyCondition ? ` — ${reso.propertyCondition}` : ''}`, rapidapiMeta, 'resoFacts');
+        `${resoStructure.length}/3 present${reso?.stories ? ` — ${reso.stories} stories` : ''}${reso?.propertyCondition ? ` — ${reso.propertyCondition}` : ''}`,
+        rapidapiMeta,
+        resoStructure.length === 0 ? resoFieldKey('stories') : 'resoFacts');
 
     // ── 20c. RESO Interior & Systems (interiorFeatures, electric) ─────────────
     const resoInterior = [reso?.interiorFeatures, reso?.electric].filter(v => v != null);
     chkWithMeta(checks, 'resoInterior', 'RESO Interior/Systems (interior/electric)', 'warn', 'rapidapi',
         resoInterior.length >= 1,
-        `${resoInterior.length}/2 present`, rapidapiMeta, 'resoFacts');
+        `${resoInterior.length}/2 present`,
+        rapidapiMeta,
+        resoInterior.length === 0 ? resoFieldKey('interiorFeatures') : 'resoFacts');
 
     // ── 21. HOA Info ──────────────────────────────────────────────────────────
     // Only flag if the property is likely in an HOA (condo, townhouse, or fee field present)
@@ -465,17 +503,27 @@ export function runChecks(
             hasHoa ? prop.hoa.fee : 'expected for this property type but missing', rapidapiMeta, 'hoa');
     }
     // HOA detail — amenities, feeIncludes, community size
+    // These sub-fields are optional Zillow fields — many HOAs don't publish them.
+    // If hoa exists (fee present) but sub-fields are absent, and rapidapi was fetched,
+    // it's source-confirmed missing, not a pipeline failure.
     if (hasHoa || isHoaExpected) {
-        const hoaDetail = [
-            prop?.hoa?.amenities?.length ? 'amenities' : null,
-            prop?.hoa?.feeIncludes?.length ? 'feeIncludes' : null,
-            reso?.numberOfUnitsInCommunity ? 'units' : null,
-        ].filter(Boolean);
-        chkWithMeta(checks, 'hoaDetail', 'HOA Detail (amenities/feeIncludes/units)', 'warn', 'rapidapi',
-            hoaDetail.length >= 1,
-            hoaDetail.length > 0
+        const hoaAmenities = prop?.hoa?.amenities?.length ? 'amenities' : null;
+        const hoaFeeIncludes = prop?.hoa?.feeIncludes?.length ? 'feeIncludes' : null;
+        const hoaUnits = reso?.numberOfUnitsInCommunity ? 'units' : null;
+        const hoaDetail = [hoaAmenities, hoaFeeIncludes, hoaUnits].filter(Boolean);
+        // If hoa top-level exists, sub-fields absent = source-null (Zillow doesn't publish them)
+        const hoaDetailSourceNull = hoaDetail.length === 0 && hasHoa && !!(rapidapiMeta?.lastFetched);
+        checks.push({
+            id: 'hoaDetail',
+            label: 'HOA Detail (amenities/feeIncludes/units)',
+            severity: 'warn',
+            source: 'rapidapi',
+            passed: hoaDetail.length >= 1 || hoaDetailSourceNull,
+            detail: hoaDetail.length > 0
                 ? `${hoaDetail.join(', ')} present${reso?.numberOfUnitsInCommunity ? ` — ${reso.numberOfUnitsInCommunity} units` : ''}`
-                : 'no amenities, feeIncludes, or unit count', rapidapiMeta, 'hoa');
+                : 'not published on Zillow',
+            sourceNull: hoaDetailSourceNull,
+        });
     }
 
     // ── 22. Price History ─────────────────────────────────────────────────────
