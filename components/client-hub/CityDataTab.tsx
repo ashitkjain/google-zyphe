@@ -573,7 +573,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         if (fresh && existing) {
                             let healed = 0;
                             for (const [key, value] of Object.entries(fresh)) {
-                                if (key === 'resoFacts' || key === 'hoa') continue;
+                                if (key === 'resoFacts' || key === 'hoa' || key === 'attribution') continue;
                                 if (value != null && (existing as any)[key] == null) {
                                     (existing as any)[key] = value;
                                     healed++;
@@ -598,6 +598,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     }
                                 }
                                 (existing as any).hoa = existingHoa;
+                            }
+                            if (fresh.attribution) {
+                                const existingAttr = (existing as any).attribution || {};
+                                for (const [k, v] of Object.entries(fresh.attribution as any)) {
+                                    if (v != null && (existingAttr[k] == null || existingAttr[k] === '')) {
+                                        existingAttr[k] = v;
+                                        healed++;
+                                    }
+                                }
+                                (existing as any).attribution = existingAttr;
                             }
                             if (healed > 0) {
                                 await savePropertyToCloud(zpid, existing);

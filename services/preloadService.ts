@@ -141,7 +141,7 @@ export const runFullIntelligencePipeline = async (
                   let healed = 0;
                   for (const [key, value] of Object.entries(fresh)) {
                     // Skip nested objects that need deep-merge (handled below)
-                    if (key === 'resoFacts' || key === 'hoa') continue;
+                    if (key === 'resoFacts' || key === 'hoa' || key === 'attribution') continue;
                     if (value != null && (enrichedData as any)[key] == null) {
                       (enrichedData as any)[key] = value;
                       healed++;
@@ -149,7 +149,6 @@ export const runFullIntelligencePipeline = async (
                   }
                   // Force-set structured fields that may be empty arrays/objects
                   if (!enrichedData.description && fresh.description) { enrichedData.description = fresh.description as string; healed++; }
-                  if (!(enrichedData as any).attribution && fresh.attribution) { (enrichedData as any).attribution = fresh.attribution; healed++; }
                   if (!enrichedData.priceHistory?.length && fresh.priceHistory) { enrichedData.priceHistory = fresh.priceHistory as any; healed++; }
 
                   // Deep-merge resoFacts: fill in missing sub-fields (e.g. stories, parkingFeatures added later)
@@ -181,6 +180,22 @@ export const runFullIntelligencePipeline = async (
                     if (hoaHealed > 0) {
                       (enrichedData as any).hoa = existingHoa;
                       healed += hoaHealed;
+                    }
+                  }
+
+                  // Deep-merge attribution: fill in missing sub-fields (broker fallback, etc.)
+                  if (fresh.attribution) {
+                    const existingAttr = (enrichedData as any).attribution || {} as any;
+                    let attrHealed = 0;
+                    for (const [k, v] of Object.entries(fresh.attribution as any)) {
+                      if (v != null && (existingAttr[k] == null || existingAttr[k] === '')) {
+                        existingAttr[k] = v;
+                        attrHealed++;
+                      }
+                    }
+                    if (attrHealed > 0) {
+                      (enrichedData as any).attribution = existingAttr;
+                      healed += attrHealed;
                     }
                   }
 
