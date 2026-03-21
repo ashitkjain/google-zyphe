@@ -1,4 +1,4 @@
-import { collection, addDoc, doc, updateDoc, serverTimestamp, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, serverTimestamp, Timestamp as FsTimestamp, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { db, auth, sanitizeForFirestore } from "./config";
 
 export interface APICallEvent {
@@ -13,6 +13,8 @@ export interface APICallEvent {
     error?: string;
     response_time_ms?: number;
     timestamp?: any;
+    fieldsPopulated?: string[];  // fields that returned with data
+    fieldsNull?: string[];       // fields that were null/empty from the source
 }
 
 export const logAPICall = async (event: Omit<APICallEvent, 'id' | 'timestamp'>): Promise<string | null> => {
@@ -26,10 +28,12 @@ export const logAPICall = async (event: Omit<APICallEvent, 'id' | 'timestamp'>):
             finalUserId = uid;
         }
 
+        const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
         const docData = sanitizeForFirestore({
             ...event,
             user_id: finalUserId,
-            timestamp: serverTimestamp()
+            timestamp: serverTimestamp(),
+            expireAt: FsTimestamp.fromMillis(Date.now() + TWO_DAYS_MS),
         });
 
         const docRef = await addDoc(collection(db, "api_call_events"), docData);

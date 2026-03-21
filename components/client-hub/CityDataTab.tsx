@@ -69,6 +69,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [smokeSummary, setSmokeSummary] = useState<CitySmokeSummary | null>(null);
     const [smokeExpanded, setSmokeExpanded] = useState<Set<string>>(new Set());
     const [smokeFilter, setSmokeFilter] = useState<'all' | 'failed' | 'warned'>('all');
+    const [smokeCheckFilter, setSmokeCheckFilter] = useState<string | null>(null);
     const [groupPages, setGroupPages] = useState<Record<string, number>>({});
     const GROUP_PAGE_SIZE = 20;
     const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -248,7 +249,20 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             .flat()
             .filter((item: any) => {
                 const id = String(item.zpid);
-                return !propertyStatuses[id]?.assets?.images;
+                const status = propertyStatuses[id];
+                // No images at all
+                if (!status?.assets?.images) return true;
+                // Has some images but fewer than expected (check smoke test result if available)
+                const smokeResult = smokeSummary?.results?.find(r => r.zpid === id);
+                if (smokeResult) {
+                    const imgCheck = smokeResult.checks.find(c => c.id === 'images');
+                    if (imgCheck && !imgCheck.passed) return true;
+                }
+                // Also check against property data's photoCount if we have it
+                const propData = (item as any);
+                const expectedCount = propData?.photoCount || propData?.images?.length || 0;
+                if (expectedCount > 0 && (status.assets.imageCount || 0) < expectedCount) return true;
+                return false;
             })
             .map((item: any) => String(item.zpid));
 
@@ -498,18 +512,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`  🤖 ${needsGemini.length} need Gemini AI analysis`);
 
         // ── Time Estimation ────────────────────────────────────────────────
-        const NON_GEMINI_BATCH = 10;
         const GEMINI_BATCH = 3;
-        const NON_GEMINI_PER_PROP_SEC = 3;   // ~3s per property (API + Firestore)
+        const NON_GEMINI_PER_PROP_SEC = 4;   // ~4s per property (2 at a time)
         const GEMINI_PER_PROP_SEC = 45;       // ~45s per property (5-8 Gemini calls)
-        const COOLDOWN_SEC = 5;               // between Gemini batches
 
-        const nonGeminiBatches = Math.ceil(needsNonGeminiOnly.length / NON_GEMINI_BATCH);
         const geminiBatches = Math.ceil(needsGemini.length / GEMINI_BATCH);
 
-        const nonGeminiTimeSec = nonGeminiBatches * NON_GEMINI_PER_PROP_SEC;
+        const nonGeminiTimeSec = Math.ceil(needsNonGeminiOnly.length / 2) * NON_GEMINI_PER_PROP_SEC;
         const geminiTimeSec = geminiBatches > 0
-            ? (needsGemini.length * GEMINI_PER_PROP_SEC / GEMINI_BATCH) + ((geminiBatches - 1) * COOLDOWN_SEC)
+            ? geminiBatches * GEMINI_PER_PROP_SEC
             : 0;
         const totalEstSec = nonGeminiTimeSec + geminiTimeSec;
 
@@ -520,7 +531,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             return rem > 0 ? `${min}m ${rem}s` : `${min}m`;
         };
 
-        addLog(`[ETA] Estimated time: ${formatTime(totalEstSec)} (data healing: ~${formatTime(nonGeminiTimeSec)}, AI analysis: ~${formatTime(geminiTimeSec)})`);
+        addLog(`⏱ Estimated time: ${formatTime(totalEstSec)} (data healing: ~${formatTime(nonGeminiTimeSec)}, AI analysis: ~${formatTime(geminiTimeSec)})`);
 
         // Initialize job queue for all properties that will be processed
         const processableZpids = new Set([...needsNonGeminiOnly, ...needsGemini]);
@@ -539,85 +550,83 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         let successCount = 0;
         let partialTotal = 0;
 
-        // ── PHASE 2: Non-Gemini Healing (fast, parallel batches of 10) ────
+        // ── PHASE 2: Non-Gemini Healing (pairs of 2, no delay) ──
         if (needsNonGeminiOnly.length > 0) {
-            addLog(`\n═══ Phase 1: Data Healing (${needsNonGeminiOnly.length} properties, batches of ${NON_GEMINI_BATCH}) ═══`);
+            const HEAL_BATCH = 2;
+            addLog(`\n═══ Phase 1: Data Healing (${needsNonGeminiOnly.length} properties, ${HEAL_BATCH} at a time) ═══`);
 
-            for (let i = 0; i < needsNonGeminiOnly.length; i += NON_GEMINI_BATCH) {
-                const chunk = needsNonGeminiOnly.slice(i, i + NON_GEMINI_BATCH);
-                addLog(`Healing batch ${Math.floor(i / NON_GEMINI_BATCH) + 1}/${nonGeminiBatches} (${chunk.length} properties)...`);
+            const healOne = async (zpid: string, idx: number) => {
+                const addr = zpidToAddressMap[zpid] || zpid;
+                addLog(`[Heal] ${idx + 1}/${needsNonGeminiOnly.length} — ${addr}`);
+                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
 
-                const results = await Promise.allSettled(chunk.map(async (zpid) => {
-                    const addr = zpidToAddressMap[zpid] || zpid;
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
+                try {
+                    const smoke = smokeByZpid[zpid];
+                    // Exclude sourceNull checks — those are confirmed unavailable at source, futile to retry
+                    const failedSources = new Set(smoke?.checks.filter(c => !c.passed && !c.sourceNull).map(c => c.source) || []);
 
-                    try {
-                        const smoke = smokeByZpid[zpid];
-                        const failedSources = new Set(smoke?.checks.filter(c => !c.passed).map(c => c.source) || []);
-
-                        // Only call APIs for failed sources
-                        if (failedSources.has('rapidapi')) {
-                            const { fetchPropertySpecs } = await import('../../services/api/property');
-                            const { savePropertyToCloud, getPropertyFromCloud } = await import('../../services/firebase/properties');
-                            const existing = await getPropertyFromCloud(zpid);
-                            const fresh = await fetchPropertySpecs(zpid);
-                            if (fresh && existing) {
-                                let healed = 0;
-                                for (const [key, value] of Object.entries(fresh)) {
-                                    if (key === 'resoFacts' || key === 'hoa') continue;
-                                    if (value != null && (existing as any)[key] == null) {
-                                        (existing as any)[key] = value;
+                    if (failedSources.has('rapidapi')) {
+                        const { fetchPropertySpecs } = await import('../../services/api/property');
+                        const { savePropertyToCloud, getPropertyFromCloud } = await import('../../services/firebase/properties');
+                        const existing = await getPropertyFromCloud(zpid);
+                        const fresh = await fetchPropertySpecs(zpid);
+                        if (fresh && existing) {
+                            let healed = 0;
+                            for (const [key, value] of Object.entries(fresh)) {
+                                if (key === 'resoFacts' || key === 'hoa') continue;
+                                if (value != null && (existing as any)[key] == null) {
+                                    (existing as any)[key] = value;
+                                    healed++;
+                                }
+                            }
+                            if (fresh.resoFacts) {
+                                const existingReso = (existing as any).resoFacts || {};
+                                for (const [k, v] of Object.entries(fresh.resoFacts)) {
+                                    if (v != null && v !== '' && (existingReso[k] == null || existingReso[k] === '')) {
+                                        existingReso[k] = v;
                                         healed++;
                                     }
                                 }
-                                // Deep-merge resoFacts
-                                if (fresh.resoFacts) {
-                                    const existingReso = (existing as any).resoFacts || {};
-                                    for (const [k, v] of Object.entries(fresh.resoFacts)) {
-                                        if (v != null && v !== '' && (existingReso[k] == null || existingReso[k] === '')) {
-                                            existingReso[k] = v;
-                                            healed++;
-                                        }
+                                (existing as any).resoFacts = existingReso;
+                            }
+                            if (fresh.hoa) {
+                                const existingHoa = (existing as any).hoa || {};
+                                for (const [k, v] of Object.entries(fresh.hoa as any)) {
+                                    if (v != null && existingHoa[k] == null) {
+                                        existingHoa[k] = v;
+                                        healed++;
                                     }
-                                    (existing as any).resoFacts = existingReso;
                                 }
-                                // Deep-merge hoa
-                                if (fresh.hoa) {
-                                    const existingHoa = (existing as any).hoa || {};
-                                    for (const [k, v] of Object.entries(fresh.hoa as any)) {
-                                        if (v != null && existingHoa[k] == null) {
-                                            existingHoa[k] = v;
-                                            healed++;
-                                        }
-                                    }
-                                    (existing as any).hoa = existingHoa;
-                                }
-                                if (healed > 0) {
-                                    await savePropertyToCloud(zpid, existing);
-                                    addLog(`[Heal] ✓ ${addr} — healed ${healed} fields`);
-                                }
+                                (existing as any).hoa = existingHoa;
+                            }
+                            if (healed > 0) {
+                                await savePropertyToCloud(zpid, existing);
+                                addLog(`  ✓ Healed ${healed} fields`);
+                            } else {
+                                addLog(`  ✓ No fields needed healing`);
                             }
                         }
-
-                        if (failedSources.has('environmental')) {
-                            const { fetchPropertyDataFull } = await import('../../services/apiService');
-                            await fetchPropertyDataFull(zpid, true, false);
-                            addLog(`[Heal] ✓ ${addr} — environmental data refreshed`);
-                        }
-
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                        return true;
-                    } catch (e: any) {
-                        addLog(`[Heal] ✗ ${addr} — ${e.message}`);
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                        return false;
                     }
-                }));
 
-                successCount += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-                if (i + NON_GEMINI_BATCH < needsNonGeminiOnly.length) {
-                    await new Promise(r => setTimeout(r, 500));
+                    if (failedSources.has('environmental')) {
+                        const { fetchPropertyDataFull } = await import('../../services/apiService');
+                        await fetchPropertyDataFull(zpid, true, false);
+                        addLog(`  ✓ Environmental data refreshed`);
+                    }
+
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                    return true;
+                } catch (e: any) {
+                    addLog(`  ✗ Failed: ${e.message}`);
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
+                    return false;
                 }
+            };
+
+            for (let i = 0; i < needsNonGeminiOnly.length; i += HEAL_BATCH) {
+                const chunk = needsNonGeminiOnly.slice(i, i + HEAL_BATCH);
+                const results = await Promise.allSettled(chunk.map((zpid, j) => healOne(zpid, i + j)));
+                successCount += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
             }
 
             addLog(`Phase 1 complete: ${successCount}/${needsNonGeminiOnly.length} healed.`);
@@ -690,12 +699,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const results = await Promise.all(chunkPromises);
                 geminiSuccess += results.filter(r => r === true).length;
                 partialTotal += results.filter(r => r === 'partial').length;
-
-                // Cooldown between Gemini batches
-                if (i + GEMINI_BATCH < geminiTargets.length) {
-                    addLog(`[System] Cooling down ${COOLDOWN_SEC}s before next AI batch...`);
-                    await new Promise(r => setTimeout(r, COOLDOWN_SEC * 1000));
-                }
             }
 
             successCount += geminiSuccess;
@@ -2849,6 +2852,94 @@ ${JSON.stringify(propertySummaries)}
                                 </div>
                             </div>
 
+                            {/* Per-check failure counts */}
+                            {(() => {
+                                const failCounts: Record<string, { label: string; severity: string; count: number }> = {};
+                                const sourceNullCounts: Record<string, { label: string; count: number }> = {};
+                                smokeSummary.results.forEach(r => {
+                                    r.checks.forEach(c => {
+                                        if (c.sourceNull) {
+                                            if (!sourceNullCounts[c.id]) {
+                                                sourceNullCounts[c.id] = { label: c.label, count: 0 };
+                                            }
+                                            sourceNullCounts[c.id].count++;
+                                        } else if (!c.passed) {
+                                            if (!failCounts[c.id]) {
+                                                failCounts[c.id] = { label: c.label, severity: c.severity, count: 0 };
+                                            }
+                                            failCounts[c.id].count++;
+                                        }
+                                    });
+                                });
+                                const sortedFails = Object.entries(failCounts).sort((a, b) => {
+                                    if (a[1].severity !== b[1].severity) return a[1].severity === 'error' ? -1 : 1;
+                                    return b[1].count - a[1].count;
+                                });
+                                const sortedNA = Object.entries(sourceNullCounts).sort((a, b) => b[1].count - a[1].count);
+                                if (sortedFails.length === 0 && sortedNA.length === 0) return null;
+                                return (
+                                    <div className="mx-6 mt-4 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <i className="fa-solid fa-chart-bar text-slate-400 text-xs"></i>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                                Failure Breakdown ({sortedFails.length} checks across {smokeSummary.totalProperties} properties)
+                                            </span>
+                                            {smokeCheckFilter && (
+                                                <button
+                                                    onClick={() => setSmokeCheckFilter(null)}
+                                                    className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+                                                >
+                                                    <i className="fa-solid fa-xmark text-[8px]"></i> Clear Filter
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Actionable failures — these can be fixed by running the pipeline */}
+                                        {sortedFails.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {sortedFails.map(([id, { label, severity, count }]) => (
+                                                    <button key={id}
+                                                        onClick={() => setSmokeCheckFilter(smokeCheckFilter === id ? null : id)}
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all ${
+                                                            severity === 'error'
+                                                                ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                                                                : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                                                        } ${smokeCheckFilter === id ? 'ring-2 ring-offset-1 ' + (severity === 'error' ? 'ring-rose-400' : 'ring-amber-400') : ''}`}
+                                                        title={`Click to filter: ${label} — ${count}/${smokeSummary.totalProperties} properties failing`}
+                                                    >
+                                                        {label} <span className="font-black">{count}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Source Unavailable — API was called but data doesn't exist at source */}
+                                        {sortedNA.length > 0 && (
+                                            <div className="mt-3">
+                                                <div className="flex items-center gap-1.5 mb-2">
+                                                    <i className="fa-solid fa-ban text-slate-300 text-[9px]"></i>
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                                        Source Unavailable — data does not exist at source
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {sortedNA.map(([id, { label, count }]) => (
+                                                        <button key={`na-${id}`}
+                                                            onClick={() => setSmokeCheckFilter(smokeCheckFilter === `na:${id}` ? null : `na:${id}`)}
+                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all
+                                                                bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-150 hover:text-slate-500
+                                                                ${smokeCheckFilter === `na:${id}` ? 'ring-2 ring-offset-1 ring-slate-300' : ''}`}
+                                                            title={`${label} — ${count} properties where this field is unavailable at source (not actionable)`}
+                                                        >
+                                                            <i className="fa-solid fa-ban text-[8px]"></i> {label} <span className="font-black">{count}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                             {/* Common warnings across all properties */}
                             {(() => {
                                 const results = smokeSummary.results;
@@ -2897,6 +2988,14 @@ ${JSON.stringify(propertySummaries)}
                             <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
                                 {smokeSummary.results
                                     .filter(r => {
+                                        if (smokeCheckFilter) {
+                                            // Handle na: prefix for source-null filtering
+                                            if (smokeCheckFilter.startsWith('na:')) {
+                                                const checkId = smokeCheckFilter.slice(3);
+                                                return r.checks.some(c => c.id === checkId && c.sourceNull);
+                                            }
+                                            return r.checks.some(c => c.id === smokeCheckFilter && !c.passed);
+                                        }
                                         if (smokeFilter === 'failed') return !r.passed;
                                         if (smokeFilter === 'warned') return r.warnCount > 0;
                                         return true;
@@ -2947,10 +3046,16 @@ ${JSON.stringify(propertySummaries)}
                                                     <div className="px-12 pb-5 pt-1 grid grid-cols-2 lg:grid-cols-3 gap-2 bg-slate-50/40 border-t border-slate-100 animate-in fade-in duration-200">
                                                         {result.checks.map(check => (
                                                             <div key={check.id}
-                                                                className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-[10px] ${check.passed ? 'bg-white border-slate-100 text-slate-600' : check.severity === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-                                                                <i className={`fa-solid mt-0.5 text-[9px] shrink-0 ${check.passed ? 'fa-check text-emerald-500' : check.severity === 'error' ? 'fa-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'}`}></i>
+                                                                className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-[10px] ${
+                                                                    check.sourceNull
+                                                                        ? 'bg-slate-50 border-slate-200 text-slate-400'
+                                                                        : check.passed ? 'bg-white border-slate-100 text-slate-600' : check.severity === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                                                                <i className={`fa-solid mt-0.5 text-[9px] shrink-0 ${
+                                                                    check.sourceNull
+                                                                        ? 'fa-ban text-slate-300'
+                                                                        : check.passed ? 'fa-check text-emerald-500' : check.severity === 'error' ? 'fa-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'}`}></i>
                                                                 <div className="min-w-0">
-                                                                    <div className="font-black truncate">{check.label}</div>
+                                                                    <div className="font-black truncate">{check.label}{check.sourceNull ? ' ᴺ/ᴬ' : ''}</div>
                                                                     {check.detail && <div className="font-medium opacity-70 truncate mt-0.5" title={check.detail}>{check.detail}</div>}
                                                                 </div>
                                                             </div>

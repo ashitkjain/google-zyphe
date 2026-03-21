@@ -1,4 +1,4 @@
-import { collection, addDoc, doc, updateDoc, serverTimestamp, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, serverTimestamp, Timestamp as FsTimestamp, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { db, auth, sanitizeForFirestore } from "./config";
 import { LLMCallEvent } from "../../types/ai";
 
@@ -25,10 +25,12 @@ export const logLLMCall = async (event: Omit<LLMCallEvent, 'id' | 'timestamp'>):
             };
         }
 
+        const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
         const docData = sanitizeForFirestore({
             ...eventToLog,
             user_id: finalUserId,
-            timestamp: serverTimestamp()
+            timestamp: serverTimestamp(),
+            expireAt: FsTimestamp.fromMillis(Date.now() + TWO_DAYS_MS),
         });
 
         const docRef = await addDoc(collection(db, "llm_call_events"), docData);

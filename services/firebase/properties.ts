@@ -1150,6 +1150,7 @@ export interface PropertyStatusDetails {
     property?: { timestamp: any };
     assets?: {
         images: boolean;
+        imageCount: number;
         map: boolean;
         streetView: boolean;
         satellite: boolean;  // Google satellite image (2× fidelity) cached in Firebase Storage
@@ -1238,8 +1239,10 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
                 if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
                 const data = doc.data();
                 const imagesSecured = data.images?.length > 0 && data.images[0].includes('firebasestorage');
+                const securedImageCount = imagesSecured ? data.images.filter((u: string) => u?.includes('firebasestorage')).length : 0;
                 canonicalStatuses[doc.id].assets = {
                     images: imagesSecured,
+                    imageCount: securedImageCount,
                     map: !!data.mapZoomIn && data.mapZoomIn.includes('firebasestorage'),
                     streetView: !!data.streetView && data.streetView.includes('firebasestorage'),
                     satellite: !!data.satelliteImageUrl && data.satelliteImageUrl.includes('firebasestorage'),

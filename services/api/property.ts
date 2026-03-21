@@ -269,11 +269,11 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                 cache: 'no-store'
             });
 
-            if (logId) {
+            if (logId && !response.ok) {
                 updateAPICall(logId, {
-                    status: response.ok ? 'completed' : 'failed',
+                    status: 'failed',
                     response_time_ms: Date.now() - start,
-                    error: response.ok ? undefined : `Status ${response.status}`
+                    error: `Status ${response.status}`
                 });
             }
 
@@ -343,6 +343,7 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
 
                 // Images from the property endpoint
                 images: root.images || root.responsivePhotos?.map((p: any) => p.mixedSources?.jpeg?.[0]?.url || p.url) || undefined,
+                photoCount: extractNumericValue(root.photoCount),
 
                 // Schools
                 schools: root.schools?.map((s: any) => ({
@@ -406,21 +407,92 @@ export const fetchPropertySpecs = async (zpid: string, retries = 3): Promise<Rec
                     feeIncludes: resoRaw.associationFeeIncludes || undefined,
                 } : undefined,
 
-                // Attribution
-                attribution: root.attributionInfo ? {
-                    listingAgentName: root.attributionInfo.agentName || undefined,
-                    listingAgentNumber: root.attributionInfo.agentPhoneNumber || undefined,
-                    brokerageName: root.attributionInfo.brokerName || undefined,
-                    mlsName: root.attributionInfo.mlsName || undefined,
-                    mlsId: root.attributionInfo.mlsId || resoRaw.mlsid || undefined,
-                } : undefined,
+                // Attribution — with fallback to listed_by
+                attribution: (() => {
+                    // Primary: attributionInfo object
+                    if (root.attributionInfo?.agentName || root.attributionInfo?.brokerName) {
+                        return {
+                            listingAgentName: root.attributionInfo.agentName || root.attributionInfo.brokerName || undefined,
+                            listingAgentNumber: root.attributionInfo.agentPhoneNumber || root.attributionInfo.brokerPhoneNumber || undefined,
+                            brokerageName: root.attributionInfo.brokerName || root.brokerageName || undefined,
+                            mlsName: root.attributionInfo.mlsName || undefined,
+                            mlsId: root.attributionInfo.mlsId || resoRaw.mlsid || root.mlsid || undefined,
+                        };
+                    }
+                    // Fallback: listed_by object
+                    const lb = root.listed_by;
+                    if (lb?.display_name || lb?.business_name) {
+                        const phone = lb.phone
+                            ? `${lb.phone.areacode}-${lb.phone.prefix}-${lb.phone.number}`
+                            : undefined;
+                        return {
+                            listingAgentName: lb.display_name || undefined,
+                            listingAgentNumber: phone,
+                            brokerageName: lb.business_name || root.brokerageName || undefined,
+                            mlsId: resoRaw.mlsid || root.mlsid || undefined,
+                        };
+                    }
+                    // Last resort: flat brokerageName on root
+                    if (root.brokerageName) {
+                        return {
+                            brokerageName: root.brokerageName,
+                            mlsId: resoRaw.mlsid || root.mlsid || undefined,
+                        };
+                    }
+                    return undefined;
+                })(),
 
                 // Listing subtype flags
                 listingSubType: root.listingSubType || undefined,
             };
 
             // Strip undefined values to avoid overwriting existing data with undefined on merge
-            return Object.fromEntries(Object.entries(mapped).filter(([_, v]) => v !== undefined));
+            const cleaned = Object.fromEntries(Object.entries(mapped).filter(([_, v]) => v !== undefined));
+
+            // Generic field-level audit: scan the CLEANED object (post-undefined-filter).
+            // A field is "null" only if the key existed in the raw API response AND it was null/empty.
+            // A field that was absent from root (undefined → mapped to null by extractNumericValue)
+            // is NOT "source confirmed null" — we just don't know.
+            const fieldsPopulated: string[] = [];
+            const fieldsNull: string[] = [];
+            for (const [key, value] of Object.entries(cleaned)) {
+                if (key === 'zpid' || key === '_fetchMeta') continue;
+                const isEmpty = value === null
+                    || (Array.isArray(value) && value.length === 0)
+                    || (typeof value === 'object' && !Array.isArray(value) && value !== null && Object.keys(value).length === 0);
+                if (isEmpty) {
+                    // Only mark as "source null" if the field key actually existed in the raw root
+                    // Many fields map from root.X → extractNumericValue(root.X) → null even when root.X is undefined
+                    if (key in root || (key === 'attribution' && ('attributionInfo' in root || 'listed_by' in root))) {
+                        fieldsNull.push(key);
+                    }
+                    // else: field absent from raw response — don't record opinion
+                } else {
+                    fieldsPopulated.push(key);
+                }
+            }
+
+            // Update the API call audit log with field-level detail
+            if (logId) {
+                updateAPICall(logId, {
+                    status: 'completed',
+                    response_time_ms: Date.now() - start,
+                    fieldsPopulated,
+                    fieldsNull,
+                });
+            }
+
+            // Stamp _fetchMeta on the property doc so smoke test can distinguish
+            // "never fetched" from "source has no data"
+            cleaned._fetchMeta = {
+                rapidapi: {
+                    lastFetched: new Date().toISOString(),
+                    fieldsPopulated,
+                    fieldsNull,
+                }
+            };
+
+            return cleaned;
         } catch (e: any) {
             if (logId) {
                 updateAPICall(logId, {

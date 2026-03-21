@@ -355,7 +355,7 @@ export const fetchPropertyDataFull = async (
             // Save back to cache ONLY if something was freshly fetched
             if ((envDirty || streetViewDirty) && storageKey) {
                 console.log(`[EnvironmentalCache] Saving data to cache key: ${storageKey} (envDirty=${envDirty}, svDirty=${streetViewDirty})`);
-                await saveGoogleDataToCloud(storageKey, {
+                const envPayload: Record<string, any> = {
                     solarData: mappedData.solarData,
                     airQuality: mappedData.airQuality,
                     pollen: mappedData.pollen,
@@ -373,7 +373,36 @@ export const fetchPropertyDataFull = async (
                     evChargers: (mappedData as any).evChargers ?? null,
                     drought: mappedData.drought ?? null,
                     broadband: (mappedData as any).broadband ?? null,
-                });
+                };
+
+                // Generic field-level audit: only mark a field as source-null if the API
+                // was actually called for it (needsXXX was true) AND the result was null.
+                const envFieldsPopulated: string[] = [];
+                const envFieldsNull: string[] = [];
+                const envFetchedFields: Record<string, { wasFetched: boolean; value: any }> = {
+                    solarData:              { wasFetched: needsSolar,     value: freshSolar },
+                    airQuality:             { wasFetched: needsAirQual,   value: freshAirQual },
+                    pollen:                 { wasFetched: needsPollen,    value: freshPollenRaw },
+                    streetViewAnalysis:     { wasFetched: streetViewDirty, value: mappedData.streetViewAnalysis },
+                    historical_disasters:   { wasFetched: needsDisasters, value: freshDisasters },
+                    noiseScore:             { wasFetched: needsNoise,     value: freshNoise },
+                    evChargers:             { wasFetched: needsEV,        value: freshEV },
+                    drought:                { wasFetched: needsDrought,   value: freshDrought },
+                    broadband:              { wasFetched: needsBroadband, value: freshBroadband },
+                };
+                for (const [key, { wasFetched, value }] of Object.entries(envFetchedFields)) {
+                    if (!wasFetched) continue; // Not fetched this run → don't record opinion
+                    (value == null ? envFieldsNull : envFieldsPopulated).push(key);
+                }
+                envPayload._fetchMeta = {
+                    environmental: {
+                        lastFetched: new Date().toISOString(),
+                        fieldsPopulated: envFieldsPopulated,
+                        fieldsNull: envFieldsNull,
+                    }
+                };
+
+                await saveGoogleDataToCloud(storageKey, envPayload);
                 _mark('Environmental cache saved');
             } else {
                 console.log(`[EnvironmentalCache] Skipping save — all data was cached, nothing new to write.`);
