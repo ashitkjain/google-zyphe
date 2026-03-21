@@ -80,7 +80,8 @@ const CostDashboardTab: React.FC = () => {
     const [llmSort, setLlmSort] = useState<{ col: string; dir: SortDir }>({ col: 'cost', dir: 'desc' });
     const [apiSort, setApiSort] = useState<{ col: string; dir: SortDir }>({ col: 'calls', dir: 'desc' });
 
-    const range = todayRange();
+    // Compute today's range once on mount — stable reference prevents infinite re-load
+    const range = React.useMemo(() => todayRange(), []);
 
     const load = useCallback(async () => {
         setLoading(true);
