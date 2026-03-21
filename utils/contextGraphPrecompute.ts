@@ -82,7 +82,7 @@ function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {
 function factor5_sellerMotivation(p: PropertyData): ExtractedFactor {
     const dom = p.timeOnZillow ?? p.resoFacts?.daysOnZillow;
     const cuts = (p.priceHistory ?? []).filter(h => h.event?.toLowerCase().includes('price cut') || h.event?.toLowerCase().includes('reduced')).length;
-    const desc = (p.description ?? '').toLowerCase();
+    const desc = toStr(p.description ?? '').toLowerCase();
     const isHot = desc.includes('hot home') || desc.includes('multiple offers') || desc.includes('offer deadline');
     const backOnMarket = (p.priceHistory ?? []).some(h => h.event?.toLowerCase().includes('back on market'));
     const tags: string[] = [];
@@ -631,8 +631,8 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
     const tags: string[] = [];
 
     // On-property EV features from listing description
-    const desc = (p.description || '').toLowerCase();
-    const garage = (p.resoFacts?.exteriorFeatures || '').toLowerCase();
+    const desc = toStr(p.description).toLowerCase();
+    const garage = toStr(p.resoFacts?.exteriorFeatures).toLowerCase();
     const combined = `${desc} ${garage}`;
     if (combined.includes('ev charger') || combined.includes('ev charging')) tags.push('EV Charger Installed');
     else if (combined.includes('240v') || combined.includes('level 2')) tags.push('240V / Level 2 Ready');
