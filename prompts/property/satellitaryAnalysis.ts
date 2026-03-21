@@ -58,28 +58,32 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
 
     const headingAuthority = streetViewHeading != null
         ? `\n\nCAMERA HEADING: ${streetViewHeading}° (0°=North, 90°=East, 180°=South, 270°=West)\n` +
-        `The Street View camera was aimed at the visible exterior wall of the property.\n` +
-        `Mathematical implication: the wall facing the camera points toward ~${(streetViewHeading + 180) % 360}°.\n` +
+        `The Street View camera was pointing in direction ${streetViewHeading}° when it photographed this property.\n` +
         `\n` +
-        `⚠️  CRITICAL — READ BEFORE USING THE HEADING:\n` +
-        `Google Street View cameras only travel on PUBLIC roads. For many residential properties,\n` +
-        `this means the camera captures the BACK or SIDE exterior wall that faces the public road —\n` +
-        `NOT the unit entrances, which may face a private internal lane inaccessible to Street View.\n` +
+        `⚠️  CRITICAL — THE HEADING IS AMBIGUOUS ON ITS OWN:\n` +
+        `The heading tells you which direction the camera was pointing, but NOT whether it was\n` +
+        `photographing the FRONT or the BACK/SIDE of the house. Both are equally possible:\n` +
         `\n` +
-        `STEP 0.5 — ASSESS PROPERTY TYPE (do this before deciding how to use the heading):\n` +
-        `Look at Image A (aerial) and determine the property type:\n` +
+        `  SCENARIO A — Camera photographed the FRONT (common for through-streets):\n` +
+        `    → Camera is parked on the road the front faces, looking at the front door.\n` +
+        `    → Front wall faces back toward the camera = faces ~${(streetViewHeading + 180) % 360}°.\n` +
         `\n` +
-        `  TYPE A — STANDALONE HOME (single detached house, single rooftop, faces one street):\n` +
-        `    → The street view likely shows the FRONT. Trust the heading as ground truth.\n` +
-        `    → Derived front orientation: ~${(streetViewHeading + 180) % 360}° (high confidence from heading).\n` +
+        `  SCENARIO B — Camera photographed the BACK or SIDE (common for courts, cul-de-sacs,\n` +
+        `    corner lots, or multi-unit complexes where the public road borders the rear):\n` +
+        `    → Camera drove up to or past the property from the side/back approach.\n` +
+        `    → The FRONT is on a completely different side — determine it from the aerial.\n` +
         `\n` +
-        `  TYPE B — MULTI-UNIT COMPLEX (apartment, townhome, condo row, multiple rooftops,\n` +
-        `    internal access lanes visible in aerial):\n` +
-        `    → The street view almost certainly shows an EXTERIOR BACK/SIDE WALL facing the public road.\n` +
-        `    → The true unit FRONTS face an internal private lane or internal court NOT shown in the street view.\n` +
-        `    → DO NOT use the heading as the orientation. Instead, USE THE AERIAL (Image A) to find\n` +
-        `       the internal lane or access road, and determine which direction the unit fronts face that lane.\n` +
-        `    → The heading-derived direction (~${(streetViewHeading + 180) % 360}°) is likely the BACK of the units — the true front is often the OPPOSITE (~${streetViewHeading}°).`
+        `STEP 0.5 — RESOLVE USING IMAGE A (do this before deciding how to use the heading):\n` +
+        `Look at the aerial and identify which side of the building is the FRONT by finding:\n` +
+        `  • Driveway and/or garage door (strongest signal — which direction does it open toward?)\n` +
+        `  • Front walkway or landscaped front yard\n` +
+        `  • Which road the main entrance faces\n` +
+        `  • For courts/cul-de-sacs: the front faces INTO the court (toward the court center/opening)\n` +
+        `  • For complexes: the fronts face an internal private lane, NOT the bordering public road\n` +
+        `\n` +
+        `Once you know from the aerial which side is the front and what direction it faces,\n` +
+        `use the heading only to confirm — not to override — your aerial-based conclusion.\n` +
+        `If the heading is inconsistent with the aerial evidence, trust the aerial.`
         : '';
 
 
@@ -101,15 +105,19 @@ Assess the sharpness and resolution of Image A (Aerial Satellite).
 - If the image is sharp and detailed, set image_quality to "clear" and continue.
 
 TASK:
-1. FIRST — classify the property type from Image A:
-   - TYPE A (standalone home): single detached building, one rooftop, fronts a single street.
-   - TYPE B (complex): multiple rooftop units, visible internal lane or courtyard, apartment/townhome style.
+1. FIRST — use Image A (aerial) to identify the FRONT of the property:
+   - Look for: driveway, garage door opening direction, front walkway, landscaped front yard.
+   - Strongest signal: which direction does the driveway/garage open toward on the North-up aerial?
+   - For courts/cul-de-sacs: the front faces INTO the court (toward the court center/opening).
+   - For multi-unit complexes: fronts face an internal private lane, NOT the bordering public road.
+   - Determine the compass direction that front wall points on the North-up aerial frame.
 
-2. Based on property type, determine the front orientation:
-   - TYPE A: Use the camera heading (${streetViewHeading != null ? `${streetViewHeading}° → front faces ~${(streetViewHeading + 180) % 360}°` : 'not available'}). Trust it as ground truth.
-   - TYPE B: IGNORE the heading for orientation. In Image A, find the internal access lane or courtyard
-     that the unit fronts face. Determine which compass direction those fronts point toward.
-     The heading only tells you which wall faces the PUBLIC road (likely the BACK of the units).
+2. Use the camera heading (${streetViewHeading != null ? `${streetViewHeading}°` : 'not available'}) as a SUPPORTING clue only:
+   - First decide which wall Image B is showing (front, back, or side) based on your aerial analysis.
+   - If Image B shows the FRONT: the front orientation = the direction that wall faces back toward the camera
+     (i.e., ~${streetViewHeading != null ? `${(streetViewHeading + 180) % 360}°` : 'N/A'} if scenario A applies).
+   - If Image B shows the BACK or SIDE: ignore the heading formula; use aerial cues for orientation.
+   - The heading is NOT a blindly-applied formula — confirm it makes sense against the aerial first.
 
 3. Confirm the compass direction from the North-up aerial frame.
 4. Express the result as a specific compass direction and approximate azimuth in degrees.
@@ -136,22 +144,20 @@ TASK:
    help reduce heating costs in winter and tend to keep afternoons cooler."
 
 Use this step-by-step reasoning format in your explanation:
-  Step 1: Classify the property type (TYPE A or TYPE B) based on Image A description.
-  Step 2: For TYPE A — state the heading and derived front direction. For TYPE B — identify the
-          internal lane/courtyard in Image A and which direction the unit fronts face it.
-  Step 3: Confirm the compass direction from the North-up aerial frame.
-  Step 4: Give your estimated orientation with an azimuth and confidence level.
+  Step 1: Describe what you see in Image A. Identify which side of the building is the front
+          (look for driveway, garage, front yard, access road relationship). State the compass direction it faces.
+  Step 2: State the camera heading. Determine which face Image B is showing (front/back/side)
+          based on your Step 1 aerial conclusion. Confirm or revise accordingly.
+  Step 3: State your final compass direction and azimuth.
+  Step 4: Give confidence level and brief rationale.
 
-REMINDER ON HEADING USE:
-- TYPE A (standalone home): heading IS reliable → use it as main signal.
-- TYPE B (complex): heading shows which wall faces the PUBLIC ROAD = likely the BACK.
-  For TYPE B, the true front is often in the OPPOSITE direction (~${streetViewHeading != null ? streetViewHeading : '?'}°).
-  Use aerial cues — internal lane, courtyard, unit door positions — as the primary signal.
-
-MULTI-ROAD / COMPLEX HEURISTIC:
-- For complexes: front faces the INTERNAL access lane, not the bordering arterial road.
-- For standalone homes: front usually faces the address street.
-- A wide arterial road is almost always a back or side boundary for residential complexes.
+KEY HEURISTICS:
+- Driveway + garage door direction on the aerial = the most reliable front indicator.
+- Courts and cul-de-sacs: homes face INTO the court. The camera often drives up photographing the front.
+  In this case the front faces the direction the camera was pointing (heading), NOT heading+180.
+- Through-streets: front faces the road; camera is across from the front; front = ~heading+180.
+- Multi-unit complexes: fronts face an internal lane, NOT the arterial road.
+- When aerial and heading conflict, trust the aerial.
 `.trim();
 }
 
