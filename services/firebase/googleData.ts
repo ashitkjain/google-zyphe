@@ -18,6 +18,8 @@ export interface GoogleEnvironmentalData {
     noiseLocalDesc?: string | null;
     noiseAirportScore?: number | null;
     noiseAirportDesc?: string | null;
+    /** ISO timestamp of the last HowLoud API attempt. Set even when score is null so we don't re-call on every run. */
+    noiseFetchedAt?: string | null;
     /** Google Places Nearby Search results. 30-day TTL — set when data is first fetched. */
     google_places?: any;
     /** Historical disaster data (USGS + FEMA). 365-day TTL. */

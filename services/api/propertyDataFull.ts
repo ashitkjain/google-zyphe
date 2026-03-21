@@ -205,7 +205,8 @@ export const fetchPropertyDataFull = async (
             const needsSolar = !cachedEnvData?.solarData || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_SOLAR);
             const needsAirQual = !cachedEnvData?.airQuality || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_AIR_QUALITY);
             const needsPollen = !cachedEnvData?.pollen?.analysis || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_POLLEN);
-            const needsNoise = cachedEnvData?.noiseScore == null || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
+            // noiseScore == null ≠ never fetched. Use noiseFetchedAt to distinguish.
+            const needsNoise = !cachedEnvData?.noiseFetchedAt || forceEnvironment || isCacheExpired(cachedEnvData.lastUpdated, TTL_NOISE);
             const needsDisasters = !cachedEnvData?.historical_disasters || forceEnvironment || isCacheExpired(cachedEnvData?.historical_disasters?.fetchedAt, TTL_DISASTERS);
             const needsBroadband = !cachedEnvData?.broadband || forceEnvironment || isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND);
             const needsDrought = !cachedEnvData?.drought || forceEnvironment || isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT);
@@ -371,6 +372,8 @@ export const fetchPropertyDataFull = async (
                     noiseLocalDesc: mappedData.noiseLocalDesc ?? null,
                     noiseAirportScore: mappedData.noiseAirportScore ?? null,
                     noiseAirportDesc: mappedData.noiseAirportDesc ?? null,
+                    // Timestamp lets us skip HowLoud on future runs even when score is null
+                    noiseFetchedAt: needsNoise ? new Date().toISOString() : (cachedEnvData?.noiseFetchedAt ?? null),
                     zpid: mappedData.zpid || storageKey,
                     evChargers: (mappedData as any).evChargers ?? null,
                     drought: mappedData.drought ?? null,
