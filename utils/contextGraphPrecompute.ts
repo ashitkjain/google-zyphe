@@ -25,6 +25,16 @@ function fmt(n: number | null | undefined, prefix = '', suffix = ''): string | n
     return `${prefix}${n.toLocaleString()}${suffix}`;
 }
 
+/**
+ * Safely coerce a field that may be a string OR string[] (Zillow API inconsistency)
+ * into a comma-joined string. Returns '' for null/undefined/invalid types.
+ */
+function toStr(v: any): string {
+    if (v == null) return '';
+    if (Array.isArray(v)) return v.join(', ');
+    return String(v);
+}
+
 function calcMonthlyMortgage(price: number, annualRate = 0.07, years = 30): number {
     const r = annualRate / 12;
     const n = years * 12;
@@ -127,7 +137,7 @@ function factor18_garageParkingCapacity(p: PropertyData): ExtractedFactor {
         else tags.push('No Garage');
     }
     if (features) {
-        const lower = String(features).toLowerCase();
+        const lower = toStr(features).toLowerCase();
         if (lower.includes('attached')) tags.push('Attached');
         else if (lower.includes('detached')) tags.push('Detached');
         if (lower.includes('ev') || lower.includes('electric vehicle') || lower.includes('240v')) tags.push('EV-Ready');
@@ -139,7 +149,7 @@ function factor18_garageParkingCapacity(p: PropertyData): ExtractedFactor {
 function factor21_moveInReadiness(p: PropertyData): ExtractedFactor {
     const condition = p.resoFacts?.propertyCondition;
     if (!condition) return { id: 21, name: 'Move-In Readiness', tags: [] };
-    const lower = String(condition).toLowerCase();
+    const lower = toStr(condition).toLowerCase();
     const tags: string[] = [];
     if (lower.includes('new') || lower.includes('excellent') || lower.includes('updated') || lower.includes('remodel')) {
         tags.push('Turn-Key');
@@ -151,7 +161,7 @@ function factor21_moveInReadiness(p: PropertyData): ExtractedFactor {
         tags.push('Needs TLC');
     } else {
         // Use condition value directly as a tag
-        tags.push(condition.split(',')[0].trim());
+        tags.push(toStr(condition).split(',')[0].trim());
     }
     return { id: 21, name: 'Move-In Readiness', tags };
 }
@@ -159,7 +169,7 @@ function factor21_moveInReadiness(p: PropertyData): ExtractedFactor {
 function factor30_interiorFinishes(p: PropertyData): ExtractedFactor {
     const interior = p.resoFacts?.interiorFeatures;
     if (!interior) return { id: 30, name: 'Interior Finishes', tags: [] };
-    const features = String(interior).split(',').map(s => s.trim()).filter(Boolean);
+    const features = toStr(interior).split(',').map(s => s.trim()).filter(Boolean);
     const tags: string[] = [];
     const lower = features.map(f => f.toLowerCase());
     // Extract key keywords
@@ -193,7 +203,7 @@ function factor20_constructionEra(p: PropertyData): ExtractedFactor {
 function factor28_flooring(p: PropertyData): ExtractedFactor {
     const f = p.resoFacts?.flooring;
     if (!f) return { id: 28, name: 'Flooring Material', tags: [] };
-    return { id: 28, name: 'Flooring Material', tags: f.split(',').map(s => s.trim()).slice(0, 3) };
+    return { id: 28, name: 'Flooring Material', tags: toStr(f).split(',').map(s => s.trim()).filter(Boolean).slice(0, 3) };
 }
 
 
@@ -215,7 +225,7 @@ function factor52_airQuality(p: PropertyData): ExtractedFactor {
 function factor59_laundry(p: PropertyData): ExtractedFactor {
     const lf = p.resoFacts?.laundryFeatures;
     if (!lf) return { id: 59, name: 'Laundry Logistics', tags: [] };
-    const lower = lf.toLowerCase();
+    const lower = toStr(lf).toLowerCase();
     const indoor = lower.includes('inside') || lower.includes('indoor') || lower.includes('laundry room');
     return { id: 59, name: 'Laundry Logistics', tags: [indoor ? 'Indoor Laundry' : 'Garage/Exterior Laundry'] };
 }
@@ -235,7 +245,7 @@ function factor41_exteriorStyle(p: PropertyData, visual: CustomAIAnalysisResult 
     // 1. Architecture style from resoFacts (listing data) — short keyword like "Contemporary"
     const resoStyle = p.resoFacts?.architecturalStyle;
     if (resoStyle && resoStyle !== 'N/A') {
-        tags.push(resoStyle.split(',')[0].trim());
+        tags.push(toStr(resoStyle).split(',')[0].trim());
     }
 
     // 2. From visual AI exterior analysis — extract style keyword only
@@ -254,7 +264,7 @@ function factor41_exteriorStyle(p: PropertyData, visual: CustomAIAnalysisResult 
     // 3. Exterior materials from resoFacts
     const materials = (p.resoFacts as any)?.constructionMaterials;
     if (materials && materials !== 'N/A') {
-        for (const mat of materials.split(',').map((s: string) => s.trim()).slice(0, 2)) {
+        for (const mat of toStr(materials).split(',').map((s: string) => s.trim()).slice(0, 2)) {
             if (mat && !tags.some(t => t.toLowerCase() === mat.toLowerCase())) tags.push(mat);
         }
     }
@@ -262,7 +272,7 @@ function factor41_exteriorStyle(p: PropertyData, visual: CustomAIAnalysisResult 
     // 4. Roof type
     const roof = (p.resoFacts as any)?.roofType;
     if (roof && roof !== 'N/A') {
-        tags.push(`${roof.split(',')[0].trim()} Roof`);
+        tags.push(`${toStr(roof).split(',')[0].trim()} Roof`);
     }
 
     // 5. Curb appeal note from visual
@@ -442,13 +452,15 @@ function factor50_hvacQuality(p: PropertyData): ExtractedFactor {
     const parts: string[] = [];
     const tags: string[] = [];
     if (cooling) {
-        const isCentral = cooling.toLowerCase().includes('central');
-        parts.push(isCentral ? 'Central AC' : cooling);
+        const coolingStr = toStr(cooling);
+        const isCentral = coolingStr.toLowerCase().includes('central');
+        parts.push(isCentral ? 'Central AC' : coolingStr);
         tags.push(isCentral ? 'Central AC' : 'AC');
     }
     if (heating) {
-        const isForced = heating.toLowerCase().includes('forced air') || heating.toLowerCase().includes('central');
-        parts.push(isForced ? 'Forced Air Heat' : heating);
+        const heatingStr = toStr(heating);
+        const isForced = heatingStr.toLowerCase().includes('forced air') || heatingStr.toLowerCase().includes('central');
+        parts.push(isForced ? 'Forced Air Heat' : heatingStr);
         tags.push(isForced ? 'Forced Air' : 'Heat');
     }
 
