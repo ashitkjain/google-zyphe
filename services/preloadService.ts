@@ -873,28 +873,10 @@ export const runFullIntelligencePipeline = async (
 
         const failedIds = new Set(failed.map(c => c.id));
 
-        // 1. Re-fetch from RapidAPI if core data is missing
-        const needsRapidApi = RAPIDAPI_CHECKS.some(id => failedIds.has(id));
-        if (needsRapidApi && finalProp?.zpid) {
-          onLog?.(`[Smoke Retry] Re-fetching core data from RapidAPI...`);
-          try {
-            const { fetchPropertySpecs } = await import('./api/property');
-            const fresh = await fetchPropertySpecs(finalProp.zpid);
-            if (fresh) {
-              const healed = { ...finalProp };
-              for (const [key, value] of Object.entries(fresh)) {
-                if (value != null && (healed as any)[key] == null) {
-                  (healed as any)[key] = value;
-                }
-              }
-              await savePropertyToCloud(zpid, healed);
-              enrichedData = healed as PropertyData;
-              onLog?.(`[Smoke Retry] Core data healed from RapidAPI.`);
-            }
-          } catch (e: any) {
-            onLog?.(`[Smoke Retry] RapidAPI heal failed: ${e.message}`);
-          }
-        }
+        // 1. RapidAPI re-fetch SKIPPED — pre-pipeline healing (line ~136) already called
+        //    fetchPropertySpecs and merged all available fields. Calling again is wasteful
+        //    as the API returns the same data. RapidAPI issues are structural (source doesn't have data).
+        const needsRapidApi = false;
 
         // 2. Re-run Visual AI if critical visual checks failed
         const needsVisual = VISUAL_CHECKS.filter(id => failedIds.has(id));
