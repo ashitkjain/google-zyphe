@@ -29,6 +29,9 @@ export const isGhostListing = (item: any): boolean => {
     // No street number at all (real addresses start with a number)
     if (addr && !/^\d/.test(addr.trim())) return true;
 
+    // Street number 0 = vacant lot placeholder (e.g. "0 Santos Ranch Rd")
+    if (/^0\s/.test(addr.trim())) return true;
+
     // Address is just a community name (no comma before city, no numbers)
     if (addr && !addr.includes(',') && !/\d/.test(addr)) return true;
 
@@ -37,14 +40,20 @@ export const isGhostListing = (item: any): boolean => {
 
 // ── Property type filter ────────────────────────────────────────────
 
+// Types to always exclude (vacant land, lots)
+const BLOCKED_HOME_TYPES = ['LOT', 'LAND', 'VACANT_LAND'];
+
 /**
  * Only allow Single Family, Townhouse, and Condo listings.
  * homeType values come from Zillow API: "SINGLE_FAMILY", "TOWNHOUSE", "CONDO", etc.
+ * Explicitly blocks LOT / LAND / VACANT_LAND.
  * If no type info, let it through (will be filtered later when data is enriched).
  */
 export const isSupportedPropertyType = (item: any): boolean => {
-    const ht = item.homeType;
+    const ht = item.homeType || item.home_type || '';
     if (!ht) return true; // no type info yet — let it through
+    const upper = ht.toUpperCase();
+    if (BLOCKED_HOME_TYPES.includes(upper)) return false;
     return ALLOWED_HOME_TYPES.includes(ht);
 };
 
