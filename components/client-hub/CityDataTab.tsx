@@ -85,6 +85,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     // Batch Context Graph
     const [graphBatchRunning, setGraphBatchRunning] = useState(false);
     const [graphBatchProgress, setGraphBatchProgress] = useState<{ done: number; skipped: number; failed: number; total: number } | null>(null);
+    const [forceGraphRegen, setForceGraphRegen] = useState(false);
 
     // Backfill Context Graph Metadata
     const [backfillRunning, setBackfillRunning] = useState(false);
@@ -1212,7 +1213,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
 
     // ── Batch Context Graph Generator (smart staleness) ───────────────────
-    const handleBatchContextGraph = async () => {
+    const handleBatchContextGraph = async (forceAll: boolean = forceGraphRegen) => {
         // Use selected properties if any are checked, otherwise all cached
         const targetIds = selectedIds.size > 0
             ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
@@ -1223,7 +1224,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
         setGraphBatchRunning(true);
         setGraphBatchProgress({ done: 0, skipped: 0, failed: 0, total: targetIds.size });
-        addLog(`[Context Graph] Smart sync for ${targetIds.size}${selectedIds.size > 0 ? ' selected' : ' cached'} properties — checking staleness...`);
+        addLog(`[Context Graph] ${forceAll ? '⚡ Force regen' : 'Smart sync'} for ${targetIds.size}${selectedIds.size > 0 ? ' selected' : ' cached'} properties${forceAll ? ' — bypassing staleness check' : ' — checking staleness...'}`);
 
         const zpids = Array.from(targetIds) as string[];
         let done = 0;
@@ -1254,16 +1255,17 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             return 0;
         };
 
-        addLog(`[Context Graph] Phase 1: Fetching timestamps from 4 source collections...`);
+        addLog(`[Context Graph] Phase 1: Fetching timestamps from 5 source collections...`);
         for (let i = 0; i < zpids.length; i += BATCH) {
             const chunk = zpids.slice(i, i + BATCH);
             if (!firestoreDb) break;
 
-            const [graphSnap, propSnap, visualSnap, compSnap] = await Promise.all([
+            const [graphSnap, propSnap, visualSnap, compSnap, envSnap] = await Promise.all([
                 getDocs(query(collection(firestoreDb, 'context_graph'), where(documentId(), 'in', chunk))),
                 getDocs(query(collection(firestoreDb, 'properties'), where(documentId(), 'in', chunk))),
                 getDocs(query(collection(firestoreDb, 'property_analyses_visual'), where(documentId(), 'in', chunk))),
                 getDocs(query(collection(firestoreDb, 'property_analyses_comprehensive'), where(documentId(), 'in', chunk))),
+                getDocs(query(collection(firestoreDb, 'google_environmental_data'), where(documentId(), 'in', chunk))),
             ]);
 
             // Context graph timestamps
@@ -1273,7 +1275,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 graphExists[d.id] = !!(data.factors?.length > 0);
             });
 
-            // Source collection timestamps — take the MAX
+            // Source collection timestamps — take the MAX across all 5 sources
             const updateMax = (zpid: string, ts: any) => {
                 const ms = toMs(ts);
                 if (ms > (sourceTimestamps[zpid] || 0)) sourceTimestamps[zpid] = ms;
@@ -1281,6 +1283,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             propSnap.forEach(d => updateMax(d.id, d.data().lastUpdated));
             visualSnap.forEach(d => updateMax(d.id, d.data().timestamp));
             compSnap.forEach(d => updateMax(d.id, d.data().timestamp));
+            envSnap.forEach(d => updateMax(d.id, d.data().lastUpdated));  // env data updates trigger regen too
         }
 
         // ── Phase 2: Classify each property ──
@@ -1289,7 +1292,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const upToDate: string[] = [];         // fresh — graph is newer than all sources
 
         for (const zpid of zpids) {
-            if (!graphExists[zpid]) {
+            if (forceAll) {
+                // Force mode: treat every property as needing generation/regen
+                (graphExists[zpid] ? needsRegen : needsGeneration).push(zpid);
+            } else if (!graphExists[zpid]) {
                 needsGeneration.push(zpid);
             } else {
                 const graphTs = graphTimestamps[zpid] || 0;
@@ -1302,7 +1308,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
         }
 
-        addLog(`[Context Graph] Phase 1 results: ${needsGeneration.length} new, ${needsRegen.length} stale, ${upToDate.length} up-to-date`);
+        addLog(`[Context Graph] Phase 1 results: ${needsGeneration.length} new, ${needsRegen.length} stale${forceAll ? ' (forced)' : ''}, ${upToDate.length} up-to-date`);
         skipped = upToDate.length;
         setGraphBatchProgress({ done, skipped, failed, total: zpids.length });
 
@@ -1925,22 +1931,32 @@ ${JSON.stringify(propertySummaries)}
                                         </button>
                                     )}
                                     {cachedPropertyIds.size > 0 && (
-                                        <button
-                                            onClick={() => handleBatchContextGraph()}
-                                            disabled={graphBatchRunning || loading}
-                                            className="px-6 py-3 bg-white border-2 border-cyan-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
-                                            title="Smart sync: generates new context graphs + regenerates stale ones (compares source data timestamps vs graph timestamp)"
-                                        >
-                                            {graphBatchRunning ? (
-                                                <>
-                                                    <i className="fa-solid fa-spinner animate-spin text-cyan-400"></i>
-                                                    {graphBatchProgress ? `${graphBatchProgress.done + graphBatchProgress.skipped}/${graphBatchProgress.total}` : 'Checking...'}
-                                                </>
-                                            ) : (
-                                                <><i className="fa-solid fa-diagram-project text-cyan-500 group-hover:scale-110 transition-transform"></i>Sync Graphs</>
-                                            )}
-                                        </button>
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => handleBatchContextGraph()}
+                                                disabled={graphBatchRunning || loading}
+                                                className="px-6 py-3 bg-white border-2 border-cyan-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                                title={forceGraphRegen ? 'Force regenerate ALL context graphs (ignores staleness check)' : 'Smart sync: generates new context graphs + regenerates stale ones'}
+                                            >
+                                                {graphBatchRunning ? (
+                                                    <>
+                                                        <i className="fa-solid fa-spinner animate-spin text-cyan-400"></i>
+                                                        {graphBatchProgress ? `${graphBatchProgress.done + graphBatchProgress.skipped}/${graphBatchProgress.total}` : 'Checking...'}
+                                                    </>
+                                                ) : (
+                                                    <><i className={`fa-solid fa-diagram-project ${forceGraphRegen ? 'text-orange-500' : 'text-cyan-500'} group-hover:scale-110 transition-transform`}></i>{forceGraphRegen ? 'Force Regen' : 'Sync Graphs'}</>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => setForceGraphRegen(f => !f)}
+                                                title={forceGraphRegen ? 'Force mode ON — click to switch back to smart sync' : 'Smart mode — click to enable force regen'}
+                                                className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center text-xs transition-all ${forceGraphRegen ? 'bg-orange-100 border-orange-400 text-orange-600' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                                            >
+                                                <i className="fa-solid fa-bolt"></i>
+                                            </button>
+                                        </div>
                                     )}
+
                                     {cachedPropertyIds.size > 0 && (
                                         <button
                                             onClick={handleBackfillMetadata}
