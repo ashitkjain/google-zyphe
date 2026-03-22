@@ -6,7 +6,10 @@
  * ACTIVE:  computePropertySlopeGoogle  — single Google Elevation API batch call
  *          • ~200ms, 99.9% reliable, uses existing Maps API key
  *          • Cost: $0.005/property ($5 per 1,000 requests, $200/mo free credit)
- *          • 17 points in ONE request: center + 8×100ft ring + 8×200ft ring
+ *          • 25 points in ONE request: center + 8×100ft ring + 8×200ft ring + 8×1000ft ring
+ *          • 100ft ring: lot slope + driveway grade
+ *          • 200ft ring: secondary slope confirmation
+ *          • 1000ft ring: view potential (captures valley/bay openings, not just yard-level drop)
  *
  * BACKUP:  computePropertySlopeUSGS   — original 9-call USGS EPQS approach
  *          • Kept for fallback / comparison only. Do NOT use in prod.
@@ -54,14 +57,16 @@ export interface PropertySlopeResult {
     //   Moderate 10–15% — notable, worth mentioning
     //   Steep    >15% — municipal codes often require variance above 20–25%
 
-    // View potential (elevation drop from property outward at 200ft)
-    viewDropFt: number;                 // Max ft the ground drops from property at 200ft
-    viewDropDir: string;                // Direction of that max drop (best view direction)
+    // View potential — measured at 1000ft to capture valley/bay openings
+    // (200ft is too local — a hillside yard drops little at 200ft but the valley
+    //  beyond may be 200–400ft lower; 1000ft catches that panoramic drop)
+    viewDropFt: number;                 // Max ft ground drops from property at 1000ft
+    viewDropDir: string;                // Direction of greatest 1000ft drop (best view direction)
     viewPotential: 'High' | 'Moderate' | 'Limited' | 'None';
-    //   High     > 40ft drop — strong hillside view likely
-    //   Moderate > 20ft drop — partial or seasonal view possible
-    //   Limited  >  8ft drop — slight elevation advantage, limited view
-    //   None     ≤  8ft drop — flat surroundings, no elevation-based view
+    //   High     > 100ft drop at 1000ft — significant hillside/valley/bay view very likely
+    //   Moderate >  50ft drop at 1000ft — partial view corridor, may depend on obstructions
+    //   Limited  >  20ft drop at 1000ft — slight elevation advantage, limited open view
+    //   None     ≤  20ft drop at 1000ft — flat surroundings, no terrain-based view
 
     // Absolute elevation
     elevationFt: number;                // Property elevation AMSL in feet
@@ -101,12 +106,18 @@ async function fetchGoogleElevations(
 
 /**
  * Main function — computes slope, driveway grade, and view potential for a
- * property using a SINGLE Google Elevation API batch request (17 points).
+ * property using a SINGLE Google Elevation API batch request (25 points).
  *
  * Sampling layout:
  *   Point  0      — property pin (center)
  *   Points 1–8   — 8 compass directions × 100ft (slope + driveway grade)
- *   Points 9–16  — 8 compass directions × 200ft (view potential)
+ *   Points 9–16  — 8 compass directions × 200ft (secondary slope check)
+ *   Points 17–24 — 8 compass directions × 1000ft (view potential — valley/bay opening)
+ *
+ * Why 1000ft for views:
+ *   A hillside home at 623ft AMSL may only drop 19ft at 200ft (local yard slope)
+ *   but 200ft+ beyond that the terrain opens to the bay dropping 200ft.
+ *   200ft sampling only sees the yard. 1000ft sees the actual vista.
  */
 export async function computePropertySlopeGoogle(
     lat: number,
@@ -116,7 +127,7 @@ export async function computePropertySlopeGoogle(
     const DEG_LAT_PER_FT = 1 / 364000;
     const DEG_LON_PER_FT = 1 / (364000 * Math.cos(lat * Math.PI / 180));
 
-    // Build 17-point batch: center + 8×100ft + 8×200ft
+    // Build 25-point batch: center + 8×100ft + 8×200ft + 8×1000ft
     const points: { lat: number; lng: number }[] = [
         { lat, lng }, // index 0: center
     ];
@@ -134,6 +145,13 @@ export async function computePropertySlopeGoogle(
             lng: lng + d.dLon * 200 * DEG_LON_PER_FT,
         });
     }
+    for (const d of COMPASS_DIRS) {
+        // 1000ft ring (indices 17–24) — view potential
+        points.push({
+            lat: lat + d.dLat * 1000 * DEG_LAT_PER_FT,
+            lng: lng + d.dLon * 1000 * DEG_LON_PER_FT,
+        });
+    }
 
     const elevationsM = await fetchGoogleElevations(points);
     const toFt = (m: number) => m * METERS_TO_FEET;
@@ -146,10 +164,11 @@ export async function computePropertySlopeGoogle(
         gradePct: toFt(elevationsM[i + 1]) - centerFt, // +uphill, -downhill
     }));
 
-    // 200ft ring — elevation drop from center (positive = ground drops away)
-    const ring200 = COMPASS_DIRS.map((d, i) => ({
+    // 1000ft ring — elevation drop from center (positive = ground drops away)
+    // This captures valley/bay openings that 200ft rings miss entirely
+    const ring1000 = COMPASS_DIRS.map((d, i) => ({
         dir: d.name,
-        dropFt: centerFt - toFt(elevationsM[i + 9]),
+        dropFt: centerFt - toFt(elevationsM[i + 17]),
     }));
 
     // ── Core slope ────────────────────────────────────────────────────────────
@@ -169,13 +188,16 @@ export async function computePropertySlopeGoogle(
         drivewayGradePercent < 10 ? 'Gentle'   :
         drivewayGradePercent < 15 ? 'Moderate' : 'Steep';
 
-    // ── View potential ────────────────────────────────────────────────────────
-    const maxDropPt = ring200.reduce((a, b) => a.dropFt > b.dropFt ? a : b);
+    // ── View potential (1000ft ring) ──────────────────────────────────────────
+    // Use 1000ft (not 200ft) so hillside homes facing a valley/bay register
+    // correctly. At 200ft a hillside yard drops ~20ft; at 1000ft the same
+    // hillside may drop 200ft toward the bay.
+    const maxDropPt = ring1000.reduce((a, b) => a.dropFt > b.dropFt ? a : b);
     const viewDropFt = Math.round(maxDropPt.dropFt * 10) / 10;
     const viewPotential: PropertySlopeResult['viewPotential'] =
-        viewDropFt > 40 ? 'High'     :
-        viewDropFt > 20 ? 'Moderate' :
-        viewDropFt > 8  ? 'Limited'  : 'None';
+        viewDropFt > 100 ? 'High'     :
+        viewDropFt > 50  ? 'Moderate' :
+        viewDropFt > 20  ? 'Limited'  : 'None';
 
     return {
         slopePercent,
