@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from 'react';
+import ClientEditModal from './ClientEditModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface StoryIntakeData {
     name: string;
     budget: string;
+    cities: string;
     chapter01: string; // Identity & Background
     chapter02: string; // Daily Rituals & Lifestyle
     chapter03: string; // Architectural & Emotional Soul
@@ -80,6 +82,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
     const [data, setData] = useState<StoryIntakeData>({
         name: '',
         budget: '',
+        cities: '',
         chapter01: '',
         chapter02: '',
         chapter03: '',
@@ -90,6 +93,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
 
     const [synthesizing, setSynthesizing] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
 
     const update = useCallback(<K extends keyof StoryIntakeData>(key: K, value: StoryIntakeData[K]) => {
         setData(prev => ({ ...prev, [key]: value }));
@@ -115,9 +119,24 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
         }));
     };
 
-    const fullStory = [data.chapter01, data.chapter02, data.chapter03]
+    const fullStory = [data.chapter01, data.chapter02, data.chapter03, data.chapter04]
         .filter(Boolean)
         .join('\n\n');
+
+    // Synthetic client object pre-filled from story form
+    const syntheticClient = {
+        id: null,
+        firstName: data.name.split(' ')[0] || '',
+        lastName: data.name.split(' ').slice(1).join(' ') || '',
+        financialVitals: { budgetMax: data.budget.replace(/[^0-9]/g, ''), preApprovalStatus: false, isAllCash: false },
+        searchCriteria: {
+            locations: data.cities,
+            mustHaves: [data.chapter01, data.chapter04].filter(Boolean).join('\n'),
+            dealBreakers: '',
+        },
+        leadInfo: { customerMessage: fullStory },
+        motivation: data.chapter02,
+    };
 
     const wordCount = fullStory.split(/\s+/).filter(Boolean).length;
     const isReady = fullStory.length > 30 || data.selectedAnchors.length > 0;
@@ -137,6 +156,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
     };
 
     return (
+        <>
         <div className="animate-in fade-in duration-400 min-h-screen bg-slate-50/60 pb-24">
 
             {/* ── Page Header ── */}
@@ -192,6 +212,29 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                                 />
                             </div>
                         </div>
+
+                        {/* Cities */}
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
+                                Target Cities
+                            </label>
+                            <input
+                                type="text"
+                                value={data.cities}
+                                onChange={e => update('cities', e.target.value)}
+                                placeholder="e.g. Pleasanton, Dublin, San Ramon"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
+                            />
+                        </div>
+
+                        {/* Request more info link */}
+                        <button
+                            onClick={() => setEditModalOpen(true)}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors group"
+                        >
+                            <i className="fa-solid fa-pen-to-square text-[10px] group-hover:scale-110 transition-transform"></i>
+                            Add more details (contact, timeline, financials)
+                        </button>
                     </div>
 
                     {/* AI Precision card */}
@@ -353,6 +396,27 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                 </button>
             </div>
         </div>
+
+        {/* ── ClientEditModal (pre-filled from story data) ── */}
+        <ClientEditModal
+            client={syntheticClient}
+            isOpen={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            onSave={async (updates) => {
+                // Pull key fields back into story form
+                if (updates.firstName || updates.lastName) {
+                    update('name', [updates.firstName, updates.lastName].filter(Boolean).join(' '));
+                }
+                if ((updates as any).financialVitals?.budgetMax) {
+                    update('budget', String((updates as any).financialVitals.budgetMax));
+                }
+                if ((updates as any).searchCriteria?.locations) {
+                    update('cities', (updates as any).searchCriteria.locations);
+                }
+                setEditModalOpen(false);
+            }}
+        />
+        </>
     );
 };
 
