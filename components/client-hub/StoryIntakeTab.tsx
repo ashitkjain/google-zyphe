@@ -183,12 +183,8 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                         </p>
                     )}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
-                        <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">AI Active</span>
-                    </div>
-                    {isRealtor && (
+                {isRealtor && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                             onClick={handleSynthesize}
                             disabled={synthesizing}
@@ -201,8 +197,8 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                             )}
                             Synthesize Match
                         </button>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* ── Main Grid ── */}
