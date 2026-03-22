@@ -2,7 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // 1. PUBLIC READ, AUTHENTICATED WRITE (Property Intelligence)
+    // ═══════════════════════════════════════════════════════
+    // 1. PUBLIC READ, AUTHENTICATED WRITE (Property Intelligence / Global)
+    // ═══════════════════════════════════════════════════════
     match /{collectionName}/{zpid} {
       allow read: if collectionName in [
         'properties', 
@@ -50,16 +52,13 @@ service cloud.firestore {
       ];
     }
 
-    // User preferences (commute destination, etc.) — owner only
-    match /user_preferences/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
     match /system_test/{docId} {
       allow read, write: if true; 
     }
 
-    // 2. USER DATA & REALTOR-CLIENT ACCESS
+    // ═══════════════════════════════════════════════════════
+    // 2. USER DATA & USER SUBCOLLECTIONS
+    // ═══════════════════════════════════════════════════════
     match /users/{userId} {
       // Users can manage their own profiles
       allow read: if request.auth != null;
@@ -71,26 +70,158 @@ service cloud.firestore {
       
       match /viewHistory/{zpid} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
-        // Realtors can see their client's view history
         allow read: if request.auth != null && 
                      get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
       }
       
       match /favorites/{zpid} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
-        // Realtors can see their client's favorites
         allow read: if request.auth != null && 
                      get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
       }
 
-      match /activity/{activityId} {
+      // NEW: User preferences subcollection (commute destination, etc.)
+      match /preferences/{prefId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
-        allow read: if request.auth != null && 
-                     get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
+      }
+
+      // NEW: User property comments (sticky notes) — owner only
+      match /property_comments/{commentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 
-    // 3. CRM DATA - LEADS, TASKS, TEMPLATES, NOTES
+    // Legacy: user_preferences (kept for rollback)
+    match /user_preferences/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 3. REALTOR TENANT DATA — /realtors/{realtorId}/...
+    //    Access: Only the realtor who owns the tenant OR
+    //    clients assigned to that realtor (for read-only views)
+    // ═══════════════════════════════════════════════════════
+    
+    // Helper: Is the authenticated user the owner of this realtor tenant?
+    function isRealtorOwner(realtorId) {
+      return request.auth != null && request.auth.uid == realtorId;
+    }
+
+    // Helper: Is the authenticated user a client of this realtor?
+    function isClientOfRealtor(realtorId) {
+      return request.auth != null &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.realtorId == realtorId;
+    }
+
+    match /realtors/{realtorId} {
+      // Allow realtor to read/write their own tenant root doc (if it exists)
+      allow read, write: if isRealtorOwner(realtorId);
+
+      // --- CRM Data ---
+      match /leads/{leadId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+      match /buyers/{docId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+      match /sellers/{docId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+      match /tasks/{taskId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+      match /templates/{templateId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+      match /notes/{noteId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Calendar ---
+      match /calendar_events/{eventId} {
+        allow read, write: if isRealtorOwner(realtorId);
+        // Clients can read their own calendar events
+        allow read: if isClientOfRealtor(realtorId);
+      }
+
+      // --- Reminder Rules ---
+      match /reminderRules/{ruleId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Transactions ---
+      match /transactions/{transactionId} {
+        allow read, write: if isRealtorOwner(realtorId);
+        // Clients can read their transactions
+        allow read: if isClientOfRealtor(realtorId);
+      }
+
+      // --- Transaction Parties ---
+      match /transaction_parties/{partyId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Transaction Documents + Versions ---
+      match /transaction_documents/{documentId} {
+        allow read, write: if isRealtorOwner(realtorId);
+        match /versions/{versionId} {
+          allow read, write: if isRealtorOwner(realtorId);
+        }
+      }
+
+      // --- Audit Events (append-only for realtor) ---
+      match /audit_events/{auditId} {
+        allow read, create: if isRealtorOwner(realtorId);
+        allow update, delete: if false;
+      }
+
+      // --- Messages (Reactivation SMS) ---
+      match /messages/{messageId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Message Events ---
+      match /message_events/{eventId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Journey Events ---
+      match /journey_events/{eventId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Whiteboards ---
+      match /whiteboards/{boardId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Leads Documents ---
+      match /leads_documents/{documentId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Reactivation Analysis ---
+      match /reactivation_analysis_summary/{summaryId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+      match /market_context/{contextId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+      match /lead_plans/{planId} {
+        allow read, write: if isRealtorOwner(realtorId);
+      }
+
+      // --- Clients subcollection (realtor's view of their clients) ---
+      match /clients/{clientId} {
+        allow read, write: if isRealtorOwner(realtorId);
+        // Client can read their own entry
+        allow read: if request.auth != null && request.auth.uid == clientId;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 4. LEGACY FLAT COLLECTIONS (kept for rollback — remove after migration verified)
+    // ═══════════════════════════════════════════════════════
     match /leads/{leadId} {
       allow read, write: if request.auth != null && 
                            (resource.data.realtorId == request.auth.uid || 
@@ -116,7 +247,6 @@ service cloud.firestore {
                             request.resource.data.realtorId == request.auth.uid);
     }
 
-    // 4. REMINDER RULES
     match /reminderRules/{ruleId} {
       allow read: if request.auth != null && resource.data.realtorId == request.auth.uid;
       allow write: if request.auth != null && 
@@ -124,18 +254,12 @@ service cloud.firestore {
                       (resource != null && resource.data.realtorId == request.auth.uid) );
     }
 
-    // 5. CALENDAR DATA
     match /calendar_events/{eventId} {
       allow read, write: if request.auth != null && 
                            (resource.data.realtorId == request.auth.uid || 
                             request.resource.data.realtorId == request.auth.uid);
     }
 
-    // 5. COMMUNICATION & MESSAGES
-    // Reactivation module stores outbound & inbound SMS under 'messages'.
-    // senderId = realtorId (outbound) or leadId (inbound)
-    // receiverId = leadId (outbound) or realtorId (inbound)
-    // Access is granted when the authenticated user is either the sender or receiver.
     match /messages/{messageId} {
       allow read, list: if request.auth != null && (
           resource.data.senderId == request.auth.uid ||
@@ -155,9 +279,7 @@ service cloud.firestore {
       );
     }
 
-    // Internal team messaging (admin/auditor inbox — email-style, no real-time listener)
-    // Any user in the participants array can read, send, or delete.
-    // Delete also allows senderId match as fallback for legacy docs missing participants field.
+    // Internal team messaging (unchanged — not tenant-scoped)
     match /internal_messages/{messageId} {
       allow read: if request.auth != null && (
           request.auth.uid in resource.data.participants ||
@@ -183,7 +305,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
-    // 6. TRANSACTIONS
+    // Legacy transactions (kept for rollback)
     function isTransactionOwner(transactionId) {
       let data = get(/databases/$(database)/documents/transactions/$(transactionId)).data;
       return (data.get('realtorId', '') == request.auth.uid || data.get('owner_user_id', '') == request.auth.uid);
@@ -199,7 +321,6 @@ service cloud.firestore {
                        (resource != null && (resource.data.get('realtorId', '') == request.auth.uid || 
                                              resource.data.get('owner_user_id', '') == request.auth.uid)) );
                                              
-      // Allow access to subcollections like parties
       match /parties/{partyId} {
          allow read, write: if request.auth != null;
       }
@@ -211,7 +332,6 @@ service cloud.firestore {
 
     match /transaction_documents/{documentId} {
       allow read, write: if request.auth != null;
-      
       match /versions/{versionId} {
         allow read, write: if request.auth != null;
       }
@@ -246,11 +366,9 @@ service cloud.firestore {
       allow read: if request.auth != null &&
                     resource.data.transaction_id is string &&
                     isTransactionOwner(resource.data.transaction_id);
-
       allow write: if request.auth != null &&
                      request.resource.data.transaction_id is string &&
                      isTransactionOwner(request.resource.data.transaction_id);
-                     
       allow update, delete: if false;
     }
 
@@ -272,13 +390,6 @@ service cloud.firestore {
       allow read, update: if (request.auth != null && resource.data.user_id == request.auth.uid) ||
                              (resource.data.user_id == 'unknown');
       allow delete: if false;
-    }
-
-    // USER ACTIVITY TRACKING (login, page views, logout, session timeouts)
-    match /user_activity/{eventId} {
-      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
-      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
-      allow update, delete: if false;
     }
 
     match /reactivation_analysis_summary/{summaryId} {
@@ -328,6 +439,7 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // Legacy user_property_comment (kept for rollback)
     match /user_property_comment/{commentId} {
       allow read, write: if request.auth != null && (
         (resource == null && request.resource.data.userId == request.auth.uid) ||
@@ -336,7 +448,7 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
-    // 8. PIPELINE AUDIT TRAIL (append-only log of pipeline actions)
+    // 8. PIPELINE AUDIT TRAIL
     match /pipeline_audit_trail/{entryId} {
       allow create: if request.auth != null;
       allow read: if request.auth != null;

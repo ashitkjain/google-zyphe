@@ -37,7 +37,6 @@ import PropertyCompsTab from '../PropertyCompsTab';
 import SoldListingsTab from '../SoldListingsTab';
 import AgentManagerTab from '../AgentManagerTab';
 import CostDashboardTab from '../CostDashboardTab';
-import StoryIntakeTab from '../StoryIntakeTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -92,16 +91,6 @@ const HubContent: React.FC<HubContentProps> = ({
         <div className="flex-1 flex flex-col">
             {activeTab === 'explore' && exploreContent && (
                 <div className="bg-slate-50">{exploreContent}</div>
-            )}
-
-            {activeTab === 'story_intake' && (
-                <StoryIntakeTab
-                    isRealtor={userRole === 'realtor' || userRole === 'admin'}
-                    onMatchRequest={(story, filters) => {
-                        // Future: pass to buyer story search in CityDataTab
-                        console.log('[StoryIntake] Match requested:', { story, filters });
-                    }}
-                />
             )}
 
             {activeTab === 'clients' && (

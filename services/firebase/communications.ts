@@ -3,6 +3,7 @@ import {
     db,
     logFirestoreQuery
 } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { MessageEvent, ReactivationMessage } from "../../types";
 
 export const sendInviteEmail = async (email: string, subject: string, html: string) => {
@@ -66,8 +67,9 @@ export const saveReactivationMessage = async (data: any) => {
     if (!db) return { success: false, error: "Database not initialized" };
 
     try {
+        const rid = requireTenantId(data.realtorId);
         const collectionName = "messages";
-        const msgRef = doc(db, collectionName, data.message_id);
+        const msgRef = doc(db, "realtors", rid, collectionName, data.message_id);
 
         const isInbound = data.isInbound || false;
 
@@ -107,8 +109,9 @@ export const getReactivationMessages = async (realtorId: string, leadId?: string
     if (!db) return [];
 
     try {
+        const rid = requireTenantId(realtorId);
         const collectionName = "messages";
-        const colRef = collection(db, collectionName);
+        const colRef = collection(db, "realtors", rid, collectionName);
 
         let q;
         if (leadId) {
@@ -129,12 +132,10 @@ export const getReactivationMessages = async (realtorId: string, leadId?: string
                 limit(limitCount)
             );
         } else {
-            // Just get all for realtor (sender) - This might miss inbound?
-            // Without a complex index, getting "All chats for realtor" is hard.
-            // We'll stick to simple senderId check for now, trusting the UI filters by lead usually.
+            // No lead specified — get all messages for this realtor
+            // Under subcollection, all messages in /realtors/{rid}/messages are for this realtor
             q = query(
                 colRef,
-                where("senderId", "==", realtorId),
                 orderBy("timestamp", "desc"),
                 limit(limitCount)
             );
@@ -166,16 +167,14 @@ export const getActionRequiredMessages = async (realtorId: string, limitCount: n
     if (!db) return [];
 
     try {
+        const rid = requireTenantId(realtorId);
         const collectionName = "messages";
-        const colRef = collection(db, collectionName);
+        const colRef = collection(db, "realtors", rid, collectionName);
 
-        // We assume inbound messages from Leads have 'requires_action: true' (set by webhook)
-        // And they are in a thread belonging to the realtor (this is harder to check without realtorId on the msg)
-        // The webhook sets receiverId = realtorId. So we check receiverId == realtorId.
-
+        // Messages are already scoped to this realtor's subcollection.
+        // Just filter by requires_action.
         const q = query(
             colRef,
-            where("receiverId", "==", realtorId),
             where("requires_action", "==", true),
             limit(limitCount)
         );
@@ -200,12 +199,13 @@ export const getActionRequiredMessages = async (realtorId: string, limitCount: n
 /**
  * Marks an action as completed when the agent responds.
  */
-export const completeMessageAction = async (messageId: string, completedAt: any) => {
+export const completeMessageAction = async (messageId: string, completedAt: any, realtorId?: string) => {
     if (!db) return { success: false, error: "Database not initialized" };
 
     try {
+        const rid = requireTenantId(realtorId);
         const collectionName = "messages";
-        const msgRef = doc(db, collectionName, messageId);
+        const msgRef = doc(db, "realtors", rid, collectionName, messageId);
 
         logFirestoreQuery('updateDoc', collectionName, { id: messageId });
         await updateDoc(msgRef, {

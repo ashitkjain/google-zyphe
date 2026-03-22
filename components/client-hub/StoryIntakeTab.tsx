@@ -5,8 +5,13 @@ import ClientEditModal from './ClientEditModal';
 
 interface StoryIntakeData {
     name: string;
+    email: string;
+    phone: string;
+    preferredMethod: 'Email' | 'Phone';
     budget: string;
-    cities: string;
+    targetLocations: string;
+    personaProfile: string;
+    targetTimeline: string;
     chapter01: string; // Identity & Background
     chapter02: string; // Daily Rituals & Lifestyle
     chapter03: string; // Architectural & Emotional Soul
@@ -81,8 +86,13 @@ const CHAPTERS = [
 const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) => {
     const [data, setData] = useState<StoryIntakeData>({
         name: '',
+        email: '',
+        phone: '',
+        preferredMethod: 'Email',
         budget: '',
-        cities: '',
+        targetLocations: '',
+        personaProfile: '',
+        targetTimeline: '',
         chapter01: '',
         chapter02: '',
         chapter03: '',
@@ -128,9 +138,18 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
         id: null,
         firstName: data.name.split(' ')[0] || '',
         lastName: data.name.split(' ').slice(1).join(' ') || '',
+        email: data.email,
+        phone: data.phone,
+        primaryContact: {
+            email: data.email,
+            phone: data.phone,
+            preferredMethod: data.preferredMethod,
+        },
         financialVitals: { budgetMax: data.budget.replace(/[^0-9]/g, ''), preApprovalStatus: false, isAllCash: false },
         searchCriteria: {
-            locations: data.cities,
+            locations: data.targetLocations,
+            targetTimeline: data.targetTimeline,
+            personaProfile: data.personaProfile,
             mustHaves: [data.chapter01, data.chapter04].filter(Boolean).join('\n'),
             dealBreakers: '',
         },
@@ -197,6 +216,56 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                             />
                         </div>
 
+                        {/* Email Address */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em]">
+                                    Email Address
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.preferredMethod === 'Email'}
+                                        onChange={() => update('preferredMethod', 'Email')}
+                                        className="w-3 h-3 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider group-hover:text-slate-600 transition-colors">Preferred</span>
+                                </label>
+                            </div>
+                            <input
+                                type="email"
+                                value={data.email}
+                                onChange={e => update('email', e.target.value)}
+                                placeholder="e.g. alex@example.com"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
+                            />
+                        </div>
+
+                        {/* Phone Number */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em]">
+                                    Phone Number
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.preferredMethod === 'Phone'}
+                                        onChange={() => update('preferredMethod', 'Phone')}
+                                        className="w-3 h-3 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider group-hover:text-slate-600 transition-colors">Preferred</span>
+                                </label>
+                            </div>
+                            <input
+                                type="tel"
+                                value={data.phone}
+                                onChange={e => update('phone', e.target.value)}
+                                placeholder="e.g. (555) 000-0000"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
+                            />
+                        </div>
+
                         <div>
                             <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
                                 Budget Preference
@@ -213,18 +282,62 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                             </div>
                         </div>
 
-                        {/* Cities */}
+                        {/* Target Locations */}
                         <div>
                             <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
-                                Target Cities
+                                Target Locations
                             </label>
                             <input
                                 type="text"
-                                value={data.cities}
-                                onChange={e => update('cities', e.target.value)}
+                                value={data.targetLocations}
+                                onChange={e => update('targetLocations', e.target.value)}
                                 placeholder="e.g. Pleasanton, Dublin, San Ramon"
                                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
                             />
+                        </div>
+
+                        {/* Personal Profile */}
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
+                                Personal Profile
+                            </label>
+                            <div className="relative">
+                                <select
+                                    value={data.personaProfile}
+                                    onChange={e => update('personaProfile', e.target.value)}
+                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all appearance-none cursor-pointer"
+                                >
+                                    <option value="" disabled>Select Profile Type</option>
+                                    {['First-Time', 'Investor', 'Past Client', 'Relocation'].map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Target Timeline */}
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
+                                Target Timeline
+                            </label>
+                            <div className="relative">
+                                <select
+                                    value={data.targetTimeline}
+                                    onChange={e => update('targetTimeline', e.target.value)}
+                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all appearance-none cursor-pointer"
+                                >
+                                    <option value="" disabled>Select Timeline</option>
+                                    {['ASAP', '1-3 Months', '3-6 Months', '6-12 Months', 'Just Browsing'].map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Request more info link */}
@@ -411,7 +524,22 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                     update('budget', String((updates as any).financialVitals.budgetMax));
                 }
                 if ((updates as any).searchCriteria?.locations) {
-                    update('cities', (updates as any).searchCriteria.locations);
+                    update('targetLocations', (updates as any).searchCriteria.locations);
+                }
+                if ((updates as any).searchCriteria?.targetTimeline) {
+                    update('targetTimeline', (updates as any).searchCriteria.targetTimeline);
+                }
+                if ((updates as any).searchCriteria?.personaProfile) {
+                    update('personaProfile', (updates as any).searchCriteria.personaProfile);
+                }
+                if (updates.email) {
+                    update('email', updates.email);
+                }
+                if (updates.phone) {
+                    update('phone', updates.phone);
+                }
+                if ((updates as any).primaryContact?.preferredMethod) {
+                    update('preferredMethod', (updates as any).primaryContact.preferredMethod);
                 }
                 setEditModalOpen(false);
             }}

@@ -1885,9 +1885,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
 
 const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any }> = ({ searchBar, setViewMode }) => {
-    const [browseHasResults, setBrowseHasResults] = useState(false);
-    const [myStoryOpen, setMyStoryOpen] = useState(false);
-
     return (
         <div className="w-full px-6 py-6 space-y-8">
             {/* Browse + Search bar inline */}
@@ -1897,31 +1894,11 @@ const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any
                         (setViewMode as any)('explore', addr);
                     }
                 }}
-                onHasResults={setBrowseHasResults}
-                onMyStory={setMyStoryOpen}
                 searchBar={searchBar}
             />
 
-            {!browseHasResults && !myStoryOpen && (
-                <>
-                    <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-                        {[
-                            { title: 'For Buyers', icon: 'fa-shopping-bag', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
-                            { title: 'For Sellers', icon: 'fa-money-bill-trend-up', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
-                            { title: 'For Realtors', icon: 'fa-briefcase', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
-                        ].map((item, i) => (
-                            <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
-                                <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                    <i className={`fa-solid ${item.icon} text-2xl`}></i>
-                                </div>
-                                <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
-                                <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </>
-            )}
+
+
         </div>
     );
 };

@@ -6,6 +6,7 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { createTransaction, getTransactionByClientId, deleteTransaction } from "./transactions";
 import { getInitialCategories } from "../transactionService";
 import { Lead, CRMTask, CommTemplate, FunnelStage, Transaction } from "../../types";
@@ -13,10 +14,12 @@ import { logAuditEvent } from "./audit";
 
 // ===== LEADS & FUNNEL =====
 
-export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?: string, isLead = false) => {
+export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?: string, isLead = false, realtorId?: string) => {
     if (!db) return false;
     try {
-        const docRef = doc(db, isLead ? "leads" : "users", id);
+        const rid = requireTenantId(realtorId);
+        // Leads live under /realtors/{rid}/leads, users stay at /users/{uid}
+        const docRef = isLead ? doc(db, "realtors", rid, "leads", id) : doc(db, "users", id);
         logFirestoreQuery('getDoc', isLead ? "leads" : "users", { id });
         const snap = await getDoc(docRef);
 
@@ -70,14 +73,14 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
         }, { merge: true });
 
         // Log Journey Event
-        const journeyCol = collection(db, "journey_events");
+        const journeyCol = collection(db, "realtors", rid, "journey_events");
         await addDoc(journeyCol, {
             clientId: id,
             fromStage: oldStage,
             toStage: stage,
             timestamp: serverTimestamp(),
             reason: reason || 'Manual Update',
-            realtorId: auth?.currentUser?.uid || 'unknown'
+            realtorId: rid
         });
 
         // --- AUTOMATION: Create Transaction on 'Contract' ---
@@ -151,15 +154,16 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
     }
 };
 
-export const updateLead = async (leadId: string, updates: Partial<Lead>, collectionName: string = 'leads') => {
+export const updateLead = async (leadId: string, updates: Partial<Lead>, collectionName: string = 'leads', realtorId?: string) => {
     if (!db) return false;
     try {
+        const rid = requireTenantId(realtorId);
         // Intercept funnelStage changes to trigger lifecycle logic (history, automation)
         if (updates.funnelStage) {
-            await updateFunnelStage(leadId, updates.funnelStage, undefined, collectionName === 'leads');
+            await updateFunnelStage(leadId, updates.funnelStage, undefined, collectionName === 'leads', rid);
         }
 
-        const docRef = doc(db, collectionName, leadId);
+        const docRef = doc(db, "realtors", rid, collectionName, leadId);
         await setDoc(docRef, {
             ...updates,
             updatedAt: serverTimestamp(),
@@ -172,10 +176,11 @@ export const updateLead = async (leadId: string, updates: Partial<Lead>, collect
     }
 };
 
-export const deleteLead = async (leadId: string, collectionName: string = 'leads') => {
+export const deleteLead = async (leadId: string, collectionName: string = 'leads', realtorId?: string) => {
     if (!db) return false;
     try {
-        const docRef = doc(db, collectionName, leadId);
+        const rid = requireTenantId(realtorId);
+        const docRef = doc(db, "realtors", rid, collectionName, leadId);
         logFirestoreQuery('deleteDoc', collectionName, { leadId });
         await deleteDoc(docRef);
         return true;
@@ -188,9 +193,10 @@ export const deleteLead = async (leadId: string, collectionName: string = 'leads
 export const getLeads = async (realtorId: string, collectionNames: string[] = ['leads'], maxItems = 200) => {
     if (!db) return [];
     try {
+        const rid = requireTenantId(realtorId);
         const allLeads: Lead[] = [];
         for (const name of collectionNames) {
-            const q = query(collection(db, name), where("realtorId", "==", realtorId), limit(maxItems));
+            const q = query(collection(db, "realtors", rid, name), limit(maxItems));
             logFirestoreQuery('getDocs', name, { realtorId, limit: maxItems });
             const snap = await getDocs(q);
             allLeads.push(...snap.docs.map(doc => ({
@@ -211,7 +217,8 @@ export const getLeads = async (realtorId: string, collectionNames: string[] = ['
 export const getTasks = async (realtorId: string) => {
     if (!db) return [];
     try {
-        const q = query(collection(db, "tasks"), where("realtorId", "==", realtorId));
+        const rid = requireTenantId(realtorId);
+        const q = query(collection(db, "realtors", rid, "tasks"));
         logFirestoreQuery('getDocs', 'tasks', { realtorId });
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
@@ -224,8 +231,9 @@ export const getTasks = async (realtorId: string) => {
 export const addTask = async (task: Partial<CRMTask>) => {
     if (!db) return null;
     try {
-        logFirestoreQuery('addDoc', 'tasks', task);
-        const docRef = await addDoc(collection(db, "tasks"), {
+        const rid = requireTenantId(task.realtorId);
+        logFirestoreQuery('addDoc', `realtors/${rid}/tasks`, task);
+        const docRef = await addDoc(collection(db, "realtors", rid, "tasks"), {
             ...sanitizeForFirestore(task),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
@@ -249,10 +257,11 @@ export const addTask = async (task: Partial<CRMTask>) => {
     }
 };
 
-export const updateTask = async (taskId: string, updates: Partial<CRMTask>, transactionId?: string) => {
+export const updateTask = async (taskId: string, updates: Partial<CRMTask>, transactionId?: string, realtorId?: string) => {
     if (!db) return false;
     try {
-        const taskRef = doc(db, "tasks", taskId);
+        const rid = requireTenantId(realtorId);
+        const taskRef = doc(db, "realtors", rid, "tasks", taskId);
         await updateDoc(taskRef, sanitizeForFirestore({
             ...updates,
             updatedAt: serverTimestamp()
@@ -277,10 +286,11 @@ export const updateTask = async (taskId: string, updates: Partial<CRMTask>, tran
     }
 };
 
-export const deleteTask = async (taskId: string, transactionId?: string) => {
+export const deleteTask = async (taskId: string, transactionId?: string, realtorId?: string) => {
     if (!db) return false;
     try {
-        const docRef = doc(db, "tasks", taskId);
+        const rid = requireTenantId(realtorId);
+        const docRef = doc(db, "realtors", rid, "tasks", taskId);
         logFirestoreQuery('deleteDoc', 'tasks', { taskId });
         await deleteDoc(docRef);
 
@@ -304,9 +314,9 @@ export const deleteTask = async (taskId: string, transactionId?: string) => {
 export const getClientTasks = async (realtorId: string, clientId: string) => {
     if (!db) return [];
     try {
+        const rid = requireTenantId(realtorId);
         const q = query(
-            collection(db, "tasks"),
-            where("realtorId", "==", realtorId),
+            collection(db, "realtors", rid, "tasks"),
             where("clientId", "==", clientId)
         );
         logFirestoreQuery('getDocs', 'tasks', { realtorId, clientId });
@@ -323,7 +333,8 @@ export const getClientTasks = async (realtorId: string, clientId: string) => {
 export const getTemplates = async (realtorId: string) => {
     if (!db) return [];
     try {
-        const q = query(collection(db, "templates"), where("realtorId", "==", realtorId));
+        const rid = requireTenantId(realtorId);
+        const q = query(collection(db, "realtors", rid, "templates"));
         logFirestoreQuery('getDocs', 'templates', { realtorId });
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommTemplate));
@@ -339,7 +350,8 @@ export const getTemplates = async (realtorId: string) => {
 export const saveWhiteboard = async (userId: string, items: any[]) => {
     if (!db) return { success: false, error: "Database not initialized" };
     try {
-        const docRef = doc(db, "whiteboards", userId);
+        const rid = requireTenantId(userId);
+        const docRef = doc(db, "realtors", rid, "whiteboards", userId);
         await setDoc(docRef, {
             items: sanitizeForFirestore(items),
             updatedAt: serverTimestamp()
@@ -353,7 +365,8 @@ export const saveWhiteboard = async (userId: string, items: any[]) => {
 export const getWhiteboard = async (userId: string) => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "whiteboards", userId);
+        const rid = requireTenantId(userId);
+        const docRef = doc(db, "realtors", rid, "whiteboards", userId);
         const docSnap = await getDoc(docRef);
         return docSnap.exists() ? docSnap.data().items : null;
     } catch (error) {

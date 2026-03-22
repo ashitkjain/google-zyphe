@@ -18,7 +18,9 @@ const COLLECTION_NAME = 'user_property_comment';
 export const saveStickyNote = async (data: Omit<UserPropertyComment, 'id' | 'createdAt' | 'lastUpdated'>) => {
     if (!db) return null;
     try {
-        const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+        const userId = data.userId;
+        if (!userId) { console.error('saveStickyNote: userId required'); return null; }
+        const docRef = await addDoc(collection(db, "users", userId, "property_comments"), {
             ...data,
             createdAt: serverTimestamp(),
             lastUpdated: serverTimestamp()
@@ -33,7 +35,9 @@ export const saveStickyNote = async (data: Omit<UserPropertyComment, 'id' | 'cre
 export const updateStickyNote = async (id: string, updates: Partial<UserPropertyComment>) => {
     if (!db) return false;
     try {
-        const docRef = doc(db, COLLECTION_NAME, id);
+        const userId = updates.userId;
+        if (!userId) { console.error('updateStickyNote: userId required'); return false; }
+        const docRef = doc(db, "users", userId, "property_comments", id);
         await updateDoc(docRef, {
             ...updates,
             lastUpdated: serverTimestamp()
@@ -45,10 +49,11 @@ export const updateStickyNote = async (id: string, updates: Partial<UserProperty
     }
 };
 
-export const deleteStickyNote = async (id: string) => {
+export const deleteStickyNote = async (id: string, userId?: string) => {
     if (!db) return false;
     try {
-        const docRef = doc(db, COLLECTION_NAME, id);
+        if (!userId) { console.error('deleteStickyNote: userId required'); return false; }
+        const docRef = doc(db, "users", userId, "property_comments", id);
         await deleteDoc(docRef);
         return true;
     } catch (error) {
@@ -61,9 +66,8 @@ export const getStickyNotes = async (zpid: string, userId: string, tab: string):
     if (!db) return [];
     try {
         const q = query(
-            collection(db, COLLECTION_NAME),
+            collection(db, "users", userId, "property_comments"),
             where('zpid', '==', String(zpid)),
-            where('userId', '==', userId),
             where('tab', '==', tab)
         );
         const querySnapshot = await getDocs(q);
@@ -88,8 +92,7 @@ export const getAllUserNotes = async (userId: string): Promise<UserPropertyComme
     if (!db) return [];
     try {
         const q = query(
-            collection(db, COLLECTION_NAME),
-            where('userId', '==', userId)
+            collection(db, "users", userId, "property_comments")
         );
         const querySnapshot = await getDocs(q);
         const notes = querySnapshot.docs.map(doc => ({

@@ -6,52 +6,19 @@ import {
     sanitizeForFirestore,
     handleFirestoreError
 } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { Lead, CRMTask, CommTemplate, Transaction } from "../../types";
 import { getInitialCategories } from "../transactionService";
 import { generateMockTransactionParties, generateMockTransactionDocuments } from "../mockData";
 import { seedPartiesForTransaction } from "./parties";
 import { seedDocumentsForTransaction, addTransactionDocument } from "./documents";
 import { seedTasksForTransaction } from "./transactions";
-// seedTasksForTransaction calls transactionService's calculateChecklist, and returns checklist. 
-// Ah, seedMockData *uses* these functions.
-
-// Wait, seedMockData logic:
-// 1. Leads
-// 2. Tasks
-// 3. Templates
-// 4. Transactions -> calls seedTasksForTransaction, seedPartiesForTransaction.
-
-// I need to import seedTasksForTransaction from './transactions'.
-// And seedPartiesForTransaction from './parties'.
-// And addTransactionDocument is used in seedDocumentsForTransaction in documents.ts.
-
-// Let's check seedMockData code I read.
-// It calls seedTasksForTransaction, seedPartiesForTransaction.
-// It handles documents? The version in 700-720 only explicitly handled parties.
-// Wait, createTransaction calls seedDocumentsForTransaction.
-// Does seedMockData use createTransaction?
-// Looking at lines 702-715:
-// It treats transactions manually using batch.set, then calls seedPartiesForTransaction.
-// It does NOT call seedDocumentsForTransaction in the code I read (lines 702-715).
-// However, createTransaction (in transactions.ts) DOES call it.
-// seedMockData seems to manually insert transactions.
-// I should probably add seedDocumentsForTransaction there to be safe if it fits, but I'll stick to the original code or improve it.
-// The user asked to break up, not change logic too much. But if I saw it didn't have docs, maybe it's fine.
-// Actually, `generateMockTransactionDocuments` was imported in `firebaseService.ts` line 31.
-// And `seedDocumentsForTransaction` was defined in lines 740-753.
-// So `seedMockData` might have been updated to call it, or I missed it.
-// Wait, I saw `seedDocumentsForTransaction` function definition at 740.
-// But is it CALLED in `seedMockData` at 647?
-// I see loop at 702:
-// seedPartiesForTransaction is awaited at 713.
-// No seedDocumentsForTransaction call in that loop.
-// So I will stick to the code I saw.
-
 
 export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMTask[], templates: CommTemplate[], transactions: Transaction[], onLog?: (msg: string) => void) => {
     const log = (msg: string) => { console.log(msg); onLog?.(msg); };
     if (!db) return false;
     try {
+        const rid = requireTenantId(realtorId);
         const batch = writeBatch(db);
 
         // Seed Leads
@@ -78,7 +45,7 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
             }
 
             const targetColl = lead.collectionName || "leads";
-            const docRef = doc(collection(db, targetColl), lead.id);
+            const docRef = doc(collection(db, "realtors", rid, targetColl), lead.id);
             const leadData = { ...lead, clientPhotoUrl: finalPhotoUrl || null, isMock: true, realtorId };
             batch.set(docRef, sanitizeForFirestore(leadData), { merge: true });
             log(`[Seed] Saved lead: ${lead.firstName} ${lead.lastName}`);
@@ -88,7 +55,7 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
         log(`[Seed] Processing ${tasks.length} tasks...`);
         // Seed Tasks
         tasks.forEach(task => {
-            const docRef = doc(collection(db, "tasks"), task.id);
+            const docRef = doc(collection(db, "realtors", rid, "tasks"), task.id);
             const taskData = { ...task, isMock: true, realtorId };
             batch.set(docRef, sanitizeForFirestore(taskData), { merge: true });
             log(`[Seed] Added task: ${task.name}`);
@@ -97,7 +64,7 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
         log(`[Seed] Processing ${templates.length} templates...`);
         // Seed Templates
         templates.forEach(template => {
-            const docRef = doc(collection(db, "templates"), template.id);
+            const docRef = doc(collection(db, "realtors", rid, "templates"), template.id);
             const templateData = { ...template, isMock: true, realtorId };
             batch.set(docRef, sanitizeForFirestore(templateData), { merge: true });
             log(`[Seed] Added template: ${template.name}`);
@@ -108,20 +75,19 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
         for (const transaction of transactions) {
             transaction.isMock = true;
             const initialCats = getInitialCategories(transaction.type === 'SELL' ? 'Seller' : 'Buyer');
-            // seedTasksForTransaction modifies batch
             const finalChecklist = seedTasksForTransaction(batch, transaction, initialCats);
 
-            const docRef = doc(collection(db, "transactions"), transaction.id);
+            const docRef = doc(collection(db, "realtors", rid, "transactions"), transaction.id);
             const transactionData = { ...transaction, isMock: true, realtorId };
             batch.set(docRef, sanitizeForFirestore(transactionData), { merge: true });
             log(`[Seed] Added transaction for: ${transaction.property?.address}`);
 
             // Seed Parties
-            await seedPartiesForTransaction(transaction.id);
+            await seedPartiesForTransaction(transaction.id, rid);
             log(`[Seed] Seeded parties for transaction: ${transaction.id}`);
 
-            // Seed Documents (Explicitly called if needed, though createTransaction logic usually handles it. Here we are doing raw batch set)
-            await seedDocumentsForTransaction(transaction.id);
+            // Seed Documents
+            await seedDocumentsForTransaction(transaction.id, rid);
             log(`[Seed] Seeded documents for transaction: ${transaction.id}`);
         }
 
@@ -139,13 +105,14 @@ export const deleteAllMockData = async (realtorId: string, onLog?: (msg: string)
     const log = (msg: string) => { console.log(msg); onLog?.(msg); };
     if (!db) return false;
     try {
+        const rid = requireTenantId(realtorId);
         log("[Cleanup] Starting mock data removal...");
         const batch = writeBatch(db);
         let count = 0;
 
         // 1. Leads
         log("[Cleanup] Searching for mock leads...");
-        const leadsQ = query(collection(db, "leads"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+        const leadsQ = query(collection(db, "realtors", rid, "leads"), where("isMock", "==", true));
         const leadsSnap = await getDocs(leadsQ);
         leadsSnap.forEach(doc => {
             batch.delete(doc.ref);
@@ -155,7 +122,7 @@ export const deleteAllMockData = async (realtorId: string, onLog?: (msg: string)
 
         // 2. Tasks
         log("[Cleanup] Searching for mock tasks...");
-        const tasksQ = query(collection(db, "tasks"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+        const tasksQ = query(collection(db, "realtors", rid, "tasks"), where("isMock", "==", true));
         const tasksSnap = await getDocs(tasksQ);
         tasksSnap.forEach(doc => {
             batch.delete(doc.ref);
@@ -165,7 +132,7 @@ export const deleteAllMockData = async (realtorId: string, onLog?: (msg: string)
 
         // 3. Templates
         log("[Cleanup] Searching for mock templates...");
-        const templatesQ = query(collection(db, "templates"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+        const templatesQ = query(collection(db, "realtors", rid, "templates"), where("isMock", "==", true));
         const templatesSnap = await getDocs(templatesQ);
         templatesSnap.forEach(doc => {
             batch.delete(doc.ref);
@@ -175,7 +142,7 @@ export const deleteAllMockData = async (realtorId: string, onLog?: (msg: string)
 
         // 3b. Notes
         log("[Cleanup] Searching for mock notes...");
-        const notesQ = query(collection(db, "notes"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+        const notesQ = query(collection(db, "realtors", rid, "notes"), where("isMock", "==", true));
         const notesSnap = await getDocs(notesQ);
         notesSnap.forEach(doc => {
             batch.delete(doc.ref);
@@ -185,46 +152,35 @@ export const deleteAllMockData = async (realtorId: string, onLog?: (msg: string)
 
         // 4. Transactions
         log("[Cleanup] Searching for mock transactions...");
-        const txQ1 = query(collection(db, "transactions"), where("realtorId", "==", realtorId), where("isMock", "==", true));
-        const txQ2 = query(collection(db, "transactions"), where("owner_user_id", "==", realtorId), where("isMock", "==", true));
+        const txQ = query(collection(db, "realtors", rid, "transactions"), where("isMock", "==", true));
+        const txSnap = await getDocs(txQ);
 
-        const [snap1, snap2] = await Promise.all([getDocs(txQ1), getDocs(txQ2)]);
+        txSnap.forEach(d => {
+            batch.delete(d.ref);
+            log(`[Cleanup] Deleting transaction: ${d.id}`);
+            count++;
+        });
 
-        const processDocs = async (snap: any) => {
-            const docs = snap.docs;
-            // Delete the transactions themselves
-            docs.forEach((doc: any) => {
-                batch.delete(doc.ref);
-                log(`[Cleanup] Deleting transaction: ${doc.id}`);
+        // Delete associated Documents and Parties
+        for (const txDoc of txSnap.docs) {
+            const txId = txDoc.id;
+
+            const documentsQ = query(collection(db, "realtors", rid, "transaction_documents"), where("transaction_id", "==", txId));
+            const documentsSnap = await getDocs(documentsQ);
+            documentsSnap.forEach(d => {
+                batch.delete(d.ref);
+                log(`[Cleanup] Deleting tx document: ${d.id}`);
                 count++;
             });
 
-            // Delete associated Documents and Parties
-            for (const doc of docs) {
-                const txId = doc.id;
-
-                // Delete Documents
-                const documentsQ = query(collection(db, "transaction_documents"), where("transaction_id", "==", txId));
-                const documentsSnap = await getDocs(documentsQ);
-                documentsSnap.forEach(d => {
-                    batch.delete(d.ref);
-                    log(`[Cleanup] Deleting tx document: ${d.id}`);
-                    count++;
-                });
-
-                // Delete Parties
-                const partiesQ = query(collection(db, "transaction_parties"), where("transaction_id", "==", txId));
-                const partiesSnap = await getDocs(partiesQ);
-                partiesSnap.forEach(d => {
-                    batch.delete(d.ref);
-                    log(`[Cleanup] Deleting tx party: ${d.id}`);
-                    count++;
-                });
-            }
-        };
-
-        await processDocs(snap1);
-        await processDocs(snap2);
+            const partiesQ = query(collection(db, "realtors", rid, "transaction_parties"), where("transaction_id", "==", txId));
+            const partiesSnap = await getDocs(partiesQ);
+            partiesSnap.forEach(d => {
+                batch.delete(d.ref);
+                log(`[Cleanup] Deleting tx party: ${d.id}`);
+                count++;
+            });
+        }
 
         if (count > 0) {
             log(`[Cleanup] Committing deletion of ${count} items...`);

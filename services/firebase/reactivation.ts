@@ -1,4 +1,5 @@
 import { db } from './config';
+import { requireTenantId } from './tenantContext';
 import {
     collection,
     addDoc,
@@ -9,7 +10,8 @@ import {
     where,
     getDocs,
     orderBy,
-    limit
+    limit,
+    getDoc
 } from 'firebase/firestore';
 import {
     LeadReactivationResult,
@@ -26,8 +28,10 @@ export const saveReactivationAnalysis = async (
     analysisResult: LeadReactivationResult
 ) => {
     try {
+        const rid = requireTenantId(userId);
+
         // 1. Create the Summary Record
-        const summaryRef = doc(collection(db, 'reactivation_analysis_summary'));
+        const summaryRef = doc(collection(db, 'realtors', rid, 'reactivation_analysis_summary'));
         const summaryData: Omit<ReactivationAnalysisSummary, 'id'> = {
             summary: analysisResult.summary,
             global_settings: analysisResult.global_settings,
@@ -49,7 +53,7 @@ export const saveReactivationAnalysis = async (
                 userId: userId,
                 created_at: serverTimestamp()
             };
-            return addDoc(collection(db, 'market_context'), marketData);
+            return addDoc(collection(db, 'realtors', rid, 'market_context'), marketData);
         });
 
         // 3. Create Lead Plan Records
@@ -67,7 +71,7 @@ export const saveReactivationAnalysis = async (
                 reactivation_analysis_summary_id: summaryId,
                 userId: userId
             };
-            return addDoc(collection(db, 'lead_plans'), planData);
+            return addDoc(collection(db, 'realtors', rid, 'lead_plans'), planData);
         });
 
         await Promise.all([...marketContextPromises, ...leadPlanPromises]);
@@ -81,11 +85,12 @@ export const saveReactivationAnalysis = async (
 
 export const getExistingReactivationAnalysis = async (leadsDocumentId: string, userId: string): Promise<LeadReactivationResult | null> => {
     try {
+        const rid = requireTenantId(userId);
+
         // 1. Find the summary for this document
         const q = query(
-            collection(db, 'reactivation_analysis_summary'),
+            collection(db, 'realtors', rid, 'reactivation_analysis_summary'),
             where('leads_documents', '==', leadsDocumentId),
-            where('userId', '==', userId),
             orderBy('created_date', 'desc'),
             limit(1)
         );
@@ -99,9 +104,8 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
 
         // 2. Fetch Market Contexts
         const marketQ = query(
-            collection(db, 'market_context'),
+            collection(db, 'realtors', rid, 'market_context'),
             where('reactivation_analysis_summary_id', '==', summaryId),
-            where('userId', '==', userId),
             orderBy('created_at', 'asc')
         );
         const marketSnap = await getDocs(marketQ);
@@ -119,9 +123,8 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
 
         // 3. Fetch Lead Plans
         const plansQ = query(
-            collection(db, 'lead_plans'),
-            where('reactivation_analysis_summary_id', '==', summaryId),
-            where('userId', '==', userId)
+            collection(db, 'realtors', rid, 'lead_plans'),
+            where('reactivation_analysis_summary_id', '==', summaryId)
         );
         const plansSnap = await getDocs(plansQ);
         const lead_plans = plansSnap.docs.map(doc => {
@@ -154,12 +157,12 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
         return null;
     }
 };
+
 export const getUserReactivationSummaries = async (userId: string): Promise<ReactivationAnalysisSummary[]> => {
     try {
+        const rid = requireTenantId(userId);
         const q = query(
-            collection(db, 'reactivation_analysis_summary'),
-            where('userId', '==', userId)
-            // Removed orderBy to avoid index requirement during initial setup
+            collection(db, 'realtors', rid, 'reactivation_analysis_summary')
         );
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReactivationAnalysisSummary));
@@ -171,9 +174,9 @@ export const getUserReactivationSummaries = async (userId: string): Promise<Reac
 
 export const getAllUserLeadPlans = async (userId: string): Promise<LeadPlanRecord[]> => {
     try {
+        const rid = requireTenantId(userId);
         const q = query(
-            collection(db, 'lead_plans'),
-            where('userId', '==', userId)
+            collection(db, 'realtors', rid, 'lead_plans')
         );
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({
@@ -188,10 +191,9 @@ export const getAllUserLeadPlans = async (userId: string): Promise<LeadPlanRecor
 
 export const getAllUserMarketContexts = async (userId: string): Promise<MarketContextRecord[]> => {
     try {
+        const rid = requireTenantId(userId);
         const q = query(
-            collection(db, 'market_context'),
-            where('userId', '==', userId)
-            // Removed orderBy
+            collection(db, 'realtors', rid, 'market_context')
         );
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MarketContextRecord));
@@ -203,10 +205,12 @@ export const getAllUserMarketContexts = async (userId: string): Promise<MarketCo
 
 export const updateLeadPlanStatus = async (
     planId: string,
-    status: 'suggested' | 'pursuing' | 'responded' | 'archived' | 'not_pursuing'
+    status: 'suggested' | 'pursuing' | 'responded' | 'archived' | 'not_pursuing',
+    realtorId?: string
 ) => {
     try {
-        const planRef = doc(db, 'lead_plans', planId);
+        const rid = requireTenantId(realtorId);
+        const planRef = doc(db, 'realtors', rid, 'lead_plans', planId);
         await setDoc(planRef, {
             reactivation_status: status,
             statusUpdatedOn: serverTimestamp()
@@ -221,14 +225,16 @@ export const updateLeadPlanStatus = async (
 export const updateLeadPlanStep = async (
     planId: string,
     stepIdx: number | 'first',
-    updates: { sent_at?: any; reply_received?: boolean }
+    updates: { sent_at?: any; reply_received?: boolean },
+    realtorId?: string
 ) => {
     try {
-        const planRef = doc(db, 'lead_plans', planId);
-        const planSnap = await getDocs(query(collection(db, 'lead_plans'), where('__name__', '==', planId)));
-        if (planSnap.empty) return false;
+        const rid = requireTenantId(realtorId);
+        const planRef = doc(db, 'realtors', rid, 'lead_plans', planId);
+        const planSnap = await getDoc(planRef);
+        if (!planSnap.exists()) return false;
 
-        const data = planSnap.docs[0].data() as LeadPlanRecord;
+        const data = planSnap.data() as LeadPlanRecord;
 
         if (stepIdx === 'first') {
             data.first_touch = { ...data.first_touch, ...updates };

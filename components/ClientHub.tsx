@@ -17,7 +17,6 @@ import {
     deleteUserAccount,
     syncBestPractices
 } from '../services/firebaseService';
-import { trackPageView } from '../services/firebase/user_activity';
 import { setCurrentPage } from '../services/analytics/posthog';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { seedMockData, getRealtorClients } from '../services/firebaseService';
@@ -92,17 +91,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
             sold_listings: 'Sold Listings', agent_manager: 'Agent Manager',
             cost_dashboard: 'Cost Dashboard',
-            story_intake: 'Story Intake',
         };
         const label = PAGE_LABELS[activeTab] || activeTab;
         setCurrentPage(activeTab, label);          // sets super property on ALL future events
 
         if (isFirstRender.current) { isFirstRender.current = false; return; }
-        if (!realtorId) return;
-        trackPageView(
-            { uid: realtorId, email: realtorProfile?.email || '', displayName: realtorProfile?.displayName || realtorName, role: userRole || realtorProfile?.role || 'unknown' },
-            activeTab
-        );
     }, [activeTab]);
 
     const {
@@ -168,7 +161,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         ]
         : [
             { id: 'explore', label: 'Explore', icon: 'fa-globe' },
-            { id: 'story_intake', label: 'Story Intake', icon: 'fa-book-open-reader' },
             { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
             { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
             { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },

@@ -6,11 +6,10 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { Document, DocumentVersion, FileMetadata } from "../../types";
 import { generateMockTransactionDocuments } from "../mockData";
 import { logAuditEvent } from "./audit";
-
-// Helper to get a secure download URL
 
 // Helper to get a secure download URL
 export const getDocumentDownloadUrl = async (storagePath: string): Promise<string | null> => {
@@ -39,13 +38,14 @@ const computeSHA256 = async (file: File): Promise<string> => {
     }
 };
 
-export const getDocumentWithVersions = async (docId: string): Promise<Document | null> => {
+export const getDocumentWithVersions = async (docId: string, realtorId?: string): Promise<Document | null> => {
     if (!db || !docId) return null;
     try {
-        const docRef = doc(db, "transaction_documents", docId);
+        const rid = requireTenantId(realtorId);
+        const docRef = doc(db, "realtors", rid, "transaction_documents", docId);
         const [docSnap, versions] = await Promise.all([
             getDoc(docRef),
-            getDocumentVersions(docId)
+            getDocumentVersions(docId, rid)
         ]);
 
         if (!docSnap.exists()) return null;
@@ -66,8 +66,6 @@ export const uploadTransactionDocumentFile = async (
     file: File
 ): Promise<FileMetadata | null> => {
     const storage = getStorage();
-    // Path: transactions/{transactionId}/documents/{timestamp}_{filename}
-    // Using timestamp to avoid naming collisions
     const storagePath = `transactions/${transactionId}/documents/${Date.now()}_${file.name}`;
     const storageRef = ref(storage, storagePath);
 
@@ -89,15 +87,14 @@ export const uploadTransactionDocumentFile = async (
     }
 };
 
-export const getDocumentVersions = async (documentId: string): Promise<DocumentVersion[]> => {
+export const getDocumentVersions = async (documentId: string, realtorId?: string): Promise<DocumentVersion[]> => {
     if (!db || !documentId) return [];
     try {
-        logFirestoreQuery('getDocs', `transaction_documents/${documentId}/versions`, {});
-        const q = query(collection(db, "transaction_documents", documentId, "versions"));
+        const rid = requireTenantId(realtorId);
+        logFirestoreQuery('getDocs', `realtors/${rid}/transaction_documents/${documentId}/versions`, {});
+        const q = query(collection(db, "realtors", rid, "transaction_documents", documentId, "versions"));
         const snap = await getDocs(q);
         const versions = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentVersion));
-
-        // Sort by version number descending
         return versions.sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
     } catch (error) {
         handleFirestoreError(error, "getDocumentVersions");
@@ -105,18 +102,18 @@ export const getDocumentVersions = async (documentId: string): Promise<DocumentV
     }
 };
 
-export const getTransactionDocuments = async (transactionId: string) => {
+export const getTransactionDocuments = async (transactionId: string, realtorId?: string) => {
     if (!db || !transactionId) return [];
     try {
+        const rid = requireTenantId(realtorId);
         logFirestoreQuery('getDocs', 'transaction_documents', { transaction_id: transactionId });
         const q = query(
-            collection(db, "transaction_documents"),
+            collection(db, "realtors", rid, "transaction_documents"),
             where("transaction_id", "==", transactionId)
         );
         const snap = await getDocs(q);
         const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
 
-        // Deduplicate: keep only the most recent document per name (handles double-seeding)
         const seen = new Map<string, Document>();
         for (const document of all) {
             const key = document.name || document.id;
@@ -124,13 +121,11 @@ export const getTransactionDocuments = async (transactionId: string) => {
             if (!existing) {
                 seen.set(key, document);
             } else {
-                // Prefer whichever was created later (no created_at on parent — fall back to id compare)
                 const existingId = existing.id || '';
                 const thisId = document.id || '';
-                if (thisId > existingId) seen.set(key, document); // Firestore auto-IDs are roughly time-ordered
+                if (thisId > existingId) seen.set(key, document);
             }
         }
-        // Sort by name since created_at is removed from parent
         return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
     } catch (error) {
         handleFirestoreError(error, "getTransactionDocuments");
@@ -138,18 +133,17 @@ export const getTransactionDocuments = async (transactionId: string) => {
     }
 };
 
-export const addTransactionDocument = async (transactionId: string, docData: Partial<Document>) => {
+export const addTransactionDocument = async (transactionId: string, docData: Partial<Document>, realtorId?: string) => {
     if (!db || !transactionId) return null;
     try {
+        const rid = requireTenantId(realtorId);
         logFirestoreQuery('addDoc', 'transaction_documents', docData);
         const now = serverTimestamp();
-        const docRef = await addDoc(collection(db, "transaction_documents"), {
+        const docRef = await addDoc(collection(db, "realtors", rid, "transaction_documents"), {
             ...sanitizeForFirestore(docData),
             transaction_id: transactionId
         });
 
-        // If initial document has a file, create Version 1 record in subcollection
-        // If initial document has a file, create Version 1 record in subcollection
         if (docData.current_version?.storage_path) {
             const versionData: Omit<DocumentVersion, 'id'> = {
                 document_id: docRef.id,
@@ -164,17 +158,16 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
                 updated_at: now,
                 created_by: 'user'
             };
-            await addDoc(collection(db, "transaction_documents", docRef.id, "versions"), versionData);
+            await addDoc(collection(db, "realtors", rid, "transaction_documents", docRef.id, "versions"), versionData);
         }
 
-        // Log Audit
         await logAuditEvent({
             transaction_id: transactionId,
             entity_id: docRef.id,
             entity_type: 'Document',
             action: 'CREATE',
             diff: { after: docData }
-        });
+        }, rid);
 
         return {
             id: docRef.id,
@@ -186,22 +179,21 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
     }
 };
 
-export const updateTransactionDocument = async (transactionId: string, docId: string, updates: Partial<Document>) => {
+export const updateTransactionDocument = async (transactionId: string, docId: string, updates: Partial<Document>, realtorId?: string) => {
     if (!db || !transactionId || !docId) return false;
     try {
+        const rid = requireTenantId(realtorId);
         logFirestoreQuery('updateDoc', 'transaction_documents', { docId });
-        const docRef = doc(db, "transaction_documents", docId);
-
+        const docRef = doc(db, "realtors", rid, "transaction_documents", docId);
         await updateDoc(docRef, sanitizeForFirestore(updates));
 
-        // Log Audit
         await logAuditEvent({
             transaction_id: transactionId,
             entity_id: docId,
             entity_type: 'Document',
             action: 'UPDATE',
             diff: { after: updates }
-        });
+        }, rid);
 
         return true;
     } catch (error) {
@@ -213,28 +205,26 @@ export const updateTransactionDocument = async (transactionId: string, docId: st
 export const addDocumentVersion = async (
     transactionId: string,
     documentId: string,
-    file: File
+    file: File,
+    realtorId?: string
 ): Promise<Document | null> => {
     if (!db || !transactionId || !documentId) return null;
 
     try {
-        // 1. Upload File
+        const rid = requireTenantId(realtorId);
         const uploadResult = await uploadTransactionDocumentFile(transactionId, file);
         if (!uploadResult) throw new Error("File upload failed");
 
-        // 2. Compute Metadata
-        const docRef = doc(db, "transaction_documents", documentId);
+        const docRef = doc(db, "realtors", rid, "transaction_documents", documentId);
         const docSnap = await getDoc(docRef);
 
         if (!docSnap.exists()) throw new Error("Parent document not found");
 
         const currentDoc = docSnap.data() as Document;
-        // Get next version number by querying subcollection
-        const versionsSnap = await getDocs(query(collection(db, "transaction_documents", documentId, "versions")));
+        const versionsSnap = await getDocs(query(collection(db, "realtors", rid, "transaction_documents", documentId, "versions")));
         const nextVersion = versionsSnap.size + 1;
         const now = serverTimestamp();
 
-        // 3. Create Version Record
         const versionData: Omit<DocumentVersion, 'id'> = {
             document_id: documentId,
             version_number: nextVersion,
@@ -246,21 +236,19 @@ export const addDocumentVersion = async (
             source: 'UPLOAD',
             created_at: now,
             updated_at: now,
-            created_by: 'user' // TODO: Pass actual user ID
+            created_by: 'user'
         };
 
-        const versionRef = await addDoc(collection(db, "transaction_documents", documentId, "versions"), versionData);
+        const versionRef = await addDoc(collection(db, "realtors", rid, "transaction_documents", documentId, "versions"), versionData);
 
-        // Log Audit
         await logAuditEvent({
             transaction_id: transactionId,
             entity_id: versionRef.id,
             entity_type: 'DocumentVersion',
             action: 'CREATE',
             diff: { after: versionData }
-        });
+        }, rid);
 
-        // 4. Return updated document structure for UI (Zero redundancy in parent)
         return {
             ...currentDoc,
             current_version: {
@@ -275,13 +263,13 @@ export const addDocumentVersion = async (
     }
 };
 
-export const deleteTransactionDocument = async (transactionId: string, docId: string) => {
+export const deleteTransactionDocument = async (transactionId: string, docId: string, realtorId?: string) => {
     if (!db || !transactionId || !docId) return false;
     try {
-        const docRef = doc(db, "transaction_documents", docId);
+        const rid = requireTenantId(realtorId);
+        const docRef = doc(db, "realtors", rid, "transaction_documents", docId);
 
-        // 1. Fetch versions to delete files from storage
-        const versions = await getDocumentVersions(docId);
+        const versions = await getDocumentVersions(docId, rid);
 
         for (const version of versions) {
             if (version.storage_path) {
@@ -296,17 +284,15 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
             }
         }
 
-        // 3. Delete Metadata from Firestore
         logFirestoreQuery('deleteDoc', 'transaction_documents', { docId });
         await deleteDoc(docRef);
 
-        // Log Audit
         await logAuditEvent({
             transaction_id: transactionId,
             entity_id: docId,
             entity_type: 'Document',
             action: 'DELETE'
-        });
+        }, rid);
 
         return true;
     } catch (error) {
@@ -315,11 +301,11 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
     }
 };
 
-export const seedDocumentsForTransaction = async (transactionId: string) => {
+export const seedDocumentsForTransaction = async (transactionId: string, realtorId?: string) => {
     if (!db) return;
     try {
-        // Guard: skip seeding if documents already exist for this transaction
-        const existing = await getTransactionDocuments(transactionId);
+        const rid = requireTenantId(realtorId);
+        const existing = await getTransactionDocuments(transactionId, rid);
         if (existing.length > 0) {
             console.log(`[seedDocumentsForTransaction] Skipping — ${existing.length} documents already exist for tx: ${transactionId}`);
             return;
@@ -327,11 +313,9 @@ export const seedDocumentsForTransaction = async (transactionId: string) => {
         const MOCK_DOCUMENTS_DATA = generateMockTransactionDocuments(transactionId);
         console.log(`[seedDocumentsForTransaction] Starting seed for tx: ${transactionId} with ${MOCK_DOCUMENTS_DATA.length} docs`);
         for (const document of MOCK_DOCUMENTS_DATA) {
-            // Deterministic ID: txdoc_{transactionId}_{slugifiedName}
             const slug = (document.name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '_');
             const deterministicId = `txdoc_${transactionId}_${slug}`;
-            const docRef = doc(db, "transaction_documents", deterministicId);
-            // Immutable write: only create if the document doesn't already exist
+            const docRef = doc(db, "realtors", rid, "transaction_documents", deterministicId);
             const snap = await getDoc(docRef);
             if (!snap.exists()) {
                 await setDoc(docRef, sanitizeForFirestore({

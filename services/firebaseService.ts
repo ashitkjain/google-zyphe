@@ -5,6 +5,7 @@
  */
 
 export * from './firebase/config';
+export * from './firebase/tenantContext';
 export * from './firebase/user';
 export * from './firebase/properties';
 export * from './firebase/crm';
@@ -23,6 +24,5 @@ export * from './firebase/search';
 export * from './firebase/googleData';
 export * from './assetService';
 export * from './firebase/ai_assessment';
-export * from './firebase/user_activity';
 export * from './firebase/stickyNotes';
 

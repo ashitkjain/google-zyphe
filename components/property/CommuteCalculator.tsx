@@ -26,7 +26,7 @@ const CommuteCalculator: React.FC<Props> = ({ originLat, originLng, propertyAddr
             try {
                 const uid = auth?.currentUser?.uid;
                 if (!uid || !db) { setLoadingPref(false); return; }
-                const snap = await getDoc(doc(db, 'user_preferences', uid));
+                const snap = await getDoc(doc(db, 'users', uid, 'preferences', 'main'));
                 const saved = snap.data()?.commuteDestination;
                 if (saved) {
                     setDestination(saved);
@@ -42,7 +42,7 @@ const CommuteCalculator: React.FC<Props> = ({ originLat, originLng, propertyAddr
         try {
             const uid = auth?.currentUser?.uid;
             if (!uid || !db) return;
-            await setDoc(doc(db, 'user_preferences', uid), { commuteDestination: dest }, { merge: true });
+            await setDoc(doc(db, 'users', uid, 'preferences', 'main'), { commuteDestination: dest }, { merge: true });
             setSavedDest(dest);
         } catch (_) { /* optional */ }
     };

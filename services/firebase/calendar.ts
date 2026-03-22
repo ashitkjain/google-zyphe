@@ -5,12 +5,14 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { CalendarEvent } from "../../types";
 
 export const getCalendarEvents = async (realtorId: string) => {
     if (!db) return [];
     try {
-        const q = query(collection(db, "calendar_events"), where("realtorId", "==", realtorId));
+        const rid = requireTenantId(realtorId);
+        const q = query(collection(db, "realtors", rid, "calendar_events"));
         logFirestoreQuery('getDocs', 'calendar_events', { realtorId });
         const snap = await getDocs(q);
         return snap.docs.map(doc => {
@@ -28,14 +30,15 @@ export const getCalendarEvents = async (realtorId: string) => {
     }
 };
 
-export const saveCalendarEvent = async (event: Partial<CalendarEvent>) => {
+export const saveCalendarEvent = async (event: Partial<CalendarEvent>, realtorId?: string) => {
     if (!db) return null;
     try {
+        const rid = requireTenantId(realtorId || event.realtorId);
         const eventId = event.id;
         const sanitized = sanitizeForFirestore(event);
 
         if (eventId && !eventId.startsWith('new-')) {
-            const docRef = doc(db, "calendar_events", eventId);
+            const docRef = doc(db, "realtors", rid, "calendar_events", eventId);
             logFirestoreQuery('setDoc', 'calendar_events', { eventId });
             await setDoc(docRef, {
                 ...sanitized,
@@ -45,7 +48,7 @@ export const saveCalendarEvent = async (event: Partial<CalendarEvent>) => {
         } else {
             const { id, ...rest } = sanitized;
             logFirestoreQuery('addDoc', 'calendar_events', rest);
-            const docRef = await addDoc(collection(db, "calendar_events"), {
+            const docRef = await addDoc(collection(db, "realtors", rid, "calendar_events"), {
                 ...rest,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
@@ -58,10 +61,11 @@ export const saveCalendarEvent = async (event: Partial<CalendarEvent>) => {
     }
 };
 
-export const deleteCalendarEvent = async (eventId: string) => {
+export const deleteCalendarEvent = async (eventId: string, realtorId?: string) => {
     if (!db) return false;
     try {
-        const docRef = doc(db, "calendar_events", eventId);
+        const rid = requireTenantId(realtorId);
+        const docRef = doc(db, "realtors", rid, "calendar_events", eventId);
         logFirestoreQuery('deleteDoc', 'calendar_events', { eventId });
         await deleteDoc(docRef);
         return true;
@@ -74,9 +78,9 @@ export const deleteCalendarEvent = async (eventId: string) => {
 export const getClientCalendarEvents = async (realtorId: string, clientId: string) => {
     if (!db) return [];
     try {
+        const rid = requireTenantId(realtorId);
         const q = query(
-            collection(db, "calendar_events"),
-            where("realtorId", "==", realtorId),
+            collection(db, "realtors", rid, "calendar_events"),
             where("clientId", "==", clientId)
         );
         logFirestoreQuery('getDocs', 'calendar_events', { realtorId, clientId });

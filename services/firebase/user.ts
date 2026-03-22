@@ -246,9 +246,10 @@ export const getUserFavorites = async (uid: string, maxItems = 100) => {
 export const getRealtorClients = async (realtorId: string, maxItems = 200) => {
     if (!db) return [];
     try {
-        const usersCol = collection(db, "users");
-        const q = query(usersCol, where("realtorId", "==", realtorId), limit(maxItems));
-        logFirestoreQuery('getDocs', 'users', { realtorId, limit: maxItems });
+        // Read from the realtor's clients subcollection
+        const clientsCol = collection(db, "realtors", realtorId, "clients");
+        const q = query(clientsCol, limit(maxItems));
+        logFirestoreQuery('getDocs', `realtors/${realtorId}/clients`, { limit: maxItems });
         const snap = await getDocs(q);
         return snap.docs.map(doc => doc.data() as UserProfile);
     } catch (error) {

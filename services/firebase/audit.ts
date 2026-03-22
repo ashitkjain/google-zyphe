@@ -1,5 +1,6 @@
 import { collection, addDoc, doc, serverTimestamp, query, where, orderBy, getDocs } from "firebase/firestore";
 import { db, auth, sanitizeForFirestore } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { AuditEvent, AuditActionType, AuditEntityType } from "../../types";
 
 export interface LogAuditOptions {
@@ -17,10 +18,9 @@ export interface LogAuditOptions {
 }
 
 /**
- * Logs an audit event to Firestore.
- * This should be called after any successful write operation (create, update, delete).
+ * Logs an audit event to Firestore under the realtor's subcollection.
  */
-export const logAuditEvent = async (options: LogAuditOptions): Promise<string | null> => {
+export const logAuditEvent = async (options: LogAuditOptions, realtorId?: string): Promise<string | null> => {
     if (!db || !options.transaction_id) {
         if (!options.transaction_id) {
             console.warn("[AuditLog] Skipping audit log: transaction_id is required.");
@@ -29,6 +29,7 @@ export const logAuditEvent = async (options: LogAuditOptions): Promise<string | 
     }
 
     try {
+        const rid = requireTenantId(realtorId);
         const actor_user_id = options.actor_user_id || auth?.currentUser?.uid || 'system';
         const actor_name = options.actor_name || auth?.currentUser?.displayName || (actor_user_id === 'system' ? 'System' : 'Unknown User');
 
@@ -46,11 +47,11 @@ export const logAuditEvent = async (options: LogAuditOptions): Promise<string | 
 
         if ((options as any).batch) {
             const batch = (options as any).batch;
-            const docRef = doc(collection(db, "audit_events"));
+            const docRef = doc(collection(db, "realtors", rid, "audit_events"));
             batch.set(docRef, sanitizeForFirestore(event));
             return docRef.id;
         } else {
-            const docRef = await addDoc(collection(db, "audit_events"), sanitizeForFirestore(event));
+            const docRef = await addDoc(collection(db, "realtors", rid, "audit_events"), sanitizeForFirestore(event));
             return docRef.id;
         }
 
@@ -63,12 +64,13 @@ export const logAuditEvent = async (options: LogAuditOptions): Promise<string | 
 /**
  * Fetches audit events for a specific transaction.
  */
-export const getAuditEvents = async (transactionId: string): Promise<AuditEvent[]> => {
+export const getAuditEvents = async (transactionId: string, realtorId?: string): Promise<AuditEvent[]> => {
     if (!db || !transactionId) return [];
 
     try {
+        const rid = requireTenantId(realtorId);
         const q = query(
-            collection(db, "audit_events"),
+            collection(db, "realtors", rid, "audit_events"),
             where("transaction_id", "==", transactionId),
             orderBy("occurred_at", "desc")
         );

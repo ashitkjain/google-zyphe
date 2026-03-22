@@ -38,13 +38,10 @@ import {
   getDeepInvestmentResearchFromCloud,
   loadAddressIndex,
   updateAddressIndex,
+  setTenantContext,
+  clearTenantContext,
 } from './services/firebaseService';
 import type { AddressIndexEntry } from './services/firebase/properties';
-import {
-  trackLogin,
-  trackPageView,
-  trackLogout,
-} from './services/firebase/user_activity';
 import { identifyUser as identifyPH } from './services/analytics/posthog';
 
 import { saveUserProfile } from './services/firebase/user';
@@ -139,14 +136,6 @@ const App: React.FC = () => {
 
   // Auto sign-out auditors after 15 min of inactivity
   useInactivitySignout(currentUser?.role, () => {
-    if (currentUser) {
-      trackLogout({
-        uid: currentUser.uid,
-        email: currentUser.email || '',
-        displayName: currentUser.displayName || '',
-        role: currentUser.role || 'unknown'
-      }, 'session_timeout');
-    }
     setCurrentUser(null);
     setCloudHistory([]);
     setError(null);
@@ -245,19 +234,6 @@ const App: React.FC = () => {
     const isKnowledgeMode = newMode === 'knowledge_center' || newMode === 'guides' || newMode === 'best_practices';
 
     setViewMode(newMode);
-
-    // Track page view for analytics
-    if (currentUser) {
-      trackPageView({
-        uid: currentUser.uid,
-        email: currentUser.email || '',
-        displayName: currentUser.displayName || '',
-        role: currentUser.role || 'unknown'
-      }, newMode, {
-        address: propertyData?.address,
-        zpid: propertyData?.zpid
-      });
-    }
     let path = '/';
 
     if (customPath && !isAddress) {
@@ -373,6 +349,9 @@ const App: React.FC = () => {
             profile.role = 'auditor';
           }
           setCurrentUser(profile);
+          // Set tenant context for multi-tenant subcollection paths
+          const tenantId = (['realtor', 'admin', 'auditor'].includes(profile.role)) ? user.uid : (profile.realtorId || user.uid);
+          setTenantContext(tenantId, profile.role || 'buyer');
           // Always identify the user in PostHog so events are attributed correctly
           // (even on session restore — not just explicit logins)
           identifyPH(user.uid, {
@@ -380,17 +359,6 @@ const App: React.FC = () => {
             name: profile.displayName || user.displayName || '',
             role: profile.role || 'buyer'
           });
-          // Only log a Login event to Firestore when user explicitly signed in
-          const isExplicitLogin = sessionStorage.getItem('zyphe_explicit_login') === '1';
-          if (isExplicitLogin) {
-            sessionStorage.removeItem('zyphe_explicit_login');
-            trackLogin({
-              uid: user.uid,
-              email: user.email || '',
-              displayName: profile.displayName || user.displayName || '',
-              role: profile.role || 'buyer'
-            });
-          }
         } else {
           // Fallback to localStorage role if available, otherwise default to buyer
           const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
@@ -403,11 +371,8 @@ const App: React.FC = () => {
             role: pendingRole,
             createdAt: new Date()
           });
-          const isExplicitLogin2 = sessionStorage.getItem('zyphe_explicit_login') === '1';
-          if (isExplicitLogin2) {
-            sessionStorage.removeItem('zyphe_explicit_login');
-            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'Guest User', role: pendingRole });
-          }
+          // Set tenant context for fallback users too
+          setTenantContext(user.uid, pendingRole);
         }
 
         // Fetch cloud data regardless of profile existence as long as we have a UID
@@ -845,15 +810,8 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     if (auth) {
       try {
-        if (currentUser) {
-          trackLogout({
-            uid: currentUser.uid,
-            email: currentUser.email || '',
-            displayName: currentUser.displayName || '',
-            role: currentUser.role || 'unknown'
-          }, 'manual');
-        }
         await signOut(auth);
+        clearTenantContext();
         setCurrentUser(null);
         setCloudHistory([]);
         setError(null);

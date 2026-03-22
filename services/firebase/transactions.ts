@@ -5,6 +5,7 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { Transaction, ChecklistCategory, CRMTask, CalendarEvent } from "../../types";
 import { calculateChecklistSchedule, getInitialCategories } from "../transactionService";
 import { seedPartiesForTransaction } from "./parties";
@@ -16,10 +17,10 @@ import { logAuditEvent } from "./audit";
 export const getTransactions = async (realtorId: string) => {
     if (!db || !realtorId) return [];
     try {
+        const rid = requireTenantId(realtorId);
         logFirestoreQuery('getDocs', 'transactions', { realtorId });
-        const q = query(collection(db, "transactions"), where("realtorId", "==", realtorId));
+        const q = query(collection(db, "realtors", rid, "transactions"));
         const snap = await getDocs(q);
-        // Convert timestamps back to dates if needed, or rely on client to handle
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
     } catch (error) {
         handleFirestoreError(error, "getTransactions");
@@ -30,10 +31,10 @@ export const getTransactions = async (realtorId: string) => {
 export const getTransactionByClientId = async (clientId: string, realtorId: string) => {
     if (!db || !clientId || !realtorId) return null;
     try {
+        const rid = requireTenantId(realtorId);
         logFirestoreQuery('getDocs', 'transactions', { clientId, realtorId });
         const q = query(
-            collection(db, "transactions"),
-            where("realtorId", "==", realtorId),
+            collection(db, "realtors", rid, "transactions"),
             where("clientId", "==", clientId)
         );
         const snap = await getDocs(q);
@@ -46,10 +47,11 @@ export const getTransactionByClientId = async (clientId: string, realtorId: stri
     }
 };
 
-export const updateTransaction = async (transactionId: string, updates: Partial<Transaction>) => {
+export const updateTransaction = async (transactionId: string, updates: Partial<Transaction>, realtorId?: string) => {
     if (!db) return false;
     try {
-        const docRef = doc(db, "transactions", transactionId);
+        const rid = requireTenantId(realtorId);
+        const docRef = doc(db, "realtors", rid, "transactions", transactionId);
         logFirestoreQuery('setDoc', 'transactions', { transactionId });
         await setDoc(docRef, sanitizeForFirestore({
             ...updates,
@@ -63,7 +65,7 @@ export const updateTransaction = async (transactionId: string, updates: Partial<
             entity_type: 'Transaction',
             action: 'UPDATE',
             diff: { after: updates }
-        });
+        }, rid);
 
         return true;
     } catch (error) {
@@ -81,6 +83,7 @@ export const syncTransactionToCalendar = (batch: WriteBatch, transaction: Transa
     if (!db) return;
     const transactionId = transaction.id;
     const realtorId = transaction.realtorId;
+    const rid = requireTenantId(realtorId);
     const propertyAddress = transaction.property?.address || 'TBD';
 
     // 1. Sync Milestones
@@ -93,9 +96,8 @@ export const syncTransactionToCalendar = (batch: WriteBatch, transaction: Transa
     milestones.forEach(m => {
         if (m.date) {
             const eventId = `milestone_${transactionId}_${m.type.replace(/\s+/g, '_')}`;
-            const eventRef = doc(db, "calendar_events", eventId);
+            const eventRef = doc(db, "realtors", rid, "calendar_events", eventId);
 
-            // Convert possible JS Date/Timestamp to Firestore compatible
             const startTime = m.date;
 
             const eventData: CalendarEvent = {
@@ -105,7 +107,7 @@ export const syncTransactionToCalendar = (batch: WriteBatch, transaction: Transa
                 clientId: transaction.clientId,
                 title: `${m.type}: ${propertyAddress}`,
                 start: startTime,
-                end: startTime, // Single day event
+                end: startTime,
                 type: 'appointment',
                 description: `Transaction milestone for ${propertyAddress}`,
                 isMock: transaction.isMock
@@ -122,7 +124,7 @@ export const syncTransactionToCalendar = (batch: WriteBatch, transaction: Transa
 
             if (isKeyTask && t.dueDate) {
                 const eventId = `task_${t.id}`;
-                const eventRef = doc(db, "calendar_events", eventId);
+                const eventRef = doc(db, "realtors", rid, "calendar_events", eventId);
                 const eventData: CalendarEvent = {
                     id: eventId,
                     realtorId,
@@ -144,9 +146,9 @@ export const syncTransactionToCalendar = (batch: WriteBatch, transaction: Transa
 export const getTransactionTasks = async (transactionId: string, realtorId: string) => {
     if (!db || !transactionId || !realtorId) return [];
     try {
+        const rid = requireTenantId(realtorId);
         const q = query(
-            collection(db, "tasks"),
-            where("realtorId", "==", realtorId),
+            collection(db, "realtors", rid, "tasks"),
             where("transaction_id", "==", transactionId)
         );
         logFirestoreQuery('getDocs', 'tasks', { transactionId, realtorId });
@@ -162,7 +164,6 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
             if (!existing) {
                 seen.set(key, task);
             } else {
-                // Keep the one with the later createdAt
                 const existingTime = (existing as any).createdAt?.toDate?.()?.getTime() ?? 0;
                 const thisTime = (task as any).createdAt?.toDate?.()?.getTime() ?? 0;
                 if (thisTime > existingTime) seen.set(key, task);
@@ -177,14 +178,10 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
 
 /**
  * Builds the deterministic checklist in memory (synchronous).
- * Only computes IDs and schedules — does NOT write to Firestore.
- * Used by createTransaction to get the checklist structure for the
- * transaction document itself.
  */
 export const buildTaskChecklist = (transaction: Transaction, initialCategories: ChecklistCategory[]): ChecklistCategory[] => {
     const oldIdToNewId: Record<string, string> = {};
 
-    // Generate DETERMINISTIC IDs: task_{transactionId}_{categoryId}_{templateTaskId}
     for (const cat of initialCategories) {
         for (const t of cat.tasks) {
             const safeTemplateId = t.id.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -201,14 +198,13 @@ export const buildTaskChecklist = (transaction: Transaction, initialCategories: 
 
 /**
  * Writes task documents to Firestore with immutable create-only semantics.
- * Each task gets a getDoc check — if the document already exists it is
- * NEVER overwritten, preserving any user edits (status, comments, dates).
  */
 export const seedTaskDocuments = async (transaction: Transaction, finalChecklist: ChecklistCategory[]): Promise<void> => {
     if (!db) return;
+    const rid = requireTenantId(transaction.realtorId);
     for (const cat of finalChecklist) {
         for (const t of cat.tasks) {
-            const taskDocRef = doc(db, "tasks", t.id);
+            const taskDocRef = doc(db, "realtors", rid, "tasks", t.id);
             const snap = await getDoc(taskDocRef);
             if (snap.exists()) continue; // Immutable: never overwrite an existing task
 
@@ -243,9 +239,12 @@ export const seedTasksForTransaction = (batch: any, transaction: Transaction, in
 
 export const createTransaction = async (transaction: Transaction, initialCategories?: ChecklistCategory[]) => {
     if (!db) return null;
+    const rid = requireTenantId(transaction.realtorId);
     const batch = writeBatch(db);
     try {
-        const docRef = transaction.id ? doc(db, "transactions", transaction.id) : doc(collection(db, "transactions"));
+        const docRef = transaction.id
+            ? doc(db, "realtors", rid, "transactions", transaction.id)
+            : doc(collection(db, "realtors", rid, "transactions"));
         const transactionId = docRef.id;
         const finalTransactionObj = { ...transaction, id: transactionId };
 
@@ -253,7 +252,6 @@ export const createTransaction = async (transaction: Transaction, initialCategor
         let fullChecklistForCalendar: ChecklistCategory[] = [];
 
         if (initialCategories) {
-            // Build checklist in memory (computes deterministic IDs + schedule) — no writes yet
             fullChecklistForCalendar = buildTaskChecklist(finalTransactionObj, initialCategories);
             finalChecklist = fullChecklistForCalendar.map(cat => ({
                 ...cat,
@@ -288,15 +286,13 @@ export const createTransaction = async (transaction: Transaction, initialCategor
             entity_type: 'Transaction',
             action: 'CREATE',
             diff: { after: finalTransactionObj }
-        });
+        }, rid);
 
-        // After the transaction doc is committed, seed tasks + parties + documents.
-        // All three seed functions use immutable create-only writes (getDoc check before setDoc).
-        // Re-calling createTransaction for the same client is safe — nothing gets overwritten.
+        // Seed tasks + parties + documents (immutable create-only)
         if (initialCategories) {
             await seedTaskDocuments(finalTransaction, fullChecklistForCalendar);
-            await seedPartiesForTransaction(transactionId);
-            await seedDocumentsForTransaction(transactionId);
+            await seedPartiesForTransaction(transactionId, rid);
+            await seedDocumentsForTransaction(transactionId, rid);
         }
 
         return finalTransaction;
@@ -306,28 +302,29 @@ export const createTransaction = async (transaction: Transaction, initialCategor
     }
 };
 
-export const deleteTransaction = async (transactionId: string) => {
+export const deleteTransaction = async (transactionId: string, realtorId?: string) => {
     if (!db) return false;
+    const rid = requireTenantId(realtorId);
     const batch = writeBatch(db);
     try {
         logFirestoreQuery('deleteTransaction', 'transactions', { transactionId });
 
         // 1. Delete associated tasks
-        const tasksQuery = query(collection(db, "tasks"), where("transaction_id", "==", transactionId));
+        const tasksQuery = query(collection(db, "realtors", rid, "tasks"), where("transaction_id", "==", transactionId));
         const tasksSnap = await getDocs(tasksQuery);
         tasksSnap.forEach((doc) => {
             batch.delete(doc.ref);
         });
 
         // 2. Delete associated calendar events
-        const calendarQuery = query(collection(db, "calendar_events"), where("transactionId", "==", transactionId));
+        const calendarQuery = query(collection(db, "realtors", rid, "calendar_events"), where("transactionId", "==", transactionId));
         const calendarSnap = await getDocs(calendarQuery);
         calendarSnap.forEach((doc) => {
             batch.delete(doc.ref);
         });
 
         // 3. Delete the transaction document
-        const transactionRef = doc(db, "transactions", transactionId);
+        const transactionRef = doc(db, "realtors", rid, "transactions", transactionId);
         batch.delete(transactionRef);
 
         // 4. Log Audit (in batch)
@@ -336,10 +333,9 @@ export const deleteTransaction = async (transactionId: string) => {
             entity_id: transactionId,
             entity_type: 'Transaction',
             action: 'DELETE',
-            batch: batch // Pass batch reference
-        } as any);
+            batch: batch
+        } as any, rid);
 
-        // 3. Commit batch
         await batch.commit();
 
         return true;

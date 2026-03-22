@@ -5,12 +5,14 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
+import { requireTenantId } from "./tenantContext";
 import { ReminderRule } from "../../types";
 
 export const getReminderRules = async (realtorId: string) => {
     if (!db) return [];
     try {
-        const q = query(collection(db, "reminderRules"), where("realtorId", "==", realtorId));
+        const rid = requireTenantId(realtorId);
+        const q = query(collection(db, "realtors", rid, "reminderRules"));
         logFirestoreQuery('getDocs', 'reminderRules', { realtorId });
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReminderRule));
@@ -20,10 +22,11 @@ export const getReminderRules = async (realtorId: string) => {
     }
 };
 
-export const updateReminderRule = async (ruleId: string, updates: Partial<ReminderRule>) => {
+export const updateReminderRule = async (ruleId: string, updates: Partial<ReminderRule>, realtorId?: string) => {
     if (!db) return false;
     try {
-        const ruleRef = doc(db, "reminderRules", ruleId);
+        const rid = requireTenantId(realtorId);
+        const ruleRef = doc(db, "realtors", rid, "reminderRules", ruleId);
         await setDoc(ruleRef, {
             ...updates,
             updatedAt: serverTimestamp()
@@ -38,13 +41,14 @@ export const updateReminderRule = async (ruleId: string, updates: Partial<Remind
 export const seedReminderRules = async (realtorId: string, rules: Omit<ReminderRule, 'realtorId'>[]) => {
     if (!db) return false;
     try {
+        const rid = requireTenantId(realtorId);
         const batch = writeBatch(db);
 
         rules.forEach(rule => {
-            const docRef = doc(collection(db, "reminderRules"), rule.id);
+            const docRef = doc(collection(db, "realtors", rid, "reminderRules"), rule.id);
             batch.set(docRef, {
                 ...rule,
-                realtorId,
+                realtorId: rid,
                 createdAt: serverTimestamp()
             }, { merge: true });
         });
