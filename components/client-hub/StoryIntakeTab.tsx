@@ -168,38 +168,23 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
     return (
         <div className="animate-in fade-in duration-400 max-w-5xl mx-auto px-4 py-6 space-y-5">
 
-            {/* ── Header ── */}
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1">
-                        Client Profile
-                    </p>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                        Client Story Intake
-                    </h1>
-                    {isRealtor && (
-                        <p className="text-xs text-slate-400 mt-1 font-medium">
-                            Capture the full client picture to power AI property matching.
-                        </p>
-                    )}
+            {/* ── Realtor header action ── */}
+            {isRealtor && (
+                <div className="flex justify-end">
+                    <button
+                        onClick={handleSynthesize}
+                        disabled={synthesizing}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-xl hover:bg-indigo-700 transition-all disabled:opacity-60"
+                    >
+                        {synthesizing ? (
+                            <i className="fa-solid fa-spinner animate-spin text-xs"></i>
+                        ) : (
+                            <i className="fa-solid fa-bolt text-xs"></i>
+                        )}
+                        Synthesize Match
+                    </button>
                 </div>
-                {isRealtor && (
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                            onClick={handleSynthesize}
-                            disabled={synthesizing}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-xl hover:bg-indigo-700 transition-all disabled:opacity-60"
-                        >
-                            {synthesizing ? (
-                                <i className="fa-solid fa-spinner animate-spin text-xs"></i>
-                            ) : (
-                                <i className="fa-solid fa-bolt text-xs"></i>
-                            )}
-                            Synthesize Match
-                        </button>
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* ── Main Grid ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
