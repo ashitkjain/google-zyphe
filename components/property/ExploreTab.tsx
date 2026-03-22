@@ -27,6 +27,7 @@ import { auth } from '../../services/firebase/config';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry, DeepResearchInsights } from '../../types';
 import { getPropertiesByCity, CityPropertySummary } from '../../services/firebase/properties';
 import { hasEssentialData } from '../../utils/propertyValidation';
+import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -1941,6 +1942,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [showMyStory, setShowMyStory] = useState(false);
 
     // View, sort, filter, pagination state
     const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table'>('gallery');
@@ -2437,11 +2439,11 @@ ${JSON.stringify(summaries)}
                         <span key={c} className="flex items-center gap-2">
                             {i > 0 && <span className="text-slate-300">|</span>}
                             <button
-                                onClick={() => { setPage(1); handleBrowse(c); }}
+                                onClick={() => { setPage(1); handleBrowse(c); setShowMyStory(false); }}
                                 disabled={browsing}
                                 className={`text-sm font-bold transition-all ${browsing && selectedCity === c
                                     ? 'text-indigo-400 cursor-wait'
-                                    : selectedCity === c && results.length > 0
+                                    : selectedCity === c && results.length > 0 && !showMyStory
                                         ? 'text-indigo-700 underline underline-offset-4'
                                         : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
                                     }`}
@@ -2452,6 +2454,22 @@ ${JSON.stringify(summaries)}
                             </button>
                         </span>
                     ))}
+
+                    {/* Divider */}
+                    <span className="text-slate-200 mx-1">|</span>
+
+                    {/* My Story tab */}
+                    <button
+                        onClick={() => setShowMyStory(prev => !prev)}
+                        className={`flex items-center gap-1.5 text-sm font-bold transition-all ${
+                            showMyStory
+                                ? 'text-indigo-700 underline underline-offset-4'
+                                : 'text-indigo-500 hover:text-indigo-800 hover:underline underline-offset-4'
+                        }`}
+                    >
+                        <i className="fa-solid fa-book-open-reader text-[11px]"></i>
+                        My Story
+                    </button>
                 </div>
                 {searchBar && (
                     <div className="flex-1 max-w-2xl">
@@ -2459,6 +2477,13 @@ ${JSON.stringify(summaries)}
                     </div>
                 )}
             </div>
+
+            {/* My Story panel */}
+            {showMyStory && (
+                <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <StoryIntakeTab isRealtor={false} />
+                </div>
+            )}
 
             {/* Results area */}
             {browsing && (
