@@ -8,6 +8,7 @@ interface StoryIntakeData {
     chapter01: string; // Identity & Background
     chapter02: string; // Daily Rituals & Lifestyle
     chapter03: string; // Architectural & Emotional Soul
+    chapter04: string; // What Else Is Important
     selectedAnchors: string[];
     customAnchor: string;
 }
@@ -64,6 +65,13 @@ const CHAPTERS = [
         placeholder: 'High ceilings and natural light are non-negotiable. I want a kitchen that opens into a garden for entertaining...',
         key: 'chapter03' as const,
     },
+    {
+        num: '04',
+        title: 'What Else Is Important To You',
+        prompt: 'Anything else — schools, commute, risk tolerance, deal-breakers?',
+        placeholder: 'Top-rated schools are a must. Low wildfire risk is critical. We\'d prefer to avoid HOA communities. Commute to Palo Alto should be under 30 minutes...',
+        key: 'chapter04' as const,
+    },
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -75,6 +83,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
         chapter01: '',
         chapter02: '',
         chapter03: '',
+        chapter04: '',
         selectedAnchors: [],
         customAnchor: '',
     });
