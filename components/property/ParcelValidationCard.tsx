@@ -42,6 +42,9 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
     const [taxSqftSource, setTaxSqftSource] = useState<string | null>(null);
     const [polygonVertices, setPolygonVertices] = useState<number | null>(null);
     const [slopeDisplay, setSlopeDisplay] = useState<{ percent: number; category: string; uphillDir: string } | null>(null);
+    const [drivewayDisplay, setDrivewayDisplay] = useState<{ grade: number; category: string; dir: string } | null>(null);
+    const [viewDisplay, setViewDisplay] = useState<{ potential: string; dropFt: number; dir: string } | null>(null);
+    const [elevationFt, setElevationFt] = useState<number | null>(null);
 
     const [showHelp, setShowHelp] = useState(false);
     const helpRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -190,77 +193,53 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 setApn(parcelApn);
                 if (polygon) setPolygonVertices(polygon.length);
 
-                // ── Step 3: Get slope data from cached analysis or sampleSlope ──
-                // Check if we have slope data from a previous land utility run
-                let slopePercent = propData?.slopePercent ?? null;
-                let slopeCategory = propData?.slopeCategory ?? null;
-                let uphillDir = propData?.uphillDir ?? null;
+                // ── Step 3: Get slope + driveway + view data (Google Elevation API) ──
+                // Check Firestore cache first
+                let slopePercent: number | null = propData?.parcelValidation?.slopePercent ?? propData?.slopePercent ?? null;
+                let slopeCategory: string | null = propData?.parcelValidation?.slopeCategory ?? propData?.slopeCategory ?? null;
+                let uphillDir: string | null = propData?.parcelValidation?.uphillDir ?? propData?.uphillDir ?? null;
+                let downhillDir: string | null = propData?.parcelValidation?.downhillDir ?? null;
+                let drivewayGradePercent: number | null = propData?.parcelValidation?.drivewayGradePercent ?? null;
+                let drivewayCategory: string | null = propData?.parcelValidation?.drivewayCategory ?? null;
+                let viewDropFt: number | null = propData?.parcelValidation?.viewDropFt ?? null;
+                let viewDropDir: string | null = propData?.parcelValidation?.viewDropDir ?? null;
+                let viewPotential: string | null = propData?.parcelValidation?.viewPotential ?? null;
+                let propertyElevationFt: number | null = propData?.parcelValidation?.elevationFt ?? null;
 
-                // If no slope data cached, do a quick scout with timeout
+                // If no slope data cached, fetch via single Google Elevation API batch call
                 if (slopePercent == null && lat && lon) {
                     try {
-                        const fetchWithTimeout = (url: string, ms = 10000) => {
-                            const ctrl = new AbortController();
-                            const timer = setTimeout(() => ctrl.abort(), ms);
-                            return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
-                        };
-
-                        const DEG_LAT_PER_FT = 1 / 364000;
-                        const cosLat = Math.cos(lat * Math.PI / 180);
-                        const DEG_LON_PER_FT = 1 / (364000 * cosLat);
-
-                        const DIRECTIONS = [
-                            { name: 'N', dLat: DEG_LAT_PER_FT, dLon: 0 },
-                            { name: 'NE', dLat: DEG_LAT_PER_FT * 0.707, dLon: DEG_LON_PER_FT * 0.707 },
-                            { name: 'E', dLat: 0, dLon: DEG_LON_PER_FT },
-                            { name: 'SE', dLat: -DEG_LAT_PER_FT * 0.707, dLon: DEG_LON_PER_FT * 0.707 },
-                            { name: 'S', dLat: -DEG_LAT_PER_FT, dLon: 0 },
-                            { name: 'SW', dLat: -DEG_LAT_PER_FT * 0.707, dLon: -DEG_LON_PER_FT * 0.707 },
-                            { name: 'W', dLat: 0, dLon: -DEG_LON_PER_FT },
-                            { name: 'NW', dLat: DEG_LAT_PER_FT * 0.707, dLon: -DEG_LON_PER_FT * 0.707 },
-                        ];
-
-                        // Quick elevation scout — 8 points 100ft out (10s timeout)
-                        const scoutResults = await Promise.all(
-                            DIRECTIONS.map(async d => {
-                                const sLat = lat + d.dLat * 100;
-                                const sLon = lon + d.dLon * 100;
-                                try {
-                                    const r = await fetchWithTimeout(`https://epqs.nationalmap.gov/v1/json?x=${sLon}&y=${sLat}&wkid=4326&units=Feet&includeDate=false`);
-                                    const j = await r.json();
-                                    return { ...d, ft: j?.value ? parseFloat(j.value) : 0 };
-                                } catch {
-                                    return { ...d, ft: 0 };
-                                }
-                            })
-                        );
-
-                        // Get pin elevation
-                        const pinResp = await fetchWithTimeout(`https://epqs.nationalmap.gov/v1/json?x=${lon}&y=${lat}&wkid=4326&units=Feet&includeDate=false`);
-                        const pinJson = await pinResp.json();
-                        const pinFt = pinJson?.value ? parseFloat(pinJson.value) : 0;
-
-                        const uphill = scoutResults.reduce((a, b) => a.ft > b.ft ? a : b);
-                        const delta = Math.abs(uphill.ft - pinFt);
-                        const depth = 150; // fallback depth
-
-                        slopePercent = Math.round((delta / depth) * 1000) / 10;
-                        if (slopePercent < 5) slopeCategory = 'Flat';
-                        else if (slopePercent <= 15) slopeCategory = 'Moderate';
-                        else if (slopePercent <= 30) slopeCategory = 'Steep';
-                        else slopeCategory = 'Heavy';
-                        uphillDir = uphill.name;
+                        const { computePropertySlopeGoogle } = await import('../../services/elevationService');
+                        const result = await computePropertySlopeGoogle(lat, lon);
+                        slopePercent          = result.slopePercent;
+                        slopeCategory         = result.slopeCategory;
+                        uphillDir             = result.uphillDir;
+                        downhillDir           = result.downhillDir;
+                        drivewayGradePercent  = result.drivewayGradePercent;
+                        drivewayCategory      = result.drivewayCategory;
+                        viewDropFt            = result.viewDropFt;
+                        viewDropDir           = result.viewDropDir;
+                        viewPotential         = result.viewPotential;
+                        propertyElevationFt   = result.elevationFt;
+                        console.log('[ParcelValidation] Google Elevation result:', result);
                     } catch (e: any) {
-                        console.warn('[ParcelValidation] Elevation scout failed:', e.message);
+                        console.warn('[ParcelValidation] Google Elevation API failed:', e.message);
                     }
                 }
 
                 if (cancelled) return;
 
-                // Expose slope data to the UI
+                // Expose slope + driveway + view data to the UI
                 if (slopePercent != null && slopeCategory && uphillDir) {
                     setSlopeDisplay({ percent: slopePercent, category: slopeCategory, uphillDir });
                 }
+                if (drivewayGradePercent != null && drivewayCategory && downhillDir) {
+                    setDrivewayDisplay({ grade: drivewayGradePercent, category: drivewayCategory, dir: downhillDir });
+                }
+                if (viewDropFt != null && viewPotential && viewDropDir) {
+                    setViewDisplay({ potential: viewPotential, dropFt: viewDropFt, dir: viewDropDir });
+                }
+                if (propertyElevationFt != null) setElevationFt(propertyElevationFt);
 
                 // ── Step 3b: Gemini tax record lookup (if no cached tax sqft) ──
                 if (!cachedTaxSqft && !cancelled) {
@@ -344,6 +323,10 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                     slopePercent: slopePercent ?? undefined,
                     slopeCategory: slopeCategory ?? undefined,
                     uphillDir: uphillDir ?? undefined,
+                    drivewayGradePercent: drivewayGradePercent ?? undefined,
+                    drivewayCategory: drivewayCategory ?? undefined,
+                    viewPotential: viewPotential ?? undefined,
+                    viewDropFt: viewDropFt ?? undefined,
                     description,
                     listingSqft: listingSqft || undefined,
                     taxSqft: cachedTaxSqft || undefined,
@@ -352,7 +335,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 if (cancelled) return;
                 setFlags(validationFlags);
 
-                // ── Step 5: Cache validation result ──
+                // ── Step 5: Cache validation result (all elevation fields) ──
                 try {
                     await setDoc(doc(db, 'properties', String(zpid)), {
                         parcelValidation: {
@@ -360,6 +343,14 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                             slopePercent,
                             slopeCategory,
                             uphillDir,
+                            downhillDir,
+                            drivewayGradePercent,
+                            drivewayCategory,
+                            viewDropFt,
+                            viewDropDir,
+                            viewPotential,
+                            elevationFt: propertyElevationFt,
+                            elevationSource: 'google_elevation',
                             cachedAt: new Date().toISOString(),
                         },
                     }, { merge: true });
@@ -510,14 +501,52 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                         <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
                             <i className="fa-solid fa-mountain text-indigo-400 text-xs" />
                             <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Slope (USGS Elevation)</div>
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lot Slope (Google Elevation)</div>
                                 <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
                                     <span>{slopeDisplay.percent}%</span>
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${slopeDisplay.category === 'Heavy' || slopeDisplay.category === 'Steep'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-emerald-100 text-emerald-700'
-                                        }`}>{slopeDisplay.category}</span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                        slopeDisplay.category === 'Heavy' || slopeDisplay.category === 'Steep'
+                                        ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                                    }`}>{slopeDisplay.category}</span>
                                     <span className="text-[10px] font-bold text-slate-400">↑ {slopeDisplay.uphillDir}</span>
+                                    {elevationFt && <span className="text-[10px] text-slate-400">{elevationFt.toLocaleString()} ft AMSL</span>}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Driveway grade */}
+                    {drivewayDisplay && drivewayDisplay.category !== 'Flat' && (
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                            <i className="fa-solid fa-car text-indigo-400 text-xs" />
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driveway / Approach Grade</div>
+                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
+                                    <span>{drivewayDisplay.grade}%</span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                        drivewayDisplay.category === 'Steep' ? 'bg-red-100 text-red-700' :
+                                        drivewayDisplay.category === 'Moderate' ? 'bg-amber-100 text-amber-700' :
+                                        'bg-emerald-100 text-emerald-700'
+                                    }`}>{drivewayDisplay.category}</span>
+                                    <span className="text-[10px] text-slate-400">toward {drivewayDisplay.dir}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* View potential */}
+                    {viewDisplay && viewDisplay.potential !== 'None' && (
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                            <i className="fa-solid fa-binoculars text-indigo-400 text-xs" />
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">View Potential (Elevation Drop)</div>
+                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                        viewDisplay.potential === 'High' ? 'bg-emerald-100 text-emerald-700' :
+                                        viewDisplay.potential === 'Moderate' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-slate-100 text-slate-600'
+                                    }`}>{viewDisplay.potential}</span>
+                                    <span className="text-[10px] text-slate-500">{viewDisplay.dropFt > 0 ? '+' : ''}{viewDisplay.dropFt} ft drop toward {viewDisplay.dir}</span>
                                 </div>
                             </div>
                         </div>
@@ -705,6 +734,10 @@ function runValidation(opts: {
     slopePercent?: number;
     slopeCategory?: string;
     uphillDir?: string;
+    drivewayGradePercent?: number;
+    drivewayCategory?: string;
+    viewPotential?: string;
+    viewDropFt?: number;
     description?: string | null;
     listingSqft?: number;
     taxSqft?: number;
@@ -818,6 +851,52 @@ function runValidation(opts: {
         }
 
     } // end slope-data guard
+
+    // CHECK 3b: Steep driveway disclosure
+    if (opts.drivewayGradePercent != null && opts.drivewayCategory) {
+        const desc = (opts.description || '').toLowerCase();
+        const claimsFlatDriveway = /\b(flat driveway|level driveway|easy access|level entry|flat access)\b/i.test(desc);
+        if (opts.drivewayCategory === 'Steep') {
+            flags.push({
+                check: 'driveway_grade', severity: claimsFlatDriveway ? 'alert' : 'warning',
+                listed: claimsFlatDriveway ? 'Description implies flat/easy driveway' : 'Not mentioned',
+                measured: `${opts.drivewayGradePercent}% grade (${opts.drivewayCategory})`,
+                delta: `${opts.drivewayGradePercent}%`,
+                finding: `Approach grade is ${opts.drivewayGradePercent}% — classified Steep. Driveways above 20–25% often require municipal variance. Snow, ice, or heavy rain may make entry/exit difficult.`,
+            });
+        } else if (opts.drivewayCategory === 'Moderate') {
+            flags.push({
+                check: 'driveway_grade', severity: 'info',
+                listed: 'N/A',
+                measured: `${opts.drivewayGradePercent}% grade (Moderate)`,
+                delta: `${opts.drivewayGradePercent}%`,
+                finding: `Approach grade is ${opts.drivewayGradePercent}%, which is Moderate. Manageable for most vehicles; worth noting for buyers with mobility concerns.`,
+            });
+        }
+    }
+
+    // CHECK 3c: View claim vs elevation data
+    if (opts.viewPotential != null && opts.viewDropFt != null) {
+        const desc = (opts.description || '').toLowerCase();
+        const claimsView = /\b(view|panoramic|vista|overlook|bay view|mountain view|city view|sweeping|scenic)\b/i.test(desc);
+        if (claimsView && (opts.viewPotential === 'None' || opts.viewPotential === 'Limited')) {
+            flags.push({
+                check: 'view_verification', severity: 'warning',
+                listed: 'Description claims views',
+                measured: `${opts.viewPotential} view potential (${opts.viewDropFt} ft elevation drop at 200ft)`,
+                delta: 'N/A',
+                finding: `Listing promotes views but terrain drops only ${opts.viewDropFt} ft within 200ft — elevation-based views appear ${opts.viewPotential.toLowerCase()}. Views may be from upper floors or landscaping, not inherent terrain.`,
+            });
+        } else if (!claimsView && opts.viewPotential === 'High') {
+            flags.push({
+                check: 'view_verification', severity: 'info',
+                listed: 'Not mentioned in description',
+                measured: `High view potential (${opts.viewDropFt} ft drop at 200ft)`,
+                delta: 'N/A',
+                finding: `Terrain drops ${opts.viewDropFt} ft within 200ft — this property likely has significant views that the listing does not mention.`,
+            });
+        }
+    }
 
     // CHECK 4: Living Sqft — listing vs tax records
     if (opts.listingSqft && opts.taxSqft && opts.listingSqft > 0 && opts.taxSqft > 0) {
