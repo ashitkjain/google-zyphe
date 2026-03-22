@@ -18,8 +18,10 @@
  * Output fields:
  *   slopePercent / slopeCategory / uphillDir    ← backward-compat with Firestore
  *   downhillDir / drivewayGradePercent / drivewayCategory  ← driveway analysis
- *   viewDropFt / viewDropDir / viewPotential    ← view verification
+ *   backyardGradePercent / backyardCategory      ← lot usability (buyer-facing)
+ *   viewDropFt / viewDropDir / viewPotential    ← view verification (secondary)
  *   elevationFt                                ← property elevation AMSL
+ *   sampleRadiusFt                             ← ring radius used (adaptive per lot size)
  */
 
 import { APP_CONFIG } from '../config';
@@ -80,6 +82,13 @@ export interface PropertySlopeResult {
     // Absolute elevation
     elevationFt: number;                // Property elevation AMSL in feet
 
+    // Sampling metadata
+    sampleRadiusFt: number;             // Primary ring radius used (inner ring)
+    lotWidthFt?: number;                // Bounding box width (E–W) of the parcel in feet
+    lotDepthFt?: number;                // Bounding box depth (N–S) of the parcel in feet
+    //   Computed from parcel polygon when available, else from area approximation.
+    //   Small lots < 50ft on narrower side: function returns null (too coarse for API ~33ft grid)
+
     // Metadata
     source: 'google_elevation';
 }
@@ -94,12 +103,41 @@ async function fetchGoogleElevations(
     points: { lat: number; lng: number }[],
     timeoutMs = 8000,
 ): Promise<number[]> {
+    // ── Browser path: use Google Maps JS SDK ElevationService (no CORS issues) ──
+    const g = (typeof window !== 'undefined') ? (window as any).google : undefined;
+    if (g?.maps) {
+        // Ensure the elevation library is loaded via importLibrary
+        let ElevationServiceClass: any;
+        try {
+            const lib = await g.maps.importLibrary('elevation');
+            ElevationServiceClass = lib.ElevationService;
+        } catch {
+            ElevationServiceClass = g.maps.ElevationService;
+        }
+        const service = new ElevationServiceClass();
+        const latLngs = points.map(p => new g.maps.LatLng(p.lat, p.lng));
+
+        return new Promise((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error('Google Elevation SDK timeout')), timeoutMs);
+            service.getElevationForLocations(
+                { locations: latLngs },
+                (results: any[], status: string) => {
+                    clearTimeout(t);
+                    if (status !== 'OK' || !results?.length) {
+                        reject(new Error(`Google Elevation SDK returned status: ${status}`));
+                    } else {
+                        resolve(results.map((r: any) => r.elevation as number));
+                    }
+                },
+            );
+        });
+    }
+
+    // ── Node.js / SSR fallback: REST endpoint (works server-side, no CORS) ──
     const locations = points.map(p => `${p.lat},${p.lng}`).join('|');
     const url = `${ELEVATION_URL}?locations=${encodeURIComponent(locations)}&key=${MAPS_KEY}`;
-
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-
     try {
         const res = await fetch(url, { signal: ctrl.signal });
         clearTimeout(timer);
@@ -119,43 +157,135 @@ async function fetchGoogleElevations(
  *
  * Sampling layout:
  *   Point  0      — property pin (center)
- *   Points 1–8   — 8 compass directions × 100ft (slope + driveway grade)
- *   Points 9–16  — 8 compass directions × 200ft (secondary slope check)
+ *   Points 1–8   — 8 compass directions × sampleRadiusFt (adaptive, slope + driveway grade)
+ *   Points 9–16  — 8 compass directions × sampleRadiusFt × 2 (secondary slope check)
  *   Points 17–24 — 8 compass directions × 1000ft (view potential — valley/bay opening)
  *
- * Why 1000ft for views:
- *   A hillside home at 623ft AMSL may only drop 19ft at 200ft (local yard slope)
- *   but 200ft+ beyond that the terrain opens to the bay dropping 200ft.
- *   200ft sampling only sees the yard. 1000ft sees the actual vista.
+ * @param lotSizeSqft   ArcGIS parcel area in sqft (fallback sizing when no polygon).
+ * @param parcelPolygon ArcGIS ring as [[lon, lat], ...] (WGS84). Used for bounding box
+ *                      to handle rectangular/irregular lots correctly. When provided,
+ *                      each compass direction is capped to stay within the parcel.
+ *                      Returns null if narrower side < 50ft (too coarse for ~33ft API grid).
+ *
+ * Adaptive radius logic (priority order):
+ *   1. Parcel polygon → compute widthFt (E–W) + depthFt (N–S) from bounding box
+ *      Per-direction cap: N/S at depthFt×0.75÷2, E/W at widthFt×0.75÷2, diagonals = geomean
+ *      Skip if min(widthFt, depthFt) < 50ft
+ *   2. Area only → sqrt(area/π)×1.1, clamped 50–180ft
+ *   3. No data   → 100ft default (≈ 8,000 sqft suburban lot)
  */
 export async function computePropertySlopeGoogle(
     lat: number,
     lng: number,
-): Promise<PropertySlopeResult> {
+    lotSizeSqft?: number,
+    parcelPolygon?: [number, number][], // [[lon, lat], ...] from ArcGIS
+): Promise<PropertySlopeResult | null> {
+
+    // ── Compute lot bounding box from polygon ──────────────────────────────────
+    // The polygon gives us the real shape — critical for rectangular lots where
+    // the narrow side is much smaller than the area-based estimate suggests.
+    let lotWidthFt: number | undefined;   // E–W dimension
+    let lotDepthFt: number | undefined;   // N–S dimension
+
+    if (parcelPolygon && parcelPolygon.length >= 3) {
+        const lons = parcelPolygon.map(([lon]) => lon);
+        const lats = parcelPolygon.map(([, lat]) => lat);
+        const lonRangeDeg = Math.max(...lons) - Math.min(...lons);
+        const latRangeDeg = Math.max(...lats) - Math.min(...lats);
+        // Convert degree ranges to feet
+        const cosLat = Math.cos(lat * Math.PI / 180);
+        lotWidthFt = lonRangeDeg * 364000 * cosLat;
+        lotDepthFt = latRangeDeg * 364000;
+    }
+
+    // ── Per-direction radius caps ──────────────────────────────────────────────
+    // Each of the 8 compass directions gets a maximum radius based on how far
+    // the parcel extends from center in that approximate direction.
+    // N/S capped by half-depth, E/W capped by half-width, diagonals = geometric mean.
+    // We use 75% of the half-dimension (0.375 of full dim) to stay well within the lot.
+    const narrowerFt = (lotWidthFt != null && lotDepthFt != null)
+        ? Math.min(lotWidthFt, lotDepthFt)
+        : null;
+
+    // Skip if the narrower parcel side is below ~50ft — the API's ~33ft grid
+    // won't resolve meaningful intra-lot differences at that scale.
+    if (narrowerFt != null && narrowerFt < 50) {
+        console.info(
+            `[ElevationService] Lot too narrow for intra-lot slope (${narrowerFt.toFixed(0)}ft narrower side) — skipping.`
+        );
+        return null;
+    }
+
+    // Per-direction cap radii based on bounding box (75% of half-dimension)
+    const halfW  = lotWidthFt  != null ? lotWidthFt  * 0.375 : null; // E–W half (75% of half)
+    const halfD  = lotDepthFt  != null ? lotDepthFt  * 0.375 : null; // N–S half
+    const halfDiag = (halfW != null && halfD != null)
+        ? Math.sqrt(halfW * halfD)    // geometric mean for diagonals
+        : null;
+
+    // Map each COMPASS_DIRS index to its directional cap (null = no polygon cap, use area)
+    // COMPASS_DIRS order: N, NE, E, SE, S, SW, W, NW
+    const dirCaps: (number | null)[] = [
+        halfD,    // N
+        halfDiag, // NE
+        halfW,    // E
+        halfDiag, // SE
+        halfD,    // S
+        halfDiag, // SW
+        halfW,    // W
+        halfDiag, // NW
+    ];
+
+    // Baseline radius from area (fallback when no polygon, or cap when polygon is available)
+    let SAMPLE_RADIUS_FT = 100; // default ≈ 8,000 sqft suburban lot
+    if (lotSizeSqft != null) {
+        const lotRadius = Math.sqrt(lotSizeSqft / Math.PI);
+        if (narrowerFt == null && lotRadius < 28) {
+            // No polygon — fallback skip check via area
+            console.info(`[ElevationService] Lot too small (${lotSizeSqft} sqft) — skipping.`);
+            return null;
+        }
+        SAMPLE_RADIUS_FT = Math.min(Math.max(lotRadius * 1.1, 50), 180);
+    }
     // Degree offsets per foot at this latitude
     const DEG_LAT_PER_FT = 1 / 364000;
     const DEG_LON_PER_FT = 1 / (364000 * Math.cos(lat * Math.PI / 180));
 
-    // Build 25-point batch: center + 8×100ft + 8×200ft + 8×1000ft
+    // Build 25-point batch:
+    //   center (index 0)
+    //   Inner ring  (indices 1–8):  each direction → min(dirCap, SAMPLE_RADIUS_FT)
+    //   Outer ring  (indices 9–16): 2× inner radius in each direction
+    //   1000ft ring (indices 17–24): fixed — view potential
     const points: { lat: number; lng: number }[] = [
         { lat, lng }, // index 0: center
     ];
-    for (const d of COMPASS_DIRS) {
-        // 100ft ring (indices 1–8)
+
+    // Inner ring — adaptive per direction
+    const innerRadii: number[] = COMPASS_DIRS.map((_, i) => {
+        const cap = dirCaps[i];
+        return cap != null
+            ? Math.min(Math.max(cap, 40), SAMPLE_RADIUS_FT) // polygon cap, floor 40ft
+            : SAMPLE_RADIUS_FT;                              // no polygon, use area-based
+    });
+
+    for (let i = 0; i < COMPASS_DIRS.length; i++) {
+        const d = COMPASS_DIRS[i];
+        const r = innerRadii[i];
         points.push({
-            lat: lat + d.dLat * 100 * DEG_LAT_PER_FT,
-            lng: lng + d.dLon * 100 * DEG_LON_PER_FT,
+            lat: lat + d.dLat * r * DEG_LAT_PER_FT,
+            lng: lng + d.dLon * r * DEG_LON_PER_FT,
+        });
+    }
+    for (let i = 0; i < COMPASS_DIRS.length; i++) {
+        const d = COMPASS_DIRS[i];
+        const r = innerRadii[i] * 2; // outer = 2× inner
+        points.push({
+            lat: lat + d.dLat * r * DEG_LAT_PER_FT,
+            lng: lng + d.dLon * r * DEG_LON_PER_FT,
         });
     }
     for (const d of COMPASS_DIRS) {
-        // 200ft ring (indices 9–16)
-        points.push({
-            lat: lat + d.dLat * 200 * DEG_LAT_PER_FT,
-            lng: lng + d.dLon * 200 * DEG_LON_PER_FT,
-        });
-    }
-    for (const d of COMPASS_DIRS) {
-        // 1000ft ring (indices 17–24) — view potential
+        // 1000ft ring — view potential (fixed, independent of lot size)
         points.push({
             lat: lat + d.dLat * 1000 * DEG_LAT_PER_FT,
             lng: lng + d.dLon * 1000 * DEG_LON_PER_FT,
@@ -215,13 +345,15 @@ export async function computePropertySlopeGoogle(
         downhillDir:          downhillPt.dir,
         drivewayGradePercent,
         drivewayCategory,
-        // Backyard grade = same geometry as slopePercent, named for buyer clarity
         backyardGradePercent: slopePercent,
         backyardCategory:     slopeCategory,
         viewDropFt,
         viewDropDir:          maxDropPt.dir,
         viewPotential,
         elevationFt:          Math.round(centerFt),
+        sampleRadiusFt:       SAMPLE_RADIUS_FT,
+        lotWidthFt:           lotWidthFt != null ? Math.round(lotWidthFt) : undefined,
+        lotDepthFt:           lotDepthFt != null ? Math.round(lotDepthFt) : undefined,
         source:               'google_elevation',
     };
 }

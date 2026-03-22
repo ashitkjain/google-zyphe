@@ -23,6 +23,7 @@ import { ContextGraphView } from './components/ContextGraphView';
 import { StickyNotesLayer } from './components/StickyNotesLayer';
 import SatellitaryView from './components/SatellitaryView';
 import { CityNeighborhoodsView } from './components/CityNeighborhoodsView';
+import ParcelValidationCard from '../../property/ParcelValidationCard';
 import { runSatellitaryAnalysis } from '../../../services/satellitaryService';
 
 interface Props {
@@ -317,12 +318,20 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
                     {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
                     {activeTab === 'exterior_and_neighborhood' && (
-                        <ExteriorView
-                            data={analysis.exterior_and_neighborhood}
-                            streetViewAnalysis={propertyData?.streetViewAnalysis}
-                            satellitaryOrientation={orientationAI}
-                            satelliteLoading={satelliteLoading}
-                        />
+                        <>
+                            <ExteriorView
+                                data={analysis.exterior_and_neighborhood}
+                                streetViewAnalysis={propertyData?.streetViewAnalysis}
+                                satellitaryOrientation={orientationAI}
+                                satelliteLoading={satelliteLoading}
+                            />
+                            {/* Ground Truth Engine — lot grades, driveway, view potential */}
+                            {propertyData && (
+                                <div className="mt-4">
+                                    <ParcelValidationCard propertyData={propertyData} />
+                                </div>
+                            )}
+                        </>
                     )}
                     {activeTab === 'neighborhood' && (
                         <section>

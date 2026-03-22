@@ -1683,9 +1683,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">The Ground Truth Engine</div>
+                                                    <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">Lot Intelligence</div>
                                                     <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
-                                                        Zyphe's verification system cross-references active real estate listings against municipal and federal databases to detect discrepancies and structural risks before you invest.
+                                                        Lot grades, driveway accessibility, backyard usability, and view potential using Google Elevation and then cross-references parcel data
                                                     </p>
                                                 </div>
                                             </div>

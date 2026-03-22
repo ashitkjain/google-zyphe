@@ -48,6 +48,8 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
     const [elevationFt, setElevationFt] = useState<number | null>(null);
 
     const [showHelp, setShowHelp] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [refreshing, setRefreshing] = useState(false);
     const helpRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const handleHelpEnter = () => {
@@ -55,8 +57,12 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
         setShowHelp(true);
     };
     const handleHelpLeave = () => {
-        // Small delay so tooltip doesn't flicker when moving between button and panel
         helpRef.current = setTimeout(() => setShowHelp(false), 100);
+    };
+
+    const handleRefresh = () => {
+        setRefreshKey(k => k + 1);
+        setRefreshing(true);
     };
 
     const zpid = propertyData?.zpid;
@@ -67,6 +73,8 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
         if (!zpid || !lat || !lon) return;
 
         let cancelled = false;
+        // refreshKey > 0 means the user explicitly hit refresh — skip Firestore cache
+        const forceRefresh = refreshKey > 0;
         const run = async () => {
             setLoading(true);
             setError(null);
@@ -89,25 +97,40 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                     return;
                 }
 
-                if (propData?.parcelValidation?.flags?.length > 0 && propData?.parcelValidation?.cachedAt) {
+                // Use cached result only if ALL new elevation fields are present AND we
+                // are not doing a forced refresh (user clicked the refresh button).
+                const hasCachedFlags    = !forceRefresh && propData?.parcelValidation?.flags?.length > 0 && propData?.parcelValidation?.cachedAt;
+                const hasCachedElevation = !forceRefresh
+                                        && propData?.parcelValidation?.drivewayGradePercent != null
+                                        && propData?.parcelValidation?.viewDropFt != null;
+
+                if (hasCachedFlags && hasCachedElevation) {
                     if (!cancelled) {
-                        setFlags(propData.parcelValidation.flags);
+                        const pv = propData.parcelValidation;
+                        setFlags(pv.flags);
                         setArcgisArea(propData.parcelAreaSqft || null);
                         setApn(propData.parcelApn || null);
                         setTaxSqft(propData.taxSqft || null);
                         setCountyName(propData.parcelCounty || null);
                         if (propData.parcelPolygon?.length) setPolygonVertices(propData.parcelPolygon.length);
-                        if (propData.parcelValidation.slopePercent != null) {
-                            setSlopeDisplay({
-                                percent: propData.parcelValidation.slopePercent,
-                                category: propData.parcelValidation.slopeCategory || 'Unknown',
-                                uphillDir: propData.parcelValidation.uphillDir || '?',
-                            });
+                        // Restore all elevation display states. Direction uses '?' fallback
+                        // so older cache rows that omit the field still render the grade.
+                        if (pv.slopePercent != null) {
+                            setSlopeDisplay({ percent: pv.slopePercent, category: pv.slopeCategory || 'Unknown', uphillDir: pv.uphillDir || '?' });
+                            setBackyardDisplay({ grade: pv.slopePercent, category: pv.slopeCategory || 'Unknown', dir: pv.uphillDir || '?' });
                         }
+                        if (pv.drivewayGradePercent != null && pv.drivewayCategory) {
+                            setDrivewayDisplay({ grade: pv.drivewayGradePercent, category: pv.drivewayCategory, dir: pv.downhillDir || '?' });
+                        }
+                        if (pv.viewDropFt != null && pv.viewPotential) {
+                            setViewDisplay({ potential: pv.viewPotential, dropFt: pv.viewDropFt, dir: pv.viewDropDir || '?' });
+                        }
+                        if (pv.elevationFt != null) setElevationFt(pv.elevationFt);
                         setLoading(false);
                     }
                     return;
                 }
+                // Cache is old/partial — fall through to full fetch pipeline
 
                 // ── Step 1b: Fetch tax_sqft from comp normalization cache ──
                 let cachedTaxSqft: number | null = null;
@@ -207,23 +230,36 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 let viewPotential: string | null = propData?.parcelValidation?.viewPotential ?? null;
                 let propertyElevationFt: number | null = propData?.parcelValidation?.elevationFt ?? null;
 
-                // If no slope data cached, fetch via single Google Elevation API batch call
-                if (slopePercent == null && lat && lon) {
+                // Fetch if missing slope data OR if the cached record predates driveway/view fields
+                // (old USGS-era cache only stored slopePercent — re-fetch to get the full suite).
+                const cacheIsComplete = slopePercent != null && drivewayGradePercent != null;
+                if (!cacheIsComplete && lat && lon) {
                     try {
                         const { computePropertySlopeGoogle } = await import('../../services/elevationService');
-                        const result = await computePropertySlopeGoogle(lat, lon);
-                        slopePercent          = result.slopePercent;
-                        slopeCategory         = result.slopeCategory;
-                        uphillDir             = result.uphillDir;
-                        downhillDir           = result.downhillDir;
-                        drivewayGradePercent  = result.drivewayGradePercent;
-                        drivewayCategory      = result.drivewayCategory;
-                        viewDropFt            = result.viewDropFt;
-                        viewDropDir           = result.viewDropDir;
-                        viewPotential         = result.viewPotential;
-                        propertyElevationFt   = result.elevationFt;
-                        // backyardGrade derived from uphillDir (already in slopePercent/category)
-                        console.log('[ParcelValidation] Google Elevation result:', result);
+                        // Pass lot area + the raw polygon so the service can compute
+                        // per-direction radii from the actual bounding box.
+                        // polygon is [lon, lat][] from ArcGIS (WGS84 outSR=4326).
+                        const arcgisRing = polygon as [number, number][] | null | undefined;
+                        const result = await computePropertySlopeGoogle(
+                            lat, lon,
+                            areaSqft ?? undefined,
+                            arcgisRing ?? undefined,
+                        );
+                        if (result === null) {
+                            console.info('[ParcelValidation] Lot too small for slope analysis — skipping.');
+                        } else {
+                            slopePercent          = result.slopePercent;
+                            slopeCategory         = result.slopeCategory;
+                            uphillDir             = result.uphillDir;
+                            downhillDir           = result.downhillDir;
+                            drivewayGradePercent  = result.drivewayGradePercent;
+                            drivewayCategory      = result.drivewayCategory;
+                            viewDropFt            = result.viewDropFt;
+                            viewDropDir           = result.viewDropDir;
+                            viewPotential         = result.viewPotential;
+                            propertyElevationFt   = result.elevationFt;
+                            console.log(`[ParcelValidation] Google Elevation (radius ${result.sampleRadiusFt}ft):`, result);
+                        }
                     } catch (e: any) {
                         console.warn('[ParcelValidation] Google Elevation API failed:', e.message);
                     }
@@ -237,11 +273,11 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                     // Backyard = uphill side of the lot
                     setBackyardDisplay({ grade: slopePercent, category: slopeCategory, dir: uphillDir });
                 }
-                if (drivewayGradePercent != null && drivewayCategory && downhillDir) {
-                    setDrivewayDisplay({ grade: drivewayGradePercent, category: drivewayCategory, dir: downhillDir });
+                if (drivewayGradePercent != null && drivewayCategory) {
+                    setDrivewayDisplay({ grade: drivewayGradePercent, category: drivewayCategory, dir: downhillDir || '?' });
                 }
-                if (viewDropFt != null && viewPotential && viewDropDir) {
-                    setViewDisplay({ potential: viewPotential, dropFt: viewDropFt, dir: viewDropDir });
+                if (viewDropFt != null && viewPotential) {
+                    setViewDisplay({ potential: viewPotential, dropFt: viewDropFt, dir: viewDropDir || '?' });
                 }
                 if (propertyElevationFt != null) setElevationFt(propertyElevationFt);
 
@@ -366,13 +402,13 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 console.error('[ParcelValidation] Error:', e.message);
                 if (!cancelled) setError(e.message);
             } finally {
-                if (!cancelled) setLoading(false);
+                if (!cancelled) { setLoading(false); setRefreshing(false); }
             }
         };
 
         run();
         return () => { cancelled = true; };
-    }, [zpid, lat, lon]);
+    }, [zpid, lat, lon, refreshKey]);
 
     // Don't render anything until we have data
     if (!zpid || !lat || !lon) return null;
@@ -424,18 +460,20 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 >
                     <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Data Sources</div>
                     <ul className="space-y-1.5 text-[11px] text-slate-600">
-                        <li><span className="font-bold text-slate-800">Municipal ArcGIS:</span> County boundary data</li>
-                        <li><span className="font-bold text-slate-800">USGS LiDAR:</span> Elevation & slope analysis</li>
-                        <li><span className="font-bold text-slate-800">Tax Records:</span> Living area verification</li>
+                        <li><span className="font-bold text-slate-800">Municipal ArcGIS:</span> County parcel polygon &amp; area</li>
+                        <li><span className="font-bold text-slate-800">Google Elevation API:</span> Driveway grade, backyard slope &amp; view potential — 25-point adaptive sampling radius sized to the actual parcel bounding box so readings stay within the lot</li>
+                        <li><span className="font-bold text-slate-800">Tax Records:</span> Living area verification (County Assessor / Public Records)</li>
                     </ul>
                     <div className="border-t border-slate-100 my-2.5"></div>
                     <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Rules Checked</div>
                     <ul className="space-y-1.5 text-[11px] text-slate-600">
-                        <li><span className="font-bold text-slate-800">Lot Accuracy:</span> Listed vs GIS lot size (&gt;5%)</li>
-                        <li><span className="font-bold text-slate-800">Slope Reality:</span> "Flat" claims vs terrain grade</li>
-                        <li><span className="font-bold text-slate-800">Solar/Orientation:</span> Roof direction & energy potential</li>
-                        <li><span className="font-bold text-slate-800">Permit Integrity:</span> Listing sqft vs tax record</li>
+                        <li><span className="font-bold text-slate-800">Lot Accuracy:</span> Listed vs GIS lot size (&gt;5% triggers warning)</li>
+                        <li><span className="font-bold text-slate-800">Slope Reality:</span> "Flat/level" listing claims vs measured terrain grade</li>
+                        <li><span className="font-bold text-slate-800">Solar/Orientation:</span> Roof direction &amp; solar energy potential</li>
+                        <li><span className="font-bold text-slate-800">Permit Integrity:</span> Listing sqft vs tax record (&gt;10% triggers warning)</li>
                     </ul>
+                    <div className="border-t border-slate-100 my-2.5"></div>
+                    <div className="text-[10px] text-slate-400 leading-relaxed">Lots narrower than ~50ft are excluded from slope analysis — the Google Elevation API grid (~33ft) is too coarse for reliable intra-lot readings at that scale.</div>
                 </div>
             )}
 
@@ -451,19 +489,31 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                             </div>
                             <div>
                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Ground Truth
+                                    Lot Intelligence
                                 </div>
                                 {apn && <div className="text-[10px] text-slate-400 font-mono mt-0.5">APN: {apn}</div>}
                             </div>
                         </div>
 
-                        <button
-                            onMouseEnter={handleHelpEnter}
-                            onMouseLeave={handleHelpLeave}
-                            className="w-8 h-8 rounded-full bg-white/40 hover:bg-white/80 border border-black/5 flex items-center justify-center transition-all group"
-                        >
-                            <i className="fa-solid fa-circle-question text-slate-400 group-hover:text-indigo-600 text-sm"></i>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                            {/* Refresh button */}
+                            <button
+                                onClick={handleRefresh}
+                                disabled={loading || refreshing}
+                                title="Re-fetch elevation &amp; validation data"
+                                className="w-8 h-8 rounded-full bg-white/40 hover:bg-white/80 border border-black/5 flex items-center justify-center transition-all group disabled:opacity-40"
+                            >
+                                <i className={`fa-solid fa-rotate-right text-slate-400 group-hover:text-indigo-600 text-xs ${refreshing || loading ? 'animate-spin' : ''}`} />
+                            </button>
+                            {/* Help tooltip trigger */}
+                            <button
+                                onMouseEnter={handleHelpEnter}
+                                onMouseLeave={handleHelpLeave}
+                                className="w-8 h-8 rounded-full bg-white/40 hover:bg-white/80 border border-black/5 flex items-center justify-center transition-all group"
+                            >
+                                <i className="fa-solid fa-circle-question text-slate-400 group-hover:text-indigo-600 text-sm"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -502,66 +552,107 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
 
                     {/* Driveway + Backyard grades — PRIMARY lot-level display */}
                     {(drivewayDisplay || backyardDisplay) && (
-                        <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                        <div className="flex items-start gap-3 px-3 py-3 rounded-xl border border-indigo-200 bg-indigo-50/50">
                             <i className="fa-solid fa-ruler-vertical text-indigo-400 text-xs mt-0.5" />
                             <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Lot Grades (Google Elevation)</div>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Lot Grades (Google Elevation)</div>
+                                <div className="grid grid-cols-2 gap-3">
                                     {/* Driveway */}
                                     <div className="flex flex-col gap-0.5">
-                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                            <i className="fa-solid fa-car text-[8px]" /> Driveway
+                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                            <i className="fa-solid fa-car text-[8px]" /> Driveway Approach
                                         </div>
                                         {drivewayDisplay ? (
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-[12px] font-black text-slate-700">{drivewayDisplay.grade}%</span>
-                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                                    drivewayDisplay.category === 'Steep'    ? 'bg-red-100 text-red-700' :
-                                                    drivewayDisplay.category === 'Moderate' ? 'bg-amber-100 text-amber-700' :
-                                                    drivewayDisplay.category === 'Gentle'   ? 'bg-sky-100 text-sky-700' :
-                                                    'bg-emerald-100 text-emerald-700'
-                                                }`}>{drivewayDisplay.category}</span>
-                                            </div>
+                                            <>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[14px] font-black text-slate-700">{drivewayDisplay.grade}%</span>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                                        drivewayDisplay.category === 'Steep'    ? 'bg-red-100 text-red-700' :
+                                                        drivewayDisplay.category === 'Moderate' ? 'bg-amber-100 text-amber-700' :
+                                                        drivewayDisplay.category === 'Gentle'   ? 'bg-sky-100 text-sky-700' :
+                                                        'bg-emerald-100 text-emerald-700'
+                                                    }`}>{drivewayDisplay.category}</span>
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+                                                    {drivewayDisplay.category === 'Flat'     && 'Level entry — no concern for vehicles or accessibility'}
+                                                    {drivewayDisplay.category === 'Gentle'   && 'Easy driving — comfortable for all vehicles'}
+                                                    {drivewayDisplay.category === 'Moderate' && 'Notable grade — may be challenging in icy conditions'}
+                                                    {drivewayDisplay.category === 'Steep'    && 'Steep approach — verify with local codes (max ~20–25%)'}
+                                                </div>
+                                            </>
                                         ) : <span className="text-[11px] text-slate-400">—</span>}
                                     </div>
                                     {/* Backyard */}
                                     <div className="flex flex-col gap-0.5">
-                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                            <i className="fa-solid fa-tree text-[8px]" /> Backyard
+                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                            <i className="fa-solid fa-tree text-[8px]" /> Backyard Slope
                                         </div>
                                         {backyardDisplay ? (
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-[12px] font-black text-slate-700">{backyardDisplay.grade}%</span>
-                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                                    backyardDisplay.category === 'Heavy'  || backyardDisplay.category === 'Steep'
-                                                        ? 'bg-amber-100 text-amber-700'
-                                                        : 'bg-emerald-100 text-emerald-700'
-                                                }`}>{backyardDisplay.category}</span>
-                                            </div>
+                                            <>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[14px] font-black text-slate-700">{backyardDisplay.grade}%</span>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                                        backyardDisplay.category === 'Heavy'    ? 'bg-red-100 text-red-700' :
+                                                        backyardDisplay.category === 'Steep'    ? 'bg-amber-100 text-amber-700' :
+                                                        backyardDisplay.category === 'Moderate' ? 'bg-sky-100 text-sky-700' :
+                                                        'bg-emerald-100 text-emerald-700'
+                                                    }`}>{backyardDisplay.category}</span>
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+                                                    {backyardDisplay.category === 'Flat'     && 'Fully usable — pool, patio & lawn all feasible'}
+                                                    {backyardDisplay.category === 'Moderate' && 'Usable with landscaping — pool needs cut/fill'}
+                                                    {backyardDisplay.category === 'Steep'    && 'Limited usability — retaining walls likely needed'}
+                                                    {backyardDisplay.category === 'Heavy'    && 'Significant slope — usable area likely small'}
+                                                </div>
+                                            </>
                                         ) : <span className="text-[11px] text-slate-400">—</span>}
                                     </div>
                                 </div>
-                                {/* Elevation AMSL + view as compact secondary line */}
-                                {(elevationFt || (viewDisplay && viewDisplay.potential !== 'None')) && (
-                                    <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-indigo-100/60">
+
+                                {/* View potential + elevation — expanded row */}
+                                {(elevationFt || viewDisplay) && (
+                                    <div className="mt-2.5 pt-2.5 border-t border-indigo-100/60 grid grid-cols-2 gap-3">
+                                        {/* Elevation */}
                                         {elevationFt && (
-                                            <span className="text-[9px] text-slate-400 font-medium">{elevationFt.toLocaleString()} ft AMSL</span>
+                                            <div className="flex flex-col gap-0.5">
+                                                <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                                    <i className="fa-solid fa-mountain-sun text-[8px]" /> Elevation
+                                                </div>
+                                                <div className="text-[14px] font-black text-slate-700">{elevationFt.toLocaleString()} ft</div>
+                                                <div className="text-[10px] text-slate-400 leading-snug">above sea level</div>
+                                            </div>
                                         )}
-                                        {viewDisplay && viewDisplay.potential !== 'None' && (
-                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                                viewDisplay.potential === 'High'     ? 'bg-emerald-100 text-emerald-700' :
-                                                viewDisplay.potential === 'Moderate' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-slate-100 text-slate-500'
-                                            }`}>
-                                                <i className="fa-solid fa-binoculars text-[7px] mr-1" />
-                                                {viewDisplay.potential} view corridor →{viewDisplay.dir}
-                                            </span>
+                                        {/* View potential */}
+                                        {viewDisplay && (
+                                            <div className="flex flex-col gap-0.5">
+                                                <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                                    <i className="fa-solid fa-binoculars text-[8px]" /> View Potential
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                                        viewDisplay.potential === 'High'     ? 'bg-emerald-100 text-emerald-700' :
+                                                        viewDisplay.potential === 'Moderate' ? 'bg-blue-100 text-blue-700' :
+                                                        viewDisplay.potential === 'Limited'  ? 'bg-slate-100 text-slate-500' :
+                                                        'bg-slate-50 text-slate-400'
+                                                    }`}>{viewDisplay.potential}</span>
+                                                    {viewDisplay.potential !== 'None' && (
+                                                        <span className="text-[10px] text-slate-400 font-medium">→{viewDisplay.dir}</span>
+                                                    )}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 leading-snug">
+                                                    {viewDisplay.potential === 'High'     && `${viewDisplay.dropFt} ft drop at 1,000ft — significant hillside or valley view`}
+                                                    {viewDisplay.potential === 'Moderate' && `${viewDisplay.dropFt} ft drop at 1,000ft — partial view corridor likely`}
+                                                    {viewDisplay.potential === 'Limited'  && `${viewDisplay.dropFt} ft drop at 1,000ft — slight elevation advantage`}
+                                                    {viewDisplay.potential === 'None'     && 'Flat surroundings — no terrain-based view expected'}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
+
 
                     {/* Tax sqft */}
                     {taxSqft ? (
@@ -574,7 +665,10 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                 </div>
                                 {taxSqftSource && (
                                     <div className="text-[9px] text-slate-400 font-medium mt-0.5 truncate" title={taxSqftSource}>
-                                        {taxSqftSource}
+                                        {taxSqftSource
+                                            .replace(/redfin public facts/i, 'Public Records')
+                                            .replace(/redfin/i, 'Public Records')
+                                        }
                                     </div>
                                 )}
                             </div>
@@ -593,7 +687,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 </div>
             </div>
 
-            {/* Rules Run — checklist of all validation rules */}
+            {/* Rules — only show warnings/alerts, suppress all PASS rows */}
             {(() => {
                 const rawLotDisplay = (propertyData as any).lotSize;
                 const listedLot = (() => {
@@ -608,129 +702,65 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                 })();
                 const listingSqft = propertyData.livingAreaValue || null;
 
-                const rules = [
-                    {
-                        id: 'lot_size',
-                        label: 'Lot Size vs County Parcel',
-                        ran: !!(listedLot && listedLot > 0 && arcgisArea && arcgisArea > 0),
-                        icon: 'fa-expand',
-                    },
-                    {
-                        id: 'slope_reality',
-                        label: 'Slope vs Description',
-                        ran: !!slopeDisplay,
-                        icon: 'fa-mountain',
-                    },
-                    {
-                        id: 'orientation',
-                        label: 'Orientation & Solar Check',
-                        ran: !!slopeDisplay,
-                        icon: 'fa-compass',
-                    },
-                    {
-                        id: 'living_sqft',
-                        label: 'Listing Sqft vs Tax Record',
-                        ran: !!(listingSqft && listingSqft > 0 && taxSqft && taxSqft > 0),
-                        icon: 'fa-ruler-combined',
-                    },
-                ];
+                // Build action sentences for each non-passing flag
+                const actionableFindigs = displayFlags.filter(f => f.severity === 'alert' || f.severity === 'warning');
 
-                // For each rule, find its outcome from flags
-                const getOutcome = (ruleId: string) => {
-                    const matching = displayFlags.filter(f => f.check === ruleId || (ruleId === 'orientation' && (f.check === 'orientation' || f.check === 'solar_roi')));
-                    if (matching.length === 0) return null;
-                    if (matching.some(f => f.severity === 'alert')) return 'alert';
-                    if (matching.some(f => f.severity === 'warning')) return 'warning';
-                    return 'info';
+                // Sentence templates per check type
+                const toSentence = (f: ValidationFlag): string => {
+                    const base = f.finding || '';
+                    const prefix = f.severity === 'alert' ? 'Verify urgently — ' : 'Verify — ';
+                    // Return the finding as-is (already written as a finding sentence),
+                    // prefixed lightly based on severity
+                    if (base.length > 0) return base.charAt(0).toUpperCase() + base.slice(1);
+                    return prefix + f.check.replace(/_/g, ' ');
                 };
 
+                const hasIssues = actionableFindigs.length > 0;
+
                 return (
-                    <div className="px-4 pb-2">
-                        <div className="flex items-center justify-between mb-2 ml-1">
-                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rules Evaluated</div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-bold text-slate-600">{summaryIcon} {summaryText}</span>
-                                {alertCount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">{alertCount}!</span>}
-                                {warnCount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">{warnCount}!</span>}
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-1">
-                            {rules.map(r => {
-                                const outcome = r.ran ? getOutcome(r.id) : null;
-                                return (
-                                    <div key={r.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] ${!r.ran ? 'bg-slate-50/60 border border-slate-100' :
-                                        outcome === 'alert' ? 'bg-red-50/60 border border-red-200/60' :
-                                            outcome === 'warning' ? 'bg-amber-50/60 border border-amber-200/60' :
-                                                'bg-white/60 border border-emerald-100'
-                                        }`}>
-                                        <i className={`fa-solid ${r.icon} text-[10px] ${!r.ran ? 'text-slate-300' :
-                                            outcome === 'alert' ? 'text-red-500' :
-                                                outcome === 'warning' ? 'text-amber-500' :
-                                                    'text-emerald-500'
-                                            }`} />
-                                        <span className={`font-semibold flex-1 ${!r.ran ? 'text-slate-400' : 'text-slate-600'
-                                            }`}>{r.label}</span>
-                                        {!r.ran ? (
-                                            <span className="text-[9px] font-bold text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">SKIPPED</span>
-                                        ) : outcome === 'alert' ? (
-                                            <span className="text-[9px] font-bold text-red-600 px-1.5 py-0.5 rounded bg-red-100">ALERT</span>
-                                        ) : outcome === 'warning' ? (
-                                            <span className="text-[9px] font-bold text-amber-600 px-1.5 py-0.5 rounded bg-amber-100">WARNING</span>
-                                        ) : (
-                                            <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded bg-emerald-100">PASS</span>
-                                        )}
+                    <div className="px-4 pb-3">
+                        {hasIssues ? (
+                            <div className="space-y-1.5">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-0.5">Verify These</div>
+                                {actionableFindigs.map((f, i) => (
+                                    <div key={i} className={`flex items-start gap-2.5 px-3 py-2 rounded-xl text-[11px] leading-relaxed ${
+                                        f.severity === 'alert'
+                                            ? 'bg-red-50 border border-red-200'
+                                            : 'bg-amber-50 border border-amber-200'
+                                    }`}>
+                                        <span className="shrink-0 mt-px">{f.severity === 'alert' ? '🚨' : '⚠️'}</span>
+                                        <div className="min-w-0 flex-1">
+                                            <span className={`font-semibold ${f.severity === 'alert' ? 'text-red-800' : 'text-amber-800'}`}>
+                                                {toSentence(f)}
+                                            </span>
+                                            {f.listed && f.measured && (
+                                                <div className="flex gap-3 mt-0.5 text-[10px] text-slate-400">
+                                                    <span>Listed: <span className="font-semibold text-slate-500">{f.listed}</span></span>
+                                                    <span>Measured: <span className="font-semibold text-slate-500">{f.measured}</span></span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                ))}
+                            </div>
+                        ) : (
+                            flags && flags.length > 0 && (
+                                <div className="flex items-center gap-1.5 ml-0.5">
+                                    <i className="fa-solid fa-circle-check text-emerald-500 text-xs" />
+                                    <span className="text-[10px] font-semibold text-emerald-600">All checks passed — no discrepancies found</span>
+                                </div>
+                            )
+                        )}
                     </div>
                 );
             })()}
 
-            {/* Flag Details — expanded findings (only alerts/warnings, info shown in Rules Evaluated) */}
-            {displayFlags.filter(f => f.severity !== 'info').length > 0 && (
-                <div className="px-4 pb-3 space-y-1.5">
-                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Findings</div>
-                    {displayFlags.filter(f => f.severity !== 'info').map((f, i) => (
-                        <div key={i} className={`flex items-start gap-2 text-[11px] leading-relaxed px-3 py-2 rounded-xl ${f.severity === 'alert' ? 'bg-red-50/80 border border-red-200/80' :
-                            f.severity === 'warning' ? 'bg-amber-50/80 border border-amber-200/80' :
-                                'bg-white/60 border border-emerald-100'
-                            }`}>
-                            <span className="shrink-0 mt-0.5 text-sm">
-                                {f.severity === 'alert' ? '🚨' : f.severity === 'warning' ? '⚠️' : '✅'}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className={`font-black uppercase text-[10px] tracking-wider ${f.severity === 'alert' ? 'text-red-700' :
-                                        f.severity === 'warning' ? 'text-amber-700' :
-                                            'text-emerald-700'
-                                        }`}>
-                                        {f.check.replace(/_/g, ' ')}
-                                    </span>
-                                    {f.delta !== 'N/A' && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${f.severity === 'alert' ? 'bg-red-100 text-red-600' :
-                                            f.severity === 'warning' ? 'bg-amber-100 text-amber-600' :
-                                                'bg-emerald-100 text-emerald-600'
-                                            }`}>{f.delta}</span>
-                                    )}
-                                </div>
-                                <div className="text-slate-600 mt-0.5 font-medium">{f.finding}</div>
-                                {f.listed && f.measured && (
-                                    <div className="flex gap-3 mt-1 text-[10px] text-slate-400">
-                                        <span>Listed: <span className="font-semibold text-slate-500">{f.listed}</span></span>
-                                        <span>Measured: <span className="font-semibold text-slate-500">{f.measured}</span></span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+
 
             {/* Footer */}
             <div className="px-4 pb-3 pt-0">
                 <div className="text-[9px] text-slate-400 flex items-center gap-3">
-                    <span className="ml-auto">Source: {countyName || 'County'} ArcGIS + USGS LiDAR</span>
+                    <span className="ml-auto">Source: {countyName || 'County'} ArcGIS + Google Elevation API</span>
                 </div>
             </div>
         </div>
