@@ -33,7 +33,13 @@ export interface SatellitaryResult {
     lot_coverage_pervious: number | null;   // % of lot covered by green/pervious space (0-100)
     buyer_pro: string;                // One buyer-facing Pro based on privacy + lot coverage
     buyer_con: string;                // One buyer-facing Con based on privacy + lot coverage
-    orientation_highlights: string;   // Probabilistic comment on what this facing direction tends to mean ("often", "typically")
+    orientation_highlights: string;   // Probabilistic comment on what this facing direction tends to mean
+    // Tier 2: aerial site-feature analysis
+    pool_visible: boolean | null;         // Is a pool/water body visible on the lot?
+    pool_direction: string | null;        // Compass dir of pool from house (N/NE/E…), null if no pool
+    garage_direction: string | null;      // Compass dir the garage/driveway opens toward
+    open_sky_direction: string | null;    // Compass dir of most open/unobstructed yard
+    // Image URLs
     aerial_url: string;               // Public URL of satellite image used
     street_view_url: string;          // Public URL of street view used (empty string if none)
     aerial_only_mode: boolean;        // true when no street view was available
@@ -439,6 +445,10 @@ export async function runSatellitaryAnalysis(
         buyer_pro: data.buyer_pro ?? '',
         buyer_con: data.buyer_con ?? '',
         orientation_highlights: data.orientation_highlights ?? '',
+        pool_visible: (data as any).pool_visible ?? null,
+        pool_direction: (data as any).pool_direction ?? null,
+        garage_direction: (data as any).garage_direction ?? null,
+        open_sky_direction: (data as any).open_sky_direction ?? null,
         aerial_url: aerialUrl,
         street_view_url: streetViewUrl ?? '',
         aerial_only_mode: !usesDualImage,
@@ -463,6 +473,10 @@ export async function runSatellitaryAnalysis(
                 buyer_pro: result.buyer_pro,
                 buyer_con: result.buyer_con,
                 orientation_highlights: result.orientation_highlights,
+                pool_visible: result.pool_visible ?? null,
+                pool_direction: result.pool_direction ?? null,
+                garage_direction: result.garage_direction ?? null,
+                open_sky_direction: result.open_sky_direction ?? null,
             }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }

@@ -23,7 +23,8 @@ import { ContextGraphView } from './components/ContextGraphView';
 import { StickyNotesLayer } from './components/StickyNotesLayer';
 import SatellitaryView from './components/SatellitaryView';
 import { CityNeighborhoodsView } from './components/CityNeighborhoodsView';
-import ParcelValidationCard from '../../property/ParcelValidationCard';
+
+import { VastuCard } from '../../property/VastuCard';
 import { runSatellitaryAnalysis } from '../../../services/satellitaryService';
 
 interface Props {
@@ -203,6 +204,10 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     buyer_pro: res.buyer_pro,
                     buyer_con: res.buyer_con,
                     orientation_highlights: res.orientation_highlights,
+                    pool_visible: res.pool_visible ?? null,
+                    pool_direction: res.pool_direction ?? null,
+                    garage_direction: res.garage_direction ?? null,
+                    open_sky_direction: res.open_sky_direction ?? null,
                 });
                 if (onUpdatePropertyData) {
                     onUpdatePropertyData({
@@ -219,6 +224,10 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             buyer_pro: res.buyer_pro,
                             buyer_con: res.buyer_con,
                             orientation_highlights: res.orientation_highlights,
+                            pool_visible: res.pool_visible ?? null,
+                            pool_direction: res.pool_direction ?? null,
+                            garage_direction: res.garage_direction ?? null,
+                            open_sky_direction: res.open_sky_direction ?? null,
                         }
                     });
                 }
@@ -226,6 +235,13 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             .catch(e => console.warn('[Exterior] Auto satellite analysis failed:', e))
             .finally(() => setSatelliteLoading(false));
     }, [activeTab, orientationAI]);
+
+    // Manual re-trigger: clear the guard + clear cached result + re-run immediately
+    const refreshOrientation = React.useCallback(() => {
+        if (satelliteLoading) return;
+        satelliteTriggeredRef.current = false;   // clear guard
+        setOrientationAI(null);                  // clear display → triggers useEffect
+    }, [satelliteLoading]);
 
     // Hover preview state
     const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -324,11 +340,22 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                 streetViewAnalysis={propertyData?.streetViewAnalysis}
                                 satellitaryOrientation={orientationAI}
                                 satelliteLoading={satelliteLoading}
+                                onRefreshOrientation={refreshOrientation}
                             />
-                            {/* Ground Truth Engine — lot grades, driveway, view potential */}
-                            {propertyData && (
+
+                            {/* Vastu Analysis — bottom of exterior tab */}
+                            {orientationAI?.azimuth_degrees != null && (
                                 <div className="mt-4">
-                                    <ParcelValidationCard propertyData={propertyData} />
+                                    <VastuCard
+                                        azimuth_degrees={orientationAI.azimuth_degrees}
+                                        final_orientation={orientationAI.final_orientation !== 'UNCLEAR_IMAGE' ? orientationAI.final_orientation : null}
+                                        onRefresh={refreshOrientation}
+                                        refreshing={satelliteLoading}
+                                        pool_visible={orientationAI.pool_visible ?? null}
+                                        pool_direction={orientationAI.pool_direction ?? null}
+                                        garage_direction={orientationAI.garage_direction ?? null}
+                                        open_sky_direction={orientationAI.open_sky_direction ?? null}
+                                    />
                                 </div>
                             )}
                         </>

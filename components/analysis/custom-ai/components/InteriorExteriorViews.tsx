@@ -195,6 +195,11 @@ interface SatellitaryOrientation {
     buyer_pro?: string;
     buyer_con?: string;
     orientation_highlights?: string;
+    // Tier 2: aerial site features
+    pool_visible?: boolean | null;
+    pool_direction?: string | null;
+    garage_direction?: string | null;
+    open_sky_direction?: string | null;
 }
 
 interface ExteriorViewProps {
@@ -202,9 +207,10 @@ interface ExteriorViewProps {
     streetViewAnalysis?: any;
     satellitaryOrientation?: SatellitaryOrientation | null;
     satelliteLoading?: boolean;
+    onRefreshOrientation?: () => void;
 }
 
-export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation, satelliteLoading }) => {
+export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation, satelliteLoading, onRefreshOrientation }) => {
     if (!data?.exterior_and_lot_appeal?.architecture_style) return <EmptyState section="Exterior" />;
     return (
         <section className="space-y-8">
@@ -371,17 +377,6 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                                     <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">
                                         ~{sat.lot_coverage_hardscape}% of the lot is hardscape (roof, driveway, patio) and ~{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% is pervious green space.
                                     </p>
-                                </div>
-                            )}
-                            {sat.feng_shui_vastu && (
-                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                            <i className="fa-solid fa-yin-yang text-lg"></i>
-                                        </div>
-                                    </div>
-                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Feng Shui / Vastu</h4>
-                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{sat.feng_shui_vastu}</p>
                                 </div>
                             )}
                         </>);

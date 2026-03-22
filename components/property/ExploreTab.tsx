@@ -8,6 +8,7 @@ import PropertyDescription from './PropertyDescription';
 import StreetViewAnalysisSection from './StreetViewAnalysisSection';
 import PropertyMaps from './PropertyMaps';
 import Logo from '../shared/Logo';
+import VastuCard from './VastuCard';
 import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
 import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import ComplianceAttribution from './ComplianceAttribution';
@@ -800,32 +801,16 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                                 The front of the home likely faces <strong>{sat.final_orientation}</strong>. {sat.orientation_highlights}
                                                                             </p>
                                                                         )}
-                                                                        <div className="space-y-2">
-                                                                            {sat.lot_coverage_hardscape != null && (
-                                                                                <div className="p-2 bg-white rounded-lg border border-slate-100">
-                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
-                                                                                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                                                                        <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
-                                                                                    </div>
-                                                                                    <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
-                                                                                        <span>{sat.lot_coverage_hardscape}% hard</span>
-                                                                                        <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-                                                                            {sat.buyer_pro && (
-                                                                                <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
-                                                                                    <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
-                                                                                    <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
-                                                                                </div>
-                                                                            )}
-                                                                            {sat.buyer_con && (
-                                                                                <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
-                                                                                    <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
-                                                                                    <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
+                                                                        {/* Vastu */}
+                                                                        <VastuCard
+                                                                            compact
+                                                                            azimuth_degrees={sat.azimuth_degrees}
+                                                                            pool_visible={sat.pool_visible}
+                                                                            pool_direction={sat.pool_direction}
+                                                                            garage_direction={sat.garage_direction}
+                                                                            open_sky_direction={sat.open_sky_direction}
+                                                                        />
+
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -852,29 +837,40 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                             </span>
                                                                         )}
                                                                     </p>
-                                                                    {/* Microclimate Thermal Fingerprint */}
-                                                                    {micro && (
-                                                                        <div className="mt-3 pt-3 border-t border-slate-100">
-                                                                            <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                                                                                <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
-                                                                                "{micro.insight}"
-                                                                            </p>
-                                                                            <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
-                                                                        </div>
-                                                                    )}
+                                                                    {/* Lot Coverage + buyer signal — moved from Front Orientation card */}
+                                                                    {(propertyData as any).orientation_ai && (() => {
+                                                                        const sat2 = (propertyData as any).orientation_ai;
+                                                                        return (
+                                                                            <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                                                                                {sat2.lot_coverage_hardscape != null && (
+                                                                                    <div className="p-2 bg-white rounded-lg border border-slate-100">
+                                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
+                                                                                        <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                                                                            <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat2.lot_coverage_hardscape}%` }} />
+                                                                                        </div>
+                                                                                        <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
+                                                                                            <span>{sat2.lot_coverage_hardscape}% hard</span>
+                                                                                            <span className="text-emerald-600">{sat2.lot_coverage_pervious ?? (100 - sat2.lot_coverage_hardscape)}% green</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                                {sat2.buyer_pro && (
+                                                                                    <div className="flex items-start gap-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                                                                                        <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5"></i>
+                                                                                        <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat2.buyer_pro}</div>
+                                                                                    </div>
+                                                                                )}
+                                                                                {sat2.buyer_con && (
+                                                                                    <div className="flex items-start gap-1.5 p-2 bg-rose-50/50 rounded-lg border border-rose-100">
+                                                                                        <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5"></i>
+                                                                                        <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat2.buyer_con}</div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })()}
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Seasonal Sun */}
-                                                    {propertyData.coordinates && (
-                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                                                            <SeasonalSunCard
-                                                                lat={propertyData.coordinates.latitude}
-                                                                lng={propertyData.coordinates.longitude}
-                                                                orientation={(propertyData as any).orientation_ai?.final_orientation}
-                                                            />
                                                         </div>
                                                     )}
 
@@ -1073,21 +1069,43 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                         );
                                                                     })()}
 
-                                                                    {/* Education Verdict */}
-                                                                    {schoolsIntelligence.education_verdict && (
-                                                                        <div className="mt-3 pt-3 border-t border-slate-100">
-                                                                            <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Education Verdict</div>
-                                                                            <p className="text-[12px] text-slate-600 leading-relaxed">
-                                                                                {schoolsIntelligence.education_verdict.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                    j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
-                                                                                ))}
-                                                                            </p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                                     {/* Education Verdict */}
+                                                                     {schoolsIntelligence.education_verdict && (
+                                                                         <div className="mt-3 pt-3 border-t border-slate-100">
+                                                                             <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Education Verdict</div>
+                                                                             <p className="text-[12px] text-slate-600 leading-relaxed">
+                                                                                 {schoolsIntelligence.education_verdict.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                     j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                                                 ))}
+                                                                             </p>
+                                                                         </div>
+                                                                     )}
+                                                                 </div>
+                                                             </div>
+                                                         </div>
+                                                     )}
+
+                                                     {/* Seasonal Sun */}
+                                                     {propertyData.coordinates && (
+                                                         <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                                                             <SeasonalSunCard
+                                                                 lat={propertyData.coordinates.latitude}
+                                                                 lng={propertyData.coordinates.longitude}
+                                                                 orientation={(propertyData as any).orientation_ai?.final_orientation}
+                                                             />
+                                                             {/* Microclimate Thermal Fingerprint */}
+                                                             {micro && (
+                                                                 <div className="pt-2 border-t border-slate-100">
+                                                                     <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                                                                         <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
+                                                                         "{micro.insight}"
+                                                                     </p>
+                                                                     <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
+                                                                 </div>
+                                                             )}
+                                                         </div>
+                                                     )}
+
 
                                                     {/* Schools Summary from Comprehensive Analysis (fallback when no full schools data) */}
                                                     {!schoolsIntelligence?.schools?.length && analysis?.schools_summary && (
@@ -1218,8 +1236,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                             </div>
                                                         );
                                                     })()}
+                                                </div>
                                             </div>
-                                        </div>
 
                                             {/* Census Demographics */}
                                             {census && (() => {
@@ -2414,26 +2432,26 @@ ${JSON.stringify(summaries)}
             {/* Controls row + search bar */}
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Browse:</span>
-                {BROWSE_CITIES.map((c, i) => (
-                    <span key={c} className="flex items-center gap-2">
-                        {i > 0 && <span className="text-slate-300">|</span>}
-                        <button
-                            onClick={() => { setPage(1); handleBrowse(c); }}
-                            disabled={browsing}
-                            className={`text-sm font-bold transition-all ${browsing && selectedCity === c
-                                ? 'text-indigo-400 cursor-wait'
-                                : selectedCity === c && results.length > 0
-                                    ? 'text-indigo-700 underline underline-offset-4'
-                                    : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
-                                }`}
-                        >
-                            {browsing && selectedCity === c ? (
-                                <><i className="fa-solid fa-spinner animate-spin mr-1"></i>{c}</>
-                            ) : c}
-                        </button>
-                    </span>
-                ))}
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Browse:</span>
+                    {BROWSE_CITIES.map((c, i) => (
+                        <span key={c} className="flex items-center gap-2">
+                            {i > 0 && <span className="text-slate-300">|</span>}
+                            <button
+                                onClick={() => { setPage(1); handleBrowse(c); }}
+                                disabled={browsing}
+                                className={`text-sm font-bold transition-all ${browsing && selectedCity === c
+                                    ? 'text-indigo-400 cursor-wait'
+                                    : selectedCity === c && results.length > 0
+                                        ? 'text-indigo-700 underline underline-offset-4'
+                                        : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
+                                    }`}
+                            >
+                                {browsing && selectedCity === c ? (
+                                    <><i className="fa-solid fa-spinner animate-spin mr-1"></i>{c}</>
+                                ) : c}
+                            </button>
+                        </span>
+                    ))}
                 </div>
                 {searchBar && (
                     <div className="flex-1 max-w-2xl">

@@ -537,15 +537,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                             </span>
                                         </span>
                                     )}
-                                    {polygonVertices && (
-                                        <span className="text-[10px] font-bold text-indigo-400">
-                                            {polygonVertices} vertices
-                                        </span>
-                                    )}
                                 </div>
-                                {countyName && (
-                                    <div className="text-[10px] font-medium text-slate-400 mt-0.5">{countyName} County</div>
-                                )}
                             </div>
                         </div>
                     )}
@@ -555,12 +547,12 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                         <div className="flex items-start gap-3 px-3 py-3 rounded-xl border border-indigo-200 bg-indigo-50/50">
                             <i className="fa-solid fa-ruler-vertical text-indigo-400 text-xs mt-0.5" />
                             <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Lot Grades (Google Elevation)</div>
+
                                 <div className="grid grid-cols-2 gap-3">
                                     {/* Driveway */}
                                     <div className="flex flex-col gap-0.5">
-                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
-                                            <i className="fa-solid fa-car text-[8px]" /> Driveway Approach
+                                        <div className="text-sm font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                            <i className="fa-solid fa-car text-xs" /> Driveway
                                         </div>
                                         {drivewayDisplay ? (
                                             <>
@@ -584,8 +576,8 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                     </div>
                                     {/* Backyard */}
                                     <div className="flex flex-col gap-0.5">
-                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
-                                            <i className="fa-solid fa-tree text-[8px]" /> Backyard Slope
+                                        <div className="text-sm font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                            <i className="fa-solid fa-tree text-xs" /> Backyard Slope
                                         </div>
                                         {backyardDisplay ? (
                                             <>
@@ -615,8 +607,8 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                         {/* Elevation */}
                                         {elevationFt && (
                                             <div className="flex flex-col gap-0.5">
-                                                <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
-                                                    <i className="fa-solid fa-mountain-sun text-[8px]" /> Elevation
+                                                <div className="text-sm font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                                    <i className="fa-solid fa-mountain-sun text-xs" /> Elevation
                                                 </div>
                                                 <div className="text-[14px] font-black text-slate-700">{elevationFt.toLocaleString()} ft</div>
                                                 <div className="text-[10px] text-slate-400 leading-snug">above sea level</div>
@@ -625,8 +617,8 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                                         {/* View potential */}
                                         {viewDisplay && (
                                             <div className="flex flex-col gap-0.5">
-                                                <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mb-0.5">
-                                                    <i className="fa-solid fa-binoculars text-[8px]" /> View Potential
+                                                <div className="text-sm font-bold text-slate-400 flex items-center gap-1 mb-0.5">
+                                                    <i className="fa-solid fa-binoculars text-xs" /> View Potential
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${

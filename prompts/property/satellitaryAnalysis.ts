@@ -142,6 +142,15 @@ TASK:
    which can keep interiors cooler in summer — though rear-facing rooms may benefit from afternoon light."
    Example for East-facing: "East-facing homes typically enjoy morning sun through the front, which may
    help reduce heating costs in winter and tend to keep afternoons cooler."
+10. VASTU SITE FEATURES — look at the aerial image and assess the following. Express all directions
+    as one of: N, NE, E, SE, S, SW, W, NW (relative to the house, using the North-up aerial frame).
+    a) POOL / WATER BODY: Is a pool, pond, or water feature visible on the lot? (set pool_visible: true/false)
+       If visible, which compass direction from the house center is it located? (set pool_direction)
+       In Vastu: pool in N or NE = auspicious; SW = inauspicious.
+    b) GARAGE / DRIVEWAY: Which compass direction does the garage opening / driveway head toward?
+       (set garage_direction — use the North-up aerial, find which edge of the lot the driveway exits toward)
+    c) OPEN SKY / BACKYARD: Which compass direction is the most open/unobstructed outdoor area
+       relative to the house? (set open_sky_direction — look for where the largest open yard/lawn is).
 
 Use this step-by-step reasoning format in your explanation:
   Step 1: Describe what you see in Image A. Identify which side of the building is the front
@@ -235,6 +244,15 @@ TASK:
    which can keep interiors cooler in summer — though rear-facing rooms may benefit from afternoon light."
    Example for East-facing: "East-facing homes typically enjoy morning sun through the front, which may
    help reduce heating costs in winter and tend to keep afternoons cooler."
+10. VASTU SITE FEATURES — look at the aerial image and assess the following. Express all directions
+    as one of: N, NE, E, SE, S, SW, W, NW (relative to the house, using the North-up aerial frame).
+    a) POOL / WATER BODY: Is a pool, pond, or water feature visible on the lot? (set pool_visible: true/false)
+       If visible, which compass direction from the house center is it located? (set pool_direction)
+       In Vastu: pool in N or NE = auspicious; SW = inauspicious.
+    b) GARAGE / DRIVEWAY: Which compass direction does the garage opening / driveway head toward?
+       (set garage_direction — use the North-up aerial, find which edge of the lot the driveway exits toward)
+    c) OPEN SKY / BACKYARD: Which compass direction is the most open/unobstructed outdoor area
+       relative to the house? (set open_sky_direction — look for where the largest open yard/lawn is).
 
 Use this step-by-step reasoning format in your explanation:
   Step 1: Describe the overall shape of the building footprint and note all adjacent roads.
@@ -308,6 +326,30 @@ export const satellitarySchema = {
         orientation_highlights: {
             type: Type.STRING,
             description: 'ONE or TWO sentences on what this facing direction typically means for a home. MANDATORY: every sentence MUST use a hedging word — "often", "typically", "may", "tends to", "can", "in many cases". NEVER use bare deterministic verbs: do NOT write "gets sun", "receives light", "is cooler", "will be warmer". ALWAYS hedge: write "may get", "often receives", "tends to feel cooler", "can be warmer". Bad: "North-facing homes get less sun." Good: "North-facing homes often receive less direct sunlight, which can keep interiors cooler in summer."'
+        },
+        // ── Tier 2: Aerial site-feature analysis ─────────────────────────────
+        pool_visible: {
+            type: Type.BOOLEAN,
+            description: 'True if a pool, pond, or water feature is visible on the lot in the aerial image.',
+            nullable: true
+        },
+        pool_direction: {
+            type: Type.STRING,
+            enum: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+            description: 'Compass direction of the pool/water body relative to the house center (North-up aerial). Only set if pool_visible is true.',
+            nullable: true
+        },
+        garage_direction: {
+            type: Type.STRING,
+            enum: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+            description: 'Compass direction the garage opening / driveway exit faces, observed from the North-up aerial.',
+            nullable: true
+        },
+        open_sky_direction: {
+            type: Type.STRING,
+            enum: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+            description: 'Compass direction of the most open/unobstructed outdoor area (largest yard or lawn) relative to the house, from the North-up aerial.',
+            nullable: true
         }
     },
     required: ['image_quality', 'final_orientation', 'confidence', 'explanation', 'privacy_insight', 'buyer_pro', 'buyer_con', 'orientation_highlights']
