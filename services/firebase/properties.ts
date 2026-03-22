@@ -163,6 +163,7 @@ export const savePropertyOrientationToCloud = async (
         const payload: Record<string, any> = {};
         if (orientationAI) {
             payload.orientation_ai = sanitizeForFirestore(orientationAI);
+            payload.orientation_calculated_at = serverTimestamp();
         }
         logFirestoreQuery('setDoc', 'properties', { zpid, fields: Object.keys(payload) });
         await setDoc(docRef, payload, { merge: true });

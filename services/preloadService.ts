@@ -90,6 +90,22 @@ function healMerge(target: Record<string, any>, fresh: Record<string, any>): num
 }
 
 /**
+ * Validates that an address string looks like a real street address.
+ * Returns false for city-only strings like "Dublin, CA 94568 US" which
+ * have no street number or street name component.
+ *
+ * A valid street address must:
+ *   - Start with at least one digit (the street number)
+ *   - Have at least one word after the digits (the street name)
+ */
+function isValidStreetAddress(address?: string | null): boolean {
+  if (!address) return false;
+  const trimmed = address.trim();
+  // Must start with digits followed by a space and at least one letter word
+  return /^\d+\s+[A-Za-z]/.test(trimmed);
+}
+
+/**
  * Query Alameda County Surveyor Tract Map layer for a property's historic subdivision.
  * Uses spatial intersection to find the tract polygon containing the given coordinates.
  */
@@ -195,6 +211,30 @@ export const runFullIntelligencePipeline = async (
                 }
               } catch (e: any) {
                 onLog?.(`[Discovery] RapidAPI heal failed (non-blocking): ${e.message}`);
+              }
+            }
+
+            // 1b. Address validity check — detect city-only addresses like "Dublin, CA 94568 US"
+            // that have no street number or name. Re-fetch from RapidAPI to get the real address.
+            if (!isValidStreetAddress(enrichedData.address)) {
+              onLog?.(`[Discovery] ⚠ Invalid/incomplete address detected: "${enrichedData.address}" — re-fetching from RapidAPI...`);
+              try {
+                const fresh = await fetchPropertySpecs(zpid);
+                const freshAddress =
+                  fresh?.streetAddress
+                  ? `${fresh.streetAddress}, ${fresh.city || ''}, ${fresh.state || ''} ${fresh.zipcode || fresh.zipCode || ''}`.replace(/,\s*,/g, ',').trim()
+                  : null;
+                if (freshAddress && isValidStreetAddress(freshAddress)) {
+                  enrichedData = { ...enrichedData, address: freshAddress } as typeof enrichedData;
+                  await savePropertyToCloud(zpid, { address: freshAddress } as any);
+                  onLog?.(`[Discovery] ✓ Address corrected to: "${freshAddress}"`);
+                } else {
+                  const msg = `[ADDRESS UNRESOLVABLE] ZPID ${zpid} — RapidAPI returned no street address (got: "${fresh?.streetAddress || 'null'}"). This property will remain with a broken address in Firestore.`;
+                  console.error(`%c${msg}`, 'color: #ff0000; font-size: 16px; font-weight: 900; background: #fff0f0; padding: 4px 8px; border-left: 4px solid #ff0000;');
+                  onLog?.(`[Discovery] ❌ ${msg}`);
+                }
+              } catch (e: any) {
+                onLog?.(`[Discovery] Address re-fetch failed (non-blocking): ${e.message}`);
               }
             }
 

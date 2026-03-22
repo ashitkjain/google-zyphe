@@ -32,6 +32,7 @@ interface OrientationRow {
     coordinates?: { latitude: number; longitude: number };
     orientationAssessment: OrientationAssessmentValue[];  // multi-select
     assessedAt?: any;        // Firestore Timestamp of last orientation_assessment save
+    calculatedAt?: any;      // Firestore Timestamp of last AI orientation calculation
     status: 'idle' | 'running' | 'refreshing' | 'done' | 'error';
     error?: string;
 }
@@ -141,6 +142,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         coordinates: p.coordinates || undefined,
                         orientationAssessment: orientationAssessmentMap[d.id] ?? [],
                         assessedAt: assessedAtMap[d.id] ?? null,
+                        calculatedAt: p.orientation_calculated_at ?? null,
                         status: 'idle' as const,
                     };
                 });
@@ -239,6 +241,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
                 status: 'done',
+                calculatedAt: new Date(),
                 orientationAI: {
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
@@ -508,7 +511,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[130px]">Radar Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Orientation Assessment</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Last Assessed</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Calculated</th>
+                                <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Last Assessed</th>
                                     {isAdmin && <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>}
                                 </tr>
                             </thead>
@@ -529,7 +533,15 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             <span className="text-[11px] font-black text-slate-300 font-mono">{idx + 1}</span>
                                         </td>
                                         <td className="p-5">
-                                            <div className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2">{row.address}</div>
+                                            <a
+                                                href={`/?zpid=${row.zpid}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[11px] font-black text-indigo-700 hover:text-indigo-500 hover:underline leading-tight line-clamp-2 transition-colors"
+                                                title="Open in Explore"
+                                            >
+                                                {row.address}
+                                            </a>
                                             <div className="text-[9px] font-mono text-slate-400 mt-0.5">{row.zpid}</div>
                                             {row.status === 'error' && (
                                                 <div className="text-[9px] text-rose-500 font-bold mt-1 truncate max-w-[120px]">{row.error}</div>
@@ -648,6 +660,35 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                         .catch(e => console.error('[OrientationAudit] Failed to save assessment:', e));
                                                 }}
                                             />
+                                        </td>
+
+                                        {/* Calculated At */}
+                                        <td className="p-5">
+                                            {row.calculatedAt ? (() => {
+                                                const d = row.calculatedAt instanceof Date
+                                                    ? row.calculatedAt
+                                                    : row.calculatedAt?.toDate?.() ?? new Date(row.calculatedAt);
+                                                const diffMs = Date.now() - d.getTime();
+                                                const diffMins = Math.floor(diffMs / 60000);
+                                                const diffHrs = Math.floor(diffMins / 60);
+                                                const diffDays = Math.floor(diffHrs / 24);
+                                                const relative = diffMins < 1 ? 'just now'
+                                                    : diffMins < 60 ? `${diffMins}m ago`
+                                                        : diffHrs < 24 ? `${diffHrs}h ago`
+                                                            : diffDays < 7 ? `${diffDays}d ago`
+                                                                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                const fullDate = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                                return (
+                                                    <span
+                                                        title={fullDate}
+                                                        className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap"
+                                                    >
+                                                        {relative}
+                                                    </span>
+                                                );
+                                            })() : (
+                                                <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                            )}
                                         </td>
 
                                         {/* Last Assessed */}
