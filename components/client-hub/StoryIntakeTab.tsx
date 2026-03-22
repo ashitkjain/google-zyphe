@@ -45,23 +45,23 @@ const ATMOSPHERIC_ANCHORS = [
 const CHAPTERS = [
     {
         num: '01',
-        title: 'Identity & Background',
-        prompt: 'Who are you and who is moving?',
-        placeholder: 'Describe your household — family size, profession, stage of life you\'re entering. Are you upsizing, relocating, investing? Help us understand the people behind the search...',
+        title: 'Who You Are',
+        prompt: 'Tell us about your household background and current life stage.',
+        placeholder: 'e.g. A growing family with two young children, Empty nesters, Tech couple in their 30s relocating from SF...',
         key: 'chapter01' as const,
     },
     {
         num: '02',
         title: 'Daily Rituals & Lifestyle',
-        prompt: 'What does your perfect day at home look like?',
-        placeholder: 'From morning coffee views to evening hosting rituals — tell us how your home should serve your routine. Do you work from home? Cook often? Need a quiet sanctuary or a social hub?',
+        prompt: 'Describe your day-to-day flow. Where do you drink your morning coffee? Do you need a dedicated workspace?',
+        placeholder: 'I start my day with a quiet espresso looking over a garden... I usually work from home three days a week and need absolute silence...',
         key: 'chapter02' as const,
     },
     {
         num: '03',
-        title: 'Architectural & Emotional Soul',
-        prompt: 'What are your non-negotiable feelings or styles?',
-        placeholder: 'Natural light flooding a breakfast nook, a backyard where kids can run free, an east-facing master suite... What does the home feel like when you walk in? What must it never compromise on?',
+        title: 'The Dream Space',
+        prompt: 'What are the essential architectural or emotional anchors for your next property?',
+        placeholder: 'High ceilings and natural light are non-negotiable. I want a kitchen that opens into a garden for entertaining...',
         key: 'chapter03' as const,
     },
 ];
