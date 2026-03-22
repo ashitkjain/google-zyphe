@@ -118,8 +118,11 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 }
             });
 
+            const HIDDEN_CITIES = new Set(['Hayward', 'hayward']);
+
             const built: OrientationRow[] = propSnap.docs
                 .filter(d => !(d.data() as any).deprecated) // Skip deprecated (sold/inactive) properties
+                .filter(d => !HIDDEN_CITIES.has((d.data() as any).city || '')) // Skip hidden cities
                 .map(d => {
                     const p = d.data() as any;
                     return {
