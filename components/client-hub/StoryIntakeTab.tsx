@@ -2,24 +2,12 @@ import React, { useState, useCallback } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Motivation = 'lifestyle' | 'investment' | 'downsizing' | 'upsizing' | 'relocation';
-type Timeline = 'urgent' | '3months' | '6months' | 'flexible';
-type InvestmentTier = 'first_home' | 'move_up' | 'high_net_worth' | 'investor';
-
 interface StoryIntakeData {
-    // Realtor-visible
-    primaryStakeholder: string;
-    investmentTier: InvestmentTier;
-    motivation: Motivation;
-    timeline: Timeline;
-    realtorNotes: string;
-
-    // Shared client + realtor
-    narrative: string;
-    budgetMin: string;
-    budgetMax: string;
-    beds: string;
-    baths: string;
+    name: string;
+    budget: string;
+    chapter01: string; // Identity & Background
+    chapter02: string; // Daily Rituals & Lifestyle
+    chapter03: string; // Architectural & Emotional Soul
     selectedAnchors: string[];
     customAnchor: string;
 }
@@ -32,87 +20,61 @@ interface Props {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ATMOSPHERIC_ANCHORS = [
-    { id: 'walkable_coffee', label: 'Walking Distance to Coffee', icon: 'fa-mug-hot' },
-    { id: 'quiet_streets', label: 'Quiet Streets', icon: 'fa-moon' },
-    { id: 'mid_century', label: 'Mid-Century Aesthetic', icon: 'fa-house-chimney' },
-    { id: 'top_schools', label: 'Top-Rated Schools', icon: 'fa-graduation-cap' },
-    { id: 'large_backyard', label: 'Large Backyard', icon: 'fa-tree' },
-    { id: 'home_office', label: 'Home Office Ready', icon: 'fa-laptop-house' },
-    { id: 'pet_parks', label: 'Pet-Friendly Parks', icon: 'fa-dog' },
-    { id: 'low_wildfire', label: 'Low Wildfire Risk', icon: 'fa-fire-flame-simple' },
-    { id: 'tech_commute', label: 'Tech Commute Access', icon: 'fa-road' },
-    { id: 'private_security', label: 'Private / Gated', icon: 'fa-shield-halved' },
-    { id: 'grocery', label: 'Gourmet Grocery Access', icon: 'fa-basket-shopping' },
-    { id: 'sustainable', label: 'Sustainable Architecture', icon: 'fa-leaf' },
-    { id: 'modern_kitchen', label: 'Modern Kitchen', icon: 'fa-utensils' },
-    { id: 'natural_light', label: 'Natural Light / Open Plan', icon: 'fa-sun' },
-    { id: 'vastu', label: 'Vastu / Good Orientation', icon: 'fa-compass' },
+    'Walking Distance to Coffee',
+    'Quiet Streets',
+    'Top-Rated Schools',
+    'Large Backyard',
+    'Home Office Ready',
+    'Pet-Friendly Parks',
+    'Low Wildfire Risk',
+    'Tech Commute Access',
+    'Private / Gated',
+    'Gourmet Grocery Access',
+    'Sustainable Architecture',
+    'Modern Kitchen',
+    'Natural Light / Open Plan',
+    'Vastu / Good Orientation',
+    'Mid-Century Aesthetic',
+    'ADU Potential',
+    'High ROI Potential',
+    'Multi-Gen Living',
+    'Single Story',
+    'Pool Ready',
 ];
 
-const INVESTMENT_TIER_LABELS: Record<InvestmentTier, string> = {
-    first_home: 'First Home Buyer',
-    move_up: 'Move-Up Buyer',
-    high_net_worth: 'High Net Worth (HNW)',
-    investor: 'Investment Portfolio',
-};
-
-const MOTIVATION_LABELS: Record<Motivation, { label: string; icon: string }> = {
-    lifestyle: { label: 'Lifestyle Upgrade', icon: 'fa-star' },
-    investment: { label: 'Investment / Yield', icon: 'fa-chart-line' },
-    downsizing: { label: 'Downsizing', icon: 'fa-compress' },
-    upsizing: { label: 'Upsizing / Growing Family', icon: 'fa-people-group' },
-    relocation: { label: 'Relocation', icon: 'fa-plane' },
-};
-
-const TIMELINE_LABELS: Record<Timeline, { label: string; color: string }> = {
-    urgent: { label: '< 30 Days', color: 'text-rose-600 bg-rose-50 border-rose-200' },
-    '3months': { label: '1–3 Months', color: 'text-amber-600 bg-amber-50 border-amber-200' },
-    '6months': { label: '3–6 Months', color: 'text-blue-600 bg-blue-50 border-blue-200' },
-    flexible: { label: 'Flexible', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SectionCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-    return (
-        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden ${className}`}>
-            {children}
-        </div>
-    );
-}
-
-function SectionHeader({ icon, title, badge }: { icon: string; title: string; badge?: string }) {
-    return (
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                    <i className={`fa-solid ${icon} text-indigo-500 text-xs`}></i>
-                </div>
-                <h2 className="text-sm font-black text-slate-900 tracking-tight">{title}</h2>
-            </div>
-            {badge && (
-                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
-                    {badge}
-                </span>
-            )}
-        </div>
-    );
-}
+const CHAPTERS = [
+    {
+        num: '01',
+        title: 'Identity & Background',
+        prompt: 'Who are you and who is moving?',
+        placeholder: 'Describe your household — family size, profession, stage of life you\'re entering. Are you upsizing, relocating, investing? Help us understand the people behind the search...',
+        key: 'chapter01' as const,
+    },
+    {
+        num: '02',
+        title: 'Daily Rituals & Lifestyle',
+        prompt: 'What does your perfect day at home look like?',
+        placeholder: 'From morning coffee views to evening hosting rituals — tell us how your home should serve your routine. Do you work from home? Cook often? Need a quiet sanctuary or a social hub?',
+        key: 'chapter02' as const,
+    },
+    {
+        num: '03',
+        title: 'Architectural & Emotional Soul',
+        prompt: 'What are your non-negotiable feelings or styles?',
+        placeholder: 'Natural light flooding a breakfast nook, a backyard where kids can run free, an east-facing master suite... What does the home feel like when you walk in? What must it never compromise on?',
+        key: 'chapter03' as const,
+    },
+];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) => {
     const [data, setData] = useState<StoryIntakeData>({
-        primaryStakeholder: '',
-        investmentTier: 'move_up',
-        motivation: 'lifestyle',
-        timeline: 'flexible',
-        realtorNotes: '',
-        narrative: '',
-        budgetMin: '',
-        budgetMax: '',
-        beds: '',
-        baths: '',
+        name: '',
+        budget: '',
+        chapter01: '',
+        chapter02: '',
+        chapter03: '',
         selectedAnchors: [],
         customAnchor: '',
     });
@@ -125,394 +87,261 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
         setSaved(false);
     }, []);
 
-    const toggleAnchor = (id: string) => {
+    const toggleAnchor = (label: string) => {
         setData(prev => ({
             ...prev,
-            selectedAnchors: prev.selectedAnchors.includes(id)
-                ? prev.selectedAnchors.filter(a => a !== id)
-                : [...prev.selectedAnchors, id],
+            selectedAnchors: prev.selectedAnchors.includes(label)
+                ? prev.selectedAnchors.filter(a => a !== label)
+                : [...prev.selectedAnchors, label],
         }));
-        setSaved(false);
     };
 
     const addCustomAnchor = () => {
         const trimmed = data.customAnchor.trim();
-        if (!trimmed) return;
+        if (!trimmed || data.selectedAnchors.includes(trimmed)) return;
         setData(prev => ({
             ...prev,
-            selectedAnchors: [...prev.selectedAnchors, `custom:${trimmed}`],
+            selectedAnchors: [...prev.selectedAnchors, trimmed],
             customAnchor: '',
         }));
     };
 
-    const handleSynthesize = async () => {
+    const fullStory = [data.chapter01, data.chapter02, data.chapter03]
+        .filter(Boolean)
+        .join('\n\n');
+
+    const wordCount = fullStory.split(/\s+/).filter(Boolean).length;
+    const isReady = fullStory.length > 30 || data.selectedAnchors.length > 0;
+
+    const handleDiscover = async () => {
+        if (!isReady) return;
         setSynthesizing(true);
-        await new Promise(r => setTimeout(r, 1200)); // simulate
+        await new Promise(r => setTimeout(r, 1200));
         setSynthesizing(false);
         setSaved(true);
-        if (onMatchRequest) {
-            onMatchRequest(data.narrative, {
-                budgetMin: data.budgetMin,
-                budgetMax: data.budgetMax,
-                beds: data.beds,
-                baths: data.baths,
-            });
-        }
-    };
-
-    const handleSaveProgress = () => {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        onMatchRequest?.(fullStory, {
+            budgetMin: '',
+            budgetMax: data.budget.replace(/[^0-9]/g, ''),
+            beds: '',
+            baths: '',
+        });
     };
 
     return (
-        <div className="animate-in fade-in duration-400 max-w-5xl mx-auto px-4 py-6 space-y-5">
+        <div className="animate-in fade-in duration-400 min-h-screen bg-slate-50/60 pb-24">
 
-            {/* ── Realtor header action ── */}
-            {isRealtor && (
-                <div className="flex justify-end">
-                    <button
-                        onClick={handleSynthesize}
-                        disabled={synthesizing}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-xl hover:bg-indigo-700 transition-all disabled:opacity-60"
-                    >
-                        {synthesizing ? (
-                            <i className="fa-solid fa-spinner animate-spin text-xs"></i>
-                        ) : (
-                            <i className="fa-solid fa-bolt text-xs"></i>
-                        )}
-                        Synthesize Match
-                    </button>
-                </div>
-            )}
-
-            {/* ── Main Grid ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-                {/* ── Client Profile (Realtor-only) ── */}
-                {isRealtor && (
-                    <SectionCard>
-                        <SectionHeader icon="fa-id-card" title="Client Profile" />
-                        <div className="px-6 py-5 space-y-5">
-
-                            {/* Primary Stakeholder */}
-                            <div>
-                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">
-                                    Primary Stakeholder
-                                </label>
-                                <input
-                                    type="text"
-                                    value={data.primaryStakeholder}
-                                    onChange={e => update('primaryStakeholder', e.target.value)}
-                                    placeholder="e.g. Eleanor & James Vance"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
-                                />
-                            </div>
-
-                            {/* Investment Tier */}
-                            <div>
-                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">
-                                    Investment Tier
-                                </label>
-                                <select
-                                    value={data.investmentTier}
-                                    onChange={e => update('investmentTier', e.target.value as InvestmentTier)}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
-                                >
-                                    {(Object.entries(INVESTMENT_TIER_LABELS) as [InvestmentTier, string][]).map(([k, v]) => (
-                                        <option key={k} value={k}>{v}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Primary Motivation */}
-                            <div>
-                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2.5">
-                                    Primary Motivation
-                                </label>
-                                <div className="flex flex-wrap gap-2">
-                                    {(Object.entries(MOTIVATION_LABELS) as [Motivation, { label: string; icon: string }][]).map(([k, v]) => (
-                                        <button
-                                            key={k}
-                                            onClick={() => update('motivation', k)}
-                                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${data.motivation === k
-                                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                                                : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                                                }`}
-                                        >
-                                            <i className={`fa-solid ${v.icon} text-[9px]`}></i>
-                                            {v.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Timeline */}
-                            <div>
-                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2.5">
-                                    Purchase Timeline
-                                </label>
-                                <div className="flex flex-wrap gap-2">
-                                    {(Object.entries(TIMELINE_LABELS) as [Timeline, { label: string; color: string }][]).map(([k, v]) => (
-                                        <button
-                                            key={k}
-                                            onClick={() => update('timeline', k)}
-                                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${data.timeline === k
-                                                ? `${v.color} font-black border-current shadow-sm`
-                                                : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
-                                                }`}
-                                        >
-                                            {v.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Market Fit Estimator (read-only insight) */}
-                            {data.motivation && data.investmentTier && (
-                                <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3.5">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <i className="fa-solid fa-chart-bar text-indigo-500 text-xs"></i>
-                                        <span className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.18em]">
-                                            Market Fit Estimator
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-indigo-800 font-medium leading-relaxed">
-                                        {data.motivation === 'investment'
-                                            ? <>Profile suggests <span className="font-black text-indigo-700">yield-first</span> properties. Prioritizing cap rate and rental demand over aesthetics.</>
-                                            : data.motivation === 'lifestyle'
-                                                ? <>Profile indicates preference for <span className="font-black text-indigo-700">long-term equity</span>. Recommendations will weight neighborhood character and school quality.</>
-                                                : data.motivation === 'relocation'
-                                                    ? <>Relocation buyer — optimize for <span className="font-black text-indigo-700">commute efficiency</span> and fast-close inventory.</>
-                                                    : <>Move-up buyer — prioritize <span className="font-black text-indigo-700">size, schools, and curb appeal</span> within tier budget.</>
-                                        }
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </SectionCard>
-                )}
-
-                {/* ── Client Narrative ── */}
-                <SectionCard className={isRealtor ? '' : 'lg:col-span-2'}>
-                    <SectionHeader icon="fa-book-open" title="Your Story" badge="Natural Language" />
-                    <div className="px-6 py-5 flex flex-col h-full">
-                        <p className="text-xs text-slate-400 font-medium mb-3 leading-relaxed">
-                            {isRealtor
-                                ? "Capture the client's daily ritual, lifestyle needs, and emotional connection to their ideal home."
-                                : "Tell us about yourself and what you're looking for. Be as specific or open-ended as you'd like."
-                            }
-                        </p>
-                        <textarea
-                            value={data.narrative}
-                            onChange={e => update('narrative', e.target.value)}
-                            placeholder={isRealtor
-                                ? "e.g. Eleanor & James are a dual-income tech couple with 2 young kids. They want top-rated schools, a quiet cul-de-sac, a modern kitchen, and a home office. Budget is $1.8M. They are sensitive to wildfire risk and low Vastu score..."
-                                : "Example: I'm a software engineer with a young family. We love cooking and need a great school district. Budget is around $1.5M. We love natural light and big backyards. Low wildfire risk is important to us..."
-                            }
-                            rows={7}
-                            className="w-full resize-none px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all leading-relaxed"
-                        />
-                        <div className="flex items-center justify-between mt-3">
-                            <span className="text-[10px] text-slate-400 font-medium">
-                                {data.narrative.length > 0
-                                    ? `${data.narrative.split(/\s+/).filter(Boolean).length} words`
-                                    : 'Start typing your story...'
-                                }
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <i className="fa-solid fa-microphone text-slate-300 text-sm"></i>
-                                <i className="fa-solid fa-paperclip text-slate-300 text-sm"></i>
-                            </div>
-                        </div>
-                    </div>
-                </SectionCard>
+            {/* ── Page Header ── */}
+            <div className="px-8 pt-8 pb-6 max-w-5xl mx-auto">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                    Your Home Story: Tell Us Your Vision
+                </h1>
+                <p className="mt-2 text-sm text-slate-500 font-medium max-w-xl leading-relaxed">
+                    Our AI builds a property profile beyond basic metrics. Share your
+                    narrative to uncover homes aligned with your life.
+                </p>
             </div>
 
-            {/* ── Budget & Requirements ── */}
-            <SectionCard>
-                <SectionHeader icon="fa-sliders" title="Requirements" badge="Property Filters" />
-                <div className="px-6 py-5">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div>
-                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Min Budget</label>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
-                                <input
-                                    type="text"
-                                    value={data.budgetMin}
-                                    onChange={e => update('budgetMin', e.target.value)}
-                                    placeholder="1,000,000"
-                                    className="w-full pl-7 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
-                                />
+            {/* ── Body Grid ── */}
+            <div className="max-w-5xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
+
+                {/* ── LEFT: Profile Panel ── */}
+                <div className="space-y-4">
+                    {/* Profile card */}
+                    <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center">
+                                <i className="fa-solid fa-user text-slate-500 text-xs"></i>
                             </div>
+                            <span className="text-sm font-black text-slate-900">Your Profile</span>
                         </div>
+
                         <div>
-                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Max Budget</label>
+                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
+                                {isRealtor ? 'Client Name' : 'Full Name'}
+                            </label>
+                            <input
+                                type="text"
+                                value={data.name}
+                                onChange={e => update('name', e.target.value)}
+                                placeholder={isRealtor ? 'e.g. Eleanor & James Vance' : 'e.g. Alexander Sterling'}
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
+                                Budget Preference
+                            </label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
                                 <input
                                     type="text"
-                                    value={data.budgetMax}
-                                    onChange={e => update('budgetMax', e.target.value)}
+                                    value={data.budget}
+                                    onChange={e => update('budget', e.target.value)}
                                     placeholder="1,800,000"
-                                    className="w-full pl-7 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
+                                    className="w-full pl-7 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
                                 />
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Min Beds</label>
-                            <select
-                                value={data.beds}
-                                onChange={e => update('beds', e.target.value)}
-                                className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
-                            >
-                                <option value="">Any</option>
-                                {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}+</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Min Baths</label>
-                            <select
-                                value={data.baths}
-                                onChange={e => update('baths', e.target.value)}
-                                className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
-                            >
-                                <option value="">Any</option>
-                                {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+</option>)}
-                            </select>
                         </div>
                     </div>
+
+                    {/* AI Precision card */}
+                    <div className="bg-slate-900 rounded-2xl p-5 text-white">
+                        <div className="flex items-center gap-2 mb-3">
+                            <i className="fa-solid fa-wand-magic-sparkles text-indigo-400 text-sm"></i>
+                            <span className="text-sm font-black">AI Precision</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                            Our engine analyzes over 120 property factors and cross-references
+                            your narrative against real listings using context graphs.
+                        </p>
+                    </div>
+
+                    {/* Realtor-only: Synthesize button */}
+                    {isRealtor && (
+                        <button
+                            onClick={handleDiscover}
+                            disabled={synthesizing || !isReady}
+                            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-700 text-white rounded-xl text-[11px] font-black uppercase tracking-wider shadow-lg hover:bg-indigo-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {synthesizing
+                                ? <><i className="fa-solid fa-spinner animate-spin text-xs"></i>Running match...</>
+                                : <><i className="fa-solid fa-bolt text-xs"></i>Synthesize Match</>
+                            }
+                        </button>
+                    )}
+
+                    {/* Progress indicator */}
+                    {wordCount > 0 && (
+                        <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3">
+                            <div className="flex-1">
+                                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                                        style={{ width: `${Math.min(100, (wordCount / 100) * 100)}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400 flex-shrink-0">{wordCount} words</span>
+                        </div>
+                    )}
                 </div>
-            </SectionCard>
+
+                {/* ── RIGHT: Narrative Chapters ── */}
+                <div className="space-y-5">
+                    {CHAPTERS.map(ch => (
+                        <div key={ch.num} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                            {/* Chapter header */}
+                            <div className="px-6 pt-5 pb-3 flex items-start gap-4">
+                                <span className="text-3xl font-black text-slate-100 leading-none select-none flex-shrink-0 mt-0.5">
+                                    {ch.num}
+                                </span>
+                                <div>
+                                    <h2 className="text-base font-black text-slate-900">{ch.title}</h2>
+                                    <p className="text-xs text-slate-400 font-medium mt-0.5 italic">{ch.prompt}</p>
+                                </div>
+                            </div>
+
+                            {/* Textarea */}
+                            <div className="px-6 pb-5">
+                                <textarea
+                                    value={data[ch.key]}
+                                    onChange={e => update(ch.key, e.target.value)}
+                                    placeholder={ch.placeholder}
+                                    rows={4}
+                                    className="w-full resize-none px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all leading-relaxed"
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
             {/* ── Atmospheric Anchors ── */}
-            <SectionCard>
-                <SectionHeader icon="fa-waveform-lines" title="Atmospheric Anchors" badge="Select Lifestyle Signatures" />
-                <div className="px-6 py-5">
-                    <div className="flex flex-wrap gap-2 mb-4">
+            <div className="max-w-5xl mx-auto px-8 mt-8">
+                <div className="bg-white rounded-2xl border border-slate-200 px-6 py-5">
+                    <div className="flex items-center gap-2 mb-4">
+                        <i className="fa-solid fa-waveform-lines text-slate-400 text-xs"></i>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                            Atmospheric Anchors
+                        </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
                         {ATMOSPHERIC_ANCHORS.map(anchor => {
-                            const isSelected = data.selectedAnchors.includes(anchor.id);
+                            const isSelected = data.selectedAnchors.includes(anchor);
                             return (
                                 <button
-                                    key={anchor.id}
-                                    onClick={() => toggleAnchor(anchor.id)}
-                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[11px] font-bold transition-all border ${isSelected
-                                        ? 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-200'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50'
-                                        }`}
+                                    key={anchor}
+                                    onClick={() => toggleAnchor(anchor)}
+                                    className={`px-4 py-2 rounded-full text-xs font-semibold transition-all border ${
+                                        isSelected
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-900'
+                                    }`}
                                 >
-                                    {isSelected
-                                        ? <i className="fa-solid fa-check text-[9px]"></i>
-                                        : <i className={`fa-solid ${anchor.icon} text-[9px]`}></i>
-                                    }
-                                    {anchor.label}
+                                    {anchor}
                                 </button>
                             );
                         })}
 
-                        {/* Custom anchors */}
-                        {data.selectedAnchors.filter(a => a.startsWith('custom:')).map(a => {
-                            const label = a.replace('custom:', '');
-                            return (
+                        {/* Custom anchors already added */}
+                        {data.selectedAnchors
+                            .filter(a => !ATMOSPHERIC_ANCHORS.includes(a))
+                            .map(a => (
                                 <button
                                     key={a}
                                     onClick={() => toggleAnchor(a)}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[11px] font-bold bg-indigo-700 text-white border-2 border-indigo-600 transition-all"
+                                    className="px-4 py-2 rounded-full text-xs font-semibold bg-indigo-600 text-white border border-indigo-600 transition-all"
                                 >
-                                    <i className="fa-solid fa-check text-[9px]"></i>
-                                    {label}
+                                    {a}
                                 </button>
-                            );
-                        })}
+                            ))}
 
-                        {/* Add custom anchor input */}
-                        <div className="flex items-center gap-1 border border-dashed border-slate-300 rounded-2xl overflow-hidden pl-3 pr-1 py-1">
-                            <i className="fa-solid fa-wand-magic-sparkles text-slate-300 text-[9px]"></i>
+                        {/* Add custom */}
+                        <div className="flex items-center gap-1 border border-dashed border-slate-300 rounded-full px-3 py-1.5">
                             <input
                                 type="text"
                                 value={data.customAnchor}
                                 onChange={e => update('customAnchor', e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomAnchor(); } }}
-                                placeholder="Custom anchor..."
-                                className="bg-transparent text-[11px] font-medium text-slate-600 placeholder:text-slate-300 outline-none w-28"
+                                placeholder="Add your own..."
+                                className="bg-transparent text-xs font-medium text-slate-600 placeholder:text-slate-300 outline-none w-28"
                             />
                             {data.customAnchor.trim() && (
                                 <button
                                     onClick={addCustomAnchor}
-                                    className="px-2 py-1 bg-indigo-500 text-white rounded-xl text-[9px] font-black"
+                                    className="px-2 py-0.5 bg-slate-900 text-white rounded-full text-[9px] font-black"
                                 >
-                                    Add
+                                    +
                                 </button>
                             )}
                         </div>
                     </div>
-                    {data.selectedAnchors.length > 0 && (
-                        <p className="text-[10px] text-slate-400 font-medium">
-                            {data.selectedAnchors.length} anchor{data.selectedAnchors.length > 1 ? 's' : ''} selected
-                        </p>
-                    )}
                 </div>
-            </SectionCard>
-
-            {/* ── Realtor Notes (realtor-only) ── */}
-            {isRealtor && (
-                <SectionCard>
-                    <SectionHeader icon="fa-clipboard" title="Realtor Notes" badge="Internal Only" />
-                    <div className="px-6 py-5">
-                        <textarea
-                            value={data.realtorNotes}
-                            onChange={e => update('realtorNotes', e.target.value)}
-                            placeholder="Internal notes: objections heard, price flexibility, competing agents, preferred neighborhoods, deal breakers..."
-                            rows={4}
-                            className="w-full resize-none px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all leading-relaxed"
-                        />
-                    </div>
-                </SectionCard>
-            )}
+            </div>
 
             {/* ── Footer CTA ── */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
-                        <i className="fa-solid fa-magnifying-glass-chart text-indigo-600 text-sm"></i>
-                    </div>
-                    <div className="min-w-0">
-                        <div className="text-sm font-black text-slate-900">Portfolio Matching Strategy</div>
-                        <div className="text-[10px] text-slate-400 font-medium truncate">
-                            {data.selectedAnchors.length > 0 || data.narrative.length > 20
-                                ? `${data.selectedAnchors.length} anchors · ${data.narrative.split(/\s+/).filter(Boolean).length} words of narrative captured`
-                                : 'Complete your story above to match properties'
-                            }
-                        </div>
-                    </div>
+            <div className="max-w-5xl mx-auto px-8 mt-6 flex items-center justify-between">
+                <div className="text-[10px] text-slate-400 font-medium">
+                    {saved
+                        ? <><i className="fa-solid fa-check text-emerald-500 mr-1"></i>Your story is saved</>
+                        : data.selectedAnchors.length > 0
+                            ? `${data.selectedAnchors.length} anchor${data.selectedAnchors.length > 1 ? 's' : ''} selected`
+                            : 'Select anchors or write your story to begin'
+                    }
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                        onClick={handleSaveProgress}
-                        className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${saved
-                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                            }`}
-                    >
-                        {saved ? (
-                            <><i className="fa-solid fa-check mr-1.5"></i>Saved</>
-                        ) : (
-                            <><i className="fa-regular fa-floppy-disk mr-1.5"></i>Save Progress</>
-                        )}
-                    </button>
-                    <button
-                        onClick={handleSynthesize}
-                        disabled={synthesizing || (!data.narrative && data.selectedAnchors.length === 0)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg hover:bg-indigo-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        {synthesizing ? (
-                            <><i className="fa-solid fa-spinner animate-spin text-xs"></i>Finding matches...</>
-                        ) : (
-                            <><i className="fa-solid fa-wand-magic-sparkles text-xs"></i>Find My Match</>
-                        )}
-                    </button>
-                </div>
+                <button
+                    onClick={handleDiscover}
+                    disabled={synthesizing || !isReady}
+                    className="flex items-center gap-3 px-7 py-3.5 bg-slate-900 text-white rounded-2xl text-sm font-black tracking-wide shadow-xl hover:bg-indigo-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    {synthesizing ? (
+                        <><i className="fa-solid fa-spinner animate-spin"></i>Finding matches...</>
+                    ) : (
+                        <>Begin Discovery <i className="fa-solid fa-arrow-right ml-1"></i></>
+                    )}
+                </button>
             </div>
         </div>
     );
