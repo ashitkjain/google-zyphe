@@ -295,7 +295,42 @@ async function fetchStreetViewHeading(
     }
 }
 
-// ─── Prompts & Schema imported from prompts/property/satellitaryAnalysis.ts ───
+/**
+ * Replaces Gemini's visual azimuth estimate with a GPS-accurate value.
+ *
+ * We have two candidate azimuths from the GPS-derived street view heading:
+ *   - heading          → front = the direction the camera was POINTING (camera looked at the back)
+ *   - (heading+180)%360 → front = opposite of camera direction (camera looked at the front)
+ *
+ * We pick whichever candidate is angularly closest to Gemini's stated direction,
+ * then use that GPS-precise value instead of the AI's visual guess.
+ *
+ * Falls back to Gemini's estimate when:
+ *   - No heading available (aerial-only mode)
+ *   - The two candidates are equidistant (camera perpendicular to front wall — ambiguous)
+ */
+function computeAccurateAzimuth(
+    geminiAzimuth: number | null,
+    heading: number | null
+): number | null {
+    if (heading == null || geminiAzimuth == null) return geminiAzimuth;
+
+    const angularDist = (a: number, b: number): number => {
+        const d = Math.abs(a - b) % 360;
+        return d > 180 ? 360 - d : d;
+    };
+
+    const candidateFront = (heading + 180) % 360;  // camera photographed the FRONT
+    const candidateBack  = heading;                 // camera photographed the BACK (front = opposite)
+
+    const dFront = angularDist(candidateFront, geminiAzimuth);
+    const dBack  = angularDist(candidateBack,  geminiAzimuth);
+
+    // If both are equidistant (camera perpendicular to front wall), keep Gemini's estimate
+    if (Math.abs(dFront - dBack) < 5) return geminiAzimuth;
+
+    return dFront < dBack ? candidateFront : candidateBack;
+}
 
 export async function runSatellitaryAnalysis(
     lat: number,
@@ -396,7 +431,7 @@ export async function runSatellitaryAnalysis(
     const result: SatellitaryResult = {
         ...data,
         image_quality: data.image_quality ?? 'acceptable',
-        azimuth_degrees: data.azimuth_degrees ?? null,
+        azimuth_degrees: computeAccurateAzimuth(data.azimuth_degrees ?? null, usesDualImage ? streetViewHeading : null),
         feng_shui_vastu: data.feng_shui_vastu ?? null,
         privacy_insight: data.privacy_insight ?? '',
         lot_coverage_hardscape: data.lot_coverage_hardscape ?? null,
