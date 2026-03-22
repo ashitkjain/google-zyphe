@@ -43,6 +43,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
     const [polygonVertices, setPolygonVertices] = useState<number | null>(null);
     const [slopeDisplay, setSlopeDisplay] = useState<{ percent: number; category: string; uphillDir: string } | null>(null);
     const [drivewayDisplay, setDrivewayDisplay] = useState<{ grade: number; category: string; dir: string } | null>(null);
+    const [backyardDisplay, setBackyardDisplay] = useState<{ grade: number; category: string; dir: string } | null>(null);
     const [viewDisplay, setViewDisplay] = useState<{ potential: string; dropFt: number; dir: string } | null>(null);
     const [elevationFt, setElevationFt] = useState<number | null>(null);
 
@@ -221,6 +222,7 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                         viewDropDir           = result.viewDropDir;
                         viewPotential         = result.viewPotential;
                         propertyElevationFt   = result.elevationFt;
+                        // backyardGrade derived from uphillDir (already in slopePercent/category)
                         console.log('[ParcelValidation] Google Elevation result:', result);
                     } catch (e: any) {
                         console.warn('[ParcelValidation] Google Elevation API failed:', e.message);
@@ -229,9 +231,11 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
 
                 if (cancelled) return;
 
-                // Expose slope + driveway + view data to the UI
+                // Expose all elevation data to the UI
                 if (slopePercent != null && slopeCategory && uphillDir) {
                     setSlopeDisplay({ percent: slopePercent, category: slopeCategory, uphillDir });
+                    // Backyard = uphill side of the lot
+                    setBackyardDisplay({ grade: slopePercent, category: slopeCategory, dir: uphillDir });
                 }
                 if (drivewayGradePercent != null && drivewayCategory && downhillDir) {
                     setDrivewayDisplay({ grade: drivewayGradePercent, category: drivewayCategory, dir: downhillDir });
@@ -496,58 +500,65 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                         </div>
                     )}
 
-                    {/* Slope info */}
-                    {slopeDisplay && (
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                            <i className="fa-solid fa-mountain text-indigo-400 text-xs" />
+                    {/* Driveway + Backyard grades — PRIMARY lot-level display */}
+                    {(drivewayDisplay || backyardDisplay) && (
+                        <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                            <i className="fa-solid fa-ruler-vertical text-indigo-400 text-xs mt-0.5" />
                             <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lot Slope (Google Elevation)</div>
-                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
-                                    <span>{slopeDisplay.percent}%</span>
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                                        slopeDisplay.category === 'Heavy' || slopeDisplay.category === 'Steep'
-                                        ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                                    }`}>{slopeDisplay.category}</span>
-                                    <span className="text-[10px] font-bold text-slate-400">↑ {slopeDisplay.uphillDir}</span>
-                                    {elevationFt && <span className="text-[10px] text-slate-400">{elevationFt.toLocaleString()} ft AMSL</span>}
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Lot Grades (Google Elevation)</div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {/* Driveway */}
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                            <i className="fa-solid fa-car text-[8px]" /> Driveway
+                                        </div>
+                                        {drivewayDisplay ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[12px] font-black text-slate-700">{drivewayDisplay.grade}%</span>
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                                    drivewayDisplay.category === 'Steep'    ? 'bg-red-100 text-red-700' :
+                                                    drivewayDisplay.category === 'Moderate' ? 'bg-amber-100 text-amber-700' :
+                                                    drivewayDisplay.category === 'Gentle'   ? 'bg-sky-100 text-sky-700' :
+                                                    'bg-emerald-100 text-emerald-700'
+                                                }`}>{drivewayDisplay.category}</span>
+                                            </div>
+                                        ) : <span className="text-[11px] text-slate-400">—</span>}
+                                    </div>
+                                    {/* Backyard */}
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                            <i className="fa-solid fa-tree text-[8px]" /> Backyard
+                                        </div>
+                                        {backyardDisplay ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[12px] font-black text-slate-700">{backyardDisplay.grade}%</span>
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                                    backyardDisplay.category === 'Heavy'  || backyardDisplay.category === 'Steep'
+                                                        ? 'bg-amber-100 text-amber-700'
+                                                        : 'bg-emerald-100 text-emerald-700'
+                                                }`}>{backyardDisplay.category}</span>
+                                            </div>
+                                        ) : <span className="text-[11px] text-slate-400">—</span>}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Driveway grade */}
-                    {drivewayDisplay && drivewayDisplay.category !== 'Flat' && (
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                            <i className="fa-solid fa-car text-indigo-400 text-xs" />
-                            <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driveway / Approach Grade</div>
-                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
-                                    <span>{drivewayDisplay.grade}%</span>
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                                        drivewayDisplay.category === 'Steep' ? 'bg-red-100 text-red-700' :
-                                        drivewayDisplay.category === 'Moderate' ? 'bg-amber-100 text-amber-700' :
-                                        'bg-emerald-100 text-emerald-700'
-                                    }`}>{drivewayDisplay.category}</span>
-                                    <span className="text-[10px] text-slate-400">toward {drivewayDisplay.dir}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* View potential */}
-                    {viewDisplay && viewDisplay.potential !== 'None' && (
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                            <i className="fa-solid fa-binoculars text-indigo-400 text-xs" />
-                            <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">View Potential (Elevation Drop)</div>
-                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                                        viewDisplay.potential === 'High' ? 'bg-emerald-100 text-emerald-700' :
-                                        viewDisplay.potential === 'Moderate' ? 'bg-blue-100 text-blue-700' :
-                                        'bg-slate-100 text-slate-600'
-                                    }`}>{viewDisplay.potential}</span>
-                                    <span className="text-[10px] text-slate-500">{viewDisplay.dropFt > 0 ? '+' : ''}{viewDisplay.dropFt} ft drop toward {viewDisplay.dir}</span>
-                                </div>
+                                {/* Elevation AMSL + view as compact secondary line */}
+                                {(elevationFt || (viewDisplay && viewDisplay.potential !== 'None')) && (
+                                    <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-indigo-100/60">
+                                        {elevationFt && (
+                                            <span className="text-[9px] text-slate-400 font-medium">{elevationFt.toLocaleString()} ft AMSL</span>
+                                        )}
+                                        {viewDisplay && viewDisplay.potential !== 'None' && (
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                                viewDisplay.potential === 'High'     ? 'bg-emerald-100 text-emerald-700' :
+                                                viewDisplay.potential === 'Moderate' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-slate-100 text-slate-500'
+                                            }`}>
+                                                <i className="fa-solid fa-binoculars text-[7px] mr-1" />
+                                                {viewDisplay.potential} view corridor →{viewDisplay.dir}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

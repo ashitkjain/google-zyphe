@@ -48,14 +48,23 @@ export interface PropertySlopeResult {
     slopeCategory: 'Flat' | 'Moderate' | 'Steep' | 'Heavy';
     uphillDir: string;                  // 8-compass dir of highest 100ft point
 
-    // Driveway / street approach grade
-    downhillDir: string;                // Opposite of uphillDir (street-facing side)
-    drivewayGradePercent: number;       // % grade of steepest downhill descent at 100ft
+    // Driveway / street approach grade (downhill direction at 100ft)
+    downhillDir: string;                // Street-facing side of the lot
+    drivewayGradePercent: number;       // % grade of street approach
     drivewayCategory: 'Flat' | 'Gentle' | 'Moderate' | 'Steep';
-    //   Flat     <  5% — no concern
+    //   Flat     <  5% — level entry, no concern
     //   Gentle   5–10% — easy driving
-    //   Moderate 10–15% — notable, worth mentioning
+    //   Moderate 10–15% — notable, mention to buyers
     //   Steep    >15% — municipal codes often require variance above 20–25%
+
+    // Backyard / uphill side grade (uphillDir at 100ft)
+    // Tells buyers how usable the lot is for outdoor living, landscaping, pools
+    backyardGradePercent: number;       // % grade on the uphill/backyard side
+    backyardCategory: 'Flat' | 'Moderate' | 'Steep' | 'Heavy';
+    //   Flat     <  5% — fully usable, pool/patio/lawn all feasible
+    //   Moderate 5–15% — usable with landscaping; pool needs cut/fill
+    //   Steep    15–30% — limited usability; retaining walls likely required
+    //   Heavy    >30% — significant earthwork; usable area likely small
 
     // View potential — measured at 1000ft to capture valley/bay openings
     // (200ft is too local — a hillside yard drops little at 200ft but the valley
@@ -206,6 +215,9 @@ export async function computePropertySlopeGoogle(
         downhillDir:          downhillPt.dir,
         drivewayGradePercent,
         drivewayCategory,
+        // Backyard grade = same geometry as slopePercent, named for buyer clarity
+        backyardGradePercent: slopePercent,
+        backyardCategory:     slopeCategory,
         viewDropFt,
         viewDropDir:          maxDropPt.dir,
         viewPotential,
