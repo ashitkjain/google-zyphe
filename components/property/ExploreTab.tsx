@@ -1886,6 +1886,7 @@ const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
 
 const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any }> = ({ searchBar, setViewMode }) => {
     const [browseHasResults, setBrowseHasResults] = useState(false);
+    const [myStoryOpen, setMyStoryOpen] = useState(false);
 
     return (
         <div className="w-full px-6 py-6 space-y-8">
@@ -1897,10 +1898,11 @@ const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any
                     }
                 }}
                 onHasResults={setBrowseHasResults}
+                onMyStory={setMyStoryOpen}
                 searchBar={searchBar}
             />
 
-            {!browseHasResults && (
+            {!browseHasResults && !myStoryOpen && (
                 <>
                     <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
@@ -1937,12 +1939,15 @@ const BUYER_STORY_EXAMPLES = [
     { title: 'First-Time, Value', icon: 'fa-solid fa-piggy-bank', story: "First-time buyer, single income software engineer. Budget is tight: $800K-1.1M. Looking for best value — maybe a fixer with renovation upside. Townhomes OK. Need at least 2 beds. Close to BART or highway for commute to SF. Walkable to grocery and coffee shops. Low HOA preferred." },
 ];
 
-const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void; onHasResults?: (has: boolean) => void; searchBar?: React.ReactNode }> = ({ onPropertyClick, onHasResults, searchBar }) => {
+const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void; onHasResults?: (has: boolean) => void; onMyStory?: (open: boolean) => void; searchBar?: React.ReactNode }> = ({ onPropertyClick, onHasResults, onMyStory, searchBar }) => {
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
     const [showMyStory, setShowMyStory] = useState(false);
+
+    // Notify parent when My Story is toggled
+    React.useEffect(() => { onMyStory?.(showMyStory); }, [showMyStory]);
 
     // View, sort, filter, pagination state
     const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table'>('gallery');
