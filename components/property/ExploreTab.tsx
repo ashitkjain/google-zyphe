@@ -1975,13 +1975,20 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; relevantFactorIds?: number[] } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; dealbreakers?: import('../../services/prompts/buyerStoryMatch').Dealbreaker[]; relevantFactorIds?: number[] } | null>(null);
+    const [buyerDealbreakersUnmet, setBuyerDealbreakersUnmet] = useState<import('../../services/prompts/buyerStoryMatch').Dealbreaker[] | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
 
+    // Persona context from My Story intake form (who the buyer IS)
+    const buyerPersonaRef = React.useRef<import('../../services/prompts/buyerStoryMatch').PersonaContext | undefined>(undefined);
+
     // Ref to hold a pending story search (set by My Story, auto-triggered after city loads)
     const pendingStoryRef = React.useRef<string | null>(null);
+
+    // When true, skip dealbreaker threshold check (user chose to relax criteria)
+    const relaxedModeRef = React.useRef(false);
 
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
@@ -2010,9 +2017,12 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
      * Called by StoryIntakeTab when user clicks "Begin Discovery".
      * Orchestrates: load city → set AI prompt → switch to Zyphe AI view → auto-search.
      */
-    const handleStoryDiscover = async (story: string, cities: string[]) => {
+    const handleStoryDiscover = async (story: string, cities: string[], persona?: import('../../services/prompts/buyerStoryMatch').PersonaContext) => {
         const city = cities[0]; // Use the first city
         if (!city || !story.trim()) return;
+
+        // Store persona context for use in extraction + matching prompts
+        buyerPersonaRef.current = persona;
 
         // Set the buyer story text
         setBuyerStory(story);
@@ -2154,6 +2164,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         setBuyerError(null);
         setBuyerExtracted(null);
         setBuyerTimings(null);
+        setBuyerDealbreakersUnmet(null);
         const timings: { step: string; ms: number; detail?: string }[] = [];
 
         try {
@@ -2165,9 +2176,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const t0 = performance.now();
             const { FLASH_LITE_MODEL, FLASH_MODEL } = await import('../../services/geminiService');
             const { buildExtractionPrompt, buildMatchingPrompt } = await import('../../services/prompts/buyerStoryMatch');
-            const extractionPrompt = buildExtractionPrompt(buyerStory);
+            const extractionPrompt = buildExtractionPrompt(buyerStory, buyerPersonaRef.current);
 
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; relevant_factor_ids: number[] };
+            type ExtDealbreaker = { requirement: string; type: 'location' | 'verifiable' | 'runtime'; factor_id: number };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; dealbreakers: ExtDealbreaker[]; relevant_factor_ids: number[] };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2178,9 +2190,18 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     home_type: { type: Type.STRING },
                     must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
                     nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    dealbreakers: { type: Type.ARRAY, items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            requirement: { type: Type.STRING },
+                            type: { type: Type.STRING },
+                            factor_id: { type: Type.NUMBER }
+                        },
+                        required: ['requirement', 'type', 'factor_id']
+                    }},
                     relevant_factor_ids: { type: Type.ARRAY, items: { type: Type.NUMBER } }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'relevant_factor_ids']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'dealbreakers', 'relevant_factor_ids']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
@@ -2201,19 +2222,19 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 return;
             }
 
-            // Build final price range — only compute ±20% when one bound is missing
+            // Build final price range: -20% below budget, +10% above budget
             let priceMin = ext.price_min;
             let priceMax = ext.price_max;
             if (priceMin > 0 && priceMax > 0 && priceMin === priceMax) {
-                // "around X" case: expand ±15%
-                priceMin = priceMin * 0.85;
-                priceMax = priceMax * 1.15;
+                // "around X" case: -20% / +10%
+                priceMin = priceMin * 0.80;
+                priceMax = priceMax * 1.10;
             } else if (priceMin > 0 && priceMax === 0) {
-                // Only lower bound: expand +20%
-                priceMax = priceMin * 1.2;
+                // Only lower bound: +10%
+                priceMax = priceMin * 1.10;
             } else if (priceMax > 0 && priceMin === 0) {
-                // Only upper bound: expand -20%
-                priceMin = priceMax * 0.8;
+                // Only upper bound: -20%
+                priceMin = priceMax * 0.80;
             }
             // else: both bounds specified — use as-is
 
@@ -2227,9 +2248,92 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 homeType: ext.home_type || undefined,
                 mustHaves: ext.must_haves || [],
                 niceToHaves: ext.nice_to_haves || [],
+                dealbreakers: (ext.dealbreakers || []).map(db => ({ requirement: db.requirement, type: db.type, factorId: db.factor_id || undefined })),
                 relevantFactorIds: ext.relevant_factor_ids || []
             };
             setBuyerExtracted(extracted);
+
+            // Sync extracted price to the filter bar so it's visible in the UI
+            if (priceMin > 0) setFilterMinPrice(String(Math.round(priceMin)));
+            if (priceMax > 0) setFilterMaxPrice(String(Math.round(priceMax)));
+            if (extracted.beds) setFilterBeds(String(extracted.beds));
+            if (extracted.baths) setFilterBaths(String(extracted.baths));
+
+            // ── STEP 0.5: Validate LOCATION dealbreakers against the selected city ──
+            // Uses Gemini's world knowledge to check: "Does [city] satisfy [requirement]?"
+            // This catches mismatches like "wine country" for Pleasanton BEFORE wasting
+            // time on Firestore queries and full property matching.
+            const locationDealbreakers = (ext.dealbreakers || [])
+                .filter(db => db.type === 'location')
+                .map(db => db.requirement);
+
+            if (!relaxedModeRef.current && locationDealbreakers.length > 0) {
+                const cityForCheck = selectedCity || results[0]?.city || '';
+                if (cityForCheck) {
+                    const tLoc = performance.now();
+                    const locationCheckPrompt = `You are a real estate geography expert. For each location requirement below, determine if the city "${cityForCheck}" satisfies it. Use your knowledge of US geography, regions, and real estate markets.
+
+Requirements:
+${locationDealbreakers.map((r, i) => `${i + 1}. ${r}`).join('\n')}
+
+For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no" if it does not. Be strict — only say "yes" if the city genuinely and commonly qualifies.`;
+
+                    const locationCheckSchema = {
+                        type: Type.OBJECT,
+                        properties: {
+                            results: { type: Type.ARRAY, items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    requirement: { type: Type.STRING },
+                                    satisfied: { type: Type.BOOLEAN },
+                                    reason: { type: Type.STRING }
+                                },
+                                required: ['requirement', 'satisfied', 'reason']
+                            }}
+                        },
+                        required: ['results']
+                    };
+
+                    try {
+                        const locResult = await executeGeminiRequest<{ results: { requirement: string; satisfied: boolean; reason: string }[] }>({
+                            model: FLASH_LITE_MODEL,
+                            contents: locationCheckPrompt,
+                            config: { temperature: 0.1, maxOutputTokens: 512 },
+                            userId: auth.currentUser?.uid || 'anon',
+                            promptFilename: 'locationValidation',
+                            extractResultJson: true,
+                            schema: locationCheckSchema
+                        });
+                        timings.push({ step: 'Location Check', ms: Math.round(performance.now() - tLoc), detail: `${locationDealbreakers.length} requirements` });
+
+                        const failedLocations = (locResult.data?.results || []).filter(r => !r.satisfied);
+                        if (failedLocations.length > 0) {
+                            console.log('[Buyer Match] Location mismatch:', failedLocations.map(f => `${f.requirement}: ${f.reason}`));
+                            // Show the mismatch immediately — no need to run full matching
+                            const allDbs = (ext.dealbreakers || []).map(db => ({
+                                requirement: db.requirement, type: db.type as 'location' | 'verifiable' | 'runtime',
+                                factorId: db.factor_id || undefined
+                            }));
+                            setBuyerDealbreakersUnmet(allDbs);
+                            setBuyerExtracted(extracted);
+                            console.log('[Buyer Match] Setting dealbreaker UI:', { 
+                                dealbreakersCount: allDbs.length, 
+                                dealbreakers: allDbs,
+                                showBuyerSearch, 
+                                viewMode: viewMode 
+                            });
+                            const totalMs = timings.reduce((s, t) => s + t.ms, 0);
+                            timings.push({ step: 'TOTAL', ms: totalMs });
+                            setBuyerTimings(timings);
+                            setBuyerSearching(false);
+                            return;
+                        }
+                    } catch (locErr) {
+                        console.warn('[Buyer Match] Location check failed, proceeding anyway:', locErr);
+                        timings.push({ step: 'Location Check', ms: Math.round(performance.now() - tLoc), detail: 'failed — skipped' });
+                    }
+                }
+            }
 
             // ── STEP 1: Query Firestore directly with server-side filters ──
             // Single round trip: city + price range + beds + baths filtered at Firestore level
@@ -2376,7 +2480,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
                 console.log(`[Buyer Match] Chunk ${idx + 1}/${chunks.length}:`, summaries.map(s => ({ zpid: s.zpid, factorCount: Object.keys(s.factors).length, hasKeyMetrics: !!s.keyMetrics, hasSummary: !!s.summary })));
 
-                const prompt = buildMatchingPrompt(buyerStory, extracted, summaries);
+                const prompt = buildMatchingPrompt(buyerStory, extracted, summaries, buyerPersonaRef.current);
 
                 return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] }>({
                     model: FLASH_MODEL,
@@ -2407,8 +2511,22 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             setBuyerTimings(timings);
 
             if (allMatches.length > 0) {
-                setBuyerResults(allMatches);
-                setSliderIdx(0);
+                // Check for fundamental mismatch: only LOCATION dealbreakers are definitive
+                // (verifiable/runtime dealbreakers might just be uncomputed data)
+                const bestScore = allMatches[0]?.score || 0;
+                const rawDealbreakers = (ext.dealbreakers || []).map(db => ({
+                    requirement: db.requirement, type: db.type, factorId: db.factor_id || undefined
+                }));
+                const locationDealbreakers = rawDealbreakers.filter(db => db.type === 'location');
+                if (!relaxedModeRef.current && bestScore < 40 && locationDealbreakers.length > 0) {
+                    // Location-level mismatch — area doesn't match core intent
+                    setBuyerDealbreakersUnmet(rawDealbreakers);
+                    setBuyerResults(null); // Don't show misleading results
+                } else {
+                    relaxedModeRef.current = false;
+                    setBuyerResults(allMatches);
+                    setSliderIdx(0);
+                }
             }
         } catch (err: any) {
             console.error('[Buyer Search]', err);
@@ -2659,6 +2777,51 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                 </div>
                             )}
 
+                            {/* Dealbreaker mismatch — no matching properties */}
+                            {buyerDealbreakersUnmet && buyerDealbreakersUnmet.length > 0 && !buyerSearching && (
+                                <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-2">
+                                    <div className="flex items-start gap-2">
+                                        <i className="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5"></i>
+                                        <div>
+                                            <p className="text-sm font-bold text-amber-800">No properties match your core requirements</p>
+                                            <p className="text-xs text-amber-700 mt-1">
+                                                We couldn't find listings in <strong>{selectedCity}</strong> that satisfy:
+                                            </p>
+                                            <ul className="mt-1.5 space-y-1.5">
+                                                {buyerDealbreakersUnmet.map((db, i) => (
+                                                    <li key={i} className="text-xs text-amber-800 flex items-center gap-1.5">
+                                                        <span className={`font-black px-2 py-0.5 rounded-md border ${
+                                                            db.type === 'location' ? 'text-rose-600 bg-rose-100 border-rose-200' :
+                                                            db.type === 'runtime' ? 'text-blue-600 bg-blue-100 border-blue-200' :
+                                                            'text-amber-700 bg-amber-100 border-amber-300'
+                                                        }`}>
+                                                            {db.type === 'location' ? '🌍' : db.type === 'runtime' ? '⏱' : '✓'} {db.requirement}
+                                                        </span>
+                                                        <span className="text-[9px] text-slate-400 italic">
+                                                            {db.type === 'location' ? 'area mismatch' :
+                                                             db.type === 'runtime' ? 'needs computation' :
+                                                             'not verified'}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="mt-2 px-4 py-1.5 text-xs font-bold text-amber-800 bg-amber-200 hover:bg-amber-300 rounded-lg transition-colors"
+                                        onClick={() => {
+                                            relaxedModeRef.current = true;
+                                            setBuyerDealbreakersUnmet(null);
+                                            // Re-run search showing all results regardless of score
+                                            handleBuyerSearch();
+                                        }}
+                                    >
+                                        <i className="fa-solid fa-filter-circle-xmark mr-1.5"></i>
+                                        Relax criteria &amp; explore anyway
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Extracted criteria */}
                             {buyerExtracted && !buyerError && (
                                 <div className="flex flex-wrap items-center gap-2 text-[10px]">
@@ -2678,6 +2841,15 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                     {buyerExtracted.singleStory && (
                                         <span className="font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">⚡ single story</span>
                                     )}
+                                    {buyerExtracted.dealbreakers?.map((db, i) => (
+                                        <span key={`db-${i}`} className={`font-black px-2 py-0.5 rounded-md border ${
+                                            db.type === 'location' ? 'text-rose-700 bg-rose-100 border-rose-300' :
+                                            db.type === 'runtime' ? 'text-blue-700 bg-blue-100 border-blue-300' :
+                                            'text-amber-800 bg-amber-100 border-amber-300'
+                                        }`}>
+                                            {db.type === 'location' ? '🌍' : db.type === 'runtime' ? '⏱' : '⚠'} {db.requirement}
+                                        </span>
+                                    ))}
                                     {buyerExtracted.mustHaves.map((mh, i) => (
                                         <span key={`mh-${i}`} className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">{mh}</span>
                                     ))}

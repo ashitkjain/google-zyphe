@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app, origins=["https://zyphe-af0bf.web.app", "https://zyphe-af0bf.firebaseapp.com", "http://localhost:3000"])
 
 # API key from environment variable (set in Cloud Run secrets)
-API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4")
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=API_KEY)
 
 

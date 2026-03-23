@@ -454,5 +454,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow update, delete: if false;
     }
+    // 9. APP CONFIG (API keys loaded at runtime — read-only from client)
+    match /app_config/{docId} {
+      // Authenticated users can read (app needs the API key)
+      allow read: if request.auth != null;
+      // Write only via Firebase Console or Admin SDK — never from client
+      allow write: if false;
+    }
   }
 }

@@ -38,7 +38,7 @@ export const APP_CONFIG = {
     },
     rapidapi: {
         realtyInUsApi: {
-            key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+            key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || '',
             host: 'realty-in-us.p.rapidapi.com',
             endpoints: {
                 list: '/properties/v3/list',
@@ -55,40 +55,39 @@ export const APP_CONFIG = {
             }
         },
         zipCodesApi: {
-            key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+            key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || '',
             host: 'us-zipcodes.p.rapidapi.com',
             endpoint: '/get',
             path: '/codes'
         }
     },
     usHousingApi: {
-        key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+        key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || '',
         host: 'us-housing-market-data1.p.rapidapi.com'
     },
     radar: {
-        key: 'prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb'
+        key: (import.meta as any).env?.VITE_RADAR_KEY || ''
     },
     gemini: {
-        key: "AIzaSyDurfAUpqimcv87c4sc5E4KRDGM1OLSj7g"
+        key: (import.meta as any).env?.VITE_GEMINI_API_KEY || ""
     },
     maps: {
-        key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI"
+        key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || ""
     },
     groq: {
-        key: (import.meta as any).env?.VITE_GROQ_API_KEY || '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'
+        key: (import.meta as any).env?.VITE_GROQ_API_KEY || ''
     },
     howLoud: {
-        // Free tier: 2,500 req/mo — https://howloud.com/developers
-        key: (import.meta as any).env?.VITE_HOWLOUD_API_KEY || 'JsFtv3UqoZ2kI6qwB0JmA6TAKmor9pZ741M0VyZc'
+        key: (import.meta as any).env?.VITE_HOWLOUD_API_KEY || ''
     },
     rentcast: {
-        key: '38f6f00236fc4a14b6d462cf97c611d6',
+        key: (import.meta as any).env?.VITE_RENTCAST_KEY || '',
         baseUrl: 'https://api.rentcast.io/v1'
     },
     foursquare: {
-        key: (import.meta as any).env?.VITE_FOURSQUARE_API_KEY || 'fsq3_placeholder_key'
+        key: (import.meta as any).env?.VITE_FOURSQUARE_API_KEY || ''
     },
     tomorrow: {
-        key: (import.meta as any).env?.VITE_TOMORROW_API_KEY || 'MjeAe3gXkWtxpAouHLhDAXqcs4Ukgjaj'
+        key: (import.meta as any).env?.VITE_TOMORROW_API_KEY || ''
     }
 };

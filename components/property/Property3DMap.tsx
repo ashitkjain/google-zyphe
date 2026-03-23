@@ -9,7 +9,7 @@ interface Props {
 
 const CESIUM_VERSION = '1.122';
 const CESIUM_BASE = `https://cesium.com/downloads/cesiumjs/releases/${CESIUM_VERSION}/Build/Cesium`;
-const GOOGLE_MAPS_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI';
+const GOOGLE_MAPS_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
 
 /** Generates a data URL for an indigo map pin SVG used as the Cesium billboard. */
 function buildPinSVG(): string {

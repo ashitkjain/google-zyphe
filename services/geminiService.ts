@@ -82,10 +82,15 @@ export class AiResponseError extends Error {
 
 // Lazy initialization of the Gemini API client
 let aiInstance: GoogleGenAI | null = null;
-export const getAi = () => {
+
+export const getAi = async () => {
   if (!aiInstance) {
+    // Load all API keys from Firestore (once per session)
+    const { loadApiKeys } = await import('./apiKeyLoader');
+    await loadApiKeys();
+
     const apiKey = APP_CONFIG.gemini.key;
-    if (!apiKey) throw new Error("Gemini API Key missing");
+    if (!apiKey) throw new Error('Gemini API Key missing. Set it in Firestore (app_config/api_keys → gemini_key) or VITE_GEMINI_API_KEY env var.');
 
     // Explicitly hit Google directly to avoid routing/proxy issues on various hosts
     aiInstance = new GoogleGenAI({
@@ -215,7 +220,7 @@ export const executeGeminiRequest = async <T>(
   }
 ): Promise<{ data: T; usage: AIUsage; sources?: { url: string; title: string }[] | null; rawResponse: any }> => {
   const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls, skipWatchdog } = params;
-  const ai = getAi();
+  const ai = await getAi();
 
   const logId = skipWatchdog ? null : await logLLMCall({
     user_id: userId || "unknown",

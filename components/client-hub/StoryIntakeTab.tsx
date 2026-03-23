@@ -26,7 +26,7 @@ interface StoryIntakeData {
 interface Props {
     isRealtor?: boolean;
     onMatchRequest?: (story: string, filters: { budgetMin: string; budgetMax: string; beds: string; baths: string }) => void;
-    onStoryDiscover?: (story: string, cities: string[]) => void;
+    onStoryDiscover?: (story: string, cities: string[], persona?: import('../../services/prompts/buyerStoryMatch').PersonaContext) => void;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -416,7 +416,15 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
 
         // Trigger the AI discovery flow with the story and cities
         if (onStoryDiscover && cities.length > 0) {
-            onStoryDiscover(storyWithTags, cities);
+            onStoryDiscover(storyWithTags, cities, {
+                personaProfile: data.personaProfile || undefined,
+                whoYouAre: data.chapter01 || undefined,
+                dailyRituals: data.chapter02 || undefined,
+                dreamSpace: data.chapter03 || undefined,
+                whatElseMatters: data.chapter04 || undefined,
+                selectedAnchors: data.selectedAnchors.length > 0 ? data.selectedAnchors : undefined,
+                homeType: data.homeType || undefined,
+            });
         }
 
         // Legacy match request

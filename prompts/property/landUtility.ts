@@ -478,7 +478,7 @@ export async function executeLandUtilityAnalysis(
     const { logLLMCall, updateLLMCall } = await import('../../services/firebase/llm_logs');
     const { serverTimestamp } = await import('firebase/firestore');
 
-    const ai = getAi();
+    const ai = await getAi();
     const MODEL = 'gemini-3.1-pro-preview';
 
     const logId = await logLLMCall({

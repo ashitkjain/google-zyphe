@@ -2,9 +2,26 @@ const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { DocumentProcessorServiceClient } = require("@google-cloud/documentai").v1;
-const telnyx = require("telnyx")("KEY019BFFFEE99769B3985278C839A4C1AA_11aDo6xzW4pdHMr6LOFnth");
-
 admin.initializeApp();
+
+// ─── Lazy key loader from Firestore (app_config/api_keys) ─────────────────────
+let _cachedKeys = null;
+async function getApiKeys() {
+    if (_cachedKeys) return _cachedKeys;
+    const snap = await admin.firestore().collection('app_config').doc('api_keys').get();
+    _cachedKeys = snap.exists ? snap.data() : {};
+    return _cachedKeys;
+}
+
+// Lazy Telnyx client
+let _telnyxClient = null;
+async function getTelnyx() {
+    if (_telnyxClient) return _telnyxClient;
+    const keys = await getApiKeys();
+    const telnyxKey = keys.telnyx_key || process.env.TELNYX_KEY || '';
+    _telnyxClient = require('telnyx')(telnyxKey);
+    return _telnyxClient;
+}
 
 // Initialize Document AI Client
 const documentAiClient = new DocumentProcessorServiceClient();
@@ -123,9 +140,16 @@ function getTextAnchorContent(text, textAnchor) {
     }).join("");
 }
 
-// Initialize Gemini with the API Key
-const genAI = new GoogleGenerativeAI("AIzaSyBEPZ14POfqhB2wgfqAsgXkzuVPy2w-l90");
-const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+// Lazy Gemini embedding client
+let _embeddingModel = null;
+async function getEmbeddingModel() {
+    if (_embeddingModel) return _embeddingModel;
+    const keys = await getApiKeys();
+    const geminiKey = keys.gemini_key || process.env.GEMINI_API_KEY || '';
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    _embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+    return _embeddingModel;
+}
 
 // TODO: Replace with your actual Telnyx Phone Number or Messaging Profile ID
 const TELNYX_FROM_NUMBER = "+19252363260";
@@ -284,7 +308,8 @@ exports.processSmsQueue = functions.firestore
             }
 
             // 3. Send via Telnyx API
-            const telnyxResponse = await telnyx.messages.create({
+            const telnyxClient = await getTelnyx();
+        const telnyxResponse = await telnyxClient.messages.create({
                 from: TELNYX_FROM_NUMBER,
                 to: toPhone,
                 text: msg.content,
@@ -510,7 +535,8 @@ const generateEmbedding = async (change, context, type) => {
 
     try {
         const textToEmbed = `Type: ${type}\nTitle: ${after.title}\n\nContent: ${contentAfter}`;
-        const result = await embeddingModel.embedContent(textToEmbed);
+        const model = await getEmbeddingModel();
+        const result = await model.embedContent(textToEmbed);
         const embedding = result.embedding.values;
 
         await change.after.ref.update({
@@ -547,7 +573,8 @@ exports.searchKnowledgeBase = functions.https.onCall(async (data, context) => {
     console.log(`[Search] Query: ${queryText}`);
 
     try {
-        const embeddingResult = await embeddingModel.embedContent(queryText);
+        const model = await getEmbeddingModel();
+        const embeddingResult = await model.embedContent(queryText);
         const queryVector = embeddingResult.embedding.values;
 
         const collections = ["guides", "best_practices"];
@@ -653,7 +680,8 @@ exports.proxyNoiseScore = functions.https.onRequest(async (req, res) => {
         return;
     }
 
-    const HOWLOUD_KEY = "JsFtv3UqoZ2kI6qwB0JmA6TAKmor9pZ741M0VyZc";
+    const keys = await getApiKeys();
+    const HOWLOUD_KEY = keys.howloud_key || process.env.HOWLOUD_KEY || '';
     const url = `https://api.howloud.com/score?lat=${lat}&lng=${lng}`;
 
     console.log(`[ProxyNoiseScore] Fetching score for (${lat}, ${lng})`);
