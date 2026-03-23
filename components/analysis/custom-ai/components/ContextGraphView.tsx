@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ExtractedFactor } from '../../../../utils/contextGraphPrecompute';
 import { ContextGraphExtractionResult } from '../../../../types';
+import { FACTOR_NAMES } from '../../../../constants/contextGraphFactors';
 
 interface Props {
     data: ContextGraphExtractionResult;
@@ -48,49 +49,6 @@ const TAG_COLOR_MAP: Record<number, { bg: string; text: string; border: string }
 };
 const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' };
 
-/** Static factor ID → name lookup (names stripped from stored data to save tokens) */
-const FACTOR_NAMES: Record<number, string> = {
-    1: 'Price Bracket', 2: 'HOA Friction', 3: 'Tax Burden', 4: 'True Carrying Cost',
-    5: 'Seller Motivation', 6: 'ADU / House-Hacking', 7: 'STR Viability', 8: 'LTR Yield',
-    9: 'Historical Appreciation', 14: 'Usable Square Footage',
-    17: 'Home Office', 19: 'Foundation & Storage', 20: 'Construction Era',
-    21: 'Move-In Readiness', 22: 'Renovation Upside', 23: 'Architectural Style',
-    24: 'Natural Light', 25: 'Open-Concept Flow', 26: 'Kitchen Profile',
-    27: 'Bathroom Profile', 28: 'Flooring Material', 29: 'Ceiling Volume',
-    30: 'Interior Finishes', 31: 'Fenced Yard', 32: 'Outdoor Entertainment',
-    33: 'Privacy Level', 34: 'Curb Appeal', 35: 'Topography',
-    36: 'View Quality', 37: 'Street Noise / Traffic', 38: 'Visual Clutter',
-    39: 'Usable Yard', 40: 'Xeriscape / Low Maintenance',
-    41: 'Exterior Style & Architecture', 42: 'Commute Convenience',
-    43: 'Walkability', 44: 'Greenery Proximity', 45: 'Sidewalk Continuity',
-    46: 'Wildfire Risk', 47: 'Flood Risk', 48: 'Solar Yield', 49: 'Pollen Safety',
-    50: 'HVAC Quality', 51: 'Front Orientation / Vastu', 52: 'Air Quality',
-    54: 'Topography & Elevation', 57: 'Work-From-Home Score',
-    58: 'Multi-Gen Utility', 59: 'Laundry Logistics',
-    60: 'Water / Air Systems', 61: 'Security Infrastructure',
-    62: 'Digital Presentation', 63: 'Solar ROI Obstructors',
-    64: 'Job Hub Connectivity', 65: 'Upcoming Dev Impact',
-    66: 'Soil / Geo Consistency', 67: 'Luxury Finish Level',
-    68: 'Backyard Potential', 69: 'Streetscape Aesthetic', 70: 'Market Momentum',
-    71: 'Development Maturity', 72: 'Resident Complaints',
-    73: 'Resident Satisfaction', 74: 'Perceived Safety', 75: 'Market Velocity (DOM)',
-    76: 'Internet Connectivity', 77: 'Noise Profile', 78: 'Drought Risk',
-    79: 'Disaster History', 80: 'Professional Lifestyle Fit',
-    81: 'Family Lifestyle Fit', 82: 'Senior Lifestyle Fit', 83: 'Neighborhood Character',
-    84: 'Walkable Amenities', 85: 'Medical Proximity', 86: 'EV Infrastructure',
-    87: 'Top Nearby Places', 88: 'Dining & Entertainment',
-    89: 'Market Signals', 90: 'Growth Catalysts', 91: 'Investment Risks',
-    92: 'Market Friction', 93: 'Zoning & Regulatory Perks',
-    94: 'Street Character', 95: 'Curbside Risks', 96: 'Landscaping Profile',
-    97: 'Parking Setup', 98: 'Neighborhood Condition',
-    100: 'Agent Highlights', 101: 'School Concepts',
-    102: 'Resident Sentiment', 103: 'Market Narrative', 104: 'Condition & Renovation', 105: 'Lifestyle Convenience',
-    106: 'Seismic Risk', 108: 'Sqft Discrepancy', 109: 'Lot Size Verification',
-    110: 'Listing Claim Flags', 111: 'Distressed Sale Signal',
-    113: 'Room-by-Room Character', 114: 'Interior Vibe & Quality',
-    115: 'Living Spaces', 116: 'Specialty Rooms',
-    120: 'Nearby Amenities Profile',
-};
 
 /** Expand compact factor {i, t, v?} to full {id, name, tags, value?} — handles both old and new format */
 const expandFactor = (f: any): ExtractedFactor => {

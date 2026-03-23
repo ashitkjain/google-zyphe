@@ -28,6 +28,7 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogE
 import { getPropertiesByCity, CityPropertySummary } from '../../services/firebase/properties';
 import { hasEssentialData } from '../../utils/propertyValidation';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
+import { FACTOR_NAMES } from '../../constants/contextGraphFactors';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -1921,7 +1922,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
-    const [showMyStory, setShowMyStory] = useState(false);
+    const [showMyStory, setShowMyStory] = useState(true);
 
     // Notify parent when My Story is toggled
     React.useEffect(() => { onMyStory?.(showMyStory); }, [showMyStory]);
@@ -1965,24 +1966,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         return () => window.removeEventListener('browse-city', handler);
     }, []);
 
-    // Factor ID → Name lookup (Firestore stores {i, t} without names)
-    const FACTOR_NAMES: Record<number, string> = {
-        1: 'Price', 2: 'HOA', 4: 'Carrying Cost', 5: 'Seller Motivation', 6: 'ADU Potential', 7: 'STR', 8: 'Rental Yield', 9: 'Appreciation',
-        14: 'Sqft', 17: 'Home Office', 19: 'Foundation', 20: 'Construction Era', 21: 'Move-In Ready', 22: 'Renovation Upside',
-        23: 'Architecture', 24: 'Natural Light', 25: 'Open Concept', 26: 'Kitchen', 27: 'Bathroom', 28: 'Flooring', 29: 'Ceilings', 30: 'Finishes',
-        31: 'Fenced Yard', 32: 'Outdoor Entertainment', 33: 'Privacy', 34: 'Curb Appeal', 35: 'Topography', 36: 'View', 37: 'Street Noise',
-        38: 'Visual Clutter', 39: 'Yard Space', 40: 'Low Maintenance', 41: 'Exterior Style', 42: 'Commute', 43: 'Walkability', 44: 'Greenery', 45: 'Sidewalks',
-        46: 'Fire Risk', 47: 'Flood Risk', 48: 'Solar', 49: 'Pollen', 50: 'HVAC', 51: 'Orientation/Vastu', 52: 'Air Quality', 54: 'Slope',
-        57: 'WFH Score', 58: 'Multi-Gen', 59: 'Laundry', 60: 'Water/Air Systems', 61: 'Security', 62: 'Presentation',
-        64: 'Job Hubs', 65: 'Dev Impact', 66: 'Soil/Geo', 67: 'Luxury Finishes', 68: 'Backyard Potential', 69: 'Streetscape', 70: 'Market Momentum',
-        71: 'Development', 72: 'Complaints', 73: 'Satisfaction', 74: 'Safety', 75: 'Market Velocity', 76: 'Internet', 77: 'Noise', 78: 'Drought', 79: 'Disasters',
-        80: 'Professional Fit', 81: 'Family Fit', 82: 'Senior Fit', 83: 'Neighborhood', 84: 'Walkable Amenities', 85: 'Medical', 86: 'EV Infrastructure',
-        87: 'Pet Friendly', 88: 'Dining Scene', 89: 'Market Signals', 90: 'Growth Catalysts', 91: 'Investment Risk', 92: 'Market Friction', 93: 'Zoning',
-        94: 'Street Character', 95: 'Curbside Risks', 96: 'Landscaping', 97: 'Parking', 98: 'Neighborhood Condition',
-        100: 'Agent Highlights', 101: 'Schools', 102: 'Sentiment', 103: 'Market Narrative', 104: 'Condition', 105: 'Convenience',
-        106: 'Seismic', 107: 'Flood Zone', 108: 'Sqft Discrepancy', 109: 'Lot Verification', 110: 'Listing Flags', 111: 'Distressed Signal',
-        113: 'Room Character', 114: 'Interior Vibe', 115: 'Materials', 116: 'Layout', 120: 'Amenities Profile', 112: 'FEMA'
-    };
+    // Factor ID → Name lookup (shared constant — single source of truth)
+    // Imported at file top level below
 
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
@@ -1990,10 +1975,13 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[] } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; relevantFactorIds?: number[] } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
+
+    // Ref to hold a pending story search (set by My Story, auto-triggered after city loads)
+    const pendingStoryRef = React.useRef<string | null>(null);
 
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
@@ -2017,6 +2005,40 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             setBrowsing(false);
         }
     };
+
+    /**
+     * Called by StoryIntakeTab when user clicks "Begin Discovery".
+     * Orchestrates: load city → set AI prompt → switch to Zyphe AI view → auto-search.
+     */
+    const handleStoryDiscover = async (story: string, cities: string[]) => {
+        const city = cities[0]; // Use the first city
+        if (!city || !story.trim()) return;
+
+        // Set the buyer story text
+        setBuyerStory(story);
+
+        // Hide My Story panel and switch to Zyphe AI view
+        setShowMyStory(false);
+        setViewModeLocal('zypheai');
+        setShowBuyerSearch(true);
+
+        // Store the story so the useEffect auto-triggers after browse completes
+        pendingStoryRef.current = story;
+
+        // Browse the city (loads results + sets selectedCity)
+        await handleBrowse(city);
+    };
+
+    // Auto-trigger buyer search when a pending story search is set and results are loaded
+    React.useEffect(() => {
+        if (pendingStoryRef.current && results.length > 0 && !browsing && buyerStory.trim()) {
+            pendingStoryRef.current = null;
+            // Small delay to let state settle
+            setTimeout(() => {
+                handleBuyerSearch();
+            }, 200);
+        }
+    }, [results, browsing]);
 
     // Check if neighborhoods are already cached when city changes
     useEffect(() => {
@@ -2141,12 +2163,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
             // ── STEP 0: Extract structured attributes via Gemini Flash Lite ──
             const t0 = performance.now();
-            const { FLASH_LITE_MODEL } = await import('../../services/geminiService');
-            const extractionPrompt = `Extract from: "${buyerStory}"
-Prices→dollars($1M=1000000). beds/baths→minimums. home_type→SINGLE_FAMILY|TOWNHOUSE|CONDO|"".
-must_haves→requirements with "need","must","require","no stairs". nice_to_haves→preferences with "prefer","would be great","if possible".`;
+            const { FLASH_LITE_MODEL, FLASH_MODEL } = await import('../../services/geminiService');
+            const { buildExtractionPrompt, buildMatchingPrompt } = await import('../../services/prompts/buyerStoryMatch');
+            const extractionPrompt = buildExtractionPrompt(buyerStory);
 
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[] };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; relevant_factor_ids: number[] };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2156,15 +2177,16 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
                     baths: { type: Type.NUMBER },
                     home_type: { type: Type.STRING },
                     must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    relevant_factor_ids: { type: Type.ARRAY, items: { type: Type.NUMBER } }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'relevant_factor_ids']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
                 model: FLASH_LITE_MODEL,
                 contents: extractionPrompt,
-                config: { temperature: 0.1, maxOutputTokens: 512 },
+                config: { temperature: 0.1, maxOutputTokens: 1024 },
                 userId: auth.currentUser?.uid || 'anon',
                 promptFilename: 'buyerStoryExtraction',
                 extractResultJson: true,
@@ -2195,8 +2217,8 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
             }
             // else: both bounds specified — use as-is
 
-            // Build search tags from must_haves + nice_to_haves for local ranking
-            const searchTags = [...(ext.must_haves || []), ...(ext.nice_to_haves || [])].map(t => t.toLowerCase().trim());
+            // Extract relevant factor IDs for precise JS filtering
+            const relevantFactorIds = new Set(ext.relevant_factor_ids || []);
 
             const extracted = {
                 priceMin, priceMax,
@@ -2204,7 +2226,8 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
                 baths: ext.baths > 0 ? ext.baths : undefined,
                 homeType: ext.home_type || undefined,
                 mustHaves: ext.must_haves || [],
-                niceToHaves: ext.nice_to_haves || []
+                niceToHaves: ext.nice_to_haves || [],
+                relevantFactorIds: ext.relevant_factor_ids || []
             };
             setBuyerExtracted(extracted);
 
@@ -2235,29 +2258,36 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
             }
             timings.push({ step: `Firestore (${graphMap.size} docs)`, ms: Math.round(performance.now() - t1) });
 
-            // ── STEP 1b: Rank by search_tags + numeric_filters ──
+            // ── STEP 1b: Filter out guaranteed mismatches by factor ID coverage ──
             const t1b = performance.now();
             const MAX = 20;
-            let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
-                let score = 0;
-                const searchText = [
-                    graph.summary?.propertyHighlight || '',
-                    ...(graph.summary?.topStrengths || []),
-                    ...(graph.factors || []).flatMap((f: any) => (f.tags || f.t || []).map(String))
-                ].join(' ').toLowerCase();
 
-                // Must-have tag matches (weight: 3 points each)
-                for (const tag of searchTags) {
-                    if (searchText.includes(tag)) score += 3;
+            let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
+                // Get factor IDs present in this property's context graph
+                const propertyFactorIds = new Set(
+                    (graph.factors || []).map((f: any) => f.i ?? f.id).filter((id: any) => id != null)
+                );
+
+                // Count how many buyer-relevant factors this property has
+                let matchCount = 0;
+                for (const id of relevantFactorIds) {
+                    if (propertyFactorIds.has(id)) matchCount++;
                 }
 
+                const matchRatio = relevantFactorIds.size > 0 ? matchCount / relevantFactorIds.size : 1;
 
-                return { zpid, graph, score };
+                return { zpid, graph, matchCount, matchRatio };
             });
 
-            // Sort by score, take top N
-            graphEntries.sort((a, b) => b.score - a.score);
-            graphEntries = graphEntries.slice(0, MAX);
+            // Filter: remove properties with < 30% factor coverage (guaranteed mismatches)
+            // Then sort by coverage desc, take top N
+            const MIN_MATCH_RATIO = 0.3;
+            graphEntries = graphEntries
+                .filter(e => e.matchRatio >= MIN_MATCH_RATIO)
+                .sort((a, b) => b.matchCount - a.matchCount)
+                .slice(0, MAX);
+
+            console.log(`[Buyer Match] Factor filter: ${graphMap.size} → ${graphEntries.length} (${relevantFactorIds.size} relevant IDs, min ratio ${MIN_MATCH_RATIO})`);
 
             const graphs: { zpid: string; address: string; graph: any; listing: any }[] = graphEntries
                 .filter(e => e.graph?.factors?.length > 0)
@@ -2279,23 +2309,22 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
                 setBuyerSearching(false);
                 return;
             }
-            timings.push({ step: `Rank (${graphs.length} kept)`, ms: Math.round(performance.now() - t1b) });
+            timings.push({ step: `Filter (${graphs.length} kept of ${graphMap.size})`, ms: Math.round(performance.now() - t1b) });
 
             // ── STEP 3: Parallel Gemini matching (chunked) ──
             const t3 = performance.now();
 
 
-            const CHUNK_SIZE = 5;
+            const CHUNK_SIZE = 10;
             const chunks: typeof graphs[] = [];
             for (let i = 0; i < graphs.length; i += CHUNK_SIZE) {
                 chunks.push(graphs.slice(i, i + CHUNK_SIZE));
             }
-
-            // Warmup: high-temperature flush to prime Gemini backend
+            // Warmup: prime Gemini backend with tiny request
             await executeGeminiRequest<any>({
-                model: FLASH_LITE_MODEL,
+                model: FLASH_MODEL,
                 contents: 'Say hi',
-                config: { temperature: 2.0, maxOutputTokens: 1 },
+                config: { temperature: 2.0, maxOutputTokens: 5 },
                 userId: auth.currentUser?.uid || 'anon',
                 promptFilename: 'warmup',
                 skipWatchdog: true
@@ -2346,33 +2375,11 @@ must_haves→requirements with "need","must","require","no stairs". nice_to_have
                 });
 
                 console.log(`[Buyer Match] Chunk ${idx + 1}/${chunks.length}:`, summaries.map(s => ({ zpid: s.zpid, factorCount: Object.keys(s.factors).length, hasKeyMetrics: !!s.keyMetrics, hasSummary: !!s.summary })));
-                const mustHavesList = (extracted.mustHaves || []).map((m, i) => `${i + 1}. ${m}`).join('\n');
-                const niceToHavesList = (extracted.niceToHaves || []).map((n, i) => `${i + 1}. ${n}`).join('\n');
-                const prompt = `Score each property 0-100 against the buyer story.
 
-## BUYER STORY
-${buyerStory}
-
-## MUST-HAVES (weight heavily, earlier = more important)
-${mustHavesList || 'None specified'}
-
-## NICE-TO-HAVES (lower weight, earlier = more important)
-${niceToHavesList || 'None specified'}
-
-## PROPERTIES (${summaries.length})
-${JSON.stringify(summaries)}
-
-## INSTRUCTIONS
-- score: 0-100 match quality
-- Must-haves weigh 3× more than nice-to-haves
-- Earlier items in each list are more important than later ones
-- reasons: the facts about what MATCHES
-- misses: buyer criteria this property does NOT satisfy. Empty array if none.
-- highlight: one sentence summary
-- Neutral tone. Return ALL ${summaries.length} properties.`;
+                const prompt = buildMatchingPrompt(buyerStory, extracted, summaries);
 
                 return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] }>({
-                    model: FLASH_LITE_MODEL,
+                    model: FLASH_MODEL,
                     contents: prompt,
                     config: { temperature: 0.3, maxOutputTokens: 4096 },
                     userId: auth.currentUser?.uid || 'anon',
@@ -2463,7 +2470,7 @@ ${JSON.stringify(summaries)}
             {/* My Story panel */}
             {showMyStory && (
                 <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <StoryIntakeTab isRealtor={false} />
+                    <StoryIntakeTab isRealtor={false} onStoryDiscover={handleStoryDiscover} />
                 </div>
             )}
 

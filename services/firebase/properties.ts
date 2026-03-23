@@ -903,9 +903,14 @@ export const queryContextGraphs = async (filters: ContextGraphQuery): Promise<Ma
                 const snap = await getDocs(fallbackQuery);
                 snap.forEach(d => {
                     const data = d.data();
-                    // Apply filters in JS
-                    if (filters.priceMin && filters.priceMin > 0 && data.price && data.price < filters.priceMin) return;
-                    if (filters.priceMax && filters.priceMax > 0 && data.price && data.price > filters.priceMax) return;
+                    // Apply filters in JS — exclude properties that violate constraints
+                    // If buyer specified price and property has no price, skip it
+                    const hasPrice = data.price != null && data.price > 0;
+                    if ((filters.priceMin && filters.priceMin > 0) || (filters.priceMax && filters.priceMax > 0)) {
+                        if (!hasPrice) return; // No price data → can't match price filter
+                    }
+                    if (filters.priceMin && filters.priceMin > 0 && hasPrice && data.price < filters.priceMin) return;
+                    if (filters.priceMax && filters.priceMax > 0 && hasPrice && data.price > filters.priceMax) return;
                     if (filters.minBeds && filters.minBeds > 0 && data.beds && data.beds < filters.minBeds) return;
                     if (filters.minBaths && filters.minBaths > 0 && data.baths && data.baths < filters.minBaths) return;
                     results.set(d.id, data);

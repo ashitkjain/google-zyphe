@@ -212,6 +212,167 @@ export const getLeads = async (realtorId: string, collectionNames: string[] = ['
     }
 };
 
+// ===== STORY LEAD UPSERT =====
+
+/**
+ * Find an existing lead by email or phone under a realtor's leads collection.
+ * Returns the first match (email takes priority), or null if not found.
+ */
+export const findLeadByEmailOrPhone = async (
+    realtorId: string,
+    email?: string,
+    phone?: string
+): Promise<(Lead & { id: string }) | null> => {
+    if (!db) return null;
+    try {
+        const rid = requireTenantId(realtorId);
+        const leadsCol = collection(db, "realtors", rid, "leads");
+
+        // Try email first (most reliable identifier)
+        if (email?.trim()) {
+            const normalizedEmail = email.trim().toLowerCase();
+            const emailQ = query(leadsCol, where("email", "==", normalizedEmail), limit(1));
+            logFirestoreQuery('getDocs', 'leads', { by: 'email', email: normalizedEmail });
+            const emailSnap = await getDocs(emailQ);
+            if (!emailSnap.empty) {
+                const d = emailSnap.docs[0];
+                return { id: d.id, ...d.data() } as Lead & { id: string };
+            }
+            // Also check nested primaryContact.email
+            const pcEmailQ = query(leadsCol, where("primaryContact.email", "==", normalizedEmail), limit(1));
+            const pcSnap = await getDocs(pcEmailQ);
+            if (!pcSnap.empty) {
+                const d = pcSnap.docs[0];
+                return { id: d.id, ...d.data() } as Lead & { id: string };
+            }
+        }
+
+        // Fallback: try phone
+        if (phone?.trim()) {
+            const digits = phone.replace(/\D/g, '');
+            if (digits.length >= 7) {
+                const phoneQ = query(leadsCol, where("phone", "==", phone.trim()), limit(1));
+                logFirestoreQuery('getDocs', 'leads', { by: 'phone' });
+                const phoneSnap = await getDocs(phoneQ);
+                if (!phoneSnap.empty) {
+                    const d = phoneSnap.docs[0];
+                    return { id: d.id, ...d.data() } as Lead & { id: string };
+                }
+                // Also check nested primaryContact.phone
+                const pcPhoneQ = query(leadsCol, where("primaryContact.phone", "==", phone.trim()), limit(1));
+                const pcSnap = await getDocs(pcPhoneQ);
+                if (!pcSnap.empty) {
+                    const d = pcSnap.docs[0];
+                    return { id: d.id, ...d.data() } as Lead & { id: string };
+                }
+            }
+        }
+
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, "findLeadByEmailOrPhone");
+        return null;
+    }
+};
+
+/**
+ * Upsert a lead from the My Story intake form.
+ * If a lead with the same email or phone already exists, update it with the story.
+ * Otherwise, create a new lead.
+ */
+export const upsertStoryLead = async (
+    realtorId: string,
+    storyData: {
+        name: string;
+        email: string;
+        phone: string;
+        preferredMethod: 'Email' | 'Phone';
+        budget: string;
+        targetLocations: string;
+        personaProfile: string;
+        targetTimeline: string;
+        story: string;
+        selectedAnchors: string[];
+    }
+): Promise<{ action: 'created' | 'updated'; leadId: string } | null> => {
+    if (!db) return null;
+    try {
+        const rid = requireTenantId(realtorId);
+
+        // Check for existing lead
+        const existing = await findLeadByEmailOrPhone(rid, storyData.email, storyData.phone);
+
+        const firstName = storyData.name.split(' ')[0] || '';
+        const lastName = storyData.name.split(' ').slice(1).join(' ') || '';
+        const normalizedEmail = storyData.email?.trim().toLowerCase() || '';
+        const budgetNum = storyData.budget.replace(/[^0-9]/g, '');
+
+        const storyPayload = {
+            fullName: storyData.name,
+            firstName,
+            lastName,
+            email: normalizedEmail,
+            phone: storyData.phone,
+            primaryContact: {
+                email: normalizedEmail,
+                phone: storyData.phone,
+                preferredMethod: storyData.preferredMethod,
+            },
+            motivation: storyData.story,
+            leadInfo: {
+                customerMessage: storyData.story,
+                origin: 'My Story',
+                atmosphericAnchors: storyData.selectedAnchors,
+            },
+            searchCriteria: {
+                locations: storyData.targetLocations,
+                targetTimeline: storyData.targetTimeline,
+                personaProfile: storyData.personaProfile,
+            },
+            financialVitals: {
+                budgetMax: budgetNum,
+                preApprovalStatus: false,
+                isAllCash: false,
+            },
+            personaProfile: storyData.personaProfile,
+            targetTimeline: storyData.targetTimeline,
+            updatedAt: serverTimestamp(),
+            lastUpdated: serverTimestamp(),
+        };
+
+        if (existing) {
+            // Update existing lead with new story data
+            const docRef = doc(db, "realtors", rid, "leads", existing.id);
+            logFirestoreQuery('setDoc', 'leads', { id: existing.id, action: 'story_update' });
+            await setDoc(docRef, sanitizeForFirestore(storyPayload), { merge: true });
+            console.log(`[CRM] Updated existing lead ${existing.id} with story`);
+            return { action: 'updated', leadId: existing.id };
+        } else {
+            // Create new lead
+            const newLead = {
+                ...storyPayload,
+                status: 'New' as any,
+                funnelStage: 'Inquiry' as any,
+                leadType: 'Buyer' as any,
+                health: 'Healthy' as any,
+                engagementScore: 'Warm' as any,
+                receivedAt: serverTimestamp(),
+                createdDate: serverTimestamp(),
+                source: 'My Story',
+                collectionName: 'leads',
+            };
+            const leadsCol = collection(db, "realtors", rid, "leads");
+            logFirestoreQuery('addDoc', 'leads', { action: 'story_create' });
+            const docRef = await addDoc(leadsCol, sanitizeForFirestore(newLead));
+            console.log(`[CRM] Created new lead ${docRef.id} from story`);
+            return { action: 'created', leadId: docRef.id };
+        }
+    } catch (error) {
+        handleFirestoreError(error, "upsertStoryLead");
+        return null;
+    }
+};
+
 // ===== TASKS =====
 
 export const getTasks = async (realtorId: string) => {

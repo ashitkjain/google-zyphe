@@ -69,7 +69,7 @@ export const APP_CONFIG = {
         key: 'prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb'
     },
     gemini: {
-        key: "AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4"
+        key: "AIzaSyDurfAUpqimcv87c4sc5E4KRDGM1OLSj7g"
     },
     maps: {
         key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI"

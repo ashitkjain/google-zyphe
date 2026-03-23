@@ -21,7 +21,7 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = initializeFirestore(app, { localCache: memoryLocalCache() });
 
-const GEMINI_API_KEY = 'AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4';
+const GEMINI_API_KEY = 'AIzaSyDurfAUpqimcv87c4sc5E4KRDGM1OLSj7g';
 const GOOGLE_MAPS_KEY = 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI';
 const MODEL = 'gemini-3.1-pro-preview';
 

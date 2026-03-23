@@ -1,5 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import ClientEditModal from './ClientEditModal';
+import { getRealtorIdFromHost } from '../../services/hostMapping';
+import { upsertStoryLead } from '../../services/firebase/crm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +12,7 @@ interface StoryIntakeData {
     preferredMethod: 'Email' | 'Phone';
     budget: string;
     targetLocations: string;
+    homeType?: string;
     personaProfile: string;
     targetTimeline: string;
     chapter01: string; // Identity & Background
@@ -23,6 +26,7 @@ interface StoryIntakeData {
 interface Props {
     isRealtor?: boolean;
     onMatchRequest?: (story: string, filters: { budgetMin: string; budgetMax: string; beds: string; baths: string }) => void;
+    onStoryDiscover?: (story: string, cities: string[]) => void;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -81,9 +85,191 @@ const CHAPTERS = [
     },
 ];
 
+// ─── Example Stories ─────────────────────────────────────────────────────────
+
+interface ExampleStory {
+    label: string;
+    emoji: string;
+    tagline: string;
+    data: Omit<StoryIntakeData, 'email' | 'phone' | 'preferredMethod' | 'customAnchor'>;
+}
+
+const EXAMPLE_STORIES: ExampleStory[] = [
+    {
+        label: 'Tech Family Upsizing',
+        emoji: '👨\u200D👩\u200D👧\u200D👦',
+        tagline: 'Growing family, dual-income tech, needs space & top schools',
+        data: {
+            name: 'Priya & Arjun Mehta',
+            budget: '2,200,000',
+            targetLocations: 'Pleasanton, Dublin',
+            personaProfile: 'First-Time',
+            targetTimeline: '3-6 Months',
+            chapter01: 'We are a dual-income tech couple in our early 30s with two kids, ages 3 and 6. We\'re currently renting in Fremont but have outgrown the space and want to settle in a top school district before next year.',
+            chapter02: 'Arjun commutes to Apple Park three days a week and I work remotely full-time. Our evenings revolve around the kids, and the backyard is their sanctuary.',
+            chapter03: 'We need at least four bedrooms, a dedicated home office, and an open kitchen that flows into the family room. A big flat backyard is essential, along with high ceilings, natural light, and a California modern aesthetic.',
+            chapter04: 'Top-rated schools are our number one priority. We\'d love to be walking distance to parks, and low wildfire risk matters. Arjun\'s commute to Cupertino should be under 45 minutes.',
+            selectedAnchors: ['Top-Rated Schools', 'Large Backyard', 'Home Office Ready', 'Natural Light / Open Plan', 'Tech Commute Access'],
+        },
+    },
+    {
+        label: 'Empty Nesters Downsizing',
+        emoji: '🏡',
+        tagline: 'Retired couple seeking single-story, low-maintenance living',
+        data: {
+            name: 'Robert & Linda Chen',
+            budget: '1,500,000',
+            targetLocations: 'Pleasanton, Dublin',
+            personaProfile: 'Past Client',
+            targetTimeline: '6-12 Months',
+            chapter01: 'We are empty nesters in our early 60s. We\'ve lived in a four-bedroom colonial in Dublin for 22 years, and it\'s just too much house now. We\'d like to downsize to a single-story home where we can age in place.',
+            chapter02: 'Robert walks three miles every morning, and we cook together daily. The Saturday farmers\' market is our ritual. We host our kids about four times a year, so a guest suite would be ideal.',
+            chapter03: 'We want a single-story home with a modern kitchen, large island, and a covered patio. The master should have a walk-in shower, and we\'d like a guest bedroom with its own bathroom. Low-maintenance landscaping is important.',
+            chapter04: 'We\'re looking for a quiet, established neighborhood with walking trails and proximity to medical facilities. We\'d prefer to avoid communities with large HOA fees.',
+            selectedAnchors: ['Single Story', 'Quiet Streets', 'Modern Kitchen', 'Pet-Friendly Parks'],
+        },
+    },
+    {
+        label: 'SF→Suburbs Relocation',
+        emoji: '🌉',
+        tagline: 'Young professional couple leaving SF for more space',
+        data: {
+            name: 'Maya & Jordan Brooks',
+            budget: '1,800,000',
+            targetLocations: 'Dublin, Pleasanton',
+            personaProfile: 'Relocation',
+            targetTimeline: '1-3 Months',
+            chapter01: 'We\'re both 29 with no kids yet, but planning to start a family soon. We\'ve been renting a one-bedroom in the Mission for four years. I work at Salesforce and Jordan is a physical therapist. We\'re pre-approved and ready to go.',
+            chapter02: 'I work from home Monday through Wednesday and commute to SF the rest of the week, so BART access is key. We want a walkable neighborhood with restaurants and coffee shops nearby.',
+            chapter03: 'We\'re looking for three bedrooms so we can have an office and a future nursery. An open kitchen and a small yard for a veggie garden are important. We love mid-century modern style and natural light is everything to us.',
+            chapter04: 'Walking distance to BART is a must. We want good restaurants and cafés nearby, low HOA fees, and a good school district for when we start a family.',
+            selectedAnchors: ['Walking Distance to Coffee', 'Home Office Ready', 'Mid-Century Aesthetic', 'Natural Light / Open Plan', 'Tech Commute Access'],
+        },
+    },
+    {
+        label: 'Real Estate Investor',
+        emoji: '📈',
+        tagline: 'Seeking high-ROI rental property with ADU potential',
+        data: {
+            name: 'David Nakamura',
+            budget: '1,200,000',
+            targetLocations: 'Dublin, Pleasanton',
+            personaProfile: 'Investor',
+            targetTimeline: 'ASAP',
+            chapter01: 'I\'m a 42-year-old software architect building a rental portfolio. I already own two properties in the East Bay and I\'m looking for a third acquisition with ADU potential.',
+            chapter02: 'This is a pure investment — I won\'t be living here. The property needs to be tenant-ready or close to it, with positive cash flow from day one after all expenses.',
+            chapter03: 'I need a lot of at least 6,000 square feet to build a detached ADU. The main house should be at least three bedrooms and two baths with a functional kitchen and updated bathrooms. I prefer single-story.',
+            chapter04: 'I want an ADU-friendly city with straightforward permitting and a cap rate above 5%. Proximity to BART or the ACE train is a plus. I can go all-cash under a million, conventional financing above that.',
+            selectedAnchors: ['ADU Potential', 'High ROI Potential', 'Single Story', 'Large Backyard'],
+        },
+    },
+    {
+        label: 'Multi-Gen Household',
+        emoji: '👵',
+        tagline: 'Three generations under one roof, needs casita or in-law suite',
+        data: {
+            name: 'The Patel Family',
+            budget: '2,800,000',
+            targetLocations: 'Pleasanton, Dublin',
+            personaProfile: 'First-Time',
+            targetTimeline: '3-6 Months',
+            chapter01: 'We are a multi-generational family — a couple in our late 40s with two teenagers, plus my elderly parents who are moving from India to live with us permanently. We need separate spaces under one roof.',
+            chapter02: 'We share big family meals every Sunday. My parents need ground-floor living with easy access. I work from home as a consultant, and my wife runs a catering business that requires a serious kitchen.',
+            chapter03: 'We need at least five bedrooms and a ground-floor in-law suite with its own bathroom. The kitchen should be large with commercial-grade ventilation, and we want open living areas for gatherings of twenty or more.',
+            chapter04: 'A ground-floor suite for my parents is the top priority. Good schools for our teenagers and Vastu-compliant orientation are also important. We need a three-car garage and prefer newer construction built after 2000.',
+            selectedAnchors: ['Multi-Gen Living', 'Modern Kitchen', 'Top-Rated Schools', 'Vastu / Good Orientation', 'Large Backyard'],
+        },
+    },
+    {
+        label: 'Young Solo Buyer',
+        emoji: '🎯',
+        tagline: 'First-time buyer, single professional, wants community vibes',
+        data: {
+            name: 'Sophia Martinez',
+            budget: '850,000',
+            targetLocations: 'Dublin, Pleasanton',
+            personaProfile: 'First-Time',
+            targetTimeline: '1-3 Months',
+            chapter01: 'I\'m a 27-year-old product marketing manager at Google. I\'m single with a golden retriever, and this is my first time buying a home. I\'m pre-approved with 15% down.',
+            chapter02: 'I\'m an early bird — I start the day with a run with my dog, grab coffee at a café, then head to the office in Sunnyvale three days a week. My evenings are for cooking, yoga, and friends. Having a social life nearby really matters to me.',
+            chapter03: 'I\'d like at least two bedrooms so I have space for a guest room or office. Modern finishes and in-unit laundry are important. A small patio or yard for the dog would be great. I want a clean, bright space with character.',
+            chapter04: 'I want to be within walking distance of restaurants, coffee shops, and a dog park. A strong sense of community is important. If it\'s a condo, I\'d prefer low HOA fees. The neighborhood should feel safe at night, and my commute should be under 40 minutes.',
+            selectedAnchors: ['Walking Distance to Coffee', 'Pet-Friendly Parks', 'Natural Light / Open Plan', 'Tech Commute Access'],
+        },
+    },
+    {
+        label: 'Luxury Upgrade',
+        emoji: '✨',
+        tagline: 'Established executives seeking premium estate living',
+        data: {
+            name: 'James & Catherine Whitfield',
+            budget: '4,500,000',
+            targetLocations: 'Pleasanton, Dublin',
+            personaProfile: 'Past Client',
+            targetTimeline: '6-12 Months',
+            chapter01: 'We are a couple in our 50s with grown children. I\'m a retired CFO and Catherine runs a boutique interior design firm. We currently live in Pleasanton and are ready for our forever home — something with sweeping views and a sense of arrival.',
+            chapter02: 'We enjoy leisurely mornings on the terrace, golf twice a week, and hosting monthly dinner parties for eight to twelve guests. Wine is our shared passion, and we have a 400-bottle collection that needs a proper home.',
+            chapter03: 'We want something architecturally significant — not a McMansion. A wine cellar, chef\'s kitchen with Wolf and Sub-Zero appliances, infinity pool, and at least 4,000 square feet. Catherine needs a dedicated art studio.',
+            chapter04: 'Views are our number one criterion — the East Bay hills or Mt. Diablo. Privacy and a gated setting are essential. We want turnkey luxury with no major renovations needed, close to a good golf course. This will be an all-cash purchase.',
+            selectedAnchors: ['Private / Gated', 'Pool Ready', 'Gourmet Grocery Access', 'Modern Kitchen', 'Sustainable Architecture'],
+        },
+    },
+    {
+        label: 'Climate-Conscious Buyer',
+        emoji: '🌿',
+        tagline: 'Sustainability-focused family, solar + EV + low fire risk',
+        data: {
+            name: 'Erik & Sunita Johansson',
+            budget: '1,900,000',
+            targetLocations: 'Pleasanton, Dublin',
+            personaProfile: 'Relocation',
+            targetTimeline: '3-6 Months',
+            chapter01: 'We\'re relocating from Seattle — both in our late 30s with a toddler. I\'m a climate scientist at Lawrence Livermore National Lab and Sunita is a sustainability consultant who works remotely. We want a home that reflects our environmental values.',
+            chapter02: 'We bike commute whenever possible and keep a home office surrounded by plants. We grow much of our own food in raised beds and drive an EV, so we need Level 2 charging at home.',
+            chapter03: 'Solar panels are a requirement. We want energy-efficient HVAC, dual-pane windows, and a yard large enough for raised beds and fruit trees. A south-facing orientation and sustainable architectural aesthetic are ideal.',
+            chapter04: 'Low wildfire risk is absolutely critical for us. We value bikeable streets with trails nearby and need good daycare options. My commute to Lawrence Livermore should be under 20 minutes.',
+            selectedAnchors: ['Low Wildfire Risk', 'Sustainable Architecture', 'Large Backyard', 'Pet-Friendly Parks', 'Natural Light / Open Plan'],
+        },
+    },
+    {
+        label: 'Weekend Retreat Seeker',
+        emoji: '🏔️',
+        tagline: 'Bay Area exec wanting a vineyard-adjacent weekend escape',
+        data: {
+            name: 'Michael Torres',
+            budget: '1,100,000',
+            targetLocations: 'Pleasanton, Dublin',
+            personaProfile: 'Investor',
+            targetTimeline: 'Just Browsing',
+            chapter01: 'I\'m a 45-year-old VP of Engineering and I own a condo in San Jose. I\'m looking for a weekend property in wine country that\'s close enough to enjoy every weekend.',
+            chapter02: 'I picture Friday evenings with a glass of wine on the porch at sunset, Saturday mornings exploring local wineries. I\'m an amateur winemaker and would love space for a small crush pad.',
+            chapter03: 'It doesn\'t need to be large — two or three bedrooms is fine. I love rustic-modern style with exposed beams, a stone fireplace, and wide plank floors. An outdoor living area with a pergola and fire pit is essential, and I want land with trees.',
+            chapter04: 'It should be within 90 minutes of San Jose with vineyard-adjacent vibes and real privacy — no subdivision feel. I\'d consider using it as a short-term rental when I\'m not there.',
+            selectedAnchors: ['Quiet Streets', 'Private / Gated', 'Natural Light / Open Plan', 'High ROI Potential'],
+        },
+    },
+    {
+        label: 'Divorced Parent Restart',
+        emoji: '🔄',
+        tagline: 'Recently divorced dad, needs 50/50 custody-friendly home',
+        data: {
+            name: 'Kevin Park',
+            budget: '1,050,000',
+            targetLocations: 'Dublin, Pleasanton',
+            personaProfile: 'First-Time',
+            targetTimeline: 'ASAP',
+            chapter01: 'I\'m a 38-year-old software engineer going through a divorce. I have two kids, ages 8 and 11, and we\'re doing 50/50 custody. I need a real home for them — not just a temporary place, but somewhere they feel truly at home.',
+            chapter02: 'I work from home at Meta. When the kids are with me, mornings are all about school drop-off. My son needs his own space for gaming and my daughter loves arts and crafts, so separate rooms are important.',
+            chapter03: 'I need at least three bedrooms with an open kitchen and living area. A yard for the kids to play in is important. The home should be move-in ready — I don\'t have time for renovations right now. Good storage is a must.',
+            chapter04: 'Staying in the same school district as my ex is the top priority — that means Dublin Unified or Pleasanton Unified. I want to be near parks and the kids\' activities. My budget is tight and I need to move within 60 days.',
+            selectedAnchors: ['Top-Rated Schools', 'Large Backyard', 'Home Office Ready', 'Pet-Friendly Parks', 'Quiet Streets'],
+        },
+    },
+];
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) => {
+const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, onStoryDiscover }) => {
     const [data, setData] = useState<StoryIntakeData>({
         name: '',
         email: '',
@@ -104,6 +290,23 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
     const [synthesizing, setSynthesizing] = useState(false);
     const [saved, setSaved] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
+    const [showExamples, setShowExamples] = useState(true);
+    const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+
+    const loadExample = (example: ExampleStory) => {
+        setData(prev => ({
+            ...prev,
+            ...example.data,
+            email: prev.email,
+            phone: prev.phone,
+            preferredMethod: prev.preferredMethod,
+            customAnchor: '',
+        }));
+        setShowExamples(false);
+        setSaved(false);
+        // Scroll to top of form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const update = useCallback(<K extends keyof StoryIntakeData>(key: K, value: StoryIntakeData[K]) => {
         setData(prev => ({ ...prev, [key]: value }));
@@ -133,9 +336,13 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
         .filter(Boolean)
         .join('\n\n');
 
+    // Resolve the realtorId from the current hostname
+    const realtorId = useMemo(() => getRealtorIdFromHost(), []);
+
     // Synthetic client object pre-filled from story form
     const syntheticClient = {
         id: null,
+        realtorId,
         firstName: data.name.split(' ')[0] || '',
         lastName: data.name.split(' ').slice(1).join(' ') || '',
         email: data.email,
@@ -163,9 +370,56 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
     const handleDiscover = async () => {
         if (!isReady) return;
         setSynthesizing(true);
-        await new Promise(r => setTimeout(r, 1200));
+        setSaveFeedback(null);
+
+        try {
+            // Upsert the lead in the realtor's collection
+            const result = await upsertStoryLead(realtorId, {
+                name: data.name,
+                email: data.email,
+                phone: data.phone,
+                preferredMethod: data.preferredMethod,
+                budget: data.budget,
+                targetLocations: data.targetLocations,
+                personaProfile: data.personaProfile,
+                targetTimeline: data.targetTimeline,
+                story: fullStory,
+                selectedAnchors: data.selectedAnchors,
+            });
+
+            if (result) {
+                setSaveFeedback(
+                    result.action === 'updated'
+                        ? 'Your story has been updated — searching for matches...'
+                        : 'Your story has been saved — searching for matches...'
+                );
+            }
+        } catch (err) {
+            console.error('[StoryIntake] Failed to save lead:', err);
+            setSaveFeedback('Something went wrong saving your story. Please try again.');
+        }
+
         setSynthesizing(false);
         setSaved(true);
+
+        // Parse cities from target locations
+        const cities = data.targetLocations
+            .split(',')
+            .map(c => c.trim())
+            .filter(Boolean);
+
+        // Build the full prompt with selected tags appended
+        const anchors = data.selectedAnchors;
+        const storyWithTags = anchors.length > 0
+            ? `${fullStory}\n\nBudget: $${data.budget}\nImportant priorities: ${anchors.join(', ')}.`
+            : `${fullStory}\n\nBudget: $${data.budget}`;
+
+        // Trigger the AI discovery flow with the story and cities
+        if (onStoryDiscover && cities.length > 0) {
+            onStoryDiscover(storyWithTags, cities);
+        }
+
+        // Legacy match request
         onMatchRequest?.(fullStory, {
             budgetMin: '',
             budgetMax: data.budget.replace(/[^0-9]/g, ''),
@@ -187,7 +441,37 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                     Our AI builds a property profile beyond basic metrics. Share your
                     narrative to uncover homes aligned with your life.
                 </p>
+                <button
+                    onClick={() => setShowExamples(prev => !prev)}
+                    className="mt-3 flex items-center gap-2 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors group"
+                >
+                    <i className={`fa-solid ${showExamples ? 'fa-chevron-up' : 'fa-lightbulb'} text-[10px] group-hover:scale-110 transition-transform`}></i>
+                    {showExamples ? 'Hide examples' : 'See example stories for inspiration'}
+                </button>
             </div>
+
+            {/* ── Example Stories Carousel ── */}
+            {showExamples && (
+                <div className="max-w-5xl mx-auto px-8 pb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <i className="fa-solid fa-lightbulb text-amber-400 text-xs"></i>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Click any story to auto-fill the form</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                        {EXAMPLE_STORIES.map((ex, i) => (
+                            <button
+                                key={i}
+                                onClick={() => loadExample(ex)}
+                                className="group text-left bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-xl px-3 py-3 transition-all hover:shadow-md"
+                            >
+                                <div className="text-lg mb-1">{ex.emoji}</div>
+                                <div className="text-[11px] font-black text-slate-800 group-hover:text-indigo-700 leading-tight">{ex.label}</div>
+                                <div className="text-[9px] font-medium text-slate-400 group-hover:text-indigo-400 mt-0.5 leading-snug line-clamp-2">{ex.tagline}</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* ── Body Grid ── */}
             <div className="max-w-5xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
@@ -296,47 +580,31 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
                             />
                         </div>
 
-                        {/* Personal Profile */}
+                        {/* Home Type */}
                         <div>
                             <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
-                                Personal Profile
+                                Home Type
                             </label>
-                            <div className="relative">
-                                <select
-                                    value={data.personaProfile}
-                                    onChange={e => update('personaProfile', e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all appearance-none cursor-pointer"
-                                >
-                                    <option value="" disabled>Select Profile Type</option>
-                                    {['First-Time', 'Investor', 'Past Client', 'Relocation'].map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                </select>
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <i className="fa-solid fa-chevron-down text-[10px]"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Target Timeline */}
-                        <div>
-                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1.5">
-                                Target Timeline
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={data.targetTimeline}
-                                    onChange={e => update('targetTimeline', e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all appearance-none cursor-pointer"
-                                >
-                                    <option value="" disabled>Select Timeline</option>
-                                    {['ASAP', '1-3 Months', '3-6 Months', '6-12 Months', 'Just Browsing'].map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                </select>
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <i className="fa-solid fa-chevron-down text-[10px]"></i>
-                                </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {[
+                                    { value: '', label: 'Any' },
+                                    { value: 'SINGLE_FAMILY', label: 'Single Family' },
+                                    { value: 'TOWNHOUSE', label: 'Townhouse' },
+                                    { value: 'CONDO', label: 'Condo' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => update('homeType', opt.value)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            (data.homeType || '') === opt.value
+                                                ? 'bg-indigo-600 text-white shadow-sm'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
@@ -489,11 +757,13 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest }) 
             {/* ── Footer CTA ── */}
             <div className="max-w-5xl mx-auto px-8 mt-6 flex items-center justify-between">
                 <div className="text-[10px] text-slate-400 font-medium">
-                    {saved
-                        ? <><i className="fa-solid fa-check text-emerald-500 mr-1"></i>Your story is saved</>
-                        : data.selectedAnchors.length > 0
-                            ? `${data.selectedAnchors.length} anchor${data.selectedAnchors.length > 1 ? 's' : ''} selected`
-                            : 'Select anchors or write your story to begin'
+                {saveFeedback
+                        ? <><i className={`fa-solid ${saveFeedback.includes('wrong') ? 'fa-exclamation-circle text-red-500' : 'fa-check text-emerald-500'} mr-1`}></i>{saveFeedback}</>
+                        : saved
+                            ? <><i className="fa-solid fa-check text-emerald-500 mr-1"></i>Your story is saved</>
+                            : data.selectedAnchors.length > 0
+                                ? `${data.selectedAnchors.length} anchor${data.selectedAnchors.length > 1 ? 's' : ''} selected`
+                                : 'Select anchors or write your story to begin'
                     }
                 </div>
                 <button
