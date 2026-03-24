@@ -86,6 +86,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [graphBatchRunning, setGraphBatchRunning] = useState(false);
     const [graphBatchProgress, setGraphBatchProgress] = useState<{ done: number; skipped: number; failed: number; total: number } | null>(null);
     const [forceGraphRegen, setForceGraphRegen] = useState(false);
+    const [cityGraphRunning, setCityGraphRunning] = useState(false);
 
     // Backfill Context Graph Metadata
     const [backfillRunning, setBackfillRunning] = useState(false);
@@ -1212,6 +1213,69 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     };
 
 
+    // ── City-Level Context Graph Generator ────────────────────────────────
+    const handleCityContextGraph = async () => {
+        if (!city.trim()) {
+            addLog('[City Context] No city entered.');
+            return;
+        }
+        setCityGraphRunning(true);
+        addLog(`[City Context] Extracting city-level factors for ${city.trim()}...`);
+
+        try {
+            const { extractCityContextGraph } = await import('../../services/geminiService');
+            const { saveCityContextGraphToCloud } = await import('../../services/firebase/properties');
+            const { getCommunityPulseFromCloud, getDeepInvestmentResearchFromCloud } = await import('../../services/firebase/properties');
+            const { generateCityStateKey } = await import('../../services/firebase/config');
+
+            // Resolve state from loaded listings
+            const firstListing = listings[0];
+            const resolvedState = firstListing?.location?.address?.state_code
+                || firstListing?.location?.address?.state || '';
+            const cityStateKey = generateCityStateKey(city.trim(), resolvedState);
+
+            if (!cityStateKey) {
+                addLog('[City Context] Could not resolve city+state key.');
+                setCityGraphRunning(false);
+                return;
+            }
+
+            const [deepResearch, communityPulse] = await Promise.all([
+                getDeepInvestmentResearchFromCloud(cityStateKey).catch(() => null),
+                getCommunityPulseFromCloud(cityStateKey).catch(() => null)
+            ]);
+
+            if (!deepResearch && !communityPulse) {
+                addLog(`[City Context] No city research data found for "${cityStateKey}". Run Deep Research + Community Pulse first.`);
+                setCityGraphRunning(false);
+                return;
+            }
+
+            addLog(`[City Context] Loaded: ${deepResearch ? '✓ deep_research' : '✗ no deep_research'}, ${communityPulse ? '✓ community_pulse' : '✗ no pulse'}`);
+
+            const result = await extractCityContextGraph(
+                city.trim(),
+                resolvedState,
+                deepResearch,
+                communityPulse,
+                'admin'
+            );
+
+            if (result.data?.factors?.length > 0) {
+                await saveCityContextGraphToCloud(cityStateKey, result.data);
+                addLog(`[City Context] ✓ Saved ${result.data.factors.length} city-level factors for "${cityStateKey}"`);
+                logPipelineAudit('City Context Graph', cityStateKey, 'success', `${result.data.factors.length} factors extracted`);
+            } else {
+                addLog(`[City Context] ✗ No factors returned from Gemini`);
+            }
+        } catch (e: any) {
+            addLog(`[City Context] Error: ${e.message}`);
+            console.error('[City Context]', e);
+        } finally {
+            setCityGraphRunning(false);
+        }
+    };
+
     // ── Batch Context Graph Generator (smart staleness) ───────────────────
     const handleBatchContextGraph = async (forceAll: boolean = forceGraphRegen) => {
         // Use selected properties if any are checked, otherwise all cached
@@ -1230,15 +1294,67 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         let done = 0;
         let skipped = 0;
         let failed = 0;
+        let missingData = 0;
+        const missingDataDetails: { addr: string; reasons: string[] }[] = [];
 
         // Lazy imports
-        const { getContextGraphFromCloud, saveContextGraphToCloud } = await import('../../services/firebase/properties');
+        const { getContextGraphFromCloud, saveContextGraphToCloud, getCityContextGraphFromCloud, saveCityContextGraphToCloud, getCommunityPulseFromCloud, getDeepInvestmentResearchFromCloud } = await import('../../services/firebase/properties');
         const { getPropertyFromCloud } = await import('../../services/firebase/properties');
         const { getVisualAnalysisFromCloud, getComprehensiveAnalysisFromCloud } = await import('../../services/firebaseService');
-        const { extractContextGraphFactors } = await import('../../services/geminiService');
-        const { getCommunityPulseFromCloud, getGeneralMarketIntelligenceFromCloud, getDeepInvestmentResearchFromCloud, generateCityStateKey } = await import('../../services/firebaseService');
+        const { extractContextGraphFactors, extractCityContextGraph } = await import('../../services/geminiService');
         const { getDocs, query, collection, where, documentId } = await import('firebase/firestore');
-        const { db: firestoreDb } = await import('../../services/firebase/config');
+        const { db: firestoreDb, generateCityStateKey } = await import('../../services/firebase/config');
+
+        // ── Phase 0: Ensure city context graph is fresh ──────────────────
+        const firstListing = listings[0];
+        const resolvedState = firstListing?.location?.address?.state_code
+            || firstListing?.location?.address?.state || '';
+        const cityStateKey = generateCityStateKey(city.trim(), resolvedState);
+
+        if (cityStateKey) {
+            const toMs = (ts: any): number => {
+                if (!ts) return 0;
+                if (ts.toMillis) return ts.toMillis();
+                if (ts.seconds) return ts.seconds * 1000;
+                if (ts instanceof Date) return ts.getTime();
+                if (typeof ts === 'number') return ts;
+                return 0;
+            };
+
+            try {
+                const existingCityGraph = await getCityContextGraphFromCloud(cityStateKey);
+                const cityGraphTs = toMs(existingCityGraph?.lastUpdated);
+
+                // Check if source data is newer than city graph
+                const [deepResearch, communityPulse] = await Promise.all([
+                    getDeepInvestmentResearchFromCloud(cityStateKey).catch(() => null),
+                    getCommunityPulseFromCloud(cityStateKey).catch(() => null)
+                ]);
+                const sourceTs = Math.max(
+                    toMs((deepResearch as any)?.lastUpdated),
+                    toMs((communityPulse as any)?.lastUpdated)
+                );
+
+                const needsCityGraph = !existingCityGraph?.factors?.length || (sourceTs > cityGraphTs) || forceAll;
+
+                if (needsCityGraph && (deepResearch || communityPulse)) {
+                    addLog(`[Context Graph] Phase 0: ${existingCityGraph?.factors?.length ? 'Refreshing' : 'Generating'} city context graph for "${cityStateKey}"...`);
+                    const cityResult = await extractCityContextGraph(
+                        city.trim(), resolvedState, deepResearch, communityPulse, 'admin'
+                    );
+                    if (cityResult.data?.factors?.length > 0) {
+                        await saveCityContextGraphToCloud(cityStateKey, cityResult.data);
+                        addLog(`[Context Graph] Phase 0: ✓ Saved ${cityResult.data.factors.length} city-level factors`);
+                    }
+                } else if (existingCityGraph?.factors?.length) {
+                    addLog(`[Context Graph] Phase 0: City context graph up-to-date (${existingCityGraph.factors.length} factors)`);
+                } else {
+                    addLog(`[Context Graph] Phase 0: No city research data — skipping city context`);
+                }
+            } catch (e: any) {
+                addLog(`[Context Graph] Phase 0: City context failed (non-blocking): ${e.message}`);
+            }
+        }
 
         // ── Phase 1: Batch-fetch timestamps from all source collections + context graphs ──
         const BATCH = 10;
@@ -1342,13 +1458,21 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 ]);
 
                 if (!property) {
-                    addLog(`[Context Graph] ✗ Skip ${addr} — no property data`);
-                    return 'failed';
+                    addLog(`[Context Graph] ⊘ Skip ${addr} — no property data`);
+                    return { status: 'missing', reasons: ['no property data'] };
                 }
 
-                if (!hasEssentialData(property)) {
-                    addLog(`[Context Graph] ✗ Skip ${addr} — missing essential data (price/beds/sqft/address)`);
-                    return 'failed';
+                // Detailed check: identify exactly what's missing
+                const missingReasons: string[] = [];
+                const propAddr = property.address || property.location?.address?.line || '';
+                if (!/^\d/.test(propAddr.trim())) missingReasons.push('address');
+                if (!(property.price || property.list_price || property.zestimate)) missingReasons.push('price');
+                if (!(property.bedrooms || property.beds)) missingReasons.push('beds');
+                if (!(property.livingAreaValue || property.livingArea || property.sqft)) missingReasons.push('sqft');
+
+                if (missingReasons.length > 0) {
+                    addLog(`[Context Graph] ⊘ Skip ${addr} — missing: ${missingReasons.join(', ')}`);
+                    return { status: 'missing', reasons: missingReasons };
                 }
 
                 // Merge google_environmental_data fields onto property so precompute factors
@@ -1359,23 +1483,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     ? { ...property, ...envData }
                     : property;
 
-                // Enrich visual with city-level data
+                // City-level data (community_pulse, deep_investment_research, etc.) is now
+                // extracted once per city via city_context_graph — no longer sent per-property.
                 const city = property.city || '';
                 const state = property.state || '';
-                const cityStateKey = generateCityStateKey(city, state);
                 let enrichedVisual = visual || {} as any;
                 if (lifestyleFit) enrichedVisual = { ...enrichedVisual, lifestyle_fit: lifestyleFit };
-
-                if (cityStateKey) {
-                    const [pulse, market, deep] = await Promise.all([
-                        getCommunityPulseFromCloud(cityStateKey).catch(() => null),
-                        getGeneralMarketIntelligenceFromCloud(cityStateKey).catch(() => null),
-                        getDeepInvestmentResearchFromCloud(cityStateKey).catch(() => null)
-                    ]);
-                    if (pulse) enrichedVisual = { ...enrichedVisual, community_pulse: pulse };
-                    if (market) enrichedVisual = { ...enrichedVisual, general_market_intelligence: market };
-                    if (deep) enrichedVisual = { ...enrichedVisual, deep_investment_research: deep };
-                }
 
                 // Extract context graph via Gemini
                 addLog(`[Context Graph] ${isRegen ? '↻ Regen' : '▶ New'} ${addr}...`);
@@ -1392,18 +1505,22 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         address: enrichedProperty.address
                     });
                     addLog(`[Context Graph] ✓ Saved ${res.data.factors.length} factors for ${addr}`);
-                    return 'done';
+                    return { status: 'done' };
                 } else {
                     addLog(`[Context Graph] ✗ No factors returned for ${addr}`);
-                    return 'failed';
+                    return { status: 'failed' };
                 }
             }));
 
             // Tally results
             for (const r of results) {
                 if (r.status === 'fulfilled') {
-                    if (r.value === 'done') done++;
-                    else failed++;
+                    const val = r.value as any;
+                    if (val.status === 'done') done++;
+                    else if (val.status === 'missing') {
+                        missingData++;
+                        missingDataDetails.push({ addr: val.addr || '?', reasons: val.reasons || [] });
+                    } else failed++;
                 } else {
                     failed++;
                     console.error('[Context Graph Batch] Error:', r.reason);
@@ -1419,8 +1536,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
         }
 
-        addLog(`[Context Graph] Sync complete: ${done} generated/regenerated, ${skipped} up-to-date, ${failed} failed / ${zpids.length} total.`);
-        logPipelineAudit('Sync Context Graphs', `${zpids.length} properties`, failed === 0 ? 'success' : 'partial', `${done} new/regen, ${skipped} up-to-date, ${failed} failed`, undefined, { done, skipped, failed, total: zpids.length, newCount: needsGeneration.length, staleCount: needsRegen.length });
+        // Summary with missing-data breakdown
+        const summaryParts = [
+            `${done} generated/regenerated`,
+            `${skipped} up-to-date`,
+        ];
+        if (missingData > 0) {
+            // Count missing reasons
+            const reasonCounts: Record<string, number> = {};
+            for (const d of missingDataDetails) {
+                for (const r of d.reasons) {
+                    reasonCounts[r] = (reasonCounts[r] || 0) + 1;
+                }
+            }
+            const reasonStr = Object.entries(reasonCounts)
+                .sort(([, a], [, b]) => b - a)
+                .map(([r, c]) => `${c} no ${r}`)
+                .join(', ');
+            summaryParts.push(`${missingData} missing data (${reasonStr})`);
+        }
+        if (failed > 0) summaryParts.push(`${failed} failed`);
+        addLog(`[Context Graph] Sync complete: ${summaryParts.join(', ')} / ${zpids.length} total.`);
+        logPipelineAudit('Sync Context Graphs', `${zpids.length} properties`, failed === 0 && missingData === 0 ? 'success' : 'partial', summaryParts.join(', '), undefined, { done, skipped, failed, missingData, total: zpids.length, newCount: needsGeneration.length, staleCount: needsRegen.length });
         setGraphBatchRunning(false);
     };
 
@@ -1927,6 +2064,20 @@ ${JSON.stringify(propertySummaries)}
                                                 </>
                                             ) : (
                                                 <><i className="fa-solid fa-flask text-violet-400 group-hover:scale-110 transition-transform"></i>Smoke Test{visibleSelectedCount > 0 ? ` (${visibleSelectedCount})` : ''}</>
+                                            )}
+                                        </button>
+                                    )}
+                                    {cachedPropertyIds.size > 0 && (
+                                        <button
+                                            onClick={handleCityContextGraph}
+                                            disabled={cityGraphRunning || loading}
+                                            className="px-6 py-3 bg-white border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3 group disabled:opacity-50"
+                                            title="Extract 14 city-level factors (market, community, investment) from deep research + community pulse — runs ONCE per city"
+                                        >
+                                            {cityGraphRunning ? (
+                                                <><i className="fa-solid fa-spinner animate-spin text-amber-400"></i>Extracting...</>
+                                            ) : (
+                                                <><i className="fa-solid fa-city text-amber-500 group-hover:scale-110 transition-transform"></i>City Context</>
                                             )}
                                         </button>
                                     )}

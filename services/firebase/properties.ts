@@ -250,6 +250,15 @@ export interface CityPropertySummary {
     neighborhood?: string;
     coordinates?: { latitude: number; longitude: number };
     images?: string[];
+    // Additional MLS fields for advanced filters
+    yearBuilt?: number;
+    stories?: number;
+    garage?: number;
+    pool?: boolean;
+    homeStatus?: string;
+    daysOnZillow?: number;
+    hoa?: number;
+    city?: string;
 }
 
 /**
@@ -286,6 +295,15 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                 neighborhood: resolvedNeighborhood,
                 coordinates: coords,
                 images: data.images?.slice(0, 1) || [],
+                // Additional MLS fields
+                yearBuilt: data.yearBuilt ?? data.year_built ?? undefined,
+                stories: data.stories ?? data.resoFacts?.stories ?? undefined,
+                garage: data.garageSpaces ?? data.resoFacts?.garageSpaces ?? undefined,
+                pool: data.resoFacts?.hasPool === true || data.pool === true || false,
+                homeStatus: data.homeStatus || data.home_status || '',
+                daysOnZillow: data.daysOnZillow ?? data.days_on_zillow ?? undefined,
+                hoa: data.monthlyHoaFee ?? data.hoaFee ?? undefined,
+                city: data.city || '',
             };
         });
     } catch (error: any) {
@@ -583,6 +601,34 @@ export const getDeepInvestmentResearchFromCloud = async (cityStateKey: string): 
         return data as DeepInvestmentResearchResult | null;
     } catch (error) {
         handleFirestoreError(error, "getDeepInvestmentResearchFromCloud");
+        return null;
+    }
+};
+// ── City-Level Context Graph (keyed by cityStateKey e.g. "dublin_ca") ──
+
+export const saveCityContextGraphToCloud = async (cityStateKey: string, data: any) => {
+    if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing key" };
+    try {
+        const docRef = doc(db, "city_context_graph", cityStateKey);
+        logFirestoreQuery('setDoc', 'city_context_graph', { cityStateKey });
+        await setDoc(docRef, {
+            ...sanitizeForFirestore(data),
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveCityContextGraphToCloud") as string };
+    }
+};
+
+export const getCityContextGraphFromCloud = async (cityStateKey: string): Promise<any | null> => {
+    if (!db || !cityStateKey) return null;
+    try {
+        logFirestoreQuery('getDoc', 'city_context_graph', { cityStateKey });
+        const snap = await getDoc(doc(db, "city_context_graph", cityStateKey));
+        return snap.exists() ? snap.data() : null;
+    } catch (error) {
+        handleFirestoreError(error, "getCityContextGraphFromCloud");
         return null;
     }
 };

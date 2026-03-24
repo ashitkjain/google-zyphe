@@ -19,7 +19,14 @@ export const optimizePropertyForAi = (property: PropertyData): Partial<PropertyD
         mapZoomIn,
         mapZoomOut,
         nearbyHomes,
-        comps, // Drop comps - not needed for narrative description
+        comps,                  // Drop comps - not needed for narrative description
+        neighborhoodPlaces,     // 30-40K chars — raw Google Places, already precomputed as factors 83-88, 120
+        google_places,          // Alias for same data
+        __cachedEnvEarly,       // 40-50K chars — internal cache artifact, never for AI
+        parcelPolygon,          // 4K chars — raw GeoJSON coords, not useful for factor extraction
+        __pipeline_timings,     // Internal timing metadata
+        satelliteImageUrl,      // URL string, not useful for text analysis
+        historical_disasters,   // 5-6K chars — raw FEMA data, already precomputed as factor 112
         ...keptData
     } = property;
 

@@ -34,6 +34,34 @@ const ContextGraphPage: React.FC<Props> = ({ zpid, onBack }) => {
             if (!forceRefresh) {
                 const cached = await getContextGraphFromCloud(zpid);
                 if (cached && cached.factors && cached.factors.length > 0) {
+                    // Merge city-level factors if not already present (backward compat)
+                    try {
+                        const { getCityContextGraphFromCloud } = await import('../../services/firebase/properties');
+                        const { CITY_LEVEL_FACTOR_IDS } = await import('../../constants/contextGraphFactors');
+                        const { generateCityStateKey } = await import('../../services/firebase/config');
+                        const cityKey = generateCityStateKey(cached.city || '', cached.state || '');
+                        if (cityKey) {
+                            const cityGraph = await getCityContextGraphFromCloud(cityKey);
+                            if (cityGraph?.factors?.length > 0) {
+                                const existingIds = new Set(
+                                    cached.factors.map((f: any) => f.i ?? f.id).filter((id: any) => id != null)
+                                );
+                                const cityFactorIdSet = new Set(CITY_LEVEL_FACTOR_IDS);
+                                const toAdd = cityGraph.factors.filter((cf: any) => {
+                                    const cfId = cf.i ?? cf.id;
+                                    return cfId != null && cityFactorIdSet.has(cfId) && !existingIds.has(cfId);
+                                });
+                                if (toAdd.length > 0) {
+                                    cached.factors = [...cached.factors, ...toAdd];
+                                    console.log(`[ContextGraphPage] Merged ${toAdd.length} city-level factors`);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // Non-critical — display without city factors
+                        console.warn('[ContextGraphPage] City factor merge failed:', e);
+                    }
+
                     setGraphResult(cached as ContextGraphExtractionResult);
                     setPropertyAddress(cached.address || zpid);
                     setLoading(false);

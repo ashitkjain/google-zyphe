@@ -495,39 +495,49 @@ export const fetchCensusDemographics = async (
         zpid,
         address,
         api_name: 'U.S. Census ACS',
-        endpoint: 'acs5 + geocoder',
+        endpoint: 'proxyCensusACS',
         params: { lat, lng },
         status: 'pending',
     });
 
     try {
-        // Step 1: Geocode lat/lng → Census Tract FIPS
-        const geoUrl = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
-        const geoRes = await fetch(geoUrl);
-        if (!geoRes.ok) throw new Error(`Census Geocoder failed: ${geoRes.status}`);
-        const geoData = await geoRes.json();
+        // Route through Cloud Function proxy (Census APIs block CORS)
+        const { auth: firebaseAuth } = await import('../firebase/config');
+        const idToken = firebaseAuth?.currentUser
+            ? await firebaseAuth.currentUser.getIdToken()
+            : null;
 
-        const geographies = geoData?.result?.geographies?.['Census Tracts'];
-        if (!geographies || geographies.length === 0) {
-            throw new Error('No census tract found for coordinates');
+        if (!idToken) {
+            console.warn('[Census ACS] No auth token available — skipping.');
+            return null;
         }
 
-        const tract = geographies[0];
-        const stateFips = tract.STATE;   // e.g. "06" (California)
-        const countyFips = tract.COUNTY; // e.g. "001" (Alameda)
-        const tractId = tract.TRACT;     // e.g. "451502"
-        const tractName = tract.BASENAME || `Tract ${tractId}`;
+        const proxyUrl = 'https://us-central1-zyphe-af0bf.cloudfunctions.net/proxyCensusACS';
+        const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ lat, lng }),
+        });
 
-        // Step 2: Fetch ACS 5-Year Estimates for this tract
-        const acsUrl = `https://api.census.gov/data/2022/acs/acs5?get=${ACS_VARIABLES}&for=tract:${tractId}&in=state:${stateFips}&in=county:${countyFips}`;
-        const acsRes = await fetch(acsUrl);
-        if (!acsRes.ok) throw new Error(`Census ACS failed: ${acsRes.status}`);
-        const acsData = await acsRes.json();
+        const data = await response.json();
 
-        // ACS returns [headers[], values[]]
-        if (!acsData || acsData.length < 2) throw new Error('No ACS data returned');
-        const headers: string[] = acsData[0];
-        const values: string[] = acsData[1];
+        if (data.status === 'NO_TRACT') {
+            console.warn('[Census ACS] No census tract found for coordinates');
+            if (logId) updateAPICall(logId, { status: 'completed', response_time_ms: Date.now() - start });
+            return null;
+        }
+
+        if (data.status === 'ERROR') {
+            throw new Error(data.error || 'Proxy returned error');
+        }
+
+        // Parse the ACS data from proxy response
+        const { tract, acs } = data;
+        const headers: string[] = acs.headers;
+        const values: string[] = acs.values;
 
         const getVal = (varCode: string): number | null => {
             const idx = headers.indexOf(varCode);
@@ -562,7 +572,7 @@ export const fetchCensusDemographics = async (
         const renterPct = totalTenure && totalTenure > 0 && renterOcc != null ? Math.round((renterOcc / totalTenure) * 100) : null;
 
         // Generate insight
-        let insight = `Census Tract ${tractName}`;
+        let insight = `Census Tract ${tract.tractName}`;
         if (medianIncome) insight += ` · Median income $${medianIncome.toLocaleString()}`;
         if (ownerPct != null) insight += ` · ${ownerPct}% owner-occupied`;
         if (bachelorsPlusPct != null) insight += ` · ${bachelorsPlusPct}% college-educated`;
@@ -573,9 +583,9 @@ export const fetchCensusDemographics = async (
         }
 
         return {
-            tractId,
-            countyFips,
-            stateFips,
+            tractId: tract.tractId,
+            countyFips: tract.countyFips,
+            stateFips: tract.stateFips,
             medianHouseholdIncome: medianIncome,
             medianAge,
             totalPopulation: totalPop,
@@ -585,7 +595,7 @@ export const fetchCensusDemographics = async (
             renterPct,
             medianHomeValue: medianHomeVal,
             bachelorsPlusPct,
-            tractLabel: `Census Tract ${tractName}`,
+            tractLabel: `Census Tract ${tract.tractName}`,
             insight,
             fetchedAt: new Date().toISOString(),
         };

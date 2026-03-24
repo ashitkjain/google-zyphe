@@ -494,6 +494,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             </div>
                         </div>
 
+                        <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab="overview">
+                        {(renderPalette) => (<>
                         {/* ── Tab Navigation Bar ── */}
                         <div className="bg-white border-x border-b border-slate-100 px-6 py-3 flex items-center gap-3">
                             {/* Overview tab — full size */}
@@ -579,13 +581,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             <i className="fa-solid fa-sync text-[9px]"></i>
                                         </button>
                                     )}
+                                    {renderPalette()}
                                 </div>
                             </div>
                         </div>
 
                         {/* ── Tab Content ── */}
                         {activeTab === 'property-data' && (
-                            <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab="overview">
                                 <div className="flex flex-col gap-2.5">
 
 
@@ -1826,9 +1828,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         </div>
                                     )}
 
-                                    <ComplianceAttribution data={propertyData} />
                                 </div>
-                            </StickyNotesLayer>
                         )}
 
                         {activeTab === 'visual-ai' && (
@@ -1863,6 +1863,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onToggleFavorite={onToggleFavorite}
                             />
                         )}
+                    </>)}
+                    </StickyNotesLayer>
                     </>
                 )}
 
@@ -1939,6 +1941,41 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [page, setPage] = useState(1);
     const PER_PAGE = 20;
 
+    // Advanced filters
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [filterHomeType, setFilterHomeType] = useState('');
+    const [filterMinSqft, setFilterMinSqft] = useState('');
+    const [filterMaxSqft, setFilterMaxSqft] = useState('');
+    const [filterMinYear, setFilterMinYear] = useState('');
+    const [filterMaxYear, setFilterMaxYear] = useState('');
+    const [filterStories, setFilterStories] = useState('');
+    const [filterGarage, setFilterGarage] = useState('');
+    const [filterPool, setFilterPool] = useState<'' | 'yes' | 'no'>('');
+    const [filterMaxHoa, setFilterMaxHoa] = useState('');
+    const [filterMaxDom, setFilterMaxDom] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+
+    const advancedFilterCount = useMemo(() => {
+        let count = 0;
+        if (filterHomeType) count++;
+        if (filterMinSqft || filterMaxSqft) count++;
+        if (filterMinYear || filterMaxYear) count++;
+        if (filterStories) count++;
+        if (filterGarage) count++;
+        if (filterPool) count++;
+        if (filterMaxHoa) count++;
+        if (filterMaxDom) count++;
+        if (filterStatus) count++;
+        return count;
+    }, [filterHomeType, filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterStories, filterGarage, filterPool, filterMaxHoa, filterMaxDom, filterStatus]);
+
+    const clearAdvancedFilters = () => {
+        setFilterHomeType(''); setFilterMinSqft(''); setFilterMaxSqft('');
+        setFilterMinYear(''); setFilterMaxYear(''); setFilterStories('');
+        setFilterGarage(''); setFilterPool(''); setFilterMaxHoa('');
+        setFilterMaxDom(''); setFilterStatus(''); setPage(1);
+    };
+
     // Listen for browse-city events from the search bar Browse button
     useEffect(() => {
         const handler = (e: Event) => {
@@ -1972,14 +2009,15 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
     const [buyerSearching, setBuyerSearching] = useState(false);
-    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] | null>(null);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string; matchSummary?: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; dealbreakers?: import('../../services/prompts/buyerStoryMatch').Dealbreaker[]; relevantFactorIds?: number[] } | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; dealbreakers?: import('../../services/prompts/buyerStoryMatch').Dealbreaker[]; relevantFactorIds?: number[]; searchSummary?: string } | null>(null);
     const [buyerDealbreakersUnmet, setBuyerDealbreakersUnmet] = useState<import('../../services/prompts/buyerStoryMatch').Dealbreaker[] | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
+    const [buyerScoredCount, setBuyerScoredCount] = useState<number>(0);
 
     // Persona context from My Story intake form (who the buyer IS)
     const buyerPersonaRef = React.useRef<import('../../services/prompts/buyerStoryMatch').PersonaContext | undefined>(undefined);
@@ -2097,7 +2135,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Filtered + sorted flat list
     const processed = useMemo(() => {
         let list = [...results];
-        // Filters
+        // Basic filters
         const minP = filterMinPrice ? parseFloat(filterMinPrice) : 0;
         const maxP = filterMaxPrice ? parseFloat(filterMaxPrice) : Infinity;
         const minBeds = filterBeds ? parseInt(filterBeds) : 0;
@@ -2107,6 +2145,19 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         if (minBeds > 0) list = list.filter(p => (p.bedrooms || 0) >= minBeds);
         if (minBaths > 0) list = list.filter(p => (p.bathrooms || 0) >= minBaths);
         if (filterNeighborhood) list = list.filter(p => p.neighborhood === filterNeighborhood);
+        // Advanced filters
+        if (filterHomeType) list = list.filter(p => (p.homeType || '').toUpperCase().includes(filterHomeType.toUpperCase()));
+        if (filterMinSqft) list = list.filter(p => (p.livingArea || 0) >= parseInt(filterMinSqft));
+        if (filterMaxSqft) list = list.filter(p => (p.livingArea || Infinity) <= parseInt(filterMaxSqft));
+        if (filterMinYear) list = list.filter(p => (p.yearBuilt || 0) >= parseInt(filterMinYear));
+        if (filterMaxYear) list = list.filter(p => (p.yearBuilt || 9999) <= parseInt(filterMaxYear));
+        if (filterStories) list = list.filter(p => (p.stories || 0) >= parseInt(filterStories));
+        if (filterGarage) list = list.filter(p => (p.garage || 0) >= parseInt(filterGarage));
+        if (filterPool === 'yes') list = list.filter(p => p.pool === true);
+        if (filterPool === 'no') list = list.filter(p => !p.pool);
+        if (filterMaxHoa) list = list.filter(p => (p.hoa || 0) <= parseInt(filterMaxHoa));
+        if (filterMaxDom) list = list.filter(p => (p.daysOnZillow || 0) <= parseInt(filterMaxDom));
+        if (filterStatus) list = list.filter(p => (p.homeStatus || '').toUpperCase().includes(filterStatus.toUpperCase()));
         // Sort
         list.sort((a, b) => {
             const av = a[sortField] ?? '';
@@ -2115,7 +2166,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             return sortDir === 'asc' ? (Number(av) - Number(bv)) : (Number(bv) - Number(av));
         });
         return list;
-    }, [results, sortField, sortDir, filterMinPrice, filterMaxPrice, filterBeds, filterBaths, filterNeighborhood]);
+    }, [results, sortField, sortDir, filterMinPrice, filterMaxPrice, filterBeds, filterBaths, filterNeighborhood, filterHomeType, filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterStories, filterGarage, filterPool, filterMaxHoa, filterMaxDom, filterStatus]);
 
     // Notify parent about results state
     useEffect(() => {
@@ -2179,7 +2230,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const extractionPrompt = buildExtractionPrompt(buyerStory, buyerPersonaRef.current);
 
             type ExtDealbreaker = { requirement: string; type: 'location' | 'verifiable' | 'runtime'; factor_id: number };
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; dealbreakers: ExtDealbreaker[]; relevant_factor_ids: number[] };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; dealbreakers: ExtDealbreaker[]; relevant_factor_ids: number[]; search_summary: string };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2199,9 +2250,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         },
                         required: ['requirement', 'type', 'factor_id']
                     }},
-                    relevant_factor_ids: { type: Type.ARRAY, items: { type: Type.NUMBER } }
+                    relevant_factor_ids: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+                    search_summary: { type: Type.STRING }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'dealbreakers', 'relevant_factor_ids']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'dealbreakers', 'relevant_factor_ids', 'search_summary']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
@@ -2249,7 +2301,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 mustHaves: ext.must_haves || [],
                 niceToHaves: ext.nice_to_haves || [],
                 dealbreakers: (ext.dealbreakers || []).map(db => ({ requirement: db.requirement, type: db.type, factorId: db.factor_id || undefined })),
-                relevantFactorIds: ext.relevant_factor_ids || []
+                relevantFactorIds: ext.relevant_factor_ids || [],
+                searchSummary: ext.search_summary || undefined
             };
             setBuyerExtracted(extracted);
 
@@ -2362,6 +2415,45 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
             }
             timings.push({ step: `Firestore (${graphMap.size} docs)`, ms: Math.round(performance.now() - t1) });
 
+            // ── STEP 1a: Merge city-level factors (backward compatible) ──
+            const t1a = performance.now();
+            const { getCityContextGraphFromCloud } = await import('../../services/firebase/properties');
+            const { CITY_LEVEL_FACTOR_IDS } = await import('../../constants/contextGraphFactors');
+            const { generateCityStateKey } = await import('../../services/firebase/config');
+
+            // Determine city/state from the first graph entry for key generation
+            const firstGraph = graphMap.values().next().value;
+            const cityKey = generateCityStateKey(
+                firstGraph?.city || cityForQuery,
+                firstGraph?.state || ''
+            );
+            const cityGraph = cityKey ? await getCityContextGraphFromCloud(cityKey) : null;
+            const cityFactors: any[] = cityGraph?.factors || [];
+            const cityFactorIdSet = new Set(CITY_LEVEL_FACTOR_IDS);
+
+            if (cityFactors.length > 0) {
+                let mergedCount = 0;
+                for (const [zpid, graph] of graphMap) {
+                    const existingIds = new Set(
+                        (graph.factors || []).map((f: any) => f.i ?? f.id).filter((id: any) => id != null)
+                    );
+                    // Only add city factors the property doesn't already have (backward compat)
+                    const toAdd = cityFactors.filter((cf: any) => {
+                        const cfId = cf.i ?? cf.id;
+                        return cfId != null && cityFactorIdSet.has(cfId) && !existingIds.has(cfId);
+                    });
+                    if (toAdd.length > 0) {
+                        graph.factors = [...(graph.factors || []), ...toAdd];
+                        mergedCount++;
+                    }
+                }
+                console.log(`[Buyer Match] Merged ${cityFactors.length} city factors into ${mergedCount} property graphs (skipped already-present)`);
+                timings.push({ step: `City merge (${cityFactors.length} factors)`, ms: Math.round(performance.now() - t1a) });
+            } else {
+                console.log(`[Buyer Match] No city context graph found for "${cityKey}" — using property-only factors`);
+                timings.push({ step: 'City merge (none)', ms: Math.round(performance.now() - t1a) });
+            }
+
             // ── STEP 1b: Filter out guaranteed mismatches by factor ID coverage ──
             const t1b = performance.now();
             const MAX = 20;
@@ -2414,6 +2506,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                 return;
             }
             timings.push({ step: `Filter (${graphs.length} kept of ${graphMap.size})`, ms: Math.round(performance.now() - t1b) });
+            setBuyerScoredCount(graphs.length);
 
             // ── STEP 3: Parallel Gemini matching (chunked) ──
             const t3 = performance.now();
@@ -2446,9 +2539,10 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                 score: { type: Type.NUMBER },
                                 reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 misses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                match_summary: { type: Type.STRING },
                                 highlight: { type: Type.STRING }
                             },
-                            required: ['zpid', 'score', 'reasons', 'misses', 'highlight']
+                            required: ['zpid', 'score', 'reasons', 'misses', 'match_summary', 'highlight']
                         }
                     }
                 },
@@ -2482,7 +2576,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
 
                 const prompt = buildMatchingPrompt(buyerStory, extracted, summaries, buyerPersonaRef.current);
 
-                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; highlight: string }[] }>({
+                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; match_summary: string; highlight: string }[] }>({
                     model: FLASH_MODEL,
                     contents: prompt,
                     config: { temperature: 0.3, maxOutputTokens: 4096 },
@@ -2501,7 +2595,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
 
             const allMatches = chunkResults
                 .flatMap(r => r.data?.matches || [])
-                .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid }))
+                .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid, matchSummary: m.match_summary }))
                 .sort((a, b) => b.score - a.score)
                 .slice(0, 10);
 
@@ -2698,6 +2792,22 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                             </select>
                         )}
 
+                        {/* More Filters button */}
+                        <button
+                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+                                advancedFilterCount > 0
+                                    ? 'bg-indigo-100 border border-indigo-300 text-indigo-700'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+                            }`}
+                        >
+                            <i className="fa-solid fa-sliders text-[9px]"></i>
+                            More Filters
+                            {advancedFilterCount > 0 && (
+                                <span className="bg-indigo-600 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">{advancedFilterCount}</span>
+                            )}
+                        </button>
+
                         {/* Count */}
                         <span className="ml-auto text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             {displayList.length} {displayList.length === 1 ? 'property' : 'properties'}
@@ -2706,6 +2816,125 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
 
 
                     </div>
+
+                    {/* ── ADVANCED FILTERS OVERLAY ── */}
+                    {showAdvancedFilters && (
+                        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-4 animate-in slide-in-from-top-2 duration-200">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <i className="fa-solid fa-sliders text-indigo-500"></i>
+                                    <span className="text-sm font-black text-slate-700">Advanced Filters</span>
+                                    {advancedFilterCount > 0 && (
+                                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-md">{advancedFilterCount} active</span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {advancedFilterCount > 0 && (
+                                        <button onClick={clearAdvancedFilters} className="text-[10px] font-bold text-rose-500 hover:text-rose-700 transition-colors">
+                                            <i className="fa-solid fa-xmark mr-1"></i>Clear All
+                                        </button>
+                                    )}
+                                    <button onClick={() => setShowAdvancedFilters(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                        <i className="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* MLS Filters */}
+                            <div>
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Property Details</div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Home Type</label>
+                                        <select value={filterHomeType} onChange={e => { setFilterHomeType(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="SINGLE_FAMILY">Single Family</option>
+                                            <option value="TOWNHOUSE">Townhouse</option>
+                                            <option value="CONDO">Condo</option>
+                                            <option value="MULTI_FAMILY">Multi-Family</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Sqft Range</label>
+                                        <div className="flex gap-1">
+                                            <input value={filterMinSqft} onChange={e => { setFilterMinSqft(e.target.value); setPage(1); }} placeholder="Min" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
+                                            <input value={filterMaxSqft} onChange={e => { setFilterMaxSqft(e.target.value); setPage(1); }} placeholder="Max" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Year Built</label>
+                                        <div className="flex gap-1">
+                                            <input value={filterMinYear} onChange={e => { setFilterMinYear(e.target.value); setPage(1); }} placeholder="From" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
+                                            <input value={filterMaxYear} onChange={e => { setFilterMaxYear(e.target.value); setPage(1); }} placeholder="To" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Stories</label>
+                                        <select value={filterStories} onChange={e => { setFilterStories(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="1">1 story</option>
+                                            <option value="2">2+ stories</option>
+                                            <option value="3">3+ stories</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Garage</label>
+                                        <select value={filterGarage} onChange={e => { setFilterGarage(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="1">1+ car</option>
+                                            <option value="2">2+ car</option>
+                                            <option value="3">3+ car</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Pool</label>
+                                        <select value={filterPool} onChange={e => { setFilterPool(e.target.value as '' | 'yes' | 'no'); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="yes">Has Pool</option>
+                                            <option value="no">No Pool</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Max HOA $/mo</label>
+                                        <input value={filterMaxHoa} onChange={e => { setFilterMaxHoa(e.target.value); setPage(1); }} placeholder="e.g. 500" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Status</label>
+                                        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="FOR_SALE">For Sale</option>
+                                            <option value="PENDING">Pending</option>
+                                            <option value="SOLD">Sold</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Market Filters */}
+                            <div>
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Market & Timing</div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Max Days on Market</label>
+                                        <select value={filterMaxDom} onChange={e => { setFilterMaxDom(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                            <option value="">Any</option>
+                                            <option value="7">Under 1 week</option>
+                                            <option value="14">Under 2 weeks</option>
+                                            <option value="30">Under 30 days</option>
+                                            <option value="60">Under 60 days</option>
+                                            <option value="90">Under 90 days</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end pt-1">
+                                <button onClick={() => setShowAdvancedFilters(false)} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors">
+                                    Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ── BUYER STORY SEARCH PANEL (ZypheAI mode only) ── */}
                     {viewMode === 'zypheai' && showBuyerSearch && (
@@ -2761,7 +2990,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                 </button>
                                 {buyerResults && (
                                     <>
-                                        <span className="text-xs font-bold text-indigo-600">{buyerResults.length} matches — results sorted below</span>
+                                        <span className="text-xs font-bold text-indigo-600">{buyerResults.length} matches from {buyerScoredCount} scored — results sorted below</span>
                                         <button onClick={() => { setBuyerResults(null); setBuyerExtracted(null); }} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors ml-1">
                                             <i className="fa-solid fa-xmark"></i> Clear
                                         </button>
@@ -2822,40 +3051,13 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                 </div>
                             )}
 
-                            {/* Extracted criteria */}
+                            {/* Extracted criteria — prose summary */}
                             {buyerExtracted && !buyerError && (
-                                <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                                    <span className="font-bold text-slate-500 uppercase tracking-wider">AI Extracted:</span>
-                                    <span className="font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
-                                        {fmt(buyerExtracted.priceMin)}–{fmt(buyerExtracted.priceMax)}
-                                    </span>
-                                    {buyerExtracted.beds && (
-                                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{buyerExtracted.beds}+ beds</span>
-                                    )}
-                                    {buyerExtracted.baths && (
-                                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{buyerExtracted.baths}+ baths</span>
-                                    )}
-                                    {buyerExtracted.homeType && (
-                                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{buyerExtracted.homeType.replace(/_/g, ' ')}</span>
-                                    )}
-                                    {buyerExtracted.singleStory && (
-                                        <span className="font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">⚡ single story</span>
-                                    )}
-                                    {buyerExtracted.dealbreakers?.map((db, i) => (
-                                        <span key={`db-${i}`} className={`font-black px-2 py-0.5 rounded-md border ${
-                                            db.type === 'location' ? 'text-rose-700 bg-rose-100 border-rose-300' :
-                                            db.type === 'runtime' ? 'text-blue-700 bg-blue-100 border-blue-300' :
-                                            'text-amber-800 bg-amber-100 border-amber-300'
-                                        }`}>
-                                            {db.type === 'location' ? '🌍' : db.type === 'runtime' ? '⏱' : '⚠'} {db.requirement}
-                                        </span>
-                                    ))}
-                                    {buyerExtracted.mustHaves.map((mh, i) => (
-                                        <span key={`mh-${i}`} className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">{mh}</span>
-                                    ))}
-                                    {buyerExtracted.niceToHaves.map((nth, i) => (
-                                        <span key={`nth-${i}`} className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">{nth}</span>
-                                    ))}
+                                <div className="bg-white border border-indigo-100 rounded-xl px-4 py-2.5">
+                                    <p className="text-xs text-slate-600 leading-relaxed">
+                                        <i className="fa-solid fa-sparkles text-indigo-400 mr-1.5"></i>
+                                        {buyerExtracted.searchSummary || `Searching for properties in the ${fmt(buyerExtracted.priceMin)}–${fmt(buyerExtracted.priceMax)} range.`}
+                                    </p>
                                 </div>
                             )}
                         </div>
@@ -2959,21 +3161,28 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                                         "{match.highlight}"
                                                     </p>
 
-                                                    {/* Reasons */}
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {match.reasons.map((r, ri) => (
-                                                            <span key={ri} className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-1 rounded-md text-[10px] font-bold">
-                                                                <i className="fa-solid fa-check text-[7px] text-emerald-500"></i>
-                                                                {r}
+                                                    {/* Match summary — prose */}
+                                                    {match.matchSummary && (
+                                                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                                                            {match.matchSummary}
+                                                        </p>
+                                                    )}
+
+                                                    {/* Reasons & Misses — compact */}
+                                                    <p className="text-[10px] leading-relaxed">
+                                                        {match.reasons.length > 0 && (
+                                                            <span className="text-emerald-700">
+                                                                <i className="fa-solid fa-check text-[7px] text-emerald-500 mr-0.5"></i>
+                                                                {match.reasons.join(' · ')}
                                                             </span>
-                                                        ))}
-                                                        {match.misses && match.misses.length > 0 && match.misses.map((m, mi) => (
-                                                            <span key={`miss-${mi}`} className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-600 px-2 py-1 rounded-md text-[10px] font-bold">
-                                                                <i className="fa-solid fa-xmark text-[7px] text-rose-400"></i>
-                                                                {m}
+                                                        )}
+                                                        {match.misses && match.misses.length > 0 && (
+                                                            <span className="text-rose-600 ml-2">
+                                                                <i className="fa-solid fa-xmark text-[7px] text-rose-400 mr-0.5"></i>
+                                                                {match.misses.join(' · ')}
                                                             </span>
-                                                        ))}
-                                                    </div>
+                                                        )}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>

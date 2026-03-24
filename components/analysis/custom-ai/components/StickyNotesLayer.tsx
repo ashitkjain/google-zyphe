@@ -9,7 +9,7 @@ import { trackEvent as trackPH } from '../../../../services/analytics/posthog';
 interface Props {
     zpid: string;
     activeTab: string;
-    children: React.ReactNode;
+    children: (renderPalette: () => React.ReactNode) => React.ReactNode;
 }
 
 const PALETTE_COLORS: { id: StickyNoteColor; label: string; color: string; border: string }[] = [
@@ -156,15 +156,32 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
 
     const handleUpdate = async (id: string, updates: Partial<UserPropertyComment>) => {
         setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
-        const success = await updateStickyNote(id, updates);
+        const success = await updateStickyNote(id, { ...updates, userId: user?.uid });
         if (!success) loadNotes();
     };
 
     const handleDelete = async (id: string) => {
         setNotes(prev => prev.filter(n => n.id !== id));
-        const success = await deleteStickyNote(id);
+        const success = await deleteStickyNote(id, user?.uid);
         if (!success) loadNotes();
     };
+
+    const palette = () => (
+        <div className="relative group/palette-item flex-shrink-0 ml-auto">
+            <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm bg-[#ffff88] opacity-30 blur-[1px] -rotate-2"></div>
+            <div
+                onMouseDown={(e) => handlePaletteDragStart(e, 'yellow')}
+                onTouchStart={(e) => handlePaletteDragStart(e, 'yellow')}
+                onDragStart={(e) => e.preventDefault()}
+                className="relative z-10 w-[52px] h-[52px] rounded-[2px] bg-[#ffff88] cursor-grab active:cursor-grabbing flex flex-col items-center justify-center gap-0.5 transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-[2px_2px_6px_rgba(33,33,33,.15)] -rotate-2 post-it-font"
+                style={{ fontFamily: "'Architects Daughter', cursive" }}
+            >
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
+                <i className="fa-solid fa-pen-fancy text-amber-700/20 text-xs"></i>
+                <span className="text-[6px] font-black uppercase tracking-wider text-amber-700/40 leading-none">Note</span>
+            </div>
+        </div>
+    );
 
     return (
         <div className="relative group/layer min-h-full">
@@ -177,35 +194,6 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                 }
             `}} />
 
-            {/* Quick Note Palette — fixed top-right, compact horizontal */}
-            <div className="fixed z-[101] top-3 right-4 animate-in slide-in-from-right-4 duration-500">
-                <div className="flex items-center gap-2.5 bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-200/80 shadow-lg">
-                    <div className="flex flex-col items-center gap-0 mr-0.5">
-                        <span className="text-[8px] font-black uppercase tracking-[0.15em] text-amber-600 leading-tight">Quick Note</span>
-                        <span className="text-[7px] font-semibold text-slate-400 leading-tight">Drag to page</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        {PALETTE_COLORS.map((note, idx) => {
-                            const rotations = ['-rotate-2', 'rotate-1', 'rotate-2', '-rotate-1'];
-                            return (
-                            <div key={note.id} className="relative group/palette-item">
-                                <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm ${note.color} opacity-30 blur-[1px] ${rotations[idx]}`}></div>
-                                <div
-                                    onMouseDown={(e) => handlePaletteDragStart(e, note.id)}
-                                    onTouchStart={(e) => handlePaletteDragStart(e, note.id)}
-                                    onDragStart={(e) => e.preventDefault()}
-                                    className={`w-8 h-8 rounded-[2px] ${note.color} cursor-grab active:cursor-grabbing flex items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-[2px_2px_6px_rgba(33,33,33,.15)] relative z-10 ${rotations[idx]}`}
-                                >
-                                    <div className="absolute bottom-0 right-0 w-2 h-2 bg-gradient-to-tl from-black/[0.07] to-transparent"></div>
-                                    <i className="fa-solid fa-pen-fancy opacity-15 text-[9px]"></i>
-                                </div>
-                            </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
             <div
                 ref={containerRef}
                 className="relative min-h-[500px]"
@@ -213,7 +201,7 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                     if (e.key === 'Escape') setPendingNote(null);
                 }}
             >
-                {children}
+                {children(palette)}
 
                 {/* Notes Canvas */}
                 <div className="absolute inset-0 pointer-events-none z-[100]">
@@ -269,7 +257,7 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                         height: '112px'
                     }}
                 >
-                    <div className={`w-full h-full rounded-[2px] shadow-2xl ${PALETTE_COLORS.find(c => c.id === draggingFromPalette)?.color}`}>
+                    <div className="w-full h-full rounded-[2px] shadow-2xl bg-[#ffff88]">
                         <div className="absolute bottom-0 right-0 w-4 h-4 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
                     </div>
                 </div>

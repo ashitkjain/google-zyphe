@@ -31,3 +31,25 @@ export const FACTOR_NAMES: Record<number, string> = {
 
 /** Unique factor names as an array (for use in prompts) */
 export const FACTOR_NAME_LIST = [...new Set(Object.values(FACTOR_NAMES))];
+
+/**
+ * City-level factor IDs — extracted ONCE per city from deep_investment_research
+ * and community_pulse, then merged into property context graphs at read time.
+ * These are identical across all properties in the same city.
+ */
+export const CITY_LEVEL_FACTOR_IDS: number[] = [
+    9,   // Appreciation
+    70,  // Market Momentum
+    71,  // Development Maturity
+    72,  // Complaints
+    73,  // Satisfaction
+    74,  // Safety (perceived)
+    75,  // Market Velocity (DOM)
+    89,  // Market Signals
+    90,  // Growth Catalysts
+    91,  // Investment Risk
+    92,  // Market Friction
+    93,  // Zoning
+    102, // Sentiment
+    103, // Market Narrative
+];

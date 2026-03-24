@@ -31,6 +31,7 @@ import { getDeepResearchInsightsPrompt, deepResearchInsightsSchema } from "../pr
 
 import { getInteriorSummaryPrompt, interiorSummarySchema } from "../prompts/property/interiorSummary";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
+import { buildCityContextGraphContext, getCityContextGraphPrompt, cityContextGraphSchema, CityContextGraphResult } from "../prompts/property/cityContextGraphExtraction";
 import { precomputeDataFactors, PRECOMPUTED_FACTOR_IDS } from "../utils/contextGraphPrecompute";
 
 import {
@@ -272,13 +273,13 @@ export const executeGeminiRequest = async <T>(
         });
 
         const inputTokens = tokenCountResponse.totalTokens;
-        const MAX_TOTAL_TOKENS = 100000;
+        const MAX_TOTAL_TOKENS = 120000;
 
         if (inputTokens > MAX_TOTAL_TOKENS) {
           throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
         }
 
-        // Adjust maxOutputTokens to ensure input + output <= 100K
+        // Adjust maxOutputTokens to ensure input + output <= limit
         const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
         finalConfig = {
           ...config,
@@ -627,6 +628,33 @@ export const analyzeSchool = async (school: any, property: PropertyData, userId:
     schema: schoolAnalysisSchema
   });
 };
+
+// ── City-Level Context Graph ──────────────────────────────────────────────
+
+export const extractCityContextGraph = async (
+  city: string,
+  state: string,
+  deepInvestmentResearch: any | null,
+  communityPulse: any | null,
+  userId: string = "unknown"
+): Promise<AIResponseWithUsage<CityContextGraphResult>> => {
+  const context = buildCityContextGraphContext(city, state, deepInvestmentResearch, communityPulse);
+  const prompt = getCityContextGraphPrompt(context);
+
+  console.log(`[City Context Graph] Extracting 14 city-level factors for ${city}, ${state}...`);
+
+  return executeGeminiRequest<CityContextGraphResult>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { temperature: 0.3, maxOutputTokens: 4096 },
+    userId,
+    promptFilename: "cityContextGraphExtraction.ts",
+    extractResultJson: true,
+    schema: cityContextGraphSchema
+  });
+};
+
+// ── Property-Level Context Graph ──────────────────────────────────────────
 
 export const extractContextGraphFactors = async (
   property: PropertyData,

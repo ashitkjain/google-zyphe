@@ -707,3 +707,111 @@ exports.proxyNoiseScore = functions.https.onRequest(async (req, res) => {
     }
 });
 
+/**
+ * Proxy function to call Census Bureau Geocoder + ACS 5-Year APIs.
+ * Both APIs lack CORS headers, blocking all browser requests.
+ * This function runs server-side and returns structured demographic data.
+ *
+ * Input: { lat: number, lng: number }
+ * Output: Census tract FIPS + ACS demographic fields
+ */
+exports.proxyCensusACS = functions.https.onRequest(async (req, res) => {
+    // Handle CORS preflight
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+
+    // Verify Firebase auth token
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) {
+        res.status(401).json({ status: "ERROR", error: "Unauthenticated" });
+        return;
+    }
+    try {
+        await admin.auth().verifyIdToken(idToken);
+    } catch (e) {
+        res.status(401).json({ status: "ERROR", error: "Invalid auth token" });
+        return;
+    }
+
+    const { lat, lng } = req.body;
+    if (lat == null || lng == null) {
+        res.status(400).json({ status: "ERROR", error: "Missing lat/lng" });
+        return;
+    }
+
+    console.log(`[ProxyCensusACS] Fetching demographics for (${lat}, ${lng})`);
+
+    try {
+        // Step 1: Geocode lat/lng → Census Tract FIPS
+        const geoUrl = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
+        const geoRes = await fetch(geoUrl);
+        if (!geoRes.ok) {
+            throw new Error(`Census Geocoder failed: ${geoRes.status}`);
+        }
+        const geoData = await geoRes.json();
+
+        const geographies = geoData?.result?.geographies?.["Census Tracts"];
+        if (!geographies || geographies.length === 0) {
+            res.status(200).json({ status: "NO_TRACT", error: "No census tract found for coordinates" });
+            return;
+        }
+
+        const tract = geographies[0];
+        const stateFips = tract.STATE;
+        const countyFips = tract.COUNTY;
+        const tractId = tract.TRACT;
+        const tractName = tract.BASENAME || `Tract ${tractId}`;
+
+        // Step 2: Fetch ACS 5-Year Estimates for this tract
+        const acsVariables = [
+            'B19013_001E', // Median household income
+            'B01002_001E', // Median age
+            'B01003_001E', // Total population
+            'B25003_001E', // Total housing units (tenure)
+            'B25003_002E', // Owner-occupied
+            'B25003_003E', // Renter-occupied
+            'B25077_001E', // Median home value
+            'B15003_001E', // Total education (25+)
+            'B15003_022E', // Bachelor's degree
+            'B15003_023E', // Master's degree
+            'B15003_024E', // Professional degree
+            'B15003_025E', // Doctorate degree
+        ].join(',');
+
+        const acsUrl = `https://api.census.gov/data/2022/acs/acs5?get=${acsVariables}&for=tract:${tractId}&in=state:${stateFips}&in=county:${countyFips}`;
+        const acsRes = await fetch(acsUrl);
+        if (!acsRes.ok) {
+            throw new Error(`Census ACS failed: ${acsRes.status}`);
+        }
+        const acsData = await acsRes.json();
+
+        if (!acsData || acsData.length < 2) {
+            throw new Error("No ACS data returned");
+        }
+
+        console.log(`[ProxyCensusACS] Success: Tract ${tractName} in state=${stateFips}, county=${countyFips}`);
+
+        res.status(200).json({
+            status: "OK",
+            tract: {
+                stateFips,
+                countyFips,
+                tractId,
+                tractName,
+            },
+            acs: {
+                headers: acsData[0],
+                values: acsData[1],
+            },
+        });
+    } catch (error) {
+        console.error("[ProxyCensusACS] Error:", error);
+        res.status(200).json({ status: "ERROR", error: error.message || "Failed to fetch census data." });
+    }
+});

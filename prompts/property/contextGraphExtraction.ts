@@ -25,23 +25,19 @@ export const buildGraphExtractionContext = (
     const optimizedProperty = optimizePropertyForAi(property);
 
     // Strip noise from visual: no image-by-image, no image quality, no web sources
+    // Also strip city-level data (deep_investment_research, community_pulse, etc.)
+    // — these are now extracted once per city via city_context_graph
     let optimizedVisual: any = null;
     if (visual) {
-        // Strip general_market_intelligence — all market data now comes from deep_investment_research
-        const { image_by_image_analysis, image_quality_analysis, general_market_intelligence, ...kept } = visual;
-        // Remove sources / citations from nested research objects
-        if (kept.deep_investment_research) {
-            delete (kept.deep_investment_research as any).citations;
-            delete (kept.deep_investment_research as any).web_sources;
-        }
-        // Remove community_pulse sources to save tokens (just keep summaries/points)
-        if (kept.community_pulse) {
-            for (const section of Object.values(kept.community_pulse)) {
-                if (section && typeof section === 'object' && 'sources' in section) {
-                    delete (section as any).sources;
-                }
-            }
-        }
+        const {
+            image_by_image_analysis,
+            image_quality_analysis,
+            general_market_intelligence,
+            deep_investment_research,
+            community_pulse,
+            property_investment,
+            ...kept
+        } = visual;
         optimizedVisual = kept;
     }
 
@@ -83,7 +79,7 @@ export const buildGraphExtractionContext = (
     // Tax sqft (from ArcGIS or Gemini lookup)
     const taxSqft = (property as any).taxSqft ?? null;
 
-    return {
+    const result = {
         property: optimizedProperty,
         visualAnalysis: optimizedVisual,
         narrativeReport: narrative,
@@ -92,6 +88,53 @@ export const buildGraphExtractionContext = (
         orientationAI,
         taxSqft,
     };
+
+    // Diagnostic: log section sizes to identify bloat
+    const sectionSizes: Record<string, number> = {};
+    for (const [key, val] of Object.entries(result)) {
+        sectionSizes[key] = val ? JSON.stringify(val).length : 0;
+    }
+    const totalChars = Object.values(sectionSizes).reduce((a, b) => a + b, 0);
+    console.log(`[Context Graph] Section sizes (~${Math.round(totalChars / 4000)}K tokens total):`,
+        Object.entries(sectionSizes)
+            .filter(([, v]) => v > 0)
+            .sort(([, a], [, b]) => b - a)
+            .map(([k, v]) => `${k}: ${Math.round(v / 1000)}K chars (~${Math.round(v / 4000)}K tok)`)
+            .join(' | ')
+    );
+
+    // If property is big, log its sub-sections
+    if (sectionSizes.property > 100000) {
+        const propSubs: Record<string, number> = {};
+        for (const [key, val] of Object.entries(optimizedProperty)) {
+            propSubs[key] = val ? JSON.stringify(val).length : 0;
+        }
+        console.log(`[Context Graph] Property sub-sections (top 15):`,
+            Object.entries(propSubs)
+                .filter(([, v]) => v > 500)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 15)
+                .map(([k, v]) => `${k}: ${Math.round(v / 1000)}K`)
+                .join(' | ')
+        );
+    }
+
+    // If visual is big, log its sub-sections
+    if (optimizedVisual && sectionSizes.visualAnalysis > 100000) {
+        const visSubs: Record<string, number> = {};
+        for (const [key, val] of Object.entries(optimizedVisual)) {
+            visSubs[key] = val ? JSON.stringify(val).length : 0;
+        }
+        console.log(`[Context Graph] Visual sub-sections:`,
+            Object.entries(visSubs)
+                .filter(([, v]) => v > 1000)
+                .sort(([, a], [, b]) => b - a)
+                .map(([k, v]) => `${k}: ${Math.round(v / 1000)}K`)
+                .join(' | ')
+        );
+    }
+
+    return result;
 };
 
 // ── Prompt ─────────────────────────────────────────────────
@@ -121,7 +164,7 @@ Given the property data below, extract structured decision factors. For each fac
 6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
 7. SKIP (precomputed).
 8. SKIP (precomputed).
-9. **Historical Appreciation**: From deep_investment_research.macroeconomic_indicators and market_dynamics (look for YoY/5yr appreciation trend, price growth data). Fallback to general_market_intelligence.market_dynamics.historical_appreciation.
+9. SKIP (city-level).
 10. SKIP (precomputed).
 
 ### Structural & Size (11-20)
@@ -194,14 +237,14 @@ Given the property data below, extract structured decision factors. For each fac
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
 68. **Backyard Potential**: Room for ADU or pool if not already present.
 69. SKIP (deleted).
-70. **Market Momentum**: From deep_investment_research.market_dynamics and macroeconomic_indicators. CRITICAL: Do NOT label as "Seller's Market" based on low inventory alone — you MUST cross-reference median Days on Market (DOM). Low inventory + low DOM (<20) = Seller's Market. Low inventory + high DOM (>30) = Stagnant/Balanced (low supply AND low demand). Include median DOM and months of supply in value. Classify as: Seller's Market / Balanced / Buyer's Market / Stagnant. Fallback to general_market_intelligence.
+70. SKIP (city-level).
 
 ### Community & Market Intelligence (71-75)
-71. **Development Maturity**: From neighborhood_features.development_patterns. Classify as \"New Build Area\" (modern rooflines, recent construction), \"Established\" (mature trees, older homes, stable community), or if neither clearly applies, describe the actual blend — e.g. \"Transitional — older homes + new infill\", \"Gentrifying — renovated alongside original stock\", \"Suburban Sprawl — tract homes from multiple eras\". Never use just \"Mixed\" — always qualify what the mix is.
-72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
-73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
-74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
-75. **Market Velocity (DOM)**: From deep_investment_research.market_dynamics — find the MEDIAN Days on Market (DOM) for the city/area. Look in chart_data (metric2/value2 series), summary text, and details for DOM figures. Value = "Fast/Moderate/Slow — X days median DOM". Fast = <14 days, Moderate = 14-30 days, Slow = >30 days. Tags = speed label + DOM number. Do NOT use the listing's own daysOnZillow — this must be the MARKET-LEVEL median.
+71. SKIP (city-level).
+72. SKIP (city-level).
+73. SKIP (city-level).
+74. SKIP (city-level).
+75. SKIP (city-level).
 
 ### Infrastructure & Environment (76-79)
 76. SKIP (precomputed).
@@ -218,12 +261,12 @@ Given the property data below, extract structured decision factors. For each fac
 87. **Pet Friendliness**: Combine google_places.parks (dog parks, off-leash areas) + property features (fenced yard, dog door). Also look for vet clinics in nearby places.
 88. **Dining & Entertainment Scene**: From google_places.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
 
-### Investment Intelligence (89-93) — Tags are the primary output. Generate 3-8 concept tags per factor.
-89. **Market Signals**: From deep_investment_research.market_dynamics + macroeconomic_indicators. Tags = market concepts like "Seller's Market", "Low Inventory", "3% YoY Growth", "Rising Rates", "Declining DOM". Value = overall market direction (Appreciating/Cooling/Flat).
-90. **Growth Catalysts**: From deep_investment_research.investment_outlook + macroeconomic_indicators. Tags = upcoming drivers like "BART Extension 2026", "Tesla HQ Expansion", "New Tech Campus", "Rezoning Vote". Value = strongest catalyst.
-91. **Investment Risk Factors**: From deep_investment_research.local_risks + macroeconomic_indicators. Tags = risk concepts like "Seismic Zone", "Drought Risk", "FAIR Plan Insurance", "Declining Tax Base". Value = top risk.
-92. **Market Friction**: From deep_investment_research.competitor_gaps.friction_points + community_pulse. Tags = drawbacks like "Long SF Commute", "Limited Transit", "No Nightlife", "HOA Restrictions", "Airport Noise". Value = biggest friction.
-93. **Zoning & Regulatory Perks**: From deep_investment_research.investment_outlook + property_investment.value_add_strategies. Tags = zoning advantages like "ADU-Friendly", "No STR Ban", "Prop 13 Transfer", "R-1 Zoning". Value = strongest perk.
+### Investment Intelligence (89-93)
+89. SKIP (city-level).
+90. SKIP (city-level).
+91. SKIP (city-level).
+92. SKIP (city-level).
+93. SKIP (city-level).
 
 ### Street View Intelligence (94-98) — Tags are the primary output. Generate 3-8 concept tags per factor from streetViewAnalysis data.
 94. **Street Character**: From streetViewAnalysis.neighborhoodVibe + safetyAssessment + familySafety. Tags = street concepts like "Tree-Lined Street", "Quiet Cul-de-sac", "Well-Lit", "Wide Streets", "Speed Bumps", "Dead End". Value = overall street character.
@@ -247,8 +290,8 @@ Given the property data below, extract structured decision factors. For each fac
 101. **School Concepts**: From schools_intelligence and schools data. For each of the top 3 schools, generate tags with school name + rating (e.g. "Amador Valley 10/10"), school type if non-public ("Charter", "Private"), test scores ("85% Proficient"), student-teacher ratio ("22:1 Small Classes"), AP/IB programs, graduation rate, and extracurriculars ("STEM/Robotics", "Strong Athletics"). Also include district name, "Desirable School Zone" if applicable, and proximity tags ("Walking Distance", "Schools Under 1mi"). Value = top school name + rating + district. Generate 5-12 tags.
 
 ### Community Sentiment & Condition (102-105) — Tags are the primary output. Generate 3-8 concept tags.
-102. **Resident Sentiment Concepts**: From community_pulse (all sections). Tags = sentiment concepts like "Love the Schools", "Quiet Community", "Great Parks", "HOA Issues", "Traffic Concerns". Value = overall sentiment.
-103. **Market Narrative Concepts**: From deep_investment_research (all sections). Tags = narrative concepts like "Tech Worker Suburb", "Family-Oriented", "Investor-Friendly", "Appreciation Play", "Cash Flow Market". Value = dominant narrative.
+102. SKIP (city-level).
+103. SKIP (city-level).
 104. **Condition & Renovation Concepts**: From visual analysis condition_and_finish + room_highlights potential_improvements. Tags = condition concepts like "Needs Kitchen Update", "New Roof", "Original Hardwood", "Remodeled Bathrooms", "Dated HVAC". Value = overall condition.
 105. **Lifestyle Convenience Concepts**: From google_places + walkScore + community_pulse. Tags = convenience concepts like "Walkable Dining", "Near BART", "Great Dog Parks", "Close to Costco", "Farmer's Market". Value = top convenience.
 
