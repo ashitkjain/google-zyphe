@@ -72,8 +72,8 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
             }
 
             // Constrain to container boundaries
-            newX = Math.max(0, Math.min(newX, rect.width - 144));
-            newY = Math.max(0, Math.min(newY, rect.height - 144));
+            newX = Math.max(0, Math.min(newX, rect.width - 192));
+            newY = Math.max(0, Math.min(newY, rect.height - 192));
 
             setPos({ x: newX, y: newY });
         };
@@ -107,7 +107,7 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
     return (
         <div
             ref={noteRef}
-            className={`absolute w-36 h-36 p-3 pt-6 rounded-[2px] shadow-[5px_5px_10px_rgba(33,33,33,.12)] cursor-grab active:cursor-grabbing transition-all duration-75 z-[100] flex flex-col post-it-font group/note ${COLOR_CLASSES[note.color] || COLOR_CLASSES.yellow} ${isDragging ? 'shadow-2xl scale-110 z-[200] rotate-2' : 'hover:shadow-xl rotate-[-1deg]'} post-it-container`}
+            className={`absolute w-48 h-48 p-4 pt-8 rounded-[1px] shadow-[5px_5px_12px_rgba(33,33,33,.14)] cursor-grab active:cursor-grabbing transition-all duration-75 z-[100] flex flex-col post-it-font group/note overflow-hidden ${COLOR_CLASSES[note.color] || COLOR_CLASSES.yellow} ${isDragging ? 'shadow-2xl scale-110 z-[200] rotate-2' : 'hover:shadow-xl rotate-[-1deg]'} post-it-container`}
             style={{
                 left: pos.x,
                 top: pos.y,
@@ -115,20 +115,22 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
             }}
             onMouseDown={handleMouseDown}
         >
-            {/* Paper fold corner */}
-            <div className="absolute bottom-0 right-0 w-5 h-5 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
-            <div className="absolute top-1.5 right-1.5 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/30 rounded-full px-1.5 py-0.5 backdrop-blur-sm z-50">
+
+
+            {/* Subtle tape strip at top */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-[5px] bg-white/25 rounded-b-sm"></div>
+            <div className="absolute top-2 right-2 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/30 rounded-full px-2 py-1 backdrop-blur-sm z-50">
                 <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(); }}
                     className="text-slate-600 hover:text-red-500 transition-colors p-0.5"
                     title="Delete"
                 >
-                    <i className="fa-solid fa-trash-can text-[11px]"></i>
+                    <i className="fa-solid fa-trash-can text-xs"></i>
                 </button>
             </div>
 
-            <div className="absolute top-1.5 left-3 z-40">
-                <div className="text-[8px] opacity-40 font-sans leading-none uppercase tracking-tight">
+            <div className="absolute top-2 left-4 z-40">
+                <div className="text-[9px] opacity-40 font-sans leading-none uppercase tracking-tight">
                     {note.createdAt?.seconds ? new Date(note.createdAt.seconds * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
                 </div>
             </div>
@@ -136,7 +138,7 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
             {isEditing ? (
                 <textarea
                     autoFocus
-                    className="w-full h-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 resize-none leading-snug placeholder:italic placeholder:opacity-40 post-it-font"
+                    className="w-full h-full bg-transparent border-none outline-none focus:ring-0 focus:outline-none text-[15px] font-bold p-0 resize-none leading-snug placeholder:italic placeholder:opacity-40 post-it-font"
                     value={editText}
                     placeholder="Write..."
                     onChange={(e) => setEditText(e.target.value)}
@@ -147,12 +149,12 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
                     }}
                 />
             ) : (
-                <div className="flex-grow text-sm font-bold leading-snug select-none overflow-hidden break-words">
+                <div className="flex-grow text-[15px] font-bold leading-snug select-none overflow-hidden break-words">
                     {note.comment}
                 </div>
             )}
 
-            <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
+            <div className="absolute bottom-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover/note:opacity-100 transition-opacity">
                 {['yellow', 'blue', 'rose', 'emerald'].map(c => (
                     <button
                         key={c}
@@ -162,7 +164,7 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
                             trackClarityEvent('Note_Color_Changed');
                             trackPH('Note_Color_Changed', { noteId: note.id, newColor: c });
                         }}
-                        className={`w-2.5 h-2.5 rounded-full border border-black/10 transition-transform hover:scale-125 ${COLOR_CLASSES[c as StickyNoteColor].split(' ')[0]}`}
+                        className={`w-3.5 h-3.5 rounded-full border border-black/10 transition-transform hover:scale-125 ${COLOR_CLASSES[c as StickyNoteColor].split(' ')[0]}`}
                     />
                 ))}
             </div>

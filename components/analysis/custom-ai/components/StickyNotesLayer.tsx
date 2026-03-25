@@ -167,18 +167,21 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
     };
 
     const palette = () => (
-        <div className="relative group/palette-item flex-shrink-0 ml-auto">
-            <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm bg-[#ffff88] opacity-30 blur-[1px] -rotate-2"></div>
+        <div className="relative group/palette-item flex-shrink-0 mx-auto self-center">
+            <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-sm bg-[#e8e850] opacity-25 blur-[3px] rotate-1"></div>
             <div
                 onMouseDown={(e) => handlePaletteDragStart(e, 'yellow')}
                 onTouchStart={(e) => handlePaletteDragStart(e, 'yellow')}
                 onDragStart={(e) => e.preventDefault()}
-                className="relative z-10 w-[52px] h-[52px] rounded-[2px] bg-[#ffff88] cursor-grab active:cursor-grabbing flex flex-col items-center justify-center gap-0.5 transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-[2px_2px_6px_rgba(33,33,33,.15)] -rotate-2 post-it-font"
+                className="relative z-10 w-[80px] h-[80px] rounded-[1px] bg-[#ffff88] cursor-grab active:cursor-grabbing flex flex-col items-center justify-center gap-1 transition-all duration-200 hover:-translate-y-1.5 hover:rotate-2 hover:shadow-2xl shadow-[3px_4px_10px_rgba(33,33,33,.15)] rotate-[-1deg] post-it-font overflow-hidden"
                 style={{ fontFamily: "'Architects Daughter', cursive" }}
             >
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
-                <i className="fa-solid fa-pen-fancy text-amber-700/20 text-xs"></i>
-                <span className="text-[6px] font-black uppercase tracking-wider text-amber-700/40 leading-none">Note</span>
+
+                {/* Subtle tape strip at top */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-[4px] bg-white/30 rounded-b-sm"></div>
+                <i className="fa-solid fa-pen-fancy text-amber-900/50 text-base mb-0.5"></i>
+                <span className="text-[7px] font-black uppercase tracking-widest text-amber-900/60 leading-none">Note</span>
+                <span className="text-[6px] font-bold text-slate-800/70 leading-none">drag to page</span>
             </div>
         </div>
     );
@@ -219,20 +222,22 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                     {/* Pending Drop Note (Draft mode) */}
                     {pendingNote && (
                         <div
-                            className={`absolute w-36 h-36 p-3 pt-6 rounded-[2px] shadow-2xl transition-all z-[200] flex flex-col pointer-events-auto rotate-1 scale-105 post-it-font
+                            className={`absolute w-48 h-48 p-4 pt-8 rounded-[1px] shadow-2xl transition-all z-[200] flex flex-col pointer-events-auto rotate-1 scale-105 post-it-font overflow-hidden
                                 ${pendingNote.color === 'yellow' ? 'bg-[#ffff88] text-slate-800' :
                                     pendingNote.color === 'blue' ? 'bg-[#7afaff] text-slate-800' :
                                         pendingNote.color === 'rose' ? 'bg-[#ff7e7e] text-white' :
                                             'bg-[#a7ffeb] text-slate-800'}`}
                             style={{ left: pendingNote.location.x, top: pendingNote.location.y, fontFamily: "'Architects Daughter', cursive" }}
                         >
-                            <div className="absolute bottom-0 right-0 w-5 h-5 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
-                            <div className="flex justify-between items-start mb-1 absolute top-1.5 left-3 right-1.5">
-                                <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Draft</span>
+
+                            {/* Tape strip */}
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-[5px] bg-white/25 rounded-b-sm"></div>
+                            <div className="flex justify-between items-start mb-1 absolute top-2 left-4 right-2">
+                                <span className="text-[9px] font-black uppercase tracking-widest opacity-40">Draft</span>
                             </div>
                             <textarea
                                 autoFocus
-                                className="w-full h-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 resize-none leading-snug placeholder:italic placeholder:opacity-40 post-it-font"
+                                className="w-full h-full bg-transparent border-none outline-none focus:ring-0 focus:outline-none text-[15px] font-bold p-0 resize-none leading-snug placeholder:italic placeholder:opacity-40 post-it-font"
                                 placeholder="..."
                                 value={draftContent}
                                 onChange={(e) => setDraftContent(e.target.value)}
@@ -251,14 +256,15 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                 <div
                     className="fixed pointer-events-none z-[500] rotate-6 scale-110 opacity-70"
                     style={{
-                        left: dragPos.x - 56,
-                        top: dragPos.y - 56,
-                        width: '112px',
-                        height: '112px'
+                        left: dragPos.x - 80,
+                        top: dragPos.y - 80,
+                        width: '160px',
+                        height: '160px'
                     }}
                 >
-                    <div className="w-full h-full rounded-[2px] shadow-2xl bg-[#ffff88]">
-                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-gradient-to-tl from-black/[0.06] to-transparent"></div>
+                    <div className="w-full h-full rounded-[1px] shadow-2xl bg-[#ffff88] overflow-hidden">
+
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-[5px] bg-white/25 rounded-b-sm"></div>
                     </div>
                 </div>
             )}

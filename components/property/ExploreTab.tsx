@@ -432,7 +432,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
     return (
         <>
-            <div className="animate-in fade-in duration-500 px-5">
+            <div className="px-5">
                 {propertyData && (
                     <>
                         {/* Deprecated banner */}
@@ -1925,6 +1925,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
     const [showMyStory, setShowMyStory] = useState(true);
+    // Track which discovery path is active: browse (city), story (My Story), or search (address)
+    const [activePath, setActivePath] = useState<'browse' | 'story' | 'search'>('story');
 
     // Notify parent when My Story is toggled
     React.useEffect(() => { onMyStory?.(showMyStory); }, [showMyStory]);
@@ -1954,26 +1956,23 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [filterMaxHoa, setFilterMaxHoa] = useState('');
     const [filterMaxDom, setFilterMaxDom] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
+    const [filterMinSchoolRating, setFilterMinSchoolRating] = useState('');
 
     const advancedFilterCount = useMemo(() => {
         let count = 0;
-        if (filterHomeType) count++;
         if (filterMinSqft || filterMaxSqft) count++;
         if (filterMinYear || filterMaxYear) count++;
-        if (filterStories) count++;
         if (filterGarage) count++;
-        if (filterPool) count++;
         if (filterMaxHoa) count++;
         if (filterMaxDom) count++;
-        if (filterStatus) count++;
         return count;
-    }, [filterHomeType, filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterStories, filterGarage, filterPool, filterMaxHoa, filterMaxDom, filterStatus]);
+    }, [filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterGarage, filterMaxHoa, filterMaxDom]);
 
     const clearAdvancedFilters = () => {
         setFilterHomeType(''); setFilterMinSqft(''); setFilterMaxSqft('');
         setFilterMinYear(''); setFilterMaxYear(''); setFilterStories('');
-        setFilterGarage(''); setFilterPool(''); setFilterMaxHoa('');
-        setFilterMaxDom(''); setFilterStatus(''); setPage(1);
+        setFilterGarage(''); setFilterMaxHoa('');
+        setFilterMaxDom(''); setPage(1);
     };
 
     // Listen for browse-city events from the search bar Browse button
@@ -2009,11 +2008,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
     const [buyerSearching, setBuyerSearching] = useState(false);
-    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; reasons: string[]; misses: string[]; highlight: string; matchSummary?: string }[] | null>(null);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; matchWriteup: string }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
-    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; mustHaves: string[]; niceToHaves: string[]; dealbreakers?: import('../../services/prompts/buyerStoryMatch').Dealbreaker[]; relevantFactorIds?: number[]; searchSummary?: string } | null>(null);
-    const [buyerDealbreakersUnmet, setBuyerDealbreakersUnmet] = useState<import('../../services/prompts/buyerStoryMatch').Dealbreaker[] | null>(null);
+    const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; stories?: number; minSchoolRating?: number; mustHaves: string[]; niceToHaves: string[]; searchSummary?: string } | null>(null);
     const [showExamples, setShowExamples] = useState(false);
     const [sliderIdx, setSliderIdx] = useState(0);
     const [buyerTimings, setBuyerTimings] = useState<{ step: string; ms: number; detail?: string }[] | null>(null);
@@ -2025,8 +2023,6 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Ref to hold a pending story search (set by My Story, auto-triggered after city loads)
     const pendingStoryRef = React.useRef<string | null>(null);
 
-    // When true, skip dealbreaker threshold check (user chose to relax criteria)
-    const relaxedModeRef = React.useRef(false);
 
     // City Neighborhood Mining state
     const [mining, setMining] = useState(false);
@@ -2067,6 +2063,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
         // Hide My Story panel and switch to Zyphe AI view
         setShowMyStory(false);
+        setActivePath('story');
         setViewModeLocal('zypheai');
         setShowBuyerSearch(true);
 
@@ -2151,13 +2148,14 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         if (filterMaxSqft) list = list.filter(p => (p.livingArea || Infinity) <= parseInt(filterMaxSqft));
         if (filterMinYear) list = list.filter(p => (p.yearBuilt || 0) >= parseInt(filterMinYear));
         if (filterMaxYear) list = list.filter(p => (p.yearBuilt || 9999) <= parseInt(filterMaxYear));
-        if (filterStories) list = list.filter(p => (p.stories || 0) >= parseInt(filterStories));
+        if (filterStories) list = list.filter(p => (p.stories || 0) === parseInt(filterStories));
         if (filterGarage) list = list.filter(p => (p.garage || 0) >= parseInt(filterGarage));
         if (filterPool === 'yes') list = list.filter(p => p.pool === true);
         if (filterPool === 'no') list = list.filter(p => !p.pool);
         if (filterMaxHoa) list = list.filter(p => (p.hoa || 0) <= parseInt(filterMaxHoa));
         if (filterMaxDom) list = list.filter(p => (p.daysOnZillow || 0) <= parseInt(filterMaxDom));
         if (filterStatus) list = list.filter(p => (p.homeStatus || '').toUpperCase().includes(filterStatus.toUpperCase()));
+        if (filterMinSchoolRating) list = list.filter(p => (p.maxSchoolRating || 0) >= parseInt(filterMinSchoolRating));
         // Sort
         list.sort((a, b) => {
             const av = a[sortField] ?? '';
@@ -2166,7 +2164,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             return sortDir === 'asc' ? (Number(av) - Number(bv)) : (Number(bv) - Number(av));
         });
         return list;
-    }, [results, sortField, sortDir, filterMinPrice, filterMaxPrice, filterBeds, filterBaths, filterNeighborhood, filterHomeType, filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterStories, filterGarage, filterPool, filterMaxHoa, filterMaxDom, filterStatus]);
+    }, [results, sortField, sortDir, filterMinPrice, filterMaxPrice, filterBeds, filterBaths, filterNeighborhood, filterHomeType, filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterStories, filterGarage, filterPool, filterMaxHoa, filterMaxDom, filterStatus, filterMinSchoolRating]);
 
     // Notify parent about results state
     useEffect(() => {
@@ -2215,7 +2213,6 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         setBuyerError(null);
         setBuyerExtracted(null);
         setBuyerTimings(null);
-        setBuyerDealbreakersUnmet(null);
         const timings: { step: string; ms: number; detail?: string }[] = [];
 
         try {
@@ -2229,8 +2226,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const { buildExtractionPrompt, buildMatchingPrompt } = await import('../../services/prompts/buyerStoryMatch');
             const extractionPrompt = buildExtractionPrompt(buyerStory, buyerPersonaRef.current);
 
-            type ExtDealbreaker = { requirement: string; type: 'location' | 'verifiable' | 'runtime'; factor_id: number };
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; must_haves: string[]; nice_to_haves: string[]; dealbreakers: ExtDealbreaker[]; relevant_factor_ids: number[]; search_summary: string };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; stories: number; min_school_rating: number; must_haves: string[]; nice_to_haves: string[]; dealbreakers?: { requirement: string; type: string; factor_id?: number }[]; relevant_factor_ids?: number[]; search_summary: string };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2239,21 +2235,13 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     beds: { type: Type.NUMBER },
                     baths: { type: Type.NUMBER },
                     home_type: { type: Type.STRING },
+                    stories: { type: Type.NUMBER },
+                    min_school_rating: { type: Type.NUMBER },
                     must_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
                     nice_to_haves: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    dealbreakers: { type: Type.ARRAY, items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            requirement: { type: Type.STRING },
-                            type: { type: Type.STRING },
-                            factor_id: { type: Type.NUMBER }
-                        },
-                        required: ['requirement', 'type', 'factor_id']
-                    }},
-                    relevant_factor_ids: { type: Type.ARRAY, items: { type: Type.NUMBER } },
                     search_summary: { type: Type.STRING }
                 },
-                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'must_haves', 'nice_to_haves', 'dealbreakers', 'relevant_factor_ids', 'search_summary']
+                required: ['price_min', 'price_max', 'beds', 'baths', 'home_type', 'stories', 'min_school_rating', 'must_haves', 'nice_to_haves', 'search_summary']
             };
 
             const extractResult = await executeGeminiRequest<ExtResult>({
@@ -2290,103 +2278,28 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             }
             // else: both bounds specified — use as-is
 
-            // Extract relevant factor IDs for precise JS filtering
-            const relevantFactorIds = new Set(ext.relevant_factor_ids || []);
-
             const extracted = {
                 priceMin, priceMax,
                 beds: ext.beds > 0 ? ext.beds : undefined,
                 baths: ext.baths > 0 ? ext.baths : undefined,
                 homeType: ext.home_type || undefined,
+                stories: ext.stories > 0 ? ext.stories : undefined,
+                minSchoolRating: ext.min_school_rating > 0 ? ext.min_school_rating : undefined,
                 mustHaves: ext.must_haves || [],
                 niceToHaves: ext.nice_to_haves || [],
-                dealbreakers: (ext.dealbreakers || []).map(db => ({ requirement: db.requirement, type: db.type, factorId: db.factor_id || undefined })),
-                relevantFactorIds: ext.relevant_factor_ids || [],
                 searchSummary: ext.search_summary || undefined
             };
             setBuyerExtracted(extracted);
 
-            // Sync extracted price to the filter bar so it's visible in the UI
+            // Sync extracted values to the filter bar so they're visible in the UI
             if (priceMin > 0) setFilterMinPrice(String(Math.round(priceMin)));
             if (priceMax > 0) setFilterMaxPrice(String(Math.round(priceMax)));
             if (extracted.beds) setFilterBeds(String(extracted.beds));
             if (extracted.baths) setFilterBaths(String(extracted.baths));
+            if (extracted.homeType) setFilterHomeType(extracted.homeType);
+            if (extracted.stories) setFilterStories(String(extracted.stories));
+            if (extracted.minSchoolRating) setFilterMinSchoolRating(String(extracted.minSchoolRating));
 
-            // ── STEP 0.5: Validate LOCATION dealbreakers against the selected city ──
-            // Uses Gemini's world knowledge to check: "Does [city] satisfy [requirement]?"
-            // This catches mismatches like "wine country" for Pleasanton BEFORE wasting
-            // time on Firestore queries and full property matching.
-            const locationDealbreakers = (ext.dealbreakers || [])
-                .filter(db => db.type === 'location')
-                .map(db => db.requirement);
-
-            if (!relaxedModeRef.current && locationDealbreakers.length > 0) {
-                const cityForCheck = selectedCity || results[0]?.city || '';
-                if (cityForCheck) {
-                    const tLoc = performance.now();
-                    const locationCheckPrompt = `You are a real estate geography expert. For each location requirement below, determine if the city "${cityForCheck}" satisfies it. Use your knowledge of US geography, regions, and real estate markets.
-
-Requirements:
-${locationDealbreakers.map((r, i) => `${i + 1}. ${r}`).join('\n')}
-
-For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no" if it does not. Be strict — only say "yes" if the city genuinely and commonly qualifies.`;
-
-                    const locationCheckSchema = {
-                        type: Type.OBJECT,
-                        properties: {
-                            results: { type: Type.ARRAY, items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    requirement: { type: Type.STRING },
-                                    satisfied: { type: Type.BOOLEAN },
-                                    reason: { type: Type.STRING }
-                                },
-                                required: ['requirement', 'satisfied', 'reason']
-                            }}
-                        },
-                        required: ['results']
-                    };
-
-                    try {
-                        const locResult = await executeGeminiRequest<{ results: { requirement: string; satisfied: boolean; reason: string }[] }>({
-                            model: FLASH_LITE_MODEL,
-                            contents: locationCheckPrompt,
-                            config: { temperature: 0.1, maxOutputTokens: 512 },
-                            userId: auth.currentUser?.uid || 'anon',
-                            promptFilename: 'locationValidation',
-                            extractResultJson: true,
-                            schema: locationCheckSchema
-                        });
-                        timings.push({ step: 'Location Check', ms: Math.round(performance.now() - tLoc), detail: `${locationDealbreakers.length} requirements` });
-
-                        const failedLocations = (locResult.data?.results || []).filter(r => !r.satisfied);
-                        if (failedLocations.length > 0) {
-                            console.log('[Buyer Match] Location mismatch:', failedLocations.map(f => `${f.requirement}: ${f.reason}`));
-                            // Show the mismatch immediately — no need to run full matching
-                            const allDbs = (ext.dealbreakers || []).map(db => ({
-                                requirement: db.requirement, type: db.type as 'location' | 'verifiable' | 'runtime',
-                                factorId: db.factor_id || undefined
-                            }));
-                            setBuyerDealbreakersUnmet(allDbs);
-                            setBuyerExtracted(extracted);
-                            console.log('[Buyer Match] Setting dealbreaker UI:', { 
-                                dealbreakersCount: allDbs.length, 
-                                dealbreakers: allDbs,
-                                showBuyerSearch, 
-                                viewMode: viewMode 
-                            });
-                            const totalMs = timings.reduce((s, t) => s + t.ms, 0);
-                            timings.push({ step: 'TOTAL', ms: totalMs });
-                            setBuyerTimings(timings);
-                            setBuyerSearching(false);
-                            return;
-                        }
-                    } catch (locErr) {
-                        console.warn('[Buyer Match] Location check failed, proceeding anyway:', locErr);
-                        timings.push({ step: 'Location Check', ms: Math.round(performance.now() - tLoc), detail: 'failed — skipped' });
-                    }
-                }
-            }
 
             // ── STEP 1: Query Firestore directly with server-side filters ──
             // Single round trip: city + price range + beds + baths filtered at Firestore level
@@ -2459,31 +2372,18 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
             const MAX = 20;
 
             let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
-                // Get factor IDs present in this property's context graph
-                const propertyFactorIds = new Set(
-                    (graph.factors || []).map((f: any) => f.i ?? f.id).filter((id: any) => id != null)
-                );
-
-                // Count how many buyer-relevant factors this property has
-                let matchCount = 0;
-                for (const id of relevantFactorIds) {
-                    if (propertyFactorIds.has(id)) matchCount++;
-                }
-
-                const matchRatio = relevantFactorIds.size > 0 ? matchCount / relevantFactorIds.size : 1;
-
-                return { zpid, graph, matchCount, matchRatio };
+                // Count total factors in this property's context graph
+                const factorCount = (graph.factors || []).filter((f: any) => (f.i ?? f.id) != null).length;
+                return { zpid, graph, matchCount: factorCount };
             });
 
-            // Filter: remove properties with < 30% factor coverage (guaranteed mismatches)
-            // Then sort by coverage desc, take top N
-            const MIN_MATCH_RATIO = 0.3;
+            // Since the simplified extraction no longer produces factor IDs,
+            // skip factor-based pre-filtering and just take top N by factor count
             graphEntries = graphEntries
-                .filter(e => e.matchRatio >= MIN_MATCH_RATIO)
                 .sort((a, b) => b.matchCount - a.matchCount)
                 .slice(0, MAX);
 
-            console.log(`[Buyer Match] Factor filter: ${graphMap.size} → ${graphEntries.length} (${relevantFactorIds.size} relevant IDs, min ratio ${MIN_MATCH_RATIO})`);
+            console.log(`[Buyer Match] Factor filter: ${graphMap.size} → ${graphEntries.length} (no factor pre-filter, top ${MAX})`);
 
             const graphs: { zpid: string; address: string; graph: any; listing: any }[] = graphEntries
                 .filter(e => e.graph?.factors?.length > 0)
@@ -2537,12 +2437,9 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                             properties: {
                                 zpid: { type: Type.STRING },
                                 score: { type: Type.NUMBER },
-                                reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                misses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                match_summary: { type: Type.STRING },
-                                highlight: { type: Type.STRING }
+                                match_writeup: { type: Type.STRING },
                             },
-                            required: ['zpid', 'score', 'reasons', 'misses', 'match_summary', 'highlight']
+                            required: ['zpid', 'score', 'match_writeup']
                         }
                     }
                 },
@@ -2576,7 +2473,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
 
                 const prompt = buildMatchingPrompt(buyerStory, extracted, summaries, buyerPersonaRef.current);
 
-                return executeGeminiRequest<{ matches: { zpid: string; score: number; reasons: string[]; misses: string[]; match_summary: string; highlight: string }[] }>({
+                return executeGeminiRequest<{ matches: { zpid: string; score: number; match_writeup: string }[] }>({
                     model: FLASH_MODEL,
                     contents: prompt,
                     config: { temperature: 0.3, maxOutputTokens: 4096 },
@@ -2595,7 +2492,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
 
             const allMatches = chunkResults
                 .flatMap(r => r.data?.matches || [])
-                .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid, matchSummary: m.match_summary }))
+                .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid, matchWriteup: m.match_writeup }))
                 .sort((a, b) => b.score - a.score)
                 .slice(0, 10);
 
@@ -2606,21 +2503,8 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
 
             if (allMatches.length > 0) {
                 // Check for fundamental mismatch: only LOCATION dealbreakers are definitive
-                // (verifiable/runtime dealbreakers might just be uncomputed data)
-                const bestScore = allMatches[0]?.score || 0;
-                const rawDealbreakers = (ext.dealbreakers || []).map(db => ({
-                    requirement: db.requirement, type: db.type, factorId: db.factor_id || undefined
-                }));
-                const locationDealbreakers = rawDealbreakers.filter(db => db.type === 'location');
-                if (!relaxedModeRef.current && bestScore < 40 && locationDealbreakers.length > 0) {
-                    // Location-level mismatch — area doesn't match core intent
-                    setBuyerDealbreakersUnmet(rawDealbreakers);
-                    setBuyerResults(null); // Don't show misleading results
-                } else {
-                    relaxedModeRef.current = false;
-                    setBuyerResults(allMatches);
-                    setSliderIdx(0);
-                }
+                setBuyerResults(allMatches);
+                setSliderIdx(0);
             }
         } catch (err: any) {
             console.error('[Buyer Search]', err);
@@ -2640,11 +2524,11 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                         <span key={c} className="flex items-center gap-2">
                             {i > 0 && <span className="text-slate-300">|</span>}
                             <button
-                                onClick={() => { setPage(1); handleBrowse(c); setShowMyStory(false); }}
+                                onClick={() => { setPage(1); setActivePath('browse'); setShowMyStory(false); setBuyerResults(null); setBuyerExtracted(null); handleBrowse(c); }}
                                 disabled={browsing}
                                 className={`text-sm font-bold transition-all ${browsing && selectedCity === c
                                     ? 'text-indigo-400 cursor-wait'
-                                    : selectedCity === c && results.length > 0 && !showMyStory
+                                    : selectedCity === c && results.length > 0 && activePath === 'browse'
                                         ? 'text-indigo-700 underline underline-offset-4'
                                         : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
                                     }`}
@@ -2661,15 +2545,29 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
 
                     {/* My Story tab */}
                     <button
-                        onClick={() => setShowMyStory(prev => !prev)}
+                        onClick={() => {
+                            if (activePath === 'story' && !showMyStory) {
+                                // Already in story mode, toggle the intake form
+                                setShowMyStory(true);
+                            } else if (activePath === 'story' && showMyStory) {
+                                setShowMyStory(false);
+                            } else {
+                                // Switch to story mode
+                                setActivePath('story');
+                                setShowMyStory(true);
+                            }
+                        }}
                         className={`flex items-center gap-1.5 text-sm font-bold transition-all ${
-                            showMyStory
+                            activePath === 'story'
                                 ? 'text-indigo-700 underline underline-offset-4'
                                 : 'text-indigo-500 hover:text-indigo-800 hover:underline underline-offset-4'
                         }`}
                     >
                         <i className="fa-solid fa-book-open-reader text-[11px]"></i>
                         My Story
+                        {activePath === 'story' && selectedCity && !showMyStory && (
+                            <span className="text-[9px] font-medium text-indigo-400 ml-0.5">({selectedCity})</span>
+                        )}
                     </button>
                 </div>
                 {searchBar && (
@@ -2734,7 +2632,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                 const [f, d] = e.target.value.split('-') as [typeof sortField, 'asc' | 'desc'];
                                 setSortField(f); setSortDir(d); setPage(1);
                             }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
                         >
                             <option value="address-asc">Address A→Z</option>
                             <option value="address-desc">Address Z→A</option>
@@ -2756,19 +2654,19 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                             placeholder="Min $"
                             value={filterMinPrice}
                             onChange={e => { setFilterMinPrice(e.target.value); setPage(1); }}
-                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none placeholder:text-slate-300"
+                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
                         />
                         <input
                             type="number"
                             placeholder="Max $"
                             value={filterMaxPrice}
                             onChange={e => { setFilterMaxPrice(e.target.value); setPage(1); }}
-                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none placeholder:text-slate-300"
+                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
                         />
                         <select
                             value={filterBeds}
                             onChange={e => { setFilterBeds(e.target.value); setPage(1); }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
                         >
                             <option value="">Beds</option>
                             {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
@@ -2776,16 +2674,50 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                         <select
                             value={filterBaths}
                             onChange={e => { setFilterBaths(e.target.value); setPage(1); }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer"
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
                         >
                             <option value="">Baths</option>
                             {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
+                        </select>
+                        <select
+                            value={filterHomeType}
+                            onChange={e => { setFilterHomeType(e.target.value); setPage(1); }}
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                        >
+                            <option value="">Type</option>
+                            <option value="SINGLE_FAMILY">Single Family</option>
+                            <option value="TOWNHOUSE">Townhouse</option>
+                            <option value="CONDO">Condo</option>
+                            <option value="MULTI_FAMILY">Multi-Family</option>
+                        </select>
+                        <select
+                            value={filterStories}
+                            onChange={e => { setFilterStories(e.target.value); setPage(1); }}
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                        >
+                            <option value="">Stories</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                        </select>
+                        <select
+                            value={filterMinSchoolRating}
+                            onChange={e => { setFilterMinSchoolRating(e.target.value); setPage(1); }}
+                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                        >
+                            <option value="">Schools</option>
+                            <option value="5">5+</option>
+                            <option value="6">6+</option>
+                            <option value="7">7+</option>
+                            <option value="8">8+</option>
+                            <option value="9">9+</option>
+                            <option value="10">10</option>
                         </select>
                         {availableNeighborhoods.length > 0 && (
                             <select
                                 value={filterNeighborhood}
                                 onChange={e => { setFilterNeighborhood(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none cursor-pointer max-w-[160px]"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer max-w-[160px]"
                             >
                                 <option value="">Neighborhood</option>
                                 {availableNeighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
@@ -2844,42 +2776,10 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                             <div>
                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Property Details</div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Home Type</label>
-                                        <select value={filterHomeType} onChange={e => { setFilterHomeType(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
-                                            <option value="">Any</option>
-                                            <option value="SINGLE_FAMILY">Single Family</option>
-                                            <option value="TOWNHOUSE">Townhouse</option>
-                                            <option value="CONDO">Condo</option>
-                                            <option value="MULTI_FAMILY">Multi-Family</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Sqft Range</label>
-                                        <div className="flex gap-1">
-                                            <input value={filterMinSqft} onChange={e => { setFilterMinSqft(e.target.value); setPage(1); }} placeholder="Min" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
-                                            <input value={filterMaxSqft} onChange={e => { setFilterMaxSqft(e.target.value); setPage(1); }} placeholder="Max" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Year Built</label>
-                                        <div className="flex gap-1">
-                                            <input value={filterMinYear} onChange={e => { setFilterMinYear(e.target.value); setPage(1); }} placeholder="From" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
-                                            <input value={filterMaxYear} onChange={e => { setFilterMaxYear(e.target.value); setPage(1); }} placeholder="To" className="w-1/2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Stories</label>
-                                        <select value={filterStories} onChange={e => { setFilterStories(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
-                                            <option value="">Any</option>
-                                            <option value="1">1 story</option>
-                                            <option value="2">2+ stories</option>
-                                            <option value="3">3+ stories</option>
-                                        </select>
-                                    </div>
+
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-500 block mb-1">Garage</label>
-                                        <select value={filterGarage} onChange={e => { setFilterGarage(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                        <select value={filterGarage} onChange={e => { setFilterGarage(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
                                             <option value="">Any</option>
                                             <option value="1">1+ car</option>
                                             <option value="2">2+ car</option>
@@ -2887,26 +2787,10 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Pool</label>
-                                        <select value={filterPool} onChange={e => { setFilterPool(e.target.value as '' | 'yes' | 'no'); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
-                                            <option value="">Any</option>
-                                            <option value="yes">Has Pool</option>
-                                            <option value="no">No Pool</option>
-                                        </select>
-                                    </div>
-                                    <div>
                                         <label className="text-[10px] font-bold text-slate-500 block mb-1">Max HOA $/mo</label>
-                                        <input value={filterMaxHoa} onChange={e => { setFilterMaxHoa(e.target.value); setPage(1); }} placeholder="e.g. 500" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none" />
+                                        <input value={filterMaxHoa} onChange={e => { setFilterMaxHoa(e.target.value); setPage(1); }} placeholder="e.g. 500" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none" />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Status</label>
-                                        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
-                                            <option value="">Any</option>
-                                            <option value="FOR_SALE">For Sale</option>
-                                            <option value="PENDING">Pending</option>
-                                            <option value="SOLD">Sold</option>
-                                        </select>
-                                    </div>
+
                                 </div>
                             </div>
 
@@ -2916,7 +2800,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-500 block mb-1">Max Days on Market</label>
-                                        <select value={filterMaxDom} onChange={e => { setFilterMaxDom(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 outline-none">
+                                        <select value={filterMaxDom} onChange={e => { setFilterMaxDom(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
                                             <option value="">Any</option>
                                             <option value="7">Under 1 week</option>
                                             <option value="14">Under 2 weeks</option>
@@ -3006,58 +2890,81 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                 </div>
                             )}
 
-                            {/* Dealbreaker mismatch — no matching properties */}
-                            {buyerDealbreakersUnmet && buyerDealbreakersUnmet.length > 0 && !buyerSearching && (
-                                <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-2">
-                                    <div className="flex items-start gap-2">
-                                        <i className="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5"></i>
-                                        <div>
-                                            <p className="text-sm font-bold text-amber-800">No properties match your core requirements</p>
-                                            <p className="text-xs text-amber-700 mt-1">
-                                                We couldn't find listings in <strong>{selectedCity}</strong> that satisfy:
-                                            </p>
-                                            <ul className="mt-1.5 space-y-1.5">
-                                                {buyerDealbreakersUnmet.map((db, i) => (
-                                                    <li key={i} className="text-xs text-amber-800 flex items-center gap-1.5">
-                                                        <span className={`font-black px-2 py-0.5 rounded-md border ${
-                                                            db.type === 'location' ? 'text-rose-600 bg-rose-100 border-rose-200' :
-                                                            db.type === 'runtime' ? 'text-blue-600 bg-blue-100 border-blue-200' :
-                                                            'text-amber-700 bg-amber-100 border-amber-300'
-                                                        }`}>
-                                                            {db.type === 'location' ? '🌍' : db.type === 'runtime' ? '⏱' : '✓'} {db.requirement}
-                                                        </span>
-                                                        <span className="text-[9px] text-slate-400 italic">
-                                                            {db.type === 'location' ? 'area mismatch' :
-                                                             db.type === 'runtime' ? 'needs computation' :
-                                                             'not verified'}
-                                                        </span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                    <button
-                                        className="mt-2 px-4 py-1.5 text-xs font-bold text-amber-800 bg-amber-200 hover:bg-amber-300 rounded-lg transition-colors"
-                                        onClick={() => {
-                                            relaxedModeRef.current = true;
-                                            setBuyerDealbreakersUnmet(null);
-                                            // Re-run search showing all results regardless of score
-                                            handleBuyerSearch();
-                                        }}
-                                    >
-                                        <i className="fa-solid fa-filter-circle-xmark mr-1.5"></i>
-                                        Relax criteria &amp; explore anyway
-                                    </button>
-                                </div>
-                            )}
 
-                            {/* Extracted criteria — prose summary */}
+                            {/* Extracted criteria — full breakdown */}
                             {buyerExtracted && !buyerError && (
-                                <div className="bg-white border border-indigo-100 rounded-xl px-4 py-2.5">
+                                <div className="bg-white border border-indigo-100 rounded-xl px-4 py-3 space-y-2.5">
+                                    {/* Search summary */}
                                     <p className="text-xs text-slate-600 leading-relaxed">
                                         <i className="fa-solid fa-sparkles text-indigo-400 mr-1.5"></i>
                                         {buyerExtracted.searchSummary || `Searching for properties in the ${fmt(buyerExtracted.priceMin)}–${fmt(buyerExtracted.priceMax)} range.`}
                                     </p>
+
+                                    {/* Extracted filters */}
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {buyerExtracted.priceMin > 0 && (
+                                            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+                                                💰 {fmt(buyerExtracted.priceMin)}–{fmt(buyerExtracted.priceMax)}
+                                            </span>
+                                        )}
+                                        {buyerExtracted.beds && (
+                                            <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                                                🛏 {buyerExtracted.beds}+ beds
+                                            </span>
+                                        )}
+                                        {buyerExtracted.baths && (
+                                            <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                                                🚿 {buyerExtracted.baths}+ baths
+                                            </span>
+                                        )}
+                                        {buyerExtracted.homeType && (
+                                            <span className="px-2 py-0.5 text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-200 rounded-full">
+                                                🏠 {buyerExtracted.homeType.replace(/_/g, ' ')}
+                                            </span>
+                                        )}
+                                        {buyerExtracted.stories && (
+                                            <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                                                🏗 {buyerExtracted.stories} story
+                                            </span>
+                                        )}
+                                        {buyerExtracted.minSchoolRating && (
+                                            <span className="px-2 py-0.5 text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 rounded-full">
+                                                🎓 Schools {buyerExtracted.minSchoolRating}+
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Must-haves */}
+                                    {buyerExtracted.mustHaves.length > 0 && (
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Must-Haves</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {buyerExtracted.mustHaves.map((mh, i) => (
+                                                    <span key={i} className="px-2 py-0.5 text-[10px] bg-rose-50 text-rose-700 border border-rose-200 rounded-full">
+                                                        {mh}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Nice-to-haves */}
+                                    {buyerExtracted.niceToHaves.length > 0 && (
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Nice-to-Haves</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {buyerExtracted.niceToHaves.map((nth, i) => (
+                                                    <span key={i} className={`px-2 py-0.5 text-[10px] rounded-full border ${
+                                                        nth.startsWith('[Inferred]')
+                                                            ? 'bg-purple-50 text-purple-600 border-purple-200 italic'
+                                                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                    }`}>
+                                                        {nth.startsWith('[Inferred]') ? '🤖 ' + nth.replace('[Inferred] ', '') : nth}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -3156,33 +3063,12 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                                         </div>
                                                     </div>
 
-                                                    {/* Highlight */}
-                                                    <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 italic leading-relaxed">
-                                                        "{match.highlight}"
-                                                    </p>
-
-                                                    {/* Match summary — prose */}
-                                                    {match.matchSummary && (
-                                                        <p className="text-[11px] text-slate-600 leading-relaxed">
-                                                            {match.matchSummary}
+                                                    {/* Match writeup — unified prose with inline ✅/❌ */}
+                                                    {match.matchWriteup && (
+                                                        <p className="text-[11.5px] text-slate-700 leading-relaxed">
+                                                            {match.matchWriteup}
                                                         </p>
                                                     )}
-
-                                                    {/* Reasons & Misses — compact */}
-                                                    <p className="text-[10px] leading-relaxed">
-                                                        {match.reasons.length > 0 && (
-                                                            <span className="text-emerald-700">
-                                                                <i className="fa-solid fa-check text-[7px] text-emerald-500 mr-0.5"></i>
-                                                                {match.reasons.join(' · ')}
-                                                            </span>
-                                                        )}
-                                                        {match.misses && match.misses.length > 0 && (
-                                                            <span className="text-rose-600 ml-2">
-                                                                <i className="fa-solid fa-xmark text-[7px] text-rose-400 mr-0.5"></i>
-                                                                {match.misses.join(' · ')}
-                                                            </span>
-                                                        )}
-                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -3252,12 +3138,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                         {/* Hover tooltip */}
                                         {match && hoveredZpid === prop.zpid && (
                                             <div className="absolute left-0 right-0 -bottom-2 translate-y-full z-20 bg-white border border-indigo-200 rounded-xl shadow-xl p-3 space-y-1.5 animate-in fade-in duration-150">
-                                                <p className="text-[11px] text-indigo-600 font-semibold italic">&ldquo;{match.highlight}&rdquo;</p>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {match.reasons.map((r, i) => (
-                                                        <span key={i} className="text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">{r}</span>
-                                                    ))}
-                                                </div>
+                                                <p className="text-[11px] text-slate-700 leading-relaxed">{match.matchWriteup}</p>
                                             </div>
                                         )}
                                     </div>
@@ -3321,12 +3202,7 @@ For each requirement, respond with "yes" if ${cityForCheck} satisfies it, or "no
                                                     {/* Hover tooltip for table row */}
                                                     {match && hoveredZpid === prop.zpid && (
                                                         <div className="absolute left-0 top-full z-30 w-[400px] bg-white border border-indigo-200 rounded-xl shadow-xl p-3 space-y-1.5 animate-in fade-in duration-150">
-                                                            <p className="text-[11px] text-indigo-600 font-semibold italic">&ldquo;{match.highlight}&rdquo;</p>
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {match.reasons.map((r, ri) => (
-                                                                    <span key={ri} className="text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">{r}</span>
-                                                                ))}
-                                                            </div>
+                                                            <p className="text-[11px] text-slate-700 leading-relaxed">{match.matchWriteup}</p>
                                                         </div>
                                                     )}
                                                 </td>

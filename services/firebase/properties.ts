@@ -259,6 +259,7 @@ export interface CityPropertySummary {
     daysOnZillow?: number;
     hoa?: number;
     city?: string;
+    maxSchoolRating?: number;  // Best nearby school rating (1-10)
 }
 
 /**
@@ -304,6 +305,16 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                 daysOnZillow: data.daysOnZillow ?? data.days_on_zillow ?? undefined,
                 hoa: data.monthlyHoaFee ?? data.hoaFee ?? undefined,
                 city: data.city || '',
+                maxSchoolRating: (() => {
+                    const schools = data.schools as { rating?: string | number }[] | undefined;
+                    if (!schools?.length) return undefined;
+                    let best = 0;
+                    for (const s of schools) {
+                        const r = parseFloat(String(s.rating).replace(/\/.*/, '')) || 0;
+                        if (r > best) best = r;
+                    }
+                    return best > 0 ? best : undefined;
+                })(),
             };
         });
     } catch (error: any) {
