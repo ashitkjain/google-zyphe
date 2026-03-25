@@ -1320,7 +1320,13 @@ const App: React.FC = () => {
                   </span>
                 </>
               ) : (
-                <span className="text-slate-500"></span>
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="flex items-center gap-2 group"
+                >
+                  <span className="opacity-40 group-hover:opacity-100 transition-opacity">Guest Access</span>
+                  <span className="px-2 py-0.5 bg-slate-700 text-slate-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 rounded text-[8px] border border-slate-600 group-hover:border-indigo-500/30 transition-all">Sign In</span>
+                </button>
               )}
             </div>
 
@@ -1352,7 +1358,14 @@ const App: React.FC = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
-
+              {!currentUser && (
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="px-6 py-2.5 bg-slate-900 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-slate-200"
+                >
+                  Sign In
+                </button>
+              )}
             </div>
           </div>
         </header>
