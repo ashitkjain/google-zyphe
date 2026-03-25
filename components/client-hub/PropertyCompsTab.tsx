@@ -3,6 +3,8 @@ import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
 import { APP_CONFIG } from '../../config';
 import { COMP_NORMALIZATION_PROMPT, COMP_NORMALIZATION_SYSTEM_INSTRUCTION } from '../../prompts/property/compNormalization';
+import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
+import { executeLandUtilityAnalysis } from '../../prompts/property/landUtility';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -525,7 +527,6 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
         setCompAnalysisError(null);
         console.log(`[CompAnalysis] 🚀 Running Gemini comp normalization for ${comps.length} comps...`);
         try {
-            const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
             const eligible = comps
                 .filter(c => !c.isOutlier && !c.priceUnverified && (c.tier === 1 || c.tier === 2 || c.tier === 3))
                 .sort((a, b) => (a.tier ?? 4) - (b.tier ?? 4) || (a.distance ?? 99) - (b.distance ?? 99))
@@ -665,7 +666,6 @@ const PropertyCompsTab: React.FC<PropertyCompsTabProps> = ({ initialAddress = ''
                 }),
                 // Land Utility — uses Gemini function calling with USGS/Google elevation tools
                 (async () => {
-                    const { executeLandUtilityAnalysis } = await import('../../prompts/property/landUtility');
                     return executeLandUtilityAnalysis(eligible.length, subjectInfo, compsList, subjectZpid, address, subjectLat, subjectLng, subjectLotSize, subjectDescription, subjectTaxSqft);
                 })(),
             ]);

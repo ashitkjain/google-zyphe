@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { listAdminVideos } from '../../services/firebase/storage';
 
 const TechnicalMediaTab: React.FC = () => {
     const p = {
@@ -16,7 +16,6 @@ const TechnicalMediaTab: React.FC = () => {
     React.useEffect(() => {
         const fetchVideos = async () => {
             try {
-                const { listAdminVideos } = await import('../../services/firebase/storage');
                 const videoData = await listAdminVideos();
                 setVideos(videoData);
             } catch (error) {

@@ -89,5 +89,8 @@ export const APP_CONFIG = {
     },
     tomorrow: {
         key: (import.meta as any).env?.VITE_TOMORROW_API_KEY || ''
+    },
+    concierge: {
+        zoomRoomId: '82485671234' // Placeholder Zoom Meeting ID
     }
 };

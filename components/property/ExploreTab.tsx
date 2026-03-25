@@ -9,12 +9,13 @@ import StreetViewAnalysisSection from './StreetViewAnalysisSection';
 import PropertyMaps from './PropertyMaps';
 import Logo from '../shared/Logo';
 import VastuCard from './VastuCard';
+import { doc, setDoc } from 'firebase/firestore';
 import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
 import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import ComplianceAttribution from './ComplianceAttribution';
 import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
-import StaticParcelMap from './StaticParcelMap';
 import ParcelValidationCard from './ParcelValidationCard';
+import StaticParcelMap from './StaticParcelMap';
 import HistoricalDisasterSection from './HistoricalDisasterSection';
 import LifestyleInsightsSection from './LifestyleInsightsSection';
 import SeasonalSunCard from './SeasonalSunCard';
@@ -23,12 +24,39 @@ import { StickyNotesLayer } from '../analysis/custom-ai/components/StickyNotesLa
 
 
 import ChatInterface from '../shared/ChatInterface';
-import { auth } from '../../services/firebase/config';
+import ConciergeCall from '../concierge/ConciergeCall';
+import { auth, db, generateCityStateKey } from '../../services/firebase/config';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry, DeepResearchInsights } from '../../types';
-import { getPropertiesByCity, CityPropertySummary } from '../../services/firebase/properties';
+import { 
+    getPropertiesByCity, 
+    CityPropertySummary, 
+    getCityNeighborhoodsFromCloud, 
+    queryContextGraphs, 
+    getCityContextGraphFromCloud,
+    getComprehensiveAnalysisFromCloud,
+    getVisualAnalysisFromCloud,
+    getPropertyInvestmentFromCloud,
+    getDeepInvestmentResearchFromCloud,
+    getInteriorSummaryFromCloud,
+    getLifestyleInsightsFromCloud,
+    getLifestyleFitFromCloud,
+    getSchoolAnalysisFromCloud,
+    saveLifestyleInsightsToCloud
+} from '../../services/firebase/properties';
+import { getSchoolCacheKey } from '../../prompts/property/schoolsAnalysis';
 import { hasEssentialData } from '../../utils/propertyValidation';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
-import { FACTOR_NAMES } from '../../constants/contextGraphFactors';
+import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS } from '../../constants/contextGraphFactors';
+import { 
+    executeGeminiRequest, 
+    FLASH_LITE_MODEL, 
+    FLASH_MODEL, 
+    mineCityNeighborhoods,
+    extractDeepResearchInsights,
+    analyzeLifestyleInsights
+} from '../../services/geminiService';
+import { buildExtractionPrompt, buildMatchingPrompt, PersonaContext } from '../../services/prompts/buyerStoryMatch';
+import { Type } from '@google/genai';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -147,8 +175,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         if (!resolvedName || !propertyData?.city || !propertyData?.state) return;
         (async () => {
             try {
-                const { generateCityStateKey } = await import('../../services/firebase/config');
-                const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
                 const key = generateCityStateKey(propertyData.city, propertyData.state);
                 if (!key) return;
                 const cityData = await getCityNeighborhoodsFromCloud(key);
@@ -172,7 +198,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             const zpid = propertyData?.zpid;
             if (!zpid) return;
             try {
-                const { getLifestyleInsightsFromCloud, getLifestyleFitFromCloud } = await import('../../services/firebase/properties');
                 const [cached, fitCached] = await Promise.all([
                     getLifestyleInsightsFromCloud(zpid),
                     getLifestyleFitFromCloud(zpid)
@@ -194,9 +219,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             const state = propertyData?.state;
             if (!schools?.length || !city) return;
             try {
-                const { getSchoolAnalysisFromCloud } = await import('../../services/firebase/properties');
-                const { getSchoolCacheKey } = await import('../../prompts/property/schoolsAnalysis');
-
                 const results: any[] = [];
                 for (const school of schools) {
                     const cacheKey = getSchoolCacheKey(school.name, city, state || '');
@@ -225,8 +247,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         if (!propertyData || lifestyleLoading) return;
         setLifestyleLoading(true);
         try {
-            const { analyzeLifestyleInsights } = await import('../../services/geminiService');
-            const { saveLifestyleInsightsToCloud } = await import('../../services/firebase/properties');
             const { data } = await analyzeLifestyleInsights(propertyData, auth?.currentUser?.uid || 'unknown');
             setLifestyleInsights(data);
             if (propertyData.zpid) await saveLifestyleInsightsToCloud(propertyData.zpid, data);
@@ -250,14 +270,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         let cancelled = false;
         (async () => {
             try {
-                const {
-                    getVisualAnalysisFromCloud,
-                    getPropertyInvestmentFromCloud,
-                    getDeepInvestmentResearchFromCloud,
-                    getInteriorSummaryFromCloud
-                } = await import('../../services/firebase/properties');
-                const { generateCityStateKey } = await import('../../services/firebase/config');
-
                 // Build city-state key for city-level collections
                 const cityStateKey = generateCityStateKey(propertyData.city, propertyData.state);
                 console.log('[ExploreTab Cache] Fetching cache data:', {
@@ -310,7 +322,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 // Also fetch comprehensive analysis if not in full view mode
                 try {
                     console.log(`[⏱ ExploreTab] +${_elapsed()} — comprehensive cache read start`);
-                    const { getComprehensiveAnalysisFromCloud } = await import('../../services/firebase/properties');
                     const compCache = await getComprehensiveAnalysisFromCloud(String(propertyData.zpid));
                     console.log(`[⏱ ExploreTab] +${_elapsed()} — comprehensive cache read done (hit=${!!compCache})`);
                     if (compCache && !cancelled) {
@@ -324,16 +335,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                     // Backfill: extract key insights on-the-fly from existing research
                     console.log('[ExploreTab Cache] No key_insights found — extracting on-the-fly...');
                     try {
-                        const { extractDeepResearchInsights } = await import('../../services/geminiService');
                         const insightsRes = await extractDeepResearchInsights(deepResearchCache.content, 'cache-backfill', cityStateKey);
                         if (insightsRes.data && !cancelled) {
                             setCachedKeyInsights(insightsRes.data);
                             // Save back to Firestore for next time
-                            const { doc: firestoreDoc, setDoc: firestoreSetDoc } = await import('firebase/firestore');
-                            const { db } = await import('../../services/firebase/config');
                             if (db) {
-                                const docRef = firestoreDoc(db, "deep_investment_research", cityStateKey);
-                                await firestoreSetDoc(docRef, { key_insights: insightsRes.data }, { merge: true });
+                                const docRef = doc(db, "deep_investment_research", cityStateKey);
+                                await setDoc(docRef, { key_insights: insightsRes.data }, { merge: true });
                                 console.log('[ExploreTab Cache] Key insights extracted and saved.');
                             }
                         }
@@ -1874,7 +1882,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             </div>
 
             {propertyData && (
-                <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />
+                <>
+                    <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />
+                    <ConciergeCall />
+                </>
             )
             }
         </>
@@ -2018,7 +2029,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [buyerScoredCount, setBuyerScoredCount] = useState<number>(0);
 
     // Persona context from My Story intake form (who the buyer IS)
-    const buyerPersonaRef = React.useRef<import('../../services/prompts/buyerStoryMatch').PersonaContext | undefined>(undefined);
+    const buyerPersonaRef = React.useRef<PersonaContext | undefined>(undefined);
 
     // Ref to hold a pending story search (set by My Story, auto-triggered after city loads)
     const pendingStoryRef = React.useRef<string | null>(null);
@@ -2051,7 +2062,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
      * Called by StoryIntakeTab when user clicks "Begin Discovery".
      * Orchestrates: load city → set AI prompt → switch to Zyphe AI view → auto-search.
      */
-    const handleStoryDiscover = async (story: string, cities: string[], persona?: import('../../services/prompts/buyerStoryMatch').PersonaContext) => {
+    const handleStoryDiscover = async (story: string, cities: string[], persona?: PersonaContext) => {
         const city = cities[0]; // Use the first city
         if (!city || !story.trim()) return;
 
@@ -2090,8 +2101,6 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         if (!selectedCity) { setCachedNeighborhoodCount(null); return; }
         (async () => {
             try {
-                const { generateCityStateKey } = await import('../../services/firebase/config');
-                const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
                 const key = generateCityStateKey(selectedCity, 'CA');
                 if (!key) return;
                 const cached = await getCityNeighborhoodsFromCloud(key);
@@ -2105,7 +2114,6 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         setMining(true);
         setMiningStatus('Starting neighborhood mining...');
         try {
-            const { mineCityNeighborhoods } = await import('../../services/geminiService');
             const result = await mineCityNeighborhoods(
                 selectedCity,
                 'CA',
@@ -2216,14 +2224,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         const timings: { step: string; ms: number; detail?: string }[] = [];
 
         try {
-            const { executeGeminiRequest } = await import('../../services/geminiService');
-            const { Type } = await import('@google/genai');
-            const { auth } = await import('../../services/firebase/config');
-
             // ── STEP 0: Extract structured attributes via Gemini Flash Lite ──
             const t0 = performance.now();
-            const { FLASH_LITE_MODEL, FLASH_MODEL } = await import('../../services/geminiService');
-            const { buildExtractionPrompt, buildMatchingPrompt } = await import('../../services/prompts/buyerStoryMatch');
             const extractionPrompt = buildExtractionPrompt(buyerStory, buyerPersonaRef.current);
 
             type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; stories: number; min_school_rating: number; must_haves: string[]; nice_to_haves: string[]; dealbreakers?: { requirement: string; type: string; factor_id?: number }[]; relevant_factor_ids?: number[]; search_summary: string };
@@ -2311,7 +2313,6 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 return;
             }
 
-            const { queryContextGraphs } = await import('../../services/firebase/properties');
             const graphMap = await queryContextGraphs({
                 city: cityForQuery,
                 priceMin: priceMin > 0 ? priceMin : undefined,
@@ -2330,9 +2331,6 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
             // ── STEP 1a: Merge city-level factors (backward compatible) ──
             const t1a = performance.now();
-            const { getCityContextGraphFromCloud } = await import('../../services/firebase/properties');
-            const { CITY_LEVEL_FACTOR_IDS } = await import('../../constants/contextGraphFactors');
-            const { generateCityStateKey } = await import('../../services/firebase/config');
 
             // Determine city/state from the first graph entry for key generation
             const firstGraph = graphMap.values().next().value;

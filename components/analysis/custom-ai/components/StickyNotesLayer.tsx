@@ -56,9 +56,19 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent | TouchEvent) => {
             if (!draggingFromPalette) return;
+            
+            // Prevent scrolling on mobile during drag
+            if ('touches' in e && e.cancelable) {
+                e.preventDefault();
+            }
+
             const clientX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
             const clientY = 'touches' in e ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
-            setDragPos({ x: clientX, y: clientY });
+            
+            // Use requestAnimationFrame for smoother updates
+            window.requestAnimationFrame(() => {
+                setDragPos({ x: clientX, y: clientY });
+            });
         };
 
         const handleMouseUp = async (e: MouseEvent | TouchEvent) => {
@@ -77,8 +87,9 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                 if (clientX >= rect.left - slop && clientX <= rect.right + slop &&
                     clientY >= rect.top - slop && clientY <= rect.bottom + slop) {
 
-                    const x = Math.max(0, Math.min(clientX - rect.left - 48, rect.width - 96));
-                    const y = Math.max(0, Math.min(clientY - rect.top - 16, rect.height - 96));
+                    // Center the note on the drop location (note is 192px/192px => offset by 96px)
+                    const x = Math.max(0, Math.min(clientX - rect.left - 96, rect.width - 192));
+                    const y = Math.max(0, Math.min(clientY - rect.top - 96, rect.height - 192));
 
                     setPendingNote({ color: draggingFromPalette, location: { x, y } });
                     setDraftContent('');
@@ -254,15 +265,16 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
             {/* Ghost Note during dragging */}
             {draggingFromPalette && (
                 <div
-                    className="fixed pointer-events-none z-[500] rotate-6 scale-110 opacity-70"
+                    className="fixed pointer-events-none z-[9999] rotate-6 scale-110 opacity-70"
                     style={{
-                        left: dragPos.x - 80,
-                        top: dragPos.y - 80,
-                        width: '160px',
-                        height: '160px'
+                        left: 0,
+                        top: 0,
+                        width: '180px',
+                        height: '180px',
+                        transform: `translate3d(${dragPos.x - 90}px, ${dragPos.y - 90}px, 0)`
                     }}
                 >
-                    <div className="w-full h-full rounded-[1px] shadow-2xl bg-[#ffff88] overflow-hidden">
+                    <div className="w-full h-full rounded-[1px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] bg-[#ffff88] overflow-hidden">
 
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-[5px] bg-white/25 rounded-b-sm"></div>
                     </div>

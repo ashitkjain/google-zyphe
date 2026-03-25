@@ -28,6 +28,10 @@ import { searchResoProperties } from '../../services/resoService';
 import { formatAddress as centralFormatAddress } from '../../services/apiService';
 import { runCitySmokeTest, CitySmokeSummary, PropertySmokeResult } from '../../services/smokeTest';
 import { logPipelineAudit, getPipelineAuditTrail, PipelineAuditEntry } from '../../services/firebase/pipelineAudit';
+import { generateCityStateKey } from '../../services/firebase/config';
+import { getCityNeighborhoodsFromCloud, getContextGraphsBatch, getPropertyFromCloud } from '../../services/firebase/properties';
+import { executeGeminiRequest, FLASH_MODEL } from '../../services/geminiService';
+import { Type } from '@google/genai';
 
 
 interface IngestionJob {
@@ -115,8 +119,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         if (!city) { setCachedNeighborhoodCount(null); return; }
         (async () => {
             try {
-                const { generateCityStateKey } = await import('../../services/firebase/config');
-                const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
                 // Resolve state same way as Run City Level Reports
                 let s = stateFilter && stateFilter !== 'ALL' ? stateFilter : 'CA';
                 const key = generateCityStateKey(city, s);
@@ -1594,11 +1596,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         addLog(`[Buyer Search] Starting search with story: "${buyerStory.substring(0, 80)}..."`);
 
         try {
-            const { getContextGraphsBatch } = await import('../../services/firebase/properties');
-            const { getPropertyFromCloud } = await import('../../services/firebase/properties');
-            const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
-            const { Type } = await import('@google/genai');
-
             // 1. Apply filters from listings to narrow candidates
             const minPrice = buyerFilterPrice[0] ? parseFloat(buyerFilterPrice[0]) * 1000 : 0;
             const maxPrice = buyerFilterPrice[1] ? parseFloat(buyerFilterPrice[1]) * 1000 : Infinity;
