@@ -1,21 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../../types';
-import { CHAT_MODEL, getAi, executeGeminiRequest } from '../../services/geminiService';
-import { APP_CONFIG } from '../../config';
+import { CHAT_MODEL, executeGeminiRequest } from '../../services/geminiService';
 import { getChatInstruction, getChatContext } from '../../prompts/property/chatInterface';
-import { logLLMCall, updateLLMCall } from '../../services/firebase/llm_logs';
-import { serverTimestamp } from 'firebase/firestore';
-import { urlToBase64 } from '../../services/geminiService';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 interface Props {
   property: PropertyData;
   visual: CustomAIAnalysisResult | null;
   comprehensive: ComprehensiveAnalysisResult | null;
-}
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
 }
 
 const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => {
@@ -42,7 +38,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
     setInput('');
     setLoading(true);
 
-    let logId: string | null = null;
     try {
       const intelligenceContext = getChatContext(property, visual, comprehensive);
       const systemInstruction = getChatInstruction(intelligenceContext);
@@ -57,7 +52,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       const contents = [...history, { role: 'user', parts: [{ text }] }];
 
-      const { data: aiText, rawResponse: response } = await executeGeminiRequest<string>({
+      const { data: aiText } = await executeGeminiRequest<string>({
         model: CHAT_MODEL,
         contents,
         config: {
@@ -73,68 +68,17 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       let finalContent = aiText || "I apologize, I'm having trouble processing that request right now.";
 
-      // Extract routing if present
-      const match = finalContent.match(/\{[\s\S]*"routing"\s*:\s*"MISSING"[\s\S]*\}/);
-      if (match) {
-        try {
-          const routingResult = JSON.parse(match[0]);
-          if (routingResult.routing === "MISSING") {
-            if (routingResult.source === "images" && visual?.image_by_image_analysis) {
-              const targetImageIds = routingResult.image_indices
-                ?.map((idx: number) => visual.image_by_image_analysis?.[idx]?.image_id)
-                .filter(Boolean);
-
-              if (targetImageIds && targetImageIds.length > 0) {
-                const imageParts = await Promise.all(targetImageIds.map((url: string) => urlToBase64(url)));
-                const messageWithImages = {
-                  role: 'user',
-                  parts: [
-                    { text: `The following information was requested: "${text}". I have provided some relevant property photos. Please answer based on these photos.` },
-                    ...imageParts.map(img => ({ inlineData: img }))
-                  ]
-                };
-
-                const imgResult = await executeGeminiRequest<string>({
-                  model: CHAT_MODEL,
-                  contents: messageWithImages as any,
-                  config: { systemInstruction, temperature: 0.1 },
-                  userId: "unknown",
-                  promptFilename: "ChatInterface.tsx (Images)",
-                  zpid: property.zpid,
-                });
-                finalContent = imgResult.data || finalContent;
-              }
-            } else if (routingResult.source === "search") {
-              const searchResult = await executeGeminiRequest<string>({
-                model: CHAT_MODEL,
-                contents: text,
-                config: {
-                  systemInstruction,
-                  tools: [{ googleSearch: {} }] as any,
-                  temperature: 0.1
-                },
-                userId: "unknown",
-                promptFilename: "ChatInterface.tsx (Search)",
-                zpid: property.zpid
-              });
-              finalContent = searchResult.data || finalContent;
-            }
-          }
-        } catch (e) {
-          console.warn("Found routing-like string but failed to parse:", e);
-        }
-      }
-
-      // FINAL SANITIZATION: Strip any remaining JSON blocks or [cite:...] tags from the final display
+      // FINAL SANITIZATION: Strip any remaining citation tags
       const sanitizeDisplay = (content: string) => {
         return content
-          .replace(/```json[\s\S]*?```/g, '')
-          .replace(/\{[\s\S]*"routing"\s*:\s*"MISSING"[\s\S]*\}/g, '')
           .replace(/\[cite:.*?\]/gi, '')
           .trim();
       };
 
-      setMessages(prev => [...prev, { role: 'assistant', content: sanitizeDisplay(finalContent) }]);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: sanitizeDisplay(finalContent)
+      }]);
     } catch (err: any) {
       console.error("Chat Error:", err);
       setMessages(prev => [...prev, { role: 'assistant', content: "I've encountered an issue. Please try again." }]);
@@ -244,6 +188,11 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
                 <i className="fa-solid fa-paper-plane-top"></i>
               </button>
             </form>
+            <div className="mt-4 text-center px-2">
+              <p className="text-[9px] text-slate-400 font-medium leading-relaxed tracking-tight">
+                Zyphe uses AI which can hallucinate. Please independently verify all important information.
+              </p>
+            </div>
           </div>
         </div>
       )}

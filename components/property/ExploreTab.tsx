@@ -2072,10 +2072,10 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         // Set the buyer story text
         setBuyerStory(story);
 
-        // Hide My Story panel and switch to Zyphe AI view
+        // Hide My Story panel and switch to Gallery view
         setShowMyStory(false);
         setActivePath('story');
-        setViewModeLocal('zypheai');
+        setViewModeLocal('gallery');
         setShowBuyerSearch(true);
 
         // Store the story so the useEffect auto-triggers after browse completes
@@ -2601,14 +2601,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex bg-slate-100 rounded-xl p-1">
                             <button
-                                onClick={() => { setViewModeLocal('zypheai'); setShowBuyerSearch(true); }}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'zypheai' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <i className="fa-solid fa-wand-magic-sparkles mr-1"></i> ZypheAI
-                            </button>
-                            <button
                                 onClick={() => setViewModeLocal('gallery')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 <i className="fa-solid fa-grid-2 mr-1"></i> Gallery
                             </button>

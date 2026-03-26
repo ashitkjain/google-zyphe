@@ -12,6 +12,7 @@ import WhiteboardTab from '../WhiteboardTab';
 import ZypheCalendar from '../ZypheCalendar';
 import CreativeStudioWidget from '../reactivate/components/CreativeStudioWidget';
 import KnowledgeCenterTab from '../KnowledgeCenterTab';
+import VCHelpTab from '../VCHelpTab';
 import LeadIngestionTab from '../LeadIngestionTab';
 import PdfToCsvTab from '../PdfToCsvTab';
 import SmsRegistrationTab from '../SmsRegistrationTab';
@@ -186,6 +187,14 @@ const HubContent: React.FC<HubContentProps> = ({
             )}
 
             {activeTab === 'knowledge_center' && <KnowledgeCenterTab onNavigate={onNavigate} />}
+
+            {activeTab === 'vc_guide' && (
+                <div className="bg-white min-h-screen py-16 px-8 sm:px-12 lg:px-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="max-w-5xl mx-auto pb-40">
+                        <VCHelpTab />
+                    </div>
+                </div>
+            )}
 
             {activeTab === 'lead_ingestion' && <LeadIngestionTab realtorId={realtorId} />}
 

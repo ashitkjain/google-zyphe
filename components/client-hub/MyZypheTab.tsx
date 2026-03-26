@@ -3,11 +3,32 @@ import { getAllUserNotes, deleteStickyNote } from '../../services/firebase/stick
 import { UserPropertyComment } from '../../types/stickyNotes';
 import MessagesTab from './MessagesTab';
 
+const PAGE_LABELS: Record<string, string> = {
+    explore: 'Explore', leads: 'Funnel', clients: 'Clients', closing: 'Closing',
+    reactivate: 'Reactivate', tasks: 'Tasks', calendar: 'Calendar',
+    whiteboard: 'Whiteboard', creative_studio: 'Creative Studio', settings: 'Data Fields',
+    profile: 'Profile', knowledge_center: 'Library', best_practices: 'Best Practices',
+    guides: 'Guides', city_data: 'City Ingestion', data_health: 'Data Health',
+    ai_validation: 'AI Validation', lead_ingestion: 'Lead Ingestion', pdf_csv: 'PDF to CSV',
+    sms_registration: 'SMS Registration', storage_registry: 'Bulk Prefetch',
+    bulk_prefetch: 'Bulk Prefetch', industry_research: 'Industry Research',
+    product_market_fit: 'Product Market Fit', post_close_intelligence: 'Post-Close',
+    technical_papers: 'Technical Papers', video_upload: 'Video Upload',
+    technical_media: 'Technical Media', executive_summary: 'Executive Summary',
+    industry_case_studies: 'Case Studies', unit_economics: 'Unit Economics',
+    premium_mls: 'Premium MLS', reminder_rules: 'Reminder Rules',
+    my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
+    sold_listings: 'Sold Listings', agent_manager: 'Agent Manager',
+    cost_dashboard: 'Cost Dashboard',
+};
+
 interface MyZypheTabProps {
     userId: string;
     displayName: string;
     email: string;
     role: string;
+    favorites?: any[];
+    cloudHistory?: any[];
 }
 
 const NOTE_COLORS: Record<string, string> = {
@@ -43,13 +64,11 @@ const formatFullDate = (ts: any): string => {
     });
 };
 
-
-
-const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, role }) => {
+const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, role, favorites = [], cloudHistory = [] }) => {
     const [notes, setNotes] = useState<UserPropertyComment[]>([]);
     const [notesLoading, setNotesLoading] = useState(true);
 
-    const [activeTab, setActiveTab] = useState<'notes' | 'messages'>('notes');
+    const [activeTab, setActiveTab] = useState<'notes' | 'messages' | 'favorites' | 'history'>('notes');
 
     const loadNotes = async () => {
         setNotesLoading(true);
@@ -84,7 +103,7 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                 ></div>
 
                 <div className="max-w-6xl mx-auto px-8 py-12 relative z-10">
-                    <div className="flex items-center justify-between mb-8">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                         <div className="flex items-center gap-6">
                             <div className="w-20 h-20 rounded-[1.5rem] bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-2xl">
                                 <i className="fa-solid fa-chart-line text-3xl"></i>
@@ -96,20 +115,38 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                 </p>
                             </div>
                         </div>
-                        <div className="hidden md:flex bg-white/5 backdrop-blur-sm p-1 rounded-2xl border border-white/10">
+                        <div className="flex bg-white/5 backdrop-blur-sm p-1 rounded-2xl border border-white/10 overflow-x-auto no-scrollbar">
                             <button
                                 onClick={() => setActiveTab('notes')}
-                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'notes' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'notes' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
                             >
-                                <i className="fa-solid fa-note-sticky"></i> My Notes
+                                <i className="fa-solid fa-note-sticky"></i> Notes
                                 <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[8px] ${activeTab === 'notes' ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white/40'}`}>
                                     {notes.length}
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('favorites')}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'favorites' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                            >
+                                <i className="fa-solid fa-heart"></i> Favorites
+                                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[8px] ${activeTab === 'favorites' ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white/40'}`}>
+                                    {favorites.length}
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('history')}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'history' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                            >
+                                <i className="fa-solid fa-clock-rotate-left"></i> History
+                                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[8px] ${activeTab === 'history' ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white/40'}`}>
+                                    {cloudHistory.length}
                                 </span>
                             </button>
                             {(role === 'admin' || role === 'auditor') && (
                                 <button
                                     onClick={() => setActiveTab('messages')}
-                                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'messages' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'messages' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
                                 >
                                     <i className="fa-solid fa-comments"></i> Messages
                                 </button>
@@ -121,9 +158,120 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
 
             {/* Content Area */}
             <div className="max-w-6xl mx-auto px-8 py-8">
-                {activeTab === 'messages' ? (
+                {activeTab === 'messages' && (role === 'admin' || role === 'auditor') ? (
                     <div className="flex flex-col" style={{ height: 'calc(100vh - 260px)' }}>
                         <MessagesTab userId={userId} displayName={displayName} role={role} />
+                    </div>
+                ) : activeTab === 'favorites' ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {favorites.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+                                <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mb-6">
+                                    <i className="fa-solid fa-heart text-rose-200 text-4xl"></i>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-800 mb-2">Heart some properties.</h3>
+                                <p className="text-sm text-slate-400 font-medium max-w-xs text-center">Your favorite homes will appear here for quick comparisons.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
+                                <div className="px-10 py-8 border-b border-slate-50 bg-slate-50/30">
+                                    <h3 className="text-lg font-black text-slate-800 tracking-tight">Saved Favorites</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Properties you've shortlisted</p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50/50">
+                                                <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Property</th>
+                                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Price / Details</th>
+                                                <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {favorites.map((fav) => (
+                                                <tr key={fav.zpid} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <td className="px-10 py-6">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs font-black text-slate-900 uppercase tracking-tight">{fav.address || fav.streetAddress || 'Unnamed Property'}</span>
+                                                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+                                                                <i className="fa-solid fa-house text-indigo-300"></i>
+                                                                ZPID: {fav.zpid}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-6">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[11px] font-bold text-slate-700">${fav.price?.toLocaleString() || fav.unformattedPrice?.toLocaleString()}</span>
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
+                                                                {fav.bedrooms}B / {fav.bathrooms}B · {fav.livingArea} sqft
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-10 py-6 text-right">
+                                                        <button className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                                                            View Report
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : activeTab === 'history' ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {cloudHistory.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                                    <i className="fa-solid fa-eye text-slate-200 text-4xl"></i>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-800 mb-2">Start Exploring.</h3>
+                                <p className="text-sm text-slate-400 font-medium max-w-xs text-center">Your recently viewed properties will track here automatically.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
+                                <div className="px-10 py-8 border-b border-slate-50 bg-slate-50/30">
+                                    <h3 className="text-lg font-black text-slate-800 tracking-tight">Recent Activity</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Browsing history across sessions</p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50/50">
+                                                <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Property</th>
+                                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Last Viewed</th>
+                                                <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {cloudHistory.map((item, idx) => (
+                                                <tr key={`${item.zpid}_${idx}`} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <td className="px-10 py-6">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs font-black text-slate-900 uppercase tracking-tight">{item.address || 'Unnamed Property'}</span>
+                                                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+                                                                <i className="fa-solid fa-house text-indigo-300"></i>
+                                                                ZPID: {item.zpid}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-6 font-medium text-slate-700">
+                                                        {formatFullDate(item.timestamp)}
+                                                    </td>
+                                                    <td className="px-10 py-6 text-right">
+                                                        <button className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm">
+                                                            Revisit
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

@@ -441,14 +441,10 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
         <div className="animate-in fade-in duration-400 min-h-screen bg-slate-50/60 pb-24">
 
             {/* ── Page Header ── */}
-            <div className="px-8 pt-8 pb-6 max-w-5xl mx-auto">
+            <div className="px-8 pt-2 pb-6 max-w-5xl mx-auto">
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
                     Your Home Story: Tell Us Your Vision
                 </h1>
-                <p className="mt-2 text-sm text-slate-500 font-medium max-w-xl leading-relaxed">
-                    Our AI builds a property profile beyond basic metrics. Share your
-                    narrative to uncover homes aligned with your life.
-                </p>
                 <button
                     onClick={() => setShowExamples(prev => !prev)}
                     className="mt-3 flex items-center gap-2 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors group"

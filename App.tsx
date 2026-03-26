@@ -57,6 +57,7 @@ import ClimateRiskSection from './components/property/ClimateRiskSection';
 
 import PreloadManager from './components/property/PreloadManager';
 import ChatInterface from './components/shared/ChatInterface';
+import MyZypheTab from './components/client-hub/MyZypheTab';
 import Logo from './components/shared/Logo';
 import AuthModal from './components/auth/AuthModal';
 import AddClientModal from './components/client-hub/AddClientModal';
@@ -72,7 +73,7 @@ import { useInactivitySignout } from './hooks/useInactivitySignout';
 import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation' | 'context_graph';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation' | 'context_graph' | 'my_zyphe';
 
 // Initialize PostHog immediately (synchronous) so it's ready before any events fire
 initPostHog();
@@ -169,8 +170,8 @@ const App: React.FC = () => {
           return;
         }
 
-        if (path === '/guides' || path.startsWith('/knowledge') || path === '/') {
-          setViewMode((path === '/guides' || path.startsWith('/knowledge')) ? 'knowledge_center' : 'main');
+        if (path === '/guides' || path.startsWith('/knowledge') || path.startsWith('/training') || path === '/') {
+          setViewMode((path === '/guides' || path.startsWith('/knowledge') || path.startsWith('/training')) ? 'knowledge_center' : 'main');
           return;
         }
       }
@@ -197,7 +198,7 @@ const App: React.FC = () => {
         }
       } else if (path === '/legal-disclaimer' || path === '/terms' || path === '/privacy') {
         setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : path === '/terms' ? 'terms' : 'privacy');
-      } else if (path.startsWith('/knowledge') || path === '/guides') {
+      } else if (path.startsWith('/knowledge') || path.startsWith('/training') || path === '/guides') {
         // /knowledge/context-graph → open the Context Graph technical paper tab
         if (path === '/knowledge/context-graph') {
           setViewMode('technical_papers_context_graph');
@@ -1306,40 +1307,61 @@ const App: React.FC = () => {
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
 
-      {/* Top Bar (Visible if not in knowledge mode OR if user is signed in) */}
+      {/* Consolidated Navigation Bar */}
       {((viewMode !== 'knowledge_center' && viewMode !== 'guides' && window.location.pathname !== '/') || currentUser) && (
-        <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
-          <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
-            <div className="flex items-center gap-3">
-              {currentUser ? (
-                <>
-                  <span className="opacity-40">Intelligence Access:</span>
-                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
-                  <span className="hidden sm:inline opacity-20">|</span>
-                  <span className="hidden sm:inline opacity-40">
-                    {realtorName ? `Client of ${realtorName}` : `${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)} Account`}
-                  </span>
-                </>
-              ) : (
-                <span className="text-slate-500"></span>
-              )}
+        <div className="py-2 px-6 bg-slate-900 text-white border-b border-white/10 relative z-[60] shadow-2xl">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* Left side: Logo + Account Info */}
+            <div className="flex items-center gap-6">
+              <Logo size={40} className="hover:opacity-80 transition-opacity cursor-pointer" onClick={() => transitionToView('main')} />
+              <div className="h-6 w-px bg-white/10"></div>
+              <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em]">
+                <button
+                  onClick={() => transitionToView('main')}
+                  className={`transition-colors flex items-center gap-2 ${viewMode === 'main' || viewMode === 'explore' ? 'text-indigo-400' : 'text-white/60 hover:text-white'}`}
+                >
+                  <i className="fa-solid fa-compass text-[10px]"></i>
+                  EXPLORE
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-6">
+            {/* Right side: Navigation + Actions */}
+            <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.2em]">
+              {currentUser && (
+                <button
+                  onClick={() => transitionToView('my_zyphe')}
+                  className={`transition-colors flex items-center gap-2 ${viewMode === 'my_zyphe' ? 'text-indigo-400' : 'text-white/60 hover:text-white'}`}
+                >
+                  <i className="fa-solid fa-chart-line text-[10px]"></i>
+                  MY ZYPHE
+                </button>
+              )}
               <button
-                onClick={() => transitionToView(viewMode === 'knowledge_center' ? 'main' : 'knowledge_center')}
-                className="text-white/60 hover:text-white transition-colors flex items-center gap-2"
+                onClick={() => transitionToView('knowledge_center')}
+                className={`transition-colors flex items-center gap-2 ${viewMode === 'knowledge_center' ? 'text-indigo-400' : 'text-white/60 hover:text-white'}`}
               >
-                <i className={`fa-solid ${viewMode === 'knowledge_center' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
-                {viewMode === 'knowledge_center' ? 'BACK TO EXPLORE' : 'LEARN'}
+                <i className="fa-solid fa-book-open text-[10px]"></i>
+                LEARN
               </button>
+              
+              {!currentUser && (
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg shadow-indigo-100 transform active:scale-95"
+                >
+                  <i className="fa-solid fa-user-circle mr-2"></i>
+                  Sign In
+                </button>
+              )}
+
               {currentUser && (
                 <>
                   <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
                   <div className="flex items-center gap-4">
-                    <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
+                    <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px] hidden lg:inline">{currentUser.displayName}</span>
                     <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
-                    <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
+                    <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-50 hover:bg-rose-500/10 p-1.5 rounded-lg transition-all"><i className="fa-solid fa-trash-can"></i></button>
                   </div>
                 </>
               )}
@@ -1348,27 +1370,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {viewMode !== 'guides' && (
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between gap-4">
-              <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
-
-              {!currentUser && (
-                <button
-                  onClick={() => setAuthModalOpen(true)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg shadow-indigo-100 transform active:scale-95"
-                >
-                  <i className="fa-solid fa-user-circle mr-2"></i>
-                  Sign In
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
-      )}
-
-      <main className={`flex-1 w-full ${(viewMode === 'knowledge_center' || viewMode === 'guides') ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
+      <main className={`flex-1 w-full ${(viewMode === 'knowledge_center' || viewMode === 'guides') ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-10 overflow-y-auto'}`}>
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
 
         {viewMode === 'realtor-landing' ? (
@@ -1394,6 +1396,17 @@ const App: React.FC = () => {
 
 
             </div>
+          </div>
+        ) : viewMode === 'my_zyphe' && currentUser ? (
+          <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 rounded-[2.5rem]">
+            <MyZypheTab 
+              userId={currentUser.uid} 
+              displayName={currentUser.displayName} 
+              email={currentUser.email} 
+              role={currentUser.role}
+              cloudHistory={cloudHistory}
+              favorites={favorites}
+            />
           </div>
         ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">

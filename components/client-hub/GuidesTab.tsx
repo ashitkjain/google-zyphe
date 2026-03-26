@@ -186,6 +186,21 @@ const GUIDE_DATA: GuideCategory[] = [
                 description: 'A visual guide to the most prominent home styles — from Colonial symmetry and Victorian ornamentation to Mid-Century Modern and everything in between.'
             },
         ]
+    },
+    {
+        id: 'training',
+        topicSlug: 'training',
+        title: 'Training & Support',
+        icon: 'fa-graduation-cap',
+        count: '1 page',
+        items: [
+            {
+                id: 't1',
+                title: 'Buyer Experience Instructions',
+                slug: 'buyer-instructions',
+                description: 'A step-by-step walkthrough of the key use cases for exploring properties with Zyphe AI.'
+            },
+        ]
     }
 ];
 
@@ -424,317 +439,305 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                 ) : guideContent && (
                                     <div className="flex flex-col lg:flex-row gap-12">
                                         <div className="flex-1 w-full min-w-0 space-y-16">
-                                            <section className="max-w-3xl">
-                                                <h1 className="text-2xl font-black text-slate-900 mb-6 border-l-4 border-indigo-600 pl-6 leading-tight tracking-tight">
-                                                    {guideContent.title}
-                                                </h1>
-                                                <p className="text-slate-600 leading-relaxed text-base font-semibold">
-                                                    {guideContent.introduction}
-                                                </p>
-                                            </section>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <section className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100/50">
-                                                    <h2 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-3">
-                                                        <i className="fa-solid fa-circle-info text-indigo-500 text-sm"></i>
-                                                        {guideContent.whatThisMeans.title}
-                                                    </h2>
-                                                    <p className="text-slate-600 text-sm leading-relaxed font-medium">
-                                                        {guideContent.whatThisMeans.content}
+                                            {guideContent.introduction && (
+                                                <section className="max-w-3xl">
+                                                    <p className="text-slate-600 leading-relaxed text-base font-semibold">
+                                                        {guideContent.introduction}
                                                     </p>
                                                 </section>
-                                                <section className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100/50">
-                                                    <h2 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-3">
-                                                        <i className="fa-solid fa-circle-question text-indigo-500 text-sm"></i>
-                                                        {guideContent.whyThisHappens.title}
-                                                    </h2>
-                                                    <p className="text-slate-600 text-sm leading-relaxed font-medium">
-                                                        {guideContent.whyThisHappens.content}
-                                                    </p>
-                                                </section>
-                                            </div>
+                                            )}
 
-                                            {/* ✅ Ad Unit #1 — In-Content (Primary Money Maker) */}
-                                            <div className="w-full flex justify-center py-6 bg-slate-50/50 rounded-2xl my-8">
-                                                <GoogleAd slotId="1111111111" format="auto" label="Ad Unit #1 - In-Content" className="w-full max-w-3xl" />
-                                            </div>
+                                            {selectedGuide.slug !== 'buyer-instructions' && (
+                                                <>
+                                                    {guideContent.title && (
+                                                        <h1 className="text-2xl font-black text-slate-900 mb-6 border-l-4 border-indigo-600 pl-6 leading-tight tracking-tight">
+                                                            {guideContent.title}
+                                                        </h1>
+                                                    )}
 
-                                            <section>
-                                                <h2 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-3">
-                                                    <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
-                                                    {guideContent.legalFramework.title}
-                                                </h2>
-                                                <p className="text-slate-600 leading-relaxed text-sm mb-6 max-w-3xl font-medium">
-                                                    {guideContent.legalFramework.context}
-                                                </p>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {guideContent.legalFramework.statutes.map((item, i) => {
-                                                        const code = typeof item === 'string' ? "Reference" : item.code;
-                                                        const relevance = typeof item === 'string' ? item : item.relevance;
-                                                        return (
-                                                            <div key={i} className="bg-indigo-50/50 border border-indigo-100 p-6 rounded-3xl">
-                                                                <div className="text-indigo-600 font-black uppercase tracking-widest text-[11px] mb-3">{code}</div>
-                                                                <div className="text-slate-800 font-normal text-[13px] leading-relaxed">{relevance}</div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </section>
-
-                                            <section className="overflow-hidden">
-                                                <h2 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
-                                                    <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
-                                                    {guideContent.timelines.title}
-                                                </h2>
-
-                                                <div className="relative">
-                                                    {/* Desktop Serpentine Timeline */}
-                                                    <div className="hidden md:block relative">
-                                                        <div className="flex flex-wrap items-start justify-center gap-y-12 text-slate-800">
-                                                            {guideContent.timelines.events.map((item, i) => {
-                                                                const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
-                                                                const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
-                                                                const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
-
-                                                                const colors = [
-                                                                    'from-amber-400 to-orange-500',
-                                                                    'from-orange-500 to-rose-500',
-                                                                    'from-rose-500 to-indigo-600',
-                                                                    'from-indigo-600 to-blue-500',
-                                                                    'from-blue-500 to-emerald-500',
-                                                                    'from-emerald-500 to-amber-400'
-                                                                ];
-                                                                const colorClass = colors[i % colors.length];
-                                                                const isEvenRow = Math.floor(i / 4) % 2 === 1;
-                                                                const rowPosition = i % 4;
-
-                                                                // Determine if we need a connector to the next item
-                                                                const hasNext = i < guideContent.timelines.events.length - 1;
-                                                                const isEndPerRow = (i + 1) % 4 === 0 || i === guideContent.timelines.events.length - 1;
-
-                                                                return (
-                                                                    <div
-                                                                        key={i}
-                                                                        className={`w-1/4 relative px-6 flex flex-col items-center group transition-all duration-500`}
-                                                                        style={{ direction: isEvenRow ? 'rtl' : 'ltr' }}
-                                                                    >
-                                                                        {/* Connecting Line (Horizontal) */}
-                                                                        {hasNext && !isEndPerRow && (
-                                                                            <div className={`absolute top-10 left-[70%] w-full h-[6px] bg-gradient-to-r ${colorClass} opacity-20 group-hover:opacity-40 transition-opacity z-0`}></div>
-                                                                        )}
-
-                                                                        {/* Wrapping Curve (Mock) - This would ideally be an SVG for perfect serpentine flow */}
-                                                                        {isEndPerRow && hasNext && (
-                                                                            <div className={`absolute top-10 ${isEvenRow ? '-left-1/2' : '-right-1/2'} w-full h-12 border-t-[6px] ${isEvenRow ? 'border-l-[6px] rounded-tl-[100px]' : 'border-r-[6px] rounded-tr-[100px]'} border-indigo-100 opacity-30 z-0`}></div>
-                                                                        )}
-
-                                                                        <div className="relative z-10 flex flex-col items-center text-center w-full">
-                                                                            {/* The Node */}
-                                                                            <div className={`w-20 h-20 rounded-full border-[6px] border-indigo-50 bg-white flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 group-hover:border-indigo-100 transition-all duration-500`}>
-                                                                                <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colorClass} text-white flex items-center justify-center font-black text-xl shadow-lg`}>
-                                                                                    {i + 1}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            <div className="bg-indigo-50 text-indigo-900 border border-indigo-100 px-3 py-1 rounded-full font-black text-[9px] uppercase tracking-2 mt-[-10px] mb-4 shadow-sm group-hover:bg-indigo-100 transition-colors">
-                                                                                {timeframe}
-                                                                            </div>
-
-                                                                            <div className="w-full">
-                                                                                <h3 className="font-medium text-slate-900 text-sm mb-2 group-hover:text-indigo-600 transition-colors capitalize">{event.toLowerCase()}</h3>
-                                                                                <p className="text-slate-500 text-[10px] font-normal leading-relaxed line-clamp-4 group-hover:text-slate-700 transition-colors px-4">
-                                                                                    {impact}
-                                                                                </p>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        {guideContent.whatThisMeans?.content && (
+                                                            <section className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100/50">
+                                                                <h2 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-3">
+                                                                    <i className="fa-solid fa-circle-info text-indigo-500 text-sm"></i>
+                                                                    {guideContent.whatThisMeans.title}
+                                                                </h2>
+                                                                <p className="text-slate-600 text-sm leading-relaxed font-medium">
+                                                                    {guideContent.whatThisMeans.content}
+                                                                </p>
+                                                            </section>
+                                                        )}
+                                                        {guideContent.whyThisHappens?.content && (
+                                                            <section className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100/50">
+                                                                <h2 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-3">
+                                                                    <i className="fa-solid fa-circle-question text-indigo-500 text-sm"></i>
+                                                                    {guideContent.whyThisHappens.title}
+                                                                </h2>
+                                                                <p className="text-slate-600 text-sm leading-relaxed font-medium">
+                                                                    {guideContent.whyThisHappens.content}
+                                                                </p>
+                                                            </section>
+                                                        )}
                                                     </div>
 
-                                                    {/* Mobile/Vertical View (Kept for better UX on small screens) */}
-                                                    <div className="md:hidden relative pl-8 border-l-[6px] border-indigo-50 space-y-12 ml-4">
-                                                        {guideContent.timelines.events.map((item, i) => {
-                                                            const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
-                                                            const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
-                                                            const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
-                                                            return (
-                                                                <div key={i} className="relative group">
-                                                                    <div className="absolute -left-[45px] top-0 w-8 h-8 rounded-full border-4 border-white bg-indigo-600 text-white flex items-center justify-center font-black text-[10px] shadow-lg group-hover:scale-125 transition-all z-10">
-                                                                        {i + 1}
-                                                                    </div>
-                                                                    <div className="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm group-hover:shadow-xl group-hover:border-indigo-100 transition-all">
-                                                                        <div className="bg-indigo-50 text-indigo-900 border border-indigo-100 px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest w-fit mb-4">
-                                                                            {timeframe}
+                                                    <div className="w-full flex justify-center py-6 bg-slate-50/50 rounded-2xl my-8">
+                                                        <GoogleAd slotId="1111111111" format="auto" label="Ad Unit #1 - In-Content" className="w-full max-w-3xl" />
+                                                    </div>
+
+                                                    {guideContent.legalFramework?.statutes?.length > 0 && (
+                                                        <section>
+                                                            <h2 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-3">
+                                                                <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
+                                                                {guideContent.legalFramework.title}
+                                                            </h2>
+                                                            <p className="text-slate-600 leading-relaxed text-sm mb-6 max-w-3xl font-medium">
+                                                                {guideContent.legalFramework.context}
+                                                            </p>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                {guideContent.legalFramework.statutes.map((item, i) => {
+                                                                    const code = typeof item === 'string' ? "Reference" : item.code;
+                                                                    const relevance = typeof item === 'string' ? item : item.relevance;
+                                                                    return (
+                                                                        <div key={i} className="bg-indigo-50/50 border border-indigo-100 p-6 rounded-3xl">
+                                                                            <div className="text-indigo-600 font-black uppercase tracking-widest text-[11px] mb-3">{code}</div>
+                                                                            <div className="text-slate-800 font-normal text-[13px] leading-relaxed">{relevance}</div>
                                                                         </div>
-                                                                        <div className="font-medium text-lg text-slate-900 mb-2 leading-tight capitalize">{event.toLowerCase()}</div>
-                                                                        {impact && <div className="text-slate-500 font-normal text-[11px] leading-relaxed italic border-l-2 border-slate-200 pl-4 py-1">{impact}</div>}
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </section>
+                                                    )}
+
+                                                    {guideContent.timelines?.events?.length > 0 && (
+                                                        <section className="overflow-hidden">
+                                                            <h2 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                                                                <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
+                                                                {guideContent.timelines.title}
+                                                            </h2>
+
+                                                            <div className="relative">
+                                                                <div className="hidden md:block relative">
+                                                                    <div className="flex flex-wrap items-start justify-center gap-y-12 text-slate-800">
+                                                                        {guideContent.timelines.events.map((item, i) => {
+                                                                            const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
+                                                                            const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
+                                                                            const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
+
+                                                                            const colors = ['from-amber-400 to-orange-500', 'from-orange-500 to-rose-500', 'from-rose-500 to-indigo-600', 'from-indigo-600 to-blue-500', 'from-blue-500 to-emerald-500', 'from-emerald-500 to-amber-400'];
+                                                                            const colorClass = colors[i % colors.length];
+                                                                            const isEvenRow = Math.floor(i / 4) % 2 === 1;
+                                                                            const hasNext = i < guideContent.timelines.events.length - 1;
+                                                                            const isEndPerRow = (i + 1) % 4 === 0 || i === guideContent.timelines.events.length - 1;
+
+                                                                            return (
+                                                                                <div key={i} className={`w-1/4 relative px-6 flex flex-col items-center group transition-all duration-500`} style={{ direction: isEvenRow ? 'rtl' : 'ltr' }}>
+                                                                                    {hasNext && !isEndPerRow && (
+                                                                                        <div className={`absolute top-10 left-[70%] w-full h-[6px] bg-gradient-to-r ${colorClass} opacity-20 group-hover:opacity-40 transition-opacity z-0`}></div>
+                                                                                    )}
+                                                                                    {isEndPerRow && hasNext && (
+                                                                                        <div className={`absolute top-10 ${isEvenRow ? '-left-1/2' : '-right-1/2'} w-full h-12 border-t-[6px] ${isEvenRow ? 'border-l-[6px] rounded-tl-[100px]' : 'border-r-[6px] rounded-tr-[100px]'} border-indigo-100 opacity-30 z-0`}></div>
+                                                                                    )}
+                                                                                    <div className="relative z-10 flex flex-col items-center text-center w-full">
+                                                                                        <div className={`w-20 h-20 rounded-full border-[6px] border-indigo-50 bg-white flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 group-hover:border-indigo-100 transition-all duration-500`}>
+                                                                                            <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colorClass} text-white flex items-center justify-center font-black text-xl shadow-lg`}>{i + 1}</div>
+                                                                                        </div>
+                                                                                        <div className="bg-indigo-50 text-indigo-900 border border-indigo-100 px-3 py-1 rounded-full font-black text-[9px] uppercase tracking-2 mt-[-10px] mb-4 shadow-sm group-hover:bg-indigo-100 transition-colors">{timeframe}</div>
+                                                                                        <div className="w-full">
+                                                                                            <h3 className="font-medium text-slate-900 text-sm mb-2 group-hover:text-indigo-600 transition-colors capitalize">{event.toLowerCase()}</h3>
+                                                                                            {impact && <p className="text-slate-500 text-[10px] font-normal leading-relaxed line-clamp-4 group-hover:text-slate-700 transition-colors px-4">{impact}</p>}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="md:hidden relative pl-8 border-l-[6px] border-indigo-50 space-y-12 ml-4">
+                                                                    {guideContent.timelines.events.map((item, i) => {
+                                                                        const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
+                                                                        const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
+                                                                        const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
+                                                                        return (
+                                                                            <div key={i} className="relative group">
+                                                                                <div className="absolute -left-[45px] top-0 w-8 h-8 rounded-full border-4 border-white bg-indigo-600 text-white flex items-center justify-center font-black text-[10px] shadow-lg group-hover:scale-125 transition-all z-10">{i + 1}</div>
+                                                                                <div className="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm group-hover:shadow-xl group-hover:border-indigo-100 transition-all">
+                                                                                    <div className="bg-indigo-50 text-indigo-900 border border-indigo-100 px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest w-fit mb-4">{timeframe}</div>
+                                                                                    <div className="font-medium text-lg text-slate-900 mb-2 leading-tight capitalize">{event.toLowerCase()}</div>
+                                                                                    {impact && <div className="text-slate-500 font-normal text-[11px] leading-relaxed italic border-l-2 border-slate-200 pl-4 py-1">{impact}</div>}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </section>
+                                                    )}
+
+                                                    {guideContent.whoIsCommonlyInvolved?.roles?.length > 0 && (
+                                                        <section>
+                                                            <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                                                                <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
+                                                                {guideContent.whoIsCommonlyInvolved.title}
+                                                            </h2>
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                                {guideContent.whoIsCommonlyInvolved.roles.map((item, i) => {
+                                                                    const roleName = typeof item === 'string' ? item : item.role;
+                                                                    const roleDesc = typeof item === 'string' ? "" : item.description;
+                                                                    return (
+                                                                        <div key={i} className="bg-indigo-50/30 border border-indigo-100/50 p-5 rounded-3xl">
+                                                                            <div className="font-bold text-slate-900 text-xs mb-1">{roleName}</div>
+                                                                            {roleDesc && <div className="text-slate-500 text-[10px] font-normal leading-relaxed">{roleDesc}</div>}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </section>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {guideContent.resolutionPathway?.length > 0 && (
+                                                <section>
+                                                    {selectedGuide.slug !== 'buyer-instructions' && (
+                                                        <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                                                            <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
+                                                            Instructions
+                                                        </h2>
+                                                    )}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                                                        {guideContent.resolutionPathway.map((item, i) => {
+                                                            const stepNum = typeof item === 'string' ? (i + 1) : item.step;
+                                                            const title = typeof item === 'string' ? item.split(':')[0] || item : item.title;
+                                                            const action = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.action;
+                                                            return (
+                                                                <div key={i} className="flex gap-6 items-start">
+                                                                    <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-xl shadow-indigo-100">
+                                                                        {stepNum}
+                                                                    </div>
+                                                                    <div className="pt-1">
+                                                                        <h3 className="text-base font-black text-slate-900 mb-2 leading-tight tracking-tight uppercase">{title}</h3>
+                                                                        {action && <p className="text-slate-600 text-sm font-medium leading-[1.6] whitespace-pre-line">{action}</p>}
+                                                                        {item.imageUrl && (
+                                                                            <div className="mt-6 rounded-[2rem] overflow-hidden border-4 border-white shadow-2xl shadow-indigo-100/50 bg-slate-50 relative group">
+                                                                                <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                                                                                <img
+                                                                                    src={item.imageUrl}
+                                                                                    alt={title}
+                                                                                    className="w-full h-auto object-cover transform scale-100 group-hover:scale-[1.02] transition-transform duration-700"
+                                                                                />
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             );
                                                         })}
                                                     </div>
-                                                </div>
-                                            </section>
-
-                                            <section>
-                                                <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                                                    <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
-                                                    {guideContent.whoIsCommonlyInvolved.title}
-                                                </h2>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    {guideContent.whoIsCommonlyInvolved.roles.map((item, i) => {
-                                                        const roleName = typeof item === 'string' ? item : item.role;
-                                                        const roleDesc = typeof item === 'string' ? "" : item.description;
-                                                        return (
-                                                            <div key={i} className="bg-indigo-50/30 border border-indigo-100/50 p-5 rounded-3xl">
-                                                                <div className="font-bold text-slate-900 text-xs mb-1">{roleName}</div>
-                                                                {roleDesc && <div className="text-slate-500 text-[10px] font-normal leading-relaxed">{roleDesc}</div>}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </section>
-
-                                            <section>
-                                                <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                                                    <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
-                                                    Resolution Pathway
-                                                </h2>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                                                    {guideContent.resolutionPathway.map((item, i) => {
-                                                        const stepNum = typeof item === 'string' ? (i + 1) : item.step;
-                                                        const title = typeof item === 'string' ? item.split(':')[0] || item : item.title;
-                                                        const action = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.action;
-                                                        return (
-                                                            <div key={i} className="flex gap-4">
-                                                                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md">
-                                                                    {stepNum}
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="text-sm font-bold text-slate-800 mb-1 leading-tight">{title}</h3>
-                                                                    {action && <p className="text-slate-500 text-xs font-normal leading-relaxed">{action}</p>}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </section>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                <section className="bg-rose-50/50 p-8 rounded-[2rem] border border-rose-100/50">
-                                                    <h2 className="text-xl font-black text-rose-800 mb-6 flex items-center gap-3">
-                                                        <i className="fa-solid fa-circle-xmark text-rose-500 text-sm"></i>
-                                                        {guideContent.whatThisDoesNotMean.title}
-                                                    </h2>
-                                                    <ul className="space-y-3">
-                                                        {guideContent.whatThisDoesNotMean.points.map((point, i) => (
-                                                            <li key={i} className="flex items-start gap-3">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-300 mt-2 flex-shrink-0"></div>
-                                                                <span className="text-slate-600 text-sm font-bold leading-relaxed">{point}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
                                                 </section>
-                                                <section className="bg-amber-50/50 p-8 rounded-[2rem] border border-amber-100/50">
-                                                    <h2 className="text-xl font-black text-amber-800 mb-6 flex items-center gap-3">
-                                                        <i className="fa-solid fa-triangle-exclamation text-amber-500 text-sm"></i>
-                                                        Common Misunderstandings
-                                                    </h2>
-                                                    <div className="space-y-4">
-                                                        {guideContent.commonMisunderstandings
-                                                            .filter(item => item.misunderstanding && item.reality).length > 0 ? (
-                                                            guideContent.commonMisunderstandings
-                                                                .filter(item => item.misunderstanding && item.reality)
-                                                                .map((item, i) => (
-                                                                    <div key={i} className="border-b border-amber-100 last:border-0 pb-4 last:pb-0">
-                                                                        <p className="text-amber-800 text-[12px] font-bold italic mb-1.5 leading-snug">"{item.misunderstanding}"</p>
-                                                                        <p className="text-slate-600 text-[11px] font-normal leading-relaxed">
-                                                                            <span className="text-slate-400 font-black text-[9px] uppercase tracking-widest mr-2 inline-block">Reality:</span>
-                                                                            {item.reality}
-                                                                        </p>
-                                                                    </div>
-                                                                ))
-                                                        ) : (
-                                                            <p className="text-slate-500 text-sm italic">Content is being generated. Please refresh the page or click "Back to Library" and try again.</p>
+                                            )}
+
+                                            {selectedGuide.slug !== 'buyer-instructions' && (
+                                                <>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                        {guideContent.whatThisDoesNotMean?.points?.length > 0 && (
+                                                            <section className="bg-rose-50/50 p-8 rounded-[2rem] border border-rose-100/50">
+                                                                <h2 className="text-xl font-black text-rose-800 mb-6 flex items-center gap-3">
+                                                                    <i className="fa-solid fa-circle-xmark text-rose-500 text-sm"></i>
+                                                                    {guideContent.whatThisDoesNotMean.title}
+                                                                </h2>
+                                                                <ul className="space-y-3">
+                                                                    {guideContent.whatThisDoesNotMean.points.map((point, i) => (
+                                                                        <li key={i} className="flex items-start gap-3">
+                                                                            <div className="w-1.5 h-1.5 rounded-full bg-rose-300 mt-2 flex-shrink-0"></div>
+                                                                            <span className="text-slate-600 text-sm font-bold leading-relaxed">{point}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </section>
+                                                        )}
+                                                        {guideContent.commonMisunderstandings?.length > 0 && (
+                                                            <section className="bg-amber-50/50 p-8 rounded-[2rem] border border-amber-100/50">
+                                                                <h2 className="text-xl font-black text-amber-800 mb-6 flex items-center gap-3">
+                                                                    <i className="fa-solid fa-triangle-exclamation text-amber-500 text-sm"></i>
+                                                                    Common Misunderstandings
+                                                                </h2>
+                                                                <div className="space-y-4">
+                                                                    {guideContent.commonMisunderstandings.filter(item => item.misunderstanding && item.reality).map((item, i) => (
+                                                                        <div key={i} className="border-b border-amber-100 last:border-0 pb-4 last:pb-0">
+                                                                            <p className="text-amber-800 text-[12px] font-bold italic mb-1.5 leading-snug">"{item.misunderstanding}"</p>
+                                                                            <p className="text-slate-600 text-[11px] font-normal leading-relaxed"><span className="text-slate-400 font-black text-[9px] uppercase tracking-widest mr-2 inline-block">Reality:</span>{item.reality}</p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </section>
                                                         )}
                                                     </div>
-                                                </section>
-                                            </div>
 
-                                            <section>
-                                                <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                                                    <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
-                                                    Professional Assessment
-                                                </h2>
-                                                <div className="bg-indigo-50 border border-indigo-100 rounded-[2.5rem] p-8 text-indigo-900 overflow-hidden relative group">
-                                                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-600/10 transition-all duration-700"></div>
-                                                    <h3 className="text-xl font-black mb-4 relative z-10">{guideContent.expertPerspective.title}</h3>
-                                                    <p className="text-slate-600 text-base font-medium leading-relaxed mb-8 relative z-10 max-w-2xl">
-                                                        {guideContent.expertPerspective.assessment}
-                                                    </p>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-                                                        {guideContent.expertPerspective.riskMitigation.map((risk, i) => (
-                                                            <div key={i} className="flex items-start gap-3 bg-white/60 border border-white p-4 rounded-xl">
-                                                                <i className="fa-solid fa-shield-halved text-indigo-600 text-sm mt-1"></i>
-                                                                <span className="font-bold text-slate-800 text-sm leading-snug">{risk}</span>
+                                                    {guideContent.expertPerspective?.riskMitigation?.length > 0 && (
+                                                        <section>
+                                                            <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                                                                <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
+                                                                Professional Assessment
+                                                            </h2>
+                                                            <div className="bg-indigo-50 border border-indigo-100 rounded-[2.5rem] p-8 text-indigo-900 overflow-hidden relative group">
+                                                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-600/10 transition-all duration-700"></div>
+                                                                <h3 className="text-xl font-black mb-4 relative z-10">{guideContent.expertPerspective.title}</h3>
+                                                                <p className="text-slate-600 text-base font-medium leading-relaxed mb-8 relative z-10 max-w-2xl">{guideContent.expertPerspective.assessment}</p>
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+                                                                    {guideContent.expertPerspective.riskMitigation.map((risk, i) => (
+                                                                        <div key={i} className="flex items-start gap-3 bg-white/60 border border-white p-4 rounded-xl">
+                                                                            <i className="fa-solid fa-shield-halved text-indigo-600 text-sm mt-1"></i>
+                                                                            <span className="font-bold text-slate-800 text-sm leading-snug">{risk}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             </div>
-                                                        ))}
+                                                        </section>
+                                                    )}
+
+                                                    {guideContent.faqs?.length > 0 && (
+                                                        <section>
+                                                            <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                                                                <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
+                                                                Frequently Asked Questions
+                                                            </h2>
+                                                            <div className="space-y-4">
+                                                                {guideContent.faqs.map((item, i) => {
+                                                                    const question = typeof item === 'string' ? item : item.question;
+                                                                    const answer = typeof item === 'string' ? "" : item.answer;
+                                                                    return (
+                                                                        <div key={i} className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
+                                                                            <h4 className="font-black text-slate-900 mb-2 flex items-center gap-3">
+                                                                                <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px]">Q</span>
+                                                                                {question}
+                                                                            </h4>
+                                                                            {answer && <p className="text-slate-600 text-sm font-normal leading-relaxed pl-9">{answer}</p>}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </section>
+                                                    )}
+
+                                                    {guideContent.keyTakeaways?.length > 0 && (
+                                                        <section>
+                                                            <h3 className="text-lg font-black text-indigo-600 uppercase tracking-[0.2em] mb-6">Key Takeaways</h3>
+                                                            <div className="bg-white border-2 border-indigo-50 rounded-[2rem] p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+                                                                {guideContent.keyTakeaways.map((point, i) => (
+                                                                    <div key={i} className="flex gap-4">
+                                                                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-[10px]">{i + 1}</div>
+                                                                        <p className="text-slate-700 font-semibold leading-snug text-sm">{point}</p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </section>
+                                                    )}
+
+                                                    <div className="w-full flex justify-center py-8 bg-slate-50 border-t border-slate-100 mt-12 mb-8 rounded-3xl">
+                                                        <GoogleAd slotId="3333333333" format="auto" label="Ad Unit #3 - End of Article" className="w-full max-w-3xl" />
                                                     </div>
-                                                </div>
-                                            </section>
-
-                                            <section>
-                                                <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
-                                                    <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
-                                                    Frequently Asked Questions
-                                                </h2>
-                                                <div className="space-y-4">
-                                                    {guideContent.faqs.map((item, i) => {
-                                                        const question = typeof item === 'string' ? item : item.question;
-                                                        const answer = typeof item === 'string' ? "" : item.answer;
-                                                        return (
-                                                            <div key={i} className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-                                                                <h4 className="font-black text-slate-900 mb-2 flex items-center gap-3">
-                                                                    <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px]">Q</span>
-                                                                    {question}
-                                                                </h4>
-                                                                {answer && (
-                                                                    <p className="text-slate-600 text-sm font-normal leading-relaxed pl-9">
-                                                                        {answer}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </section>
-
-                                            <section>
-                                                <h3 className="text-lg font-black text-indigo-600 uppercase tracking-[0.2em] mb-6">Key Takeaways</h3>
-                                                <div className="bg-white border-2 border-indigo-50 rounded-[2rem] p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-                                                    {guideContent.keyTakeaways.map((point, i) => (
-                                                        <div key={i} className="flex gap-4">
-                                                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-[10px]">
-                                                                {i + 1}
-                                                            </div>
-                                                            <p className="text-slate-700 font-semibold leading-snug text-sm">{point}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </section>
-
-
-                                            {/* ✅ Ad Unit #3 — End-of-Article Anchor */}
-                                            <div className="w-full flex justify-center py-8 bg-slate-50 border-t border-slate-100 mt-12 mb-8 rounded-3xl">
-                                                <GoogleAd slotId="3333333333" format="auto" label="Ad Unit #3 - End of Article" className="w-full max-w-3xl" />
-                                            </div>
-
+                                                </>
+                                            )}
                                         </div>
-
-                                        {/* Sidebar for Desktop Ads */}
-
                                     </div>
                                 )}
 

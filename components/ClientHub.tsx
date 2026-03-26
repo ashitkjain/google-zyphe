@@ -172,6 +172,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
         ]
         : [
+            { id: 'vc_guide', label: 'VC Guide', icon: 'fa-graduation-cap' },
             { id: 'knowledge_center', label: 'Library', icon: 'fa-book-bookmark' },
             { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
         ];
