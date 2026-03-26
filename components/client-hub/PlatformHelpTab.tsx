@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     SCHEMA_LAST_UPDATED,
     FieldSource,
@@ -13,7 +13,7 @@ import {
 // ── Schema rendering components ───────────────────────────────────────────────
 
 const SOURCE_COLORS: Record<FieldSource, string> = {
-    zillow: 'bg-blue-50 border-blue-200 text-blue-700',
+    mls: 'bg-blue-50 border-blue-200 text-blue-700',
     reso: 'bg-cyan-50 border-cyan-200 text-cyan-700',
     gemini: 'bg-violet-50 border-violet-200 text-violet-700',
     arcgis: 'bg-emerald-50 border-emerald-200 text-emerald-700',
@@ -24,7 +24,7 @@ const SOURCE_COLORS: Record<FieldSource, string> = {
     firebase: 'bg-orange-50 border-orange-200 text-orange-700',
 };
 const SOURCE_LABELS: Record<FieldSource, string> = {
-    zillow: 'Zillow', reso: 'RESO MLS', gemini: 'Gemini AI', arcgis: 'ArcGIS',
+    mls: 'MLS', reso: 'RESO MLS', gemini: 'Gemini AI', arcgis: 'ArcGIS',
     google: 'Google API', radar: 'Radar API', manual: 'Manual', system: 'System', firebase: 'Firebase',
 };
 
@@ -172,10 +172,14 @@ interface HelpCategory {
 }
 
 const PlatformHelpTab: React.FC = () => {
-    const [activeCategoryId, setActiveCategoryId] = useState('messaging');
-    const [activeTopicId, setActiveTopicId] = useState('sms_registration');
+    const [activeCategoryId, setActiveCategoryId] = useState('data_and_intelligence');
+    const [activeTopicId, setActiveTopicId] = useState('data_sources');
     const [schemaRefreshKey, setSchemaRefreshKey] = useState(0);
     const [schemaRefreshing, setSchemaRefreshing] = useState(false);
+
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [activeTopicId]);
 
     const handleSchemaRefresh = useCallback(() => {
         setSchemaRefreshing(true);
@@ -187,125 +191,198 @@ const PlatformHelpTab: React.FC = () => {
 
     const categories: HelpCategory[] = [
         {
-            id: 'getting_started',
-            title: 'Getting Started',
-            icon: 'fa-flag-checkered',
-            topics: [
-                { id: 'onboarding', title: 'Account Onboarding', icon: 'fa-user-plus', content: <div className="prose prose-slate"><h2>Account Onboarding</h2><p>Welcome to Zyphe! This guide will help you set up your professional profile and sync your first set of leads.</p></div> }
-            ]
-        },
-        {
-            id: 'messaging',
-            title: 'Messaging & SMS',
-            icon: 'fa-comment-dots',
+            id: 'data_and_intelligence',
+            title: 'Data and Intelligence',
+            icon: 'fa-brain',
             topics: [
                 {
-                    id: 'sms_registration',
-                    title: 'SMS Registration (10DLC)',
-                    icon: 'fa-comment-sms',
+                    id: 'technical_transparency_intro',
+                    title: 'Technical Transparency Center',
+                    icon: 'fa-shield-halved',
                     content: (
                         <div className="prose prose-slate max-w-none">
                             <div className="flex items-center gap-4 mb-8">
                                 <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-indigo-100">
-                                    <i className="fa-solid fa-comment-sms"></i>
+                                    <i className="fa-solid fa-shield-halved"></i>
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-black text-slate-900 mb-1">SMS Registration Guide</h1>
-                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">A2P 10DLC Compliance</p>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Technical Transparency Center</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Unified Intelligence Architecture</p>
                                 </div>
                             </div>
 
-                            <section className="bg-indigo-50/50 rounded-[2.5rem] p-10 border border-indigo-100 mb-12">
+                            <section className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 mb-12">
                                 <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
-                                    <i className="fa-solid fa-shield-halved text-indigo-500"></i>
-                                    Why is registration required?
+                                    <i className="fa-solid fa-circle-info text-indigo-500 text-sm"></i>
+                                    A Single Source of Truth
                                 </h2>
-                                <p className="text-slate-600 font-medium leading-relaxed">
-                                    US mobile carriers (Verizon, AT&T, T-Mobile) now require all businesses to register their messaging traffic.
-                                    By registering your business brand, you ensure that your messages are not flagged as spam and reach your clients instantly.
-                                    This process is known as <strong>10DLC (10-Digit Long Code) Registration</strong>.
+                                <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                                    Zyphe's technical transparency is anchored in a unified data architecture. Using a <strong>single source of truth</strong> across 6 parallel Firestore collections, the platform eliminates redundancy by mapping every UI element—from core property specs to advanced AI visual analysis—directly to specific, auditable data paths.
+                                </p>
+                                <p className="text-slate-600 font-medium leading-relaxed mb-0">
+                                    This "Property DNA" ensures that every insight is backed by <strong>15+ professional APIs</strong> and verified through deterministic logic before being presented. By combining real-time environmental data, visual AI analysis, and deep neighborhood sentiment, we reach a level of transparency and confidence that is <strong>simply unavailable on any other platform</strong>.
                                 </p>
                             </section>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                                <div className="space-y-6">
-                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">1</div>
-                                        Brand Identity
-                                    </h3>
-                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                                        You'll need to provide your <strong>Legal Business Name</strong> and <strong>Tax ID (EIN)</strong>.
-                                        This verifies that you are a legitimate business entity. If you act as an individual, you can register as a sole proprietor using your SSN.
-                                    </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                                <div className="bg-indigo-50/50 p-8 rounded-3xl border border-indigo-100/50">
+                                    <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-3">Auditable Paths</div>
+                                    <div className="text-3xl font-black text-indigo-900 mb-2">40+</div>
+                                    <p className="text-slate-500 text-xs font-medium leading-relaxed">Unique field mappings from Firestore collections to frontend components.</p>
                                 </div>
-                                <div className="space-y-6">
-                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">2</div>
-                                        Campaign Usage
-                                    </h3>
-                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                                        Select how you plan to use SMS. For most realtors, the <strong>"Agents & Franchises"</strong> use case is appropriate.
-                                        You will need to provide sample messages like viewing confirmations or inspection updates.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <section className="bg-slate-900 rounded-[2.5rem] p-10 text-white mb-12 shadow-2xl overflow-hidden relative group">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
-                                <h3 className="text-xl font-black mb-6 relative z-10">The Approval Process</h3>
-                                <div className="space-y-6 relative z-10">
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
-                                            <i className="fa-solid fa-paper-plane text-indigo-400"></i>
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-sm mb-1">Instant Submission</div>
-                                            <div className="text-slate-400 text-xs leading-relaxed">Your application is sent immediately once you complete the wizard in <strong>Realtor Tools</strong>.</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
-                                            <i className="fa-solid fa-clock text-indigo-400"></i>
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-sm mb-1">Carrier Review (3-7 Days)</div>
-                                            <div className="text-slate-400 text-xs leading-relaxed">Mobile networks manually review your samples to ensure compliance with anti-spam rules.</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
-                                            <i className="fa-solid fa-check-circle text-emerald-400"></i>
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-sm mb-1">Active Status</div>
-                                            <div className="text-slate-400 text-xs leading-relaxed">Once approved, your messages will have the highest possible delivery priority.</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
-                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
-                                    <i className="fa-solid fa-lightbulb"></i>
-                                </div>
-                                <div>
-                                    <h4 className="text-amber-900 font-black text-lg mb-2">Pro Tip</h4>
-                                    <p className="text-amber-800 text-sm font-medium leading-relaxed">
-                                        Ensure your website URL is valid and clearly mentions your business name.
-                                        Carriers will check your website to verify that you have proper "Opt-in" language for clients.
-                                    </p>
+                                <div className="bg-violet-50/50 p-8 rounded-3xl border border-violet-100/50">
+                                    <div className="text-violet-600 font-black text-[10px] uppercase tracking-widest mb-3">Data Enrichment</div>
+                                    <div className="text-3xl font-black text-violet-900 mb-2">15+</div>
+                                    <p className="text-slate-500 text-xs font-medium leading-relaxed">Professional data providers integrated into every property analysis.</p>
                                 </div>
                             </div>
                         </div>
                     )
-                }
-            ]
-        },
-        {
-            id: 'data_intelligence',
-            title: 'Data & Intelligence',
-            icon: 'fa-microchip',
-            topics: [
+                },
+                {
+                    id: 'data_sources',
+                    title: '3rd Party APIs & Data Sources',
+                    icon: 'fa-globe',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-violet-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-violet-100">
+                                    <i className="fa-solid fa-globe"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Data and Intelligence</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">3rd Party APIs · Professional Data Providers</p>
+                                </div>
+                            </div>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">3rd Party APIs & Data Sources</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+                                {[
+                                    { icon: 'fa-house', label: 'MLS Data Sources', desc: 'Price, beds, baths, sqft, lot, year, description, schools, Walk Score', color: 'bg-blue-50 border-blue-100 text-blue-600' },
+                                    { icon: 'fa-solar-panel', label: 'Google Solar API', desc: 'Panel-level production, sunshine hours, roof area, financial analysis', color: 'bg-yellow-50 border-yellow-100 text-yellow-600' },
+                                    { icon: 'fa-wind', label: 'Google Air Quality', desc: 'AQI, pollutant concentrations, health recommendations', color: 'bg-emerald-50 border-emerald-100 text-emerald-600' },
+                                    { icon: 'fa-seedling', label: 'Google Pollen API', desc: 'Pollen types, severity, seasonal triggers', color: 'bg-green-50 border-green-100 text-green-600' },
+                                    { icon: 'fa-volume-low', label: 'HowLoud SoundScore', desc: 'Traffic, local, and airport noise scores', color: 'bg-sky-50 border-sky-100 text-sky-600' },
+                                    { icon: 'fa-street-view', label: 'Google Street View', desc: 'Curb appeal, privacy, safety, visual clutter, streetscape', color: 'bg-orange-50 border-orange-100 text-orange-600' },
+                                    { icon: 'fa-camera', label: 'Visual AI Analysis', desc: 'Interior design, room-by-room quality, condition assessment', color: 'bg-violet-50 border-violet-100 text-violet-600' },
+                                    { icon: 'fa-users', label: 'Community Pulse', desc: 'Resident sentiment, safety, complaints, lifestyle satisfaction', color: 'bg-rose-50 border-rose-100 text-rose-600' },
+                                    { icon: 'fa-chart-line', label: 'Deep Investment Research', desc: 'Macro indicators, market dynamics, zoning, risk factors', color: 'bg-indigo-50 border-indigo-100 text-indigo-600' },
+                                    { icon: 'fa-map', label: 'Google Places API', desc: 'Nearby POIs: dining, shopping, parks, transit, fitness, schools', color: 'bg-amber-50 border-amber-100 text-amber-600' },
+                                    { icon: 'fa-compass', label: 'Satellite Orientation', desc: 'Building facing direction for Vastu / Feng Shui', color: 'bg-teal-50 border-teal-100 text-teal-600' },
+                                    { icon: 'fa-fire', label: 'Climate Risk Data', desc: 'Wind, flood, fire, and heat risk scores (0-10)', color: 'bg-red-50 border-red-100 text-red-600' },
+                                ].map((s, i) => (
+                                    <div key={i} className={`p-4 rounded-2xl border ${s.color}`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <i className={`fa-solid ${s.icon} text-[12px]`}></i>
+                                            <span className="text-[12px] font-black">{s.label}</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 leading-relaxed mb-0">{s.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    id: 'smoke_test_map',
+                    title: 'Data Load per Property',
+                    icon: 'fa-arrows-left-right',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-amber-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-amber-100">
+                                    <i className="fa-solid fa-arrows-left-right"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Data and Intelligence</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">How data loads from Firestore collections to UI components</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-amber-50/50 rounded-[2.5rem] p-10 border border-amber-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-circle-info text-amber-500 text-sm"></i>
+                                    How to Read This
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed mb-0">
+                                    The smoke test reads from <strong>6 Firestore collections</strong> in parallel. Each check below shows which collection the data comes from, the exact field path, and the UI component that renders it. All fields reference a <strong>single source of truth</strong> — no duplicate fallback chains.
+                                </p>
+                            </section>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-6 border-l-4 border-amber-600 pl-6">Data Load Map</h3>
+                            <div className="space-y-3 mb-12">
+                                {[
+                                    { check: 'Core Listing (beds/baths/sqft/price)', severity: 'error', source: 'properties', field: 'bedrooms + bathrooms + livingAreaValue + listPrice', ui: 'PropertyHeader' },
+                                    { check: 'Description', severity: 'error', source: 'properties', field: 'description', ui: 'PropertyDescription' },
+                                    { check: 'Coordinates', severity: 'error', source: 'properties', field: 'coordinates.latitude / .longitude', ui: 'PropertyMaps' },
+                                    { check: 'Walk Score', severity: 'warn', source: 'properties', field: 'walkScore', ui: 'AirQualitySection' },
+                                    { check: 'Transit Score', severity: 'warn', source: 'properties', field: 'transitScore', ui: 'AirQualitySection' },
+                                    { check: 'Bike Score', severity: 'warn', source: 'properties', field: 'bikeScore', ui: 'AirQualitySection' },
+                                    { check: 'Property Images', severity: 'error', source: 'properties', field: 'images[]', ui: 'PropertyImages', fallback: 'property_assets.images[]' },
+                                    { check: 'Map Zoom-In', severity: 'error', source: 'property_assets', field: 'mapZoomIn', ui: 'PropertyMaps', fallback: 'properties.mapZoomIn' },
+                                    { check: 'Map Zoom-Out', severity: 'error', source: 'property_assets', field: 'mapZoomOut', ui: 'PropertyMaps', fallback: 'properties.mapZoomOut' },
+                                    { check: 'Street View (Storage)', severity: 'warn', source: 'property_assets', field: 'streetView', ui: 'StreetViewAnalysisSection', fallback: 'properties.streetViewAnalysis.imageUrl → env.streetViewAnalysis.imageUrl' },
+                                    { check: 'Satellite Image', severity: 'warn', source: 'property_assets', field: 'satelliteImageUrl', ui: 'Orientation Card', fallback: 'properties.satelliteImageUrl' },
+                                    { check: 'Parcel Polygon', severity: 'warn', source: 'properties', field: 'parcelPolygon / parcel_polygon', ui: 'ParcelValidationCard' },
+                                    { check: 'APN', severity: 'warn', source: 'properties', field: 'parcelApn / parcel_apn / apn', ui: 'ParcelValidationCard' },
+                                    { check: 'Parcel Area', severity: 'warn', source: 'properties', field: 'parcelAreaSqft / parcel_area_sqft', ui: 'ParcelValidationCard' },
+                                    { check: 'Tax Record Sqft', severity: 'warn', source: 'properties', field: 'taxSqft', ui: 'ParcelValidationCard' },
+                                    { check: 'Solar API', severity: 'warn', source: 'google_environmental_data', field: 'solarData.maxSunshineHoursPerYear', ui: 'AirQualitySection', fallback: 'properties.solarData' },
+                                    { check: 'Air Quality API', severity: 'warn', source: 'google_environmental_data', field: 'airQuality.aqi', ui: 'AirQualitySection', fallback: 'properties.airQuality' },
+                                    { check: 'Pollen API', severity: 'warn', source: 'google_environmental_data', field: 'pollen.score / .category', ui: 'AirQualitySection', fallback: 'properties.pollen' },
+                                    { check: 'Noise Score', severity: 'warn', source: 'google_environmental_data', field: 'noiseScore', ui: 'AirQualitySection', fallback: 'properties.noiseScore' },
+                                    { check: 'Nearby Places (POI)', severity: 'warn', source: 'google_environmental_data', field: 'google_places', ui: 'NeighborhoodPlacesSection' },
+                                    { check: 'AI Visual — Interior', severity: 'error', source: 'property_analyses_visual', field: 'home_interior.overall_description', ui: 'InteriorView (Full Intel tab)' },
+                                    { check: 'AI Visual — Exterior', severity: 'error', source: 'property_analyses_visual', field: 'exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style', ui: 'ExteriorView (Full Intel tab)' },
+                                    { check: 'AI Neighborhood/Spatial', severity: 'error', source: 'property_analyses_visual', field: 'neighborhood.overview', ui: 'ExploreTab Neighborhood section' },
+                                    { check: 'Orientation AI', severity: 'warn', source: 'properties', field: 'orientation_ai.final_orientation', ui: 'ExploreTab Orientation card', fallback: 'env.orientation_ai' },
+                                    { check: 'Street View AI', severity: 'warn', source: 'properties', field: 'streetViewAnalysis.privacyRating / .curbAppealScore / .neighborhoodVibe', ui: 'StreetViewAnalysisSection', fallback: 'env.streetViewAnalysis' },
+                                    { check: 'Pollen AI Analysis', severity: 'warn', source: 'google_environmental_data', field: 'pollen.analysis.breathe_easy_summary', ui: 'AirQualitySection', fallback: 'properties.pollen.analysis' },
+                                    { check: 'Custom AI Analysis', severity: 'warn', source: 'properties', field: 'visual_analysis.executiveSummary', ui: 'CustomAIAnalysis' },
+                                    { check: 'Narrative Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Risks & Considerations', severity: 'warn', source: 'property_analyses_comprehensive', field: 'risks_considerations', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Interior Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'interior_summary.interior_summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Rooms Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'interior_summary.rooms_summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Interior Vibe', severity: 'warn', source: 'property_analyses_comprehensive', field: 'interior_summary.vibe', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Interior Tags', severity: 'warn', source: 'property_analyses_comprehensive', field: 'interior_summary.objective_tags[]', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Schools Summary', severity: 'warn', source: 'property_analyses_comprehensive', field: 'schools_summary', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Nearby Schools Data', severity: 'warn', source: 'properties', field: 'schools[]', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Lifestyle Insights', severity: 'warn', source: 'property_analyses_comprehensive', field: 'lifestyle_insights.outdoor / .family', ui: 'LifestyleInsightsSection' },
+                                    { check: 'STR Performance', severity: 'warn', source: 'property_investment_research', field: 'str_performance.adr', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'LTR Analysis', severity: 'warn', source: 'property_investment_research', field: 'ltr_analysis.monthly_rent', ui: 'ComprehensiveAnalysis' },
+                                    { check: 'Climate Risk Scores (4)', severity: 'warn', source: 'properties', field: 'floodRiskScore + fireRiskScore + heatRiskScore + windRiskScore', ui: 'AirQualitySection Climate Risk grid' },
+                                ].map(row => {
+                                    const colColors: Record<string, string> = {
+                                        'properties': 'bg-indigo-50 text-indigo-600 border-indigo-200',
+                                        'property_assets': 'bg-sky-50 text-sky-600 border-sky-200',
+                                        'property_analyses_visual': 'bg-violet-50 text-violet-600 border-violet-200',
+                                        'google_environmental_data': 'bg-amber-50 text-amber-600 border-amber-200',
+                                        'property_analyses_comprehensive': 'bg-emerald-50 text-emerald-600 border-emerald-200',
+                                        'property_investment_research': 'bg-rose-50 text-rose-600 border-rose-200',
+                                    };
+                                    return (
+                                        <div key={row.check} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 ${row.severity === 'error' ? 'bg-rose-100 text-rose-500' : 'bg-amber-100 text-amber-500'}`}>
+                                                <i className={`fa-solid ${row.severity === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'} text-[8px]`}></i>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{row.check}</div>
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${colColors[row.source] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>{row.source}</span>
+                                                    <code className="text-[9px] text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-100 font-mono">{row.field}</code>
+                                                </div>
+                                                <div className="text-[9px] text-indigo-500 mt-1 font-bold">
+                                                    <i className="fa-solid fa-display text-[7px] mr-1"></i>
+                                                    {row.ui}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )
+                },
                 {
                     id: 'solar_estimation',
                     title: 'Solar Production Methodology',
@@ -569,7 +646,7 @@ const PlatformHelpTab: React.FC = () => {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     {[
-                                        { id: 11, name: 'Property Typology', source: 'homeType', method: 'Pre-computed', how: 'Maps Zillow type to Single Family, Condo, Townhouse, etc.' },
+                                        { id: 11, name: 'Property Typology', source: 'homeType', method: 'Pre-computed', how: 'Maps property type to Single Family, Condo, Townhouse, etc.' },
                                         { id: 12, name: 'Bedroom Count', source: 'bedrooms', method: 'Pre-computed', how: 'Direct extraction with BR tag' },
                                         { id: 13, name: 'Bathroom Ratio', source: 'bathrooms', method: 'Pre-computed', how: 'Splits into full + half bath count' },
                                         { id: 14, name: 'Usable Square Footage', source: 'livingAreaValue', method: 'Pre-computed', how: 'Classified as Compact (<1,500), Mid-Size, Spacious, or Estate' },
@@ -842,71 +919,14 @@ const PlatformHelpTab: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Data Sources */}
-                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">Data Sources</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-                                {[
-                                    { icon: 'fa-house', label: 'Zillow / MLS', desc: 'Price, beds, baths, sqft, lot, year, description, schools, Walk Score', color: 'bg-blue-50 border-blue-100 text-blue-600' },
-                                    { icon: 'fa-solar-panel', label: 'Google Solar API', desc: 'Panel-level production, sunshine hours, roof area, financial analysis', color: 'bg-yellow-50 border-yellow-100 text-yellow-600' },
-                                    { icon: 'fa-wind', label: 'Google Air Quality', desc: 'AQI, pollutant concentrations, health recommendations', color: 'bg-emerald-50 border-emerald-100 text-emerald-600' },
-                                    { icon: 'fa-seedling', label: 'Google Pollen API', desc: 'Pollen types, severity, seasonal triggers', color: 'bg-green-50 border-green-100 text-green-600' },
-                                    { icon: 'fa-volume-low', label: 'HowLoud SoundScore', desc: 'Traffic, local, and airport noise scores', color: 'bg-sky-50 border-sky-100 text-sky-600' },
-                                    { icon: 'fa-street-view', label: 'Google Street View', desc: 'Curb appeal, privacy, safety, visual clutter, streetscape', color: 'bg-orange-50 border-orange-100 text-orange-600' },
-                                    { icon: 'fa-camera', label: 'Visual AI Analysis', desc: 'Interior design, room-by-room quality, condition assessment', color: 'bg-violet-50 border-violet-100 text-violet-600' },
-                                    { icon: 'fa-users', label: 'Community Pulse', desc: 'Resident sentiment, safety, complaints, lifestyle satisfaction', color: 'bg-rose-50 border-rose-100 text-rose-600' },
-                                    { icon: 'fa-chart-line', label: 'Deep Investment Research', desc: 'Macro indicators, market dynamics, zoning, risk factors', color: 'bg-indigo-50 border-indigo-100 text-indigo-600' },
-                                    { icon: 'fa-map', label: 'Google Places API', desc: 'Nearby POIs: dining, shopping, parks, transit, fitness, schools', color: 'bg-amber-50 border-amber-100 text-amber-600' },
-                                    { icon: 'fa-compass', label: 'Satellite Orientation', desc: 'Building facing direction for Vastu / Feng Shui', color: 'bg-teal-50 border-teal-100 text-teal-600' },
-                                    { icon: 'fa-fire', label: 'Climate Risk Data', desc: 'Wind, flood, fire, and heat risk scores (0-10)', color: 'bg-red-50 border-red-100 text-red-600' },
-                                ].map((s, i) => (
-                                    <div key={i} className={`p-4 rounded-2xl border ${s.color}`}>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <i className={`fa-solid ${s.icon} text-[12px]`}></i>
-                                            <span className="text-[12px] font-black">{s.label}</span>
-                                        </div>
-                                        <p className="text-[10px] text-slate-500 leading-relaxed mb-0">{s.desc}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Output Format */}
-                            <section className="bg-emerald-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden mb-12">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full translate-x-1/4 -translate-y-1/4 blur-3xl"></div>
-                                <h3 className="text-xl font-black mb-6 relative z-10">Output Format</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-                                    <div className="p-6 bg-white/5 rounded-3xl border border-white/10">
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-sm">
-                                                <i className="fa-solid fa-tags"></i>
-                                            </div>
-                                            <div className="font-bold text-lg">Tags</div>
-                                        </div>
-                                        <p className="text-emerald-100 text-xs leading-relaxed">
-                                            Each factor produces <span className="text-white font-black">1–3 short labels</span> like "Chef's Kitchen", "Turn-key", "High Solar Yield" — used as search facets and comparison dimensions.
-                                        </p>
-                                    </div>
-                                    <div className="p-6 bg-white/5 rounded-3xl border border-white/10">
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-sm">
-                                                <i className="fa-solid fa-gauge-high"></i>
-                                            </div>
-                                            <div className="font-bold text-lg">Confidence</div>
-                                        </div>
-                                        <p className="text-indigo-100 text-xs leading-relaxed">
-                                            Every factor carries a confidence level: <span className="text-white font-black">High</span> (directly from data), <span className="text-white font-black">Medium</span> (inferred), or <span className="text-white font-black">Low</span> (insufficient data).
-                                        </p>
-                                    </div>
-                                </div>
-                            </section>
-
                             <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
                                 <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
                                     <i className="fa-solid fa-lightbulb"></i>
                                 </div>
                                 <div>
-                                    <h4 className="text-amber-900 font-black text-lg mb-2">Future: Graph Search</h4>
+                                    <h4 className="text-amber-900 font-black text-lg mb-2">Technical Insight</h4>
                                     <p className="text-amber-800 text-sm font-medium leading-relaxed">
-                                        The Context Graph taxonomy is designed for eventual <strong>natural-language property search</strong> — e.g., "Show me turn-key homes with chef's kitchens near top-rated schools with low climate risk." The tag system enables faceted filtering across all 88 dimensions.
+                                        For a full mapping of <strong>3rd party APIs and Firestore field definitions</strong>, please switch to the <strong>3rd Party APIs</strong> or <strong>Data Load per Property</strong> topics above.
                                     </p>
                                 </div>
                             </div>
@@ -1097,6 +1117,113 @@ const PlatformHelpTab: React.FC = () => {
                                     <h4 className="text-amber-900 font-black text-lg mb-2">Townhome & Condo Note</h4>
                                     <p className="text-amber-800 text-sm font-medium leading-relaxed">
                                         Usable lot calculations are <strong>only shown for Single Family homes</strong>. For townhomes and condos, lot analysis is hidden since individual lot boundaries are typically shared or irrelevant for investment analysis.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            ]
+        },
+        {
+            id: 'messaging',
+            title: 'Messaging & SMS',
+            icon: 'fa-comment-dots',
+            topics: [
+                {
+                    id: 'sms_registration',
+                    title: 'SMS Registration (10DLC)',
+                    icon: 'fa-comment-sms',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-indigo-100">
+                                    <i className="fa-solid fa-comment-sms"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">SMS Registration Guide</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">A2P 10DLC Compliance</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-indigo-50/50 rounded-[2.5rem] p-10 border border-indigo-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-shield-halved text-indigo-500"></i>
+                                    Why is registration required?
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed">
+                                    US mobile carriers (Verizon, AT&T, T-Mobile) now require all businesses to register their messaging traffic.
+                                    By registering your business brand, you ensure that your messages are not flagged as spam and reach your clients instantly.
+                                    This process is known as <strong>10DLC (10-Digit Long Code) Registration</strong>.
+                                </p>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">1</div>
+                                        Brand Identity
+                                    </h3>
+                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                                        You'll need to provide your <strong>Legal Business Name</strong> and <strong>Tax ID (EIN)</strong>.
+                                        This verifies that you are a legitimate business entity. If you act as an individual, you can register as a sole proprietor using your SSN.
+                                    </p>
+                                </div>
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">2</div>
+                                        Campaign Usage
+                                    </h3>
+                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                                        Select how you plan to use SMS. For most realtors, the <strong>"Agents & Franchises"</strong> use case is appropriate.
+                                        You will need to provide sample messages like viewing confirmations or inspection updates.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <section className="bg-slate-900 rounded-[2.5rem] p-10 text-white mb-12 shadow-2xl overflow-hidden relative group">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
+                                <h3 className="text-xl font-black mb-6 relative z-10">The Approval Process</h3>
+                                <div className="space-y-6 relative z-10">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-paper-plane text-indigo-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Instant Submission</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Your application is sent immediately once you complete the wizard in <strong>Realtor Tools</strong>.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-clock text-indigo-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Carrier Review (3-7 Days)</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Mobile networks manually review your samples to ensure compliance with anti-spam rules.</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+                                            <i className="fa-solid fa-check-circle text-emerald-400"></i>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm mb-1">Active Status</div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Once approved, your messages will have the highest possible delivery priority.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="bg-amber-50 rounded-3xl p-8 border border-amber-100 flex items-start gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shrink-0">
+                                    <i className="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-amber-900 font-black text-lg mb-2">Pro Tip</h4>
+                                    <p className="text-amber-800 text-sm font-medium leading-relaxed">
+                                        Ensure your website URL is valid and clearly mentions your business name.
+                                        Carriers will check your website to verify that you have proper "Opt-in" language for clients.
                                     </p>
                                 </div>
                             </div>
@@ -1842,10 +1969,10 @@ const PlatformHelpTab: React.FC = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
                                         {[
                                             { step: 'Geocoding', api: 'Radar', icon: 'fa-location-crosshairs' },
-                                            { step: 'Property Specs', api: 'RapidAPI (Zillow)', icon: 'fa-house' },
+                                            { step: 'Property Specs', api: 'RapidAPI (MLS)', icon: 'fa-house' },
                                             { step: 'Walk/Transit/Bike Scores', api: 'RapidAPI', icon: 'fa-person-walking' },
                                             { step: 'Google Places (POI)', api: 'Google Maps Platform', icon: 'fa-map-pin' },
-                                            { step: 'Gallery Fetch', api: 'RapidAPI (Zillow)', icon: 'fa-images' },
+                                            { step: 'Gallery Fetch', api: 'RapidAPI (MLS)', icon: 'fa-images' },
                                             { step: 'Asset Persistence', api: 'Firebase Storage', icon: 'fa-cloud-arrow-up' },
                                         ].map(s => (
                                             <div key={s.step} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
@@ -2019,254 +2146,6 @@ const PlatformHelpTab: React.FC = () => {
                         </div>
                     )
                 }
-            ]
-        },
-        {
-            id: 'database_schema',
-            title: 'Database Schema',
-            icon: 'fa-database',
-            topics: [
-                {
-                    id: 'property_schema',
-                    title: 'Property Collections',
-                    icon: 'fa-house',
-                    content: (
-                        <div className="prose prose-slate max-w-none" key={`schema-prop-${schemaRefreshKey}`}>
-                            <SchemaPageHeader
-                                icon="fa-house"
-                                iconBg="bg-indigo-600 text-white"
-                                title="Property Intelligence"
-                                subtitle="Tier 1 — Keyed by ZPID"
-                                onRefresh={handleSchemaRefresh}
-                                refreshing={schemaRefreshing}
-                            />
-                            <SourceLegend />
-                            <div className="space-y-6">
-                                {propertyCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
-                            </div>
-                        </div>
-                    )
-                },
-                {
-                    id: 'city_schema',
-                    title: 'City & Market',
-                    icon: 'fa-city',
-                    content: (
-                        <div className="prose prose-slate max-w-none" key={`schema-city-${schemaRefreshKey}`}>
-                            <SchemaPageHeader
-                                icon="fa-chart-line"
-                                iconBg="bg-slate-900 text-white"
-                                title="City & Market Intelligence"
-                                subtitle="Tier 2 — Keyed by cityStateKey or Zip"
-                                onRefresh={handleSchemaRefresh}
-                                refreshing={schemaRefreshing}
-                            />
-                            <SourceLegend />
-                            <div className="space-y-6">
-                                {cityCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
-                            </div>
-                        </div>
-                    )
-                },
-                {
-                    id: 'crm_schema',
-                    title: 'CRM & Transactions',
-                    icon: 'fa-handshake',
-                    content: (
-                        <div className="prose prose-slate max-w-none" key={`schema-crm-${schemaRefreshKey}`}>
-                            <SchemaPageHeader
-                                icon="fa-handshake"
-                                iconBg="bg-emerald-600 text-white"
-                                title="CRM & Transactions"
-                                subtitle="Tier 3 — Leads, Transactions, Users"
-                                onRefresh={handleSchemaRefresh}
-                                refreshing={schemaRefreshing}
-                            />
-                            <SourceLegend />
-                            <div className="space-y-6">
-                                {crmCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
-                            </div>
-                        </div>
-                    )
-                },
-                {
-                    id: 'ops_schema',
-                    title: 'Platform Operations',
-                    icon: 'fa-gears',
-                    content: (
-                        <div className="prose prose-slate max-w-none" key={`schema-ops-${schemaRefreshKey}`}>
-                            <SchemaPageHeader
-                                icon="fa-gears"
-                                iconBg="bg-rose-600 text-white"
-                                title="Platform Operations"
-                                subtitle="Tier 4 — Audit Logs, API Events, Messaging"
-                                onRefresh={handleSchemaRefresh}
-                                refreshing={schemaRefreshing}
-                            />
-                            <SourceLegend />
-                            <div className="space-y-6">
-                                {opsCollections.map(col => <CollectionBlock key={col.name} col={col} />)}
-                            </div>
-                        </div>
-                    )
-                },
-                {
-                    id: 'smoke_test_map',
-                    title: 'Smoke Test ↔ UI Map',
-                    icon: 'fa-arrows-left-right',
-                    content: (
-                        <div className="prose prose-slate max-w-none">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="w-16 h-16 rounded-[2rem] bg-amber-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-amber-100">
-                                    <i className="fa-solid fa-arrows-left-right"></i>
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Smoke Test ↔ UI Mapping</h1>
-                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">How each smoke test check maps to Firestore fields and UI components</p>
-                                </div>
-                            </div>
-
-                            <section className="bg-amber-50/50 rounded-[2.5rem] p-10 border border-amber-100 mb-12">
-                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
-                                    <i className="fa-solid fa-circle-info text-amber-500 text-sm"></i>
-                                    How to Read This
-                                </h2>
-                                <p className="text-slate-600 font-medium leading-relaxed mb-0">
-                                    The smoke test reads from <strong>6 Firestore collections</strong> in parallel. Each check below shows which collection the data comes from, the exact field path, and the UI component that renders it. All fields reference a <strong>single source of truth</strong> — no duplicate fallback chains.
-                                </p>
-                            </section>
-
-                            {/* Field Normalization Gotchas */}
-                            <section className="bg-rose-50 rounded-[2.5rem] p-8 border border-rose-100 mb-12">
-                                <h3 className="text-lg font-black text-rose-900 mb-4 flex items-center gap-3">
-                                    <i className="fa-solid fa-triangle-exclamation text-rose-500"></i>
-                                    Field Normalization Gotchas
-                                </h3>
-                                <div className="space-y-3">
-                                    {[
-                                        { from: 'price / list_price / ListPrice', to: 'listPrice', note: 'normalizePropertyFields() renames on every write' },
-                                        { from: 'sqft / square_footage / LivingArea', to: 'livingAreaValue', note: 'Single source: livingAreaValue (number)' },
-                                        { from: 'hoaFees / monthlyHoaFee', to: 'resoFacts.feesAndDues + hoa.fee', note: 'feesAndDues for numeric parsing, hoa.fee for display. No hoaFees fallback.' },
-                                        { from: 'climateRisk.*.score', to: '{type}RiskScore (flat)', note: 'Scores on flat fields. climateRiskDetail carries supplementary data only (FEMA, insurance, projections).' },
-                                        { from: 'datePosted → lastSoldDate', to: 'lastSoldDate ← dateSold only', note: 'datePosted is listing date (listedDate), not sale date' },
-                                        { from: 'google_places', to: '(stripped)', note: 'Removed from properties doc — only in google_environmental_data' },
-                                        { from: 'streetViewAnalysis.overall_assessment', to: '(does not exist)', note: 'Phantom field — use privacyRating / curbAppealScore / neighborhoodVibe' },
-                                        { from: 'pollen.analysis.summary', to: 'pollen.analysis.breathe_easy_summary', note: 'PollenAnalysisResult type uses breathe_easy_summary' },
-                                    ].map(g => (
-                                        <div key={g.from} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-rose-100">
-                                            <i className="fa-solid fa-bolt text-rose-400 text-[9px] mt-1.5 shrink-0"></i>
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <code className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">{g.from}</code>
-                                                    <i className="fa-solid fa-arrow-right text-[8px] text-slate-300"></i>
-                                                    <code className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{g.to}</code>
-                                                </div>
-                                                <p className="text-[10px] text-slate-500 mt-1 mb-0">{g.note}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* Collections Legend */}
-                            <div className="flex flex-wrap gap-2 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 self-center mr-2">Collections:</span>
-                                {[
-                                    { name: 'properties', color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
-                                    { name: 'property_assets', color: 'bg-sky-50 text-sky-600 border-sky-200' },
-                                    { name: 'property_analyses_visual', color: 'bg-violet-50 text-violet-600 border-violet-200' },
-                                    { name: 'google_environmental_data', color: 'bg-amber-50 text-amber-600 border-amber-200' },
-                                    { name: 'property_analyses_comprehensive', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-                                    { name: 'property_investment_research', color: 'bg-rose-50 text-rose-600 border-rose-200' },
-                                ].map(c => (
-                                    <span key={c.name} className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${c.color}`}>{c.name}</span>
-                                ))}
-                            </div>
-
-                            {/* Mapping Table */}
-                            <h3 className="text-xl font-black text-slate-800 mb-6 border-l-4 border-amber-600 pl-6">Full Smoke Test Field Map</h3>
-                            <div className="space-y-3 mb-12">
-                                {[
-                                    { check: 'Core Listing (beds/baths/sqft/price)', severity: 'error', source: 'properties', field: 'bedrooms + bathrooms + livingAreaValue + listPrice', ui: 'PropertyHeader' },
-                                    { check: 'Description', severity: 'error', source: 'properties', field: 'description', ui: 'PropertyDescription' },
-                                    { check: 'Coordinates', severity: 'error', source: 'properties', field: 'coordinates.latitude / .longitude', ui: 'PropertyMaps' },
-                                    { check: 'Walk Score', severity: 'warn', source: 'properties', field: 'walkScore', ui: 'AirQualitySection' },
-                                    { check: 'Transit Score', severity: 'warn', source: 'properties', field: 'transitScore', ui: 'AirQualitySection' },
-                                    { check: 'Bike Score', severity: 'warn', source: 'properties', field: 'bikeScore', ui: 'AirQualitySection' },
-                                    { check: 'Property Images', severity: 'error', source: 'properties', field: 'images[]', ui: 'PropertyImages', fallback: 'property_assets.images[]' },
-                                    { check: 'Map Zoom-In', severity: 'error', source: 'property_assets', field: 'mapZoomIn', ui: 'PropertyMaps', fallback: 'properties.mapZoomIn' },
-                                    { check: 'Map Zoom-Out', severity: 'error', source: 'property_assets', field: 'mapZoomOut', ui: 'PropertyMaps', fallback: 'properties.mapZoomOut' },
-                                    { check: 'Street View (Storage)', severity: 'warn', source: 'property_assets', field: 'streetView', ui: 'StreetViewAnalysisSection', fallback: 'properties.streetViewAnalysis.imageUrl → env.streetViewAnalysis.imageUrl' },
-                                    { check: 'Satellite Image', severity: 'warn', source: 'property_assets', field: 'satelliteImageUrl', ui: 'Orientation Card', fallback: 'properties.satelliteImageUrl' },
-                                    { check: 'Parcel Polygon', severity: 'warn', source: 'properties', field: 'parcelPolygon / parcel_polygon', ui: 'ParcelValidationCard' },
-                                    { check: 'APN', severity: 'warn', source: 'properties', field: 'parcelApn / parcel_apn / apn', ui: 'ParcelValidationCard' },
-                                    { check: 'Parcel Area', severity: 'warn', source: 'properties', field: 'parcelAreaSqft / parcel_area_sqft', ui: 'ParcelValidationCard' },
-                                    { check: 'Tax Record Sqft', severity: 'warn', source: 'properties', field: 'taxSqft', ui: 'ParcelValidationCard' },
-                                    { check: 'Solar API', severity: 'warn', source: 'google_environmental_data', field: 'solarData.maxSunshineHoursPerYear', ui: 'AirQualitySection', fallback: 'properties.solarData' },
-                                    { check: 'Air Quality API', severity: 'warn', source: 'google_environmental_data', field: 'airQuality.aqi', ui: 'AirQualitySection', fallback: 'properties.airQuality' },
-                                    { check: 'Pollen API', severity: 'warn', source: 'google_environmental_data', field: 'pollen.score / .category', ui: 'AirQualitySection', fallback: 'properties.pollen' },
-                                    { check: 'Noise Score', severity: 'warn', source: 'google_environmental_data', field: 'noiseScore', ui: 'AirQualitySection', fallback: 'properties.noiseScore' },
-                                    { check: 'Nearby Places (POI)', severity: 'warn', source: 'google_environmental_data', field: 'google_places', ui: 'NeighborhoodPlacesSection' },
-                                    { check: 'AI Visual — Interior', severity: 'error', source: 'property_analyses_visual', field: 'home_interior.overall_description', ui: 'InteriorView (Full Intel tab)' },
-                                    { check: 'AI Visual — Exterior', severity: 'error', source: 'property_analyses_visual', field: 'exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style', ui: 'ExteriorView (Full Intel tab)' },
-                                    { check: 'AI Neighborhood/Spatial', severity: 'error', source: 'property_analyses_visual', field: 'neighborhood.overview', ui: 'ExploreTab Neighborhood section' },
-                                    { check: 'Orientation AI', severity: 'warn', source: 'properties', field: 'orientation_ai.final_orientation', ui: 'ExploreTab Orientation card', fallback: 'env.orientation_ai' },
-                                    { check: 'Street View AI', severity: 'warn', source: 'properties', field: 'streetViewAnalysis.privacyRating / .curbAppealScore / .neighborhoodVibe', ui: 'StreetViewAnalysisSection', fallback: 'env.streetViewAnalysis' },
-                                    { check: 'Pollen AI Analysis', severity: 'warn', source: 'google_environmental_data', field: 'pollen.analysis.breathe_easy_summary', ui: 'AirQualitySection', fallback: 'properties.pollen.analysis' },
-                                    { check: 'Custom AI Analysis', severity: 'warn', source: 'properties', field: 'visual_analysis.executiveSummary', ui: 'CustomAIAnalysis' },
-                                    { check: 'Narrative Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'summary', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Risks & Considerations', severity: 'warn', source: 'property_analyses_comprehensive', field: 'risks_considerations', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Interior Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'interior_summary.interior_summary', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Rooms Summary', severity: 'error', source: 'property_analyses_comprehensive', field: 'interior_summary.rooms_summary', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Interior Vibe', severity: 'warn', source: 'property_analyses_comprehensive', field: 'interior_summary.vibe', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Interior Tags', severity: 'warn', source: 'property_analyses_comprehensive', field: 'interior_summary.objective_tags[]', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Schools Summary', severity: 'warn', source: 'property_analyses_comprehensive', field: 'schools_summary', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Nearby Schools Data', severity: 'warn', source: 'properties', field: 'schools[]', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Lifestyle Insights', severity: 'warn', source: 'property_analyses_comprehensive', field: 'lifestyle_insights.outdoor / .family', ui: 'LifestyleInsightsSection' },
-                                    { check: 'STR Performance', severity: 'warn', source: 'property_investment_research', field: 'str_performance.adr', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'LTR Analysis', severity: 'warn', source: 'property_investment_research', field: 'ltr_analysis.monthly_rent', ui: 'ComprehensiveAnalysis' },
-                                    { check: 'Climate Risk Scores (4)', severity: 'warn', source: 'properties', field: 'floodRiskScore + fireRiskScore + heatRiskScore + windRiskScore', ui: 'AirQualitySection Climate Risk grid' },
-                                    { check: 'ResoFacts (≥5 fields)', severity: 'error', source: 'properties', field: 'resoFacts.*', ui: 'PropertyHeader details' },
-                                    { check: 'RESO Structure', severity: 'warn', source: 'properties', field: 'resoFacts.stories / .parkingFeatures / .propertyCondition', ui: 'PropertyHeader structure card' },
-                                    { check: 'RESO Interior/Systems', severity: 'warn', source: 'properties', field: 'resoFacts.interiorFeatures / .electric', ui: 'PropertyHeader interior + utilities cards' },
-                                    { check: 'HOA Detail', severity: 'warn', source: 'properties', field: 'hoa.amenities + .feeIncludes + resoFacts.numberOfUnitsInCommunity', ui: 'PropertyHeader HOA section' },
-                                ].map(row => {
-                                    const colColors: Record<string, string> = {
-                                        'properties': 'bg-indigo-50 text-indigo-600 border-indigo-200',
-                                        'property_assets': 'bg-sky-50 text-sky-600 border-sky-200',
-                                        'property_analyses_visual': 'bg-violet-50 text-violet-600 border-violet-200',
-                                        'google_environmental_data': 'bg-amber-50 text-amber-600 border-amber-200',
-                                        'property_analyses_comprehensive': 'bg-emerald-50 text-emerald-600 border-emerald-200',
-                                        'property_investment_research': 'bg-rose-50 text-rose-600 border-rose-200',
-                                    };
-                                    return (
-                                        <div key={row.check} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 ${row.severity === 'error' ? 'bg-rose-100 text-rose-500' : 'bg-amber-100 text-amber-500'}`}>
-                                                <i className={`fa-solid ${row.severity === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'} text-[8px]`}></i>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-[12px] font-black text-slate-700 leading-tight">{row.check}</div>
-                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${colColors[row.source] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>{row.source}</span>
-                                                    <code className="text-[9px] text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-100 font-mono">{row.field}</code>
-                                                </div>
-                                                {row.fallback && (
-                                                    <div className="text-[9px] text-slate-400 mt-0.5">
-                                                        <span className="font-bold">Fallback:</span> {row.fallback}
-                                                    </div>
-                                                )}
-                                                <div className="text-[9px] text-indigo-500 mt-0.5 font-bold">
-                                                    <i className="fa-solid fa-display text-[7px] mr-1"></i>
-                                                    {row.ui}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )
-                },
             ]
         },
     ];

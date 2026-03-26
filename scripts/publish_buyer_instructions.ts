@@ -37,6 +37,12 @@ async function seedBuyerInstructions() {
                 "title": "Interactive AI Concierge",
                 "action": "Use the Zyphe Concierge chatbot to inquire about specific property details, search for deep-dive insights, and learn more via real-time conversation.",
                 "imageUrl": "/guide-images/chatbot_step.png"
+            },
+            {
+                "step": 8,
+                "title": "Technical Transparency Center",
+                "action": "For a deep dive into our 15+ data sources, environmental scoring methodologies, and the 88 decision factors driving our intelligence, visit our technical owner's manual.",
+                "link": "/training/platform-technical-manual"
             }
         ],
         "whatThisDoesNotMean": { "title": "Note", "points": ["This is an educational walkthrough."] },

@@ -72,6 +72,7 @@ import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import { useInactivitySignout } from './hooks/useInactivitySignout';
 import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
+const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation' | 'context_graph' | 'my_zyphe';
 
@@ -190,7 +191,7 @@ const App: React.FC = () => {
           } else {
             setViewMode('main');
           }
-        } else if (subPath[0] === 'guides' || subPath[0] === 'knowledge' || subPath[0] === 'best_practices' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
+        } else if (subPath[0] === 'guides' || subPath[0] === 'knowledge' || subPath[0] === 'training' || subPath[0] === 'playbooks' || subPath[0] === 'resources' || subPath[0] === 'best_practices' || subPath[0] === 'support' || subPath[0] === 'platform-technical-manual' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
           setViewMode('knowledge_center');
         } else {
           // Dynamic tab matching
@@ -198,7 +199,7 @@ const App: React.FC = () => {
         }
       } else if (path === '/legal-disclaimer' || path === '/terms' || path === '/privacy') {
         setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : path === '/terms' ? 'terms' : 'privacy');
-      } else if (path.startsWith('/knowledge') || path.startsWith('/training') || path === '/guides') {
+      } else if (path.startsWith('/knowledge') || path.startsWith('/training') || path === '/guides' || path.startsWith('/support') || path.startsWith('/platform-technical-manual')) {
         // /knowledge/context-graph → open the Context Graph technical paper tab
         if (path === '/knowledge/context-graph') {
           setViewMode('technical_papers_context_graph');
@@ -233,7 +234,7 @@ const App: React.FC = () => {
       performSearch(customPath);
     }
 
-    const isKnowledgeMode = newMode === 'knowledge_center' || newMode === 'guides' || newMode === 'best_practices';
+    const isKnowledgeMode = newMode === 'knowledge_center' || newMode === 'guides' || newMode === 'best_practices' || newMode === 'training' || newMode === 'support' || newMode === 'platform-technical-manual';
 
     setViewMode(newMode);
     let path = '/';
@@ -244,7 +245,7 @@ const App: React.FC = () => {
       path = customPath || '/realtor/knowledge';
     } else if (newMode === 'legal-disclaimer' || newMode === 'terms' || newMode === 'privacy') {
       path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : newMode === 'terms' ? '/terms' : '/privacy';
-    } else if (newMode === 'main' || newMode === 'explore') {
+    } else if (newMode === 'main' || newMode === 'explore' || newMode === 'dashboard') {
       path = (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'admin') ? '/realtor' : '/';
     } else if (newMode === 'context_graph') {
       path = `/realtor/context-graph${contextGraphZpid ? `?zpid=${contextGraphZpid}` : ''}`;
@@ -256,6 +257,8 @@ const App: React.FC = () => {
 
     if (window.location.pathname !== path) {
       window.history.pushState({ mode: newMode }, '', path);
+      // Dispatch a synthetic popstate event so listeners in other components (like KnowledgeCenterTab) sync up
+      window.dispatchEvent(new PopStateEvent('popstate', { state: { mode: newMode } }));
     }
   };
 
@@ -1410,8 +1413,14 @@ const App: React.FC = () => {
           </div>
         ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
-
-            <GuidesTab onNavigate={transitionToView} />
+            <React.Suspense fallback={
+              <div className="flex-1 flex flex-col items-center justify-center space-y-4">
+                <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Loading Library...</p>
+              </div>
+            }>
+              <KnowledgeCenterTab onNavigate={transitionToView} />
+            </React.Suspense>
           </div>
         ) : exploreTab)}
 

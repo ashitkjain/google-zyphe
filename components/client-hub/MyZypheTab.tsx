@@ -94,6 +94,24 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
         }
     };
 
+    const handleUpdateNote = async (id: string, newComment: string) => {
+        const success = await updateStickyNote(id, { userId, comment: newComment });
+        if (success) {
+            setNotes(prev => prev.map(n => n.id === id ? { ...n, comment: newComment } : n));
+        }
+        return success;
+    };
+
+    const [editingNote, setEditingNote] = useState<UserPropertyComment | null>(null);
+
+    const findAddress = (zpid: string) => {
+        const fav = favorites.find(f => String(f.zpid) === String(zpid));
+        if (fav) return fav.address || fav.streetAddress;
+        const hist = cloudHistory.find(h => String(h.zpid) === String(zpid));
+        if (hist) return hist.address;
+        return `Property ${zpid}`;
+    };
+
     return (
         <div className="bg-slate-50 min-h-screen">
             {/* Hero Header */}
@@ -317,13 +335,18 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                                 <tr key={note.id} className="hover:bg-slate-50/50 transition-colors group">
                                                     <td className="px-10 py-6">
                                                         <div className="flex flex-col gap-1">
-                                                            <span className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                                                            <a 
+                                                                href={`?zpid=${note.zpid}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900 hover:text-indigo-600 transition-colors tracking-tight"
+                                                            >
+                                                                <i className="fa-solid fa-location-dot text-[9px] text-indigo-400"></i>
+                                                                {findAddress(note.zpid)}
+                                                            </a>
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-3.5">
                                                                 {PAGE_LABELS[note.tab] || note.tab}
                                                             </span>
-                                                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
-                                                                <i className="fa-solid fa-house text-indigo-300"></i>
-                                                                ZPID: {note.zpid}
-                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-6">
@@ -345,13 +368,22 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                                         </div>
                                                     </td>
                                                     <td className="px-10 py-6 text-right">
-                                                        <button
-                                                            onClick={() => handleDeleteNote(note.id)}
-                                                            className="w-10 h-10 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
-                                                            title="Delete Note"
-                                                        >
-                                                            <i className="fa-solid fa-trash-can text-sm"></i>
-                                                        </button>
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                onClick={() => setEditingNote(note)}
+                                                                className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all flex items-center justify-center border border-slate-100 shadow-sm"
+                                                                title="Edit Note"
+                                                            >
+                                                                <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteNote(note.id)}
+                                                                className="w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all flex items-center justify-center border border-slate-100 shadow-sm"
+                                                                title="Delete Note"
+                                                            >
+                                                                <i className="fa-solid fa-trash-can text-xs"></i>
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -362,6 +394,47 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                         )}
                     </div>
                 )}
+            {editingNote && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-black text-slate-900 tracking-tight">Edit Sticky Note</h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{findAddress(editingNote.zpid)}</p>
+                            </div>
+                            <button onClick={() => setEditingNote(null)} className="w-10 h-10 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate-400 transition-colors">
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div className="p-8">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Comment Content</label>
+                            <textarea 
+                                autoFocus
+                                className="w-full h-32 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
+                                value={editingNote.comment}
+                                onChange={(e) => setEditingNote({...editingNote, comment: e.target.value})}
+                            />
+                            <div className="flex items-center justify-end gap-3 mt-8">
+                                <button 
+                                    onClick={() => setEditingNote(null)}
+                                    className="px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={async () => {
+                                        const success = await handleUpdateNote(editingNote.id, editingNote.comment);
+                                        if (success) setEditingNote(null);
+                                    }}
+                                    className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all transform hover:scale-105"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             </div>
         </div>
     );

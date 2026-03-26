@@ -4,6 +4,10 @@ import { getGuideBySlug, saveGuideContent } from '../../services/firebaseService
 import { generateGuide, generateGuideImage } from '../../services/geminiService';
 import { GuideResult } from '../../prompts/client/guideGeneration';
 import ArchitecturalStylesArticle, { ARCH_STYLES_SLUG, ARCH_STYLES_SENTINEL } from './ArchitecturalStylesArticle';
+import PlatformHelpTab from './PlatformHelpTab';
+
+const PLATFORM_HELP_SENTINEL = 'PLATFORM_HELP_V1';
+const PLATFORM_HELP_SLUG = 'platform-technical-manual';
 
 interface GuideItem {
     id: string;
@@ -190,7 +194,7 @@ const GUIDE_DATA: GuideCategory[] = [
     {
         id: 'training',
         topicSlug: 'training',
-        title: 'Training & Support',
+        title: 'Technical & Support',
         icon: 'fa-graduation-cap',
         count: '1 page',
         items: [
@@ -200,6 +204,12 @@ const GUIDE_DATA: GuideCategory[] = [
                 slug: 'buyer-instructions',
                 description: 'A step-by-step walkthrough of the key use cases for exploring properties with Zyphe AI.'
             },
+            {
+                id: 't2',
+                title: 'Platform Technical Manual',
+                slug: PLATFORM_HELP_SLUG,
+                description: 'Detailed technical overview of 3rd party APIs and the Firestore database schema definitions.'
+            },
         ]
     }
 ];
@@ -207,17 +217,40 @@ const GUIDE_DATA: GuideCategory[] = [
 
 interface GuidesTabProps {
     onNavigate?: (view: any, path: string) => void;
+    filterCategoryId?: string;
+    excludeCategoryId?: string;
+    initialCategoryId?: string;
 }
 
-const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
-    const [activeCategoryId, setActiveCategoryId] = useState(GUIDE_DATA[0].id);
+const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, excludeCategoryId, initialCategoryId }) => {
+    // Filter data if prop provided
+    let displayData = filterCategoryId 
+        ? GUIDE_DATA.filter(c => c.id === filterCategoryId)
+        : GUIDE_DATA;
+    
+    if (excludeCategoryId) {
+        displayData = displayData.filter(c => c.id !== excludeCategoryId);
+    }
+
+    const [activeCategoryId, setActiveCategoryId] = useState(
+        initialCategoryId || displayData[0]?.id || GUIDE_DATA[0].id
+    );
+
+    // Sync state if initialCategoryId changes
+    useEffect(() => {
+        const targetId = initialCategoryId || displayData[0]?.id;
+        if (targetId) {
+            setActiveCategoryId(targetId);
+            setSelectedGuide(null);
+        }
+    }, [initialCategoryId, filterCategoryId, excludeCategoryId]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGuide, setSelectedGuide] = useState<GuideItem | null>(null);
     const [guideContent, setGuideContent] = useState<GuideResult | string | null>(null);
     const [loadingContent, setLoadingContent] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const activeCategory = GUIDE_DATA.find(c => c.id === activeCategoryId) || GUIDE_DATA[0];
+    const activeCategory = GUIDE_DATA.find(c => c.id === activeCategoryId) || displayData[0] || GUIDE_DATA[0];
 
     const handleViewGuide = async (guide: GuideItem, categoryOverride?: GuideCategory) => {
         const category = categoryOverride || activeCategory;
@@ -236,6 +269,12 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         // Static pages don't need Firebase or AI
         if (guide.slug === ARCH_STYLES_SLUG) {
             setGuideContent(ARCH_STYLES_SENTINEL);
+            setLoadingContent(false);
+            return;
+        }
+
+        if (guide.slug === PLATFORM_HELP_SLUG) {
+            setGuideContent(PLATFORM_HELP_SENTINEL);
             setLoadingContent(false);
             return;
         }
@@ -412,6 +451,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                             <article className="prose prose-slate prose-lg max-w-none">
                                 {guideContent === ARCH_STYLES_SENTINEL ? (
                                     <ArchitecturalStylesArticle />
+                                ) : guideContent === PLATFORM_HELP_SENTINEL ? (
+                                    <PlatformHelpTab />
                                 ) : typeof guideContent === 'string' ? (
                                     <div className="space-y-12">
 
@@ -627,6 +668,23 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                                                 />
                                                                             </div>
                                                                         )}
+                                                                        {item.link && (
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    if (onNavigate) onNavigate('knowledge_center', item.link);
+                                                                                    else window.location.href = item.link;
+                                                                                }}
+                                                                                className="mt-6 flex items-center gap-3 px-6 py-3 bg-slate-900 border border-slate-800 text-white rounded-2xl hover:bg-black hover:scale-105 transition-all shadow-xl shadow-slate-200/50 group/link"
+                                                                            >
+                                                                                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center group-hover/link:bg-indigo-500 transition-colors">
+                                                                                    <i className="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                                                </div>
+                                                                                <div className="text-left">
+                                                                                    <div className="text-[10px] font-black uppercase tracking-widest leading-none">Open Resource</div>
+                                                                                    <div className="text-[11px] font-bold text-slate-400 group-hover/link:text-white transition-colors capitalize">{item.link.split('/').pop()?.replace('-', ' ')}</div>
+                                                                                </div>
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             );
@@ -770,38 +828,40 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
 
     return (
         <div className="flex flex-col-reverse lg:flex-row h-full bg-[#F8FAFC] animate-in fade-in duration-500">
-            {/* Sidebar / Bottom Nav */}
-            <div className="w-full lg:w-80 h-auto lg:h-full border-t lg:border-t-0 lg:border-r border-slate-200 bg-white flex flex-row lg:flex-col shadow-lg lg:shadow-sm z-20 shrink-0">
-                <div className="flex-1 w-full overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto flex flex-row lg:flex-col p-2 lg:p-0 gap-2 lg:gap-1 no-scrollbar">
-                    {GUIDE_DATA.map((category) => (
-                        <button
-                            key={category.id}
-                            onClick={() => handleCategoryChange(category.id)}
-                            className={`flex lg:w-full items-center justify-center lg:justify-between px-3 py-2 lg:px-6 lg:py-4 transition-all group rounded-xl lg:rounded-none min-w-[80px] lg:min-w-0 ${activeCategoryId === category.id
-                                ? 'bg-indigo-50 lg:bg-indigo-50 lg:border-r-4 border-indigo-600'
-                                : 'hover:bg-slate-50 lg:border-r-4 border-transparent'
-                                }`}
-                        >
-                            <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-4">
-                                <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${activeCategoryId === category.id
-                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                                    : 'bg-slate-100 text-slate-400 group-hover:bg-white group-hover:text-indigo-500 shadow-inner'
-                                    }`}>
-                                    <i className={`fa-solid ${category.icon} text-xs lg:text-sm`}></i>
-                                </div>
-                                <div className="text-center lg:text-left">
-                                    <div className={`text-[10px] lg:text-xs font-black tracking-tight whitespace-nowrap ${activeCategoryId === category.id ? 'text-indigo-900' : 'text-slate-600'
+            {/* Sidebar / Bottom Nav - Hide if only 1 category shown */}
+            {displayData.length > 1 && (
+                <div className="w-full lg:w-80 h-auto lg:h-full border-t lg:border-t-0 lg:border-r border-slate-200 bg-white flex flex-row lg:flex-col shadow-lg lg:shadow-sm z-20 shrink-0">
+                    <div className="flex-1 w-full overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto flex flex-row lg:flex-col p-2 lg:p-0 gap-2 lg:gap-1 no-scrollbar">
+                        {displayData.map((category) => (
+                            <button
+                                key={category.id}
+                                onClick={() => handleCategoryChange(category.id)}
+                                className={`flex lg:w-full items-center justify-center lg:justify-between px-3 py-2 lg:px-6 lg:py-4 transition-all group rounded-xl lg:rounded-none min-w-[80px] lg:min-w-0 ${activeCategoryId === category.id
+                                    ? 'bg-indigo-50 lg:bg-indigo-50 lg:border-r-4 border-indigo-600'
+                                    : 'hover:bg-slate-50 lg:border-r-4 border-transparent'
+                                    }`}
+                            >
+                                <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-4">
+                                    <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${activeCategoryId === category.id
+                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                        : 'bg-slate-100 text-slate-400 group-hover:bg-white group-hover:text-indigo-500 shadow-inner'
                                         }`}>
-                                        {category.title}
+                                        <i className={`fa-solid ${category.icon} text-xs lg:text-sm`}></i>
+                                    </div>
+                                    <div className="text-center lg:text-left">
+                                        <div className={`text-[10px] lg:text-xs font-black tracking-tight whitespace-nowrap ${activeCategoryId === category.id ? 'text-indigo-900' : 'text-slate-600'
+                                            }`}>
+                                            {category.title}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <i className={`hidden lg:block fa-solid fa-chevron-right text-[8px] transition-transform ${activeCategoryId === category.id ? 'text-indigo-400 translate-x-1' : 'text-slate-300 opacity-0 group-hover:opacity-100'
-                                }`}></i>
-                        </button>
-                    ))}
+                                <i className={`hidden lg:block fa-solid fa-chevron-right text-[8px] transition-transform ${activeCategoryId === category.id ? 'text-indigo-400 translate-x-1' : 'text-slate-300 opacity-0 group-hover:opacity-100'
+                                    }`}></i>
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col transition-all">
