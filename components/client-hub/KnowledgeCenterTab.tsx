@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import BestPracticesTab from './BestPracticesTab';
 import GuidesTab from './GuidesTab';
-import PlatformHelpTab from './PlatformHelpTab';
-import { searchKnowledge, SearchResult, syncBestPractices } from '../../services/firebaseService';
+import { syncBestPractices } from '../../services/firebaseService';
+import { auth } from '../../services/firebase/config';
+import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 interface KnowledgeCenterTabProps {
     onNavigate?: (view: any, path: string) => void;
@@ -11,13 +12,21 @@ interface KnowledgeCenterTabProps {
 const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) => {
     const [activeSubTab, setActiveSubTab] = useState<'playbooks' | 'resources' | 'training'>('playbooks');
     const [activeSection, setActiveSection] = useState('timings');
+    const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
+
+    // Listen for auth state changes
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+            setIsLoggedIn(!!user);
+        });
+        return () => unsub();
+    }, []);
 
     // Sync sub-tab with URL
     useEffect(() => {
         const syncSubTab = () => {
             const path = window.location.pathname;
             if (path.includes('/resources') || path.includes('/support') || path.includes('/platform-technical-manual') || path.includes('/buyer-instructions')) {
-                // If it's a training-specific item, use training tab
                 if (path.includes('/training') || path.includes('/platform-technical-manual') || path.includes('/buyer-instructions')) {
                     setActiveSubTab('training');
                 } else {
@@ -41,12 +50,19 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
         }
     };
 
+    const handleSignIn = async () => {
+        try {
+            const provider = new GoogleAuthProvider();
+            await signInWithPopup(auth, provider);
+        } catch (e: any) {
+            console.error('[Auth] Sign-in failed:', e.message);
+        }
+    };
+
     useEffect(() => {
-        // One-time sync of static best practices to Firestore for semantic search
         const sync = async () => {
             const lastSync = localStorage.getItem('zyphe_bp_sync_v2');
             const now = Date.now();
-            // Sync once every 24 hours in dev/demo or first time
             if (!lastSync || now - parseInt(lastSync) > 86400000) {
                 console.log('[Library] Auto-syncing Library Hub...');
                 await syncBestPractices();
@@ -63,16 +79,16 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between gap-4">
                     <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-200/60 shadow-sm">
                         {[
-                            { id: 'playbooks', label: 'Playbook Hub', icon: 'fa-graduation-cap' },
-                            { id: 'resources', label: 'Guides & Manuals', icon: 'fa-book-open-reader' },
-                            { id: 'training', label: 'Technical & Support', icon: 'fa-chalkboard-user' },
+                            { id: 'playbooks', label: 'Playbook Hub', icon: 'fa-graduation-cap', locked: false },
+                            { id: 'resources', label: 'Guides & Manuals', icon: 'fa-book-open-reader', locked: false },
+                            { id: 'training', label: 'Technical & Support', icon: 'fa-chalkboard-user', locked: !isLoggedIn },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id as any)}
                                 className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[12px] uppercase tracking-widest whitespace-nowrap ${activeSubTab === tab.id ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-white'}`}
                             >
-                                <i className={`fa-solid ${tab.icon} ${activeSubTab === tab.id ? 'text-white' : 'text-slate-300'}`}></i>
+                                <i className={`fa-solid ${tab.locked ? 'fa-lock' : tab.icon} ${activeSubTab === tab.id ? 'text-white' : 'text-slate-300'}`}></i>
                                 {tab.label}
                             </button>
                         ))}
@@ -89,10 +105,36 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
             <div className="flex-1 overflow-hidden">
                 {activeSubTab === 'playbooks' ? (
                     <BestPracticesTab initialSection={activeSection} />
+                ) : activeSubTab === 'training' ? (
+                    !isLoggedIn ? (
+                        <div className="flex-1 flex items-center justify-center h-full">
+                            <div className="text-center max-w-md py-32">
+                                <div className="w-20 h-20 rounded-[2rem] bg-slate-100 text-slate-400 flex items-center justify-center text-3xl mx-auto mb-8">
+                                    <i className="fa-solid fa-lock"></i>
+                                </div>
+                                <h2 className="text-2xl font-black text-slate-900 mb-3">Sign In Required</h2>
+                                <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
+                                    Technical documentation and platform support are available to authenticated team members only.
+                                </p>
+                                <button
+                                    onClick={handleSignIn}
+                                    className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-indigo-200 hover:scale-105 transition-all"
+                                >
+                                    <i className="fa-brands fa-google"></i>
+                                    Sign in with Google
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <GuidesTab 
+                            onNavigate={onNavigate} 
+                            showOnlyIds={['buyer_instructions', 'technical_manual']} 
+                        />
+                    )
                 ) : (
                     <GuidesTab 
                         onNavigate={onNavigate} 
-                        initialCategoryId={activeSubTab === 'training' ? 'training' : undefined} 
+                        excludeIds={['buyer_instructions', 'technical_manual']} 
                     />
                 )}
             </div>

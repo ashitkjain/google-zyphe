@@ -171,15 +171,34 @@ interface HelpCategory {
     topics: HelpTopic[];
 }
 
-const PlatformHelpTab: React.FC = () => {
-    const [activeCategoryId, setActiveCategoryId] = useState('data_and_intelligence');
-    const [activeTopicId, setActiveTopicId] = useState('data_sources');
+interface PlatformHelpTabProps {
+    hideSidebar?: boolean;
+    initialCategoryId?: string;
+    initialTopicId?: string;
+}
+
+const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialCategoryId, initialTopicId }) => {
+    const [activeCategoryId, setActiveCategoryId] = useState(initialCategoryId || 'data_and_intelligence');
+    const [activeTopicId, setActiveTopicId] = useState(initialTopicId || 'data_sources');
     const [schemaRefreshKey, setSchemaRefreshKey] = useState(0);
     const [schemaRefreshing, setSchemaRefreshing] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [activeTopicId]);
+
+    // Sync with external props when they change
+    useEffect(() => {
+        if (initialCategoryId) {
+            setActiveCategoryId(initialCategoryId);
+        }
+    }, [initialCategoryId]);
+
+    useEffect(() => {
+        if (initialTopicId) {
+            setActiveTopicId(initialTopicId);
+        }
+    }, [initialTopicId]);
 
     const handleSchemaRefresh = useCallback(() => {
         setSchemaRefreshing(true);
@@ -220,7 +239,7 @@ const PlatformHelpTab: React.FC = () => {
                                     Zyphe's technical transparency is anchored in a unified data architecture. Using a <strong>single source of truth</strong> across 6 parallel Firestore collections, the platform eliminates redundancy by mapping every UI element—from core property specs to advanced AI visual analysis—directly to specific, auditable data paths.
                                 </p>
                                 <p className="text-slate-600 font-medium leading-relaxed mb-0">
-                                    This "Property DNA" ensures that every insight is backed by <strong>15+ professional APIs</strong> and verified through deterministic logic before being presented. By combining real-time environmental data, visual AI analysis, and deep neighborhood sentiment, we reach a level of transparency and confidence that is <strong>simply unavailable on any other platform</strong>.
+                                    This "Property DNA" ensures that every insight is backed by <strong>20+ professional APIs</strong> and verified through smoke-test-driven deterministic healing before being presented. By combining real-time environmental data, visual AI analysis, school-level grounding, and deep neighborhood identity resolution, we reach a level of transparency and confidence that is <strong>simply unavailable on any other platform</strong>.
                                 </p>
                             </section>
 
@@ -232,7 +251,7 @@ const PlatformHelpTab: React.FC = () => {
                                 </div>
                                 <div className="bg-violet-50/50 p-8 rounded-3xl border border-violet-100/50">
                                     <div className="text-violet-600 font-black text-[10px] uppercase tracking-widest mb-3">Data Enrichment</div>
-                                    <div className="text-3xl font-black text-violet-900 mb-2">15+</div>
+                                    <div className="text-3xl font-black text-violet-900 mb-2">20+</div>
                                     <p className="text-slate-500 text-xs font-medium leading-relaxed">Professional data providers integrated into every property analysis.</p>
                                 </div>
                             </div>
@@ -244,39 +263,36 @@ const PlatformHelpTab: React.FC = () => {
                     title: '3rd Party APIs & Data Sources',
                     icon: 'fa-globe',
                     content: (
-                        <div className="prose prose-slate max-w-none">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="w-16 h-16 rounded-[2rem] bg-violet-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-violet-100">
-                                    <i className="fa-solid fa-globe"></i>
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Data and Intelligence</h1>
-                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">3rd Party APIs · Professional Data Providers</p>
-                                </div>
-                            </div>
-
-                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-violet-600 pl-6">3rd Party APIs & Data Sources</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+                        <div className="max-w-none">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                                 {[
-                                    { icon: 'fa-house', label: 'MLS Data Sources', desc: 'Price, beds, baths, sqft, lot, year, description, schools, Walk Score', color: 'bg-blue-50 border-blue-100 text-blue-600' },
+                                    { icon: 'fa-house', label: 'MLS Data (RapidAPI)', desc: 'Price, beds, baths, sqft, lot, year, description, schools, Walk/Transit/Bike scores', color: 'bg-blue-50 border-blue-100 text-blue-600' },
+                                    { icon: 'fa-location-crosshairs', label: 'Radar Geocoding', desc: 'Address normalization, lat/lng resolution, map tile generation', color: 'bg-cyan-50 border-cyan-100 text-cyan-600' },
                                     { icon: 'fa-solar-panel', label: 'Google Solar API', desc: 'Panel-level production, sunshine hours, roof area, financial analysis', color: 'bg-yellow-50 border-yellow-100 text-yellow-600' },
                                     { icon: 'fa-wind', label: 'Google Air Quality', desc: 'AQI, pollutant concentrations, health recommendations', color: 'bg-emerald-50 border-emerald-100 text-emerald-600' },
                                     { icon: 'fa-seedling', label: 'Google Pollen API', desc: 'Pollen types, severity, seasonal triggers', color: 'bg-green-50 border-green-100 text-green-600' },
-                                    { icon: 'fa-volume-low', label: 'HowLoud SoundScore', desc: 'Traffic, local, and airport noise scores', color: 'bg-sky-50 border-sky-100 text-sky-600' },
+                                    { icon: 'fa-volume-low', label: 'HowLoud SoundScore', desc: 'Traffic, local, and airport noise scores (via Cloud Function proxy)', color: 'bg-sky-50 border-sky-100 text-sky-600' },
                                     { icon: 'fa-street-view', label: 'Google Street View', desc: 'Curb appeal, privacy, safety, visual clutter, streetscape', color: 'bg-orange-50 border-orange-100 text-orange-600' },
-                                    { icon: 'fa-camera', label: 'Visual AI Analysis', desc: 'Interior design, room-by-room quality, condition assessment', color: 'bg-violet-50 border-violet-100 text-violet-600' },
-                                    { icon: 'fa-users', label: 'Community Pulse', desc: 'Resident sentiment, safety, complaints, lifestyle satisfaction', color: 'bg-rose-50 border-rose-100 text-rose-600' },
-                                    { icon: 'fa-chart-line', label: 'Deep Investment Research', desc: 'Macro indicators, market dynamics, zoning, risk factors', color: 'bg-indigo-50 border-indigo-100 text-indigo-600' },
+                                    { icon: 'fa-camera', label: 'Visual AI (Gemini)', desc: 'Interior design, room-by-room quality, condition assessment (2-retry)', color: 'bg-violet-50 border-violet-100 text-violet-600' },
+                                    { icon: 'fa-users', label: 'Community Pulse (Gemini)', desc: 'Resident sentiment, safety, complaints, lifestyle satisfaction', color: 'bg-rose-50 border-rose-100 text-rose-600' },
+                                    { icon: 'fa-chart-line', label: 'Investment Research (Gemini)', desc: 'Macro indicators, market dynamics, zoning, risk factors', color: 'bg-indigo-50 border-indigo-100 text-indigo-600' },
                                     { icon: 'fa-map', label: 'Google Places API', desc: 'Nearby POIs: dining, shopping, parks, transit, fitness, schools', color: 'bg-amber-50 border-amber-100 text-amber-600' },
-                                    { icon: 'fa-compass', label: 'Satellite Orientation', desc: 'Building facing direction for Vastu / Feng Shui', color: 'bg-teal-50 border-teal-100 text-teal-600' },
-                                    { icon: 'fa-fire', label: 'Climate Risk Data', desc: 'Wind, flood, fire, and heat risk scores (0-10)', color: 'bg-red-50 border-red-100 text-red-600' },
+                                    { icon: 'fa-compass', label: 'Satellite Orientation', desc: 'Building facing direction via satellite + street view for Vastu/Feng Shui', color: 'bg-teal-50 border-teal-100 text-teal-600' },
+                                    { icon: 'fa-draw-polygon', label: 'ArcGIS Parcel Polygon', desc: 'County parcel boundaries, lot area (Web Mercator cos² correction), APN', color: 'bg-lime-50 border-lime-100 text-lime-600' },
+                                    { icon: 'fa-water', label: 'FEMA Flood Zones', desc: 'National Flood Hazard Layer — flood zone designation per parcel', color: 'bg-blue-50 border-blue-100 text-blue-600' },
+                                    { icon: 'fa-fire', label: 'FEMA Disaster History', desc: 'Past declarations: floods, fires, earthquakes, storms by county', color: 'bg-red-50 border-red-100 text-red-600' },
+                                    { icon: 'fa-wifi', label: 'FCC Broadband', desc: 'Available ISPs, max download/upload speeds, technology types', color: 'bg-purple-50 border-purple-100 text-purple-600' },
+                                    { icon: 'fa-droplet', label: 'US Drought Monitor', desc: 'County-level D0–D4 severity, via FCC Census + USDM API', color: 'bg-orange-50 border-orange-100 text-orange-600' },
+                                    { icon: 'fa-graduation-cap', label: 'Schools (Gemini + Search)', desc: 'Per-school analysis with GreatSchools grounding + quality gate', color: 'bg-pink-50 border-pink-100 text-pink-600' },
+                                    { icon: 'fa-city', label: 'Neighborhood Identity', desc: 'Gemini + ArcGIS LMD + Specific Plan + Surveyor Tract Map', color: 'bg-slate-50 border-slate-200 text-slate-600' },
+                                    { icon: 'fa-receipt', label: 'Gemini Tax Lookup', desc: 'Fallback for taxSqft — Gemini grounded search of county tax records', color: 'bg-stone-50 border-stone-200 text-stone-600' },
                                 ].map((s, i) => (
-                                    <div key={i} className={`p-4 rounded-2xl border ${s.color}`}>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <i className={`fa-solid ${s.icon} text-[12px]`}></i>
-                                            <span className="text-[12px] font-black">{s.label}</span>
+                                    <div key={i} className={`p-6 rounded-2xl border ${s.color}`}>
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <i className={`fa-solid ${s.icon} text-base`}></i>
+                                            <span className="text-sm font-black">{s.label}</span>
                                         </div>
-                                        <p className="text-[10px] text-slate-500 leading-relaxed mb-0">{s.desc}</p>
+                                        <p className="text-xs text-slate-500 leading-relaxed mb-0">{s.desc}</p>
                                     </div>
                                 ))}
                             </div>
@@ -1920,7 +1936,7 @@ const PlatformHelpTab: React.FC = () => {
                                 </div>
                                 <div>
                                     <h1 className="text-3xl font-black text-slate-900 mb-1">Pipeline & Caching</h1>
-                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">5 Pipelines · TTL-Based Caching · Parallel Execution</p>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">6 Pipelines · Smoke-Test Healing · 8 Parallel AI Tasks</p>
                                 </div>
                             </div>
 
@@ -1928,15 +1944,16 @@ const PlatformHelpTab: React.FC = () => {
                             <section className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 mb-12">
                                 <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
                                     <i className="fa-solid fa-sitemap text-indigo-500 text-sm"></i>
-                                    5 Pipelines — Lightest to Heaviest
+                                    6 Pipelines — Lightest to Heaviest
                                 </h2>
                                 <div className="space-y-3">
                                     {[
-                                        { name: 'Property Data', fn: 'runPropertyDataOnlyPipeline', level: 'Property', ai: false, images: false, desc: 'RapidAPI specs + ArcGIS parcel polygon + Gemini tax lookup', color: 'bg-blue-50 border-blue-200 text-blue-700' },
-                                        { name: 'Image Only', fn: 'runImageOnlyPipeline', level: 'Property', ai: false, images: true, desc: 'Secures photos & maps to Firebase Storage — no AI', color: 'bg-amber-50 border-amber-200 text-amber-700' },
-                                        { name: 'City Prefetch', fn: 'prefetchCityIntelligence', level: 'City', ai: true, images: false, desc: 'Warms Community Pulse + Market Intelligence for a city', color: 'bg-teal-50 border-teal-200 text-teal-700' },
-                                        { name: 'Deep Research', fn: 'runCityDeepResearch', level: 'City', ai: true, images: false, desc: 'Gemini Pro + Google Search — comprehensive city report', color: 'bg-violet-50 border-violet-200 text-violet-700' },
-                                        { name: 'Full Intelligence', fn: 'runFullIntelligencePipeline', level: 'Property', ai: true, images: true, desc: 'Everything: data + images + 7 parallel AI tasks + narrative', color: 'bg-rose-50 border-rose-200 text-rose-700' },
+                                        { name: 'Property Data', fn: 'runPropertyDataOnlyPipeline', level: 'Property', ai: true, images: false, desc: 'RapidAPI specs + ArcGIS parcel + Gemini tax lookup (taxSqft fallback)', color: 'bg-blue-50 border-blue-200 text-blue-700' },
+                                        { name: 'RapidAPI Only', fn: 'runRapidAPIOnlyPipeline', level: 'Property', ai: false, images: false, desc: 'Bare-minimum RapidAPI fetch — specs, price, scores. No geocoding, no AI.', color: 'bg-cyan-50 border-cyan-200 text-cyan-700' },
+                                        { name: 'Image Only', fn: 'runImageOnlyPipeline', level: 'Property', ai: false, images: true, desc: 'Secures photos, maps, & street view to Firebase Storage — no AI', color: 'bg-amber-50 border-amber-200 text-amber-700' },
+                                        { name: 'City Prefetch', fn: 'prefetchCityIntelligence', level: 'City', ai: true, images: false, desc: 'Warms Community Pulse + Market Intelligence for a city (Gemini)', color: 'bg-teal-50 border-teal-200 text-teal-700' },
+                                        { name: 'Deep Research', fn: 'runCityDeepResearch', level: 'City', ai: true, images: false, desc: 'Gemini 2.0 Flash + Google Search grounding — comprehensive city report', color: 'bg-violet-50 border-violet-200 text-violet-700' },
+                                        { name: 'Full Intelligence', fn: 'runFullIntelligencePipeline', level: 'Property', ai: true, images: true, desc: 'Everything: data + images + orientation + 8 parallel AI tasks (Visual, Spatial, Pulse, Investment, Market, Lifestyle, Schools, Neighborhood ID)', color: 'bg-rose-50 border-rose-200 text-rose-700' },
                                     ].map(p => (
                                         <div key={p.fn} className={`flex items-center gap-4 p-4 rounded-2xl border ${p.color}`}>
                                             <div className="min-w-0 flex-1">
@@ -1984,6 +2001,39 @@ const PlatformHelpTab: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* Smoke Test Healing */}
+                                <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 text-[10px] font-black">1b</div>
+                                        <div className="text-sm font-black text-slate-800">Smart Healing (Cache Hit Only)</div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-600">Smoke Test</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mb-3">If data is found in cache, smoke checks run to detect gaps. Only the failing sources are re-fetched:</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                                        {[
+                                            { step: 'RapidAPI Heal', desc: 'Re-fetches specs if smoke test detects missing fields' },
+                                            { step: 'Address Validation', desc: 'Detects city-only addresses (no street number) → re-fetches' },
+                                            { step: 'Environmental Heal', desc: 'Re-runs fetchPropertyDataFull for missing env data' },
+                                            { step: 'Parcel Heal', desc: 'Re-runs ArcGIS + Gemini tax lookup for missing APN/polygon' },
+                                        ].map(s => (
+                                            <div key={s.step} className="flex items-center gap-3 p-3 bg-orange-50/50 rounded-xl border border-orange-100/50">
+                                                <span className="font-bold text-slate-700">{s.step}</span>
+                                                <span className="text-slate-400 ml-auto text-[10px]">{s.desc}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Orientation Analysis */}
+                                <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 text-[10px] font-black">1c</div>
+                                        <div className="text-sm font-black text-slate-800">Front Orientation Analysis</div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-sky-50 border border-sky-200 text-sky-600">Satellite + Street View</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500">Uses satellite imagery + cached street view to determine compass orientation of the front door. Cached via <code className="bg-slate-100 px-1 rounded text-[10px]">orientation_ai</code> field. Skips if already resolved and ≠ UNCLEAR_IMAGE.</p>
+                                </div>
+
                                 {/* Environmental Data */}
                                 <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
                                     <div className="flex items-center gap-3 mb-4">
@@ -2014,17 +2064,19 @@ const PlatformHelpTab: React.FC = () => {
                                 <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 text-[10px] font-black">3</div>
-                                        <div className="text-sm font-black text-slate-800">Parallel: AI Analysis Suite</div>
+                                        <div className="text-sm font-black text-slate-800">Parallel: AI Analysis Suite (8 tasks)</div>
                                         <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-600">Promise.all</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
                                         {[
-                                            { step: 'Visual AI', desc: 'Image analysis (2 attempts)', cache: 'Skips if valid + same image count' },
-                                            { step: 'Spatial/Neighborhood', desc: 'Map image analysis', cache: 'Skips if neighborhood cached' },
-                                            { step: 'Property Investment', desc: 'Investment analysis', cache: 'Skips if cached' },
-                                            { step: 'Lifestyle Insights', desc: 'Gemini + Search grounding', cache: 'Skips if outdoor field exists' },
-                                            { step: 'Community Pulse', desc: 'Cache read only', cache: 'City-level, never generates' },
-                                            { step: 'Market Intelligence', desc: 'Cache read only', cache: 'City-level, never generates' },
+                                            { step: 'Visual AI', desc: 'Image analysis (2 retry attempts)', cache: 'Skips if valid + same image count' },
+                                            { step: 'Spatial/Neighborhood', desc: 'Map image analysis (zoom in + out)', cache: 'Skips if neighborhood cached' },
+                                            { step: 'Property Investment', desc: 'analyzeInvestmentResearch()', cache: 'Skips if cached in property_investment' },
+                                            { step: 'Lifestyle Insights', desc: 'analyzeLifestyleInsights()', cache: 'Skips if outdoor field exists' },
+                                            { step: 'Community Pulse', desc: 'City-level: analyzeCommunityPulse()', cache: 'Reads cache, waits if running, stale check > 15min' },
+                                            { step: 'Market Intelligence', desc: 'City-level: analyzeGeneralMarketIntelligence()', cache: 'Reads cache, waits if running, stale check > 15min' },
+                                            { step: 'Schools Analysis', desc: 'Per-school Gemini analysis + GreatSchools grounding', cache: 'Per-school cache with quality gate (≥3 empty → re-analyze)' },
+                                            { step: 'Neighborhood Identity', desc: 'Gemini + ArcGIS (LMD, Specific Plan, Surveyor Tract)', cache: 'Skips if resolved_name exists and ≠ Unknown' },
                                         ].map(s => (
                                             <div key={s.step} className="flex flex-col gap-1 p-3 bg-violet-50/30 rounded-xl border border-violet-100/50">
                                                 <span className="font-bold text-slate-700">{s.step}</span>
@@ -2136,7 +2188,7 @@ const PlatformHelpTab: React.FC = () => {
                                 <div>
                                     <h4 className="text-amber-900 font-black text-lg mb-2">Concurrency Limits</h4>
                                     <ul className="text-amber-800 text-sm font-medium leading-relaxed space-y-1 mb-0">
-                                        <li><strong>Full Pipeline:</strong> 6 AI tasks run in parallel (Visual, Spatial, Investment, Lifestyle, Pulse read, Market read)</li>
+                                        <li><strong>Full Pipeline:</strong> 8 AI tasks run in parallel (Visual, Spatial, Investment, Lifestyle, Pulse, Market, Schools, Neighborhood ID)</li>
                                         <li><strong>Bulk Processing:</strong> 3 properties simultaneously, 5s cooldown between chunks</li>
                                         <li><strong>Image Bulk:</strong> 5 properties simultaneously, 1s cooldown</li>
                                         <li><strong>Property Data:</strong> 2 properties simultaneously (RapidAPI rate limit: 2 req/sec)</li>
@@ -2152,6 +2204,16 @@ const PlatformHelpTab: React.FC = () => {
 
     const activeCategory = categories.find(c => c.id === activeCategoryId) || categories[1];
     const activeTopic = activeCategory.topics.find(t => t.id === activeTopicId) || activeCategory.topics[0];
+
+    if (hideSidebar) {
+        return (
+            <div className="flex-1 overflow-y-auto bg-white animate-in fade-in duration-500">
+                <div className="px-4 py-4">
+                    {activeTopic.content}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-full bg-slate-50 animate-in fade-in duration-500">

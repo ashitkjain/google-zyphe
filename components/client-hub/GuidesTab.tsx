@@ -8,6 +8,65 @@ import PlatformHelpTab from './PlatformHelpTab';
 
 const PLATFORM_HELP_SENTINEL = 'PLATFORM_HELP_V1';
 const PLATFORM_HELP_SLUG = 'platform-technical-manual';
+const BUYER_INSTRUCTIONS_SENTINEL = 'BUYER_INSTRUCTIONS_V1';
+const BUYER_INSTRUCTIONS_SLUG = 'buyer-instructions';
+
+const BUYER_STEPS = [
+    { step: 1, title: 'Authentication', action: "Go to zyphe.ai and click the 'Sign In' button in the header. Login using your provided buyer credentials.", imageUrl: '/guide-images/signin_step.png' },
+    { step: 2, title: 'Narrative Search', action: "Type a life needs story into the 'Find My Match' narrator (e.g., 'Large family moving from the East Coast, need top schools and a quiet street').", imageUrl: '/guide-images/search_step.png' },
+    { step: 3, title: 'Review Scored Results', action: 'See the AI instantly extract filters and score 10-15 matching properties based on your specific story words.', imageUrl: '/guide-images/results_list_step.png' },
+    { step: 4, title: 'Property Selection', action: "Click on a high-scoring matching property and review the 'Property DNA' overview page.", imageUrl: '/guide-images/overview_note_step.png' },
+    { step: 5, title: 'Collaboration', action: "Leave a Sticky Note on the property whiteboard (e.g., 'Schools: 9/10, fits perfectly').", imageUrl: '/guide-images/overview_note_step.png' },
+    { step: 6, title: 'Finally.. Explore Property DNA', action: 'Dive deep into specialized analysis tabs:\n1. Interior (finishes & layout)\n2. Rooms (bed/bath details)\n3. Exterior (lot & amenities)\n4. Neighborhood (proximate factors)\n5. Schools (top-rated zones)\n6. Community Pulse (local vibe)\n7. Investment Research (ROI & yields)\n8. City Neighborhoods (comparative pockets)\n9. Property Economics (TAX & valuation)\n10. Context Graph (AI-driven mapping)' },
+    { step: 7, title: 'Interactive AI Concierge', action: 'Use the Zyphe Concierge chatbot to inquire about specific property details, search for deep-dive insights, and learn more via real-time conversation.', imageUrl: '/guide-images/chatbot_step.png' },
+    { step: 8, title: 'Technical Transparency Center', action: "For a deep dive into our 20+ data sources, environmental scoring methodologies, and the 88 decision factors driving our intelligence, visit our technical owner's manual.", link: '/training/platform-technical-manual' }
+];
+
+const BuyerInstructionsContent: React.FC<{ onNavigate?: (view: any, path: string) => void }> = ({ onNavigate }) => (
+    <div className="max-w-none">
+        <p className="text-slate-600 leading-relaxed text-base font-semibold mb-10">
+            Discover properties using user stories written in natural language. Users can share their details on who they are, what their lifestyle and needs are, and then use AI to discover matching homes using nuanced insights, collected from a comprehensive set of third party sources, Google Maps, Places, Gemini search grounding and visual AI.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-10">
+            {BUYER_STEPS.map((item) => (
+                <div key={item.step} className="flex flex-col gap-4">
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-xl shadow-indigo-100">
+                            {item.step}
+                        </div>
+                        <div className="pt-1">
+                            <h3 className="text-base font-black text-slate-900 mb-2 leading-tight tracking-tight uppercase">{item.title}</h3>
+                            <p className="text-slate-600 text-sm font-medium leading-[1.6] whitespace-pre-line">{item.action}</p>
+                        </div>
+                    </div>
+                    {item.imageUrl && (
+                        <div className="rounded-[2rem] overflow-hidden border-4 border-white shadow-2xl shadow-indigo-100/50 bg-slate-50 relative group">
+                            <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                            <img src={item.imageUrl} alt={item.title} className="w-full h-auto object-cover transform scale-100 group-hover:scale-[1.02] transition-transform duration-700" />
+                        </div>
+                    )}
+                    {(item as any).link && (
+                        <button
+                            onClick={() => {
+                                if (onNavigate) onNavigate('knowledge_center', (item as any).link);
+                                else window.location.href = (item as any).link;
+                            }}
+                            className="flex items-center gap-3 px-6 py-3 bg-slate-900 border border-slate-800 text-white rounded-2xl hover:bg-black hover:scale-105 transition-all shadow-xl shadow-slate-200/50 group/link w-fit"
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center group-hover/link:bg-indigo-500 transition-colors">
+                                <i className="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </div>
+                            <div className="text-left">
+                                <div className="text-[10px] font-black uppercase tracking-widest leading-none">Open Resource</div>
+                                <div className="text-[11px] font-bold text-slate-400 group-hover/link:text-white transition-colors">Platform Technical Manual</div>
+                            </div>
+                        </button>
+                    )}
+                </div>
+            ))}
+        </div>
+    </div>
+);
 
 interface GuideItem {
     id: string;
@@ -192,24 +251,31 @@ const GUIDE_DATA: GuideCategory[] = [
         ]
     },
     {
-        id: 'training',
+        id: 'buyer_instructions',
         topicSlug: 'training',
-        title: 'Technical & Support',
-        icon: 'fa-graduation-cap',
+        title: 'Buyer Experience Instructions',
+        icon: 'fa-chalkboard-user',
         count: '1 page',
         items: [
             {
                 id: 't1',
                 title: 'Buyer Experience Instructions',
                 slug: 'buyer-instructions',
-                description: 'A step-by-step walkthrough of the key use cases for exploring properties with Zyphe AI.'
-            },
-            {
-                id: 't2',
-                title: 'Platform Technical Manual',
-                slug: PLATFORM_HELP_SLUG,
-                description: 'Detailed technical overview of 3rd party APIs and the Firestore database schema definitions.'
-            },
+                description: ''
+            }
+        ]
+    },
+    {
+        id: 'technical_manual',
+        topicSlug: 'training',
+        title: 'Platform Technical Manual',
+        icon: 'fa-microchip',
+        count: '4 sections',
+        items: [
+            { id: 'h1', title: 'Data and Intelligence', slug: 'helpCategory:data_and_intelligence', description: '' },
+            { id: 'h2', title: 'Messaging & SMS', slug: 'helpCategory:messaging', description: '' },
+            { id: 'h4', title: 'Distressed Property Finder', slug: 'helpCategory:investment_analysis', description: '' },
+            { id: 'h5', title: 'Database Schema', slug: 'helpCategory:db_schema', description: '' },
         ]
     }
 ];
@@ -217,33 +283,38 @@ const GUIDE_DATA: GuideCategory[] = [
 
 interface GuidesTabProps {
     onNavigate?: (view: any, path: string) => void;
-    filterCategoryId?: string;
-    excludeCategoryId?: string;
+    showOnlyIds?: string[];
+    excludeIds?: string[];
     initialCategoryId?: string;
 }
 
-const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, excludeCategoryId, initialCategoryId }) => {
-    // Filter data if prop provided
-    let displayData = filterCategoryId 
-        ? GUIDE_DATA.filter(c => c.id === filterCategoryId)
-        : GUIDE_DATA;
-    
-    if (excludeCategoryId) {
-        displayData = displayData.filter(c => c.id !== excludeCategoryId);
-    }
+const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, showOnlyIds, excludeIds, initialCategoryId }) => {
+    // Filter data based on provided IDs
+    let displayData = showOnlyIds 
+        ? GUIDE_DATA.filter(c => showOnlyIds.includes(c.id))
+        : (excludeIds 
+            ? GUIDE_DATA.filter(c => !excludeIds.includes(c.id))
+            : GUIDE_DATA);
 
     const [activeCategoryId, setActiveCategoryId] = useState(
         initialCategoryId || displayData[0]?.id || GUIDE_DATA[0].id
     );
 
     // Sync state if initialCategoryId changes
+    const autoLoadRef = React.useRef(false);
     useEffect(() => {
         const targetId = initialCategoryId || displayData[0]?.id;
         if (targetId) {
             setActiveCategoryId(targetId);
-            setSelectedGuide(null);
+            const cat = GUIDE_DATA.find(c => c.id === targetId);
+            if (cat && cat.items.length === 1) {
+                // Auto-load content for single-item categories
+                autoLoadRef.current = true;
+            } else {
+                setSelectedGuide(null);
+            }
         }
-    }, [initialCategoryId, filterCategoryId, excludeCategoryId]);
+    }, [initialCategoryId, showOnlyIds, excludeIds]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGuide, setSelectedGuide] = useState<GuideItem | null>(null);
     const [guideContent, setGuideContent] = useState<GuideResult | string | null>(null);
@@ -275,6 +346,20 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
 
         if (guide.slug === PLATFORM_HELP_SLUG) {
             setGuideContent(PLATFORM_HELP_SENTINEL);
+            setLoadingContent(false);
+            return;
+        }
+
+        // Buyer instructions — inline
+        if (guide.slug === BUYER_INSTRUCTIONS_SLUG) {
+            setGuideContent(BUYER_INSTRUCTIONS_SENTINEL);
+            setLoadingContent(false);
+            return;
+        }
+
+        // Help category pages render PlatformHelpTab inline
+        if (guide.slug.startsWith('helpCategory:')) {
+            setGuideContent(`helpCategory:${guide.slug.split(':')[1]}`);
             setLoadingContent(false);
             return;
         }
@@ -373,16 +458,35 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
         };
     }, [selectedGuide]);
 
+    // Auto-load single-item categories on mount/switch
+    useEffect(() => {
+        if (autoLoadRef.current) {
+            autoLoadRef.current = false;
+            const cat = GUIDE_DATA.find(c => c.id === activeCategoryId);
+            if (cat && cat.items.length === 1) {
+                handleViewGuide(cat.items[0], cat);
+            }
+        }
+    }, [activeCategoryId]);
+
     const handleCategoryChange = (catId: string) => {
         setActiveCategoryId(catId);
-        setSelectedGuide(null);
         const category = GUIDE_DATA.find(c => c.id === catId);
-        if (category) {
-            const newPath = `/${category.topicSlug}`;
-            if (onNavigate) {
-                onNavigate('knowledge_center', newPath);
-            } else if (window.location.pathname !== newPath) {
-                window.history.pushState({ mode: 'knowledge_center' }, '', newPath);
+        if (category && category.items.length === 1) {
+            // Single-item category: skip list view, go straight to content
+            handleViewGuide(category.items[0], category);
+        } else if (showOnlyIds && category && category.items.length > 1) {
+            // In filtered/showOnlyIds mode with multi-item category: auto-load first child
+            handleViewGuide(category.items[0], category);
+        } else {
+            setSelectedGuide(null);
+            if (category) {
+                const newPath = `/${category.topicSlug}`;
+                if (onNavigate) {
+                    onNavigate('knowledge_center', newPath);
+                } else if (window.location.pathname !== newPath) {
+                    window.history.pushState({ mode: 'knowledge_center' }, '', newPath);
+                }
             }
         }
     };
@@ -404,38 +508,39 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
     );
 
     if (selectedGuide) {
-        return (
-            <div className="flex-1 flex flex-col bg-white overflow-hidden animate-in fade-in duration-500">
-                {/* Article Header */}
-                <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10 transition-all">
-                    <div className="flex items-center gap-6">
-                        <button
-                            onClick={handleGoBack}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-black text-[10px] uppercase tracking-widest group"
-                        >
-                            <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
-                            Back to Library
-                        </button>
-                        <div className="h-6 w-px bg-slate-100"></div>
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm">
-                                <i className={`fa-solid ${activeCategory.icon} text-sm`}></i>
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-black text-slate-900 tracking-tight leading-none">{selectedGuide.title}</h2>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{activeCategory.title}</span>
-                                    <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-
+        const guideContentView = (
+            <div className="flex-1 flex flex-col bg-white overflow-auto animate-in fade-in duration-500">
+                {/* Article Header - only show back button when NOT in showOnlyIds mode */}
+                {!showOnlyIds && (
+                    <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10 transition-all">
+                        <div className="flex items-center gap-6">
+                            <button
+                                onClick={handleGoBack}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-black text-[10px] uppercase tracking-widest group"
+                            >
+                                <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
+                                Back to Library
+                            </button>
+                            <div className="h-6 w-px bg-slate-100"></div>
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm">
+                                    <i className={`fa-solid ${activeCategory.icon} text-sm`}></i>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-slate-900 tracking-tight leading-none">{selectedGuide.title}</h2>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{activeCategory.title}</span>
+                                        <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* Article Body */}
                 <div className="bg-white">
-                    <div className="max-w-5xl mx-auto px-10 py-12 pb-20">
+                    <div className={`mx-auto px-6 py-12 pb-20 ${(typeof guideContent === 'string' && guideContent.startsWith('helpCategory:')) || guideContent === BUYER_INSTRUCTIONS_SENTINEL ? '' : 'max-w-5xl px-10'}`}>
                         {error && (
                             <div className="bg-rose-50 border border-rose-100 text-rose-700 p-6 rounded-3xl mb-10 font-bold flex items-center gap-4">
                                 <i className="fa-solid fa-circle-exclamation text-xl"></i>
@@ -452,7 +557,11 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
                                 {guideContent === ARCH_STYLES_SENTINEL ? (
                                     <ArchitecturalStylesArticle />
                                 ) : guideContent === PLATFORM_HELP_SENTINEL ? (
-                                    <PlatformHelpTab />
+                                    <PlatformHelpTab hideSidebar />
+                                ) : guideContent === BUYER_INSTRUCTIONS_SENTINEL ? (
+                                    <BuyerInstructionsContent onNavigate={onNavigate} />
+                                ) : typeof guideContent === 'string' && guideContent.startsWith('helpCategory:') ? (
+                                    <PlatformHelpTab hideSidebar initialCategoryId={guideContent.split(':')[1]} />
                                 ) : typeof guideContent === 'string' ? (
                                     <div className="space-y-12">
 
@@ -481,7 +590,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
                                     <div className="flex flex-col lg:flex-row gap-12">
                                         <div className="flex-1 w-full min-w-0 space-y-16">
                                             {guideContent.introduction && (
-                                                <section className="max-w-3xl">
+                                                <section>
                                                     <p className="text-slate-600 leading-relaxed text-base font-semibold">
                                                         {guideContent.introduction}
                                                     </p>
@@ -645,7 +754,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
                                                             Instructions
                                                         </h2>
                                                     )}
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-10">
                                                         {guideContent.resolutionPathway.map((item, i) => {
                                                             const stepNum = typeof item === 'string' ? (i + 1) : item.step;
                                                             const title = typeof item === 'string' ? item.split(':')[0] || item : item.title;
@@ -800,6 +909,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
                                 )}
 
 
+                                {!(typeof guideContent === 'string' && guideContent.startsWith('helpCategory:')) && guideContent !== BUYER_INSTRUCTIONS_SENTINEL && (
                                 <div className="mt-20 pt-12 border-t border-slate-100">
                                     <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 mb-12">
                                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-800 mb-2">Educational Notice:</h4>
@@ -818,12 +928,74 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
                                         Finish Reading & Return to Library
                                     </button>
                                 </div>
+                                )}
                             </article>
                         )}
                     </div>
                 </div >
             </div >
         );
+
+        // If in filtered/showOnlyIds mode, wrap with sidebar
+        if (showOnlyIds && displayData.length > 0) {
+            return (
+                <div className="flex flex-col-reverse lg:flex-row h-full bg-[#F8FAFC] animate-in fade-in duration-500">
+                    <div className="w-full lg:w-80 h-auto lg:h-full border-t lg:border-t-0 lg:border-r border-slate-200 bg-white flex flex-row lg:flex-col shadow-lg lg:shadow-sm z-20 shrink-0">
+                        <div className="flex-1 w-full overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto flex flex-row lg:flex-col p-2 lg:p-0 gap-2 lg:gap-1 no-scrollbar">
+                            {displayData.map((category) => (
+                                <div key={category.id}>
+                                    <button
+                                        onClick={() => handleCategoryChange(category.id)}
+                                        className={`flex lg:w-full items-center justify-center lg:justify-between px-3 py-2 lg:px-6 lg:py-4 transition-all group rounded-xl lg:rounded-none min-w-[80px] lg:min-w-0 ${activeCategoryId === category.id
+                                            ? 'bg-indigo-50 lg:bg-indigo-50 lg:border-r-4 border-indigo-600'
+                                            : 'hover:bg-slate-50 lg:border-r-4 border-transparent'
+                                            }`}
+                                    >
+                                        <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-4">
+                                            <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${activeCategoryId === category.id
+                                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                                : 'bg-slate-100 text-slate-400 group-hover:bg-white group-hover:text-indigo-500 shadow-inner'
+                                                }`}>
+                                                <i className={`fa-solid ${category.icon} text-xs lg:text-sm`}></i>
+                                            </div>
+                                            <div className="text-center lg:text-left">
+                                                <div className={`text-[10px] lg:text-xs font-black tracking-tight whitespace-nowrap ${activeCategoryId === category.id ? 'text-indigo-900' : 'text-slate-600'
+                                                    }`}>
+                                                    {category.title}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <i className={`hidden lg:block fa-solid fa-chevron-${activeCategoryId === category.id && category.items.length > 1 ? 'down' : 'right'} text-[8px] transition-transform ${activeCategoryId === category.id ? 'text-indigo-400' : 'text-slate-300 opacity-0 group-hover:opacity-100'
+                                            }`}></i>
+                                    </button>
+                                    {/* Show child items for multi-item categories — always visible */}
+                                    {category.items.length > 1 && (
+                                        <div className="hidden lg:block pl-8 pr-2 pb-2 space-y-0.5 animate-in slide-in-from-top-2 duration-200">
+                                            {category.items.map((item) => (
+                                                <button
+                                                    key={item.id}
+                                                    onClick={() => handleViewGuide(item, category)}
+                                                    className={`w-full text-left px-4 py-2.5 rounded-xl text-[11px] font-bold transition-all ${
+                                                        selectedGuide?.id === item.id 
+                                                            ? 'text-indigo-600 bg-indigo-50/80 border-l-2 border-indigo-500' 
+                                                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {item.title}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {guideContentView}
+                </div>
+            );
+        }
+
+        return guideContentView;
     }
 
     return (
@@ -889,9 +1061,11 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, filterCategoryId, exc
                                         <h3 className="text-base font-black text-slate-900 mb-2 leading-snug group-hover:text-indigo-600 transition-colors duration-300 truncate">
                                             {item.title}
                                         </h3>
-                                        <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-2 selection:bg-indigo-100 mb-3">
-                                            {item.description || `Professional analysis of ${item.title.toLowerCase()} within the California regulatory framework, exploring common requirements and typical timelines for property owners.`}
-                                        </p>
+                                        {item.description && (
+                                            <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-2 selection:bg-indigo-100 mb-3">
+                                                {item.description}
+                                            </p>
+                                        )}
 
                                     </div>
 
