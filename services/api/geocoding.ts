@@ -3,10 +3,14 @@ import { logAPICall, updateAPICall } from '../firebase/api_logs';
 import { auth } from '../firebase/config';
 import { RadarGeocodeResponse } from '../../types';
 
-const RADAR_API_KEY = APP_CONFIG.radar.key;
-const MAPS_API_KEY = APP_CONFIG.maps.key;
 
 export const normalizeAddress = async (address: string, zpid?: string): Promise<RadarGeocodeResponse> => {
+    // Ensure Firestore keys are loaded before reading — idempotent, cached after first call
+    const { loadApiKeys } = await import('../apiKeyLoader');
+    await loadApiKeys();
+
+    // Read keys lazily so they reflect the Firestore-patched values from loadApiKeys()
+    const RADAR_API_KEY = APP_CONFIG.radar.key;
     const url = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`;
     const geocodeLogId = await logAPICall({
         user_id: auth?.currentUser?.uid || 'unknown',

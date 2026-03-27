@@ -246,6 +246,12 @@ const IDX_FEATURES = [
         feature: 'Property DNA Workspace',
         badge: null,
         description: 'From search results, one click opens the full Property DNA workspace: 10+ specialized analysis tabs including Interior, Exterior, Neighborhood, Schools, Community Pulse, Investment Research, Property Economics, and the AI Context Graph — the deepest per-property intelligence stack available to any realtor platform.'
+    },
+    {
+        id: 7,
+        feature: 'Buyer Behavioral Analytics (PostHog)',
+        badge: 'Zyphe Exclusive',
+        description: 'Every buyer interaction on the IDX and Property DNA pages is captured via PostHog event tracking: property views, search queries, filter combinations, time-on-page, scroll depth, tab switches, and photo/tour engagement. Realtors see a Buyer Signals Panel in the CRM — surfacing which properties each buyer lingered on, what story they searched, and inferred purchase intent tiers (Hot / Active / Browsing / Cold). This turns passive IDX browsing into actionable CRM intelligence.'
     }
 ];
 
@@ -254,6 +260,7 @@ const IDX_COMPARISON = [
     { capability: 'Nuanced buyer signal inference', zyphe: '✅ Lifestyle, school, commute, neighborhood vibe', kvcore: '⚠️ Tag-based filters only', sierra: '❌', lofty: '❌', idxBroker: '❌' },
     { capability: 'Visual AI (satellite + street view)', zyphe: '✅ Gemini Vision — lot, condition, curb appeal', kvcore: '❌', sierra: '❌', lofty: '❌', idxBroker: '❌' },
     { capability: 'Deep multi-source data (20+ feeds)', zyphe: '✅ Maps, USGS, Radar, Rentcast, schools…', kvcore: '⚠️ MLS + basic enrichment', sierra: '⚠️ MLS only', lofty: '⚠️ Partial', idxBroker: '⚠️ MLS only' },
+    { capability: 'Buyer behavioral analytics', zyphe: '✅ PostHog — views, intent tier, signals panel', kvcore: '⚠️ Basic listing views only', sierra: '❌', lofty: '❌', idxBroker: '❌' },
     { capability: 'Property DNA deep analysis', zyphe: '✅ 10+ tabs, Context Graph, AI concierge', kvcore: '⚠️ Basic property detail', sierra: '⚠️ Standard listing page', lofty: '⚠️ Standard listing page', idxBroker: '⚠️ IDX listing only' },
     { capability: 'Built-in property grid + filters', zyphe: '✅ Multi-filter, Grid + List views', kvcore: '✅ Full IDX', sierra: '✅ Full IDX', lofty: '✅ Full IDX', idxBroker: '✅ IDX-only platform' },
     { capability: 'School rating filter', zyphe: '✅ 5–9+ rating tier', kvcore: '⚠️ Via integrations', sierra: '⚠️', lofty: '⚠️', idxBroker: '❌' },

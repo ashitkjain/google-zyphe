@@ -911,3 +911,169 @@ exports.getBuyerSignals = functions.https.onRequest(async (req, res) => {
         res.status(200).json({ error: error.message, signals: null });
     }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// savedSearchAlerts — Scheduled Cloud Function
+//
+// Runs every hour. Checks all realtors' saved_searches for contacts that
+// need an alert (instant/daily/weekly) and emails them via the Firestore
+// `mail` collection (requires Firebase "Trigger Email" extension).
+//
+// Prerequisites:
+//   1. Install "Trigger Email from Firestore" extension in Firebase console
+//      pointing to the `mail` collection.
+//   2. Configure the extension with your SendGrid / SMTP credentials.
+//
+// Logic per saved search:
+//   - instant: check every run (skip if lastRunAt < 1h ago)
+//   - daily:   check once per day (skip if lastRunAt < 23h ago)
+//   - weekly:  check once per week (skip if lastRunAt < 6d ago)
+//   - none:    always skip
+// ─────────────────────────────────────────────────────────────────────────────
+
+exports.savedSearchAlerts = functions.pubsub
+    .schedule('every 60 minutes')
+    .onRun(async () => {
+        const db = admin.firestore();
+        const now = Date.now();
+
+        // ── 1. Walk all realtors ──────────────────────────────────────────────
+        const realtorsSnap = await db.collection('realtors').get();
+        let totalAlertsSent = 0;
+
+        for (const realtorDoc of realtorsSnap.docs) {
+            const realtorId = realtorDoc.id;
+            const realtorData = realtorDoc.data() || {};
+
+            // ── 2. Walk saved searches for this realtor ───────────────────────
+            const searchesSnap = await db
+                .collection('realtors').doc(realtorId)
+                .collection('saved_searches')
+                .where('alertFrequency', 'in', ['instant', 'daily', 'weekly'])
+                .get();
+
+            for (const searchDoc of searchesSnap.docs) {
+                const search = { id: searchDoc.id, ...searchDoc.data() };
+
+                // Skip if no email
+                if (!search.notifyEmail) continue;
+
+                // ── 3. Throttle by frequency ──────────────────────────────────
+                const lastRun = search.lastRunAt?.toMillis?.() || 0;
+                const elapsed = now - lastRun;
+                const HOUR = 3_600_000;
+                const thresholds = { instant: HOUR, daily: 23 * HOUR, weekly: 6 * 24 * HOUR };
+                if (elapsed < (thresholds[search.alertFrequency] || Infinity)) continue;
+
+                // ── 4. Query matching properties from Firestore ───────────────
+                const f = search.filters || {};
+                let propQuery = db
+                    .collection('realtors').doc(realtorId)
+                    .collection('properties');
+
+                // City filter (field on property docs)
+                if (search.city) {
+                    propQuery = propQuery.where('city', '==', search.city);
+                }
+
+                let propSnap;
+                try {
+                    propSnap = await propQuery.limit(200).get();
+                } catch (e) {
+                    console.error(`[SavedSearchAlerts] Property query failed for ${realtorId}/${search.id}:`, e.message);
+                    continue;
+                }
+
+                // ── 5. Apply remaining filters in-memory ─────────────────────
+                const matches = propSnap.docs.map(d => d.data()).filter(p => {
+                    if (f.minPrice && p.listPrice < Number(f.minPrice)) return false;
+                    if (f.maxPrice && p.listPrice > Number(f.maxPrice)) return false;
+                    if (f.beds && (p.bedrooms || 0) < Number(f.beds)) return false;
+                    if (f.baths && (p.bathrooms || 0) < Number(f.baths)) return false;
+                    if (f.homeType && f.homeType !== 'any' && p.homeType !== f.homeType) return false;
+                    if (f.minSqft && (p.livingArea || 0) < Number(f.minSqft)) return false;
+                    if (f.maxSqft && (p.livingArea || 0) > Number(f.maxSqft)) return false;
+                    if (f.minYear && (p.yearBuilt || 0) < Number(f.minYear)) return false;
+                    if (f.maxYear && (p.yearBuilt || 0) > Number(f.maxYear)) return false;
+                    if (f.minSchoolRating && (p.schoolRating || 0) < Number(f.minSchoolRating)) return false;
+                    if (f.neighborhood && p.neighborhood !== f.neighborhood) return false;
+                    return true;
+                });
+
+                if (matches.length === 0) continue;
+
+                // ── 6. Write to `mail` collection (Firebase Trigger Email ext) ─
+                const topMatches = matches.slice(0, 5);
+                const fmt = n => n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${Math.round(n / 1_000)}K` : `$${n}`;
+                const listingRows = topMatches.map(p => `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:12px;font-size:13px;font-weight:700;color:#0f172a;">${p.address || 'N/A'}</td>
+                        <td style="padding:12px;font-size:13px;font-weight:900;color:#4F46E5;">${p.listPrice ? fmt(p.listPrice) : 'N/A'}</td>
+                        <td style="padding:12px;font-size:12px;color:#64748b;">${[p.bedrooms ? `${p.bedrooms} bd` : '', p.bathrooms ? `${p.bathrooms} ba` : '', p.livingArea ? `${p.livingArea.toLocaleString()} sqft` : ''].filter(Boolean).join(' · ') || '—'}</td>
+                    </tr>
+                `).join('');
+
+                const realtorName = realtorData.name || realtorData.displayName || 'Your Realtor';
+                const freqLabel = { instant: 'New Listing Alert', daily: 'Daily Listing Update', weekly: 'Weekly Listing Digest' }[search.alertFrequency] || 'Listing Alert';
+
+                const emailHtml = `
+                    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;background:#fff;">
+                        <div style="background:linear-gradient(135deg,#4F46E5,#7C3AED);padding:32px 40px;border-radius:16px 16px 0 0;">
+                            <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Zyphe · ${freqLabel}</div>
+                            <h1 style="font-size:24px;font-weight:900;color:#fff;margin:0;line-height:1.2;">${matches.length} Home${matches.length !== 1 ? 's' : ''} Match Your Search</h1>
+                            <p style="font-size:14px;color:rgba(255,255,255,0.8);margin:8px 0 0;">${search.name} · ${search.city}</p>
+                        </div>
+                        <div style="padding:32px 40px;background:#fafafa;">
+                            <p style="font-size:14px;color:#475569;margin:0 0 24px;">We found <strong>${matches.length} listing${matches.length !== 1 ? 's' : ''}</strong> matching your saved search. Here are the top picks:</p>
+                            <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                                <thead>
+                                    <tr style="background:#f8fafc;">
+                                        <th style="padding:10px 12px;font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;text-align:left;">Address</th>
+                                        <th style="padding:10px 12px;font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;text-align:left;">Price</th>
+                                        <th style="padding:10px 12px;font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;text-align:left;">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${listingRows}</tbody>
+                            </table>
+                            ${matches.length > 5 ? `<p style="font-size:12px;color:#94a3b8;margin-top:12px;text-align:center;">+${matches.length - 5} more listings available</p>` : ''}
+                            <div style="text-align:center;margin-top:28px;">
+                                <a href="https://zyphe.ai" style="background:#4F46E5;color:white;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:14px 32px;border-radius:12px;text-decoration:none;display:inline-block;">View All Matches →</a>
+                            </div>
+                        </div>
+                        <div style="padding:20px 40px;border-top:1px solid #f1f5f9;text-align:center;">
+                            <p style="font-size:11px;color:#94a3b8;margin:0;">Sent by ${realtorName} via Zyphe · <a href="#" style="color:#94a3b8;">Unsubscribe</a></p>
+                        </div>
+                    </div>
+                `;
+
+                try {
+                    await db.collection('mail').add({
+                        to: [search.notifyEmail],
+                        message: {
+                            subject: `🏠 ${freqLabel}: ${matches.length} matches for "${search.name}"`,
+                            html: emailHtml,
+                        },
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        searchId: search.id,
+                        realtorId,
+                    });
+
+                    // Update lastRunAt + resultCount
+                    await db.collection('realtors').doc(realtorId)
+                        .collection('saved_searches').doc(search.id)
+                        .update({
+                            lastRunAt: admin.firestore.FieldValue.serverTimestamp(),
+                            resultCount: matches.length,
+                        });
+
+                    totalAlertsSent++;
+                    console.log(`[SavedSearchAlerts] Sent to ${search.notifyEmail}: "${search.name}" — ${matches.length} matches`);
+                } catch (e) {
+                    console.error(`[SavedSearchAlerts] Email write failed:`, e.message);
+                }
+            }
+        }
+
+        console.log(`[SavedSearchAlerts] Run complete — ${totalAlertsSent} alert(s) sent`);
+        return null;
+    });
