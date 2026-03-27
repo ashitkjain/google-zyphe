@@ -24,10 +24,8 @@ service cloud.firestore {
         'zip_sold_listings_cache',
         'deprecated_distressed_properties',
         'lifestyle_insights',
-        'schools_intelligence',
-        'city_neighborhoods',
         'address_index',
-        'city_context_graph'
+        'cities'
       ];
       allow write: if request.auth != null && collectionName in [
         'properties', 
@@ -47,11 +45,22 @@ service cloud.firestore {
         'zip_sold_listings_cache',
         'deprecated_distressed_properties',
         'lifestyle_insights',
-        'schools_intelligence',
-        'city_neighborhoods',
         'address_index',
-        'city_context_graph'
+        'cities'
       ];
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 1b. Unified City Intelligence (Nested)
+    // ═══════════════════════════════════════════════════════
+    match /cities/{cityId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+      
+      match /{subPath=**} {
+        allow read: if true;
+        allow write: if request.auth != null;
+      }
     }
 
     match /system_test/{docId} {
