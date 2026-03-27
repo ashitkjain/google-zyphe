@@ -35,6 +35,7 @@ interface HubHeaderProps {
     realtorId: string;
     deleteUserAccount: (uid: string) => Promise<boolean>;
     partnerLogo?: string;
+    userRole?: string;
 }
 
 const HubHeader: React.FC<HubHeaderProps> = ({
@@ -43,8 +44,8 @@ const HubHeader: React.FC<HubHeaderProps> = ({
     isInvestorOpen, setIsInvestorOpen,
     isSettingsDropdownOpen, setIsSettingsDropdownOpen, onSignOut, onNavigate,
     setIsAddClientModalOpen, setIsRemoveClientModalOpen, earlyTabs, lateTabs,
-    toolTabs, adminTabs, investorTabs, toolsRef, investorRef, syncBestPractices, handleResetAllData,
-    handleSeedManualMockData, realtorId, deleteUserAccount, partnerLogo
+    toolTabs, adminTabs, investorTabs, toolsRef,    investorRef, syncBestPractices, handleResetAllData,
+    handleSeedManualMockData, realtorId, deleteUserAccount, partnerLogo, userRole
 }) => {
     // Demonstration partner logo (Endeavoring National Brokerage)
     const displayPartnerLogo = partnerLogo || "/assets/partner_broker_logo.png";
@@ -330,8 +331,16 @@ const HubHeader: React.FC<HubHeaderProps> = ({
             {/* Right Section: User Controls */}
             <div className="flex items-center justify-end gap-3 sm:gap-6 h-full">
                 <div className={`${showHamburger ? 'hidden' : 'flex'} flex-col items-end`}>
-                    <span className="text-white font-black text-[11px] tracking-tight">{realtorName}</span>
-                    <button onClick={onSignOut} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-400 transition-colors mt-0.5 group/signout cursor-pointer">
+                    <div className="flex flex-col items-end">
+                        <span className="text-white font-black text-[11px] tracking-tight">{realtorName}</span>
+                        {userRole === 'buyer' && (
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-none mt-0.5">Your Agent</span>
+                        )}
+                        {!userRole && (
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-0.5">Realtor</span>
+                        )}
+                    </div>
+                    <button onClick={onSignOut} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-400 transition-colors mt-1 group/signout cursor-pointer">
                         <i className="fa-solid fa-right-from-bracket text-[9px] group-hover/signout:-translate-x-0.5 transition-all"></i>
                         Sign Out
                     </button>

@@ -1371,6 +1371,12 @@ const App: React.FC = () => {
                 <>
                   <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
                   <div className="flex items-center gap-4">
+                    {realtorName && (
+                      <div className="hidden lg:flex flex-col items-end mr-3 border-r border-white/5 pr-4">
+                        <span className="text-white tracking-[0.1em] font-black uppercase text-[9px] leading-none mb-1">{realtorName}</span>
+                        <span className="text-indigo-400 tracking-[0.2em] font-black uppercase text-[7px] leading-none">Your Agent</span>
+                      </div>
+                    )}
                     <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px] hidden lg:inline">{currentUser.displayName}</span>
                     <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
                     <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-50 hover:bg-rose-500/10 p-1.5 rounded-lg transition-all"><i className="fa-solid fa-trash-can"></i></button>

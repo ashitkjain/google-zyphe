@@ -262,6 +262,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 handleSeedManualMockData={handleSeedManualMockData}
                 realtorId={realtorId}
                 deleteUserAccount={deleteUserAccount}
+                userRole={userRole}
             />
 
             <HubMobileMenu
