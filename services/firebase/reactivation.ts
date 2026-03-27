@@ -30,8 +30,9 @@ export const saveReactivationAnalysis = async (
     try {
         const rid = requireTenantId(userId);
 
-        // 1. Create the Summary Record
-        const summaryRef = doc(collection(db, 'realtors', rid, 'reactivation_analysis_summary'));
+        // 1. Create the Summary Record (Nested ONLY)
+        const summaryRef = doc(db, 'realtors', rid, 'leads_documents', leadsDocumentId, 'analysis_summary', 'current_summary');
+
         const summaryData: Omit<ReactivationAnalysisSummary, 'id'> = {
             summary: analysisResult.summary,
             global_settings: analysisResult.global_settings,
@@ -45,7 +46,7 @@ export const saveReactivationAnalysis = async (
         await setDoc(summaryRef, summaryData);
         const summaryId = summaryRef.id;
 
-        // 2. Create Market Context Records
+        // 2. Create Market Context Records (Nested ONLY)
         const marketContextPromises = analysisResult.market_context.map(market => {
             const marketData: MarketContextRecord = {
                 ...market,
@@ -53,25 +54,20 @@ export const saveReactivationAnalysis = async (
                 userId: userId,
                 created_at: serverTimestamp()
             };
-            return addDoc(collection(db, 'realtors', rid, 'market_context'), marketData);
+            
+            return addDoc(collection(db, 'realtors', rid, 'leads_documents', leadsDocumentId, 'market_context'), marketData);
         });
 
         // 3. Create Lead Plan Records
-        const leadPlanPromises = analysisResult.lead_plans.map(plan => {
-            const planData: LeadPlanRecord = {
-                lead_id: plan.lead_id,
-                lead_name: plan.lead_name,
-                market: plan.market,
-                priority_score: plan.priority_score,
-                staleness_reason: plan.staleness_reason,
-                recommended_channel: plan.recommended_channel,
-                tone: plan.tone,
-                first_touch: plan.first_touch,
-                sequence: plan.sequence,
-                reactivation_analysis_summary_id: summaryId,
-                userId: userId
-            };
-            return addDoc(collection(db, 'realtors', rid, 'lead_plans'), planData);
+            const lid = plan.lead_id;
+            
+            // 1. Legacy write
+            const legacyPromise = addDoc(collection(db, 'realtors', rid, 'lead_plans'), planData);
+
+            // 2. Nested write
+            const nestedPromise = addDoc(collection(db, 'realtors', rid, 'leads', lid, 'plans'), planData);
+
+            return Promise.all([legacyPromise, nestedPromise]);
         });
 
         await Promise.all([...marketContextPromises, ...leadPlanPromises]);
@@ -87,28 +83,18 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
     try {
         const rid = requireTenantId(userId);
 
-        // 1. Find the summary for this document
-        const q = query(
-            collection(db, 'realtors', rid, 'reactivation_analysis_summary'),
-            where('leads_documents', '==', leadsDocumentId),
-            orderBy('created_date', 'desc'),
-            limit(1)
-        );
-        const summarySnap = await getDocs(q);
+        // 1. Unified nested path for this document
+        const nestedRef = doc(db, 'realtors', rid, 'leads_documents', leadsDocumentId, 'analysis_summary', 'current_summary');
+        const nestedSnap = await getDoc(nestedRef);
+        
+        if (!nestedSnap.exists()) return null;
 
-        if (summarySnap.empty) return null;
+        const summaryData = nestedSnap.data() as ReactivationAnalysisSummary;
+        const summaryId = 'current_summary';
 
-        const summaryDoc = summarySnap.docs[0];
-        const summaryId = summaryDoc.id;
-        const summaryData = summaryDoc.data() as ReactivationAnalysisSummary;
+        // 2. Fetch Nested Market Contexts
+        const marketSnap = await getDocs(collection(db, 'realtors', rid, 'leads_documents', leadsDocumentId, 'market_context'));
 
-        // 2. Fetch Market Contexts
-        const marketQ = query(
-            collection(db, 'realtors', rid, 'market_context'),
-            where('reactivation_analysis_summary_id', '==', summaryId),
-            orderBy('created_at', 'asc')
-        );
-        const marketSnap = await getDocs(marketQ);
         const market_context = marketSnap.docs.map(doc => {
             const data = doc.data() as MarketContextRecord;
             return {
@@ -121,7 +107,10 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
             };
         });
 
-        // 3. Fetch Lead Plans
+        // 3. Fetch Lead Plans (Legacy logic retrieves all plans for the summary)
+        // Note: For now, the reactivation portal fetches all plans at once for the summary ID.
+        // We'll keep the legacy search by summary ID, but also check if we can switch to lead-specific 
+        // retrieval in the UI later. For now, dual-read from the realtor bucket.
         const plansQ = query(
             collection(db, 'realtors', rid, 'lead_plans'),
             where('reactivation_analysis_summary_id', '==', summaryId)
@@ -210,8 +199,21 @@ export const updateLeadPlanStatus = async (
 ) => {
     try {
         const rid = requireTenantId(realtorId);
-        const planRef = doc(db, 'realtors', rid, 'lead_plans', planId);
-        await setDoc(planRef, {
+        
+        // Update both if we have data to find the lead
+        // To find the lead, we'd need to fetch the plan from legacy first to get its lead_id
+        const legacyRef = doc(db, 'realtors', rid, 'lead_plans', planId);
+        const legacySnap = await getDoc(legacyRef);
+        
+        if (legacySnap.exists()) {
+            const lid = legacySnap.data().lead_id;
+            if (lid) {
+                const nestedRef = doc(db, 'realtors', rid, 'leads', lid, 'plans', planId);
+                await setDoc(nestedRef, { reactivation_status: status, statusUpdatedOn: serverTimestamp() }, { merge: true });
+            }
+        }
+        
+        await setDoc(legacyRef, {
             reactivation_status: status,
             statusUpdatedOn: serverTimestamp()
         }, { merge: true });

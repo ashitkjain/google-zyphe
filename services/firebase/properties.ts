@@ -24,13 +24,15 @@ import { ALLOWED_HOME_TYPES } from "../../utils/propertyValidation";
 export const savePropertyAssetsToCloud = async (zpid: string, assets: PropertyAssets) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
-        const docRef = doc(db, "property_assets", String(zpid));
-        logFirestoreQuery('setDoc', 'property_assets', { zpid });
-        await setDoc(docRef, {
+        // 1. Nested write (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "assets");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'assets' });
+        await setDoc(nestedRef, {
             ...sanitizeForFirestore(assets),
             zpid: String(zpid),
             lastVerified: serverTimestamp()
         }, { merge: true });
+
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "savePropertyAssetsToCloud") as string };
@@ -40,10 +42,11 @@ export const savePropertyAssetsToCloud = async (zpid: string, assets: PropertyAs
 export const getPropertyAssetsFromCloud = async (zpid: string): Promise<PropertyAssets | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "property_assets", zpid);
-        logFirestoreQuery('getDoc', 'property_assets', { zpid });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as PropertyAssets) : null;
+        // 1. Use nested path (ONLY)
+        const nestedRef = doc(db, "properties", zpid, "analysis", "assets");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'assets' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? (nestedSnap.data() as PropertyAssets) : null;
     } catch (error) {
         handleFirestoreError(error, "getPropertyAssetsFromCloud");
         return null;
@@ -331,20 +334,15 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
     if (!zpid) return { success: false, error: "Missing ZPID" };
 
     try {
-        const docRef = doc(db, "property_analyses_visual", String(zpid));
-        logFirestoreQuery('setDoc', 'property_analyses_visual', { zpid });
-
-        // SAFETY: Ensure shared/regional data is NOT duplicated into the property-specific record
-        const cleanAnalysis = { ...analysis };
-        delete cleanAnalysis.community_pulse;
-        delete cleanAnalysis.property_investment;
-        delete cleanAnalysis.general_market_intelligence;
-
-        await setDoc(docRef, {
+        // 1. Nested write (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "visual");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'visual' });
+        await setDoc(nestedRef, {
             ...sanitizeForFirestore(cleanAnalysis),
             zpid: String(zpid),
             timestamp: serverTimestamp()
-        });
+        }, { merge: true });
+
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveVisualAnalysisToCloud") };
@@ -354,10 +352,11 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
 export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAIAnalysisResult | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "property_analyses_visual", zpid);
-        logFirestoreQuery('getDoc', 'property_analyses_visual', { zpid });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as CustomAIAnalysisResult) : null;
+        // 1. Use nested path (ONLY)
+        const nestedRef = doc(db, "properties", zpid, "analysis", "visual");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'visual' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? (nestedSnap.data() as CustomAIAnalysisResult) : null;
     } catch (error) {
         handleFirestoreError(error, "getVisualAnalysisFromCloud");
         return null;
@@ -367,11 +366,12 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
 export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: ComprehensiveAnalysisResult) => {
     if (!db || !zpid) return false;
     try {
-        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
-        logFirestoreQuery('setDoc', 'property_analyses_comprehensive', { zpid });
-        await setDoc(docRef, {
+        // 1. Nested write (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'comprehensive' });
+        await setDoc(nestedRef, {
             ...sanitizeForFirestore(analysis),
-            zpid: String(zpid), // Explicitly include zpid as key field
+            zpid: String(zpid),
             timestamp: serverTimestamp()
         }, { merge: true });
         return true;
@@ -383,10 +383,11 @@ export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: C
 export const getComprehensiveAnalysisFromCloud = async (zpid: string): Promise<ComprehensiveAnalysisResult | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "property_analyses_comprehensive", zpid);
-        logFirestoreQuery('getDoc', 'property_analyses_comprehensive', { zpid });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as ComprehensiveAnalysisResult) : null;
+        // 1. Use nested path (ONLY)
+        const nestedRef = doc(db, "properties", zpid, "analysis", "comprehensive");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'comprehensive' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? (nestedSnap.data() as ComprehensiveAnalysisResult) : null;
     } catch (error) {
         handleFirestoreError(error, "getComprehensiveAnalysisFromCloud");
         return null;
@@ -400,13 +401,15 @@ export const saveImageQualityAnalysisToCloud = async (zpid: string, analysis: Im
     try {
         const user = auth?.currentUser;
         console.log(`[Firestore] Attempting save picture quality audit for ZPID: "${zpid}". Current Auth: ${user ? user.email : 'NOT_LOGGED_IN'}`);
-        const docRef = doc(db, "image_quality_analysis", String(zpid));
-        logFirestoreQuery('setDoc', 'image_quality_analysis', { zpid });
-        await setDoc(docRef, {
+        // 1. Nested write (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "image_quality");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'image_quality' });
+        await setDoc(nestedRef, {
             ...sanitizeForFirestore(analysis),
             zpid: String(zpid),
             timestamp: serverTimestamp()
         });
+
         console.log(`[Firestore] SUCCESS: picture quality audit saved for ZPID: "${zpid}"`);
         return { success: true };
     } catch (error) {
@@ -418,10 +421,11 @@ export const saveImageQualityAnalysisToCloud = async (zpid: string, analysis: Im
 export const getImageQualityAnalysisFromCloud = async (zpid: string): Promise<ImageQualityAnalysisResult | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "image_quality_analysis", zpid);
-        logFirestoreQuery('getDoc', 'image_quality_analysis', { zpid });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as ImageQualityAnalysisResult) : null;
+        // 1. Use nested path (ONLY)
+        const nestedRef = doc(db, "properties", zpid, "analysis", "image_quality");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'image_quality' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? (nestedSnap.data() as ImageQualityAnalysisResult) : null;
     } catch (error) {
         handleFirestoreError(error, "getImageQualityAnalysisFromCloud");
         return null;
@@ -431,9 +435,10 @@ export const getImageQualityAnalysisFromCloud = async (zpid: string): Promise<Im
 export const savePropertyInvestmentToCloud = async (zpid: string, research: PropertySpecificInvestmentResult) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
-        const docRef = doc(db, "property_investment_research", String(zpid));
-        logFirestoreQuery('setDoc', 'property_investment_research', { zpid });
-        await setDoc(docRef, {
+        // 1. Nested write (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "investment");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'investment' });
+        await setDoc(nestedRef, {
             ...sanitizeForFirestore(research),
             zpid: String(zpid),
             timestamp: serverTimestamp()
@@ -447,10 +452,11 @@ export const savePropertyInvestmentToCloud = async (zpid: string, research: Prop
 export const getPropertyInvestmentFromCloud = async (zpid: string): Promise<PropertySpecificInvestmentResult | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "property_investment_research", zpid);
-        logFirestoreQuery('getDoc', 'property_investment_research', { zpid });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as PropertySpecificInvestmentResult) : null;
+        // 1. Use nested path (ONLY)
+        const nestedRef = doc(db, "properties", zpid, "analysis", "investment");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'investment' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? (nestedSnap.data() as PropertySpecificInvestmentResult) : null;
     } catch (error) {
         handleFirestoreError(error, "getPropertyInvestmentFromCloud");
         return null;
@@ -460,9 +466,10 @@ export const getPropertyInvestmentFromCloud = async (zpid: string): Promise<Prop
 export const saveInteriorSummaryToCloud = async (zpid: string, summary: any) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
-        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
-        logFirestoreQuery('setDoc', 'property_analyses_comprehensive', { zpid });
-        await setDoc(docRef, {
+        // 1. Nested write (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'interior_summary' });
+        await setDoc(nestedRef, {
             interior_summary: sanitizeForFirestore(summary),
             zpid: String(zpid),
             timestamp: serverTimestamp()
@@ -476,11 +483,12 @@ export const saveInteriorSummaryToCloud = async (zpid: string, summary: any) => 
 export const getInteriorSummaryFromCloud = async (zpid: string): Promise<any | null> => {
     if (!db || !zpid) return null;
     try {
-        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
-        logFirestoreQuery('getDoc', 'property_analyses_comprehensive', { zpid });
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            const data = docSnap.data() as ComprehensiveAnalysisResult;
+        // 1. Use nested path (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'interior_summary' });
+        const nestedSnap = await getDoc(nestedRef);
+        if (nestedSnap.exists()) {
+            const data = nestedSnap.data() as ComprehensiveAnalysisResult;
             return data.interior_summary || null;
         }
         return null;
@@ -655,7 +663,10 @@ export const saveLifestyleInsightsToCloud = async (zpid: string, insights: any) 
     try {
         const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
         logFirestoreQuery('setDoc', 'property_analyses_comprehensive (lifestyle_insights)', { zpid });
-        await setDoc(docRef, {
+        // 2. Also save to new nested path
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'lifestyle_insights' });
+        await setDoc(nestedRef, {
             lifestyle_insights: sanitizeForFirestore(insights),
             zpid: String(zpid),
             timestamp: serverTimestamp()
@@ -669,6 +680,16 @@ export const saveLifestyleInsightsToCloud = async (zpid: string, insights: any) 
 export const getLifestyleInsightsFromCloud = async (zpid: string): Promise<any | null> => {
     if (!db || !zpid) return null;
     try {
+        // 1. Try new nested path
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'lifestyle_insights' });
+        const nestedSnap = await getDoc(nestedRef);
+        if (nestedSnap.exists()) {
+            const data = nestedSnap.data() as ComprehensiveAnalysisResult;
+            if (data.lifestyle_insights) return data.lifestyle_insights;
+        }
+
+        // 2. Fallback to legacy path
         const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
         logFirestoreQuery('getDoc', 'property_analyses_comprehensive (lifestyle_insights)', { zpid });
         const docSnap = await getDoc(docRef);
@@ -690,7 +711,10 @@ export const saveLifestyleFitToCloud = async (zpid: string, fit: any) => {
     try {
         const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
         logFirestoreQuery('setDoc', 'property_analyses_comprehensive (lifestyle_fit)', { zpid });
-        await setDoc(docRef, {
+        // 2. Also save to new nested path
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'lifestyle_fit' });
+        await setDoc(nestedRef, {
             lifestyle_fit: sanitizeForFirestore(fit),
             zpid: String(zpid),
             timestamp: serverTimestamp()
@@ -704,6 +728,16 @@ export const saveLifestyleFitToCloud = async (zpid: string, fit: any) => {
 export const getLifestyleFitFromCloud = async (zpid: string): Promise<any | null> => {
     if (!db || !zpid) return null;
     try {
+        // 1. Try new nested path
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'lifestyle_fit' });
+        const nestedSnap = await getDoc(nestedRef);
+        if (nestedSnap.exists()) {
+            const data = nestedSnap.data() as ComprehensiveAnalysisResult;
+            if (data.lifestyle_fit) return data.lifestyle_fit;
+        }
+
+        // 2. Fallback to legacy path
         const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
         logFirestoreQuery('getDoc', 'property_analyses_comprehensive (lifestyle_fit)', { zpid });
         const docSnap = await getDoc(docRef);

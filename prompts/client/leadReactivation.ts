@@ -84,9 +84,23 @@ export const leadReactivationSchema = {
     required: ["summary", "global_settings", "market_context", "lead_plans"]
 };
 
-export const getLeadReactivationPrompt = (rawData: string) => {
-    return `You are an AI operations planner for a real estate lead reactivation platform.
+export const getLeadReactivationPrompt = (rawData: string, marketResearch?: Record<string, any>) => {
+    let researchSection = '';
+    if (marketResearch && Object.keys(marketResearch).length > 0) {
+        researchSection = `
+────────────────────────────
+SUPPLEMENTAL MARKET RESEARCH (USE THESE FACTS)
+────────────────────────────
+The system has pre-retrieved the following Deep Investment Research for the markets represented in the CSV. 
+PRIORITIZE these facts over general knowledge. If a city is listed here, use this specific data for its lead plans and market_context.
 
+${JSON.stringify(marketResearch, null, 2)}
+`;
+    }
+
+    return `You are an AI operations planner for a real estate lead reactivation platform.
+ ${researchSection}
+ 
 Your task is to analyze an uploaded CSV of stale real estate leads and produce a structured, machine-executable action plan that an automated outreach system can run without human interpretation.
 
 The system supports:

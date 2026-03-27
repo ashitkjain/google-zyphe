@@ -26,7 +26,8 @@ export const uploadLeadCSV = async (realtorId: string, file: File): Promise<Lead
             created_at: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, "leads_documents"), docData);
+        // 1. Realtor-nested write
+        const docRef = await addDoc(collection(db, "realtors", realtorId, "leads_documents"), docData);
 
         return {
             id: docRef.id,
@@ -43,13 +44,14 @@ export const getLeadDocuments = async (realtorId: string): Promise<LeadDocument[
     if (!db) return [];
 
     try {
-        const q = query(
-            collection(db, "leads_documents"),
-            where("realtorId", "==", realtorId),
+        const rid = realtorId;
+        
+        // 1. Use nested path
+        const nestedSnap = await getDocs(query(
+            collection(db, "realtors", rid, "leads_documents"),
             orderBy("created_at", "desc")
-        );
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeadDocument));
+        ));
+        return nestedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeadDocument));
     } catch (error) {
         console.error("Error fetching lead documents:", error);
         return [];

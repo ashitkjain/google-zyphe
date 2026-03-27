@@ -73,15 +73,20 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
         }, { merge: true });
 
         // Log Journey Event
-        const journeyCol = collection(db, "realtors", rid, "journey_events");
-        await addDoc(journeyCol, {
+        const eventData = {
             clientId: id,
             fromStage: oldStage,
             toStage: stage,
             timestamp: serverTimestamp(),
             reason: reason || 'Manual Update',
             realtorId: rid
-        });
+        };
+
+        // 1. Legacy write
+        await addDoc(collection(db, "realtors", rid, "journey_events"), eventData);
+
+        // 2. Lead-nested write
+        await addDoc(collection(db, "realtors", rid, "leads", id, "journey_events"), eventData);
 
         // --- AUTOMATION: Create Transaction on 'Contract' ---
         if (stage === 'Contract') {
@@ -180,9 +185,20 @@ export const deleteLead = async (leadId: string, collectionName: string = 'leads
     if (!db) return false;
     try {
         const rid = requireTenantId(realtorId);
+        const batch = writeBatch(db);
+        
+        // 1. Delete Nested Subcollections
+        const subs = ['plans', 'messages', 'journey_events'];
+        for (const sub of subs) {
+            const snap = await getDocs(collection(db, "realtors", rid, "leads", leadId, sub));
+            snap.forEach(d => batch.delete(d.ref));
+        }
+
+        // 2. Delete the Lead doc
         const docRef = doc(db, "realtors", rid, collectionName, leadId);
-        logFirestoreQuery('deleteDoc', collectionName, { leadId });
-        await deleteDoc(docRef);
+        batch.delete(docRef);
+
+        await batch.commit();
         return true;
     } catch (error) {
         handleFirestoreError(error, `deleteLead (${collectionName})`);
@@ -291,6 +307,10 @@ export const upsertStoryLead = async (
         targetLocations: string;
         personaProfile: string;
         targetTimeline: string;
+        chapter01: string;
+        chapter02: string;
+        chapter03: string;
+        chapter04: string;
         story: string;
         selectedAnchors: string[];
     }
@@ -336,6 +356,12 @@ export const upsertStoryLead = async (
             },
             personaProfile: storyData.personaProfile,
             targetTimeline: storyData.targetTimeline,
+            storyChapters: {
+                chapter01: storyData.chapter01,
+                chapter02: storyData.chapter02,
+                chapter03: storyData.chapter03,
+                chapter04: storyData.chapter04,
+            },
             updatedAt: serverTimestamp(),
             lastUpdated: serverTimestamp(),
         };
@@ -343,11 +369,28 @@ export const upsertStoryLead = async (
         if (existing) {
             // Update existing lead with new story data
             const docRef = doc(db, "realtors", rid, "leads", existing.id);
+            
+            // Manage History: If story actually changed, push to history
+            const history = (existing.motivationHistory || []) as any[];
+            if (existing.motivation && existing.motivation !== storyData.story) {
+                // Limit history to last 5 entries
+                history.unshift({
+                    story: existing.motivation,
+                    timestamp: existing.updatedAt || new Date(),
+                });
+                if (history.length > 5) history.pop();
+            }
+
             logFirestoreQuery('setDoc', 'leads', { id: existing.id, action: 'story_update' });
-            await setDoc(docRef, sanitizeForFirestore(storyPayload), { merge: true });
-            console.log(`[CRM] Updated existing lead ${existing.id} with story`);
+            await setDoc(docRef, sanitizeForFirestore({
+                ...storyPayload,
+                motivationHistory: history
+            }), { merge: true });
+            
+            console.log(`[CRM] Updated existing lead ${existing.id} with story history`);
             return { action: 'updated', leadId: existing.id };
-        } else {
+        } 
+else {
             // Create new lead
             const newLead = {
                 ...storyPayload,

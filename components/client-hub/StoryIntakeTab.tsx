@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import ClientEditModal from './ClientEditModal';
 import { getRealtorIdFromHost } from '../../services/hostMapping';
-import { upsertStoryLead } from '../../services/firebase/crm';
+import { upsertStoryLead, findLeadByEmailOrPhone } from '../../services/firebase/crm';
+import { auth } from '../../services/firebase/config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ interface StoryIntakeData {
 
 interface Props {
     isRealtor?: boolean;
+    realtorId?: string;
     onMatchRequest?: (story: string, filters: { budgetMin: string; budgetMax: string; beds: string; baths: string }) => void;
     onStoryDiscover?: (story: string, cities: string[], persona?: import('../../services/prompts/buyerStoryMatch').PersonaContext) => void;
 }
@@ -292,6 +294,8 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [showExamples, setShowExamples] = useState(true);
     const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+    const [history, setHistory] = useState<{ story: string; timestamp: any }[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
 
     const loadExample = (example: ExampleStory) => {
         setData(prev => ({
@@ -307,6 +311,35 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
         // Scroll to top of form
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+
+    // Load existing lead story on mount if logged in
+    React.useEffect(() => {
+        const user = auth?.currentUser;
+        if (user?.email && realtorId) {
+            findLeadByEmailOrPhone(realtorId, user.email).then(lead => {
+                if (lead) {
+                    setData(prev => ({
+                        ...prev,
+                        name: lead.fullName || prev.name,
+                        email: lead.email || prev.email,
+                        phone: lead.phone || prev.phone,
+                        budget: lead.financialVitals?.budgetMax || prev.budget,
+                        targetLocations: lead.searchCriteria?.locations || prev.targetLocations,
+                        personaProfile: lead.personaProfile || prev.personaProfile,
+                        targetTimeline: lead.targetTimeline || prev.targetTimeline,
+                        chapter01: lead.storyChapters?.chapter01 || '',
+                        chapter02: lead.storyChapters?.chapter02 || '',
+                        chapter03: lead.storyChapters?.chapter03 || '',
+                        chapter04: lead.storyChapters?.chapter04 || '',
+                        selectedAnchors: lead.leadInfo?.atmosphericAnchors || prev.selectedAnchors,
+                    }));
+                    if (lead.motivationHistory) {
+                        setHistory(lead.motivationHistory);
+                    }
+                }
+            });
+        }
+    }, [realtorId]);
 
     const wordCountPerSection = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
 
@@ -395,6 +428,10 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                 targetLocations: data.targetLocations,
                 personaProfile: data.personaProfile,
                 targetTimeline: data.targetTimeline,
+                chapter01: data.chapter01,
+                chapter02: data.chapter02,
+                chapter03: data.chapter03,
+                chapter04: data.chapter04,
                 story: fullStory,
                 selectedAnchors: data.selectedAnchors,
             });
@@ -803,8 +840,62 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                     </div>
                 </div>
             </div>
-
-            {/* ── Footer CTA ── */}
+            
+            {/* ── Story History Modal/Panel ── */}
+            {history.length > 0 && (
+                <div className="max-w-5xl mx-auto px-8 mt-12 pb-24 border-t border-slate-200 pt-10">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                                <i className="fa-solid fa-clock-rotate-left text-indigo-500 text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-900 tracking-tight">Story History</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evolution of your vision</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowHistory(!showHistory)}
+                            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+                        >
+                            {showHistory ? 'Collapse' : `View ${history.length} Previous Versions`}
+                        </button>
+                    </div>
+                    
+                    {showHistory && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            {history.map((h, i) => (
+                                <div key={i} className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 px-4 py-2 bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest border-l border-b border-slate-100">
+                                        {(() => {
+                                            const d = h.timestamp?.toDate ? h.timestamp.toDate() : new Date(h.timestamp);
+                                            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                        })()}
+                                    </div>
+                                    <div className="text-sm font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                        {h.story}
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            update('chapter01', '');
+                                            update('chapter02', h.story);
+                                            update('chapter03', '');
+                                            update('chapter04', '');
+                                            window.scrollTo({ top: 300, behavior: 'smooth' });
+                                        }}
+                                        className="mt-4 inline-flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors"
+                                    >
+                                        <i className="fa-solid fa-reply-all"></i>
+                                        Restore this version
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+        {/* ── Footer CTA ── */}
             <div className="max-w-5xl mx-auto px-8 mt-6 flex items-center justify-between">
                 <div className="text-[10px] text-slate-400 font-medium">
                 {saveFeedback

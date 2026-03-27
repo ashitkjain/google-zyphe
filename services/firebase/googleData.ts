@@ -49,14 +49,16 @@ export const saveGoogleDataToCloud = async (zpid: string, data: Partial<GoogleEn
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
 
     try {
-        const docRef = doc(db, "google_environmental_data", String(zpid));
-        logFirestoreQuery('setDoc', 'google_environmental_data', { zpid });
-
-        await setDoc(docRef, {
+        const payload = {
             ...sanitizeForFirestore(data),
             zpid: String(zpid),
             lastUpdated: serverTimestamp()
-        }, { merge: true });
+        };
+
+        // 1. Nested write (ONLY)
+        const nestedRef = doc(db, "properties", String(zpid), "environmental", "google_data");
+        logFirestoreQuery('setDoc', 'properties/environmental', { zpid });
+        await setDoc(nestedRef, payload, { merge: true });
 
         return { success: true };
     } catch (error) {
@@ -67,11 +69,12 @@ export const saveGoogleDataToCloud = async (zpid: string, data: Partial<GoogleEn
 export const getGoogleDataFromCloud = async (zpid: string): Promise<GoogleEnvironmentalData | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "google_environmental_data", zpid);
-        logFirestoreQuery('getDoc', 'google_environmental_data', { zpid });
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) return null;
-        return normalizeEnvDoc(docSnap.data() as Record<string, any>);
+        // 1. Use nested path (ONLY)
+        const nestedRef = doc(db, "properties", zpid, "environmental", "google_data");
+        logFirestoreQuery('getDoc', 'properties/environmental', { zpid });
+        const nestedSnap = await getDoc(nestedRef);
+        if (nestedSnap.exists()) return normalizeEnvDoc(nestedSnap.data() as Record<string, any>);
+        return null;
     } catch (error) {
         handleFirestoreError(error, "getGoogleDataFromCloud");
         return null;

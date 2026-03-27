@@ -147,6 +147,15 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
     if (!db || !transactionId || !realtorId) return [];
     try {
         const rid = requireTenantId(realtorId);
+
+        // 1. Try new nested path
+        const nestedSnap = await getDocs(query(collection(db, "realtors", rid, "transactions", transactionId, "tasks")));
+        if (!nestedSnap.empty) {
+            const all = nestedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
+            return deduplicateTasks(all);
+        }
+
+        // 2. Fallback to legacy path
         const q = query(
             collection(db, "realtors", rid, "tasks"),
             where("transaction_id", "==", transactionId)
@@ -154,26 +163,28 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
         logFirestoreQuery('getDocs', 'tasks', { transactionId, realtorId });
         const snap = await getDocs(q);
         const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
-
-        // Deduplicate: if multiple tasks share the same name+categoryId (caused by
-        // createTransaction being called more than once), keep only the newest one.
-        const seen = new Map<string, CRMTask>();
-        for (const task of all) {
-            const key = `${task.categoryId}__${task.name}`;
-            const existing = seen.get(key);
-            if (!existing) {
-                seen.set(key, task);
-            } else {
-                const existingTime = (existing as any).createdAt?.toDate?.()?.getTime() ?? 0;
-                const thisTime = (task as any).createdAt?.toDate?.()?.getTime() ?? 0;
-                if (thisTime > existingTime) seen.set(key, task);
-            }
-        }
-        return Array.from(seen.values());
+        return deduplicateTasks(all);
     } catch (error) {
         handleFirestoreError(error, "getTransactionTasks");
         return [];
     }
+};
+
+/** Shared task deduplication logic */
+const deduplicateTasks = (all: CRMTask[]): CRMTask[] => {
+    const seen = new Map<string, CRMTask>();
+    for (const task of all) {
+        const key = `${task.categoryId}__${task.name}`;
+        const existing = seen.get(key);
+        if (!existing) {
+            seen.set(key, task);
+        } else {
+            const existingTime = (existing as any).createdAt?.toDate?.()?.getTime() ?? 0;
+            const thisTime = (task as any).createdAt?.toDate?.()?.getTime() ?? 0;
+            if (thisTime > existingTime) seen.set(key, task);
+        }
+    }
+    return Array.from(seen.values());
 };
 
 /**
@@ -204,11 +215,7 @@ export const seedTaskDocuments = async (transaction: Transaction, finalChecklist
     const rid = requireTenantId(transaction.realtorId);
     for (const cat of finalChecklist) {
         for (const t of cat.tasks) {
-            const taskDocRef = doc(db, "realtors", rid, "tasks", t.id);
-            const snap = await getDoc(taskDocRef);
-            if (snap.exists()) continue; // Immutable: never overwrite an existing task
-
-            await setDoc(taskDocRef, sanitizeForFirestore({
+            const payload = sanitizeForFirestore({
                 id: t.id,
                 realtorId: transaction.realtorId,
                 clientId: transaction.clientId || null,
@@ -226,7 +233,17 @@ export const seedTaskDocuments = async (transaction: Transaction, finalChecklist
                 isMock: transaction.isMock ?? false,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
-            }));
+            });
+
+            // 1. Legacy write
+            const legacyRef = doc(db, "realtors", rid, "tasks", t.id);
+            const legacySnap = await getDoc(legacyRef);
+            if (!legacySnap.exists()) await setDoc(legacyRef, payload);
+
+            // 2. Nested write
+            const nestedRef = doc(db, "realtors", rid, "transactions", transaction.id, "tasks", t.id);
+            const nestedSnap = await getDoc(nestedRef);
+            if (!nestedSnap.exists()) await setDoc(nestedRef, payload);
         }
     }
 };
@@ -309,25 +326,43 @@ export const deleteTransaction = async (transactionId: string, realtorId?: strin
     try {
         logFirestoreQuery('deleteTransaction', 'transactions', { transactionId });
 
-        // 1. Delete associated tasks
+        // 1. Delete legacy associated tasks
         const tasksQuery = query(collection(db, "realtors", rid, "tasks"), where("transaction_id", "==", transactionId));
         const tasksSnap = await getDocs(tasksQuery);
-        tasksSnap.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
+        tasksSnap.forEach((doc) => batch.delete(doc.ref));
 
-        // 2. Delete associated calendar events
+        // 2. Delete legacy associated parties
+        const partiesQuery = query(collection(db, "realtors", rid, "transaction_parties"), where("transaction_id", "==", transactionId));
+        const partiesSnap = await getDocs(partiesQuery);
+        partiesSnap.forEach((doc) => batch.delete(doc.ref));
+
+        // 3. Delete legacy associated documents
+        const docsQuery = query(collection(db, "realtors", rid, "transaction_documents"), where("transaction_id", "==", transactionId));
+        const docsSnap = await getDocs(docsQuery);
+        docsSnap.forEach((doc) => batch.delete(doc.ref));
+
+        // 4. Delete legacy associated audit events
+        const auditsQuery = query(collection(db, "realtors", rid, "audit_events"), where("transaction_id", "==", transactionId));
+        const auditsSnap = await getDocs(auditsQuery);
+        auditsSnap.forEach((doc) => batch.delete(doc.ref));
+
+        // 5. Delete associated calendar events
         const calendarQuery = query(collection(db, "realtors", rid, "calendar_events"), where("transactionId", "==", transactionId));
         const calendarSnap = await getDocs(calendarQuery);
-        calendarSnap.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
+        calendarSnap.forEach((doc) => batch.delete(doc.ref));
 
-        // 3. Delete the transaction document
+        // 6. Delete Nested Subcollections (Transaction DNA)
+        const nestedSubs = ['tasks', 'parties', 'documents', 'audit_events'];
+        for (const sub of nestedSubs) {
+            const snap = await getDocs(collection(db, "realtors", rid, "transactions", transactionId, sub));
+            snap.forEach(d => batch.delete(d.ref));
+        }
+
+        // 7. Delete the transaction document
         const transactionRef = doc(db, "realtors", rid, "transactions", transactionId);
         batch.delete(transactionRef);
 
-        // 4. Log Audit (in batch)
+        // 8. Log Audit (in batch)
         await logAuditEvent({
             transaction_id: transactionId,
             entity_id: transactionId,

@@ -45,13 +45,26 @@ export const logAuditEvent = async (options: LogAuditOptions, realtorId?: string
             diff: options.diff
         };
 
+        const tid = options.transaction_id;
+
         if ((options as any).batch) {
             const batch = (options as any).batch;
-            const docRef = doc(collection(db, "realtors", rid, "audit_events"));
-            batch.set(docRef, sanitizeForFirestore(event));
-            return docRef.id;
+            
+            // 1. Legacy write
+            const legacyRef = doc(collection(db, "realtors", rid, "audit_events"));
+            batch.set(legacyRef, sanitizeForFirestore(event));
+
+            // 2. Nested write
+            const nestedRef = doc(collection(db, "realtors", rid, "transactions", tid, "audit_events"));
+            batch.set(nestedRef, sanitizeForFirestore(event));
+
+            return nestedRef.id;
         } else {
-            const docRef = await addDoc(collection(db, "realtors", rid, "audit_events"), sanitizeForFirestore(event));
+            // 1. Legacy write
+            await addDoc(collection(db, "realtors", rid, "audit_events"), sanitizeForFirestore(event));
+
+            // 2. Nested write
+            const docRef = await addDoc(collection(db, "realtors", rid, "transactions", tid, "audit_events"), sanitizeForFirestore(event));
             return docRef.id;
         }
 
@@ -69,13 +82,28 @@ export const getAuditEvents = async (transactionId: string, realtorId?: string):
 
     try {
         const rid = requireTenantId(realtorId);
-        const q = query(
+        
+        // 1. Try new nested path
+        const nestedQ = query(
+            collection(db, "realtors", rid, "transactions", transactionId, "audit_events"),
+            orderBy("occurred_at", "desc")
+        );
+        const nestedSnap = await getDocs(nestedQ);
+        if (!nestedSnap.empty) {
+            return nestedSnap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as AuditEvent));
+        }
+
+        // 2. Fallback to legacy path
+        const legacyQ = query(
             collection(db, "realtors", rid, "audit_events"),
             where("transaction_id", "==", transactionId),
             orderBy("occurred_at", "desc")
         );
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => ({
+        const legacySnap = await getDocs(legacyQ);
+        return legacySnap.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as AuditEvent));

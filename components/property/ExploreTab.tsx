@@ -82,6 +82,7 @@ interface ExploreTabProps {
     addLog: (service: string, meta: any, content: any) => void;
     logs: LogEntry[];
     userRole?: string;
+    realtorId?: string;
     searchBar?: React.ReactNode;
     address?: string;
     onRefreshEnvironment?: () => void;
@@ -110,6 +111,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     addLog,
     logs,
     userRole,
+    realtorId,
     searchBar,
     address: currentAddress,
     onRefreshEnvironment,
@@ -2655,7 +2657,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             {/* My Story panel */}
             {showMyStory && (
                 <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <StoryIntakeTab isRealtor={false} onStoryDiscover={handleStoryDiscover} />
+                    <StoryIntakeTab isRealtor={false} realtorId={realtorId} onStoryDiscover={handleStoryDiscover} />
                 </div>
             )}
 

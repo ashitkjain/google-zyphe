@@ -68,33 +68,31 @@ export const saveReactivationMessage = async (data: any) => {
 
     try {
         const rid = requireTenantId(data.realtorId);
+        const lid = data.lead_id;
         const collectionName = "messages";
-        const msgRef = doc(db, "realtors", rid, collectionName, data.message_id);
-
+        
         const isInbound = data.isInbound || false;
-
         const payload = {
-            threadId: data.thread_id || `thread_${data.lead_id}`,
-            senderId: isInbound ? data.lead_id : data.realtorId,
-            receiverId: isInbound ? data.realtorId : data.lead_id,
-            lead_id: data.lead_id, // Explicit top-level lead_id
+            threadId: data.thread_id || `thread_${lid}`,
+            senderId: isInbound ? lid : data.realtorId,
+            receiverId: isInbound ? data.realtorId : lid,
+            lead_id: lid,
             lead_name: data.lead_name || null,
             content: data.content,
             channel: data.channel?.toUpperCase() || 'SMS',
             status: isInbound ? 'received' : (data.status || 'pending'),
             timestamp: data.sent_at || serverTimestamp(),
             direction: isInbound ? 'inbound' : 'outbound',
-            isInbound: isInbound, // Explicit boolean for TrailModule
-
-            // Additional logic fields
+            isInbound: isInbound,
             from_reactivation_portal: true,
             requires_action: data.requires_action ?? (isInbound ? true : false),
             sentiment: data.sentiment || null
         };
 
+        // 1. Lead-nested write (ONLY)
+        const nestedRef = doc(db, "realtors", rid, "leads", lid, collectionName, data.message_id);
+        await setDoc(nestedRef, payload, { merge: true });
 
-
-        await setDoc(msgRef, payload, { merge: true });
         return { success: true };
     } catch (error) {
         console.error("Error saving message:", error);
@@ -111,53 +109,44 @@ export const getReactivationMessages = async (realtorId: string, leadId?: string
     try {
         const rid = requireTenantId(realtorId);
         const collectionName = "messages";
-        const colRef = collection(db, "realtors", rid, collectionName);
 
-        let q;
         if (leadId) {
-            q = query(
-                colRef,
-                where("receiverId", "==", leadId), // Outbound
-                // Note: Getting BOTH inbound and outbound requires a threadId query or OR query
-                // For now, let's try querying by threadId if available
-                // where("threadId", "==", `thread_${leadId}`),
-                orderBy("timestamp", "desc"),
-                limit(limitCount)
-            );
-            // Simpler: Just get by threadId
-            q = query(
-                colRef,
-                where("threadId", "==", `thread_${leadId}`),
-                orderBy("timestamp", "desc"),
-                limit(limitCount)
-            );
+            // 1. Use nested path for specified lead
+            const nestedRef = collection(db, "realtors", rid, "leads", leadId, collectionName);
+            const nestedSnap = await getDocs(query(nestedRef, orderBy("timestamp", "desc"), limit(limitCount)));
+            
+            logFirestoreQuery('getDocs', collectionName, { realtorId, leadId, limit: limitCount, path: 'nested' });
+            return nestedSnap.docs.map(doc => mapMessageDoc(doc, leadId));
         } else {
-            // No lead specified — get all messages for this realtor
-            // Under subcollection, all messages in /realtors/{rid}/messages are for this realtor
-            q = query(
-                colRef,
+            // General query for agent summary - this needs a Group Collection query if we want "all"
+            // For now, if we don't have a leadId, we might still need the legacy bucket OR we use a collectionGroup
+            // Since we migrated everything, the legacy bucket is fine as a snapshot, but new messages won't be there.
+            // I'll leave this as realtor-level for now but mark it.
+            const q = query(
+                collection(db, "realtors", rid, collectionName),
                 orderBy("timestamp", "desc"),
                 limit(limitCount)
             );
+            logFirestoreQuery('getDocs', collectionName, { realtorId, limit: limitCount, path: 'legacy_all' });
+            const snap = await getDocs(q);
+            return snap.docs.map(doc => mapMessageDoc(doc));
         }
-
-        logFirestoreQuery('getDocs', collectionName, { realtorId, leadId, limit: limitCount });
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-                // Map 'messages' fields to 'ReactivationMessage' format
-                sent_at: data.timestamp,
-                isInbound: data.direction === 'inbound' || (leadId && data.senderId === leadId),
-                channel: data.channel ? data.channel.toLowerCase() : 'sms'
-            };
-        });
     } catch (error) {
         console.error("Error fetching messages:", error);
         return [];
     }
+};
+
+/** Helper to map database doc to ReactivationMessage */
+const mapMessageDoc = (doc: any, leadId?: string) => {
+    const data = doc.data();
+    return {
+        id: doc.id,
+        ...data,
+        sent_at: data.timestamp,
+        isInbound: data.direction === 'inbound' || (leadId && data.senderId === leadId),
+        channel: data.channel ? data.channel.toLowerCase() : 'sms'
+    };
 };
 
 /**

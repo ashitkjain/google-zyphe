@@ -1068,7 +1068,48 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
 
 
 export const analyzeLeadDatabase = async (rawData: string, userId: string = "unknown"): Promise<{ result: LeadReactivationResult; llmCallId?: string }> => {
-  const prompt = getLeadReactivationPrompt(rawData);
+  // 1. Cheap extraction pass to find cities represented in the CSV
+  // Using a fast pass to extract unique City, State pairs (max 20)
+  let marketResearch: Record<string, any> = {};
+  try {
+    const extractionPrompt = `Extract the unique city and state pairs from this lead CSV. 
+    Format as a JSON array of strings: ["City, ST", "City, ST"]. 
+    Only return common markets. Limit to top 10.
+    CSV:
+    ${rawData.substring(0, 5000)}`; // First 5k chars is enough to find representation
+
+    const { data: cities } = await executeGeminiRequest<string[]>({
+      model: FLASH_LITE_MODEL,
+      contents: extractionPrompt,
+      userId,
+      promptFilename: "cityExtractionForReactivation.ts",
+      extractResultJson: true,
+      skipWatchdog: true
+    });
+
+    if (Array.isArray(cities)) {
+      const researchTasks = cities.map(async (cityState) => {
+        const [c, s] = cityState.split(',').map(v => v.trim());
+        if (c && s) {
+          const key = generateCityStateKey(c, s);
+          const research = await getDeepInvestmentResearchFromCloud(key);
+          if (research && research.structured_report) {
+            marketResearch[cityState] = {
+              dynamics: research.structured_report.market_dynamics.summary,
+              outlook: research.structured_report.investment_outlook,
+              risks: research.structured_report.local_risks.summary
+            };
+          }
+        }
+      });
+      await Promise.all(researchTasks);
+    }
+  } catch (err) {
+    console.warn("[Reactivation] Failed to pre-fetch market research, proceeding with general knowledge:", err);
+  }
+
+  // 2. Full Reactivation Analysis (now grounded in research)
+  const prompt = getLeadReactivationPrompt(rawData, marketResearch);
   const { data: result } = await executeGeminiRequest<LeadReactivationResult>({
     model: GEMINI_MODEL,
     contents: prompt,

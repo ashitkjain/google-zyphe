@@ -1198,6 +1198,7 @@ const App: React.FC = () => {
       addLog={addLog}
       logs={logs}
       userRole={currentUser?.role}
+      realtorId={currentUser?.role === 'buyer' ? currentUser?.realtorId : currentUser?.uid}
       onBack={fromBrowse ? () => {
           setFromBrowse(false);
           transitionToView('idx_search' as any);
