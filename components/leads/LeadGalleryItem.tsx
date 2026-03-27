@@ -2,6 +2,7 @@ import React from 'react';
 import { Lead, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG, LeadNote } from '../../types';
 import { Droppable } from '@hello-pangea/dnd';
 import { getStatusOptions } from '../../services/statusService';
+import BuyerSignalsPanel from './BuyerSignalsPanel';
 
 const TypedDroppable = Droppable as any;
 
@@ -811,6 +812,13 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     </div>
                                 )}
                                 {<div style={{ display: 'none' }}>{noteProvided.placeholder}</div>}
+                            </div>
+                        )}
+
+                        {/* ── Buyer Signals from PostHog ── */}
+                        {lead.leadType !== 'Seller' && lead.email && (
+                            <div className="mt-3">
+                                <BuyerSignalsPanel buyerEmail={lead.email} inline days={30} />
                             </div>
                         )}
                     </div>

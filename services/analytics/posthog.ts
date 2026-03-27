@@ -13,6 +13,13 @@ const POSTHOG_HOST = (import.meta as any).env?.VITE_POSTHOG_HOST || 'https://us.
 export const initPostHog = () => {
     if (typeof window === 'undefined' || !POSTHOG_KEY) return;
 
+    // Skip tracking in local development
+    const isDev = (import.meta as any).env?.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isDev) {
+        console.log('[PostHog] Skipped — localhost/dev mode');
+        return;
+    }
+
     posthog.init(POSTHOG_KEY, {
         api_host: POSTHOG_HOST,
         person_profiles: 'always',      // capture events from ALL users, not just identified ones
@@ -23,15 +30,13 @@ export const initPostHog = () => {
         autocapture: true,              // capture ALL clicks, form submits, input changes automatically
         capture_performance: true,      // capture page load / network performance metrics
 
-        // --- Session recording ---
-        session_recording: {
-            maskAllText: false,         // show button labels in recordings (readable UI)
-            maskAllInputs: true,        // always mask input field values (passwords etc.)
-            recordCrossOriginIframes: false,
-        },
+        // --- Session recording DISABLED ---
+        // Microsoft Clarity (vj30ntkkl1) is the session replay tool.
+        // PostHog is used for event analytics + funnels only.
+        // Enabling both would double-record every buyer session.
+        disable_session_recording: true,
 
         loaded: (ph) => {
-            ph.startSessionRecording();  // start recording for every session
             if ((import.meta as any).env?.DEV) ph.debug();
         }
     });

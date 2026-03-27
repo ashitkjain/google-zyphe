@@ -815,3 +815,99 @@ exports.proxyCensusACS = functions.https.onRequest(async (req, res) => {
         res.status(200).json({ status: "ERROR", error: error.message || "Failed to fetch census data." });
     }
 });
+
+/**
+ * getBuyerSignals — PostHog API Proxy
+ * Credentials in Firestore app_config/api_keys: posthog_private_key, posthog_project_id, posthog_host
+ * Input:  POST { buyerEmail: string, days?: number }
+ * Output: { signals: BuyerSignals } | { error: string }
+ */
+exports.getBuyerSignals = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+    try { await admin.auth().verifyIdToken(idToken); }
+    catch (e) { res.status(401).json({ error: "Invalid auth token" }); return; }
+
+    const { buyerEmail, days = 30 } = req.body || {};
+    if (!buyerEmail) { res.status(400).json({ error: "Missing buyerEmail" }); return; }
+
+    const keys = await getApiKeys();
+    const PH_KEY     = keys.posthog_private_key  || process.env.POSTHOG_PRIVATE_KEY  || "";
+    const PH_PROJECT = keys.posthog_project_id   || process.env.POSTHOG_PROJECT_ID   || "";
+    const PH_HOST    = keys.posthog_host          || "https://us.posthog.com";
+
+    if (!PH_KEY || !PH_PROJECT) {
+        console.warn("[PostHog] Missing posthog_private_key / posthog_project_id in app_config/api_keys");
+        res.status(200).json({ error: "PostHog not configured", signals: null }); return;
+    }
+
+    const afterDate = new Date(Date.now() - days * 86400000).toISOString().split("T")[0];
+    const safeEmail = buyerEmail.replace(/'/g, "\\'");
+
+    const hogql = `SELECT event, count() AS n, max(timestamp) AS last_seen, groupArray(JSONExtractString(properties, 'city')) AS cities, groupArray(JSONExtractString(properties, 'address')) AS addrs, avgIf(toFloat64OrNull(JSONExtractString(properties, 'list_price')), JSONExtractString(properties, 'list_price') != '') AS avg_p, minIf(toFloat64OrNull(JSONExtractString(properties, 'list_price')), JSONExtractString(properties, 'list_price') != '') AS min_p, maxIf(toFloat64OrNull(JSONExtractString(properties, 'list_price')), JSONExtractString(properties, 'list_price') != '') AS max_p FROM events WHERE person.properties.email = '${safeEmail}' AND event IN ('idx_property_viewed','idx_map_marker_clicked','idx_tour_requested','idx_info_requested','idx_search_saved','idx_city_browsed','idx_story_search_run') AND timestamp >= '${afterDate}' GROUP BY event ORDER BY n DESC`;
+
+    try {
+        const phRes = await fetch(`${PH_HOST}/api/projects/${PH_PROJECT}/query/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${PH_KEY}` },
+            body: JSON.stringify({ query: { kind: "HogQLQuery", query: hogql } }),
+        });
+
+        if (!phRes.ok) {
+            const errText = await phRes.text();
+            console.error(`[PostHog] Query failed ${phRes.status}: ${errText}`);
+            res.status(200).json({ error: "PostHog query failed", signals: null }); return;
+        }
+
+        const phData = await phRes.json();
+        const rows = phData.results || [];
+        const by = {};
+        let lastActive = null;
+
+        for (const [event, n, last_seen, cities, addrs, avg_p, min_p, max_p] of rows) {
+            by[event] = { n, last_seen, cities, addrs, avg_p, min_p, max_p };
+            if (!lastActive || last_seen > lastActive) lastActive = last_seen;
+        }
+
+        const pv = by["idx_property_viewed"]    || {};
+        const mc = by["idx_map_marker_clicked"] || {};
+        const tr = by["idx_tour_requested"]     || {};
+        const ir = by["idx_info_requested"]     || {};
+        const ss = by["idx_search_saved"]       || {};
+        const cb = by["idx_city_browsed"]       || {};
+        const ay = by["idx_story_search_run"]   || {};
+
+        const allCities = [...(pv.cities || []), ...(cb.cities || [])].filter(c => c && c !== "");
+        const tourAddrs = (tr.addrs || []).filter(a => a && a !== "");
+
+        const signals = {
+            buyerEmail, periodDays: days, lastActiveAt: lastActive,
+            propertiesViewed:       pv.n || 0,
+            mapMarkersClicked:      mc.n || 0,
+            tourRequests:           tr.n || 0,
+            infoRequests:           ir.n || 0,
+            savedSearchCount:       ss.n || 0,
+            usedMapView:            (mc.n || 0) > 0,
+            usedStorySearch:        (ay.n || 0) > 0,
+            citiesExplored:         [...new Set(allCities)].slice(0, 10),
+            tourRequestedAddresses: [...new Set(tourAddrs)].slice(0, 10),
+            priceRangeInterest: {
+                min: pv.min_p ? Math.round(pv.min_p) : null,
+                max: pv.max_p ? Math.round(pv.max_p) : null,
+                avg: pv.avg_p ? Math.round(pv.avg_p) : null,
+            },
+        };
+
+        console.log(`[PostHog] Signals for ${buyerEmail}: ${signals.propertiesViewed} views, ${signals.tourRequests} tours`);
+        res.status(200).json({ signals });
+    } catch (error) {
+        console.error("[PostHog] getBuyerSignals error:", error);
+        res.status(200).json({ error: error.message, signals: null });
+    }
+});

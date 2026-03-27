@@ -325,7 +325,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             <div
                 ref={mapContainerRef}
                 className="w-full"
-                style={{ height: '55vh', minHeight: '400px' }}
+                style={{ height: 'calc(100vh - 220px)', minHeight: '500px' }}
             />
 
             {/* Overlay: No coordinates warning */}

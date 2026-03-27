@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllUserNotes, deleteStickyNote } from '../../services/firebase/stickyNotes';
+import { getAllUserNotes, deleteStickyNote, updateStickyNote } from '../../services/firebase/stickyNotes';
 import { UserPropertyComment } from '../../types/stickyNotes';
 import MessagesTab from './MessagesTab';
 
@@ -12,7 +12,7 @@ const PAGE_LABELS: Record<string, string> = {
     ai_validation: 'AI Validation', lead_ingestion: 'Lead Ingestion', pdf_csv: 'PDF to CSV',
     sms_registration: 'SMS Registration', storage_registry: 'Bulk Prefetch',
     bulk_prefetch: 'Bulk Prefetch', industry_research: 'Industry Research',
-    product_market_fit: 'Product Market Fit', closing_features: 'Closing Features', post_close_intelligence: 'Post-Close',
+    product_market_fit: 'Product Market Fit', post_close_intelligence: 'Post-Close',
     technical_papers: 'Technical Papers', video_upload: 'Video Upload',
     technical_media: 'Technical Media', executive_summary: 'Executive Summary',
     industry_case_studies: 'Case Studies', unit_economics: 'Unit Economics',
@@ -335,7 +335,7 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                                 <tr key={note.id} className="hover:bg-slate-50/50 transition-colors group">
                                                     <td className="px-10 py-6">
                                                         <div className="flex flex-col gap-1">
-                                                            <a 
+                                                            <a
                                                                 href={`?zpid=${note.zpid}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
@@ -394,47 +394,47 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                         )}
                     </div>
                 )}
-            {editingNote && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                            <div>
-                                <h3 className="text-lg font-black text-slate-900 tracking-tight">Edit Sticky Note</h3>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{findAddress(editingNote.zpid)}</p>
+                {editingNote && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                            <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Edit Sticky Note</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{findAddress(editingNote.zpid)}</p>
+                                </div>
+                                <button onClick={() => setEditingNote(null)} className="w-10 h-10 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate-400 transition-colors">
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
                             </div>
-                            <button onClick={() => setEditingNote(null)} className="w-10 h-10 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate-400 transition-colors">
-                                <i className="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                        <div className="p-8">
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Comment Content</label>
-                            <textarea 
-                                autoFocus
-                                className="w-full h-32 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
-                                value={editingNote.comment}
-                                onChange={(e) => setEditingNote({...editingNote, comment: e.target.value})}
-                            />
-                            <div className="flex items-center justify-end gap-3 mt-8">
-                                <button 
-                                    onClick={() => setEditingNote(null)}
-                                    className="px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    onClick={async () => {
-                                        const success = await handleUpdateNote(editingNote.id, editingNote.comment);
-                                        if (success) setEditingNote(null);
-                                    }}
-                                    className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all transform hover:scale-105"
-                                >
-                                    Save Changes
-                                </button>
+                            <div className="p-8">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Comment Content</label>
+                                <textarea
+                                    autoFocus
+                                    className="w-full h-32 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
+                                    value={editingNote.comment}
+                                    onChange={(e) => setEditingNote({ ...editingNote, comment: e.target.value })}
+                                />
+                                <div className="flex items-center justify-end gap-3 mt-8">
+                                    <button
+                                        onClick={() => setEditingNote(null)}
+                                        className="px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            const success = await handleUpdateNote(editingNote.id, editingNote.comment);
+                                            if (success) setEditingNote(null);
+                                        }}
+                                        className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all transform hover:scale-105"
+                                    >
+                                        Save Changes
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
             </div>
         </div>
     );

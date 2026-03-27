@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 
 type SidebarPage = 'buyer_experience' | 'realtor_experience';
 type TopTab = 'features' | 'instructions';
-type FeatureTab = 'crm_funnel' | 'closing' | 'reactivate';
+type FeatureTab = 'crm_funnel' | 'closing' | 'reactivate' | 'idx';
+type InstructionTab = 'crm_funnel' | 'closing' | 'reactivate' | 'idx';
 type GuideTab = 'dashboard' | 'match' | 'intelligence' | 'video' | 'buyer';
 
 const BUYER_STEPS = [
@@ -210,6 +211,56 @@ const REACTIVATE_COMPARISON = [
         sierra: '❌'
     }
 ];
+const IDX_FEATURES = [
+    {
+        id: 1,
+        feature: 'Narrative Story Search',
+        badge: 'Zyphe Exclusive',
+        description: "Buyers describe their life in plain language — family size, commute, school needs, lifestyle. Zyphe's AI extracts nuanced, inferred signals beyond keywords: 'quiet street for kids' resolves to low-traffic neighborhood data; 'walkable to downtown' maps to real Places proximity scores. The result is ranked property matches that reflect how buyers actually think."
+    },
+    {
+        id: 2,
+        feature: 'Visual AI Analysis',
+        badge: 'Zyphe Exclusive',
+        description: 'Satellite imagery and Google Street View are processed through Gemini Vision to assess lot usability, architectural condition, curb appeal, exterior finishes, and neighborhood character — intelligence no MLS field captures. Integrated with aerial slope calculation, USGS terrain data, and shading analysis for investment-grade land utility scoring.'
+    },
+    {
+        id: 3,
+        feature: 'Deep Data Integration (20+ Sources)',
+        badge: 'Zyphe Exclusive',
+        description: 'Every property is enriched in parallel from 20+ real-time data feeds: Google Maps Places & Elevation, USGS terrain, Radar geocoding, Rentcast sales comparables, school ratings, environmental risk scores, HOA records, tax history, walkability indices, commute routing, and proximity factors — all unified into a single Property DNA profile.'
+    },
+    {
+        id: 4,
+        feature: 'AI Scoring & Match Ranking',
+        badge: 'Zyphe Exclusive',
+        description: "Properties are ranked against the buyer's parsed story using a multi-factor match score weighing structural needs (beds, baths, budget) and inferred contextual signals (school zone quality, commute nodes, lifestyle fit, neighborhood vibe). Buyers see precisely why each property matches — not just that it does."
+    },
+    {
+        id: 5,
+        feature: 'Smart Filter Grid',
+        badge: null,
+        description: 'City-level property grid with primary filters (price, beds, baths, sort) and advanced secondary filters (home type, sqft, year built, pool, school rating, HOA cap). Grid and list views, live market snapshot bar (avg price, median, active count), and lazy-loaded images with recency badges for listings under 7 days old.'
+    },
+    {
+        id: 6,
+        feature: 'Property DNA Workspace',
+        badge: null,
+        description: 'From search results, one click opens the full Property DNA workspace: 10+ specialized analysis tabs including Interior, Exterior, Neighborhood, Schools, Community Pulse, Investment Research, Property Economics, and the AI Context Graph — the deepest per-property intelligence stack available to any realtor platform.'
+    }
+];
+
+const IDX_COMPARISON = [
+    { capability: 'Story-based narrative search', zyphe: '✅ Natural language → scored matches', kvcore: '❌', sierra: '❌', lofty: '❌', idxBroker: '❌' },
+    { capability: 'Nuanced buyer signal inference', zyphe: '✅ Lifestyle, school, commute, neighborhood vibe', kvcore: '⚠️ Tag-based filters only', sierra: '❌', lofty: '❌', idxBroker: '❌' },
+    { capability: 'Visual AI (satellite + street view)', zyphe: '✅ Gemini Vision — lot, condition, curb appeal', kvcore: '❌', sierra: '❌', lofty: '❌', idxBroker: '❌' },
+    { capability: 'Deep multi-source data (20+ feeds)', zyphe: '✅ Maps, USGS, Radar, Rentcast, schools…', kvcore: '⚠️ MLS + basic enrichment', sierra: '⚠️ MLS only', lofty: '⚠️ Partial', idxBroker: '⚠️ MLS only' },
+    { capability: 'Property DNA deep analysis', zyphe: '✅ 10+ tabs, Context Graph, AI concierge', kvcore: '⚠️ Basic property detail', sierra: '⚠️ Standard listing page', lofty: '⚠️ Standard listing page', idxBroker: '⚠️ IDX listing only' },
+    { capability: 'Built-in property grid + filters', zyphe: '✅ Multi-filter, Grid + List views', kvcore: '✅ Full IDX', sierra: '✅ Full IDX', lofty: '✅ Full IDX', idxBroker: '✅ IDX-only platform' },
+    { capability: 'School rating filter', zyphe: '✅ 5–9+ rating tier', kvcore: '⚠️ Via integrations', sierra: '⚠️', lofty: '⚠️', idxBroker: '❌' },
+    { capability: 'CRM pipeline integration', zyphe: '✅ Direct to Funnel', kvcore: '✅ Native CRM', sierra: '✅', lofty: '✅', idxBroker: '⚠️ Via 3rd party' },
+    { capability: 'Saved search & alerts', zyphe: '🚧 Coming soon', kvcore: '✅', sierra: '✅', lofty: '✅', idxBroker: '✅' },
+];
 
 const CLOSING_FEATURES = [
     {
@@ -270,6 +321,7 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
     const [topTab, setTopTab] = useState<TopTab>('features');
     const [featureTab, setFeatureTab] = useState<FeatureTab>('crm_funnel');
     const [guideTab, setGuideTab] = useState<GuideTab>('dashboard');
+    const [instructionTab, setInstructionTab] = useState<InstructionTab>('crm_funnel');
 
     const sidebarPages: { id: SidebarPage; label: string; icon: string }[] = [
         { id: 'buyer_experience', label: 'Buyer Experience', icon: 'fa-user' },
@@ -285,6 +337,7 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
         { id: 'crm_funnel', label: 'CRM / Funnel', icon: 'fa-chart-line' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
         { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
+        { id: 'idx', label: 'IDX Search', icon: 'fa-magnifying-glass-location' },
     ];
 
     const guideTabs: { id: GuideTab; label: string; icon: string }[] = [
@@ -294,6 +347,154 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
         { id: 'video', label: '4. Video call', icon: 'fa-video' },
         { id: 'buyer', label: '5. Buyer hub', icon: 'fa-user' },
     ];
+
+    const instructionTabs: { id: InstructionTab; label: string; icon: string }[] = [
+        { id: 'crm_funnel', label: 'CRM / Funnel', icon: 'fa-chart-line' },
+        { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
+        { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
+        { id: 'idx', label: 'IDX Search', icon: 'fa-magnifying-glass-location' },
+    ];
+
+    const Step = ({ letter, title, children }: { letter: string; title: string; children: React.ReactNode }) => (
+        <div className="space-y-3">
+            <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs shrink-0">{letter}</div>
+                <h4 className="font-black text-slate-900 leading-tight">{title}</h4>
+            </div>
+            <div className="ml-11 text-slate-600 text-sm leading-relaxed max-w-2xl">{children}</div>
+        </div>
+    );
+
+    const renderInstructionContent = () => {
+        switch (instructionTab) {
+            case 'crm_funnel':
+                return (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-lg shadow-indigo-100">
+                                <i className="fa-solid fa-chart-line"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">CRM & Funnel</h3>
+                                <p className="text-slate-500 font-medium">Manage your pipeline, clients, tasks, and communication from one place.</p>
+                            </div>
+                        </div>
+                        <div className="space-y-14">
+                            <Step letter="A" title="Navigate to your Pipeline">
+                                Open <strong>Funnel</strong> view showing your 6 pipeline stages: Leads, Nurture, Active Search, Offer, Contract, and Closed. Switch between <strong>Kanban</strong> (drag-and-drop cards), <strong>Gallery</strong> (mobile-friendly image cards), and <strong>List</strong> views using the toggle in the top-right corner.
+                            </Step>
+                            <Step letter="B" title="Add or Import a Lead">
+                                Click <strong>+ New Lead</strong> to manually create a contact, or use <strong>Import</strong> to upload a CSV or paste from a spreadsheet. Fill in name, phone, email, and assign a buyer or seller type — the form will surface the right fields automatically based on the type selected.
+                            </Step>
+                            <Step letter="C" title="Open a Client Profile">
+                                Click any lead card to open the full <strong>Client Profile</strong>. From here you can: log a call, email, SMS, or WhatsApp touch in <strong>Nurture Log</strong>; add a task with priority level in <strong>Tasks</strong>; schedule a showing in <strong>Events</strong>; and drop a sticky note reminder. The <strong>Engagement Score</strong> (Hot / Warm / Cold / Stale) updates automatically based on activity.
+                            </Step>
+                            <Step letter="D" title="Move Leads Through Stages">
+                                In Kanban view, drag a card to the next stage column. Alternatively, open the client profile and click the <strong>Stage</strong> badge to change it from the dropdown. A full audit timestamped log of every stage change is available under <strong>Activity Log</strong>.
+                            </Step>
+                            <Step letter="E" title="Review Deal Snapshots">
+                                For leads in Offer, Contract, or Closing stages, the system auto-surfaces a <strong>Deal Snapshot</strong> panel. Fill in offer price, earnest money, contingencies, and key dates. For active search leads, capture must-haves, toured properties, and rejected offers in the <strong>Search Snapshot</strong>.
+                            </Step>
+                        </div>
+                    </div>
+                );
+            case 'closing':
+                return (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-lg shadow-emerald-100">
+                                <i className="fa-solid fa-file-invoice-dollar"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Closing</h3>
+                                <p className="text-slate-500 font-medium">Manage the full post-contract transaction lifecycle through closing day.</p>
+                            </div>
+                        </div>
+                        <div className="space-y-14">
+                            <Step letter="A" title="Open or Create a Transaction">
+                                Navigate to <strong>Agent Hub → Closing</strong>. Transactions auto-create when a CRM lead moves to the <em>In Contract</em> stage — or you can click <strong>+ New Transaction</strong> to open the 4-step Transaction Wizard. Fill in property address, acceptance date, and buyer/seller roles.
+                            </Step>
+                            <Step letter="B" title="Review the Gantt Timeline">
+                                Click any transaction to open the <strong>Gantt Chart</strong>. Switch between <strong>List</strong>, <strong>Weekly</strong>, and <strong>Daily</strong> zoom levels using the toggle. Each checklist item shows its due date, dependency arrow, and completion status. Click a task row to edit its date or mark it complete — dependent tasks auto-cascade.
+                            </Step>
+                            <Step letter="C" title="Manage Parties & Stakeholders">
+                                Go to the <strong>Parties</strong> tab within a transaction. Click <strong>+ Add Party</strong> and assign a role (Buyer, Seller, Agent, Lender, Escrow, Title, etc.). Add contact info and mark signer status flags for closing day coordination.
+                            </Step>
+                            <Step letter="D" title="Upload & Track Documents">
+                                Open the <strong>Documents</strong> tab. Click <strong>Upload</strong> to attach files — the system tracks category, status (Pending / Completed / Rejected), and auto-versions duplicate uploads. Click any document to preview inline via signed URL.
+                            </Step>
+                            <Step letter="E" title="Check the Audit Trail">
+                                Open the <strong>Audit Log</strong> tab to see a paginated, filterable record of every action — create, update, delete — with actor tracking and entity diffs. Use this for compliance, handoff, or dispute resolution.
+                            </Step>
+                        </div>
+                    </div>
+                );
+            case 'reactivate':
+                return (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-lg shadow-amber-100">
+                                <i className="fa-solid fa-bolt"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Reactivate</h3>
+                                <p className="text-slate-500 font-medium">Re-engage your cold and archived leads with AI-generated outreach plans.</p>
+                            </div>
+                        </div>
+                        <div className="space-y-14">
+                            <Step letter="A" title="Find Old Leads">
+                                Navigate to <strong>Agent Hub → Reactivate → Old Leads</strong>. Use the city, search, and sort filters to surface stale contacts. Select leads individually or use <strong>Select All</strong> for bulk action. The table shows contact name, last touch date, city, and available outreach channels.
+                            </Step>
+                            <Step letter="B" title="Generate an AI Reactivation Plan">
+                                Go to <strong>Reactivate → AI Plan</strong>. Upload a CSV or select leads from your database, then click <strong>Generate Plan</strong>. Gemini analyzes your lead data and produces: per-lead priority scores, a sequenced multi-day outreach schedule (channel + message + day offset), market context (rates, inventory, DOM), and a recommended daily volume.
+                            </Step>
+                            <Step letter="C" title="Send Outreach via Strategy Scripts">
+                                From any lead row, click the channel icon (Email, SMS, Call, WhatsApp, Direct Mail) to open the <strong>Strategy Script Library</strong>. Choose from 10+ templated scripts per channel, customize the message, and send directly or copy for your preferred tool.
+                            </Step>
+                            <Step letter="D" title="Manage Replies in the Respond Inbox">
+                                Click <strong>Reactivate → Respond</strong>. The inbox surfaces all inbound replies and overdue sequence steps in real time. Each item shows a sentiment tag (positive / negative / question), priority flag, and channel. Dismiss or archive when actioned.
+                            </Step>
+                            <Step letter="E" title="Track Results in the Report">
+                                Click <strong>Reactivate → Report</strong>. Use the time filter (All / Today / Week / Month) to view your totals: leads contacted, conversations started, reply rate, reactivated count, messages sent, and markets covered. Review the <strong>Message Trail</strong> for a full per-lead audit log.
+                            </Step>
+                        </div>
+                    </div>
+                );
+            case 'idx':
+                return (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 rounded-2xl bg-violet-600 text-white flex items-center justify-center text-xl shadow-lg shadow-violet-100">
+                                <i className="fa-solid fa-magnifying-glass-location"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">IDX Property Search</h3>
+                                <p className="text-slate-500 font-medium">Search listings, run AI story-based matching, and dive into deep property intelligence.</p>
+                            </div>
+                        </div>
+                        <div className="space-y-14">
+                            <Step letter="A" title="Browse Listings by City">
+                                Navigate to <strong>Agent Hub → IDX Search</strong>. Select a city from the dropdown — the grid loads all active listings for that market. The <strong>Market Snapshot</strong> bar at the top shows live active count, average price, and median price. Switch between <strong>Grid</strong> and <strong>List</strong> view using the toggle.
+                            </Step>
+                            <Step letter="B" title="Apply Filters">
+                                Use the primary filter bar to set price range, minimum beds, minimum baths, and sort order. Click <strong>More Filters</strong> to expand advanced options: home type, minimum square footage, year built, pool, school rating tier, and HOA cap. An active filter count badge shows how many are applied. Click <strong>Reset</strong> to clear.
+                            </Step>
+                            <Step letter="C" title="Run a Narrative Story Search">
+                                In the <strong>Explore</strong> tab, use the <strong>Find My Match</strong> storyteller. Describe the buyer's situation in plain language — family size, commute destination, school needs, lifestyle. Gemini extracts nuanced signals and returns ranked property matches with match scores. Use this alongside the IDX grid to narrow down to the best-fit properties.
+                            </Step>
+                            <Step letter="D" title="Open Property DNA">
+                                From any listing card in the IDX grid, click the property to navigate to its full <strong>Property DNA</strong> workspace. Explore 10+ analysis tabs: Concierge Summary, Interior, Exterior, Neighborhood, Schools, Community Pulse, Investment Research, Property Economics, and the AI Context Graph. Visual analysis from satellite and street view imagery is available in the Exterior and Satellite tabs.
+                            </Step>
+                            <Step letter="E" title="Save to Pipeline">
+                                From within the Property DNA workspace, click <strong>Add to Deal</strong> or link to an existing CRM client to push the property into the Funnel pipeline. You can also share the AI analysis report directly with a buyer from the Share button.
+                            </Step>
+                        </div>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
 
     const renderFeatureContent = () => {
         switch (featureTab) {
@@ -506,10 +707,10 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
                                                 </td>
                                                 <td className="px-6 py-5 text-center">
                                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${gap.priority === 'Critical'
-                                                            ? 'bg-rose-50 text-rose-600 border border-rose-100'
-                                                            : gap.priority === 'High'
-                                                                ? 'bg-amber-50 text-amber-600 border border-amber-100'
-                                                                : 'bg-sky-50 text-sky-600 border border-sky-100'
+                                                        ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                                                        : gap.priority === 'High'
+                                                            ? 'bg-amber-50 text-amber-600 border border-amber-100'
+                                                            : 'bg-sky-50 text-sky-600 border border-sky-100'
                                                         }`}>
                                                         {gap.priority}
                                                     </span>
@@ -607,6 +808,83 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
                                                 <td className="px-5 py-4">
                                                     <span className="text-xs font-medium text-slate-500">{row.sierra}</span>
                                                 </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'idx':
+                return (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-12">
+                        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                            <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                                The IDX Search module goes beyond a traditional property grid. Zyphe's unique advantage is the combination of narrative story search — where buyers describe life needs in plain language and AI infers nuanced signals like school zones, commute, and lifestyle — with Gemini Vision visual analysis of satellite and street view imagery, and deep enrichment from 20+ parallel data feeds. No MLS field can capture what these three capabilities deliver together.
+                            </p>
+                        </div>
+
+                        <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-lg bg-white">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-900">
+                                        <th className="px-6 py-4 text-[11px] font-black text-white uppercase tracking-widest w-12">#</th>
+                                        <th className="px-6 py-4 text-[11px] font-black text-white uppercase tracking-widest w-72">IDX Feature</th>
+                                        <th className="px-6 py-4 text-[11px] font-black text-white uppercase tracking-widest">Our Implementation</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {IDX_FEATURES.map((item) => (
+                                        <tr key={item.id} className="hover:bg-violet-50/30 transition-colors group">
+                                            <td className="px-6 py-5">
+                                                <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-violet-100 group-hover:scale-110 transition-transform">
+                                                    {item.id}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <span className="text-sm font-black text-slate-900 tracking-tight">{item.feature}</span>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <span className="text-sm font-medium text-slate-600 leading-relaxed">{item.description}</span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-2xl bg-violet-600 text-white flex items-center justify-center text-lg shadow-lg shadow-violet-100">
+                                    <i className="fa-solid fa-scale-balanced"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-800 tracking-tight">vs. Industry Leaders</h3>
+                                    <p className="text-slate-500 font-medium text-sm">How our IDX Search compares to kvCORE, Sierra Interactive, Lofty, and IDX Broker.</p>
+                                </div>
+                            </div>
+                            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-lg bg-white">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-900">
+                                            <th className="px-5 py-4 text-[10px] font-black text-white uppercase tracking-widest">Capability</th>
+                                            <th className="px-5 py-4 text-[10px] font-black text-indigo-300 uppercase tracking-widest">Zyphe (Us)</th>
+                                            <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">kvCORE</th>
+                                            <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Sierra Interactive</th>
+                                            <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lofty</th>
+                                            <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">IDX Broker</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {IDX_COMPARISON.map((row, i) => (
+                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-5 py-4"><span className="text-xs font-black text-slate-800">{row.capability}</span></td>
+                                                <td className="px-5 py-4"><span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">{row.zyphe}</span></td>
+                                                <td className="px-5 py-4"><span className="text-xs font-medium text-slate-500">{row.kvcore}</span></td>
+                                                <td className="px-5 py-4"><span className="text-xs font-medium text-slate-500">{row.sierra}</span></td>
+                                                <td className="px-5 py-4"><span className="text-xs font-medium text-slate-500">{row.lofty}</span></td>
+                                                <td className="px-5 py-4"><span className="text-xs font-medium text-slate-500">{row.idxBroker}</span></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -846,8 +1124,8 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
                         key={tab.id}
                         onClick={() => setTopTab(tab.id)}
                         className={`flex items-center gap-2 px-6 py-3 rounded-[1.2rem] text-sm font-black transition-all duration-300 ${topTab === tab.id
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
-                                : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
+                            : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700'
                             }`}
                     >
                         <i className={`fa-solid ${tab.icon} ${topTab === tab.id ? 'animate-pulse' : ''}`}></i>
@@ -865,8 +1143,8 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
                                 key={tab.id}
                                 onClick={() => setFeatureTab(tab.id)}
                                 className={`flex items-center gap-2 px-6 py-3 rounded-[1.2rem] text-sm font-black transition-all duration-300 ${featureTab === tab.id
-                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
-                                        : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700'
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
+                                    : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700'
                                     }`}
                             >
                                 <i className={`fa-solid ${tab.icon} ${featureTab === tab.id ? 'animate-pulse' : ''}`}></i>
@@ -882,9 +1160,27 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
             )}
 
             {topTab === 'instructions' && (
-                <div className="pb-40">
-                    {renderGuideContent()}
-                </div>
+                <>
+                    {/* Instruction Sub-Tabs */}
+                    <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[1.5rem] mb-12 border border-slate-200 sticky top-4 z-50 shadow-sm backdrop-blur-md bg-white/80">
+                        {instructionTabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setInstructionTab(tab.id)}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-[1.2rem] text-sm font-black transition-all duration-300 ${instructionTab === tab.id
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
+                                    : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700'
+                                    }`}
+                            >
+                                <i className={`fa-solid ${tab.icon} ${instructionTab === tab.id ? 'animate-pulse' : ''}`}></i>
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="pb-40">
+                        {renderInstructionContent()}
+                    </div>
+                </>
             )}
         </div>
     );
@@ -904,13 +1200,13 @@ const VCHelpTab: React.FC<VCHelpTabProps> = ({ onNavigate }) => {
                             className={`flex w-full items-center justify-between px-5 py-4 transition-all group rounded-xl ${activePage === page.id
                                 ? 'bg-indigo-50 border-r-4 border-indigo-600'
                                 : 'hover:bg-slate-50 border-r-4 border-transparent'
-                            }`}
+                                }`}
                         >
                             <div className="flex items-center gap-4">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activePage === page.id
                                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
                                     : 'bg-slate-100 text-slate-400 group-hover:bg-white group-hover:text-indigo-500 shadow-inner'
-                                }`}>
+                                    }`}>
                                     <i className={`fa-solid ${page.icon} text-sm`}></i>
                                 </div>
                                 <div className={`text-xs font-black tracking-tight ${activePage === page.id ? 'text-indigo-900' : 'text-slate-600'}`}>

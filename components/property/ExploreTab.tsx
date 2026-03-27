@@ -47,6 +47,9 @@ import { getSchoolCacheKey } from '../../prompts/property/schoolsAnalysis';
 import { hasEssentialData } from '../../utils/propertyValidation';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 import PropertyMapView from './PropertyMapView';
+import LeadCaptureModal from './LeadCaptureModal';
+import { SaveSearchModal, SavedSearchesPanel, SavedSearch } from './SaveSearchModals';
+import { trackCityBrowsed, trackViewModeChanged, trackPropertyViewed, trackStorySearchRun } from '../../services/analytics/idxTracking';
 import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS } from '../../constants/contextGraphFactors';
 import { 
     executeGeminiRequest, 
@@ -2051,6 +2054,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         try {
             const data = await getPropertiesByCity(target);
             setResults(data);
+            // PostHog: track city browse
+            trackCityBrowsed({ city: target, resultCount: data.length });
         } catch (e) {
             console.error('Browse by city failed:', e);
             setResults([]);
@@ -2201,6 +2206,60 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
     // Tooltip state for hover
     const [hoveredZpid, setHoveredZpid] = useState<string | null>(null);
+
+    // ── Lead Capture Modal state ──
+    const [leadModal, setLeadModal] = useState<{
+        type: 'tour' | 'info';
+        address: string;
+        zpid?: string;
+        price?: number;
+    } | null>(null);
+
+    // ── Save Search Modal state ──
+    const [showSaveSearch, setShowSaveSearch] = useState(false);
+    const [showSavedSearches, setShowSavedSearches] = useState(false);
+
+    // ── Market Snapshot — computed from filtered list ──
+    const snapshot = useMemo(() => {
+        if (displayList.length === 0) return null;
+        const prices = displayList.map(p => p.listPrice).filter(Boolean) as number[];
+        const doms = displayList.map(p => (p as any).daysOnMarket).filter(n => typeof n === 'number') as number[];
+        const avg = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null;
+        const sorted = [...prices].sort((a, b) => a - b);
+        const median = sorted.length ? (sorted.length % 2 === 0
+            ? Math.round((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2)
+            : sorted[Math.floor(sorted.length / 2)]) : null;
+        const avgDom = doms.length ? Math.round(doms.reduce((a, b) => a + b, 0) / doms.length) : null;
+        return { count: displayList.length, avg, median, avgDom };
+    }, [displayList]);
+
+    const fmtShort = (n: number) => {
+        if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+        if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+        return `$${n}`;
+    };
+
+    // Get realtor ID from auth for lead capture
+    const realtorId = auth.currentUser?.uid || '';
+
+    // Current filter set for saved search
+    const currentFilters = {
+        minPrice: filterMinPrice,
+        maxPrice: filterMaxPrice,
+        beds: filterBeds,
+        baths: filterBaths,
+        homeType: filterHomeType,
+        stories: filterStories,
+        minSchoolRating: filterMinSchoolRating,
+        neighborhood: filterNeighborhood,
+        minSqft: filterMinSqft,
+        maxSqft: filterMaxSqft,
+        minYear: filterMinYear,
+        maxYear: filterMaxYear,
+        garage: filterGarage,
+        maxHoa: filterMaxHoa,
+        maxDom: filterMaxDom,
+    };
 
     const toggleSort = (field: typeof sortField) => {
         if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -2597,24 +2656,75 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             )}
 
             {!browsing && results.length > 0 && (
-                <div className="mt-6 space-y-4">
+                <div className="mt-6 space-y-3">
+
+                    {/* ── MARKET SNAPSHOT BAR ── */}
+                    {snapshot && viewMode !== 'zypheai' && (
+                        <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100/80 rounded-2xl px-5 py-3">
+                            <div className="flex items-center gap-1.5">
+                                <i className="fa-solid fa-house-circle-check text-indigo-400 text-xs"></i>
+                                <span className="text-[11px] font-black text-slate-700">{snapshot.count}</span>
+                                <span className="text-[10px] font-bold text-slate-400">Active</span>
+                            </div>
+                            <div className="w-px h-4 bg-slate-200"></div>
+                            {snapshot.avg && (
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-bold text-slate-400">Avg</span>
+                                    <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.avg)}</span>
+                                </div>
+                            )}
+                            {snapshot.median && (
+                                <>
+                                    <div className="w-px h-4 bg-slate-200"></div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-slate-400">Median</span>
+                                        <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.median)}</span>
+                                    </div>
+                                </>
+                            )}
+                            {snapshot.avgDom != null && (
+                                <>
+                                    <div className="w-px h-4 bg-slate-200"></div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-slate-400">Avg DOM</span>
+                                        <span className="text-[11px] font-black text-slate-700">{snapshot.avgDom}d</span>
+                                    </div>
+                                </>
+                            )}
+                            <div className="ml-auto flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowSavedSearches(true)}
+                                    className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-violet-600 bg-white border border-violet-200 hover:bg-violet-50 transition-all flex items-center gap-1"
+                                >
+                                    <i className="fa-solid fa-bell"></i> Saved
+                                </button>
+                                <button
+                                    onClick={() => setShowSaveSearch(true)}
+                                    className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white bg-violet-600 hover:bg-violet-700 transition-all shadow-sm shadow-violet-200 flex items-center gap-1"
+                                >
+                                    <i className="fa-solid fa-bell-plus"></i> Save Search
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Row 1: View toggle */}
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex bg-slate-100 rounded-xl p-1">
                             <button
-                                onClick={() => setViewModeLocal('gallery')}
+                                onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'gallery', resultCount: displayList.length }); setViewModeLocal('gallery'); }}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 <i className="fa-solid fa-grid-2 mr-1"></i> Gallery
                             </button>
                             <button
-                                onClick={() => setViewModeLocal('table')}
+                                onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'table', resultCount: displayList.length }); setViewModeLocal('table'); }}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 <i className="fa-solid fa-table-list mr-1"></i> Table
                             </button>
                             <button
-                                onClick={() => setViewModeLocal('map')}
+                                onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'map', resultCount: displayList.length }); setViewModeLocal('map'); }}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 <i className="fa-solid fa-map-location-dot mr-1"></i> Map
@@ -3082,7 +3192,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                 return (
                                     <div
                                         key={prop.zpid}
-                                        className="relative"
+                                        className="relative group"
                                         onMouseEnter={() => match && setHoveredZpid(prop.zpid)}
                                         onMouseLeave={() => setHoveredZpid(null)}
                                     >
@@ -3131,6 +3241,23 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                                 </div>
                                             </div>
                                         </button>
+                                        {/* Lead Capture Buttons — shown on hover */}
+                                        <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1.5 z-10" style={{pointerEvents: 'none'}}>
+                                            <button
+                                                style={{pointerEvents: 'auto'}}
+                                                onClick={e => { e.stopPropagation(); setLeadModal({ type: 'tour', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
+                                                className="flex-1 py-2 bg-indigo-600/95 backdrop-blur-sm text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-colors shadow-lg flex items-center justify-center gap-1"
+                                            >
+                                                <i className="fa-solid fa-calendar-check text-[8px]"></i> Tour
+                                            </button>
+                                            <button
+                                                style={{pointerEvents: 'auto'}}
+                                                onClick={e => { e.stopPropagation(); setLeadModal({ type: 'info', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
+                                                className="flex-1 py-2 bg-emerald-600/95 backdrop-blur-sm text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-emerald-700 transition-colors shadow-lg flex items-center justify-center gap-1"
+                                            >
+                                                <i className="fa-solid fa-envelope text-[8px]"></i> Info
+                                            </button>
+                                        </div>
                                         {/* Hover tooltip */}
                                         {match && hoveredZpid === prop.zpid && (
                                             <div className="absolute left-0 right-0 -bottom-2 translate-y-full z-20 bg-white border border-indigo-200 rounded-xl shadow-xl p-3 space-y-1.5 animate-in fade-in duration-150">
@@ -3294,6 +3421,56 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* ── LEAD CAPTURE MODAL ── */}
+            {leadModal && (
+                <LeadCaptureModal
+                    type={leadModal.type}
+                    propertyAddress={leadModal.address}
+                    propertyZpid={leadModal.zpid}
+                    propertyPrice={leadModal.price}
+                    city={selectedCity}
+                    realtorId={realtorId}
+                    onClose={() => setLeadModal(null)}
+                />
+            )}
+
+            {/* ── SAVE SEARCH MODAL ── */}
+            {showSaveSearch && selectedCity && (
+                <SaveSearchModal
+                    city={selectedCity}
+                    filters={currentFilters}
+                    resultCount={displayList.length}
+                    realtorId={realtorId}
+                    onClose={() => setShowSaveSearch(false)}
+                />
+            )}
+
+            {/* ── SAVED SEARCHES PANEL ── */}
+            {showSavedSearches && (
+                <SavedSearchesPanel
+                    realtorId={realtorId}
+                    onClose={() => setShowSavedSearches(false)}
+                    onApply={(search: SavedSearch) => {
+                        // Apply saved search filters
+                        if (search.city) handleBrowse(search.city);
+                        if (search.filters.minPrice) setFilterMinPrice(search.filters.minPrice);
+                        if (search.filters.maxPrice) setFilterMaxPrice(search.filters.maxPrice);
+                        if (search.filters.beds) setFilterBeds(search.filters.beds);
+                        if (search.filters.baths) setFilterBaths(search.filters.baths);
+                        if (search.filters.homeType) setFilterHomeType(search.filters.homeType);
+                        if (search.filters.stories) setFilterStories(search.filters.stories);
+                        if (search.filters.minSchoolRating) setFilterMinSchoolRating(search.filters.minSchoolRating);
+                        if (search.filters.neighborhood) setFilterNeighborhood(search.filters.neighborhood);
+                        if (search.filters.minSqft) setFilterMinSqft(search.filters.minSqft);
+                        if (search.filters.maxSqft) setFilterMaxSqft(search.filters.maxSqft);
+                        if (search.filters.garage) setFilterGarage(search.filters.garage);
+                        if (search.filters.maxHoa) setFilterMaxHoa(search.filters.maxHoa);
+                        if (search.filters.maxDom) setFilterMaxDom(search.filters.maxDom);
+                        setPage(1);
+                    }}
+                />
             )}
         </div>
     );

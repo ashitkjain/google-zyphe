@@ -6,6 +6,13 @@
 export const initClarity = (projectId: string = 'vj30ntkkl1') => {
     if (typeof window === 'undefined') return;
 
+    // Skip tracking in local development
+    const isDev = (import.meta as any).env?.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isDev) {
+        console.log('[Clarity] Skipped — localhost/dev mode');
+        return;
+    }
+
     (function (c, l, a, r, i, t, y) {
         // @ts-ignore
         c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
