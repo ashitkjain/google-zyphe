@@ -178,22 +178,26 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
     };
 
     const palette = () => (
-        <div className="relative group/palette-item flex-shrink-0 mx-auto self-center">
-            <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-sm bg-[#e8e850] opacity-25 blur-[3px] rotate-1"></div>
-            <div
-                onMouseDown={(e) => handlePaletteDragStart(e, 'yellow')}
-                onTouchStart={(e) => handlePaletteDragStart(e, 'yellow')}
-                onDragStart={(e) => e.preventDefault()}
-                className="relative z-10 w-[80px] h-[80px] rounded-[1px] bg-[#ffff88] cursor-grab active:cursor-grabbing flex flex-col items-center justify-center gap-1 transition-all duration-200 hover:-translate-y-1.5 hover:rotate-2 hover:shadow-2xl shadow-[3px_4px_10px_rgba(33,33,33,.15)] rotate-[-1deg] post-it-font overflow-hidden"
-                style={{ fontFamily: "'Architects Daughter', cursive" }}
-            >
-
-                {/* Subtle tape strip at top */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-[4px] bg-white/30 rounded-b-sm"></div>
-                <i className="fa-solid fa-pen-fancy text-amber-900/50 text-base mb-0.5"></i>
-                <span className="text-[7px] font-black uppercase tracking-widest text-amber-900/60 leading-none">Note</span>
-                <span className="text-[6px] font-bold text-slate-800/70 leading-none">drag to page</span>
+        <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-xl border border-slate-200 shadow-inner group/palette ml-2">
+            <div className="flex flex-col items-center mr-1 opacity-20 group-hover/palette:opacity-40 transition-opacity">
+                <i className="fa-solid fa-palette text-[9px] text-slate-800"></i>
+                <span className="text-[7px] font-black uppercase tracking-tighter text-slate-800">Notes</span>
             </div>
+            {PALETTE_COLORS.map(color => (
+                <div key={color.id} className="relative group/palette-item">
+                    <div className="absolute inset-0 translate-x-[1px] translate-y-[1px] rounded-sm bg-black/5 blur-[1px]"></div>
+                    <div
+                        onMouseDown={(e) => handlePaletteDragStart(e, color.id)}
+                        onTouchStart={(e) => handlePaletteDragStart(e, color.id)}
+                        onDragStart={(e) => e.preventDefault()}
+                        title={`Drag ${color.label} focus note to page`}
+                        className={`relative z-10 w-8 h-8 rounded-[1px] ${color.color} cursor-grab active:cursor-grabbing flex flex-col items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-sm border border-white/30`}
+                    >
+                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/20 rounded-t-sm"></div>
+                        <i className={`fa-solid fa-plus text-[8px] opacity-30 ${color.id === 'rose' ? 'text-white' : 'text-slate-800'}`}></i>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 
@@ -274,8 +278,7 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                         transform: `translate3d(${dragPos.x - 90}px, ${dragPos.y - 90}px, 0)`
                     }}
                 >
-                    <div className="w-full h-full rounded-[1px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] bg-[#ffff88] overflow-hidden">
-
+                    <div className={`w-full h-full rounded-[1px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] ${PALETTE_COLORS.find(c => c.id === draggingFromPalette)?.color || 'bg-[#ffff88]'} overflow-hidden`}>
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-[5px] bg-white/25 rounded-b-sm"></div>
                     </div>
                 </div>

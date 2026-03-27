@@ -260,6 +260,7 @@ export interface CityPropertySummary {
     hoa?: number;
     city?: string;
     maxSchoolRating?: number;  // Best nearby school rating (1-10)
+    orientation?: string;     // Front orientation (AI resolved)
 }
 
 /**
@@ -315,6 +316,7 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                     }
                     return best > 0 ? best : undefined;
                 })(),
+                orientation: data.orientation_ai?.final_orientation || '',
             };
         });
     } catch (error: any) {

@@ -634,6 +634,29 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                         </button>
                     </div>
 
+                    {/* Post-it Note: Mission Statement */}
+                    <div className="relative transform -rotate-1 group hover:rotate-0 transition-transform duration-300 cursor-default select-none mb-6">
+                        {/* The shadow/paper curl effect */}
+                        <div className="absolute inset-0 bg-amber-200/30 rounded-sm translate-x-1.5 translate-y-2 blur-sm group-hover:translate-x-0 group-hover:translate-y-0 transition-all"></div>
+                        {/* The actual note */}
+                        <div className="relative bg-[#FFFDCC] border-l-[10px] border-amber-200/50 px-6 py-6 min-h-[160px] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] flex flex-col justify-center overflow-hidden">
+                            {/* Decorative tape at top */}
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-6 bg-white/40 border border-white/20 -rotate-2 transform transition-transform group-hover:rotate-0"></div>
+                            
+                            <div className="absolute top-2 right-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <i className="fa-solid fa-quote-right text-amber-900 text-2xl"></i>
+                            </div>
+                            
+                            <span className="text-[9px] font-black uppercase text-amber-800/60 tracking-[0.2em] mb-3">Our Objective</span>
+                            <p className="text-[13px] font-medium text-amber-900/80 leading-relaxed italic drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] font-serif whitespace-pre-wrap">
+                                "We aren't just looking for a structure. We're looking for the canvas where our next chapter unfolds — from first steps to backyard sunsets."
+                            </p>
+                            
+                            {/* Hand-drawn underline squiggle */}
+                            <div className="mt-4 h-1 w-24 border-b-2 border-amber-300/40 rounded-[50%] skew-x-12"></div>
+                        </div>
+                    </div>
+
                     {/* AI Precision card */}
                     <div className="bg-slate-900 rounded-2xl p-5 text-white">
                         <div className="flex items-center gap-2 mb-3">

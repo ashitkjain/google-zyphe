@@ -1987,6 +1987,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [filterMaxDom, setFilterMaxDom] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterMinSchoolRating, setFilterMinSchoolRating] = useState('');
+    const [filterOrientation, setFilterOrientation] = useState('');
 
     const advancedFilterCount = useMemo(() => {
         let count = 0;
@@ -1995,8 +1996,9 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         if (filterGarage) count++;
         if (filterMaxHoa) count++;
         if (filterMaxDom) count++;
+        if (filterOrientation) count++;
         return count;
-    }, [filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterGarage, filterMaxHoa, filterMaxDom]);
+    }, [filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterGarage, filterMaxHoa, filterMaxDom, filterOrientation]);
 
     const clearAdvancedFilters = () => {
         setFilterHomeType(''); setFilterMinSqft(''); setFilterMaxSqft('');
@@ -2185,6 +2187,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         if (filterMaxDom) list = list.filter(p => (p.daysOnZillow || 0) <= parseInt(filterMaxDom));
         if (filterStatus) list = list.filter(p => (p.homeStatus || '').toUpperCase().includes(filterStatus.toUpperCase()));
         if (filterMinSchoolRating) list = list.filter(p => (p.maxSchoolRating || 0) >= parseInt(filterMinSchoolRating));
+        if (filterOrientation) list = list.filter(p => (p.orientation || '').toUpperCase() === filterOrientation.toUpperCase());
         // Sort
         list.sort((a, b) => {
             const av = a[sortField] ?? '';
@@ -2768,27 +2771,30 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
                     {/* Row 2: Filters, sort, count */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <select
-                            value={`${sortField}-${sortDir}`}
-                            onChange={e => {
-                                const [f, d] = e.target.value.split('-') as [typeof sortField, 'asc' | 'desc'];
-                                setSortField(f); setSortDir(d); setPage(1);
-                            }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
-                        >
-                            <option value="address-asc">Address A→Z</option>
-                            <option value="address-desc">Address Z→A</option>
-                            <option value="listPrice-asc">Price Low→High</option>
-                            <option value="listPrice-desc">Price High→Low</option>
-                            <option value="bedrooms-desc">Beds Most→Least</option>
-                            <option value="bathrooms-desc">Baths Most→Least</option>
-                            <option value="livingArea-desc">Sqft Largest</option>
-                            <option value="livingArea-asc">Sqft Smallest</option>
-                            <option value="lotSize-desc">Lot Largest</option>
-                            <option value="lotSize-asc">Lot Smallest</option>
-                            <option value="homeType-asc">Type A→Z</option>
-                            <option value="neighborhood-asc">Neighborhood A→Z</option>
-                        </select>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Sort By</label>
+                            <select
+                                value={`${sortField}-${sortDir}`}
+                                onChange={e => {
+                                    const [f, d] = e.target.value.split('-') as [typeof sortField, 'asc' | 'desc'];
+                                    setSortField(f); setSortDir(d); setPage(1);
+                                }}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            >
+                                <option value="address-asc">Address A→Z</option>
+                                <option value="address-desc">Address Z→A</option>
+                                <option value="listPrice-asc">Price Low→High</option>
+                                <option value="listPrice-desc">Price High→Low</option>
+                                <option value="bedrooms-desc">Beds Most→Least</option>
+                                <option value="bathrooms-desc">Baths Most→Least</option>
+                                <option value="livingArea-desc">Sqft Largest</option>
+                                <option value="livingArea-asc">Sqft Smallest</option>
+                                <option value="lotSize-desc">Lot Largest</option>
+                                <option value="lotSize-asc">Lot Smallest</option>
+                                <option value="homeType-asc">Type A→Z</option>
+                                <option value="neighborhood-asc">Neighborhood A→Z</option>
+                            </select>
+                        </div>
 
                         {/* Filters */}
                         <div className="flex flex-col gap-1">
@@ -2935,24 +2941,58 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             </div>
 
                             {/* MLS Filters */}
-                            <div>
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Property Details</div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Garage</label>
-                                        <select value={filterGarage} onChange={e => { setFilterGarage(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
-                                            <option value="">Any</option>
-                                            <option value="1">1+ car</option>
-                                            <option value="2">2+ car</option>
-                                            <option value="3">3+ car</option>
-                                        </select>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Property Details</div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Garage</label>
+                                            <select value={filterGarage} onChange={e => { setFilterGarage(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
+                                                <option value="">Any</option>
+                                                <option value="1">1+ car</option>
+                                                <option value="2">2+ car</option>
+                                                <option value="3">3+ car</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Max HOA $/mo</label>
+                                            <input value={filterMaxHoa} onChange={e => { setFilterMaxHoa(e.target.value); setPage(1); }} placeholder="e.g. 500" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none" />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Max HOA $/mo</label>
-                                        <input value={filterMaxHoa} onChange={e => { setFilterMaxHoa(e.target.value); setPage(1); }} placeholder="e.g. 500" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none" />
-                                    </div>
+                                </div>
 
+                                <div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Orientation & Vastu</div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Front Orientation</label>
+                                            <select 
+                                                value={filterOrientation} 
+                                                onChange={e => { setFilterOrientation(e.target.value); setPage(1); }} 
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none"
+                                            >
+                                                <option value="">Any Direction</option>
+                                                <option value="North">North</option>
+                                                <option value="South">South</option>
+                                                <option value="East">East (Vastu Friendly)</option>
+                                                <option value="West">West</option>
+                                                <option value="North-East">North-East</option>
+                                                <option value="North-West">North-West</option>
+                                                <option value="South-East">South-East</option>
+                                                <option value="South-West">South-West</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Max Days on Market</label>
+                                            <select value={filterMaxDom} onChange={e => { setFilterMaxDom(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
+                                                <option value="">Any</option>
+                                                <option value="7">Under 1 week</option>
+                                                <option value="14">Under 2 weeks</option>
+                                                <option value="30">Under 30 days</option>
+                                                <option value="60">Under 60 days</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -3150,7 +3190,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     {buyerTimings && (
                         <div className="flex flex-wrap items-center gap-2 text-[10px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
                             <span className="font-black text-slate-500 uppercase tracking-wider mr-1">
-                                <i className="fa-solid fa-stopwatch text-teal-500 mr-1"></i>Pipeline:
+                                <i className="fa-solid fa-stopwatch text-teal-500 mr-1"></i>Performance:
                             </span>
                             {buyerTimings.map((t, i) => (
                                 <span
@@ -3171,9 +3211,82 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         </div>
                     )}
 
+                    {/* ── AI MATCHING LOADING STATE ── */}
+                    {buyerSearching && (
+                        <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in-95 duration-500">
+                            {/* Animated AI Pulse Visual */}
+                            <div className="relative mb-8">
+                                <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-3xl animate-pulse scale-150"></div>
+                                <div className="relative flex items-center justify-center">
+                                    <div className="w-20 h-20 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin duration-[2s]"></div>
+                                    <div className="absolute inset-0 flex items-center justify-center translate-y-[-2px]">
+                                        <i className="fa-solid fa-sparkles text-indigo-500 text-3xl animate-pulse"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="text-center max-w-md px-6">
+                                <h3 className="text-xl font-black text-slate-800 tracking-tight leading-tight mb-2 uppercase">
+                                    {!buyerExtracted ? "AI is Extracting Requirements..." : "AI is Scoring & Matching Homes..."}
+                                </h3>
+                                <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                                    {!buyerExtracted 
+                                        ? "Analyzing your narrative to identify key filters, architectural preferences, and neighborhood priorities."
+                                        : "Comparing your specific requirements against the entire local inventory to find the perfect home."
+                                    }
+                                </p>
+                            </div>
+
+                            {/* Show extracted criteria while scoring, with a partial layout */}
+                            {buyerExtracted && (
+                                <div className="mt-12 w-full max-w-3xl opacity-60 pointer-events-none scale-[0.98] transition-all">
+                                    <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest text-center mb-3">Extracted Requirements: Stage 1 Complete</div>
+                                    <div className="bg-white border-2 border-dashed border-indigo-100 rounded-3xl p-6 shadow-sm">
+                                        <div className="flex flex-wrap justify-center gap-2 mb-4">
+                                            {buyerExtracted.priceMin > 0 && <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-black rounded-lg text-xs">💰 {fmt(buyerExtracted.priceMin)}–{fmt(buyerExtracted.priceMax)}</span>}
+                                            {buyerExtracted.beds && <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-black rounded-lg text-xs">🛏 {buyerExtracted.beds}+ beds</span>}
+                                            {buyerExtracted.baths && <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-black rounded-lg text-xs">🚿 {buyerExtracted.baths}+ baths</span>}
+                                            {buyerExtracted.homeType && <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-black rounded-lg text-xs">🏠 {buyerExtracted.homeType.replace(/_/g, ' ')}</span>}
+                                            {buyerExtracted.stories && <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-black rounded-lg text-xs">🏗 {buyerExtracted.stories} story</span>}
+                                            {buyerExtracted.minSchoolRating && <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-black rounded-lg text-xs">🎓 Schools {buyerExtracted.minSchoolRating}+</span>}
+                                        </div>
+                                        <div className="space-y-3">
+                                            {buyerExtracted.mustHaves.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 justify-center">
+                                                    {buyerExtracted.mustHaves.map((mh, i) => (
+                                                        <span key={i} className="text-[10px] bg-rose-50 text-rose-600 font-bold px-2 py-0.5 rounded border border-rose-100">✔ {mh}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Progress feedback bar */}
+                            <div className="mt-12 w-48 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                <div className={`h-full bg-indigo-600 transition-all duration-700 ${buyerExtracted ? 'w-3/4' : 'w-1/4 animate-pulse'}`}></div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* ── AI MATCH RESULTS (VERTICAL SCROLL) ── */}
-                    {viewMode === 'zypheai' && buyerResults && buyerResults.length > 0 && (
-                        <div className="space-y-3">
+                    {viewMode === 'zypheai' && buyerResults && buyerResults.length > 0 && !buyerSearching && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            
+                            {/* Post-it Note: The Story */}
+                            <div className="relative transform rotate-1 group hover:rotate-0 transition-transform duration-300 cursor-default select-none mb-8 max-w-sm mx-auto">
+                                <div className="absolute inset-0 bg-amber-200/30 rounded-sm translate-x-1.5 translate-y-2 blur-sm"></div>
+                                <div className="relative bg-[#FFFDCC] border-l-[10px] border-amber-200/50 px-6 py-6 min-h-[140px] shadow-lg overflow-hidden">
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-6 bg-white/40 border border-white/20 rotate-1 transform"></div>
+                                    <span className="text-[9px] font-black uppercase text-amber-800/60 tracking-[0.2em] mb-3 block text-center">Current Mission</span>
+                                    <p className="text-[12px] font-medium text-amber-900/90 leading-relaxed italic font-serif line-clamp-6 text-center">
+                                        "{buyerStory}"
+                                    </p>
+                                    <div className="mt-4 h-1 w-16 mx-auto border-b-2 border-amber-300/40 rounded-[50%] skew-x-12"></div>
+                                </div>
+                            </div>
+
                             {/* Header */}
                             <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl px-5 py-3 flex items-center gap-3">
                                 <i className="fa-solid fa-trophy text-amber-300"></i>
