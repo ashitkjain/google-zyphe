@@ -308,7 +308,19 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const wordCountPerSection = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+
     const update = useCallback(<K extends keyof StoryIntakeData>(key: K, value: StoryIntakeData[K]) => {
+        // Enforce 50 word limit for chapter fields
+        if (['chapter01', 'chapter02', 'chapter03', 'chapter04'].includes(key as string)) {
+            const words = (value as string).trim().split(/\s+/).filter(Boolean);
+            if (words.length > 50) {
+                // Keep only the first 50 words
+                const limited = (value as string).split(/\s+/).slice(0, 50).join(' ');
+                setData(prev => ({ ...prev, [key]: limited }));
+                return;
+            }
+        }
         setData(prev => ({ ...prev, [key]: value }));
         setSaved(false);
     }, []);
@@ -680,14 +692,25 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                             </div>
 
                             {/* Textarea */}
-                            <div className="px-6 pb-5">
+                            <div className="px-6 pb-5 relative">
                                 <textarea
                                     value={data[ch.key]}
                                     onChange={e => update(ch.key, e.target.value)}
                                     placeholder={ch.placeholder}
                                     rows={4}
-                                    className="w-full resize-none px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all leading-relaxed"
+                                    className={`w-full resize-none px-4 py-3.5 bg-slate-50 border rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition-all leading-relaxed ${
+                                        wordCountPerSection(data[ch.key]) >= 50
+                                            ? 'border-amber-300 ring-2 ring-amber-100 bg-amber-50/10'
+                                            : 'border-slate-200 focus:ring-indigo-200 focus:border-indigo-300'
+                                    }`}
                                 />
+                                <div className={`absolute bottom-7 right-8 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-sm ${
+                                    wordCountPerSection(data[ch.key]) >= 40
+                                        ? wordCountPerSection(data[ch.key]) >= 50 ? 'bg-rose-500 text-white animate-pulse' : 'bg-amber-400 text-white'
+                                        : 'bg-slate-100 text-slate-400'
+                                }`}>
+                                    {wordCountPerSection(data[ch.key])} / 50 words
+                                </div>
                             </div>
                         </div>
                     ))}
