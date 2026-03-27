@@ -208,6 +208,17 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
 
         mapRef.current = map;
 
+        // Suppress "Image X could not be loaded" warnings from MapLibre for
+        // missing POI sprite icons in the radar-default-v1 style.
+        // We inject a 1×1 transparent image so MapLibre stops trying to reload them.
+        map.on('styleimagemissing', (e: { id: string }) => {
+            if (!map.hasImage(e.id)) {
+                // 1×1 transparent PNG as ImageData
+                const blankImage = { width: 1, height: 1, data: new Uint8Array(4) };
+                map.addImage(e.id, blankImage);
+            }
+        });
+
         // MutationObserver: watch for popup elements appearing in the DOM
         // and attach click handlers to .zyphe-popup so "View Property →" works
         const observer = new MutationObserver((mutations) => {
@@ -367,6 +378,9 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
 
             {/* Custom CSS for popups */}
             <style>{`
+                .maplibregl-popup {
+                    z-index: 500 !important;
+                }
                 .maplibregl-popup-content {
                     border-radius: 16px !important;
                     padding: 0 !important;
