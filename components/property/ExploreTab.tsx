@@ -27,11 +27,11 @@ import ChatInterface from '../shared/ChatInterface';
 import ConciergeCall from '../concierge/ConciergeCall';
 import { auth, db, generateCityStateKey } from '../../services/firebase/config';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry, DeepResearchInsights } from '../../types';
-import { 
-    getPropertiesByCity, 
-    CityPropertySummary, 
-    getCityNeighborhoodsFromCloud, 
-    queryContextGraphs, 
+import {
+    getPropertiesByCity,
+    CityPropertySummary,
+    getCityNeighborhoodsFromCloud,
+    queryContextGraphs,
     getCityContextGraphFromCloud,
     getComprehensiveAnalysisFromCloud,
     getVisualAnalysisFromCloud,
@@ -51,10 +51,10 @@ import LeadCaptureModal from './LeadCaptureModal';
 import { SaveSearchModal, SavedSearchesPanel, SavedSearch } from './SaveSearchModals';
 import { trackCityBrowsed, trackViewModeChanged, trackPropertyViewed, trackStorySearchRun } from '../../services/analytics/idxTracking';
 import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS } from '../../constants/contextGraphFactors';
-import { 
-    executeGeminiRequest, 
-    FLASH_LITE_MODEL, 
-    FLASH_MODEL, 
+import {
+    executeGeminiRequest,
+    FLASH_LITE_MODEL,
+    FLASH_MODEL,
     mineCityNeighborhoods,
     extractDeepResearchInsights,
     analyzeLifestyleInsights
@@ -2202,8 +2202,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
     // Build match lookup from buyer results
     const matchMap = useMemo(() => {
-        const map: Record<string, { score: number; reasons: string[]; highlight: string; rank: number }> = {};
-        buyerResults?.forEach((m, i) => { map[m.zpid] = { score: m.score, reasons: m.reasons, highlight: m.highlight, rank: i + 1 }; });
+        const map: Record<string, { score: number; matchWriteup: string; rank: number }> = {};
+        buyerResults?.forEach((m, i) => { map[m.zpid] = { score: m.score, matchWriteup: m.matchWriteup, rank: i + 1 }; });
         return map;
     }, [buyerResults]);
 
@@ -2631,8 +2631,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             }
                         }}
                         className={`flex items-center gap-1.5 text-sm font-bold transition-all ${activePath === 'story'
-                                ? 'text-indigo-700 underline underline-offset-4'
-                                : 'text-indigo-500 hover:text-indigo-800 hover:underline underline-offset-4'
+                            ? 'text-indigo-700 underline underline-offset-4'
+                            : 'text-indigo-500 hover:text-indigo-800 hover:underline underline-offset-4'
                             }`}
                     >
                         <i className="fa-solid fa-book-open-reader text-[11px]"></i>
@@ -2673,37 +2673,56 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             {!browsing && results.length > 0 && (
                 <div className="mt-6 space-y-3">
 
-                    {/* ── MARKET SNAPSHOT BAR ── */}
-                    {snapshot && viewMode !== 'zypheai' && (
-                        <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100/80 rounded-2xl px-5 py-3">
-                            <div className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-house-circle-check text-indigo-400 text-xs"></i>
-                                <span className="text-[11px] font-black text-slate-700">{snapshot.count}</span>
-                                <span className="text-[10px] font-bold text-slate-400">Active</span>
-                            </div>
-                            <div className="w-px h-4 bg-slate-200"></div>
-                            {snapshot.avg && (
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-bold text-slate-400">Avg</span>
-                                    <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.avg)}</span>
+                    {/* ── MARKET SNAPSHOT BAR / STORY EDITOR ── */}
+                    {snapshot && (
+                        <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100/80 rounded-2xl px-4 py-2">
+                            {activePath === 'story' ? (
+                                <div className="flex-1 flex items-center gap-3">
+                                    <div className="flex items-center text-indigo-500">
+                                        <i className="fa-solid fa-sparkles text-xs"></i>
+                                    </div>
+                                    <div className="flex-1 relative group">
+                                        <textarea
+                                            value={buyerStory}
+                                            onChange={e => { setBuyerStory(e.target.value); setBuyerError(null); }}
+                                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleBuyerSearch(); } }}
+                                            rows={4}
+                                            className="w-full bg-white/60 hover:bg-white border border-indigo-100 rounded-lg px-3 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all placeholder:text-slate-400 resize-none leading-tight"
+                                            placeholder="Edit your story to refine results..."
+                                        />
+                                        <button 
+                                            onClick={handleBuyerSearch}
+                                            disabled={buyerSearching}
+                                            className="absolute right-1 top-1.5 bottom-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm opacity-0 group-focus-within:opacity-100 transition-opacity flex items-center gap-1 z-10"
+                                        >
+                                            {buyerSearching ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-arrows-rotate"></i>}
+                                            Search
+                                        </button>
+                                    </div>
                                 </div>
-                            )}
-                            {snapshot.median && (
+                            ) : (
                                 <>
-                                    <div className="w-px h-4 bg-slate-200"></div>
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-[10px] font-bold text-slate-400">Median</span>
-                                        <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.median)}</span>
+                                        <i className="fa-solid fa-house-circle-check text-indigo-400 text-xs"></i>
+                                        <span className="text-[11px] font-black text-slate-700">{snapshot.count}</span>
+                                        <span className="text-[10px] font-bold text-slate-400">Active</span>
                                     </div>
-                                </>
-                            )}
-                            {snapshot.avgDom != null && (
-                                <>
                                     <div className="w-px h-4 bg-slate-200"></div>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-[10px] font-bold text-slate-400">Avg DOM</span>
-                                        <span className="text-[11px] font-black text-slate-700">{snapshot.avgDom}d</span>
-                                    </div>
+                                    {snapshot.avg && (
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[10px] font-bold text-slate-400">Avg</span>
+                                            <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.avg)}</span>
+                                        </div>
+                                    )}
+                                    {snapshot.median && (
+                                        <>
+                                            <div className="w-px h-4 bg-slate-200"></div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[10px] font-bold text-slate-400">Median</span>
+                                                <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.median)}</span>
+                                            </div>
+                                        </>
+                                    )}
                                 </>
                             )}
                             <div className="ml-auto flex items-center gap-2">
@@ -2772,70 +2791,91 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         </select>
 
                         {/* Filters */}
-                        <input
-                            type="number"
-                            placeholder="Min $"
-                            value={filterMinPrice}
-                            onChange={e => { setFilterMinPrice(e.target.value); setPage(1); }}
-                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
-                        />
-                        <input
-                            type="number"
-                            placeholder="Max $"
-                            value={filterMaxPrice}
-                            onChange={e => { setFilterMaxPrice(e.target.value); setPage(1); }}
-                            className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
-                        />
-                        <select
-                            value={filterBeds}
-                            onChange={e => { setFilterBeds(e.target.value); setPage(1); }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
-                        >
-                            <option value="">Beds</option>
-                            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
-                        </select>
-                        <select
-                            value={filterBaths}
-                            onChange={e => { setFilterBaths(e.target.value); setPage(1); }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
-                        >
-                            <option value="">Baths</option>
-                            {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
-                        </select>
-                        <select
-                            value={filterHomeType}
-                            onChange={e => { setFilterHomeType(e.target.value); setPage(1); }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
-                        >
-                            <option value="">Type</option>
-                            <option value="SINGLE_FAMILY">Single Family</option>
-                            <option value="TOWNHOUSE">Townhouse</option>
-                            <option value="CONDO">Condo</option>
-                            <option value="MULTI_FAMILY">Multi-Family</option>
-                        </select>
-                        <select
-                            value={filterStories}
-                            onChange={e => { setFilterStories(e.target.value); setPage(1); }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
-                        >
-                            <option value="">Stories</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                        </select>
-                        <select
-                            value={filterMinSchoolRating}
-                            onChange={e => { setFilterMinSchoolRating(e.target.value); setPage(1); }}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
-                        >
-                            <option value="">Schools</option>
-                            <option value="5">5+</option>
-                            <option value="6">6+</option>
-                            <option value="7">7+</option>
-                            <option value="8">8+</option>
-                            <option value="9">9+</option>
-                            <option value="10">10</option>
-                        </select>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Min $</label>
+                            <input
+                                type="number"
+                                placeholder="..."
+                                value={filterMinPrice}
+                                onChange={e => { setFilterMinPrice(e.target.value); setPage(1); }}
+                                className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Max $</label>
+                            <input
+                                type="number"
+                                placeholder="..."
+                                value={filterMaxPrice}
+                                onChange={e => { setFilterMaxPrice(e.target.value); setPage(1); }}
+                                className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Beds</label>
+                            <select
+                                value={filterBeds}
+                                onChange={e => { setFilterBeds(e.target.value); setPage(1); }}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            >
+                                <option value="">Any</option>
+                                {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Baths</label>
+                            <select
+                                value={filterBaths}
+                                onChange={e => { setFilterBaths(e.target.value); setPage(1); }}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            >
+                                <option value="">Any</option>
+                                {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Type</label>
+                            <select
+                                value={filterHomeType}
+                                onChange={e => { setFilterHomeType(e.target.value); setPage(1); }}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            >
+                                <option value="">Any</option>
+                                <option value="SINGLE_FAMILY">Single Family</option>
+                                <option value="TOWNHOUSE">Townhouse</option>
+                                <option value="CONDO">Condo</option>
+                                <option value="MULTI_FAMILY">Multi-Family</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Stories</label>
+                            <select
+                                value={filterStories}
+                                onChange={e => { setFilterStories(e.target.value); setPage(1); }}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            >
+                                <option value="">Any</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Schools</label>
+                            <select
+                                value={filterMinSchoolRating}
+                                onChange={e => { setFilterMinSchoolRating(e.target.value); setPage(1); }}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            >
+                                <option value="">Any</option>
+                                <option value="5">5+</option>
+                                <option value="6">6+</option>
+                                <option value="7">7+</option>
+                                <option value="8">8+</option>
+                                <option value="9">9+</option>
+                                <option value="10">10</option>
+                            </select>
+                        </div>
                         {availableNeighborhoods.length > 0 && (
                             <select
                                 value={filterNeighborhood}
@@ -2851,8 +2891,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         <button
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${advancedFilterCount > 0
-                                    ? 'bg-indigo-100 border border-indigo-300 text-indigo-700'
-                                    : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+                                ? 'bg-indigo-100 border border-indigo-300 text-indigo-700'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
                                 }`}
                         >
                             <i className="fa-solid fa-sliders text-[9px]"></i>
@@ -3016,11 +3056,26 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             {/* Extracted criteria — full breakdown */}
                             {buyerExtracted && !buyerError && (
                                 <div className="bg-white border border-indigo-100 rounded-xl px-4 py-3 space-y-2.5">
-                                    {/* Search summary */}
-                                    <p className="text-xs text-slate-600 leading-relaxed">
-                                        <i className="fa-solid fa-sparkles text-indigo-400 mr-1.5"></i>
-                                        {buyerExtracted.searchSummary || `Searching for properties in the ${fmt(buyerExtracted.priceMin)}–${fmt(buyerExtracted.priceMax)} range.`}
-                                    </p>
+                                    <div className="flex flex-col gap-3">
+                                        {/* Original Narrative (Collapsible or truncated) */}
+                                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
+                                            <div className="flex items-center gap-2 mb-1.5 overflow-hidden">
+                                                <i className="fa-solid fa-book-open text-slate-400 text-[10px]"></i>
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">Input Story</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-600 font-medium leading-relaxed italic line-clamp-3">
+                                                "{buyerStory}"
+                                            </p>
+                                        </div>
+
+                                        {/* Search summary */}
+                                        <div className="flex flex-col gap-1">
+                                            <p className="text-xs text-slate-800 font-bold leading-relaxed">
+                                                <i className="fa-solid fa-sparkles text-indigo-500 mr-2"></i>
+                                                {buyerExtracted.searchSummary || `Searching for properties in the ${fmt(buyerExtracted.priceMin)}–${fmt(buyerExtracted.priceMax)} range.`}
+                                            </p>
+                                        </div>
+                                    </div>
 
                                     {/* Extracted filters */}
                                     <div className="flex flex-wrap gap-1.5">
@@ -3077,8 +3132,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                             <div className="flex flex-wrap gap-1">
                                                 {buyerExtracted.niceToHaves.map((nth, i) => (
                                                     <span key={i} className={`px-2 py-0.5 text-[10px] rounded-full border ${nth.startsWith('[Inferred]')
-                                                            ? 'bg-purple-50 text-purple-600 border-purple-200 italic'
-                                                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                        ? 'bg-purple-50 text-purple-600 border-purple-200 italic'
+                                                        : 'bg-slate-50 text-slate-600 border-slate-200'
                                                         }`}>
                                                         {nth.startsWith('[Inferred]') ? '🤖 ' + nth.replace('[Inferred] ', '') : nth}
                                                     </span>
@@ -3184,12 +3239,27 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                                         </div>
                                                     </div>
 
-                                                    {/* Match writeup — unified prose with inline ✅/❌ */}
-                                                    {match.matchWriteup && (
-                                                        <p className="text-[11.5px] text-slate-700 leading-relaxed">
-                                                            {match.matchWriteup}
-                                                        </p>
-                                                    )}
+                                                    <div className="space-y-2">
+                                                        {match.matchWriteup && (
+                                                            <div className="flex flex-wrap gap-1.5 pb-1">
+                                                                {(match.matchWriteup.match(/✅\s*([^✅❌👤\.]+)/g) || []).map((tag, tIdx) => (
+                                                                    <span key={tIdx} className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                                                        {tag.replace('✅', '').trim()}
+                                                                    </span>
+                                                                ))}
+                                                                {(match.matchWriteup.match(/❌\s*([^✅❌👤\.]+)/g) || []).map((tag, tIdx) => (
+                                                                    <span key={tIdx} className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-100">
+                                                                        {tag.replace('❌', '').trim()}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {match.matchWriteup && (
+                                                            <p className="text-[11.5px] text-slate-700 leading-relaxed">
+                                                                {match.matchWriteup}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3227,11 +3297,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                                 </div>
                                             )}
                                             {prop.images?.[0] ? (
-                                                <div className="aspect-square bg-slate-100 overflow-hidden">
+                                                <div className="aspect-[2/1] bg-slate-100 overflow-hidden">
                                                     <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                                                 </div>
                                             ) : (
-                                                <div className="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                                <div className="aspect-[2/1] bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
                                                     <i className="fa-solid fa-house text-2xl text-slate-300"></i>
                                                 </div>
                                             )}
@@ -3254,31 +3324,60 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                                     {prop.lotSize && <span>Lot {prop.lotSize}</span>}
                                                     {prop.homeType && <span>{prop.homeType.replace(/_/g, ' ')}</span>}
                                                 </div>
+
+                                                {/* Reasoning: Clean Bulleted List Inline */}
+                                                {match && match.matchWriteup && (
+                                                    <div className="mt-4 pt-4 border-t border-slate-50">
+                                                        <ul className="space-y-3">
+                                                            {match.matchWriteup.split(/(?=[✅❌👤])/g).map(bullet => {
+                                                                const trimmed = bullet.trim();
+                                                                const content = trimmed.replace(/[✅❌👤]/g, '').trim();
+                                                                if (!content) return null; // Skip if no text
+                                                                
+                                                                const isPro = trimmed.startsWith('✅');
+                                                                const isCon = trimmed.startsWith('❌');
+                                                                
+                                                                return (
+                                                                    <li key={bullet} className="flex gap-3 items-start group/bullet">
+                                                                        <span className={`flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-[9px] shadow-sm transition-transform group-hover/bullet:scale-110 ${
+                                                                            isPro ? 'bg-emerald-500 text-white' : 
+                                                                            isCon ? 'bg-rose-500 text-white' : 
+                                                                            'bg-indigo-600 text-white'
+                                                                        }`}>
+                                                                            <i className={`fa-solid ${isPro ? 'fa-check' : isCon ? 'fa-xmark' : 'fa-user'} text-[8px]`}></i>
+                                                                        </span>
+                                                                        <span className={`text-[11px] leading-relaxed ${
+                                                                            isPro ? 'text-slate-800 font-bold' : 
+                                                                            isCon ? 'text-slate-500 font-medium' : 
+                                                                            'text-indigo-900 font-black tracking-tight'
+                                                                        }`}>
+                                                                            {content}
+                                                                        </span>
+                                                                    </li>
+                                                                );
+                                                            }).filter(Boolean)}
+                                                        </ul>
+                                                    </div>
+                                                )}
                                             </div>
                                         </button>
                                         {/* Lead Capture Buttons — shown on hover */}
-                                        <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1.5 z-10" style={{pointerEvents: 'none'}}>
+                                        <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1.5 z-10" style={{ pointerEvents: 'none' }}>
                                             <button
-                                                style={{pointerEvents: 'auto'}}
+                                                style={{ pointerEvents: 'auto' }}
                                                 onClick={e => { e.stopPropagation(); setLeadModal({ type: 'tour', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
                                                 className="flex-1 py-2 bg-indigo-600/95 backdrop-blur-sm text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-colors shadow-lg flex items-center justify-center gap-1"
                                             >
                                                 <i className="fa-solid fa-calendar-check text-[8px]"></i> Tour
                                             </button>
                                             <button
-                                                style={{pointerEvents: 'auto'}}
+                                                style={{ pointerEvents: 'auto' }}
                                                 onClick={e => { e.stopPropagation(); setLeadModal({ type: 'info', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
                                                 className="flex-1 py-2 bg-emerald-600/95 backdrop-blur-sm text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-emerald-700 transition-colors shadow-lg flex items-center justify-center gap-1"
                                             >
                                                 <i className="fa-solid fa-envelope text-[8px]"></i> Info
                                             </button>
                                         </div>
-                                        {/* Hover tooltip */}
-                                        {match && hoveredZpid === prop.zpid && (
-                                            <div className="absolute left-0 right-0 -bottom-2 translate-y-full z-20 bg-white border border-indigo-200 rounded-xl shadow-xl p-3 space-y-1.5 animate-in fade-in duration-150">
-                                                <p className="text-[11px] text-slate-700 leading-relaxed">{match.matchWriteup}</p>
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             })}
@@ -3363,10 +3462,24 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                                     {prop.homeType || '—'}
                                                 </td>
                                                 {match ? (
-                                                    <td className="px-4 py-3">
-                                                        <span className={`text-[10px] font-black px-2 py-1 rounded-md ${match.score >= 80 ? 'bg-emerald-100 text-emerald-700' : match.score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                            {match.score}/100
-                                                        </span>
+                                                    <td className="px-4 py-3 min-w-[300px]">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`text-[10px] font-black px-2 py-1 rounded-md flex-shrink-0 ${match.score >= 80 ? 'bg-emerald-100 text-emerald-700' : match.score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                                    {match.score}/100
+                                                                </span>
+                                                                <span className="text-[10px] font-bold text-slate-500 italic truncate max-w-[200px]">{match.matchWriteup}</span>
+                                                            </div>
+                                                            {match.matchWriteup && (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {(match.matchWriteup.match(/✅\s*([^✅❌👤\.]+)/g) || [])
+                                                                        .slice(0, 3)
+                                                                        .map((tag, tIdx) => (
+                                                                            <span key={tIdx} className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter mr-1 truncate max-w-[80px]">#{tag.replace('✅', '').trim().replace(/\s+/g, '')}</span>
+                                                                        ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 ) : (
                                                     <td className="px-4 py-3 text-xs font-bold text-emerald-600">
@@ -3388,7 +3501,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             onPropertyClick={onPropertyClick}
                             selectedCity={selectedCity}
                             matchMap={buyerResults ? Object.fromEntries(
-                                buyerResults.map((r, i) => [r.zpid, { score: r.score, rank: i + 1 }])
+                                buyerResults.map((r, i) => [r.zpid, { score: r.score, rank: i + 1, highlight: r.matchWriteup?.split('.')[0] }])
                             ) : undefined}
                         />
                     )}

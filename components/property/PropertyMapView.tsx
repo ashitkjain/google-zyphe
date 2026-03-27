@@ -167,7 +167,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     // Clean up markers
     const clearMarkers = useCallback(() => {
         markersRef.current.forEach(m => {
-            try { m.remove(); } catch (_) {}
+            try { m.remove(); } catch (_) { }
         });
         markersRef.current = [];
     }, []);
@@ -258,7 +258,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             observer.disconnect();
             clearMarkers();
             if (mapRef.current) {
-                try { mapRef.current.remove(); } catch (_) {}
+                try { mapRef.current.remove(); } catch (_) { }
                 mapRef.current = null;
             }
             initializedRef.current = false;
@@ -303,8 +303,8 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
                             html: buildPopupHtml(prop, match),
                         },
                     })
-                    .setLngLat([prop.coordinates!.longitude, prop.coordinates!.latitude])
-                    .addTo(mapRef.current);
+                        .setLngLat([prop.coordinates!.longitude, prop.coordinates!.latitude])
+                        .addTo(mapRef.current);
 
                     markersRef.current.push(marker);
                 } catch (e) {
@@ -316,7 +316,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             if (propertiesWithCoords.length > 1) {
                 try {
                     mapRef.current.fitToMarkers({ maxZoom: 15, padding: 60 });
-                } catch (_) {}
+                } catch (_) { }
             }
         };
 
