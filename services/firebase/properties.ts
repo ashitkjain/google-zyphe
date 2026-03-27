@@ -501,14 +501,18 @@ export const getInteriorSummaryFromCloud = async (zpid: string): Promise<any | n
 export const saveGeneralMarketIntelligenceToCloud = async (cityStateKey: string, research: GeneralMarketIntelligenceResult) => {
     if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing City-State Key" };
     try {
-        const docRef = doc(db, "general_market_intelligence", cityStateKey);
-        logFirestoreQuery('setDoc', 'general_market_intelligence', { cityStateKey });
         const researchData = typeof research === 'string' ? { market_dynamics: { summary: research } } : research;
-        await setDoc(docRef, {
+        const payload = {
             ...researchData,
             status: 'completed',
             lastUpdated: serverTimestamp()
-        }, { merge: true });
+        };
+
+        // 1. Consolidated write (ONLY)
+        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "intel", "market_intelligence");
+        logFirestoreQuery('setDoc', 'cities/intel', { cityStateKey });
+        await setDoc(cityRef, payload, { merge: true });
+
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveGeneralMarketIntelligenceToCloud") as string };
@@ -530,16 +534,18 @@ export const getGeneralMarketIntelligenceFromCloud = async (cityStateKey: string
 export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: CommunityPulseResult) => {
     if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing City-State Key" };
     try {
-        const docRef = doc(db, "community_pulse", cityStateKey);
-        logFirestoreQuery('setDoc', 'community_pulse', { cityStateKey });
-        // Guard: If pulse is accidentally a string, wrap it. Spreading a string results in a character map.
         const pulseData = typeof pulse === 'string' ? { investment_insights: { summary: pulse } } : pulse;
-
-        await setDoc(docRef, {
+        const payload = {
             ...pulseData,
             status: 'completed',
             lastUpdated: serverTimestamp()
-        }, { merge: true });
+        };
+
+        // 1. Consolidated write (ONLY)
+        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "intel", "community_pulse");
+        logFirestoreQuery('setDoc', 'cities/intel', { cityStateKey });
+        await setDoc(cityRef, payload, { merge: true });
+
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveCommunityPulseToCloud") as string };
@@ -548,39 +554,44 @@ export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: Com
 
 /**
  * Case-robust city document reader.
- * Firestore doc IDs are case-sensitive, but keys may have been saved with
- * different casing (e.g. "pleasanton-CA" vs "pleasanton-ca").
- * Tries the given key first, then common variants.
+ * Prioritizes the consolidated `cities` collection.
  */
 async function getCityDocWithFallback(collectionName: string, cityStateKey: string): Promise<any | null> {
     if (!db || !cityStateKey) return null;
 
-    // Build case variants from the key  (e.g. "pleasanton-ca")
-    const parts = cityStateKey.split('-');
+    // Mapping legacy collections to new consolidated subcollection paths
+    const CONSOLIDATED_MAP: Record<string, { type: 'index' | 'intel', docId: string }> = {
+        'city_zip_cache': { type: 'index', docId: 'zips' },
+        'city_neighborhoods': { type: 'index', docId: 'neighborhoods' },
+        'city_context_graph': { type: 'index', docId: 'context_graph' },
+        'deep_investment_research': { type: 'intel', docId: 'deep_research' },
+        'general_market_intelligence': { type: 'intel', docId: 'market_intelligence' },
+        'community_pulse': { type: 'intel', docId: 'community_pulse' },
+    };
+
+    // Build case variants
+    const separator = cityStateKey.includes('-') ? '-' : '_';
+    const parts = cityStateKey.split(separator);
+    
     const variants = new Set<string>();
-    variants.add(cityStateKey); // as-is
+    variants.add(cityStateKey.toLowerCase());
+    variants.add(cityStateKey.replace('-', '_').toLowerCase());
 
     if (parts.length === 2) {
         const [city, state] = parts;
-        variants.add(`${city}-${state.toUpperCase()}`);       // pleasanton-CA
-        variants.add(`${city}-${state.toLowerCase()}`);       // pleasanton-ca
-        variants.add(`${city.toLowerCase()}-${state.toUpperCase()}`); // pleasanton-CA
-        variants.add(`${city.toLowerCase()}-${state.toLowerCase()}`); // pleasanton-ca
+        variants.add(`${city.toLowerCase()}_${state.toLowerCase()}`);
+        variants.add(`${city.toLowerCase()}-${state.toLowerCase()}`);
     }
+
+    const nested = CONSOLIDATED_MAP[collectionName];
+    if (!nested) return null;
 
     for (const key of variants) {
         try {
-            const docRef = doc(db, collectionName, key);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                if (key !== cityStateKey) {
-                    console.log(`[Firestore] Found ${collectionName} with fallback key "${key}" (requested "${cityStateKey}")`);
-                }
-                return docSnap.data();
-            }
-        } catch (e) {
-            // continue to next variant
-        }
+            const nestedRef = doc(db, "cities", key, nested.type, nested.docId);
+            const nestedSnap = await getDoc(nestedRef);
+            if (nestedSnap.exists()) return nestedSnap.data();
+        } catch (e) { /* continue */ }
     }
     return null;
 }
@@ -600,14 +611,18 @@ export const getCommunityPulseFromCloud = async (cityStateKey: string): Promise<
 export const saveDeepInvestmentResearchToCloud = async (cityStateKey: string, research: DeepInvestmentResearchResult) => {
     if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing City-State Key" };
     try {
-        const docRef = doc(db, "deep_investment_research", cityStateKey);
-        logFirestoreQuery('setDoc', 'deep_investment_research', { cityStateKey });
         const researchData = typeof research === 'string' ? { content: research } : research;
-        await setDoc(docRef, {
+        const payload = {
             ...researchData,
             status: 'completed',
             lastUpdated: serverTimestamp()
-        }, { merge: true });
+        };
+
+        // 1. Consolidated write (ONLY)
+        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "intel", "deep_research");
+        logFirestoreQuery('setDoc', 'cities/intel', { cityStateKey });
+        await setDoc(cityRef, payload, { merge: true });
+
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveDeepInvestmentResearchToCloud") as string };
@@ -630,12 +645,16 @@ export const getDeepInvestmentResearchFromCloud = async (cityStateKey: string): 
 export const saveCityContextGraphToCloud = async (cityStateKey: string, data: any) => {
     if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing key" };
     try {
-        const docRef = doc(db, "city_context_graph", cityStateKey);
-        logFirestoreQuery('setDoc', 'city_context_graph', { cityStateKey });
-        await setDoc(docRef, {
+        const payload = {
             ...sanitizeForFirestore(data),
             lastUpdated: serverTimestamp()
-        }, { merge: true });
+        };
+
+        // 1. Consolidated write (ONLY)
+        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "index", "context_graph");
+        logFirestoreQuery('setDoc', 'cities/index', { cityStateKey });
+        await setDoc(cityRef, payload, { merge: true });
+
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveCityContextGraphToCloud") as string };
@@ -646,8 +665,8 @@ export const getCityContextGraphFromCloud = async (cityStateKey: string): Promis
     if (!db || !cityStateKey) return null;
     try {
         logFirestoreQuery('getDoc', 'city_context_graph', { cityStateKey });
-        const snap = await getDoc(doc(db, "city_context_graph", cityStateKey));
-        return snap.exists() ? snap.data() : null;
+        const data = await getCityDocWithFallback('city_context_graph', cityStateKey);
+        return data || null;
     } catch (error) {
         handleFirestoreError(error, "getCityContextGraphFromCloud");
         return null;
@@ -790,13 +809,17 @@ export const getNeighborhoodIdentityFromCloud = async (zpid: string): Promise<an
 export const saveCityNeighborhoodsToCloud = async (cityStateKey: string, data: any) => {
     if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing city key" };
     try {
-        const docRef = doc(db, "city_neighborhoods", cityStateKey);
-        logFirestoreQuery('setDoc', 'city_neighborhoods', { cityStateKey });
-        await setDoc(docRef, {
+        const payload = {
             ...sanitizeForFirestore(data),
             cityStateKey,
             lastUpdated: serverTimestamp()
-        });
+        };
+
+        // 1. Consolidated write (ONLY)
+        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "index", "neighborhoods");
+        logFirestoreQuery('setDoc', 'cities/index', { cityStateKey });
+        await setDoc(cityRef, payload);
+
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveCityNeighborhoodsToCloud") as string };
