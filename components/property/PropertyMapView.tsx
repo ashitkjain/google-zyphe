@@ -180,9 +180,9 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     useEffect(() => {
         if (!mapContainerRef.current || initializedRef.current) return;
 
-        const radarKey = APP_CONFIG.radar.key;
+        const radarKey = APP_CONFIG.radar.key || (import.meta as any).env?.VITE_RADAR_KEY || '';
         if (!radarKey) {
-            console.error('[PropertyMapView] No Radar API key found');
+            console.error('[PropertyMapView] No Radar API key found — set VITE_RADAR_KEY in .env.local');
             return;
         }
 
