@@ -87,6 +87,7 @@ interface ExploreTabProps {
     onRefreshEnvironment?: () => void;
     environmentRefreshing?: boolean;
     onRefreshCommunityPulse?: () => Promise<void>;
+    onBack?: () => void;
 }
 
 const ExploreTab: React.FC<ExploreTabProps> = ({
@@ -113,7 +114,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     address: currentAddress,
     onRefreshEnvironment,
     environmentRefreshing,
-    onRefreshCommunityPulse
+    onRefreshCommunityPulse,
+    onBack,
 }) => {
     // Internal tab state — syncs with external viewMode
     type InternalTab = 'property-data' | 'visual-ai' | 'comprehensive';
@@ -474,6 +476,19 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Off Market</span>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ── Back button (shown when navigated from IDX Browse) ── */}
+                        {onBack && (
+                            <div className="pt-3 px-5 md:px-6">
+                                <button
+                                    onClick={onBack}
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-all text-[11px] font-black uppercase tracking-widest shadow-sm group"
+                                >
+                                    <i className="fa-solid fa-arrow-left text-[10px] group-hover:-translate-x-0.5 transition-transform"></i>
+                                    Back to Browse
+                                </button>
                             </div>
                         )}
 

@@ -31,6 +31,7 @@ interface Props {
     exploreContent?: React.ReactNode;
     initialTab?: HubTab;
     onNavigate?: (view: any, path: string) => void;
+    onBrowseNavigate?: (address: string) => void;
     onUpdateProfile?: (updates: Partial<UserProfile>) => void;
     userRole?: 'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor' | 'admin';
 }

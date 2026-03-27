@@ -127,6 +127,7 @@ const App: React.FC = () => {
     { label: 'currentUser', value: currentUser },
   ], [propertyData, customAnalysis, comprehensiveAnalysis, logs, cloudHistory, favorites, currentUser]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
+  const [fromBrowse, setFromBrowse] = useState(false);
   const [contextGraphZpid, setContextGraphZpid] = useState<string>('');
   const [showPreload, setShowPreload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -1197,6 +1198,10 @@ const App: React.FC = () => {
       addLog={addLog}
       logs={logs}
       userRole={currentUser?.role}
+      onBack={fromBrowse ? () => {
+          setFromBrowse(false);
+          transitionToView('idx_search' as any);
+      } : undefined}
       searchBar={searchBar}
       address={address}
       onRefreshEnvironment={handleRefreshEnvironment}
@@ -1270,6 +1275,10 @@ const App: React.FC = () => {
           exploreContent={exploreTab}
           initialTab={(viewMode === 'main' || viewMode === 'visual-report' || viewMode === 'comprehensive-report' ? 'explore' : viewMode) as any}
           onNavigate={transitionToView}
+          onBrowseNavigate={(address: string) => {
+            setFromBrowse(true);
+            transitionToView('explore', address);
+          }}
           onUpdateProfile={(updates) => {
             setCurrentUser(prev => {
               if (!prev) return null;
