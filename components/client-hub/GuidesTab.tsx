@@ -5,11 +5,14 @@ import { generateGuide, generateGuideImage } from '../../services/geminiService'
 import { GuideResult } from '../../prompts/client/guideGeneration';
 import ArchitecturalStylesArticle, { ARCH_STYLES_SLUG, ARCH_STYLES_SENTINEL } from './ArchitecturalStylesArticle';
 import PlatformHelpTab from './PlatformHelpTab';
+import VCHelpTab from './VCHelpTab';
 
 const PLATFORM_HELP_SENTINEL = 'PLATFORM_HELP_V1';
 const PLATFORM_HELP_SLUG = 'platform-technical-manual';
 const BUYER_INSTRUCTIONS_SENTINEL = 'BUYER_INSTRUCTIONS_V1';
 const BUYER_INSTRUCTIONS_SLUG = 'buyer-instructions';
+const VC_INSTRUCTIONS_SENTINEL = 'VC_INSTRUCTIONS_V1';
+const VC_INSTRUCTIONS_SLUG = 'vc-instructions';
 
 const BUYER_STEPS = [
     { step: 1, title: 'Authentication', action: "Go to zyphe.ai and click the 'Sign In' button in the header. Login using your provided buyer credentials.", imageUrl: '/guide-images/signin_step.png' },
@@ -25,7 +28,7 @@ const BUYER_STEPS = [
 const BuyerInstructionsContent: React.FC<{ onNavigate?: (view: any, path: string) => void }> = ({ onNavigate }) => (
     <div className="max-w-none">
         <p className="text-slate-600 leading-relaxed text-base font-semibold mb-10">
-            Discover properties using user stories written in natural language. Users can share their details on who they are, what their lifestyle and needs are, and then use AI to discover matching homes using nuanced insights, collected from a comprehensive set of third party sources, Google Maps, Places, Gemini search grounding and visual AI.
+            Discover properties using user stories written in natural language. Users can share their details on who they are, what their lifestyle and needs are, and then use AI to discover matching homes using nuanced insights, collected from a comprehensive set of third party sources, Google Maps, Places, Zyphe AI search grounding and visual AI.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-10">
             {BUYER_STEPS.map((item) => (
@@ -253,14 +256,29 @@ const GUIDE_DATA: GuideCategory[] = [
     {
         id: 'buyer_instructions',
         topicSlug: 'training',
-        title: 'Buyer Experience Instructions',
+        title: 'Buyer Experience',
         icon: 'fa-chalkboard-user',
         count: '1 page',
         items: [
             {
                 id: 't1',
-                title: 'Buyer Experience Instructions',
+                title: 'Buyer Experience',
                 slug: 'buyer-instructions',
+                description: ''
+            }
+        ]
+    },
+    {
+        id: 'vc_instructions',
+        topicSlug: 'training',
+        title: 'Realtor Experience',
+        icon: 'fa-video',
+        count: '1 page',
+        items: [
+            {
+                id: 'vc1',
+                title: 'Realtor Experience',
+                slug: 'vc-instructions',
                 description: ''
             }
         ]
@@ -357,6 +375,13 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, showOnlyIds, excludeI
             return;
         }
 
+        // VC instructions — inline
+        if (guide.slug === VC_INSTRUCTIONS_SLUG) {
+            setGuideContent(VC_INSTRUCTIONS_SENTINEL);
+            setLoadingContent(false);
+            return;
+        }
+
         // Help category pages render PlatformHelpTab inline
         if (guide.slug.startsWith('helpCategory:')) {
             setGuideContent(`helpCategory:${guide.slug.split(':')[1]}`);
@@ -402,7 +427,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, showOnlyIds, excludeI
             console.error('Error in guide retrieval/generation:', err);
             setError("Failed to load guide. Please try again.");
             // Fallback for demo
-            setGuideContent(`# ${guide.title}\n\nUnable to retrieve official brief. Our intelligence engine encountered a temporary sync error. Please check back in a few moments.\n\n### Error Detail:\n- Connection Timeout or Gemini API Rate Limit`);
+            setGuideContent(`# ${guide.title}\n\nUnable to retrieve official brief. Our intelligence engine encountered a temporary sync error. Please check back in a few moments.\n\n### Error Detail:\n- Connection Timeout or AI API Rate Limit`);
         } finally {
             setLoadingContent(false);
         }
@@ -540,7 +565,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, showOnlyIds, excludeI
 
                 {/* Article Body */}
                 <div className="bg-white">
-                    <div className={`mx-auto px-6 py-12 pb-20 ${(typeof guideContent === 'string' && guideContent.startsWith('helpCategory:')) || guideContent === BUYER_INSTRUCTIONS_SENTINEL ? '' : 'max-w-5xl px-10'}`}>
+                    <div className={`mx-auto px-6 py-12 pb-20 ${(typeof guideContent === 'string' && guideContent.startsWith('helpCategory:')) || guideContent === BUYER_INSTRUCTIONS_SENTINEL || guideContent === VC_INSTRUCTIONS_SENTINEL ? '' : 'max-w-5xl px-10'}`}>
                         {error && (
                             <div className="bg-rose-50 border border-rose-100 text-rose-700 p-6 rounded-3xl mb-10 font-bold flex items-center gap-4">
                                 <i className="fa-solid fa-circle-exclamation text-xl"></i>
@@ -560,6 +585,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, showOnlyIds, excludeI
                                     <PlatformHelpTab hideSidebar />
                                 ) : guideContent === BUYER_INSTRUCTIONS_SENTINEL ? (
                                     <BuyerInstructionsContent onNavigate={onNavigate} />
+                                ) : guideContent === VC_INSTRUCTIONS_SENTINEL ? (
+                                    <VCHelpTab />
                                 ) : typeof guideContent === 'string' && guideContent.startsWith('helpCategory:') ? (
                                     <PlatformHelpTab hideSidebar initialCategoryId={guideContent.split(':')[1]} />
                                 ) : typeof guideContent === 'string' ? (
@@ -909,7 +936,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, showOnlyIds, excludeI
                                 )}
 
 
-                                {!(typeof guideContent === 'string' && guideContent.startsWith('helpCategory:')) && guideContent !== BUYER_INSTRUCTIONS_SENTINEL && (
+                                {!(typeof guideContent === 'string' && guideContent.startsWith('helpCategory:')) && guideContent !== BUYER_INSTRUCTIONS_SENTINEL && guideContent !== VC_INSTRUCTIONS_SENTINEL && (
                                 <div className="mt-20 pt-12 border-t border-slate-100">
                                     <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 mb-12">
                                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-800 mb-2">Educational Notice:</h4>

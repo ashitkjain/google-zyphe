@@ -24,7 +24,7 @@ const SOURCE_COLORS: Record<FieldSource, string> = {
     firebase: 'bg-orange-50 border-orange-200 text-orange-700',
 };
 const SOURCE_LABELS: Record<FieldSource, string> = {
-    mls: 'MLS', reso: 'RESO MLS', gemini: 'Gemini AI', arcgis: 'ArcGIS',
+    mls: 'MLS', reso: 'RESO MLS', gemini: 'Zyphe AI', arcgis: 'ArcGIS',
     google: 'Google API', radar: 'Radar API', manual: 'Manual', system: 'System', firebase: 'Firebase',
 };
 
@@ -273,9 +273,9 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                     { icon: 'fa-seedling', label: 'Google Pollen API', desc: 'Pollen types, severity, seasonal triggers', color: 'bg-green-50 border-green-100 text-green-600' },
                                     { icon: 'fa-volume-low', label: 'HowLoud SoundScore', desc: 'Traffic, local, and airport noise scores (via Cloud Function proxy)', color: 'bg-sky-50 border-sky-100 text-sky-600' },
                                     { icon: 'fa-street-view', label: 'Google Street View', desc: 'Curb appeal, privacy, safety, visual clutter, streetscape', color: 'bg-orange-50 border-orange-100 text-orange-600' },
-                                    { icon: 'fa-camera', label: 'Visual AI (Gemini)', desc: 'Interior design, room-by-room quality, condition assessment (2-retry)', color: 'bg-violet-50 border-violet-100 text-violet-600' },
-                                    { icon: 'fa-users', label: 'Community Pulse (Gemini)', desc: 'Resident sentiment, safety, complaints, lifestyle satisfaction', color: 'bg-rose-50 border-rose-100 text-rose-600' },
-                                    { icon: 'fa-chart-line', label: 'Investment Research (Gemini)', desc: 'Macro indicators, market dynamics, zoning, risk factors', color: 'bg-indigo-50 border-indigo-100 text-indigo-600' },
+                                    { icon: 'fa-camera', label: 'Visual AI (Zyphe AI)', desc: 'Interior design, room-by-room quality, condition assessment (2-retry)', color: 'bg-violet-50 border-violet-100 text-violet-600' },
+                                    { icon: 'fa-users', label: 'Community Pulse (Zyphe AI)', desc: 'Resident sentiment, safety, complaints, lifestyle satisfaction', color: 'bg-rose-50 border-rose-100 text-rose-600' },
+                                    { icon: 'fa-chart-line', label: 'Investment Research (Zyphe AI)', desc: 'Macro indicators, market dynamics, zoning, risk factors', color: 'bg-indigo-50 border-indigo-100 text-indigo-600' },
                                     { icon: 'fa-map', label: 'Google Places API', desc: 'Nearby POIs: dining, shopping, parks, transit, fitness, schools', color: 'bg-amber-50 border-amber-100 text-amber-600' },
                                     { icon: 'fa-compass', label: 'Satellite Orientation', desc: 'Building facing direction via satellite + street view for Vastu/Feng Shui', color: 'bg-teal-50 border-teal-100 text-teal-600' },
                                     { icon: 'fa-draw-polygon', label: 'ArcGIS Parcel Polygon', desc: 'County parcel boundaries, lot area (Web Mercator cos² correction), APN', color: 'bg-lime-50 border-lime-100 text-lime-600' },
@@ -283,9 +283,9 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                     { icon: 'fa-fire', label: 'FEMA Disaster History', desc: 'Past declarations: floods, fires, earthquakes, storms by county', color: 'bg-red-50 border-red-100 text-red-600' },
                                     { icon: 'fa-wifi', label: 'FCC Broadband', desc: 'Available ISPs, max download/upload speeds, technology types', color: 'bg-purple-50 border-purple-100 text-purple-600' },
                                     { icon: 'fa-droplet', label: 'US Drought Monitor', desc: 'County-level D0–D4 severity, via FCC Census + USDM API', color: 'bg-orange-50 border-orange-100 text-orange-600' },
-                                    { icon: 'fa-graduation-cap', label: 'Schools (Gemini + Search)', desc: 'Per-school analysis with GreatSchools grounding + quality gate', color: 'bg-pink-50 border-pink-100 text-pink-600' },
-                                    { icon: 'fa-city', label: 'Neighborhood Identity', desc: 'Gemini + ArcGIS LMD + Specific Plan + Surveyor Tract Map', color: 'bg-slate-50 border-slate-200 text-slate-600' },
-                                    { icon: 'fa-receipt', label: 'Gemini Tax Lookup', desc: 'Fallback for taxSqft — Gemini grounded search of county tax records', color: 'bg-stone-50 border-stone-200 text-stone-600' },
+                                    { icon: 'fa-graduation-cap', label: 'Schools (Zyphe AI + Search)', desc: 'Per-school analysis with GreatSchools grounding + quality gate', color: 'bg-pink-50 border-pink-100 text-pink-600' },
+                                    { icon: 'fa-city', label: 'Neighborhood Identity', desc: 'Zyphe AI + ArcGIS LMD + Specific Plan + Surveyor Tract Map', color: 'bg-slate-50 border-slate-200 text-slate-600' },
+                                    { icon: 'fa-receipt', label: 'Zyphe AI Tax Lookup', desc: 'Fallback for taxSqft — Zyphe AI grounded search of county tax records', color: 'bg-stone-50 border-stone-200 text-stone-600' },
                                 ].map((s, i) => (
                                     <div key={i} className={`p-6 rounded-2xl border ${s.color}`}>
                                         <div className="flex items-center gap-3 mb-3">
@@ -597,8 +597,8 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                             <i className="fa-solid fa-wand-magic-sparkles text-violet-400"></i>
                                         </div>
                                         <div>
-                                            <div className="font-bold text-sm mb-1">58 AI-Extracted Factors <span className="text-violet-400 text-[10px] font-mono ml-2">Gemini 2.0 Flash</span></div>
-                                            <div className="text-slate-400 text-xs leading-relaxed">Inferred by Gemini from visual analysis, descriptions, deep research, community data, lifestyle fit analysis, and neighborhood identity. The AI prompt explicitly skips pre-computed IDs to avoid redundant work.</div>
+                                            <div className="font-bold text-sm mb-1">58 AI-Extracted Factors <span className="text-violet-400 text-[10px] font-mono ml-2">Zyphe AI Flash</span></div>
+                                            <div className="text-slate-400 text-xs leading-relaxed">Inferred by Zyphe AI from visual analysis, descriptions, deep research, community data, lifestyle fit analysis, and neighborhood identity. The AI prompt explicitly skips pre-computed IDs to avoid redundant work.</div>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-4">
@@ -1821,7 +1821,7 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-black text-slate-900 mb-2">Deep Research Pipeline</h3>
-                                        <p className="text-slate-500 text-sm leading-relaxed">Triggering a Deep Research run initiates a 5-minute Gemini reasoning cycle that analyzes hundreds of listing descriptions to identify neighborhood-specific gentrification signals and investment "pockets".</p>
+                                        <p className="text-slate-500 text-sm leading-relaxed">Triggering a Deep Research run initiates a 5-minute Zyphe AI reasoning cycle that analyzes hundreds of listing descriptions to identify neighborhood-specific gentrification signals and investment "pockets".</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-6">
@@ -1948,11 +1948,11 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                 </h2>
                                 <div className="space-y-3">
                                     {[
-                                        { name: 'Property Data', fn: 'runPropertyDataOnlyPipeline', level: 'Property', ai: true, images: false, desc: 'RapidAPI specs + ArcGIS parcel + Gemini tax lookup (taxSqft fallback)', color: 'bg-blue-50 border-blue-200 text-blue-700' },
+                                        { name: 'Property Data', fn: 'runPropertyDataOnlyPipeline', level: 'Property', ai: true, images: false, desc: 'RapidAPI specs + ArcGIS parcel + Zyphe AI tax lookup (taxSqft fallback)', color: 'bg-blue-50 border-blue-200 text-blue-700' },
                                         { name: 'RapidAPI Only', fn: 'runRapidAPIOnlyPipeline', level: 'Property', ai: false, images: false, desc: 'Bare-minimum RapidAPI fetch — specs, price, scores. No geocoding, no AI.', color: 'bg-cyan-50 border-cyan-200 text-cyan-700' },
                                         { name: 'Image Only', fn: 'runImageOnlyPipeline', level: 'Property', ai: false, images: true, desc: 'Secures photos, maps, & street view to Firebase Storage — no AI', color: 'bg-amber-50 border-amber-200 text-amber-700' },
-                                        { name: 'City Prefetch', fn: 'prefetchCityIntelligence', level: 'City', ai: true, images: false, desc: 'Warms Community Pulse + Market Intelligence for a city (Gemini)', color: 'bg-teal-50 border-teal-200 text-teal-700' },
-                                        { name: 'Deep Research', fn: 'runCityDeepResearch', level: 'City', ai: true, images: false, desc: 'Gemini 2.0 Flash + Google Search grounding — comprehensive city report', color: 'bg-violet-50 border-violet-200 text-violet-700' },
+                                        { name: 'City Prefetch', fn: 'prefetchCityIntelligence', level: 'City', ai: true, images: false, desc: 'Warms Community Pulse + Market Intelligence for a city (Zyphe AI)', color: 'bg-teal-50 border-teal-200 text-teal-700' },
+                                        { name: 'Deep Research', fn: 'runCityDeepResearch', level: 'City', ai: true, images: false, desc: 'Zyphe AI Flash + Google Search grounding — comprehensive city report', color: 'bg-violet-50 border-violet-200 text-violet-700' },
                                         { name: 'Full Intelligence', fn: 'runFullIntelligencePipeline', level: 'Property', ai: true, images: true, desc: 'Everything: data + images + orientation + 8 parallel AI tasks (Visual, Spatial, Pulse, Investment, Market, Lifestyle, Schools, Neighborhood ID)', color: 'bg-rose-50 border-rose-200 text-rose-700' },
                                     ].map(p => (
                                         <div key={p.fn} className={`flex items-center gap-4 p-4 rounded-2xl border ${p.color}`}>
@@ -2014,7 +2014,7 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                             { step: 'RapidAPI Heal', desc: 'Re-fetches specs if smoke test detects missing fields' },
                                             { step: 'Address Validation', desc: 'Detects city-only addresses (no street number) → re-fetches' },
                                             { step: 'Environmental Heal', desc: 'Re-runs fetchPropertyDataFull for missing env data' },
-                                            { step: 'Parcel Heal', desc: 'Re-runs ArcGIS + Gemini tax lookup for missing APN/polygon' },
+                                            { step: 'Parcel Heal', desc: 'Re-runs ArcGIS + Zyphe AI tax lookup for missing APN/polygon' },
                                         ].map(s => (
                                             <div key={s.step} className="flex items-center gap-3 p-3 bg-orange-50/50 rounded-xl border border-orange-100/50">
                                                 <span className="font-bold text-slate-700">{s.step}</span>
@@ -2075,8 +2075,8 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                             { step: 'Lifestyle Insights', desc: 'analyzeLifestyleInsights()', cache: 'Skips if outdoor field exists' },
                                             { step: 'Community Pulse', desc: 'City-level: analyzeCommunityPulse()', cache: 'Reads cache, waits if running, stale check > 15min' },
                                             { step: 'Market Intelligence', desc: 'City-level: analyzeGeneralMarketIntelligence()', cache: 'Reads cache, waits if running, stale check > 15min' },
-                                            { step: 'Schools Analysis', desc: 'Per-school Gemini analysis + GreatSchools grounding', cache: 'Per-school cache with quality gate (≥3 empty → re-analyze)' },
-                                            { step: 'Neighborhood Identity', desc: 'Gemini + ArcGIS (LMD, Specific Plan, Surveyor Tract)', cache: 'Skips if resolved_name exists and ≠ Unknown' },
+                                            { step: 'Schools Analysis', desc: 'Per-school Zyphe AI analysis + GreatSchools grounding', cache: 'Per-school cache with quality gate (≥3 empty → re-analyze)' },
+                                            { step: 'Neighborhood Identity', desc: 'Zyphe AI + ArcGIS (LMD, Specific Plan, Surveyor Tract)', cache: 'Skips if resolved_name exists and ≠ Unknown' },
                                         ].map(s => (
                                             <div key={s.step} className="flex flex-col gap-1 p-3 bg-violet-50/30 rounded-xl border border-violet-100/50">
                                                 <span className="font-bold text-slate-700">{s.step}</span>
@@ -2143,7 +2143,7 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                                             { task: 'Geocoding (Radar)', note: 'Lightweight, provides coordinates' },
                                             { task: 'Gallery Fetch', note: 'Calls API but only overwrites if more images' },
                                             { task: 'Asset Persistence', note: 'Re-uploads to Storage (deduped)' },
-                                            { task: 'Comprehensive Narrative', note: 'ALWAYS regenerated by Gemini' },
+                                            { task: 'Comprehensive Narrative', note: 'ALWAYS regenerated by Zyphe AI' },
                                             { task: 'Property Save (Merge)', note: 'Additive merge — never deletes fields' },
                                         ].map(t => (
                                             <div key={t.task} className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-rose-100">

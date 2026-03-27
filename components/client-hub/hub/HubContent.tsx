@@ -38,6 +38,7 @@ import PropertyCompsTab from '../PropertyCompsTab';
 import SoldListingsTab from '../SoldListingsTab';
 import AgentManagerTab from '../AgentManagerTab';
 import CostDashboardTab from '../CostDashboardTab';
+import IDXSearchTab from '../IDXSearchTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -189,11 +190,7 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'knowledge_center' && <KnowledgeCenterTab onNavigate={onNavigate} />}
 
             {activeTab === 'vc_guide' && (
-                <div className="bg-white min-h-screen py-16 px-8 sm:px-12 lg:px-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="max-w-5xl mx-auto pb-40">
-                        <VCHelpTab />
-                    </div>
-                </div>
+                <VCHelpTab onNavigate={onNavigate} />
             )}
 
             {activeTab === 'lead_ingestion' && <LeadIngestionTab realtorId={realtorId} />}
@@ -258,6 +255,10 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'agent_manager' && <AgentManagerTab />}
 
             {activeTab === 'cost_dashboard' && <CostDashboardTab />}
+
+            {activeTab === 'idx_search' && <IDXSearchTab onNavigateToProperty={(zpid, address) => {
+                if (onNavigate) onNavigate('explore', address);
+            }} />}
         </div>
     );
 };

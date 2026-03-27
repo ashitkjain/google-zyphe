@@ -18,17 +18,17 @@ const UnitEconomicsTab: React.FC = () => {
             </header>
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* 1. Gemini Model Efficiency */}
+                {/* 1. Zyphe AI Model Efficiency */}
                 <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm hover:border-indigo-200 transition-all flex flex-col space-y-8">
                     <div className="space-y-2">
-                        <h3 className="text-2xl font-serif font-black text-slate-900">Gemini Model Efficiency</h3>
+                        <h3 className="text-2xl font-serif font-black text-slate-900">Zyphe AI Model Efficiency</h3>
                         <p className="text-sm text-slate-500 font-medium">Pricing per 1M tokens (Standard Market Rates)</p>
                     </div>
 
                     <div className="space-y-6">
                         <div className="p-6 bg-slate-50 rounded-3xl space-y-4 border border-slate-100">
                             <div className="flex items-center justify-between">
-                                <h4 className="font-black text-xs text-indigo-600 uppercase tracking-widest">Gemini 2.5 Flash</h4>
+                                <h4 className="font-black text-xs text-indigo-600 uppercase tracking-widest">Zyphe AI</h4>
                                 <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[8px] font-black uppercase">Core</span>
                             </div>
                             <div className="space-y-3">

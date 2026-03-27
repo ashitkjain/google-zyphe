@@ -46,6 +46,7 @@ import {
 import { getSchoolCacheKey } from '../../prompts/property/schoolsAnalysis';
 import { hasEssentialData } from '../../utils/propertyValidation';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
+import PropertyMapView from './PropertyMapView';
 import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS } from '../../constants/contextGraphFactors';
 import { 
     executeGeminiRequest, 
@@ -1943,7 +1944,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     React.useEffect(() => { onMyStory?.(showMyStory); }, [showMyStory]);
 
     // View, sort, filter, pagination state
-    const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table'>('gallery');
+    const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table' | 'map'>('gallery');
     const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea' | 'lotSize' | 'homeType' | 'neighborhood'>('address');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [filterMinPrice, setFilterMinPrice] = useState('');
@@ -2612,6 +2613,12 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             >
                                 <i className="fa-solid fa-table-list mr-1"></i> Table
                             </button>
+                            <button
+                                onClick={() => setViewModeLocal('map')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <i className="fa-solid fa-map-location-dot mr-1"></i> Map
+                            </button>
                         </div>
                     </div>
 
@@ -3232,8 +3239,20 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         </div>
                     )}
 
+                    {/* ── MAP VIEW ── */}
+                    {viewMode === 'map' && (
+                        <PropertyMapView
+                            properties={displayList}
+                            onPropertyClick={onPropertyClick}
+                            selectedCity={selectedCity}
+                            matchMap={buyerResults ? Object.fromEntries(
+                                buyerResults.map((r, i) => [r.zpid, { score: r.score, rank: i + 1 }])
+                            ) : undefined}
+                        />
+                    )}
+
                     {/* ── PAGINATION ── */}
-                    {totalPages > 1 && displayList.length > 0 && !buyerResults && viewMode !== 'zypheai' && (
+                    {totalPages > 1 && displayList.length > 0 && !buyerResults && viewMode !== 'zypheai' && viewMode !== 'map' && (
                         <div className="flex items-center justify-center gap-2 pt-2">
                             <button
                                 onClick={() => setPage(p => Math.max(1, p - 1))}

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import BestPracticesTab from './BestPracticesTab';
 import GuidesTab from './GuidesTab';
 import { syncBestPractices } from '../../services/firebaseService';
 import { auth } from '../../services/firebase/config';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import AuthModal from '../auth/AuthModal';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface KnowledgeCenterTabProps {
     onNavigate?: (view: any, path: string) => void;
@@ -13,6 +14,11 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
     const [activeSubTab, setActiveSubTab] = useState<'playbooks' | 'resources' | 'training'>('playbooks');
     const [activeSection, setActiveSection] = useState('timings');
     const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+    // Stable references for GuidesTab props to prevent effect re-triggers
+    const trainingShowIds = useMemo(() => ['technical_manual'], []);
+    const trainingExcludeIds = useMemo(() => ['technical_manual'], []);
 
     // Listen for auth state changes
     useEffect(() => {
@@ -50,13 +56,8 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
         }
     };
 
-    const handleSignIn = async () => {
-        try {
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
-        } catch (e: any) {
-            console.error('[Auth] Sign-in failed:', e.message);
-        }
+    const handleSignIn = () => {
+        setIsAuthModalOpen(true);
     };
 
     useEffect(() => {
@@ -94,10 +95,20 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
                         ))}
                     </div>
 
-                    <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-tight">
-                        <i className="fa-solid fa-shield-halved text-indigo-400"></i>
-                        Professional Intelligence Hub
-                    </div>
+                    {!isLoggedIn ? (
+                        <button
+                            onClick={handleSignIn}
+                            className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-200/50 hover:scale-105 hover:shadow-xl transition-all"
+                        >
+                            <i className="fa-solid fa-right-to-bracket text-xs"></i>
+                            Sign In
+                        </button>
+                    ) : (
+                        <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-tight">
+                            <i className="fa-solid fa-shield-halved text-indigo-400"></i>
+                            Professional Intelligence Hub
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -120,24 +131,29 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
                                     onClick={handleSignIn}
                                     className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-indigo-200 hover:scale-105 transition-all"
                                 >
-                                    <i className="fa-brands fa-google"></i>
-                                    Sign in with Google
+                                    <i className="fa-solid fa-right-to-bracket"></i>
+                                    Sign In / Join
                                 </button>
                             </div>
                         </div>
                     ) : (
                         <GuidesTab 
                             onNavigate={onNavigate} 
-                            showOnlyIds={['buyer_instructions', 'technical_manual']} 
+                            showOnlyIds={trainingShowIds} 
                         />
                     )
                 ) : (
                     <GuidesTab 
                         onNavigate={onNavigate} 
-                        excludeIds={['buyer_instructions', 'technical_manual']} 
+                        excludeIds={trainingExcludeIds} 
                     />
                 )}
             </div>
+
+            <AuthModal 
+                isOpen={isAuthModalOpen} 
+                onClose={() => setIsAuthModalOpen(false)} 
+            />
         </div>
     );
 };

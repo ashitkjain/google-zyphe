@@ -12,7 +12,7 @@ const PAGE_LABELS: Record<string, string> = {
     ai_validation: 'AI Validation', lead_ingestion: 'Lead Ingestion', pdf_csv: 'PDF to CSV',
     sms_registration: 'SMS Registration', storage_registry: 'Bulk Prefetch',
     bulk_prefetch: 'Bulk Prefetch', industry_research: 'Industry Research',
-    product_market_fit: 'Product Market Fit', post_close_intelligence: 'Post-Close',
+    product_market_fit: 'Product Market Fit', closing_features: 'Closing Features', post_close_intelligence: 'Post-Close',
     technical_papers: 'Technical Papers', video_upload: 'Video Upload',
     technical_media: 'Technical Media', executive_summary: 'Executive Summary',
     industry_case_studies: 'Case Studies', unit_economics: 'Unit Economics',
