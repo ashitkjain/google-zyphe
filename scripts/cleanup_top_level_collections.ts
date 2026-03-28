@@ -24,7 +24,8 @@ const collectionsToDelete = [
     'property_investment_research',
     'property_assets',
     'transaction_documents',
-    'transaction_parties'
+    'transaction_parties',
+    'user_activity'
 ];
 
 async function cleanupOldCollections() {

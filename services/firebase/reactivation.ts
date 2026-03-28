@@ -59,6 +59,13 @@ export const saveReactivationAnalysis = async (
         });
 
         // 3. Create Lead Plan Records
+        const leadPlanPromises = (analysisResult.lead_plans || []).map(plan => {
+            const planData: LeadPlanRecord = {
+                ...plan,
+                reactivation_analysis_summary_id: summaryId,
+                userId: userId,
+                created_at: serverTimestamp(),
+            };
             const lid = plan.lead_id;
             
             // 1. Legacy write

@@ -186,6 +186,21 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
         // 2. Nested write
         const docRef = await addDoc(collection(db, "realtors", rid, "transactions", transactionId, "documents"), payload);
 
+        if (docData.current_version?.storage_path) {
+            const versionData: Omit<DocumentVersion, 'id'> = {
+                document_id: docRef.id,
+                version_number: 1,
+                storage_path: docData.current_version.storage_path,
+                original_filename: docData.current_version.original_filename || 'Unknown',
+                file_type: docData.current_version.file_type || 'application/octet-stream',
+                sha256: docData.current_version.sha256 || '',
+                size: docData.current_version.size || 0,
+                source: 'UPLOAD',
+                created_at: now,
+                updated_at: now,
+                created_by: 'user'
+            };
+
             // Legacy version
             await addDoc(collection(db, "realtors", rid, "transaction_documents", legacyRef.id, "versions"), versionData);
 

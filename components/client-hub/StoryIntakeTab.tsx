@@ -297,6 +297,9 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
     const [history, setHistory] = useState<{ story: string; timestamp: any }[]>([]);
     const [showHistory, setShowHistory] = useState(false);
 
+    // Resolve the realtorId from the current hostname
+    const realtorId = useMemo(() => getRealtorIdFromHost(), []);
+
     const loadExample = (example: ExampleStory) => {
         setData(prev => ({
             ...prev,
@@ -381,8 +384,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
         .filter(Boolean)
         .join('\n\n');
 
-    // Resolve the realtorId from the current hostname
-    const realtorId = useMemo(() => getRealtorIdFromHost(), []);
+
 
     // Synthetic client object pre-filled from story form
     const syntheticClient = {
@@ -919,7 +921,6 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                     )}
                 </button>
             </div>
-        </div>
 
         {/* ── ClientEditModal (pre-filled from story data) ── */}
         <ClientEditModal
