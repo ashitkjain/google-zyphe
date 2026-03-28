@@ -38,7 +38,9 @@ async function cleanupCityLegacyCollections() {
         'deep_investment_research',
         'general_market_intelligence',
         'community_pulse',
-        'schools_intelligence'
+        'schools_intelligence',
+        'zip_listings_cache',
+        'zip_sold_listings_cache'
     ];
 
     for (const col of legacyCollections) {
