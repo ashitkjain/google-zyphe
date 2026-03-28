@@ -51,6 +51,15 @@ service cloud.firestore {
     }
 
     // ═══════════════════════════════════════════════════════
+    // 1a. Nested Analysis Subcollections under properties
+    //     e.g. properties/{zpid}/analysis/{docType}
+    // ═══════════════════════════════════════════════════════
+    match /properties/{zpid}/{subPath=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // ═══════════════════════════════════════════════════════
     // 1b. Unified City Intelligence (Nested)
     // ═══════════════════════════════════════════════════════
     match /cities/{cityId} {
