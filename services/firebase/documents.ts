@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, addDoc, setDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
+import { collection, query, getDocs, addDoc, setDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc, orderBy } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import {
     db,
@@ -38,37 +38,7 @@ const computeSHA256 = async (file: File): Promise<string> => {
     }
 };
 
-export const getDocumentWithVersions = async (docId: string, realtorId?: string): Promise<Document | null> => {
-    if (!db || !docId) return null;
-    try {
-        const rid = requireTenantId(realtorId);
-        
-        // 1. Try new nested path (transactionId is unknown, so we search all transactions using collectionGroup if needed, 
-        //    but usually we have it from context. Here we fallback to legacy first or use a search if we don't have tid.)
-        //    For simplicity in this helper, we'll try to find the tid first if possible.
-        
-        // 2. Legacy path
-        const docRef = doc(db, "realtors", rid, "transaction_documents", docId);
-        const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            const tid = data.transaction_id || (data as any).transactionId;
-            const versions = await getDocumentVersions(docId, rid, tid);
-            return {
-                id: docSnap.id,
-                ...data,
-                current_version: versions[0] || null
-            } as Document;
-        }
-        
-        // 3. Try Nested path search (if tid is missing, we'd need collection group, but usually we fetch by tid)
-        return null;
-    } catch (error) {
-        handleFirestoreError(error, "getDocumentWithVersions");
-        return null;
-    }
-};
 
 export const uploadTransactionDocumentFile = async (
     transactionId: string,
@@ -96,24 +66,11 @@ export const uploadTransactionDocumentFile = async (
     }
 };
 
-export const getDocumentVersions = async (documentId: string, realtorId?: string, transactionId?: string): Promise<DocumentVersion[]> => {
-    if (!db || !documentId) return [];
+export const getDocumentVersions = async (transactionId: string, documentId: string, realtorId?: string): Promise<DocumentVersion[]> => {
+    if (!db || !documentId || !transactionId) return [];
     try {
         const rid = requireTenantId(realtorId);
-        
-        // 1. Try nested path if tid is provided
-        if (transactionId) {
-            const nestedSnap = await getDocs(query(collection(db, "realtors", rid, "transactions", transactionId, "documents", documentId, "versions")));
-            if (!nestedSnap.empty) {
-                const versions = nestedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentVersion));
-                return versions.sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
-            }
-        }
-
-        // 2. Fallback to legacy path
-        logFirestoreQuery('getDocs', `realtors/${rid}/transaction_documents/${documentId}/versions`, {});
-        const q = query(collection(db, "realtors", rid, "transaction_documents", documentId, "versions"));
-        const snap = await getDocs(q);
+        const snap = await getDocs(query(collection(db, "realtors", rid, "transactions", transactionId, "documents", documentId, "versions")));
         const versions = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentVersion));
         return versions.sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
     } catch (error) {
@@ -126,25 +83,10 @@ export const getTransactionDocuments = async (transactionId: string, realtorId?:
     if (!db || !transactionId) return [];
     try {
         const rid = requireTenantId(realtorId);
-
-        // 1. Try new nested path
-        const nestedSnap = await getDocs(query(
+        const snap = await getDocs(query(
             collection(db, "realtors", rid, "transactions", transactionId, "documents"),
             orderBy("name", "asc")
         ));
-        
-        if (!nestedSnap.empty) {
-            const all = nestedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
-            return deduplicateDocuments(all);
-        }
-
-        // 2. Fallback to legacy path
-        logFirestoreQuery('getDocs', 'transaction_documents', { transaction_id: transactionId });
-        const q = query(
-            collection(db, "realtors", rid, "transaction_documents"),
-            where("transaction_id", "==", transactionId)
-        );
-        const snap = await getDocs(q);
         const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
         return deduplicateDocuments(all);
     } catch (error) {
@@ -180,10 +122,6 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
         };
         const now = serverTimestamp();
 
-        // 1. Legacy write
-        const legacyRef = await addDoc(collection(db, "realtors", rid, "transaction_documents"), payload);
-
-        // 2. Nested write
         const docRef = await addDoc(collection(db, "realtors", rid, "transactions", transactionId, "documents"), payload);
 
         if (docData.current_version?.storage_path) {
@@ -200,11 +138,6 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
                 updated_at: now,
                 created_by: 'user'
             };
-
-            // Legacy version
-            await addDoc(collection(db, "realtors", rid, "transaction_documents", legacyRef.id, "versions"), versionData);
-
-            // Nested version
             await addDoc(collection(db, "realtors", rid, "transactions", transactionId, "documents", docRef.id, "versions"), versionData);
         }
 
@@ -231,14 +164,8 @@ export const updateTransactionDocument = async (transactionId: string, docId: st
     try {
         const rid = requireTenantId(realtorId);
         const sanitized = sanitizeForFirestore(updates);
-
-        // 1. Update Legacy if exists
-        const legacyRef = doc(db, "realtors", rid, "transaction_documents", docId);
-        await updateDoc(legacyRef, sanitized).catch(() => {});
-
-        // 2. Update Nested
-        const nestedRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", docId);
-        await updateDoc(nestedRef, sanitized);
+        const docRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", docId);
+        await updateDoc(docRef, sanitized);
 
         await logAuditEvent({
             transaction_id: transactionId,
@@ -268,20 +195,14 @@ export const addDocumentVersion = async (
         const uploadResult = await uploadTransactionDocumentFile(transactionId, file);
         if (!uploadResult) throw new Error("File upload failed");
 
-        // Get parent document data from legacy path to ensure we have it
-        const docRef = doc(db, "realtors", rid, "transaction_documents", documentId);
+        const docRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", documentId);
         const docSnap = await getDoc(docRef);
-
         if (!docSnap.exists()) throw new Error("Parent document not found");
 
         const currentDoc = docSnap.data() as Document;
 
-        // Determine next version number by checking both paths
-        const [legacyVersionsSnap, nestedVersionsSnap] = await Promise.all([
-            getDocs(query(collection(db, "realtors", rid, "transaction_documents", documentId, "versions"))),
-            getDocs(query(collection(db, "realtors", rid, "transactions", transactionId, "documents", documentId, "versions")))
-        ]);
-        const nextVersion = Math.max(legacyVersionsSnap.size, nestedVersionsSnap.size) + 1;
+        const versionsSnap = await getDocs(query(collection(db, "realtors", rid, "transactions", transactionId, "documents", documentId, "versions")));
+        const nextVersion = versionsSnap.size + 1;
         const now = serverTimestamp();
 
         const versionData: Omit<DocumentVersion, 'id'> = {
@@ -298,10 +219,6 @@ export const addDocumentVersion = async (
             created_by: 'user'
         };
 
-        // 1. Legacy version
-        await addDoc(collection(db, "realtors", rid, "transaction_documents", documentId, "versions"), versionData);
-
-        // 2. Nested version
         const versionRef = await addDoc(collection(db, "realtors", rid, "transactions", transactionId, "documents", documentId, "versions"), versionData);
 
         await logAuditEvent({
@@ -330,9 +247,8 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
     if (!db || !transactionId || !docId) return false;
     try {
         const rid = requireTenantId(realtorId);
-        const docRef = doc(db, "realtors", rid, "transaction_documents", docId);
 
-        const versions = await getDocumentVersions(docId, rid);
+        const versions = await getDocumentVersions(transactionId, docId, rid);
 
         for (const version of versions) {
             if (version.storage_path) {
@@ -347,13 +263,8 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
             }
         }
 
-        // 1. Delete Legacy if exists
-        const legacyRef = doc(db, "realtors", rid, "transaction_documents", docId);
-        await deleteDoc(legacyRef).catch(() => {});
-
-        // 2. Delete Nested
-        const nestedRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", docId);
-        await deleteDoc(nestedRef);
+        const docRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", docId);
+        await deleteDoc(docRef);
 
         await logAuditEvent({
             transaction_id: transactionId,
@@ -388,16 +299,9 @@ export const seedDocumentsForTransaction = async (transactionId: string, realtor
                 id: deterministicId,
                 transaction_id: transactionId,
             });
-
-            // Legacy
-            const legacyRef = doc(db, "realtors", rid, "transaction_documents", deterministicId);
-            const legacySnap = await getDoc(legacyRef);
-            if (!legacySnap.exists()) await setDoc(legacyRef, payload);
-
-            // Nested
-            const nestedRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", deterministicId);
-            const nestedSnap = await getDoc(nestedRef);
-            if (!nestedSnap.exists()) await setDoc(nestedRef, payload);
+            const docRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", deterministicId);
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) await setDoc(docRef, payload);
         }
     } catch (error) {
         console.error("Error seeding documents:", error);

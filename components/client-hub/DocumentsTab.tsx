@@ -268,7 +268,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
         // Fetch versions if not already present
         const doc = documents.find(d => d.id === docId);
         if (doc && !doc.current_version) {
-            const versions = await getDocumentVersions(docId);
+            const versions = await getDocumentVersions(transactionId!, docId);
             setDocuments(documents.map(d => d.id === docId ? { ...d, current_version: versions[0], versions: versions } as any : d));
         }
         setExpandedDocId(docId);
