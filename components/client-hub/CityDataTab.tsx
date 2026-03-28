@@ -762,9 +762,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const config = APP_CONFIG.usHousingApi;
 
         // 1. Cloud Cache (skip on force refresh)
+        const cityStateKey = fallbackCity && fallbackState ? `${fallbackCity.toLowerCase().replace(/\s+/g, '_')}_${fallbackState.toLowerCase()}` : undefined;
+
         if (!forceRefresh) {
             try {
-                const cloudCached = await getZipListings(zip);
+                const cloudCached = await getZipListings(zip, cityStateKey);
                 if (cloudCached && (cloudCached.listings?.length ?? 0) > 0) {
                     const allCached = cloudCached.listings || [];
                     const cachedListings = allCached
@@ -785,7 +787,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     if (removed.length > 0) {
                         addLog(`Cleaning ${removed.length} unsupported listing(s) from zip ${zip}...`);
                         // Update zip cache synchronously
-                        saveZipListings(zip, cachedListings).catch(console.error);
+                        saveZipListings(zip, cachedListings, cityStateKey).catch(console.error);
                         // Delete from Firestore — fire and forget, non-blocking
                         import('../../services/firebase/properties').then(({ deletePropertyAnalysis }) => {
                             for (const item of removed) {
@@ -814,7 +816,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     const resoListings = await searchResoProperties(resoConfig, zip);
                     if (resoListings && resoListings.length > 0) {
                         addLog(`RESO API Success: Found ${resoListings.length} listings.`);
-                        saveZipListings(zip, resoListings).catch(console.error);
+                        saveZipListings(zip, resoListings, cityStateKey).catch(console.error);
                         return resoListings;
                     }
                 } catch (e) {
@@ -892,7 +894,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             addLog(`Live API returned ${data.length} total listings for ${zip} (${totalPages} page${totalPages !== 1 ? 's' : ''})`);
 
             if (data.length > 0) {
-                saveZipListings(zip, data).catch(console.error);
+                saveZipListings(zip, data, cityStateKey).catch(console.error);
             }
             return data;
         } catch (e: any) {
@@ -1107,7 +1109,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     // Remove from zip cache so it won't reappear
                                     const matchedListing = results.find((r: any) => String(r.zpid) === zpid);
                                     const zip = matchedListing?.location?.address?.postal_code;
-                                    if (zip) await removePropertyFromZipCache(zip, zpid).catch(() => {});
+                                    const fallbackCity = matchedListing?.location?.address?.city;
+                                    const fallbackState = matchedListing?.location?.address?.state_code;
+                                    const csk = fallbackCity && fallbackState ? `${fallbackCity.toLowerCase().replace(/\s+/g, '_')}_${fallbackState.toLowerCase()}` : undefined;
+                                    if (zip) await removePropertyFromZipCache(zip, zpid, csk).catch(() => {});
                                     setListings(prev => prev.filter(l => String(l.zpid) !== zpid));
                                     enrichSkipped++;
                                     return false;

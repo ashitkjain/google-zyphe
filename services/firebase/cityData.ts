@@ -106,20 +106,40 @@ export const getZipsForCity = async (city: string, state: string): Promise<Recor
 /**
  * Saves listings for a specific zip code in Firestore
  */
-export const saveZipListings = async (zipCode: string, listings: any[]) => {
+/**
+ * Saves listings for a specific zip code in Firestore
+ */
+export const saveZipListings = async (zipCode: string, listings: any[], cityStateKey?: string) => {
     if (!db) return { success: false, error: "Database not initialized" };
     try {
-        // Filter out properties without a zpid
         const validListings = listings.filter(item => item.zpid);
-
-        const docRef = doc(db, "zip_listings_cache", zipCode);
-
-        logFirestoreQuery('setDoc', 'zip_listings_cache', { zipCode, total: listings.length, valid: validListings.length });
-        await setDoc(docRef, {
+        const payload = {
             zipCode,
             listings: sanitizeForFirestore(validListings),
             timestamp: serverTimestamp()
-        });
+        };
+
+        // 1. Legacy write
+        const docRef = doc(db, "zip_listings_cache", zipCode);
+        logFirestoreQuery('setDoc', 'zip_listings_cache', { zipCode });
+        await setDoc(docRef, payload);
+
+        // 2. Consolidated write
+        // Attempt to resolve cityStateKey from listings if missing
+        let csk = cityStateKey;
+        if (!csk && validListings.length > 0) {
+            const first = validListings[0];
+            const city = (first.location?.address?.city || first.city || '').toLowerCase().trim().replace(/\s+/g, '_');
+            const state = (first.location?.address?.state_code || first.state || '').toLowerCase().trim();
+            if (city && state) csk = `${city}_${state}`;
+        }
+
+        if (csk) {
+            const zipRef = doc(db, "cities", csk.toLowerCase(), "zips", zipCode, "active", "listings");
+            logFirestoreQuery('setDoc', 'cities/zips/active', { zipCode, cityStateKey: csk });
+            await setDoc(zipRef, payload);
+        }
+
         return { success: true, filtered: listings.length - validListings.length };
     } catch (error: any) {
         return { success: false, error: handleFirestoreError(error, "saveZipListings") };
@@ -129,19 +149,22 @@ export const saveZipListings = async (zipCode: string, listings: any[]) => {
 /**
  * Retrieves cached listings for a zip code from Firestore
  */
-export const getZipListings = async (zipCode: string): Promise<ZipListingsCache | null> => {
+export const getZipListings = async (zipCode: string, cityStateKey?: string): Promise<ZipListingsCache | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "zip_listings_cache", zipCode);
+        // 1. Try consolidated path first if context provided
+        if (cityStateKey) {
+            const zipRef = doc(db, "cities", cityStateKey.toLowerCase(), "zips", zipCode, "active", "listings");
+            logFirestoreQuery('getDoc', 'cities/zips/active', { zipCode, cityStateKey });
+            const snap = await getDoc(zipRef);
+            if (snap.exists()) return snap.data() as ZipListingsCache;
+        }
 
+        // 2. Fallback to legacy path
+        const docRef = doc(db, "zip_listings_cache", zipCode);
         logFirestoreQuery('getDoc', 'zip_listings_cache', { zipCode });
         const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            return data as ZipListingsCache;
-        }
-        return null;
+        return docSnap.exists() ? docSnap.data() as ZipListingsCache : null;
     } catch (error: any) {
         handleFirestoreError(error, "getZipListings");
         return null;
@@ -150,23 +173,16 @@ export const getZipListings = async (zipCode: string): Promise<ZipListingsCache 
 /**
  * Removes a specific property from a zip code's listing cache.
  */
-export const removePropertyFromZipCache = async (zipCode: string, propertyId: string) => {
+/**
+ * Removes a specific property from a zip code's listing cache.
+ */
+export const removePropertyFromZipCache = async (zipCode: string, propertyId: string, cityStateKey?: string) => {
     if (!db || !zipCode || !propertyId) return { success: false };
     try {
-        const docRef = doc(db, "zip_listings_cache", zipCode);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-            const data = docSnap.data() as ZipListingsCache;
-            const updatedListings = (data.listings || []).filter(l =>
-                String(l.zpid) !== String(propertyId)
-            );
-
-            await setDoc(docRef, {
-                ...data,
-                listings: updatedListings,
-                timestamp: serverTimestamp()
-            });
+        const cache = await getZipListings(zipCode, cityStateKey);
+        if (cache) {
+            const updatedListings = (cache.listings || []).filter(l => String(l.zpid) !== String(propertyId));
+            await saveZipListings(zipCode, updatedListings, cityStateKey);
             return { success: true };
         }
         return { success: false };
@@ -181,19 +197,39 @@ export const removePropertyFromZipCache = async (zipCode: string, propertyId: st
  * Saves recently-sold listings for a zip code to `zip_sold_listings_cache`.
  * Stores the full raw listing objects so the ingestion pipeline can use all fields.
  */
-export const saveZipSoldListings = async (zipCode: string, listings: any[]) => {
+/**
+ * Saves recently-sold listings for a zip code.
+ */
+export const saveZipSoldListings = async (zipCode: string, listings: any[], cityStateKey?: string) => {
     if (!db) return { success: false, error: 'Database not initialized' };
     try {
-        // Filter out properties without a zpid
         const validListings = listings.filter(item => item.zpid);
-
-        const docRef = doc(db, 'zip_sold_listings_cache', zipCode);
-        logFirestoreQuery('setDoc', 'zip_sold_listings_cache', { zipCode, total: listings.length, valid: validListings.length });
-        await setDoc(docRef, {
+        const payload = {
             zipCode,
             listings: sanitizeForFirestore(validListings),
             fetchedAt: serverTimestamp(),
-        });
+        };
+
+        // 1. Legacy write
+        const docRef = doc(db, 'zip_sold_listings_cache', zipCode);
+        logFirestoreQuery('setDoc', 'zip_sold_listings_cache', { zipCode });
+        await setDoc(docRef, payload);
+
+        // 2. Consolidated write
+        let csk = cityStateKey;
+        if (!csk && validListings.length > 0) {
+            const first = validListings[0];
+            const city = (first.location?.address?.city || first.city || '').toLowerCase().trim().replace(/\s+/g, '_');
+            const state = (first.location?.address?.state_code || first.state || '').toLowerCase().trim();
+            if (city && state) csk = `${city}_${state}`;
+        }
+
+        if (csk) {
+            const zipRef = doc(db, "cities", csk.toLowerCase(), "zips", zipCode, "sold", "listings");
+            logFirestoreQuery('setDoc', 'cities/zips/sold', { zipCode, cityStateKey: csk });
+            await setDoc(zipRef, payload);
+        }
+
         return { success: true, filtered: listings.length - validListings.length };
     } catch (error: any) {
         return { success: false, error: handleFirestoreError(error, 'saveZipSoldListings') };
@@ -203,14 +239,22 @@ export const saveZipSoldListings = async (zipCode: string, listings: any[]) => {
 /**
  * Retrieves cached recently-sold listings for a zip code.
  */
-export const getZipSoldListings = async (zipCode: string): Promise<{ zipCode: string; listings: any[]; fetchedAt?: any } | null> => {
+export const getZipSoldListings = async (zipCode: string, cityStateKey?: string): Promise<{ zipCode: string; listings: any[]; fetchedAt?: any } | null> => {
     if (!db) return null;
     try {
+        // 1. Try consolidated path
+        if (cityStateKey) {
+            const zipRef = doc(db, "cities", cityStateKey.toLowerCase(), "zips", zipCode, "sold", "listings");
+            logFirestoreQuery('getDoc', 'cities/zips/sold', { zipCode, cityStateKey });
+            const snap = await getDoc(zipRef);
+            if (snap.exists()) return snap.data() as any;
+        }
+
+        // 2. Legacy fallback
         const docRef = doc(db, 'zip_sold_listings_cache', zipCode);
         logFirestoreQuery('getDoc', 'zip_sold_listings_cache', { zipCode });
         const snap = await getDoc(docRef);
-        if (!snap.exists()) return null;
-        return snap.data() as any;
+        return snap.exists() ? snap.data() as any : null;
     } catch (error: any) {
         handleFirestoreError(error, 'getZipSoldListings');
         return null;

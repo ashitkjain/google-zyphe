@@ -305,12 +305,16 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
                     : [];
 
                 const zipListingsMap = new Map<string, any>();
-                for (const zip of cityZips) {
-                    const cache = await getZipListings(zip);
-                    if (!cache?.listings?.length) continue;
-                    for (const listing of cache.listings) {
-                        const zpid = String(listing.zpid || listing.property_id || listing.listing_id || '');
-                        if (zpid) zipListingsMap.set(zpid, listing);
+                for (const [state, zips] of Object.entries(cachedGroups || {})) {
+                    const stateAbbr = STATE_NAME_MAP[state.toLowerCase()] || state.toUpperCase();
+                    const csk = `${trimmedCity.toLowerCase().replace(/\s+/g, '_')}_${stateAbbr.toLowerCase()}`;
+                    for (const zip of zips) {
+                        const cache = await getZipListings(zip, csk);
+                        if (!cache?.listings?.length) continue;
+                        for (const listing of cache.listings) {
+                            const zpid = String(listing.zpid || listing.property_id || listing.listing_id || '');
+                            if (zpid) zipListingsMap.set(zpid, listing);
+                        }
                     }
                 }
                 loaded.forEach(r => {
@@ -406,23 +410,28 @@ const DistressedFinderTab: React.FC<DistressedFinderTabProps> = ({ isAdmin }) =>
 
             // Collect all candidate zpids + their listing metadata from cache
             const candidateMap: Record<string, { address: string; city: string; state: string; bedrooms?: number; bathrooms?: number; livingArea?: number; lotAreaValue?: number; lotAreaUnit?: string; listingSubType?: Record<string, boolean> }> = {};
-            for (const zip of uniqueZips) {
-                const cache = await getZipListings(zip);
-                if (!cache?.listings?.length) continue;
-                for (const listing of cache.listings) {
-                    const zpid = String(listing.zpid || listing.property_id || listing.listing_id || listing.mls_id || listing.mls?.id || '');
-                    if (!zpid || candidateMap[zpid]) continue;
-                    candidateMap[zpid] = {
-                        address: listing.location?.address?.line || listing.address || zpid,
-                        city: listing.location?.address?.city || trimmedCity,
-                        state: listing.location?.address?.state_code || '',
-                        bedrooms: listing.bedrooms ?? undefined,
-                        bathrooms: listing.bathrooms ?? undefined,
-                        livingArea: listing.livingArea ?? undefined,
-                        lotAreaValue: listing.lotAreaValue ?? undefined,
-                        lotAreaUnit: listing.lotAreaUnit ?? undefined,
-                        listingSubType: listing.listingSubType ?? undefined,
-                    };
+            const cachedGroups = await getZipsForCity(trimmedCity);
+            for (const [state, zips] of Object.entries(cachedGroups || {})) {
+                const stateAbbr = STATE_NAME_MAP[state.toLowerCase()] || state.toUpperCase();
+                const csk = `${trimmedCity.toLowerCase().replace(/\s+/g, '_')}_${stateAbbr.toLowerCase()}`;
+                for (const zip of zips) {
+                    const cache = await getZipListings(zip, csk);
+                    if (!cache?.listings?.length) continue;
+                    for (const listing of cache.listings) {
+                        const zpid = String(listing.zpid || listing.property_id || listing.listing_id || listing.mls_id || listing.mls?.id || '');
+                        if (!zpid || candidateMap[zpid]) continue;
+                        candidateMap[zpid] = {
+                            address: listing.location?.address?.line || listing.address || zpid,
+                            city: listing.location?.address?.city || trimmedCity,
+                            state: listing.location?.address?.state_code || stateAbbr,
+                            bedrooms: listing.bedrooms ?? undefined,
+                            bathrooms: listing.bathrooms ?? undefined,
+                            livingArea: listing.livingArea ?? undefined,
+                            lotAreaValue: listing.lotAreaValue ?? undefined,
+                            lotAreaUnit: listing.lotAreaUnit ?? undefined,
+                            listingSubType: listing.listingSubType ?? undefined,
+                        };
+                    }
                 }
             }
 
