@@ -281,7 +281,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                                             </div>
                                             {item.status === 'completed' && item.address ? (
                                                 <button
-                                                    onClick={() => onNavigate?.('explore', item.address!)}
+                                                    onClick={() => window.open(`/explore?q=${encodeURIComponent(item.address!)}`, '_blank')}
                                                     className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 transition-colors flex items-center gap-2 group/link"
                                                 >
                                                     {item.address}
@@ -327,7 +327,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                                     {item.status === 'completed' && (
                                         <div className="flex items-center justify-between">
                                             <button
-                                                onClick={() => onNavigate?.('explore', item.address!)}
+                                                onClick={() => window.open(`/explore?q=${encodeURIComponent(item.address!)}`, '_blank')}
                                                 className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit hover:bg-emerald-100 transition-colors"
                                             >
                                                 <i className="fa-solid fa-check"></i>
@@ -410,7 +410,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation(); // Prevent row selection
-                                                            if (prop.address && onNavigate) onNavigate('explore', prop.address);
+                                                            if (prop.address) window.open(`/explore?q=${encodeURIComponent(prop.address)}`, '_blank');
                                                         }}
                                                         disabled={!prop.address || prop.address === 'Unknown Address'}
                                                         className="text-left font-bold text-slate-900 hover:text-indigo-600 transition-colors flex items-center gap-2 group/link disabled:opacity-50 disabled:cursor-not-allowed"

@@ -2305,7 +2305,7 @@ ${JSON.stringify(propertySummaries)}
                                                             #{idx + 1}
                                                         </span>
                                                         <button
-                                                            onClick={() => onNavigate?.('explore', match.address)}
+                                                            onClick={() => window.open(`/explore?q=${encodeURIComponent(match.address)}`, '_blank')}
                                                             className="text-sm font-black text-slate-800 hover:text-indigo-600 transition-colors cursor-pointer"
                                                         >
                                                             {match.address}

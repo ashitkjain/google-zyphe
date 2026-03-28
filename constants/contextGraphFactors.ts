@@ -26,7 +26,8 @@ export const FACTOR_NAMES: Record<number, string> = {
     94: 'Street Character', 95: 'Curbside Risks', 96: 'Landscaping', 97: 'Parking', 98: 'Neighborhood Condition',
     100: 'Agent Highlights', 101: 'Schools', 102: 'Sentiment', 103: 'Market Narrative', 104: 'Condition', 105: 'Convenience',
     106: 'Seismic', 107: 'Flood Zone', 108: 'Sqft Discrepancy', 109: 'Lot Verification', 110: 'Listing Flags', 111: 'Distressed Signal',
-    113: 'Room Character', 114: 'Interior Vibe', 115: 'Materials', 116: 'Layout', 120: 'Amenities Profile', 112: 'FEMA'
+    113: 'Room Character', 114: 'Interior Vibe', 115: 'Materials', 116: 'Layout', 120: 'Amenities Profile', 112: 'FEMA',
+    121: 'Microclimate', 122: 'Census Demographics'
 };
 
 /** Unique factor names as an array (for use in prompts) */

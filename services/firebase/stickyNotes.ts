@@ -83,8 +83,22 @@ export const getStickyNotes = async (zpid: string, userId: string, tab: string):
             return timeA - timeB;
         });
     } catch (error) {
-        console.error("Error getting sticky notes:", error);
-        return [];
+        // Composite index may not exist — fall back to zpid-only query + client-side tab filter
+        console.warn("getStickyNotes: composite query failed, falling back to client-side tab filter", error);
+        try {
+            const fallbackQ = query(
+                collection(db, "users", userId, "property_comments"),
+                where('zpid', '==', String(zpid))
+            );
+            const snap = await getDocs(fallbackQ);
+            const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserPropertyComment));
+            return all
+                .filter(n => n.tab === tab)
+                .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+        } catch (fallbackError) {
+            console.error("Error getting sticky notes (fallback):", fallbackError);
+            return [];
+        }
     }
 };
 

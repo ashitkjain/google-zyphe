@@ -35,13 +35,14 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (isEditing || (e.target as HTMLElement).closest('button')) return;
+        e.preventDefault();
+        e.stopPropagation();
         setIsDragging(true);
         hasMoved.current = false;
         dragStartPos.current = {
             x: e.clientX - pos.x,
             y: e.clientY - pos.y
         };
-        e.stopPropagation();
     };
 
     const handleMouseUpDrag = () => {
@@ -79,11 +80,13 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
         };
 
         if (isDragging) {
+            document.body.style.userSelect = 'none';
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUpDrag);
         }
 
         return () => {
+            document.body.style.userSelect = '';
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUpDrag);
         };

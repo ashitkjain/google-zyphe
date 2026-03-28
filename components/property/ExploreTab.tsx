@@ -3397,7 +3397,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                         onMouseLeave={() => setHoveredZpid(null)}
                                     >
                                         <button
-                                            onClick={() => onPropertyClick(prop.address)}
+                                            onClick={() => window.open(`/explore?q=${encodeURIComponent(prop.address)}`, '_blank')}
                                             className={`group w-full bg-white rounded-2xl border transition-all text-left overflow-hidden ${match ? 'border-indigo-300 ring-2 ring-indigo-100 shadow-md' : 'border-slate-100 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50'}`}
                                         >
                                             {/* Score badge overlay */}
@@ -3537,7 +3537,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                         return (
                                             <tr
                                                 key={prop.zpid}
-                                                onClick={() => onPropertyClick(prop.address)}
+                                                onClick={() => window.open(`/explore?q=${encodeURIComponent(prop.address)}`, '_blank')}
                                                 onMouseEnter={() => match && setHoveredZpid(prop.zpid)}
                                                 onMouseLeave={() => setHoveredZpid(null)}
                                                 className={`cursor-pointer transition-colors relative ${match ? 'bg-indigo-50/40 hover:bg-indigo-50' : i % 2 === 0 ? 'bg-white hover:bg-indigo-50/50' : 'bg-slate-50/30 hover:bg-indigo-50/50'}`}
@@ -3613,7 +3613,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     {viewMode === 'map' && (
                         <PropertyMapView
                             properties={displayList}
-                            onPropertyClick={onPropertyClick}
+                            onPropertyClick={(addr) => window.open(`/explore?q=${encodeURIComponent(addr)}`, '_blank')}
                             selectedCity={selectedCity}
                             matchMap={buyerResults ? Object.fromEntries(
                                 buyerResults.map((r, i) => [r.zpid, { score: r.score, rank: i + 1, highlight: r.matchWriteup?.split('.')[0] }])

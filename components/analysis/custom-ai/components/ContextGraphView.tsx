@@ -11,7 +11,7 @@ interface Props {
 
 const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string; ranges: [number, number][] }> = {
     property: { label: 'Property & Financials', icon: 'fa-house', color: 'emerald', ranges: [[1, 30]] },
-    location: { label: 'Location & Lifestyle', icon: 'fa-map-pin', color: 'rose', ranges: [[31, 50], [76, 88], [120, 120]] },
+    location: { label: 'Location & Lifestyle', icon: 'fa-map-pin', color: 'rose', ranges: [[31, 50], [76, 88], [120, 122]] },
     intelligence: { label: 'AI Intelligence', icon: 'fa-brain', color: 'violet', ranges: [[51, 75], [100, 105]] },
     visual: { label: 'Visual & Street View', icon: 'fa-street-view', color: 'cyan', ranges: [[94, 98], [108, 116]] },
     investment: { label: 'Investment & Risk', icon: 'fa-chart-line', color: 'amber', ranges: [[89, 93], [111, 111]] },

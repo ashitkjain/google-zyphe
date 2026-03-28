@@ -35,6 +35,8 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
     };
 
     useEffect(() => {
+        setNotes([]);        // Clear previous tab's notes immediately
+        setPendingNote(null); // Cancel any in-progress draft
         loadNotes();
     }, [zpid, user?.uid, activeTab]);
 
@@ -223,7 +225,7 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
 
                 {/* Notes Canvas */}
                 <div className="absolute inset-0 pointer-events-none z-[100]">
-                    {notes.map(note => (
+                    {notes.filter(n => n.tab === activeTab).map(note => (
                         <div key={note.id} className="pointer-events-auto">
                             <StickyNote
                                 note={note}

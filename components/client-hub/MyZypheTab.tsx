@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAllUserNotes, deleteStickyNote, updateStickyNote } from '../../services/firebase/stickyNotes';
+import { getPropertyFromCloud } from '../../services/firebase/properties';
 import { UserPropertyComment } from '../../types/stickyNotes';
 import MessagesTab from './MessagesTab';
 
@@ -20,6 +21,12 @@ const PAGE_LABELS: Record<string, string> = {
     my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
     sold_listings: 'Sold Listings', agent_manager: 'Agent Manager',
     cost_dashboard: 'Cost Dashboard',
+    // Explore sub-tabs (analysis)
+    interior: 'Interior', rooms: 'Rooms', exterior_and_neighborhood: 'Exterior',
+    neighborhood: 'Neighborhood', schools: 'Schools', pulse: 'Community Pulse',
+    city_neighborhoods: 'City Neighborhoods', deep_research: 'Investment Research',
+    investment: 'Property Economics', image_analysis: 'Image Analysis',
+    quality: 'Picture Quality Audit', context_graph: 'Context Graph',
 };
 
 interface MyZypheTabProps {
@@ -67,6 +74,7 @@ const formatFullDate = (ts: any): string => {
 const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, role, favorites = [], cloudHistory = [] }) => {
     const [notes, setNotes] = useState<UserPropertyComment[]>([]);
     const [notesLoading, setNotesLoading] = useState(true);
+    const [addressCache, setAddressCache] = useState<Record<string, string>>({});
 
     const [activeTab, setActiveTab] = useState<'notes' | 'messages' | 'favorites' | 'history'>('notes');
 
@@ -75,6 +83,31 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
         try {
             const fetchedNotes = await getAllUserNotes(userId);
             setNotes(fetchedNotes);
+
+            // Resolve addresses for all unique zpids
+            const uniqueZpids = [...new Set(fetchedNotes.map(n => n.zpid))];
+            const resolved: Record<string, string> = {};
+            for (const zpid of uniqueZpids) {
+                // Check favorites/history first
+                const fav = favorites.find(f => String(f.zpid) === String(zpid));
+                if (fav?.address || fav?.streetAddress) {
+                    resolved[zpid] = fav.address || fav.streetAddress;
+                    continue;
+                }
+                const hist = cloudHistory.find(h => String(h.zpid) === String(zpid));
+                if (hist?.address) {
+                    resolved[zpid] = hist.address;
+                    continue;
+                }
+                // Fallback: look up from Firestore
+                try {
+                    const propData = await getPropertyFromCloud(zpid);
+                    if (propData?.address) {
+                        resolved[zpid] = propData.address;
+                    }
+                } catch { /* ignore */ }
+            }
+            setAddressCache(resolved);
         } catch (err) {
             console.error('[MyZyphe] Failed to load notes:', err);
         } finally {
@@ -105,11 +138,12 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
     const [editingNote, setEditingNote] = useState<UserPropertyComment | null>(null);
 
     const findAddress = (zpid: string) => {
+        if (addressCache[zpid]) return addressCache[zpid];
         const fav = favorites.find(f => String(f.zpid) === String(zpid));
         if (fav) return fav.address || fav.streetAddress;
         const hist = cloudHistory.find(h => String(h.zpid) === String(zpid));
         if (hist) return hist.address;
-        return `Property ${zpid}`;
+        return null;
     };
 
     return (
@@ -336,13 +370,14 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                                     <td className="px-10 py-6">
                                                         <div className="flex flex-col gap-1">
                                                             <a
-                                                                href={`?zpid=${note.zpid}`}
+                                                                href={`/explore?q=${encodeURIComponent(findAddress(note.zpid) || note.zpid)}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900 hover:text-indigo-600 transition-colors tracking-tight"
+                                                                className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors tracking-tight group/addr"
                                                             >
                                                                 <i className="fa-solid fa-location-dot text-[9px] text-indigo-400"></i>
-                                                                {findAddress(note.zpid)}
+                                                                {findAddress(note.zpid) || `ZPID ${note.zpid}`}
+                                                                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] opacity-0 group-hover/addr:opacity-100 transition-opacity text-indigo-300"></i>
                                                             </a>
                                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-3.5">
                                                                 {PAGE_LABELS[note.tab] || note.tab}
