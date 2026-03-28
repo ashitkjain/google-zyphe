@@ -145,6 +145,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         setActiveTab(mapViewToTab(viewMode));
     }, [viewMode]);
 
+    const stickyNoteActiveTab = useMemo(() => {
+        if (activeTab === 'property-data') return 'overview';
+        if (activeTab === 'visual-ai') return activeSubTab;
+        if (activeTab === 'comprehensive') return 'comprehensive';
+        return 'overview';
+    }, [activeTab, activeSubTab]);
+
     // Census Demographics fetch
     React.useEffect(() => {
         if (propertyData?.coordinates) {
@@ -523,7 +530,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             </div>
                         </div>
 
-                        <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab="overview">
+                        <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab={stickyNoteActiveTab}>
                             {(renderPalette) => (<>
                                 {/* ── Tab Navigation Bar ── */}
                                 <div className="bg-white border-x border-b border-slate-100 px-6 py-3 flex items-center gap-3">

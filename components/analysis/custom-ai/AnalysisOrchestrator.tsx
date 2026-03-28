@@ -330,10 +330,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         <div className="pb-20 relative">
             {/* Content Area */}
             <div className="min-h-[500px] relative max-w-6xl mx-auto">
-                <StickyNotesLayer zpid={zpid || ''} activeTab={activeTab}>
-                    {(renderPalette) => (
-                        <>
-                            {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
+                {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
                             {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
                             {activeTab === 'exterior_and_neighborhood' && (
                                 <>
@@ -703,9 +700,6 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                     )}
                                 </section>
                             )}
-                        </>
-                    )}
-                </StickyNotesLayer>
             </div>
 
             <HoverPreview

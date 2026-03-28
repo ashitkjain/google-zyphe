@@ -27,6 +27,7 @@ const PAGE_LABELS: Record<string, string> = {
     city_neighborhoods: 'City Neighborhoods', deep_research: 'Investment Research',
     investment: 'Property Economics', image_analysis: 'Image Analysis',
     quality: 'Picture Quality Audit', context_graph: 'Context Graph',
+    overview: 'Overview', comprehensive: 'Comprehensive AI',
 };
 
 interface MyZypheTabProps {
