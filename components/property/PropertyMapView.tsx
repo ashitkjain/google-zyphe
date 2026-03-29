@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useCallback } from 'react';
+import ReactDOMServer from 'react-dom/server';
 import Radar from 'radar-sdk-js';
 import { createMapsPlugin } from '@radarlabs/plugin-maps';
 import '@radarlabs/plugin-maps/dist/radar-maps.css';
 import { APP_CONFIG } from '../../config';
 import { CityPropertySummary } from '../../services/firebase/properties';
+import PropertyCard from './PropertyCard';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -12,7 +14,7 @@ interface PropertyMapViewProps {
     onPropertyClick: (address: string) => void;
     selectedCity?: string;
     /** Optional: highlight matched properties with their scores */
-    matchMap?: Record<string, { score: number; rank: number }>;
+    matchMap?: Record<string, { score: number; rank: number; matchWriteup: string }>;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -81,7 +83,7 @@ const createPriceMarkerElement = (
         ">
             ${match ? `<span style="opacity:0.7;font-size:9px;margin-right:2px">#${match.rank}</span>` : ''}${label}
         </div>
-        <div style="
+        <div class="zyphe-marker-tip" style="
             width: 0; height: 0;
             border-left: 6px solid transparent;
             border-right: 6px solid transparent;
@@ -114,41 +116,22 @@ const createPriceMarkerElement = (
 
 // ── Build HTML popup content ───────────────────────────────────────────────────
 
-const buildPopupHtml = (property: CityPropertySummary, match?: { score: number; rank: number }): string => {
-    const price = property.listPrice ? fmt(property.listPrice) : 'Price N/A';
-    const heroImage = property.images?.[0] || '';
-    const specs = [
-        property.bedrooms != null ? `${property.bedrooms} bd` : '',
-        property.bathrooms != null ? `${property.bathrooms} ba` : '',
-        property.livingArea != null ? `${property.livingArea.toLocaleString()} sqft` : '',
-    ].filter(Boolean).join(' · ');
+const buildPopupHtml = (property: CityPropertySummary, match?: { score: number; rank: number; matchWriteup: string }): string => {
+    // We cast CityPropertySummary to PropertyData for the component. 
+    // They share enough fields for the card to render correctly.
+    const propData = {
+        ...property,
+        livingAreaValue: property.livingArea
+    } as any;
 
-    const matchBadge = match
-        ? `<div style="position:absolute;top:6px;left:6px;display:flex;gap:3px;">
-             <span style="background:${match.score >= 80 ? '#059669' : match.score >= 60 ? '#D97706' : '#6366f1'};color:white;font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;">#${match.rank}</span>
-             <span style="background:${match.score >= 80 ? '#059669' : match.score >= 60 ? '#D97706' : '#6366f1'};color:white;font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;">${match.score}%</span>
-           </div>`
-        : '';
-
-    return `
-        <div style="width:240px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;cursor:pointer;" class="zyphe-popup" data-address="${property.address.replace(/"/g, '&quot;')}">
-            ${heroImage ? `
-                <div style="position:relative;width:100%;height:100px;overflow:hidden;background:#f1f5f9;">
-                    <img src="${heroImage}" alt="" style="width:100%;height:100%;object-fit:cover;" />
-                    ${matchBadge}
-                </div>
-            ` : ''}
-            <div style="padding:10px 12px;">
-                <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:-0.5px;">${price}</div>
-                <div style="font-size:11px;font-weight:700;color:#64748b;margin-top:1px;">${specs}</div>
-                <div style="font-size:10px;font-weight:600;color:#94a3b8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${property.address}</div>
-                ${property.neighborhood ? `<div style="font-size:9px;font-weight:800;color:#6366f1;margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;">${property.neighborhood}</div>` : ''}
-                <div style="margin-top:8px;text-align:center;">
-                    <span style="font-size:10px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;background:#4F46E5;padding:6px 16px;border-radius:8px;display:inline-block;cursor:pointer;">View Property →</span>
-                </div>
-            </div>
+    return ReactDOMServer.renderToString(
+        <div style={{ width: '320px', pointerEvents: 'auto' }} className="zyphe-popup" data-address={property.address}>
+            <PropertyCard 
+                property={propData} 
+                match={match}
+            />
         </div>
-    `;
+    );
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -296,15 +279,57 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
                 });
 
                 try {
+                    // Create popup separately so we can control when it opens
+                    // @ts-ignore
+                    const popup = Radar.ui.popup({
+                        closeButton: false,
+                        closeOnClick: false,
+                        anchor: 'bottom',
+                        offset: [0, -40]
+                    }).setHTML(buildPopupHtml(prop, match as any));
+
                     // @ts-ignore
                     const marker = Radar.ui.marker({
                         element: markerEl,
-                        popup: {
-                            html: buildPopupHtml(prop, match),
-                        },
                     })
                         .setLngLat([prop.coordinates!.longitude, prop.coordinates!.latitude])
+                        .setPopup(popup)
                         .addTo(mapRef.current);
+
+                    // Add hover listeners to the marker element
+                    let hoverTimeout: any;
+
+                    markerEl.addEventListener('mouseenter', () => {
+                        clearTimeout(hoverTimeout);
+                        if (!popup.isOpen()) {
+                            popup.addTo(mapRef.current);
+                        }
+                    });
+
+                    markerEl.addEventListener('mouseleave', () => {
+                        hoverTimeout = setTimeout(() => {
+                            if (popup.isOpen()) {
+                                popup.remove();
+                            }
+                        }, 100);
+                    });
+
+                    // Also keep it open if mouse is inside the popup itself
+                    popup.on('open', () => {
+                        const popupEl = popup.getElement();
+                        if (popupEl) {
+                            popupEl.addEventListener('mouseenter', () => {
+                                clearTimeout(hoverTimeout);
+                            });
+                            popupEl.addEventListener('mouseleave', () => {
+                                hoverTimeout = setTimeout(() => {
+                                    if (popup.isOpen()) {
+                                        popup.remove();
+                                    }
+                                }, 100);
+                            });
+                        }
+                    });
 
                     markersRef.current.push(marker);
                 } catch (e) {

@@ -47,6 +47,7 @@ import { getSchoolCacheKey } from '../../prompts/property/schoolsAnalysis';
 import { hasEssentialData } from '../../utils/propertyValidation';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 import PropertyMapView from './PropertyMapView';
+import PropertyCard from './PropertyCard';
 import LeadCaptureModal from './LeadCaptureModal';
 import { SaveSearchModal, SavedSearchesPanel, SavedSearch } from './SaveSearchModals';
 import { trackCityBrowsed, trackViewModeChanged, trackPropertyViewed, trackStorySearchRun } from '../../services/analytics/idxTracking';
@@ -2119,14 +2120,19 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
     // Auto-trigger buyer search when a pending story search is set and results are loaded
     React.useEffect(() => {
-        if (pendingStoryRef.current && results.length > 0 && !browsing && buyerStory.trim()) {
-            pendingStoryRef.current = null;
-            // Small delay to let state settle
-            setTimeout(() => {
-                handleBuyerSearch();
-            }, 200);
+        // Use full Results as dependency to detect city/browse changes reliably
+        if (buyerStory.trim() && results.length > 0 && !browsing) {
+            // Re-trigger if specifically pending, OR if we switched to story mode and lost results
+            if (pendingStoryRef.current || (activePath === 'story' && !buyerResults && !buyerSearching)) {
+                console.log(`[ExploreTab] Auto-triggering buyer search. pendingStory=${!!pendingStoryRef.current}, activePath=${activePath}`);
+                pendingStoryRef.current = null;
+                // Small delay to let state settle
+                setTimeout(() => {
+                    handleBuyerSearch();
+                }, 100);
+            }
         }
-    }, [results, browsing]);
+    }, [results, browsing, activePath, buyerStory]);
 
     // Check if neighborhoods are already cached when city changes
     useEffect(() => {
@@ -2215,16 +2221,20 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Build match lookup from buyer results
     const matchMap = useMemo(() => {
         const map: Record<string, { score: number; matchWriteup: string; rank: number }> = {};
-        buyerResults?.forEach((m, i) => { map[m.zpid] = { score: m.score, matchWriteup: m.matchWriteup, rank: i + 1 }; });
+        // Use string casting for ZPIDs to ensure key matches regardless of original source type
+        buyerResults?.forEach((m, i) => { 
+            const zpid = String(m.zpid);
+            map[zpid] = { score: m.score, matchWriteup: m.matchWriteup, rank: i + 1 }; 
+        });
         return map;
     }, [buyerResults]);
 
-    // When buyer results exist, reorder: matched first (by score desc), then rest
+    // When buyer results exist, show ONLY matches in score order
     const displayList = useMemo(() => {
         if (!buyerResults || buyerResults.length === 0) return processed;
         // Only show matched properties when AI search is active
         return buyerResults
-            .map(m => processed.find(p => p.zpid === m.zpid))
+            .map(m => processed.find(p => String(p.zpid) === String(m.zpid)))
             .filter(Boolean) as typeof processed;
     }, [processed, buyerResults]);
 
@@ -2295,7 +2305,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     };
 
     const sortIcon = (field: typeof sortField) => {
-        if (sortField !== field) return 'fa-sort text-slate-300';
+        if (sortField !== field) return 'fa-sort opacity-20';
         return sortDir === 'asc' ? 'fa-sort-up text-indigo-600' : 'fa-sort-down text-indigo-600';
     };
 
@@ -2315,7 +2325,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             const t0 = performance.now();
             const extractionPrompt = buildExtractionPrompt(buyerStory, buyerPersonaRef.current);
 
-            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; stories: number; min_school_rating: number; must_haves: string[]; nice_to_haves: string[]; dealbreakers?: { requirement: string; type: string; factor_id?: number }[]; relevant_factor_ids?: number[]; search_summary: string };
+            type ExtResult = { price_min: number; price_max: number; beds: number; baths: number; home_type: string; stories: number; min_school_rating: number; must_haves: string[]; nice_to_haves: string[]; search_summary: string };
             const extractionSchema = {
                 type: Type.OBJECT,
                 properties: {
@@ -2340,7 +2350,8 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 userId: auth.currentUser?.uid || 'anon',
                 promptFilename: 'buyerStoryExtraction',
                 extractResultJson: true,
-                schema: extractionSchema
+                schema: extractionSchema,
+                skipWatchdog: true
             });
             timings.push({ step: 'Gemini Extract', ms: Math.round(performance.now() - t0), detail: `model: ${FLASH_LITE_MODEL}` });
 
@@ -2351,21 +2362,17 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 return;
             }
 
-            // Build final price range: -20% below budget, +10% above budget
+            // Build final price range: -20% budget floor, +10% budget ceiling
             let priceMin = ext.price_min;
             let priceMax = ext.price_max;
             if (priceMin > 0 && priceMax > 0 && priceMin === priceMax) {
-                // "around X" case: -20% / +10%
                 priceMin = priceMin * 0.80;
                 priceMax = priceMax * 1.10;
             } else if (priceMin > 0 && priceMax === 0) {
-                // Only lower bound: +10%
                 priceMax = priceMin * 1.10;
             } else if (priceMax > 0 && priceMin === 0) {
-                // Only upper bound: -20%
                 priceMin = priceMax * 0.80;
             }
-            // else: both bounds specified — use as-is
 
             const extracted = {
                 priceMin, priceMax,
@@ -2380,137 +2387,83 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             };
             setBuyerExtracted(extracted);
 
-            // Sync extracted values to the filter bar so they're visible in the UI
+            // Sync extracted values to UI filters
             if (priceMin > 0) setFilterMinPrice(String(Math.round(priceMin)));
             if (priceMax > 0) setFilterMaxPrice(String(Math.round(priceMax)));
             if (extracted.beds) setFilterBeds(String(extracted.beds));
             if (extracted.baths) setFilterBaths(String(extracted.baths));
             if (extracted.homeType) setFilterHomeType(extracted.homeType);
             if (extracted.stories) setFilterStories(String(extracted.stories));
-            if (extracted.minSchoolRating) setFilterMinSchoolRating(String(extracted.minSchoolRating));
 
-
-            // ── STEP 1: Query Firestore directly with server-side filters ──
-            // Single round trip: city + price range + beds + baths filtered at Firestore level
+            // ── STEP 1 & 2: Collate Candidates ──
             const t1 = performance.now();
             const cityForQuery = selectedCity || results[0]?.city || '';
-            if (!cityForQuery) {
-                setBuyerError('No city selected. Please browse a city first.');
-                setBuyerSearching(false);
-                return;
-            }
-
+            
             const graphMap = await queryContextGraphs({
                 city: cityForQuery,
                 priceMin: priceMin > 0 ? priceMin : undefined,
                 priceMax: priceMax > 0 ? priceMax : undefined,
                 minBeds: extracted.beds,
-                minBaths: extracted.baths,
-                maxResults: 50
+                maxResults: 40
             });
 
-            if (graphMap.size === 0) {
-                setBuyerError(`No context graphs found matching criteria (${fmt(priceMin)}–${fmt(priceMax)}, ${extracted.beds || 'any'}+ beds in ${cityForQuery}). Run "Context Graphs" batch first from City Data.`);
-                setBuyerSearching(false);
-                return;
-            }
-            timings.push({ step: `Firestore (${graphMap.size} docs)`, ms: Math.round(performance.now() - t1) });
+            // Standardize candidates (graphs vs visible results)
+            const candidates = new Map<string, any>();
+            
+            // 1. Specialized graphs (high density insights)
+            graphMap.forEach((g, zpid) => {
+                const sid = String(zpid);
+                candidates.set(sid, {
+                    ...g, // Preserve all property fields (price, images, beds, etc.)
+                    zpid: sid,
+                    address: g.address || sid,
+                    factors: g.factors || []
+                });
+            });
 
-            // ── STEP 1a: Merge city-level factors (backward compatible) ──
-            const t1a = performance.now();
-
-            // Determine city/state from the first graph entry for key generation
-            const firstGraph = graphMap.values().next().value;
-            const cityKey = generateCityStateKey(
-                firstGraph?.city || cityForQuery,
-                firstGraph?.state || ''
-            );
-            const cityGraph = cityKey ? await getCityContextGraphFromCloud(cityKey) : null;
-            const cityFactors: any[] = cityGraph?.factors || [];
-            const cityFactorIdSet = new Set(CITY_LEVEL_FACTOR_IDS);
-
-            if (cityFactors.length > 0) {
-                let mergedCount = 0;
-                for (const [zpid, graph] of graphMap) {
-                    const existingIds = new Set(
-                        (graph.factors || []).map((f: any) => f.i ?? f.id).filter((id: any) => id != null)
-                    );
-                    // Only add city factors the property doesn't already have (backward compat)
-                    const toAdd = cityFactors.filter((cf: any) => {
-                        const cfId = cf.i ?? cf.id;
-                        return cfId != null && cityFactorIdSet.has(cfId) && !existingIds.has(cfId);
+            // 2. Visible items (ensure something is always scored)
+            results.slice(0, 30).forEach(p => {
+                const sid = String(p.zpid);
+                if (!candidates.has(sid)) {
+                    candidates.set(sid, {
+                        zpid: sid,
+                        address: p.address,
+                        factors: [
+                            { name: 'Basic Info', tags: [`${fmt(p.price || 0)}`, `${p.bedrooms || 0}bd`, `${p.bathrooms || 0}ba`] },
+                            { name: 'Home Type', tags: [p.homeType || 'Unknown'] }
+                        ]
                     });
-                    if (toAdd.length > 0) {
-                        graph.factors = [...(graph.factors || []), ...toAdd];
-                        mergedCount++;
-                    }
                 }
-                console.log(`[Buyer Match] Merged ${cityFactors.length} city factors into ${mergedCount} property graphs (skipped already-present)`);
-                timings.push({ step: `City merge (${cityFactors.length} factors)`, ms: Math.round(performance.now() - t1a) });
-            } else {
-                console.log(`[Buyer Match] No city context graph found for "${cityKey}" — using property-only factors`);
-                timings.push({ step: 'City merge (none)', ms: Math.round(performance.now() - t1a) });
-            }
-
-            // ── STEP 1b: Filter out guaranteed mismatches by factor ID coverage ──
-            const t1b = performance.now();
-            const MAX = 20;
-
-            let graphEntries = Array.from(graphMap.entries()).map(([zpid, graph]) => {
-                // Count total factors in this property's context graph
-                const factorCount = (graph.factors || []).filter((f: any) => (f.i ?? f.id) != null).length;
-                return { zpid, graph, matchCount: factorCount };
             });
 
-            // Since the simplified extraction no longer produces factor IDs,
-            // skip factor-based pre-filtering and just take top N by factor count
-            graphEntries = graphEntries
-                .sort((a, b) => b.matchCount - a.matchCount)
-                .slice(0, MAX);
-
-            console.log(`[Buyer Match] Factor filter: ${graphMap.size} → ${graphEntries.length} (no factor pre-filter, top ${MAX})`);
-
-            const graphs: { zpid: string; address: string; graph: any; listing: any }[] = graphEntries
-                .filter(e => e.graph?.factors?.length > 0)
-                .filter(e => hasEssentialData(e.graph))
-                .map(e => ({
-                    zpid: e.zpid,
-                    address: e.graph.address || e.zpid,
-                    graph: e.graph,
-                    listing: {
-                        price: e.graph.price || e.graph.keyMetrics?.price,
-                        beds: e.graph.beds || e.graph.keyMetrics?.beds,
-                        baths: e.graph.baths || e.graph.keyMetrics?.baths,
-                        sqft: e.graph.sqft || e.graph.keyMetrics?.sqft,
-                    }
-                }));
-
-            if (graphs.length === 0) {
-                setBuyerError('No context graphs found for matching properties. Run "Context Graphs" batch first from City Data.');
+            if (candidates.size === 0) {
+                setBuyerError(`No matching properties found in ${cityForQuery}.`);
                 setBuyerSearching(false);
                 return;
             }
-            timings.push({ step: `Filter (${graphs.length} kept of ${graphMap.size})`, ms: Math.round(performance.now() - t1b) });
-            setBuyerScoredCount(graphs.length);
 
-            // ── STEP 3: Parallel Gemini matching (chunked) ──
+            const graphsArr = Array.from(candidates.values()).slice(0, 40);
+            timings.push({ step: 'Candidates Collected', ms: Math.round(performance.now() - t1) });
+            setBuyerScoredCount(graphsArr.length);
+
+            // Add candidate properties to the main results if missing
+            // This ensures they are available in 'processed' for the UI to find
+            setResults(prev => {
+                const existingZpids = new Set(prev.map(p => String(p.zpid)));
+                const toAdd: any[] = [];
+                graphsArr.forEach(c => {
+                    if (!existingZpids.has(String(c.zpid))) {
+                        toAdd.push(c);
+                    }
+                });
+                return [...prev, ...toAdd];
+            });
+
+            // ── STEP 3: Parallel Gemini Matching ──
             const t3 = performance.now();
-
-
             const CHUNK_SIZE = 10;
-            const chunks: typeof graphs[] = [];
-            for (let i = 0; i < graphs.length; i += CHUNK_SIZE) {
-                chunks.push(graphs.slice(i, i + CHUNK_SIZE));
-            }
-            // Warmup: prime Gemini backend with tiny request
-            await executeGeminiRequest<any>({
-                model: FLASH_MODEL,
-                contents: 'Say hi',
-                config: { temperature: 2.0, maxOutputTokens: 5 },
-                userId: auth.currentUser?.uid || 'anon',
-                promptFilename: 'warmup',
-                skipWatchdog: true
-            }).catch(() => { }); // ignore errors
+            const chunks = [];
+            for (let i = 0; i < graphsArr.length; i += CHUNK_SIZE) chunks.push(graphsArr.slice(i, i + CHUNK_SIZE));
 
             const schema = {
                 type: Type.OBJECT,
@@ -2531,33 +2484,23 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 required: ['matches']
             };
 
-            // Fire all chunks in parallel
-            const chunkPromises = chunks.map((chunk, idx) => {
+            const chunkPromises = chunks.map((chunk) => {
                 const summaries = chunk.map(g => {
-                    // Lean format: ["Factor Name: tag1, tag2", ...] — flat strings, minimal tokens
-                    const rawFactors = g.graph.factors || [];
-                    const factors: string[] = [];
-                    for (const f of rawFactors) {
-                        const tags = (f.tags || f.t || [])
-                            .filter((t: string) => t && !t.includes('Data Not Available') && !t.includes('Estimated'));
-                        if (tags.length > 0) {
-                            const id = f.id ?? f.i;
-                            const name = f.name || FACTOR_NAMES[id] || `F${id}`;
-                            factors.push(`${name}: ${tags.join(', ')}`);
-                        }
-                    }
+                    const factorStrings = (g.factors || []).map((f: any) => `${f.name || 'Feature'}: ${(f.tags || f.t || []).join(', ')}`);
                     return {
-                        zpid: g.zpid, address: g.address,
-                        summary: g.graph.summary,
-                        keyMetrics: g.graph.keyMetrics,
-                        factors
+                        zpid: g.zpid,
+                        address: g.address,
+                        keyMetrics: {
+                            price: g.detail?.price || g.detail?.list_price || 0,
+                            beds: g.detail?.bedrooms || g.detail?.beds || 0,
+                            baths: g.detail?.bathrooms || g.detail?.baths || 0,
+                            sqft: g.detail?.livingAreaValue || g.detail?.sqft || 0
+                        },
+                        factors: factorStrings
                     };
                 });
 
-                console.log(`[Buyer Match] Chunk ${idx + 1}/${chunks.length}:`, summaries.map(s => ({ zpid: s.zpid, factorCount: Object.keys(s.factors).length, hasKeyMetrics: !!s.keyMetrics, hasSummary: !!s.summary })));
-
                 const prompt = buildMatchingPrompt(buyerStory, extracted, summaries, buyerPersonaRef.current);
-
                 return executeGeminiRequest<{ matches: { zpid: string; score: number; match_writeup: string }[] }>({
                     model: FLASH_MODEL,
                     contents: prompt,
@@ -2565,34 +2508,35 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     userId: auth.currentUser?.uid || 'anon',
                     promptFilename: 'buyerStorySearch',
                     extractResultJson: true,
-                    schema
+                    schema,
+                    skipWatchdog: true
                 });
             });
 
             const chunkResults = await Promise.all(chunkPromises);
 
-            // Merge all matches from all chunks, sort by score
-            const zpidToAddr: Record<string, string> = {};
-            graphs.forEach(g => { zpidToAddr[g.zpid] = g.address; });
-
             const allMatches = chunkResults
                 .flatMap(r => r.data?.matches || [])
-                .map(m => ({ ...m, address: zpidToAddr[m.zpid] || m.zpid, matchWriteup: m.match_writeup }))
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 10);
+                .map(m => ({ 
+                    ...m, 
+                    zpid: String(m.zpid),
+                    matchWriteup: m.match_writeup || (m as any).matchWriteup
+                }))
+                .filter(m => m.zpid && m.zpid !== 'undefined')
+                .sort((a, b) => b.score - a.score);
 
-            timings.push({ step: `Gemini ×${chunks.length}`, ms: Math.round(performance.now() - t3), detail: `${allMatches.length} matches` });
-            const totalMs = timings.reduce((s, t) => s + t.ms, 0);
-            timings.push({ step: 'TOTAL', ms: totalMs });
+            timings.push({ step: 'Gemini Scoring', ms: Math.round(performance.now() - t3), detail: `${allMatches.length} results` });
             setBuyerTimings(timings);
 
             if (allMatches.length > 0) {
-                // Check for fundamental mismatch: only LOCATION dealbreakers are definitive
                 setBuyerResults(allMatches);
                 setSliderIdx(0);
+                if (viewMode !== 'zypheai') setViewModeLocal('zypheai');
+            } else {
+                setBuyerError("No strong AI matches found. Try refining your story.");
             }
         } catch (err: any) {
-            console.error('[Buyer Search]', err);
+            console.error('[Buyer Search Error]', err);
             setBuyerError(`Search failed: ${err.message}`);
         } finally {
             setBuyerSearching(false);
@@ -2705,11 +2649,19 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                         <button 
                                             onClick={handleBuyerSearch}
                                             disabled={buyerSearching}
-                                            className="absolute right-1 top-1.5 bottom-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm opacity-0 group-focus-within:opacity-100 transition-opacity flex items-center gap-1 z-10"
+                                            className="absolute right-1 top-1.5 bottom-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm transition-opacity flex items-center gap-1 z-10"
                                         >
                                             {buyerSearching ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-arrows-rotate"></i>}
                                             Search
                                         </button>
+                                        {/* Debug Indicator */}
+                                        {buyerResults && (
+                                            <div className="flex items-center gap-1.5 mt-1.5 mb-1 px-1">
+                                                <span className="flex w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                                                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{buyerResults.length} Matched</span>
+                                                <span className="text-[10px] text-slate-400 font-bold ml-1">— reasoning shown on cards below</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -2763,6 +2715,14 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             >
                                 <i className="fa-solid fa-grid-2 mr-1"></i> Gallery
                             </button>
+                            {activePath === 'story' && buyerResults && (
+                                <button
+                                    onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'zypheai', resultCount: displayList.length }); setViewModeLocal('zypheai'); }}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'zypheai' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    <i className="fa-solid fa-sparkles mr-1"></i> Pro List
+                                </button>
+                            )}
                             <button
                                 onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'table', resultCount: displayList.length }); setViewModeLocal('table'); }}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
@@ -3283,24 +3243,12 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     {viewMode === 'zypheai' && buyerResults && buyerResults.length > 0 && !buyerSearching && (
                         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             
-                            {/* Post-it Note: The Story */}
-                            <div className="relative transform rotate-1 group hover:rotate-0 transition-transform duration-300 cursor-default select-none mb-8 max-w-sm mx-auto">
-                                <div className="absolute inset-0 bg-amber-200/30 rounded-sm translate-x-1.5 translate-y-2 blur-sm"></div>
-                                <div className="relative bg-[#FFFDCC] border-l-[10px] border-amber-200/50 px-6 py-6 min-h-[140px] shadow-lg overflow-hidden">
-                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-6 bg-white/40 border border-white/20 rotate-1 transform"></div>
-                                    <span className="text-[9px] font-black uppercase text-amber-800/60 tracking-[0.2em] mb-3 block text-center">Current Mission</span>
-                                    <p className="text-[12px] font-medium text-amber-900/90 leading-relaxed italic font-serif line-clamp-6 text-center">
-                                        "{buyerStory}"
-                                    </p>
-                                    <div className="mt-4 h-1 w-16 mx-auto border-b-2 border-amber-300/40 rounded-[50%] skew-x-12"></div>
-                                </div>
-                            </div>
 
                             {/* Header */}
                             <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl px-5 py-3 flex items-center gap-3">
                                 <i className="fa-solid fa-trophy text-amber-300"></i>
                                 <span className="text-sm font-black text-white">AI Match Results</span>
-                                <span className="text-[10px] font-bold text-indigo-200 ml-1">{buyerResults.length} matches</span>
+                                <span className="text-[10px] font-bold text-indigo-200 ml-1">{displayList.length} matches</span>
                                 <button
                                     onClick={() => { setBuyerResults(null); setBuyerExtracted(null); setSliderIdx(0); }}
                                     className="ml-auto text-[10px] font-bold text-indigo-200 hover:text-white transition-colors flex items-center gap-1"
@@ -3311,9 +3259,9 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
                             {/* Scrollable results list */}
                             <div className="max-h-[70vh] overflow-y-auto space-y-3 pr-1" style={{ scrollbarWidth: 'thin' }}>
-                                {buyerResults.map((match, idx) => {
-                                    const prop = processed.find(p => p.zpid === match.zpid);
-                                    if (!prop) return null;
+                                {displayList.map((prop, idx) => {
+                                    const match = matchMap[String(prop.zpid)];
+                                    if (!match) return null;
                                     const img = prop.imgSrc || prop.images?.[0] || '';
                                     return (
                                         <div
@@ -3395,112 +3343,16 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     {viewMode === 'gallery' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                             {pageItems.map(prop => {
-                                const match = matchMap[prop.zpid];
+                                const match = matchMap[String(prop.zpid)];
                                 return (
-                                    <div
+                                    <PropertyCard
                                         key={prop.zpid}
-                                        className="relative group"
-                                        onMouseEnter={() => match && setHoveredZpid(prop.zpid)}
-                                        onMouseLeave={() => setHoveredZpid(null)}
-                                    >
-                                        <button
-                                            onClick={() => window.open(`/explore?q=${encodeURIComponent(prop.address)}`, '_blank')}
-                                            className={`group w-full bg-white rounded-2xl border transition-all text-left overflow-hidden ${match ? 'border-indigo-300 ring-2 ring-indigo-100 shadow-md' : 'border-slate-100 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50'}`}
-                                        >
-                                            {/* Score badge overlay */}
-                                            {match && (
-                                                <div className="absolute top-2 left-2 z-10 flex items-center gap-1">
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-sm ${match.rank === 1 ? 'bg-amber-400 text-white' : match.rank <= 3 ? 'bg-indigo-600 text-white' : 'bg-white/90 text-slate-600 border border-slate-200'}`}>
-                                                        #{match.rank}
-                                                    </span>
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-sm ${match.score >= 80 ? 'bg-emerald-500 text-white' : match.score >= 60 ? 'bg-amber-500 text-white' : 'bg-white/90 text-slate-600 border border-slate-200'}`}>
-                                                        {match.score}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            {prop.images?.[0] ? (
-                                                <div className="aspect-[2/1] bg-slate-100 overflow-hidden">
-                                                    <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                                                </div>
-                                            ) : (
-                                                <div className="aspect-[2/1] bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                                                    <i className="fa-solid fa-house text-2xl text-slate-300"></i>
-                                                </div>
-                                            )}
-                                            <div className="p-4">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
-                                                        {prop.address}
-                                                    </div>
-                                                </div>
-                                                {prop.neighborhood && (
-                                                    <div className="mb-1.5">
-                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{prop.neighborhood}</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold flex-wrap">
-                                                    {prop.listPrice && <span className="text-indigo-600 font-black">{fmt(prop.listPrice)}</span>}
-                                                    {prop.bedrooms && <span>{prop.bedrooms} bd</span>}
-                                                    {prop.bathrooms && <span>{prop.bathrooms} ba</span>}
-                                                    {prop.livingArea && <span>{prop.livingArea.toLocaleString()} sqft</span>}
-                                                    {prop.lotSize && <span>Lot {prop.lotSize}</span>}
-                                                    {prop.homeType && <span>{prop.homeType.replace(/_/g, ' ')}</span>}
-                                                </div>
-
-                                                {/* Reasoning: Clean Bulleted List Inline */}
-                                                {match && match.matchWriteup && (
-                                                    <div className="mt-4 pt-4 border-t border-slate-50">
-                                                        <ul className="space-y-3">
-                                                            {match.matchWriteup.split(/(?=[✅❌👤])/g).map(bullet => {
-                                                                const trimmed = bullet.trim();
-                                                                const content = trimmed.replace(/[✅❌👤]/g, '').trim();
-                                                                if (!content) return null; // Skip if no text
-                                                                
-                                                                const isPro = trimmed.startsWith('✅');
-                                                                const isCon = trimmed.startsWith('❌');
-                                                                
-                                                                return (
-                                                                    <li key={bullet} className="flex gap-3 items-start group/bullet">
-                                                                        <span className={`flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-[9px] shadow-sm transition-transform group-hover/bullet:scale-110 ${
-                                                                            isPro ? 'bg-emerald-500 text-white' : 
-                                                                            isCon ? 'bg-rose-500 text-white' : 
-                                                                            'bg-indigo-600 text-white'
-                                                                        }`}>
-                                                                            <i className={`fa-solid ${isPro ? 'fa-check' : isCon ? 'fa-xmark' : 'fa-user'} text-[8px]`}></i>
-                                                                        </span>
-                                                                        <span className={`text-[11px] leading-relaxed ${
-                                                                            isPro ? 'text-slate-800 font-bold' : 
-                                                                            isCon ? 'text-slate-500 font-medium' : 
-                                                                            'text-indigo-900 font-black tracking-tight'
-                                                                        }`}>
-                                                                            {content}
-                                                                        </span>
-                                                                    </li>
-                                                                );
-                                                            }).filter(Boolean)}
-                                                        </ul>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </button>
-                                        {/* Lead Capture Buttons — shown on hover */}
-                                        <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1.5 z-10" style={{ pointerEvents: 'none' }}>
-                                            <button
-                                                style={{ pointerEvents: 'auto' }}
-                                                onClick={e => { e.stopPropagation(); setLeadModal({ type: 'tour', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
-                                                className="flex-1 py-2 bg-indigo-600/95 backdrop-blur-sm text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-colors shadow-lg flex items-center justify-center gap-1"
-                                            >
-                                                <i className="fa-solid fa-calendar-check text-[8px]"></i> Tour
-                                            </button>
-                                            <button
-                                                style={{ pointerEvents: 'auto' }}
-                                                onClick={e => { e.stopPropagation(); setLeadModal({ type: 'info', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
-                                                className="flex-1 py-2 bg-emerald-600/95 backdrop-blur-sm text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-emerald-700 transition-colors shadow-lg flex items-center justify-center gap-1"
-                                            >
-                                                <i className="fa-solid fa-envelope text-[8px]"></i> Info
-                                            </button>
-                                        </div>
-                                    </div>
+                                        property={prop}
+                                        match={match}
+                                        onClick={() => window.open(`/explore?q=${encodeURIComponent(prop.address)}`, '_blank')}
+                                        onTourClick={(e) => { e.stopPropagation(); setLeadModal({ type: 'tour', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
+                                        onInfoClick={(e) => { e.stopPropagation(); setLeadModal({ type: 'info', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
+                                    />
                                 );
                             })}
                         </div>

@@ -220,6 +220,7 @@ export const executeGeminiRequest = async <T>(
   }
 ): Promise<{ data: T; usage: AIUsage; sources?: { url: string; title: string }[] | null; rawResponse: any }> => {
   const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls, skipWatchdog } = params;
+  console.log(`[Gemini] Starting ${promptFilename} (model: ${model}, skipWatchdog: ${!!skipWatchdog})`);
   const ai = await getAi();
 
   const logId = skipWatchdog ? null : await logLLMCall({
@@ -300,12 +301,14 @@ export const executeGeminiRequest = async <T>(
       }
 
       // 3. Perform Generation
+      console.log(`[Gemini] Calling generateContent for ${promptFilename}...`);
       const result = await (ai.models as any).generateContent({
         model,
         contents: formattedContents,
         config: finalConfig,
       });
 
+      console.log(`[Gemini] Response received for ${promptFilename}`);
       const responseText = typeof result.text === 'function' ? result.text() : result.text;
       const usage = calculateUsage(result, model);
 
