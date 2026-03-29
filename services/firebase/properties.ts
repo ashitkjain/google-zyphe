@@ -129,10 +129,27 @@ function normalizePropertyFields(doc: Record<string, any>): Record<string, any> 
 
     // ── Moved Collections ──────────────────────────────────────────────────────
     // The following fields have been moved to dedicated collections (like 
-    // google_environmental_data) to avoid the 1MB Firestore limit, but may still
-    // be present on the data object for frontend rendering. We strip them here 
-    // to keep the `properties` collection lean.
+    // google_environmental_data / environmental sub-collection) to avoid the 
+    // 1MB Firestore limit, but may still be present on the data object for 
+    // frontend rendering. We strip them here to keep the `properties` collection lean.
     delete out.google_places;
+    delete out.airQuality;
+    delete out.pollen;
+    delete out.solarData;
+    delete out.noiseScore;
+    delete out.noiseScoreDesc;
+    delete out.noiseTrafficScore;
+    delete out.noiseTrafficDesc;
+    delete out.noiseLocalScore;
+    delete out.noiseLocalDesc;
+    delete out.noiseAirportScore;
+    delete out.noiseAirportDesc;
+    delete out.historical_disasters;
+    delete out.evChargers;
+    delete out.drought;
+    delete out.broadband;
+    delete out.streetViewAnalysis; // Also moved to environmental
+
 
     return out;
 }
