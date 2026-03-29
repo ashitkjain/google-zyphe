@@ -22,26 +22,39 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
     const [loading, setLoading] = useState(true);
     const [showGuide, setShowGuide] = useState(true);
 
-    const propertyCity = propertyData?.city || propertyData?.address?.split(',')[1]?.trim();
+    const propertyCity = propertyData?.city || (propertyData?.address?.includes(',') ? propertyData.address.split(',')[1]?.trim() : null);
     const propertyState = propertyData?.state || 'CA';
 
     useEffect(() => {
         (async () => {
             try {
+                // Pre-calculate hint key from propertyData for immediate loading attempt
+                let initialKey: string | null = null;
+                if (propertyCity) {
+                    const { generateCityStateKey } = await import('../../../../services/firebase/config');
+                    initialKey = generateCityStateKey(propertyCity, propertyState);
+                    setSelectedKey(initialKey); // Tentatively set this so we start loading data immediately
+                }
+
                 const { getAllMinedCities } = await import('../../../../services/firebase/properties');
                 const cities = await getAllMinedCities();
                 setMinedCities(cities);
-                if (propertyCity) {
-                    const { generateCityStateKey } = await import('../../../../services/firebase/config');
-                    const hintKey = generateCityStateKey(propertyCity, propertyState);
-                    const match = cities.find(c => c.key === hintKey);
+                
+                // Refined matching logic once cities list is available
+                if (initialKey) {
+                    const match = cities.find(c => c.key === initialKey);
                     if (match) setSelectedKey(match.key);
-                    else if (cities.length > 0) setSelectedKey(cities[0].key);
+                    else if (!selectedKey && cities.length > 0) {
+                        setSelectedKey(cities[0].key);
+                    }
                 } else if (cities.length > 0) {
                     setSelectedKey(cities[0].key);
                 }
-            } catch (e) { console.warn('Failed to load mined cities:', e); }
-            setLoading(false);
+            } catch (e) { 
+                console.warn('Failed to load mined cities:', e); 
+            } finally {
+                setLoading(false);
+            }
         })();
     }, []);
 

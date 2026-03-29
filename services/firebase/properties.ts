@@ -841,18 +841,46 @@ export const getCityNeighborhoodsFromCloud = async (cityStateKey: string): Promi
 export const getAllMinedCities = async (): Promise<{ key: string; city: string; state: string; count: number; lastUpdated?: any }[]> => {
     if (!db) return [];
     try {
+        // Query both legacy and consolidated collections
         logFirestoreQuery('getDocs', 'city_neighborhoods', { action: 'listAll' });
-        const snap = await getDocs(collection(db, "city_neighborhoods"));
-        return snap.docs.map(d => {
+        const legacySnap = await getDocs(collection(db, "city_neighborhoods"));
+        
+        logFirestoreQuery('getDocs', 'cities', { action: 'listAll' });
+        const consolidatedSnap = await getDocs(collection(db, "cities"));
+        
+        const citiesMap = new Map<string, { key: string; city: string; state: string; count: number; lastUpdated?: any }>();
+        
+        // Process legacy first
+        legacySnap.docs.forEach(d => {
             const data = d.data();
-            return {
+            citiesMap.set(d.id, {
                 key: d.id,
                 city: data.city || d.id.split('_')[0] || 'Unknown',
                 state: data.state || d.id.split('_')[1] || '',
                 count: data.neighborhoods?.length || data.total_neighborhoods || 0,
                 lastUpdated: data.lastUpdated
-            };
+            });
         });
+        
+        // Merging consolidated documents
+        consolidatedSnap.docs.forEach(d => {
+            const data = d.data();
+            const existing = citiesMap.get(d.id);
+            if (!existing) {
+                citiesMap.set(d.id, {
+                    key: d.id,
+                    city: data.city || d.id.split('_')[0] || 'Unknown',
+                    state: data.state || d.id.split('_')[1] || '',
+                    count: data.total_neighborhoods || 0,
+                    lastUpdated: data.lastUpdated
+                });
+            } else if (data.lastUpdated) {
+                // If consolidated exists, just updating metadata if newer
+                existing.lastUpdated = data.lastUpdated;
+            }
+        });
+        
+        return Array.from(citiesMap.values());
     } catch (error) {
         handleFirestoreError(error, "getAllMinedCities");
         return [];
