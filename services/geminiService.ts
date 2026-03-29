@@ -2,7 +2,6 @@ import { GoogleGenAI } from "@google/genai";
 import { serverTimestamp } from "firebase/firestore";
 import {
   PropertyData,
-  AIAnalysisResult,
   CustomAIAnalysisResult,
   NeighborhoodAnalysis,
   CommunityPulseResult,
@@ -493,20 +492,6 @@ export async function urlToBase64(url: string): Promise<{ data: string, mimeType
   }
 }
 
-export const analyzeProperty = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<AIAnalysisResult>> => {
-  const prompt = getPropertyAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
-  return executeGeminiRequest<AIAnalysisResult>({
-    model: FLASH_MODEL,
-    contents: prompt,
-    userId,
-    zpid: property.zpid,
-    address: property.address,
-    promptFilename: "propertyAnalysis.ts",
-    extractResultJson: true,
-    schema: propertyAnalysisSchema,
-    imageUrls: property.images
-  });
-};
 
 export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodAnalysis>> => {
   const [img1, img2] = await Promise.all([

@@ -64,7 +64,6 @@ import AddClientModal from './components/client-hub/AddClientModal';
 import ClientHub from './components/ClientHub';
 import Footer from './components/shared/Footer';
 import ExploreTab from './components/property/ExploreTab';
-import ContextGraphPage from './components/property/ContextGraphPage';
 import GuidesTab from './components/client-hub/GuidesTab';
 import LegalDisclaimer from './components/legal/LegalDisclaimer';
 import TermsView from './components/legal/TermsView';
@@ -74,7 +73,7 @@ import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
 const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation' | 'context_graph' | 'my_zyphe';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe';
 
 // Initialize PostHog immediately (synchronous) so it's ready before any events fire
 initPostHog();
@@ -182,16 +181,6 @@ const App: React.FC = () => {
       if (isRealtorPath) {
         if (subPath.length === 0) {
           setViewMode('main'); // Dashboard
-        } else if (subPath[0] === 'context-graph') {
-          // Handle /realtor/context-graph?zpid=xxx
-          const params = new URLSearchParams(window.location.search);
-          const zpid = params.get('zpid');
-          if (zpid) {
-            setContextGraphZpid(zpid);
-            setViewMode('context_graph');
-          } else {
-            setViewMode('main');
-          }
         } else if (subPath[0] === 'guides' || subPath[0] === 'knowledge' || subPath[0] === 'training' || subPath[0] === 'playbooks' || subPath[0] === 'resources' || subPath[0] === 'best_practices' || subPath[0] === 'support' || subPath[0] === 'platform-technical-manual' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
           setViewMode('knowledge_center');
         } else {
@@ -248,8 +237,6 @@ const App: React.FC = () => {
       path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : newMode === 'terms' ? '/terms' : '/privacy';
     } else if (newMode === 'main' || newMode === 'explore' || newMode === 'dashboard') {
       path = (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'admin') ? '/realtor' : '/';
-    } else if (newMode === 'context_graph') {
-      path = `/realtor/context-graph${contextGraphZpid ? `?zpid=${contextGraphZpid}` : ''}`;
     } else if (newMode === 'technical_papers_context_graph') {
       path = '/knowledge/context-graph';
     } else {
@@ -1236,18 +1223,6 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <div className="flex-1"><PrivacyPolicy /></div>
         <Footer onNavigate={transitionToView} />
-      </div>
-    );
-  }
-
-  // CONTEXT GRAPH — Standalone page at /realtor/context-graph?zpid=xxx
-  if (viewMode === 'context_graph' && contextGraphZpid) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <ContextGraphPage
-          zpid={contextGraphZpid}
-          onBack={() => transitionToView('main')}
-        />
       </div>
     );
   }

@@ -423,7 +423,7 @@ export const getTasks = async (realtorId: string) => {
     try {
         const rid = requireTenantId(realtorId);
         const q = query(collection(db, "realtors", rid, "tasks"));
-        logFirestoreQuery('getDocs', 'tasks', { realtorId });
+        logFirestoreQuery('getDocs', 'realtors/tasks', { realtorId });
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
     } catch (error) {
@@ -443,17 +443,6 @@ export const addTask = async (task: Partial<CRMTask>) => {
             updatedAt: serverTimestamp()
         });
 
-        // Log Audit
-        if (task.transaction_id) {
-            await logAuditEvent({
-                transaction_id: task.transaction_id,
-                entity_id: docRef.id,
-                entity_type: 'Task',
-                action: 'CREATE',
-                diff: { after: task }
-            });
-        }
-
         return docRef.id;
     } catch (error) {
         handleFirestoreError(error, "addTask");
@@ -471,18 +460,6 @@ export const updateTask = async (taskId: string, updates: Partial<CRMTask>, tran
             updatedAt: serverTimestamp()
         }));
 
-        // Log Audit
-        const finalTxId = transactionId || (updates as any).transaction_id;
-        if (finalTxId) {
-            await logAuditEvent({
-                transaction_id: finalTxId,
-                entity_id: taskId,
-                entity_type: 'Task',
-                action: 'UPDATE',
-                diff: { after: updates }
-            });
-        }
-
         return true;
     } catch (error) {
         handleFirestoreError(error, "updateTask");
@@ -495,18 +472,8 @@ export const deleteTask = async (taskId: string, transactionId?: string, realtor
     try {
         const rid = requireTenantId(realtorId);
         const docRef = doc(db, "realtors", rid, "tasks", taskId);
-        logFirestoreQuery('deleteDoc', 'tasks', { taskId });
+        logFirestoreQuery('deleteDoc', 'realtors/tasks', { taskId });
         await deleteDoc(docRef);
-
-        // Log Audit
-        if (transactionId) {
-            await logAuditEvent({
-                transaction_id: transactionId,
-                entity_id: taskId,
-                entity_type: 'Task',
-                action: 'DELETE'
-            });
-        }
 
         return true;
     } catch (error) {
@@ -523,7 +490,7 @@ export const getClientTasks = async (realtorId: string, clientId: string) => {
             collection(db, "realtors", rid, "tasks"),
             where("clientId", "==", clientId)
         );
-        logFirestoreQuery('getDocs', 'tasks', { realtorId, clientId });
+        logFirestoreQuery('getDocs', 'realtors/tasks', { realtorId, clientId });
         const snap = await getDocs(q);
         return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
     } catch (error) {

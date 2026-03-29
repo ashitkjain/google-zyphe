@@ -9,7 +9,7 @@ import {
 import { requireTenantId } from "./tenantContext";
 import { Document, DocumentVersion, FileMetadata } from "../../types";
 import { generateMockTransactionDocuments } from "../mockData";
-import { logAuditEvent } from "./audit";
+import { generateMockTransactionDocuments } from "../mockData";
 
 // Helper to get a secure download URL
 export const getDocumentDownloadUrl = async (storagePath: string): Promise<string | null> => {
@@ -141,13 +141,6 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
             await addDoc(collection(db, "realtors", rid, "transactions", transactionId, "documents", docRef.id, "versions"), versionData);
         }
 
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: docRef.id,
-            entity_type: 'Document',
-            action: 'CREATE',
-            diff: { after: docData }
-        }, rid);
 
         return {
             id: docRef.id,
@@ -167,13 +160,6 @@ export const updateTransactionDocument = async (transactionId: string, docId: st
         const docRef = doc(db, "realtors", rid, "transactions", transactionId, "documents", docId);
         await updateDoc(docRef, sanitized);
 
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: docId,
-            entity_type: 'Document',
-            action: 'UPDATE',
-            diff: { after: updates }
-        }, rid);
 
         return true;
     } catch (error) {
@@ -221,13 +207,6 @@ export const addDocumentVersion = async (
 
         const versionRef = await addDoc(collection(db, "realtors", rid, "transactions", transactionId, "documents", documentId, "versions"), versionData);
 
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: versionRef.id,
-            entity_type: 'DocumentVersion',
-            action: 'CREATE',
-            diff: { after: versionData }
-        }, rid);
 
         return {
             ...currentDoc,

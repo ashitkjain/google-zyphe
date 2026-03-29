@@ -6,7 +6,6 @@ import DocumentsTab from './DocumentsTab';
 import TransactionWizard from './TransactionWizard';
 import { ChecklistCategory } from '../../types/transaction';
 import TransactionTimeline from './TransactionTimeline';
-import AuditTrailTab from './AuditTrailTab';
 
 interface ClosingDashboardProps {
     leads: Lead[];
@@ -57,7 +56,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
     const [activeSubTab, setActiveSubTab] = useState('TRANSACTION');
 
-    const subTabs = ['TRANSACTION', 'PARTIES', 'DOCUMENTS', 'LOG'];
+    const subTabs = ['TRANSACTION', 'PARTIES', 'DOCUMENTS'];
 
 
 
@@ -137,7 +136,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                     onClick={() => setActiveSubTab(tab)}
                                     className={`px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative ${activeSubTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    {tab === 'LOG' ? 'Audit Trail' : tab}
+                                    {tab}
                                     {activeSubTab === tab && (
                                         <div className="absolute bottom-0 left-6 right-6 h-1 bg-indigo-600 rounded-t-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>
                                     )}
@@ -149,15 +148,12 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
                         {/* Documentation / Checklist Section */}
                         <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
-                            {activeSubTab !== 'TRANSACTION' && activeSubTab !== 'CHECKLIST' && activeSubTab !== 'PARTIES' && activeSubTab !== 'DOCUMENTS' && activeSubTab !== 'LOG' && (
+                            {activeSubTab !== 'TRANSACTION' && activeSubTab !== 'CHECKLIST' && activeSubTab !== 'PARTIES' && activeSubTab !== 'DOCUMENTS' && (
                                 <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                     <div className="flex items-center gap-4">
                                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                                            {activeSubTab === 'CHECKLIST' ? 'Transaction Checklist' :
-                                                activeSubTab === 'PARTIES' ? 'Transaction Parties' :
-                                                    activeSubTab === 'TRANSACTION' ? 'Transaction Record' :
-                                                        activeSubTab === 'LOG' ? 'Audit Trail' :
-                                                            'Documentation'}
+                                                {activeSubTab === 'PARTIES' ? 'Transaction Parties' :
+                                                    'Transaction Record'}
                                         </h2>
                                     </div>
                                 </div>
@@ -175,11 +171,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                     <PartiesTab lead={activeLead} realtorId={realtorId} />
                                 )}
 
-                                {activeSubTab === 'LOG' && (
-                                    <AuditTrailTab lead={activeLead} realtorId={realtorId} />
-                                )}
-
-                                {activeSubTab !== 'CHECKLIST' && activeSubTab !== 'TRANSACTION' && activeSubTab !== 'PARTIES' && activeSubTab !== 'LOG' && (
+                                {activeSubTab !== 'TRANSACTION' && activeSubTab !== 'PARTIES' && (
                                     <DocumentsTab lead={activeLead} realtorId={realtorId} />
                                 )}
                             </div>

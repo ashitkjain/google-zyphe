@@ -1,10 +1,9 @@
-
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db, handleFirestoreError, logFirestoreQuery, sanitizeForFirestore } from "./config";
 import { StreetViewAnalysisResult } from "../../types";
 import type { HistoricalDisasterData } from "../api/disasters";
 
-export interface GoogleEnvironmentalData {
+export interface ThirdPartyData {
     zpid: string;
     solarData?: any;
     airQuality?: any;
@@ -37,15 +36,15 @@ export interface GoogleEnvironmentalData {
  * One-time field migration for env docs written before the rename.
  * Apply on read until all docs have been re-written. Then delete this function.
  */
-export const normalizeEnvDoc = (data: Record<string, any>): GoogleEnvironmentalData => {
+export const normalizeEnvDoc = (data: Record<string, any>): ThirdPartyData => {
     if (data.neighborhoodPlaces && !data.google_places) {
         data.google_places = data.neighborhoodPlaces;
         delete data.neighborhoodPlaces;
     }
-    return data as GoogleEnvironmentalData;
+    return data as ThirdPartyData;
 };
 
-export const saveGoogleDataToCloud = async (zpid: string, data: Partial<GoogleEnvironmentalData>) => {
+export const saveThirdPartyDataToCloud = async (zpid: string, data: Partial<ThirdPartyData>) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
 
     try {
@@ -56,27 +55,36 @@ export const saveGoogleDataToCloud = async (zpid: string, data: Partial<GoogleEn
         };
 
         // 1. Nested write (ONLY)
-        const nestedRef = doc(db, "properties", String(zpid), "environmental", "google_data");
-        logFirestoreQuery('setDoc', 'properties/environmental', { zpid });
+        const nestedRef = doc(db, "properties", String(zpid), "environmental", "thirdparty_data");
+        logFirestoreQuery('setDoc', 'properties/environmental', { zpid, type: 'thirdparty' });
         await setDoc(nestedRef, payload, { merge: true });
 
         return { success: true };
     } catch (error) {
-        return { success: false, error: handleFirestoreError(error, "saveGoogleDataToCloud") as string };
+        return { success: false, error: handleFirestoreError(error, "saveThirdPartyDataToCloud") as string };
     }
 };
 
-export const getGoogleDataFromCloud = async (zpid: string): Promise<GoogleEnvironmentalData | null> => {
+export const getThirdPartyDataFromCloud = async (zpid: string): Promise<ThirdPartyData | null> => {
     if (!db) return null;
     try {
-        // 1. Use nested path (ONLY)
-        const nestedRef = doc(db, "properties", zpid, "environmental", "google_data");
-        logFirestoreQuery('getDoc', 'properties/environmental', { zpid });
+        // 1. Try new path first
+        const nestedRef = doc(db, "properties", zpid, "environmental", "thirdparty_data");
+        logFirestoreQuery('getDoc', 'properties/environmental', { zpid, type: 'thirdparty' });
         const nestedSnap = await getDoc(nestedRef);
+        
         if (nestedSnap.exists()) return normalizeEnvDoc(nestedSnap.data() as Record<string, any>);
+        
+        // 2. Fallback to legacy path for backward compatibility
+        const legacyRef = doc(db, "properties", zpid, "environmental", "google_data");
+        logFirestoreQuery('getDoc', 'properties/environmental', { zpid, type: 'legacy_google' });
+        const legacySnap = await getDoc(legacyRef);
+        
+        if (legacySnap.exists()) return normalizeEnvDoc(legacySnap.data() as Record<string, any>);
+        
         return null;
     } catch (error) {
-        handleFirestoreError(error, "getGoogleDataFromCloud");
+        handleFirestoreError(error, "getThirdPartyDataFromCloud");
         return null;
     }
 };

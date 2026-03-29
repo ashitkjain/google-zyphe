@@ -2,7 +2,7 @@ import { PropertyData } from '../../types';
 import { savePropertyToCloud, getPropertyFromCloud, getPropertyByAddress } from '../firebaseService';
 import { APP_CONFIG } from '../../config';
 import { auth } from '../firebase/config';
-import { getGoogleDataFromCloud, saveGoogleDataToCloud } from '../firebaseService';
+import { getThirdPartyDataFromCloud, saveThirdPartyDataToCloud } from '../firebaseService';
 import { analyzeStreetView, analyzePollen } from '../geminiService';
 import { NeighborhoodPlaces } from './places';
 import { normalizeAddress } from './geocoding';
@@ -116,7 +116,7 @@ export const fetchPropertyDataFull = async (
             const coordsForPlaces = mappedData.coordinates;
 
             // Cache guard for Google Places: skip if already fetched within 30 days.
-            const envDocForPlaces = storageKeyForEnv ? await getGoogleDataFromCloud(storageKeyForEnv).catch(() => null) : null;
+            const envDocForPlaces = storageKeyForEnv ? await getThirdPartyDataFromCloud(storageKeyForEnv).catch(() => null) : null;
             const cachedPlaces = (envDocForPlaces as any)?.google_places as NeighborhoodPlaces | undefined;
             const placesCachedAt = cachedPlaces?.fetchedAt;
             const placesFresh = placesCachedAt && (Date.now() - placesCachedAt) < 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -152,7 +152,7 @@ export const fetchPropertyDataFull = async (
 
             // Fire-and-forget save — don't block the rest of the pipeline on a write.
             if (nearbyPlaces && needsPlacesFetch) {
-                saveGoogleDataToCloud(String(mappedData.zpid), { google_places: nearbyPlaces } as any)
+                saveThirdPartyDataToCloud(String(mappedData.zpid), { google_places: nearbyPlaces } as any)
                     .catch(e => console.warn('[fetchPropertyDataFull] Places save to env doc failed:', e));
             }
             savePropertyToCloud(mappedData.zpid, mappedData).catch(e => console.warn('[fetchPropertyDataFull] Non-blocking save failed:', e));
@@ -190,7 +190,7 @@ export const fetchPropertyDataFull = async (
             if (!cachedEnvData && storageKey) {
                 try {
                     console.log(`[EnvironmentalCache] Checking cache for key: ${storageKey}`);
-                    cachedEnvData = await getGoogleDataFromCloud(storageKey);
+                    cachedEnvData = await getThirdPartyDataFromCloud(storageKey);
                 } catch (e) {
                     console.warn('Failed to check cached environmental data', e);
                 }
@@ -315,7 +315,7 @@ export const fetchPropertyDataFull = async (
 
                 if (forceEnvironment && storageKey && cachedEnvData?.streetViewAnalysis) {
                     console.log('[fetchPropertyDataFull] Clearing stale streetViewAnalysis from cache before re-analysis.');
-                    await saveGoogleDataToCloud(storageKey, { streetViewAnalysis: undefined });
+                    await saveThirdPartyDataToCloud(storageKey, { streetViewAnalysis: undefined });
                     mappedData.streetViewAnalysis = undefined;
                 }
 
@@ -407,7 +407,7 @@ export const fetchPropertyDataFull = async (
                     }
                 };
 
-                await saveGoogleDataToCloud(storageKey, envPayload);
+                await saveThirdPartyDataToCloud(storageKey, envPayload);
                 _mark('Environmental cache saved');
             } else {
                 console.log(`[EnvironmentalCache] Skipping save — all data was cached, nothing new to write.`);

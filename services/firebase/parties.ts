@@ -8,33 +8,19 @@ import {
 import { requireTenantId } from "./tenantContext";
 import { TransactionParty } from "../../types";
 import { generateMockTransactionParties } from "../mockData";
-import { logAuditEvent } from "./audit";
 
 export const getTransactionParties = async (transactionId: string, realtorId?: string) => {
     if (!db || !transactionId) return [];
     try {
         const rid = requireTenantId(realtorId);
 
-        // 1. Try new nested path
+        // Use nested path (ONLY)
         const nestedSnap = await getDocs(query(
             collection(db, "realtors", rid, "transactions", transactionId, "parties"),
             orderBy("created_at", "asc")
         ));
         
-        if (!nestedSnap.empty) {
-            const all = nestedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionParty));
-            return deduplicateParties(all);
-        }
-
-        // 2. Fallback to legacy path
-        logFirestoreQuery('getDocs', 'transaction_parties', { transaction_id: transactionId });
-        const q = query(
-            collection(db, "realtors", rid, "transaction_parties"),
-            where("transaction_id", "==", transactionId),
-            orderBy("created_at", "asc")
-        );
-        const snap = await getDocs(q);
-        const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionParty));
+        const all = nestedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionParty));
         return deduplicateParties(all);
     } catch (error) {
         handleFirestoreError(error, "getTransactionParties");
@@ -69,19 +55,9 @@ export const addTransactionParty = async (transactionId: string, party: Partial<
             created_at: serverTimestamp()
         };
 
-        // 1. Legacy write
-        await addDoc(collection(db, "realtors", rid, "transaction_parties"), payload);
-
-        // 2. Nested write
+        // Nested write (ONLY)
         const docRef = await addDoc(collection(db, "realtors", rid, "transactions", transactionId, "parties"), payload);
 
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: docRef.id,
-            entity_type: 'Party',
-            action: 'CREATE',
-            diff: { after: party }
-        }, rid);
 
         return { id: docRef.id, ...party } as TransactionParty;
     } catch (error) {
@@ -96,21 +72,10 @@ export const updateTransactionParty = async (transactionId: string, partyId: str
         const rid = requireTenantId(realtorId);
         const sanitized = sanitizeForFirestore(updates);
 
-        // 1. Update Legacy if exists
-        const legacyRef = doc(db, "realtors", rid, "transaction_parties", partyId);
-        await updateDoc(legacyRef, sanitized).catch(() => {});
-
-        // 2. Update Nested
+        // Update Nested (ONLY)
         const nestedRef = doc(db, "realtors", rid, "transactions", transactionId, "parties", partyId);
         await updateDoc(nestedRef, sanitized);
 
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: partyId,
-            entity_type: 'Party',
-            action: 'UPDATE',
-            diff: { after: updates }
-        }, rid);
 
         return true;
     } catch (error) {
@@ -124,20 +89,10 @@ export const deleteTransactionParty = async (transactionId: string, partyId: str
     try {
         const rid = requireTenantId(realtorId);
 
-        // 1. Delete Legacy if exists
-        const legacyRef = doc(db, "realtors", rid, "transaction_parties", partyId);
-        await deleteDoc(legacyRef).catch(() => {});
-
-        // 2. Delete Nested
+        // Delete Nested (ONLY)
         const nestedRef = doc(db, "realtors", rid, "transactions", transactionId, "parties", partyId);
         await deleteDoc(nestedRef);
 
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: partyId,
-            entity_type: 'Party',
-            action: 'DELETE'
-        }, rid);
 
         return true;
     } catch (error) {
@@ -166,15 +121,14 @@ export const seedPartiesForTransaction = async (transactionId: string, realtorId
                 created_at: serverTimestamp()
             });
 
-            // Legacy path
-            const legacyRef = doc(db, "realtors", rid, "transaction_parties", deterministicId);
-            const legacySnap = await getDoc(legacyRef);
-            if (!legacySnap.exists()) await setDoc(legacyRef, payload);
-
-            // Nested path
+            // Nested path (ONLY)
             const nestedRef = doc(db, "realtors", rid, "transactions", transactionId, "parties", deterministicId);
             const nestedSnap = await getDoc(nestedRef);
-            if (!nestedSnap.exists()) await setDoc(nestedRef, payload);
+            if (!nestedSnap.empty) {
+                // do nothing
+            } else {
+                await setDoc(nestedRef, payload);
+            }
         }
     } catch (error) {
         console.error("Error seeding parties:", error);

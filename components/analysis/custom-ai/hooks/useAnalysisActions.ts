@@ -20,7 +20,7 @@ import {
     saveDeepInvestmentResearchToCloud,
     getContextGraphFromCloud,
     saveContextGraphToCloud,
-    saveGoogleDataToCloud
+    saveThirdPartyDataToCloud
 } from '../../../../services/firebaseService';
 import { fetchNearbyPlaces } from '../../../../services/apiService';
 import {
@@ -472,7 +472,7 @@ export const useAnalysisActions = (
                     places = freshPlaces;
                     addLog('Local Search', { type: 'response' }, { task: 'refreshing_unified_places', status: 'success', venue_count: Object.values(freshPlaces).flat().length });
                     // Persist to cloud environmental doc so UI sees it on next poll/refresh
-                    saveGoogleDataToCloud(String(zpid), { google_places: freshPlaces } as any)
+                    saveThirdPartyDataToCloud(String(zpid), { google_places: freshPlaces } as any)
                         .catch(e => console.warn('[handleRunNeighborhoodAnalysis] Places save failed:', e));
                 } else {
                     addLog('Local Search', { type: 'info' }, { task: 'refreshing_unified_places', status: 'no_update', message: 'Proceeding with cached places.' });

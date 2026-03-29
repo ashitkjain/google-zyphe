@@ -10,7 +10,6 @@ import { Transaction, ChecklistCategory, CRMTask, CalendarEvent } from "../../ty
 import { calculateChecklistSchedule, getInitialCategories } from "../transactionService";
 import { seedPartiesForTransaction } from "./parties";
 import { seedDocumentsForTransaction } from "./documents";
-import { logAuditEvent } from "./audit";
 
 // ===== TRANSACTIONS & TASKS =====
 
@@ -57,15 +56,6 @@ export const updateTransaction = async (transactionId: string, updates: Partial<
             ...updates,
             updated_at: serverTimestamp()
         }), { merge: true });
-
-        // Log Audit
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: transactionId,
-            entity_type: 'Transaction',
-            action: 'UPDATE',
-            diff: { after: updates }
-        }, rid);
 
         return true;
     } catch (error) {
@@ -148,19 +138,12 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
     try {
         const rid = requireTenantId(realtorId);
 
-        // 1. Try new nested path
-        const nestedSnap = await getDocs(query(collection(db, "realtors", rid, "transactions", transactionId, "tasks")));
-        if (!nestedSnap.empty) {
-            const all = nestedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
-            return deduplicateTasks(all);
-        }
-
-        // 2. Fallback to legacy path
+        // Fetch from top-level collection (FILTERED)
         const q = query(
             collection(db, "realtors", rid, "tasks"),
             where("transaction_id", "==", transactionId)
         );
-        logFirestoreQuery('getDocs', 'tasks', { transactionId, realtorId });
+        logFirestoreQuery('getDocs', 'realtors/tasks', { transactionId, realtorId });
         const snap = await getDocs(q);
         const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
         return deduplicateTasks(all);
@@ -235,15 +218,10 @@ export const seedTaskDocuments = async (transaction: Transaction, finalChecklist
                 updatedAt: serverTimestamp()
             });
 
-            // 1. Legacy write
-            const legacyRef = doc(db, "realtors", rid, "tasks", t.id);
-            const legacySnap = await getDoc(legacyRef);
-            if (!legacySnap.exists()) await setDoc(legacyRef, payload);
-
-            // 2. Nested write
-            const nestedRef = doc(db, "realtors", rid, "transactions", transaction.id, "tasks", t.id);
-            const nestedSnap = await getDoc(nestedRef);
-            if (!nestedSnap.exists()) await setDoc(nestedRef, payload);
+            // Top-level write (ONLY)
+            const docRef = doc(db, "realtors", rid, "tasks", t.id);
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) await setDoc(docRef, payload);
         }
     }
 };
@@ -296,15 +274,6 @@ export const createTransaction = async (transaction: Transaction, initialCategor
 
         await batch.commit();
 
-        // Log Audit
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: transactionId,
-            entity_type: 'Transaction',
-            action: 'CREATE',
-            diff: { after: finalTransactionObj }
-        }, rid);
-
         // Seed tasks + parties + documents (immutable create-only)
         if (initialCategories) {
             await seedTaskDocuments(finalTransaction, fullChecklistForCalendar);
@@ -326,50 +295,26 @@ export const deleteTransaction = async (transactionId: string, realtorId?: strin
     try {
         logFirestoreQuery('deleteTransaction', 'transactions', { transactionId });
 
-        // 1. Delete legacy associated tasks
-        const tasksQuery = query(collection(db, "realtors", rid, "tasks"), where("transaction_id", "==", transactionId));
-        const tasksSnap = await getDocs(tasksQuery);
-        tasksSnap.forEach((doc) => batch.delete(doc.ref));
-
-        // 2. Delete legacy associated parties
-        const partiesQuery = query(collection(db, "realtors", rid, "transaction_parties"), where("transaction_id", "==", transactionId));
-        const partiesSnap = await getDocs(partiesQuery);
-        partiesSnap.forEach((doc) => batch.delete(doc.ref));
-
-        // 3. Delete legacy associated documents
-        const docsQuery = query(collection(db, "realtors", rid, "transaction_documents"), where("transaction_id", "==", transactionId));
-        const docsSnap = await getDocs(docsQuery);
-        docsSnap.forEach((doc) => batch.delete(doc.ref));
-
-        // 4. Delete legacy associated audit events
-        const auditsQuery = query(collection(db, "realtors", rid, "audit_events"), where("transaction_id", "==", transactionId));
-        const auditsSnap = await getDocs(auditsQuery);
-        auditsSnap.forEach((doc) => batch.delete(doc.ref));
-
-        // 5. Delete associated calendar events
+        // 1. Delete associated calendar events
         const calendarQuery = query(collection(db, "realtors", rid, "calendar_events"), where("transactionId", "==", transactionId));
         const calendarSnap = await getDocs(calendarQuery);
         calendarSnap.forEach((doc) => batch.delete(doc.ref));
 
-        // 6. Delete Nested Subcollections (Transaction DNA)
-        const nestedSubs = ['tasks', 'parties', 'documents', 'audit_events'];
+        // 2. Delete tasks associated by transaction_id from top-level collection
+        const tasksQuery = query(collection(db, "realtors", rid, "tasks"), where("transaction_id", "==", transactionId));
+        const tasksSnap = await getDocs(tasksQuery);
+        tasksSnap.forEach((doc) => batch.delete(doc.ref));
+
+        // 3. Delete Nested Subcollections (Transaction DNA)
+        const nestedSubs = ['parties', 'documents'];
         for (const sub of nestedSubs) {
             const snap = await getDocs(collection(db, "realtors", rid, "transactions", transactionId, sub));
             snap.forEach(d => batch.delete(d.ref));
         }
 
-        // 7. Delete the transaction document
+        // 4. Delete the transaction document
         const transactionRef = doc(db, "realtors", rid, "transactions", transactionId);
         batch.delete(transactionRef);
-
-        // 8. Log Audit (in batch)
-        await logAuditEvent({
-            transaction_id: transactionId,
-            entity_id: transactionId,
-            entity_type: 'Transaction',
-            action: 'DELETE',
-            batch: batch
-        } as any, rid);
 
         await batch.commit();
 

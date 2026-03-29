@@ -92,7 +92,7 @@ export interface ResoFacts {
 
 // Circular imports managed by index.ts or separate files. Importing AI types if needed, but PropertyData uses AI.
 // PropertyData is large, let's keep it here.
-import { AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult, StreetViewAnalysisResult } from './ai';
+import { CustomAIAnalysisResult, ComprehensiveAnalysisResult, StreetViewAnalysisResult } from './ai';
 import type { HistoricalDisasterData } from '../services/api/disasters';
 import type { BroadbandData } from '../services/api/broadband';
 import type { DroughtData } from '../services/api/drought';
@@ -200,7 +200,6 @@ export interface PropertyData {
     comps?: PropertyComp[];
     priceHistory?: PriceHistoryItem[];
     // AI fields for cloud caching
-    analysis?: AIAnalysisResult;
     visual_analysis?: CustomAIAnalysisResult;
     comprehensive_analysis?: ComprehensiveAnalysisResult;
     solarData?: {

@@ -129,7 +129,7 @@ function normalizePropertyFields(doc: Record<string, any>): Record<string, any> 
 
     // ── Moved Collections ──────────────────────────────────────────────────────
     // The following fields have been moved to dedicated collections (like 
-    // google_environmental_data / environmental sub-collection) to avoid the 
+    // thirdparty_data / environmental sub-collection) to avoid the 
     // 1MB Firestore limit, but may still be present on the data object for 
     // frontend rendering. We strip them here to keep the `properties` collection lean.
     delete out.google_places;
@@ -586,30 +586,48 @@ async function getCityDocWithFallback(collectionName: string, cityStateKey: stri
         'community_pulse': { type: 'intel', docId: 'community_pulse' },
     };
 
-    // Build case variants
-    const separator = cityStateKey.includes('-') ? '-' : '_';
-    const parts = cityStateKey.split(separator);
-    
+    // Build case and formatting variants
     const variants = new Set<string>();
-    variants.add(cityStateKey.toLowerCase());
-    variants.add(cityStateKey.replace('-', '_').toLowerCase());
-
-    if (parts.length === 2) {
-        const [city, state] = parts;
-        variants.add(`${city.toLowerCase()}_${state.toLowerCase()}`);
-        variants.add(`${city.toLowerCase()}-${state.toLowerCase()}`);
+    const normalized = cityStateKey.toLowerCase().trim();
+    variants.add(normalized);
+    variants.add(normalized.replace('-', '_'));
+    variants.add(normalized.replace('_', '-'));
+    
+    // Add versions with all special chars/spaces removed for extreme robustness
+    const ultraFlat = normalized.replace(/[^a-z0-9]/g, '');
+    if (ultraFlat !== normalized) {
+        variants.add(ultraFlat);
     }
 
     const nested = CONSOLIDATED_MAP[collectionName];
-    if (!nested) return null;
 
+    // 1. Prioritize the Consolidated "cities" collection
+    if (nested) {
+        for (const key of variants) {
+            try {
+                const nestedRef = doc(db, "cities", key, nested.type, nested.docId);
+                const nestedSnap = await getDoc(nestedRef);
+                if (nestedSnap.exists()) {
+                    console.log(`[getCityDocWithFallback] Hit: cities/${key}/${nested.type}/${nested.docId}`);
+                    return nestedSnap.data();
+                }
+            } catch (e) { /* continue */ }
+        }
+    }
+
+    // 2. Fallback to the Legacy Top-Level Collection
     for (const key of variants) {
         try {
-            const nestedRef = doc(db, "cities", key, nested.type, nested.docId);
-            const nestedSnap = await getDoc(nestedRef);
-            if (nestedSnap.exists()) return nestedSnap.data();
+            const legacyRef = doc(db, collectionName, key);
+            const legacySnap = await getDoc(legacyRef);
+            if (legacySnap.exists()) {
+                console.log(`[getCityDocWithFallback] Hit legacy: ${collectionName}/${key}`);
+                return legacySnap.data();
+            }
         } catch (e) { /* continue */ }
     }
+
+    console.warn(`[getCityDocWithFallback] Missed all variants for: ${collectionName} / ${cityStateKey}`);
     return null;
 }
 

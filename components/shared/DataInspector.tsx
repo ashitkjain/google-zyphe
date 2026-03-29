@@ -1,12 +1,12 @@
 import React from 'react';
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult } from '../../types';
+import { PropertyData, CustomAIAnalysisResult } from '../../types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   data: {
     property: PropertyData | null;
-    analysis: AIAnalysisResult | null;
+    analysis: any | null;
     visual: CustomAIAnalysisResult | null;
   };
 }

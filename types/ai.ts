@@ -1,10 +1,3 @@
-export interface AIAnalysisResult {
-    buyerAnalysis: string;
-    sellerStrategy: string;
-    realtorPitch: string;
-    marketOutlook: string;
-}
-
 export interface NeighborhoodAnalysis {
     overview: string;
     neighborhood_features: {

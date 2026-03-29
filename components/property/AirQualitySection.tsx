@@ -490,8 +490,8 @@ const AirQualitySection: React.FC<Props> = ({ data, neighborhoodOverview, disast
                                     // Save to cache
                                     const key = data.zpid || data.address?.toLowerCase().replace(/[^a-z0-9]/g, '_');
                                     if (key) {
-                                        const { saveGoogleDataToCloud } = await import('../../services/firebaseService');
-                                        await saveGoogleDataToCloud(key, { evChargers: fresh });
+                                        const { saveThirdPartyDataToCloud } = await import('../../services/firebaseService');
+                                        await saveThirdPartyDataToCloud(key, { evChargers: fresh });
                                     }
                                 }
                             } catch (e) {
