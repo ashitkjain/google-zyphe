@@ -268,14 +268,7 @@ async function fetchStreetViewHeading(
             return null;
         }
 
-        // 1. Use the API-provided heading if present
-        if (meta.heading != null) {
-            const heading = Math.round(meta.heading);
-
-            return { heading, status: meta.status };
-        }
-
-        // 2. Derive heading from panorama position → property position.
+        // 1. Derive heading from panorama position → property position.
         //    meta.location = where the Street View camera is parked on the street.
         //    The camera faces the property, so bearing(pano → property) = camera heading.
         const panoLoc = meta.location; // { lat, lng }

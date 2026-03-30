@@ -162,9 +162,8 @@ Use this step-by-step reasoning format in your explanation:
 
 KEY HEURISTICS:
 - Driveway + garage door direction on the aerial = the most reliable front indicator.
-- Courts and cul-de-sacs: homes face INTO the court. The camera often drives up photographing the front.
-  In this case the front faces the direction the camera was pointing (heading), NOT heading+180.
-- Through-streets: front faces the road; camera is across from the front; front = ~heading+180.
+- Front orientation vs Camera Heading: A house front almost always faces the street. Since the camera is on the street looking at the front, the house is facing back toward the camera. 
+  Therefore, if Image B shows the front, the front orientation is typically the OPPOSITE of the camera heading (heading + 180 degrees).
 - Multi-unit complexes: fronts face an internal lane, NOT the arterial road.
 - When aerial and heading conflict, trust the aerial.
 `.trim();
