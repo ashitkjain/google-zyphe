@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { saveSearch, getSavedSearches, deleteSavedSearch, SavedSearch } from '../../services/firebase/idx';
+import { saveSearch, getSavedSearches, deleteSavedSearch, type SavedSearch } from '../../services/firebase/idx';
+export type { SavedSearch };
 import { trackSearchSaved } from '../../services/analytics/idxTracking';
 
 // ── Types ──────────────────────────────────────────────────────────────────────

@@ -1040,7 +1040,7 @@ export const queryContextGraphs = async (filters: ContextGraphQuery): Promise<Ma
     const results = new Map<string, any>();
     if (!db || !filters.city) return results;
 
-    const normalizedCity = filters.city.toLowerCase().trim();
+    const normalizedCity = filters.city.trim();
     const maxResults = filters.maxResults || 50;
 
     try {

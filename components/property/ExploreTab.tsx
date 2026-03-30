@@ -2028,6 +2028,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     setBrowsing(true);
                     setHasSearched(true);
                     setPage(1);
+                    setShowMyStory(false);
+                    setShowBuyerSearch(false);
+                    setViewModeLocal('gallery');
+                    setBuyerResults(null);
+                    setBuyerExtracted(null);
                     try {
                         const data = await getPropertiesByCity(city);
                         setResults(data);
@@ -2050,7 +2055,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Buyer Story Search
     const [buyerStory, setBuyerStory] = useState('');
     const [buyerSearching, setBuyerSearching] = useState(false);
-    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; matchWriteup: string }[] | null>(null);
+    const [buyerResults, setBuyerResults] = useState<{ zpid: string; address: string; score: number; matchWriteup: string; factors?: string[] }[] | null>(null);
     const [showBuyerSearch, setShowBuyerSearch] = useState(false);
     const [buyerError, setBuyerError] = useState<string | null>(null);
     const [buyerExtracted, setBuyerExtracted] = useState<{ priceMin: number; priceMax: number; beds?: number; baths?: number; homeType?: string; stories?: number; minSchoolRating?: number; mustHaves: string[]; niceToHaves: string[]; searchSummary?: string } | null>(null);
@@ -2220,11 +2225,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
     // Build match lookup from buyer results
     const matchMap = useMemo(() => {
-        const map: Record<string, { score: number; matchWriteup: string; rank: number }> = {};
+        const map: Record<string, { score: number; matchWriteup: string; rank: number; factors?: string[] }> = {};
         // Use string casting for ZPIDs to ensure key matches regardless of original source type
         buyerResults?.forEach((m, i) => { 
             const zpid = String(m.zpid);
-            map[zpid] = { score: m.score, matchWriteup: m.matchWriteup, rank: i + 1 }; 
+            map[zpid] = { score: m.score, matchWriteup: m.matchWriteup, rank: i + 1, factors: m.factors }; 
         });
         return map;
     }, [buyerResults]);
@@ -2517,11 +2522,15 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
             const allMatches = chunkResults
                 .flatMap(r => r.data?.matches || [])
-                .map(m => ({ 
-                    ...m, 
-                    zpid: String(m.zpid),
-                    matchWriteup: m.match_writeup || (m as any).matchWriteup
-                }))
+                .map(m => {
+                    const candidate = graphsArr.find(g => String(g.zpid) === String(m.zpid));
+                    return { 
+                        ...m, 
+                        zpid: String(m.zpid),
+                        matchWriteup: m.match_writeup || (m as any).matchWriteup,
+                        factors: candidate?.factors || []
+                    };
+                })
                 .filter(m => m.zpid && m.zpid !== 'undefined')
                 .sort((a, b) => b.score - a.score);
 
@@ -2553,7 +2562,16 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                         <span key={c} className="flex items-center gap-2">
                             {i > 0 && <span className="text-slate-300">|</span>}
                             <button
-                                onClick={() => { setPage(1); setActivePath('browse'); setShowMyStory(false); setBuyerResults(null); setBuyerExtracted(null); handleBrowse(c); }}
+                                onClick={() => { 
+                                    setPage(1); 
+                                    setActivePath('browse'); 
+                                    setShowMyStory(false); 
+                                    setShowBuyerSearch(false);
+                                    setViewModeLocal('gallery');
+                                    setBuyerResults(null); 
+                                    setBuyerExtracted(null); 
+                                    handleBrowse(c); 
+                                }}
                                 disabled={browsing}
                                 className={`text-sm font-bold transition-all ${browsing && selectedCity === c
                                     ? 'text-indigo-400 cursor-wait'
@@ -3250,7 +3268,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                 <span className="text-sm font-black text-white">AI Match Results</span>
                                 <span className="text-[10px] font-bold text-indigo-200 ml-1">{displayList.length} matches</span>
                                 <button
-                                    onClick={() => { setBuyerResults(null); setBuyerExtracted(null); setSliderIdx(0); }}
+                                    onClick={() => { setBuyerResults(null); setBuyerExtracted(null); setSliderIdx(0); setViewModeLocal('gallery'); setShowBuyerSearch(false); }}
                                     className="ml-auto text-[10px] font-bold text-indigo-200 hover:text-white transition-colors flex items-center gap-1"
                                 >
                                     <i className="fa-solid fa-xmark"></i> Clear & Show All
@@ -3325,9 +3343,20 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                                             </div>
                                                         )}
                                                         {match.matchWriteup && (
-                                                            <p className="text-[11.5px] text-slate-700 leading-relaxed">
+                                                            <p className="text-[11.5px] text-slate-700 leading-relaxed italic">
                                                                 {match.matchWriteup}
                                                             </p>
+                                                        )}
+                                                        
+                                                        {/* Context Graph Insights */}
+                                                        {match.factors && match.factors.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mt-2 mb-1">
+                                                                {match.factors.map((f, i) => (
+                                                                    <span key={i} className="px-1.5 py-0.5 rounded bg-amber-50/50 border border-amber-100/50 text-[9px] font-bold text-amber-700/80">
+                                                                        <i className="fa-solid fa-sparkles text-[7px] mr-1 opacity-50"></i>{f}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>

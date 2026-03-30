@@ -7,6 +7,7 @@ interface PropertyCardProps {
         score: number;
         rank: number;
         matchWriteup: string;
+        factors?: string[];
     };
     onClick?: () => void;
     onTourClick?: (e: React.MouseEvent) => void;
@@ -14,7 +15,7 @@ interface PropertyCardProps {
     className?: string;
 }
 
-const ProjectCard: React.FC<PropertyCardProps> = ({
+const PropertyCard: React.FC<PropertyCardProps> = ({
     property,
     match,
     onClick,
@@ -96,36 +97,47 @@ const ProjectCard: React.FC<PropertyCardProps> = ({
 
                             <ul className="space-y-2.5">
                                 {(match.matchWriteup.split(/(?=[✅❌👤])/g) || []).map((bullet, idx) => {
-                                    const trimmed = bullet.trim();
-                                    const content = trimmed.replace(/[✅❌👤]/g, '').trim().replace(/[.;,]$/, '');
-                                    if (!content) return null;
-                                    
-                                    const isPro = trimmed.startsWith('✅');
-                                    const isCon = trimmed.startsWith('❌');
-                                    const isPersona = trimmed.startsWith('👤');
-                                    
-                                    return (
-                                        <li key={idx} className="flex gap-2.5 items-start group/bullet">
-                                            <span className={`flex-shrink-0 w-4 h-4 rounded-md flex items-center justify-center text-[7px] shadow-sm transition-transform group-hover/bullet:scale-110 ${
-                                                isPro ? 'bg-emerald-500 text-white shadow-emerald-200' : 
-                                                isCon ? 'bg-rose-500 text-white shadow-rose-200' : 
-                                                isPersona ? 'bg-indigo-600 text-white shadow-indigo-200' :
-                                                'bg-slate-400 text-white'
-                                            }`}>
-                                                <i className={`fa-solid ${isPro ? 'fa-check' : isCon ? 'fa-xmark' : isPersona ? 'fa-user' : 'fa-info'}`}></i>
-                                            </span>
-                                            <span className={`text-[10.5px] leading-snug ${
-                                                isPro ? 'text-slate-800 font-bold' : 
-                                                isCon ? 'text-slate-500 font-medium' : 
-                                                isPersona ? 'text-indigo-900 font-black tracking-tight' :
-                                                'text-slate-600'
-                                            }`}>
-                                                {content}
-                                            </span>
-                                        </li>
-                                    );
-                                }).filter(Boolean)}
+                                     const trimmed = bullet.trim();
+                                     const content = trimmed.replace(/[✅❌👤]/g, '').trim().replace(/[.;,]$/, '');
+                                     if (!content) return null;
+                                     
+                                     const isPro = trimmed.startsWith('✅');
+                                     const isCon = trimmed.startsWith('❌');
+                                     const isPersona = trimmed.startsWith('👤');
+                                     
+                                     return (
+                                         <li key={idx} className="flex gap-2.5 items-start group/bullet">
+                                             <span className={`flex-shrink-0 w-4 h-4 rounded-md flex items-center justify-center text-[7px] shadow-sm transition-transform group-hover/bullet:scale-110 ${
+                                                 isPro ? 'bg-emerald-500 text-white shadow-emerald-200' : 
+                                                 isCon ? 'bg-rose-500 text-white shadow-rose-200' : 
+                                                 isPersona ? 'bg-indigo-600 text-white shadow-indigo-200' :
+                                                 'bg-slate-400 text-white'
+                                             }`}>
+                                                 <i className={`fa-solid ${isPro ? 'fa-check' : isCon ? 'fa-xmark' : isPersona ? 'fa-user' : 'fa-info'}`}></i>
+                                             </span>
+                                             <span className={`text-[10.5px] leading-snug ${
+                                                 isPro ? 'text-slate-800 font-bold' : 
+                                                 isCon ? 'text-slate-500 font-medium' : 
+                                                 isPersona ? 'text-indigo-900 font-black tracking-tight' :
+                                                 'text-slate-600'
+                                             }`}>
+                                                 {content}
+                                             </span>
+                                         </li>
+                                     );
+                                 }).filter(Boolean)}
                             </ul>
+
+                            {/* High Density Context Factors (The Context Graph) */}
+                            {match.factors && match.factors.length > 0 && (
+                                <div className="mt-4 pt-3 flex flex-wrap gap-1 border-t border-slate-50">
+                                    {match.factors.map((f, i) => (
+                                        <span key={i} className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-[8px] font-bold text-slate-500">
+                                            {f}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -154,4 +166,4 @@ const ProjectCard: React.FC<PropertyCardProps> = ({
     );
 };
 
-export default ProjectCard;
+export default PropertyCard;
