@@ -2,6 +2,7 @@ import React from 'react';
 import { PropertyData } from '../../types';
 import ParcelValidationCard from './ParcelValidationCard';
 import StaticParcelMap from './StaticParcelMap';
+import { getDaysOnMarket } from '../../utils/property';
 
 interface Props {
   data: PropertyData;
@@ -63,22 +64,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
   const [isDescExpanded, setIsDescExpanded] = React.useState(false);
 
   // Compute days on market dynamically from listedDate → today.
-  const computedDaysOnMarket = (() => {
-    const raw = data.listedDate;
-    if (raw == null || raw === 0) return data.resoFacts?.daysOnZillow ?? null;
-    let listed: Date | null = null;
-    if (typeof raw === 'string') {
-      const parsed = new Date(raw);
-      if (!isNaN(parsed.getTime())) listed = parsed;
-    } else if (typeof raw === 'number') {
-      listed = new Date(raw > 1e10 ? raw : raw * 1000);
-      if (isNaN(listed.getTime())) listed = null;
-    }
-    if (!listed) return data.resoFacts?.daysOnZillow ?? null;
-    const diffMs = Date.now() - listed.getTime();
-    const days = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-    return days;
-  })();
+  const computedDaysOnMarket = getDaysOnMarket(data.listedDate, data.resoFacts?.daysOnZillow);
 
   const financialSpecs: any[] = [];
 

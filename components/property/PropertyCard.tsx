@@ -1,5 +1,6 @@
 import React from 'react';
 import { PropertyData } from '../../types';
+import { getDaysOnMarket } from '../../utils/property';
 
 interface PropertyCardProps {
     property: PropertyData;
@@ -73,6 +74,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
                         {sqft && <span>{sqft.toLocaleString()} sqft</span>}
                         {property.lotSize && <span>Lot {property.lotSize}</span>}
                         {property.homeType && <span className="capitalize">{property.homeType.replace(/_/g, ' ').toLowerCase()}</span>}
+                        {getDaysOnMarket(property.listedDate, (property as any).daysOnZillow) != null && (
+                            <span>{getDaysOnMarket(property.listedDate, (property as any).daysOnZillow)} DOM</span>
+                        )}
                     </div>
 
                     {/* Reasoning: Clean Bulleted List Inline */}

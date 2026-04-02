@@ -286,6 +286,7 @@ export interface CityPropertySummary {
     city?: string;
     maxSchoolRating?: number;  // Best nearby school rating (1-10)
     orientation?: string;     // Front orientation (AI resolved)
+    listedDate?: string | number;
 }
 
 /**
@@ -329,6 +330,7 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                 pool: data.resoFacts?.hasPool === true || data.pool === true || false,
                 homeStatus: data.homeStatus || data.home_status || '',
                 daysOnZillow: data.daysOnZillow ?? data.days_on_zillow ?? undefined,
+                listedDate: data.listedDate ?? undefined,
                 hoa: data.monthlyHoaFee ?? data.hoaFee ?? undefined,
                 city: data.city || '',
                 maxSchoolRating: (() => {

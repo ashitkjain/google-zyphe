@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getDaysOnMarket } from '../utils/property';
 import { serverTimestamp } from "firebase/firestore";
 import {
   PropertyData,
@@ -17,7 +18,6 @@ import {
   AIUsage,
   ContextGraphExtractionResult
 } from "../types";
-import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/property/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/property/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
 import { getLifestyleInsightsPrompt, lifestyleInsightsSchema } from "../prompts/property/lifestyleInsights";
@@ -721,7 +721,7 @@ export const extractContextGraphFactors = async (
     baths: property.bathrooms ?? null,
     lotSqft: (property as any).parcelAreaSqft ?? null,
     yearBuilt: property.yearBuilt ?? null,
-    dom: property.timeOnZillow ?? property.resoFacts?.daysOnZillow ?? null,
+    dom: getDaysOnMarket(property.listedDate, property.timeOnZillow ?? property.resoFacts?.daysOnZillow),
     hoaMonthly: hoaNum,
     walkScore: property.walkScore ?? null,
     transitScore: property.transitScore ?? null,

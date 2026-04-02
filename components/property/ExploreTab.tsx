@@ -62,6 +62,7 @@ import {
 } from '../../services/geminiService';
 import { buildExtractionPrompt, buildMatchingPrompt, PersonaContext } from '../../services/prompts/buyerStoryMatch';
 import { Type } from '@google/genai';
+import { getDaysOnMarket } from '../../utils/property.ts';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -2218,7 +2219,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         if (filterPool === 'yes') list = list.filter(p => p.pool === true);
         if (filterPool === 'no') list = list.filter(p => !p.pool);
         if (filterMaxHoa) list = list.filter(p => (p.hoa || 0) <= parseInt(filterMaxHoa));
-        if (filterMaxDom) list = list.filter(p => (p.daysOnZillow || 0) <= parseInt(filterMaxDom));
+        if (filterMaxDom) list = list.filter(p => (getDaysOnMarket(p.listedDate, p.daysOnZillow) || 0) <= parseInt(filterMaxDom));
         if (filterStatus) list = list.filter(p => (p.homeStatus || '').toUpperCase().includes(filterStatus.toUpperCase()));
         if (filterMinSchoolRating) list = list.filter(p => (p.maxSchoolRating || 0) >= parseInt(filterMinSchoolRating));
         if (filterOrientation) list = list.filter(p => (p.orientation || '').toUpperCase() === filterOrientation.toUpperCase());
@@ -2279,7 +2280,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const snapshot = useMemo(() => {
         if (displayList.length === 0) return null;
         const prices = displayList.map(p => p.listPrice).filter(Boolean) as number[];
-        const doms = displayList.map(p => (p as any).daysOnMarket).filter(n => typeof n === 'number') as number[];
+        const doms = displayList.map(p => getDaysOnMarket(p.listedDate, p.daysOnZillow)).filter(n => typeof n === 'number') as number[];
         const avg = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null;
         const sorted = [...prices].sort((a, b) => a - b);
         const median = sorted.length ? (sorted.length % 2 === 0
