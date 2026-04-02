@@ -219,6 +219,17 @@ export async function forceRefreshAllImagesAndAnalyze(
 
 
 /**
+ * Converts a degree azimuth (0-360) to a human-readable compass label.
+ */
+function azimuthToCompassLabel(azimuth: number | null): string {
+    if (azimuth == null) return 'Unknown';
+    const directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
+    const index = Math.round(azimuth / 45) % 8;
+    return `${directions[index]} (~${Math.round(azimuth)}°)`;
+}
+
+
+/**
  * Build the Street View Static API URL for the given coordinates.
  * Only used as a last-resort reference — prefer Firebase cached URL.
  * @param heading Optional camera heading in degrees (0=North, 90=East, etc.).
@@ -440,15 +451,18 @@ export async function runSatellitaryAnalysis(
         };
     }
 
+    const resultAzimuth = computeAccurateAzimuth(
+        data.azimuth_degrees ?? null,
+        usesDualImage ? streetViewHeading : null,
+        usesDualImage ? (data as any).street_view_shows_front ?? null : null
+    );
+
     const result: SatellitaryResult = {
         ...data,
         image_quality: data.image_quality ?? 'acceptable',
         visual_azimuth_estimate: data.azimuth_degrees ?? null,
-        azimuth_degrees: computeAccurateAzimuth(
-            data.azimuth_degrees ?? null,
-            usesDualImage ? streetViewHeading : null,
-            usesDualImage ? (data as any).street_view_shows_front ?? null : null
-        ),
+        azimuth_degrees: resultAzimuth,
+        final_orientation: azimuthToCompassLabel(resultAzimuth),
         feng_shui_vastu: data.feng_shui_vastu ?? null,
         privacy_insight: data.privacy_insight ?? '',
         lot_coverage_hardscape: data.lot_coverage_hardscape ?? null,

@@ -162,10 +162,9 @@ Use this step-by-step reasoning format in your explanation:
 
 KEY HEURISTICS:
 - Driveway + garage door direction on the aerial = the most reliable front indicator.
-- Front orientation vs Camera Heading: A house front almost always faces the street. The camera is on the street
-  looking at the property. If Image B shows the FRONT of the house, the front wall faces BACK toward the camera,
-  so the front azimuth = (camera_heading + 180) % 360.
-  If Image B shows the BACK or SIDE, the front faces a completely different direction — determine it from the aerial.
+- IMPORTANT: final_orientation and azimuth_degrees MUST refer to the direction the FRONT door/wall faces. 
+  Do NOT confuse this with the camera heading. If the camera points South (180°) at a house front, the house
+  front faces North (0°). Your final outcome MUST be North.
 - MANDATORY OUTPUT FIELD: After completing Step 2, you must set \`street_view_shows_front\` to true if Image B
   shows the FRONT face of the house, or false if it shows the back or side. This is the single most important
   field — base it on your aerial analysis (Step 1), not on the heading alone.
