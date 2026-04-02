@@ -166,7 +166,7 @@ KEY HEURISTICS:
   looking at the property. If Image B shows the FRONT of the house, the front wall faces BACK toward the camera,
   so the front azimuth = (camera_heading + 180) % 360.
   If Image B shows the BACK or SIDE, the front faces a completely different direction — determine it from the aerial.
-- MANDATORY OUTPUT FIELD: After completing Step 2, you must set `street_view_shows_front` to true if Image B
+- MANDATORY OUTPUT FIELD: After completing Step 2, you must set \`street_view_shows_front\` to true if Image B
   shows the FRONT face of the house, or false if it shows the back or side. This is the single most important
   field — base it on your aerial analysis (Step 1), not on the heading alone.
 - When aerial and heading conflict, trust the aerial.
