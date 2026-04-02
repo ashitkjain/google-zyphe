@@ -297,39 +297,43 @@ async function fetchStreetViewHeading(
 }
 
 /**
- * Replaces Gemini's visual azimuth estimate with a GPS-accurate value.
+ * Computes the GPS-accurate azimuth using Gemini's explicit front-face determination.
  *
- * We have two candidate azimuths from the GPS-derived street view heading:
- *   - heading          → front = the direction the camera was POINTING (camera looked at the back)
- *   - (heading+180)%360 → front = opposite of camera direction (camera looked at the front)
+ * Gemini's `street_view_shows_front` boolean (derived from aerial analysis) tells us
+ * definitively whether Image B is showing the front or back of the house:
+ *   - true  → camera photographed the FRONT → front faces BACK toward camera → (heading+180)%360
+ *   - false → camera photographed the BACK/SIDE → front faces the SAME direction as camera → heading
+ *   - null  → ambiguous (e.g. aerial-only mode) → fall back to Gemini's azimuth estimate
  *
- * We pick whichever candidate is angularly closest to Gemini's stated direction,
- * then use that GPS-precise value instead of the AI's visual guess.
- *
- * Falls back to Gemini's estimate when:
- *   - No heading available (aerial-only mode)
- *   - The two candidates are equidistant (camera perpendicular to front wall — ambiguous)
+ * This is deterministic — no proximity voting, no oscillation.
  */
 function computeAccurateAzimuth(
     geminiAzimuth: number | null,
-    heading: number | null
+    heading: number | null,
+    streetViewShowsFront: boolean | null | undefined
 ): number | null {
-    if (heading == null || geminiAzimuth == null) return geminiAzimuth;
+    // No heading → can't GPS-correct; trust Gemini's aerial estimate
+    if (heading == null) return geminiAzimuth;
 
+    // Gemini explicitly told us which face Image B shows → apply GPS formula directly
+    if (streetViewShowsFront === true) {
+        return Math.round((heading + 180) % 360);
+    }
+    if (streetViewShowsFront === false) {
+        return Math.round(heading);
+    }
+
+    // Fallback: field missing (old results / aerial-only) → proximity-vote between candidates
+    if (geminiAzimuth == null) return null;
     const angularDist = (a: number, b: number): number => {
         const d = Math.abs(a - b) % 360;
         return d > 180 ? 360 - d : d;
     };
-
-    const candidateFront = (heading + 180) % 360;  // camera photographed the FRONT
-    const candidateBack  = heading;                 // camera photographed the BACK (front = opposite)
-
+    const candidateFront = (heading + 180) % 360;
+    const candidateBack  = heading;
     const dFront = angularDist(candidateFront, geminiAzimuth);
     const dBack  = angularDist(candidateBack,  geminiAzimuth);
-
-    // If both are equidistant (camera perpendicular to front wall), keep Gemini's estimate
-    if (Math.abs(dFront - dBack) < 5) return geminiAzimuth;
-
+    if (Math.abs(dFront - dBack) < 5) return geminiAzimuth; // equidistant → keep Gemini's guess
     return dFront < dBack ? candidateFront : candidateBack;
 }
 
@@ -440,7 +444,11 @@ export async function runSatellitaryAnalysis(
         ...data,
         image_quality: data.image_quality ?? 'acceptable',
         visual_azimuth_estimate: data.azimuth_degrees ?? null,
-        azimuth_degrees: computeAccurateAzimuth(data.azimuth_degrees ?? null, usesDualImage ? streetViewHeading : null),
+        azimuth_degrees: computeAccurateAzimuth(
+            data.azimuth_degrees ?? null,
+            usesDualImage ? streetViewHeading : null,
+            usesDualImage ? (data as any).street_view_shows_front ?? null : null
+        ),
         feng_shui_vastu: data.feng_shui_vastu ?? null,
         privacy_insight: data.privacy_insight ?? '',
         lot_coverage_hardscape: data.lot_coverage_hardscape ?? null,
@@ -457,7 +465,8 @@ export async function runSatellitaryAnalysis(
         aerial_only_mode: !usesDualImage,
         _debug: {
             streetViewHeading,
-            geminiAzimuth: data.azimuth_degrees ?? null
+            geminiAzimuth: data.azimuth_degrees ?? null,
+            streetViewShowsFront: (data as any).street_view_shows_front ?? null
         } as any
     };
 

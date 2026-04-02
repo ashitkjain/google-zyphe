@@ -162,10 +162,14 @@ Use this step-by-step reasoning format in your explanation:
 
 KEY HEURISTICS:
 - Driveway + garage door direction on the aerial = the most reliable front indicator.
-- Front orientation vs Camera Heading: A house front almost always faces the street. Since the camera is on the street looking at the front, the house is facing back toward the camera. 
-  Therefore, if Image B shows the front, the front orientation is typically the OPPOSITE of the camera heading (heading + 180 degrees).
-  EXAMPLE: If the house is on the South side of an East-West street, you must point the camera SOUTH (180°) to see it. The house's front door thus faces back toward the street = faces NORTH (0°).
-- When aerial and heading conflict, trust the aerial. (e.g. if the street view shows a back fence but you can see the front door on the aerial, ignore scenario A).
+- Front orientation vs Camera Heading: A house front almost always faces the street. The camera is on the street
+  looking at the property. If Image B shows the FRONT of the house, the front wall faces BACK toward the camera,
+  so the front azimuth = (camera_heading + 180) % 360.
+  If Image B shows the BACK or SIDE, the front faces a completely different direction — determine it from the aerial.
+- MANDATORY OUTPUT FIELD: After completing Step 2, you must set `street_view_shows_front` to true if Image B
+  shows the FRONT face of the house, or false if it shows the back or side. This is the single most important
+  field — base it on your aerial analysis (Step 1), not on the heading alone.
+- When aerial and heading conflict, trust the aerial.
 `.trim();
 }
 
@@ -325,6 +329,12 @@ export const satellitarySchema = {
         orientation_highlights: {
             type: Type.STRING,
             description: 'ONE or TWO sentences on what this facing direction typically means for a home. MANDATORY: every sentence MUST use a hedging word — "often", "typically", "may", "tends to", "can", "in many cases". NEVER use bare deterministic verbs: do NOT write "gets sun", "receives light", "is cooler", "will be warmer". ALWAYS hedge: write "may get", "often receives", "tends to feel cooler", "can be warmer". Bad: "North-facing homes get less sun." Good: "North-facing homes often receive less direct sunlight, which can keep interiors cooler in summer."'
+        },
+        // ── Front-face determination ──────────────────────────────────────────
+        street_view_shows_front: {
+            type: Type.BOOLEAN,
+            description: 'REQUIRED when street view is available. Set to true if Image B (Street View) is showing the FRONT face of the house (the side with the main entrance / front door). Set to false if Image B shows the back or side of the house. Base this on your aerial analysis (driveway/garage door direction), NOT the heading number alone. This field is used to compute the GPS-accurate final azimuth.',
+            nullable: true
         },
         // ── Tier 2: Aerial site-feature analysis ─────────────────────────────
         pool_visible: {
