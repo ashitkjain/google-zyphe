@@ -182,7 +182,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <h4 className="text-2xl font-black text-slate-900 leading-tight">Multi-Modal Intelligence</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
-                                Multi-Modal GenAI that can synthesize visual, geospatial, and behavioral data with human-level reasoning. Zyphe AI models and optimized context graph democratize reduce the cost of Machine Learning.
+                                Multi-Modal GenAI that can synthesize visual, geospatial, and behavioral data with human-level reasoning. Zyphe AI and optimized context graph democratize reduce the cost of Machine Learning.
                             </p>
                             <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
                                 <div className="space-y-1.5">

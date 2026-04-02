@@ -137,10 +137,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
                         orientationAI: p.orientation_ai || null,
                         finalOrientation:
-                            // 1. Neighborhood AI analysis (property_analyses_visual collection)
-                            visualOrientationMap[d.id] ||
-                            // 2. Satellitary-cached orientation (from our new caching)
+                            // 1. Satellitary-cached orientation (new, more accurate AI)
                             (p.orientation_ai?.final_orientation as string | undefined) ||
+                            // 2. Neighborhood AI analysis (legacy/fallback)
+                            visualOrientationMap[d.id] ||
                             null,
                         coordinates: p.coordinates || undefined,
                         orientationAssessment: orientationAssessmentMap[d.id] ?? [],
@@ -667,31 +667,47 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                         {/* Calculated At */}
                                         <td className="p-5">
-                                            {row.calculatedAt ? (() => {
-                                                const d = row.calculatedAt instanceof Date
-                                                    ? row.calculatedAt
-                                                    : row.calculatedAt?.toDate?.() ?? new Date(row.calculatedAt);
-                                                const diffMs = Date.now() - d.getTime();
-                                                const diffMins = Math.floor(diffMs / 60000);
-                                                const diffHrs = Math.floor(diffMins / 60);
-                                                const diffDays = Math.floor(diffHrs / 24);
-                                                const relative = diffMins < 1 ? 'just now'
-                                                    : diffMins < 60 ? `${diffMins}m ago`
-                                                        : diffHrs < 24 ? `${diffHrs}h ago`
-                                                            : diffDays < 7 ? `${diffDays}d ago`
-                                                                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                                                const fullDate = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                                return (
-                                                    <span
-                                                        title={fullDate}
-                                                        className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap"
+                                            <div className="flex items-center gap-2">
+                                                {row.calculatedAt ? (() => {
+                                                    const d = row.calculatedAt instanceof Date
+                                                        ? row.calculatedAt
+                                                        : row.calculatedAt?.toDate?.() ?? new Date(row.calculatedAt);
+                                                    const diffMs = Date.now() - d.getTime();
+                                                    const diffMins = Math.floor(diffMs / 60000);
+                                                    const diffHrs = Math.floor(diffMins / 60);
+                                                    const diffDays = Math.floor(diffHrs / 24);
+                                                    const relative = diffMins < 1 ? 'just now'
+                                                        : diffMins < 60 ? `${diffMins}m ago`
+                                                            : diffHrs < 24 ? `${diffHrs}h ago`
+                                                                : diffDays < 7 ? `${diffDays}d ago`
+                                                                    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                    const fullDate = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                                    return (
+                                                        <span
+                                                            title={fullDate}
+                                                            className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap"
+                                                        >
+                                                            {relative}
+                                                        </span>
+                                                    );
+                                                })() : (
+                                                    <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                                )}
+
+                                                {isAdmin && row.coordinates && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            runForRow(row.zpid);
+                                                        }}
+                                                        disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning}
+                                                        className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all disabled:opacity-30"
+                                                        title="Rerun orientation analysis"
                                                     >
-                                                        {relative}
-                                                    </span>
-                                                );
-                                            })() : (
-                                                <span className="text-[10px] text-slate-200 font-bold">—</span>
-                                            )}
+                                                        <i className={`fa-solid fa-rotate text-[10px] ${(row.status === 'running') ? 'animate-spin' : ''}`} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
 
                                         {/* Last Assessed */}
@@ -747,7 +763,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     >
                                                         {row.status === 'running'
                                                             ? <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                                            : <i className="fa-solid fa-satellite-dish text-xs" />}
+                                                            : <i className="fa-solid fa-rotate text-xs" />}
                                                     </button>
                                                 </div>
                                             </td>

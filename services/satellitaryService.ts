@@ -22,7 +22,8 @@ const MAPS_API_KEY = APP_CONFIG.maps.key;
 
 export interface SatellitaryResult {
     final_orientation: string;        // e.g. "Northeast (approx. 45°)"
-    azimuth_degrees: number | null;   // 0–360, null if uncertain (AI estimate)
+    azimuth_degrees: number | null;   // 0–360, GPS-accurate refined azimuth
+    visual_azimuth_estimate: number | null; // The AI's raw visual guess before GPS refinement
     confidence: 'high' | 'medium' | 'low';
     image_quality: 'clear' | 'acceptable' | 'blurry'; // Satellite image clarity assessment
     explanation: string;              // Detailed step-by-step reasoning
@@ -43,6 +44,7 @@ export interface SatellitaryResult {
     aerial_url: string;               // Public URL of satellite image used
     street_view_url: string;          // Public URL of street view used (empty string if none)
     aerial_only_mode: boolean;        // true when no street view was available
+    _debug?: any;                     // Internal metadata for auditing (heading, raw guess)
 }
 
 /**
@@ -430,6 +432,7 @@ export async function runSatellitaryAnalysis(
     const result: SatellitaryResult = {
         ...data,
         image_quality: data.image_quality ?? 'acceptable',
+        visual_azimuth_estimate: data.azimuth_degrees ?? null,
         azimuth_degrees: computeAccurateAzimuth(data.azimuth_degrees ?? null, usesDualImage ? streetViewHeading : null),
         feng_shui_vastu: data.feng_shui_vastu ?? null,
         privacy_insight: data.privacy_insight ?? '',
@@ -445,6 +448,10 @@ export async function runSatellitaryAnalysis(
         aerial_url: aerialUrl,
         street_view_url: streetViewUrl ?? '',
         aerial_only_mode: !usesDualImage,
+        _debug: {
+            streetViewHeading,
+            geminiAzimuth: data.azimuth_degrees ?? null
+        } as any
     };
 
     // ── 4. Cache results to Firestore (fire-and-forget) ───────────────────────
@@ -454,6 +461,7 @@ export async function runSatellitaryAnalysis(
             {
                 final_orientation: result.final_orientation,
                 azimuth_degrees: result.azimuth_degrees,
+                visual_azimuth_estimate: result.visual_azimuth_estimate,
                 confidence: result.confidence,
                 aerial_only_mode: result.aerial_only_mode,
                 aerial_url: result.aerial_url,

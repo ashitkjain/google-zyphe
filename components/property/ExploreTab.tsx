@@ -2075,6 +2075,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     const [mining, setMining] = useState(false);
     const [miningStatus, setMiningStatus] = useState<string>('');
     const [cachedNeighborhoodCount, setCachedNeighborhoodCount] = useState<number | null>(null);
+    const [cityGraphs, setCityGraphs] = useState<Map<string, any>>(new Map());
 
     const handleBrowse = async (city?: string) => {
         const target = city || selectedCity;
@@ -2138,6 +2139,19 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             }
         }
     }, [results, browsing, activePath, buyerStory]);
+
+    // Fetch context graphs for the whole city to show high-density insights on ALL cards
+    useEffect(() => {
+        if (!selectedCity) { setCityGraphs(new Map()); return; }
+        (async () => {
+            try {
+                const graphs = await queryContextGraphs({ city: selectedCity, maxResults: 200 });
+                setCityGraphs(graphs);
+            } catch (err) {
+                console.error('[ExploreTab] Failed to fetch city context graphs:', err);
+            }
+        })();
+    }, [selectedCity]);
 
     // Check if neighborhoods are already cached when city changes
     useEffect(() => {
@@ -3378,6 +3392,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                         key={prop.zpid}
                                         property={prop}
                                         match={match}
+                                        factors={cityGraphs.get(String(prop.zpid))?.factors}
                                         onClick={() => window.open(`/explore?q=${encodeURIComponent(prop.address)}`, '_blank')}
                                         onTourClick={(e) => { e.stopPropagation(); setLeadModal({ type: 'tour', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}
                                         onInfoClick={(e) => { e.stopPropagation(); setLeadModal({ type: 'info', address: prop.address, zpid: prop.zpid, price: prop.listPrice }); }}

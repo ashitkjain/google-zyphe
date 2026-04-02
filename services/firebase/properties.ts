@@ -163,6 +163,7 @@ export const savePropertyOrientationToCloud = async (
     orientationAI: {
         final_orientation: string;
         azimuth_degrees: number | null;
+        visual_azimuth_estimate?: number | null;
         confidence: 'high' | 'medium' | 'low';
         aerial_only_mode: boolean;
         aerial_url: string;
@@ -175,6 +176,10 @@ export const savePropertyOrientationToCloud = async (
         buyer_pro?: string;
         buyer_con?: string;
         orientation_highlights?: string;
+        pool_visible?: boolean | null;
+        pool_direction?: string | null;
+        garage_direction?: string | null;
+        open_sky_direction?: string | null;
     } | null
 ): Promise<{ success: boolean; error?: string }> => {
     if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
@@ -355,7 +360,7 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
         const nestedRef = doc(db, "properties", String(zpid), "analysis", "visual");
         logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'visual' });
         await setDoc(nestedRef, {
-            ...sanitizeForFirestore(cleanAnalysis),
+            ...sanitizeForFirestore(analysis),
             zpid: String(zpid),
             timestamp: serverTimestamp()
         }, { merge: true });
@@ -1040,7 +1045,7 @@ export const queryContextGraphs = async (filters: ContextGraphQuery): Promise<Ma
     const results = new Map<string, any>();
     if (!db || !filters.city) return results;
 
-    const normalizedCity = filters.city.trim();
+    const normalizedCity = filters.city.toLowerCase().trim();
     const maxResults = filters.maxResults || 50;
 
     try {

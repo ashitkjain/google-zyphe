@@ -164,8 +164,8 @@ KEY HEURISTICS:
 - Driveway + garage door direction on the aerial = the most reliable front indicator.
 - Front orientation vs Camera Heading: A house front almost always faces the street. Since the camera is on the street looking at the front, the house is facing back toward the camera. 
   Therefore, if Image B shows the front, the front orientation is typically the OPPOSITE of the camera heading (heading + 180 degrees).
-- Multi-unit complexes: fronts face an internal lane, NOT the arterial road.
-- When aerial and heading conflict, trust the aerial.
+  EXAMPLE: If the house is on the South side of an East-West street, you must point the camera SOUTH (180°) to see it. The house's front door thus faces back toward the street = faces NORTH (0°).
+- When aerial and heading conflict, trust the aerial. (e.g. if the street view shows a back fence but you can see the front door on the aerial, ignore scenario A).
 `.trim();
 }
 
