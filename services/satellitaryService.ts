@@ -350,21 +350,28 @@ export async function runSatellitaryAnalysis(
     let streetViewUrl: string | null = null;
     let streetViewHeading: number | null = null;
 
-    if (cachedStreetViewUrl?.includes('firebasestorage')) {
-        // Cached URL — fetch heading separately (free metadata call)
-        streetViewUrl = cachedStreetViewUrl;
+    // Always fetch the GPS heading from metadata (free call) regardless of cached URL.
+    // A cached Firebase URL may have been stored without a heading param, meaning
+    // the camera angle is unknown — sending that to Gemini causes wrong orientation.
+    // We always build a fresh heading-locked live URL for AI analysis.
+    try {
         const headingResult = await fetchStreetViewHeading(lat, lng);
-        streetViewHeading = headingResult?.heading ?? null;
-    } else {
-        // Try live Street View API — check metadata first (free call, also gives us heading)
-        try {
-            const headingResult = await fetchStreetViewHeading(lat, lng);
-            if (headingResult) {
-                streetViewHeading = headingResult.heading;
-                streetViewUrl = buildStreetViewUrl(lat, lng, streetViewHeading);
-            }
-        } catch (e) {
-            console.warn('[Satellitary] Street View metadata check failed; running aerial-only.', e);
+        if (headingResult) {
+            streetViewHeading = headingResult.heading;
+            // Build a fresh URL with the heading baked in — used for AI analysis
+            streetViewUrl = buildStreetViewUrl(lat, lng, streetViewHeading);
+        } else if (!headingResult && !cachedStreetViewUrl) {
+            // Truly unavailable (status !== OK) and no cached fallback → aerial-only
+            streetViewUrl = null;
+        } else if (!headingResult && cachedStreetViewUrl?.includes('firebasestorage')) {
+            // Street view unavailable via metadata but we have a cached image — use it
+            streetViewUrl = cachedStreetViewUrl;
+        }
+    } catch (e) {
+        console.warn('[Satellitary] Street View metadata check failed; running aerial-only.', e);
+        // Fall back to cached URL if we have one
+        if (cachedStreetViewUrl?.includes('firebasestorage')) {
+            streetViewUrl = cachedStreetViewUrl;
         }
     }
 
