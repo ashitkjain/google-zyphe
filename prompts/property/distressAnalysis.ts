@@ -3,29 +3,28 @@
  * distressed / motivated-seller properties and forced appreciation potential.
  */
 
+export const DISTRESS_MARKERS = [
+    /** Financial */
+    "Short sale", "REO", "Bank-owned", "Court approval", "Pre-foreclosure", "Auction",
+    /** Condition */
+    "As-is", "Contractor special", "Handyman", "Mold", "Foundation", "Teardown", "Probate", "Deferred maintenance", "Cash-only",
+    /** Motivation */
+    "Must sell", "Relocating", "Quick sale", "Bring all offers", "Estate sale",
+    /** Timing */
+    "Back on market (BOM)", "2nd/3rd chance", "Failed inspections", "High DOM"
+];
+
 export const DISTRESS_PROMPT = (mlsData: string) => `Role: Act as a Senior Real Estate Investment Analyst specializing in distressed assets and value-add opportunities. You are the intelligence engine for Zyphe.
 
 Task: Analyze the provided MLS listing data to identify "Distress Signals" and "Forced Appreciation Potential."
 
 Step 1: Market Intelligence (Search Grounding)
 Perform a search for the most recent real estate data for the property's city/zip. Identify:
-
-The local Price Correction Factor.
-
-The median Days on Market (DOM).
-
-Current ROI Benchmarks for 2026 (e.g., Minor Kitchen Refresh, ADU value-add).
+The local Price Correction Factor, The median Days on Market (DOM), and Current ROI Benchmarks for 2026 (e.g., Minor Kitchen Refresh, ADU value-add).
 
 Step 2: Distress 'Red Flag' Analysis
-Scan the text, using semantics looking for intention, for the following indicators:
-
-Financial: Short sale, REO, bank-owned, court approval, pre-foreclosure, auction.
-
-Condition: As-is, contractor special, handyman, mold, foundation, teardown, probate, deferred maintenance, cash-only.
-
-Motivation: Must sell, relocating, quick sale, bring all offers, estate sale.
-
-Timing: Back on market (BOM), 2nd/3rd chance, failed inspections, high DOM.
+Scan the property description and data for the following indicators:
+${DISTRESS_MARKERS.join(", ")}
 
 Step 3: Value-Add & ARV Analysis
 2026 ROI Reference Logic:

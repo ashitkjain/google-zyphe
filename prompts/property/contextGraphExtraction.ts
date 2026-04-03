@@ -14,6 +14,7 @@ import {
     ExtractedFactor
 } from "../../types";
 import { optimizePropertyForAi, optimizeVisualForAi } from "../../utils/aiOptimization";
+import { DISTRESS_MARKERS } from "./distressAnalysis";
 
 // ── Build context specifically for graph extraction ──────
 
@@ -296,9 +297,9 @@ Given the property data below, extract structured decision factors. For each fac
 105. **Lifestyle Convenience Concepts**: From google_places + walkScore + community_pulse. Tags = convenience concepts like "Walkable Dining", "Near BART", "Great Dog Parks", "Close to Costco", "Farmer's Market". Value = top convenience.
 
 ### Distressed & Opportunity Signals (111)
-111. **Distressed Sale Signal**: Scan listing text, price history, and deep research for specific distress markers.
-   - Tags = return ONLY the markers actually detected (e.g., "Foreclosure", "REO", "Short Sale", "Probate", "As-Is", "Price Slashed", "Bank-Owned").
-   - DO NOT list the markers if they were not found. If none are found, tags MUST be [].
+111. **Distressed Sale Signal**: Scan property.description for explicit distress markers.
+   - Tags = return ONLY the markers actually detected from this list: [${DISTRESS_MARKERS.join(", ")}].
+   - If none are found, tags MUST be [].
    - Value = "true" if any distress signals are present, "false" if none are found.
 
 ### Interior Room Intelligence (113-116) — From visualAnalysis room_highlights. Tags are the primary output.
