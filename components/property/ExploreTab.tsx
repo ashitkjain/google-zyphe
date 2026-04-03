@@ -1889,6 +1889,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         isFavorited={isFavorited}
                                         onToggleFavorite={onToggleFavorite}
                                         activeSubTab={activeSubTab}
+                                        onTabChange={(tabId) => setActiveSubTab(tabId)}
                                     />
                                 )}
 

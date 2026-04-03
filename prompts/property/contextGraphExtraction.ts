@@ -150,6 +150,7 @@ ${skipNote}
 Given the property data below, extract structured decision factors. For each factor, return:
 - The factor ID and name
 - Tags: 2-8 short labels (1-4 words each) that capture ALL key information — numbers, categories, descriptors, and concepts. Tags are the ONLY output per factor, so they must be comprehensive.
+- Do NOT repeat the factor name or category inside the tags. Keep it meaningful (e.g., if the factor is "Architecture", do NOT include a tag named "Architectural Style"). Use only specific descriptors (e.g., "Contemporary", "Mid-Century", "Vaulted").
   Example: Price factor → ["Luxury", "$2.1M", "Top 5%", "Premium Market"]
   Example: Walkability → ["Score 85", "Very Walkable", "Transit Rich", "Errands on Foot"]
 
@@ -176,13 +177,13 @@ Given the property data below, extract structured decision factors. For each fac
 16. SKIP (precomputed).
 17. **Dedicated Home Office**: Look for "Den", "Office", "Library", or "Study" in roomTypes or description.
 18. SKIP (precomputed).
-19. **Foundation & Storage**: Basement, Crawl Space, or Slab — use resoFacts.
+19. **Foundation & Storage**: Basement, Crawl Space, or Slab — use resoFacts. Just use the type as a tag (e.g. "Slab"), do NOT include the words "Foundation type".
 20. SKIP (precomputed).
 
 ### Interior Design & Visual (21-30)
 21. **Move-In Readiness**: "Turn-key" if renovated/new, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned.
 22. **Renovation Upside**: High if condition is "Needs cosmetic updates" but structural era is good.
-23. **Architectural Style**: Mediterranean, Craftsman, Modern, etc. (from visualAnalysis or architecturalStyle).
+23. **Architecture**: Mediterranean, Craftsman, Modern, Tudor, etc. (from visualAnalysis or architecturalStyle). Use only the specific style names as tags (e.g. "Modern", "Tudor") and do NOT include the word "Style" unless it is part of a standard name.
 24. **Natural Light / Brightness**: From lighting description. If missing, look for "Skylights", "Large windows", "South facing" in description.
 25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in interior analysis or description.
 26. **Kitchen Profile**: Combines caliber ("Chef's", "Standard") with specific materials ("Wood cabinets", "Quartz counters", "Gas range"). From visualAnalysis.
@@ -258,7 +259,6 @@ Given the property data below, extract structured decision factors. For each fac
 84. SKIP (precomputed).
 85. SKIP (precomputed).
 86. SKIP (precomputed).
-87. **Pet Friendliness**: Combine google_places.parks (dog parks, off-leash areas) + property features (fenced yard, dog door). Also look for vet clinics in nearby places.
 88. **Dining & Entertainment Scene**: From google_places.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
 
 ### Investment Intelligence (89-93)
@@ -334,7 +334,7 @@ Return a JSON object with this structure:
 }
 
 CRITICAL RULES:
-- Extract ALL non-skipped factors. If data is missing, use tags: ["Data Not Available"]
+- Extract ALL non-skipped factors. If NO information is found for a factor (total absence of data), return tags: [] (empty array). Do NOT use any filler text like "Data Not Available".
 - Tags are the ONLY output per factor — they must capture ALL relevant information including numbers, percentages, categories, and concepts
 - Each tag should be 1-4 words, suitable for search indexing and graph nodes
 - Generate 2-8 tags per factor. For factors 89-105, generate 3-8 rich concept tags

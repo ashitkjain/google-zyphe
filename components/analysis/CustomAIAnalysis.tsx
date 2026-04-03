@@ -25,10 +25,11 @@ interface Props {
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
   activeSubTab?: string;
+  onTabChange?: (tabId: string) => void;
 }
 
 const CustomAIAnalysis: React.FC<Props> = (props) => {
-  return <AnalysisOrchestrator {...props} />;
+  return <AnalysisOrchestrator {...props} onTabChange={props.onTabChange as any} />;
 };
 
 export default CustomAIAnalysis;

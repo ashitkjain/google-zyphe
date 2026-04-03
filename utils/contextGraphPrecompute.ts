@@ -76,7 +76,7 @@ function factor4_trueCarryingCost(p: PropertyData): ExtractedFactor {
     const hoaRaw = p.resoFacts?.feesAndDues;
     const hoa = hoaRaw ? parseFloat(String(hoaRaw).replace(/[^0-9.]/g, '')) || 0 : 0;
     const total = Math.round(mortgage + taxes + insurance + hoa);
-    return { id: 4, name: 'True Carrying Cost', tags: [`~$${Math.round(total / 1000)}K/mo`, 'Estimated'] };
+    return { id: 4, name: 'True Carrying Cost', tags: [`~$${Math.round(total / 1000)}K/mo`] };
 }
 
 function factor5_sellerMotivation(p: PropertyData): ExtractedFactor {
@@ -916,36 +916,9 @@ function factor82_seniorLifestyleFit(visual: CustomAIAnalysisResult | null, comp
     return { id: 82, name: 'Senior Lifestyle Fit', tags: [] };
 }
 
-function factor87_nearbyPlaces(p: PropertyData): ExtractedFactor {
-    const places = (p as any).google_places;
-    if (!places) return { id: 87, name: 'Top Nearby Places', tags: [] };
-
-    const allPlaces = [
-        ...(places.walkable?.dining || []),
-        ...(places.walkable?.parks || []),
-        ...(places.walkable?.shopping || []),
-        ...(places.drivable?.medical || []),
-        ...(places.drivable?.transit || []),
-    ]
-      .filter((pl: any) => pl.name && pl.distanceMeters)
-      .sort((a: any, b: any) => (a.distanceMeters || 0) - (b.distanceMeters || 0))
-      .slice(0, 8);
-
-    if (!allPlaces.length) return { id: 87, name: 'Top Nearby Places', tags: [] };
-
-    const tags = allPlaces.map((pl: any) => {
-        const dist = `${(pl.distanceMeters / 1609.34).toFixed(1)}mi`;
-        return `${pl.name} (${dist})`;
-    });
-
-    const closest = allPlaces[0];
-    const val = `${allPlaces.length} places — nearest: ${closest.name}`;
-    return { id: 87, name: 'Top Nearby Places', tags };
-}
-
 function factor120_nearbyAmenitiesProfile(p: PropertyData): ExtractedFactor {
     const places = (p as any).google_places;
-    if (!places) return { id: 120, name: 'Nearby Amenities Profile', tags: [] };
+    if (!places) return { id: 120, name: 'Nearby Places Profile', tags: [] };
 
     const tags: string[] = [];
 
@@ -991,9 +964,9 @@ function factor120_nearbyAmenitiesProfile(p: PropertyData): ExtractedFactor {
         }
     }
 
-    if (tags.length === 0) return { id: 120, name: 'Nearby Amenities Profile', tags: ['No POI Data'] };
+    if (tags.length === 0) return { id: 120, name: 'Nearby Places Profile', tags: ['No POI Data'] };
 
-    return { id: 120, name: 'Nearby Amenities Profile', tags: tags.slice(0, 25) };
+    return { id: 120, name: 'Nearby Places Profile', tags: tags.slice(0, 25) };
 }
 
 // ── Main Export ────────────────────────────────────────────────────
@@ -1084,7 +1057,6 @@ export function precomputeDataFactors(
         factor84_walkableAmenities(property),
         factor85_medicalProximity(property),
         factor86_evInfrastructure(property),
-        factor87_nearbyPlaces(property),
         factor120_nearbyAmenitiesProfile(property),
         factor106_seismicRisk(property),
         factor108_sqftDiscrepancy(property),
@@ -1103,6 +1075,6 @@ export function precomputeDataFactors(
 
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 16, 18, 20, 21, 28, 30, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 106, 108, 109, 120, 121, 122];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 16, 18, 20, 21, 28, 30, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 106, 108, 109, 120, 121, 122];
 
 

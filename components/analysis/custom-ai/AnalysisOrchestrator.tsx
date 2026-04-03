@@ -47,6 +47,7 @@ interface Props {
     isFavorited?: boolean;
     onToggleFavorite?: () => void;
     activeSubTab?: string;
+    onTabChange?: (tabId: TabType) => void;
 }
 
 const AnalysisOrchestrator: React.FC<Props> = ({
@@ -68,7 +69,8 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     addLog,
     isFavorited,
     onToggleFavorite,
-    activeSubTab
+    activeSubTab,
+    onTabChange
 }) => {
     const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor') || 'buyer';
     const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
@@ -157,7 +159,11 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     useEffect(() => {
         const tabLabel = tabs.find(t => t.id === activeTab)?.label || activeTab;
         setCurrentPage(activeTab, `Explore > ${tabLabel}`);
-    }, [activeTab, tabs]);
+        // Synchronize with parent so it's sticky across refreshes/re-renders
+        if (onTabChange) {
+            onTabChange(activeTab);
+        }
+    }, [activeTab, tabs, onTabChange]);
 
     // Auto-run satellite analysis when Exterior tab is active and no orientation_ai cached
     const [satelliteLoading, setSatelliteLoading] = React.useState(false);

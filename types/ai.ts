@@ -242,7 +242,7 @@ export interface ContextGraphKeyMetrics {
     walkScore?: number | null;
     transitScore?: number | null;
     noiseScore?: number | null;
-    schoolMaxRating?: number | null;
+    schoolMinRating?: number | null;
     fireRisk?: number | null;
     floodRisk?: number | null;
     windRisk?: number | null;

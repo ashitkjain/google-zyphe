@@ -707,9 +707,7 @@ export const extractContextGraphFactors = async (
   })();
   const garageRaw = property.resoFacts?.garageParkingCapacity;
   const garageSpaces = garageRaw != null ? (typeof garageRaw === 'number' ? garageRaw : parseInt(String(garageRaw)) || null) : null;
-  const schoolMaxRating = property.schools?.length
-    ? Math.max(...property.schools.map(s => typeof s.rating === 'number' ? s.rating : parseFloat(String(s.rating)) || 0))
-    : null;
+  const schoolMinRating = property.schools?.length ? Math.min(...property.schools.map(s => typeof s.rating === 'number' ? s.rating : parseFloat(String(s.rating)) || 0)) : null;
   const price = property.price ?? property.zestimate;
   const sqft = property.livingAreaValue;
 
@@ -726,7 +724,7 @@ export const extractContextGraphFactors = async (
     walkScore: property.walkScore ?? null,
     transitScore: property.transitScore ?? null,
     noiseScore: property.noiseScore ?? null,
-    schoolMaxRating,
+    schoolMinRating,
     fireRisk: property.fireRiskScore ?? null,
     floodRisk: property.floodRiskScore ?? null,
     windRisk: property.windRiskScore ?? null,
@@ -737,14 +735,21 @@ export const extractContextGraphFactors = async (
 
 
   // 6. Remove deleted/suppressed factors — never store or send downstream
-  const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 107, 110, 112]);
+  const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 87, 107, 110, 112]);
   const cleanedFactors = mergedFactors.filter(f => !DELETED_FACTOR_IDS.has(f.id));
 
-  // 7. Deduplicate: remove tags that are already substrings of the value
+  // 7. Deduplicate & Clean: remove tags that are already substrings of the value,
+  // and strip any "Data Not Available" placeholders if they leak.
   const dedupedFactors = cleanedFactors.map(f => {
-    if (!f.tags?.length || !f.value) return f;
-    const valueLower = f.value.toLowerCase();
-    const filtered = f.tags.filter(tag => !valueLower.includes(tag.toLowerCase()));
+    if (!f.tags?.length) return f;
+
+    // Always strip "Data Not Available" filler if it appears
+    let filtered = f.tags.filter(t => t.toLowerCase().trim() !== 'data not available');
+
+    if (f.value) {
+      const valueLower = f.value.toLowerCase();
+      filtered = filtered.filter(tag => !valueLower.includes(tag.toLowerCase()));
+    }
     return { ...f, tags: filtered };
   });
 
