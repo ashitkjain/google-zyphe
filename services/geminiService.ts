@@ -31,7 +31,8 @@ import { getDeepResearchInsightsPrompt, deepResearchInsightsSchema } from "../pr
 import { getInteriorSummaryPrompt, interiorSummarySchema } from "../prompts/property/interiorSummary";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
 import { buildCityContextGraphContext, getCityContextGraphPrompt, cityContextGraphSchema, CityContextGraphResult } from "../prompts/property/cityContextGraphExtraction";
-import { precomputeDataFactors, PRECOMPUTED_FACTOR_IDS } from "../utils/contextGraphPrecompute";
+import { precomputeDataFactors } from "../utils/contextGraphPrecompute";
+import { DELETED_FACTOR_IDS, PRECOMPUTED_FACTOR_IDS } from "../constants/contextGraphFactors";
 
 import {
   getCommunityPulseFromCloud,
@@ -273,7 +274,7 @@ export const executeGeminiRequest = async <T>(
         });
 
         const inputTokens = tokenCountResponse.totalTokens;
-        const MAX_TOTAL_TOKENS = 120000;
+        const MAX_TOTAL_TOKENS = 150000;
 
         if (inputTokens > MAX_TOTAL_TOKENS) {
           throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
@@ -653,13 +654,19 @@ export const extractContextGraphFactors = async (
 ): Promise<AIResponseWithUsage<ContextGraphExtractionResult>> => {
   // 1. Pre-compute the 35 pure-data factors client-side (no AI tokens)
   const precomputed = precomputeDataFactors(property, visual, comprehensive);
-  console.log(`[Context Graph] Pre-computed ${precomputed.size} factors from structured data.`);
+  
+  // 2. Determine which factors were ACTUALLY successful (not blank) to skip in AI prompt
+  const successfulSkipIds = Array.from(precomputed.entries())
+    .filter(([, f]) => (f.tags && f.tags.length > 0) || (f.value && f.value.trim().length > 0))
+    .map(([id]) => id);
 
-  // 2. Build context and prompt, telling AI to skip pre-computed IDs
+  console.log(`[Context Graph] Pre-computed ${precomputed.size} factors. Skipping ${successfulSkipIds.length} successful factors in AI prompt.`);
+
+  // 3. Build context and prompt, telling AI to skip only successfully pre-computed IDs
   const context = buildGraphExtractionContext(property, visual, comprehensive);
-  const prompt = getContextGraphExtractionPrompt(context, PRECOMPUTED_FACTOR_IDS);
+  const prompt = getContextGraphExtractionPrompt(context, successfulSkipIds);
 
-  console.log(`[Context Graph] Requesting AI for remaining ${111 - PRECOMPUTED_FACTOR_IDS.length} factors for ${property.address}...`);
+  console.log(`[Context Graph] Requesting AI for remaining ${111 - successfulSkipIds.length} factors for ${property.address}...`);
 
   // 3. Call Gemini for the remaining factors
   const aiResult = await executeGeminiRequest<ContextGraphExtractionResult>({
@@ -735,7 +742,6 @@ export const extractContextGraphFactors = async (
 
 
   // 6. Remove deleted/suppressed factors — never store or send downstream
-  const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 87, 107, 110, 112]);
   const cleanedFactors = mergedFactors.filter(f => !DELETED_FACTOR_IDS.has(f.id));
 
   // 7. Deduplicate & Clean: remove tags that are already substrings of the value,

@@ -149,37 +149,36 @@ export const getContextGraphExtractionPrompt = (context: any, skipIds: number[] 
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
 ${skipNote}
 Given the property data below, extract structured decision factors. For each factor, return:
-- The factor ID and name
-- Tags: 2-8 short labels (1-4 words each) that capture ALL key information — numbers, categories, descriptors, and concepts. Tags are the ONLY output per factor, so they must be comprehensive.
-- Do NOT repeat the factor name or category inside the tags. Keep it meaningful (e.g., if the factor is "Architecture", do NOT include a tag named "Architectural Style"). Use only specific descriptors (e.g., "Contemporary", "Mid-Century", "Vaulted").
-  Example: Price factor → ["Luxury", "$2.1M", "Top 5%", "Premium Market"]
-  Example: Walkability → ["Score 85", "Very Walkable", "Transit Rich", "Errands on Foot"]
+- The factor ID (no name needed)
+- Tags: 2-4 EXTREMELY short labels (1-2 words each).
+- Value: A single short sentence or phrase (max 10 words).
+- BREVITY IS CRITICAL. Do not repeat data. Only return factors that have meaningful info.
 
 ## FACTOR DEFINITIONS
 
 ### Financial & Market (1-10)
-1. SKIP (precomputed).
-2. SKIP (precomputed).
-3. SKIP (precomputed).
-4. SKIP (precomputed).
-5. SKIP (precomputed).
+1. **Price Bracket**: Determine if property is "Entry-Level", "Mid-Range", or "Luxury" based on price ($).
+2. **HOA Friction**: Determine if HOA is "High", "Low", or "No HOA". Tag with monthly fee if found.
+3. **Property Tax**: Estimated tax rate or annual amount.
+4. **Estimated Carrying Cost**: Total monthly cost (Mortgage + Tax + HOA + Ins) as a single tag (e.g. ~$8K/mo).
+5. **Seller Motivation**: Look for "motivated", "price cut", "back on market", or high days on market (DOM).
 6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
-7. SKIP (precomputed).
-8. SKIP (precomputed).
-9. SKIP (city-level).
-10. SKIP (precomputed).
+7. **STR Viability**: AirBnB potential based on occupancy and rate estimates.
+8. **Long-Term Rental Yield**: Estimated monthly rent and % yield.
+9. **Appreciation Signal**: Extract market growth or home value appreciation signals from text.
+10. **Market Momentum**: Identify if the area is "Rising", "Stable", or "High Demand" from market notes.
 
 ### Structural & Size (11-20)
-11. SKIP (precomputed).
-12. SKIP (precomputed).
-13. SKIP (precomputed).
-14. SKIP (precomputed).
-15. SKIP (precomputed).
-16. SKIP (precomputed).
+11. **Primary Bedroom Location**: "Ground Floor" vs "Upper Level".
+12. **Lot Size / Utility**: Usable yard space vs steep/oversized lots.
+13. **Parking Capacity**: Total spaces (Driveway + Street).
+14. **Usable Square Footage**: Categorize as "Compact", "Mid-Size", "Spacious", or "Estate".
+15. **Ceiling Height**: "High", "Vaulted", or "Standard".
+16. **Single-Story Flow**: One floor vs multi-story.
 17. **Dedicated Home Office**: Look for "Den", "Office", "Library", or "Study" in roomTypes or description.
-18. SKIP (precomputed).
-19. **Foundation & Storage**: Basement, Crawl Space, or Slab — use resoFacts. Just use the type as a tag (e.g. "Slab"), do NOT include the words "Foundation type".
-20. SKIP (precomputed).
+18. **Garage Capacity**: "2-Car Garage", "Attached", "Detached", etc.
+19. **Foundation & Storage**: Basement, Crawl Space, or Slab — use resoFacts. Just use the type as a tag (e.g. "Slab").
+20. **Construction Era**: "Pre-War", "Mid-Century", "80s-90s", "New Build".
 
 ### Interior Design & Visual (21-30)
 21. **Move-In Readiness**: "Turn-key" if renovated/new, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned.
@@ -189,85 +188,80 @@ Given the property data below, extract structured decision factors. For each fac
 25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in interior analysis or description.
 26. **Kitchen Profile**: Combines caliber ("Chef's", "Standard") with specific materials ("Wood cabinets", "Quartz counters", "Gas range"). From visualAnalysis.
 27. **Bathroom Profile**: Combines luxury ("Spa-like") with specific finishes ("Tile floors", "Wood vanities", "Soaking tub").
-28. SKIP (precomputed).
+28. **Flooring Material**: Hardwood, Carpet, Tile, Luxury Vinyl, etc.
 29. **Ceiling Volume**: "High/Vaulted" if mentioned in description or spatial_flow.
 30. **Interior Finishes**: Wall colors ("Neutral", "Warm"), Trim ("Crown molding"), and Window treatments ("Shutters", "Blinds").
 
 ### Outdoor & Lot (31-40)
 31. **Fenced Yard**: Check resoFacts.fencing or backyard_and_patio analysis.
 32. **Outdoor Entertainment**: Look for "Pool", "Spa", "Patio", "Deck", "Outdoor Kitchen" in exterior analysis or description.
-33. SKIP (precomputed).
+33. **Privacy Level**: From lot layout and neighbor proximity.
 34. **Curb Appeal**: Synthesize from streetViewAnalysis, visual analysis exterior_and_lot_appeal, and listing description. Value = overall rating (e.g. "Excellent — 9/10", "Good — 7/10", "Average — 5/10"). Tags = descriptive concepts like "Well-Maintained", "Mature Landscaping", "Fresh Paint", "Dated Exterior", "Overgrown", "Attractive Entry". Generate 3-6 tags.
 35. **Topography**: "Flat" vs "Hillside" from neighborhood analysis or description.
 36. **View Quality**: Hills, City Lights, Water, or None.
 37. **Street Noise / Traffic**: "Quiet" if Cul-de-sac, "Moderate" if through street, "High" if arterial.
 38. **Visual Clutter**: Overhead wires, messy neighbors, or busy streetscape (from streetViewAnalysis).
-39. SKIP (precomputed).
+39. **Yard Space**: "Large Backyard", "Courtyard", "Zero Lot Line".
 40. **Xeriscape / Low Maintenance**: Drought-tolerant or synthetic turf mentioned.
 
 ### Location & Community (41-45)
-41. SKIP (precomputed).
+41. **Exterior Finish**: Identify siding type (Stucco, Wood, Brick, Vinyl).
 42. **Commute Convenience**: Proximity to highways or transit hubs mentioned in neighborhood description.
-43. SKIP (precomputed).
+43. **Walkability**: Mention ped-friendly features or proximity to shops/dining.
 44. **Greenery Proximity**: "Park adjacent" or "Near trails" from neighborhood features.
-45. **Sidewalk Continuity**: From streetViewAnalysis.familySafety or pedestrian_infra.
+45. **Sidewalk Continuity**: Presence of sidewalks and overall street safety vibe.
 
-### Environmental (46-50)
-46. SKIP (precomputed).
-47. SKIP (precomputed).
-48. SKIP (precomputed).
-49. SKIP (precomputed).
-50. SKIP (precomputed).
+### Environmental & Efficiency (46-50)
+46. **Wildfire Risk**: Determine if "High Risk" or "Urban Safety Zone".
+47. **Flood Risk**: Check for "Flood zone" or "Near creek".
+48. **Solar Potential / Efficiency**: Look for panels or "Southern exposure".
+49. **Pollen & Allergy Profile**: High if "Mature pines/oaks" mentioned.
+50. **HVAC Quality**: "Central Air", "Split system", or "No AC".
 
 ### Advanced Intelligence (51-70)
-51. **Front Orientation / Vastu**: From orientation_ai data. Value = facing direction + buyer pro/con (e.g. "East-Facing — morning sun, favorable Vastu"). Tags = direction tag ("East-Facing"), favorability ("Favorable Orientation"), and Vastu/Feng Shui note if relevant. If orientation_ai is not available, return "Data not available". Generate 2-4 tags.
-52. SKIP (precomputed).
-53. SKIP (precomputed).
-54. **Topography & Elevation**: From parcelValidation slope data. Value = slope % + category + uphill direction + backyard facing (e.g. "8% slope (Moderate), uphill NE, backyard faces SW"). Tags = slope category, flat/steep indicators, south-facing backyard if applicable. If no slope data, return "Data not available". Generate 2-4 tags.
-55. SKIP (precomputed).
-56. SKIP (precomputed).
+51. **Front Orientation / Vastu**: Facing direction + favorability (e.g. "East-Facing morning sun").
+52. **Air Quality Profile**: "Clean Air Zone" vs "Near Industrial/Freeway".
+53. **Neighborhood Ranking**: General placement in local market (e.g. "Premier Enclave", "Established Neighborhood").
+54. **Topography & Elevation**: Slope % + Backyard facing direction.
+55. **Transit Accessibility**: "Walk to Rail", "Bus Nearby", or "Car-Dependent".
+56. **Commute Difficulty**: "Quick Highway Access" vs "Local Traffic Bottlenecks".
 57. **Work-From-Home Score**: Dedicated office + Fiber/High-speed internet mentions.
-58. **Multi-Gen Utility**: Downstairs Bed/Bath or separate entry for in-laws. If home is single-story (no stairs, resoFacts says Single Story, or all rooms on Floor 1), add "Single-Story Living" as a tag.
-59. SKIP (precomputed).
+58. **Multi-Gen Utility**: Downstairs Bed/Bath or separate entry for in-laws.
+59. **Laundry Logistics**: "Inside Laundry Room", "Hookups Only", or "Garage Shared".
 60. **Water / Air Systems**: Softeners, RO filters, or Zoned HVAC mentioned.
 61. **Security Infrastructure**: Gated, Security system, or Cameras.
-62. SKIP (deleted).
-63. SKIP (deleted).
-64. **Job Hub Connectivity**: Proximity to major corporate campuses (Google, Apple, etc.).
-65. SKIP (precomputed).
-66. SKIP (deleted).
+65. **Development Impact**: Nearby construction, new developments, or zoning changes.
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
 68. **Backyard Potential**: Room for ADU or pool if not already present.
-69. SKIP (deleted).
-70. SKIP (city-level).
+70. **Market Velocity**: How fast homes are selling in this specific micro-market.
 
 ### Community & Market Intelligence (71-75)
-71. SKIP (city-level).
-72. SKIP (city-level).
-73. SKIP (city-level).
-74. SKIP (city-level).
-75. SKIP (city-level).
+71. **Development Status**: Assessment of area maturity (Established vs Developing).
+72. **Community Complaints**: Note common gripes (parking, noise, litter) if mentioned.
+73. **Community Satisfaction**: Positive vibes, friendly neighbors, or cohesive community.
+74. **Neighborhood Safety**: Perceived safety from lighting, condition, and security.
+75. **Market Signals**: Buy/Sell volume and specific local catalysts.
 
 ### Infrastructure & Environment (76-79)
-76. SKIP (precomputed).
-77. SKIP (precomputed).
-78. SKIP (precomputed).
-79. SKIP (precomputed).
+76. **Internet Connectivity**: Mentions of Fiber, Giga-speed, or dead zones.
+77. **Noise Pollution**: Traffic, plane, or construction noise notes.
+78. **Drought Resistance**: Low-water landscaping or efficient irrigation.
+79. **Disaster Resilience**: Fire-resistant siding, seismic retrofitting, or flood prep.
 
 
 ### Neighborhood & Amenities (83-88)
-83. SKIP (precomputed).
-84. SKIP (precomputed).
-85. SKIP (precomputed).
-86. SKIP (precomputed).
+83. **Social Fabric**: Demographic vibe (Professionals, Families, Retirees).
+84. **Walkable Amenities**: Specific nearby cafes, parks, or shops.
+85. **Medical Proximity**: Nearby hospitals or specialist centers.
+86. **EV Infrastructure**: Presence of chargers or suitability for installation.
 88. **Dining & Entertainment Scene**: From google_places.walkable.dining — count, average rating, and variety. \"Vibrant\" if 5+ walkable with avg 4.0+ rating. \"Sparse\" if car required.
 
 ### Investment Intelligence (89-93)
-89. SKIP (city-level).
-90. SKIP (city-level).
-91. SKIP (city-level).
-92. SKIP (city-level).
-93. SKIP (city-level).
+89. **Market Indicators**: Buy/Sell volume and supply/demand signals.
+90. **Growth Catalysts**: New businesses, transit lines, or developments.
+91. **Investment Risk**: Identify specific property or neighborhood risks.
+92. **Market Friction**: Zoning issues, inventory shortages, or legal hurdles.
+93. **Zoning**: Development constraints and allowed usage.
 
 ### Street View Intelligence (94-98) — Tags are the primary output. Generate 3-8 concept tags per factor from streetViewAnalysis data.
 94. **Street Character**: From streetViewAnalysis.neighborhoodVibe + safetyAssessment + familySafety. Tags = street concepts like "Tree-Lined Street", "Quiet Cul-de-sac", "Well-Lit", "Wide Streets", "Speed Bumps", "Dead End". Value = overall street character.
@@ -291,14 +285,15 @@ Given the property data below, extract structured decision factors. For each fac
 101. **School Concepts**: From schools_intelligence and schools data. For each of the top 3 schools, generate tags with school name + rating (e.g. "Amador Valley 10/10"), school type if non-public ("Charter", "Private"), test scores ("85% Proficient"), student-teacher ratio ("22:1 Small Classes"), AP/IB programs, graduation rate, and extracurriculars ("STEM/Robotics", "Strong Athletics"). Also include district name, "Desirable School Zone" if applicable, and proximity tags ("Walking Distance", "Schools Under 1mi"). Value = top school name + rating + district. Generate 5-12 tags.
 
 ### Community Sentiment & Condition (102-105) — Tags are the primary output. Generate 3-8 concept tags.
-102. SKIP (city-level).
-103. SKIP (city-level).
+102. **Sentiment Analysis**: Buzz and perceived value from community reports.
+103. **Market Narrative**: Local news and community pulse on real estate trends.
 104. **Condition & Renovation Concepts**: From visual analysis condition_and_finish + room_highlights potential_improvements. Tags = condition concepts like "Needs Kitchen Update", "New Roof", "Original Hardwood", "Remodeled Bathrooms", "Dated HVAC". Value = overall condition.
 105. **Lifestyle Convenience Concepts**: From google_places + walkScore + community_pulse. Tags = convenience concepts like "Walkable Dining", "Near BART", "Great Dog Parks", "Close to Costco", "Farmer's Market". Value = top convenience.
 
 ### Distressed & Opportunity Signals (111)
 111. **Distressed Sale Signal**: Scan property.description for explicit distress markers.
-   - Tags = return ONLY the markers actually detected from this list: [${DISTRESS_MARKERS.join(", ")}].
+   - Tags = return ONLY the markers semantically identified from this list: [${DISTRESS_MARKERS.join(", ")}].
+   - Search for both literal keyword matches and semantic equivalents (e.g. "needs massive repair" = "Fixer-Upper", "bank owned" = "Bank-owned").
    - If none are found, tags MUST be [].
    - Value = "true" if any distress signals are present, "false" if none are found.
 
@@ -308,8 +303,16 @@ Given the property data below, extract structured decision factors. For each fac
 115. **Flooring & Materials Palette**: From room_highlights + condition_and_finish. Tags = material concepts found across the home like "Vinyl Plank", "Hardwood", "Tile", "Carpet", "Granite Counters", "Wood Cabinets", "Stainless Steel", "Marble". Value = dominant flooring type. Generate 4-8 tags.
 116. **Spatial Flow & Layout**: From room_highlights + spatial descriptions. Tags = layout concepts like "Open Floor Plan", "Split Bedrooms", "Indoor-Outdoor Flow", "Single Story", "Two-Story", "Formal Dining Separate", "Kitchen Open to Living", "Jack-and-Jill Bath", "En-Suite Primary". Value = layout summary. Generate 4-8 tags.
 
-### Location Amenities (120)
-120. SKIP (precomputed).
+106. **Seismic Safety**: "Retrofitted", "Slab", or "Hillside" risk considerations.
+107. **Energy Efficiency**: Double-pane windows, insulation, or smart thermostat.
+108. **Sqft Discrepancy**: "Actual vs Public Record" notable differences.
+109. **Lot Boundary Verification**: "Encroachments" or "Easements" mentioned.
+110. **Zoning Flexibility**: ADU allowed, mixed-use, or R-2 potential.
+
+### Location Logistics (120-122)
+120. **Nearby Places Profile**: Highlight specific key brands nearby (Costco, Target, Starbucks).
+121. **Microclimate Profile**: "Fog belt", "Sun-drenched", or "Windy ridge" details.
+122. **Demographic Snapshot**: Wealth, education, or age trends in the immediate tract.
 
 ## PROPERTY DATA
 
@@ -325,10 +328,11 @@ Return a JSON object with this structure:
   "extractedAt": "ISO timestamp",
   "factors": [
     {
-      "id": 1,
-      "tags": ["Luxury", "$2.1M", "Top 5%", "Premium Market"]
+      "id": 23,
+      "tags": ["Modern", "Minimalist"],
+      "value": "Clean contemporary architecture with flat roof and large glass panes."
     },
-    ...all factors...
+    ...
   ],
   "summary": {
     "topStrengths": ["Top 3-5 property strengths as buyer-facing phrases"],
@@ -355,10 +359,11 @@ const factorSchema = {
         tags: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: "2-8 short labels capturing all key info"
-        }
+            description: "2-4 short labels"
+        },
+        value: { type: Type.STRING, description: "Max 10-word summary" }
     },
-    required: ["id", "tags"]
+    required: ["id", "tags", "value"]
 };
 
 const summarySchema = {
