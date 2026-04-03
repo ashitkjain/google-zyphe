@@ -296,7 +296,10 @@ Given the property data below, extract structured decision factors. For each fac
 105. **Lifestyle Convenience Concepts**: From google_places + walkScore + community_pulse. Tags = convenience concepts like "Walkable Dining", "Near BART", "Great Dog Parks", "Close to Costco", "Farmer's Market". Value = top convenience.
 
 ### Distressed & Opportunity Signals (111)
-111. **Distressed Sale Signal**: Analyze property.description, priceHistory, daysOnMarket, condition_and_finish, and deep_investment_research for distress indicators. Tags = distress concepts like "Foreclosure/REO", "As-Is Sale", "Estate Sale", "Probate", "Short Sale", "Investor Special", "Bank-Owned", "Price Slashed 3x", "Deferred Maintenance", "Vacant Property", "Court-Ordered", "Fixer-Upper". Value = distress level (None/Mild/Moderate/Heavy). Generate 3-8 tags if any distress signals found.
+111. **Distressed Sale Signal**: Scan listing text, price history, and deep research for specific distress markers.
+   - Tags = return ONLY the markers actually detected (e.g., "Foreclosure", "REO", "Short Sale", "Probate", "As-Is", "Price Slashed", "Bank-Owned").
+   - DO NOT list the markers if they were not found. If none are found, tags MUST be [].
+   - Value = "true" if any distress signals are present, "false" if none are found.
 
 ### Interior Room Intelligence (113-116) — From visualAnalysis room_highlights. Tags are the primary output.
 113. **Room-by-Room Character**: For EACH room found in room_highlights, generate 2-3 descriptive concept tags prefixed with the room name (e.g. "Kitchen: Updated Cabinets", "Living Room: Brick Fireplace", "Primary Bed: Walk-In Closet", "Laundry: Full-Size W/D"). Scan ALL rooms — do not skip any. Do NOT repeat the same feature across multiple rooms (e.g. if "Vinyl Flooring" appears in every room, tag it once under the first room or under factor 115 instead). Focus on features that matter to buyers: storage, natural light, updates vs dated, special fixtures, layout flow, outdoor access, and standout details. Value = number of rooms detected + overall impression (e.g. "9 rooms — cohesive modern updates"). Generate 8-20 tags total depending on how many rooms exist.
