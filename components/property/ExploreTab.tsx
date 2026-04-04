@@ -51,7 +51,7 @@ import PropertyCard from './PropertyCard';
 import LeadCaptureModal from './LeadCaptureModal';
 import { SaveSearchModal, SavedSearchesPanel, SavedSearch } from './SaveSearchModals';
 import { trackCityBrowsed, trackViewModeChanged, trackPropertyViewed, trackStorySearchRun } from '../../services/analytics/idxTracking';
-import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS } from '../../constants/contextGraphFactors';
+import { FACTOR_NAMES, CITY_LEVEL_FACTOR_IDS, expandFactor } from '../../constants/contextGraphFactors';
 import {
     executeGeminiRequest,
     FLASH_LITE_MODEL,
@@ -3369,7 +3369,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                                                             <div className="flex flex-wrap gap-1 mt-2 mb-1">
                                                                 {match.factors.map((f, i) => (
                                                                     <span key={i} className="px-1.5 py-0.5 rounded bg-amber-50/50 border border-amber-100/50 text-[9px] font-bold text-amber-700/80">
-                                                                        <i className="fa-solid fa-sparkles text-[7px] mr-1 opacity-50"></i>{f}
+                                                                        <i className="fa-solid fa-sparkles text-[7px] mr-1 opacity-50"></i>{expandFactor(f)}
                                                                     </span>
                                                                 ))}
                                                             </div>

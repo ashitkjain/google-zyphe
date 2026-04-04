@@ -33,10 +33,6 @@ export const buildGraphExtractionContext = (
         const {
             image_by_image_analysis,
             image_quality_analysis,
-            general_market_intelligence,
-            deep_investment_research,
-            community_pulse,
-            property_investment,
             ...kept
         } = visual;
         optimizedVisual = kept;
@@ -81,7 +77,9 @@ export const buildGraphExtractionContext = (
     const taxSqft = (property as any).taxSqft ?? null;
 
     const result = {
+        listingDescription: property.description,
         property: optimizedProperty,
+        schools: property.schools?.map(s => ({ name: s.name, rating: s.rating, distance: s.distance, level: s.level })),
         visualAnalysis: optimizedVisual,
         narrativeReport: narrative,
         parcelValidation,
@@ -162,11 +160,11 @@ Given the property data below, extract structured decision factors. For each fac
 3. **Property Tax**: Estimated tax rate or annual amount.
 4. **Estimated Carrying Cost**: Total monthly cost (Mortgage + Tax + HOA + Ins) as a single tag (e.g. ~$8K/mo).
 5. **Seller Motivation**: Look for "motivated", "price cut", "back on market", or high days on market (DOM).
-6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
-7. **STR Viability**: AirBnB potential based on occupancy and rate estimates.
-8. **Long-Term Rental Yield**: Estimated monthly rent and % yield.
-9. **Appreciation Signal**: Extract market growth or home value appreciation signals from text.
-10. **Market Momentum**: Identify if the area is "Rising", "Stable", or "High Demand" from market notes.
+6. **ADU / House-Hacking Potential**: Look for "ADU", "Guest House", "In-law suite", "Basement apartment", "Zoned for 2 units", "R-2", "Duplex potential", "Full bath in basement", "Second kitchen", "Large lot with side access" in listingDescription OR visualAnalysis.deep_investment_research. If the lot is >8000 sqft and zoning allows, tag as "High Potential".
+7. **STR Viability**: Analyze visualAnalysis.property_investment. Tags = "High Yield", "Strict HOA", "Zoned STR", "Primary Residence Only", "Seasonal Demand".
+8. **LTR Yield Potential**: Tags = "Cap Rate > 5%", "Cash Flow Positive", "Turnkey Rental". Value = Monthly rent estimate from visualAnalysis.property_investment or property.rentZestimate.
+9. **Appreciation Signal (City)**: From visualAnalysis.general_market_intelligence. Tags = "Historical 5%+", "New Dev Nearby", "Supply Constrained".
+10. **Market Momentum**: Identify if area is "Rising" or "Stable" from visualAnalysis.general_market_intelligence. Value = 1-sentence trend.
 
 ### Structural & Size (11-20)
 11. **Primary Bedroom Location**: "Ground Floor" vs "Upper Level".
@@ -184,13 +182,13 @@ Given the property data below, extract structured decision factors. For each fac
 21. **Move-In Readiness**: "Turn-key" if renovated/new, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned.
 22. **Renovation Upside**: High if condition is "Needs cosmetic updates" but structural era is good.
 23. **Architecture**: Mediterranean, Craftsman, Modern, Tudor, etc. (from visualAnalysis or architecturalStyle). Use only the specific style names as tags (e.g. "Modern", "Tudor") and do NOT include the word "Style" unless it is part of a standard name.
-24. **Natural Light / Brightness**: From lighting description. If missing, look for "Skylights", "Large windows", "South facing" in description.
-25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in interior analysis or description.
-26. **Kitchen Profile**: Combines caliber ("Chef's", "Standard") with specific materials ("Wood cabinets", "Quartz counters", "Gas range"). From visualAnalysis.
-27. **Bathroom Profile**: Combines luxury ("Spa-like") with specific finishes ("Tile floors", "Wood vanities", "Soaking tub").
-28. **Flooring Material**: Hardwood, Carpet, Tile, Luxury Vinyl, etc.
-29. **Ceiling Volume**: "High/Vaulted" if mentioned in description or spatial_flow.
-30. **Interior Finishes**: Wall colors ("Neutral", "Warm"), Trim ("Crown molding"), and Window treatments ("Shutters", "Blinds").
+24. **Natural Light / Brightness**: From visualAnalysis.interior_analysis or listingDescription ("Skylights", "Large windows", "South facing").
+25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in visualAnalysis.interior_analysis or listingDescription.
+26. **Kitchen Profile**: Combines caliber ("Chef's") with materials ("Quartz counters"). From visualAnalysis.room_highlights or listingDescription.
+27. **Bathroom Profile**: Luxury finishes ("Soaking tub"). From visualAnalysis.room_highlights or listingDescription.
+28. **Flooring Material**: Hardwood, Carpet, Tile, etc. From visualAnalysis.interior_analysis or listingDescription or property.resoFacts.flooring.
+29. **Ceiling Volume**: "High/Vaulted" if mentioned in listingDescription or visualAnalysis.interior_analysis.
+30. **Interior Finishes**: Wall colors, Trim, Shutters. From visualAnalysis.condition_and_finish or listingDescription.
 
 ### Outdoor & Lot (31-40)
 31. **Fenced Yard**: Check resoFacts.fencing or backyard_and_patio analysis.
@@ -282,7 +280,7 @@ Given the property data below, extract structured decision factors. For each fac
   Value = single most impactful highlight. Generate 15-25 tags — be thorough, this is the richest text source.
 
 ### School Intelligence (101)
-101. **School Concepts**: From schools_intelligence and schools data. For each of the top 3 schools, generate tags with school name + rating (e.g. "Amador Valley 10/10"), school type if non-public ("Charter", "Private"), test scores ("85% Proficient"), student-teacher ratio ("22:1 Small Classes"), AP/IB programs, graduation rate, and extracurriculars ("STEM/Robotics", "Strong Athletics"). Also include district name, "Desirable School Zone" if applicable, and proximity tags ("Walking Distance", "Schools Under 1mi"). Value = top school name + rating + district. Generate 5-12 tags.
+101. **School Concepts**: From the provided 'schools' array. For each school, generate tags with name + rating (e.g. "Amador Valley 10/10"). Include "Desirable School Zone" if ratings are 8+, and proximity tags ("Walking Distance", "Under 1mi"). Value = Overall district quality + top school name. Generate 5-12 tags.
 
 ### Community Sentiment & Condition (102-105) — Tags are the primary output. Generate 3-8 concept tags.
 102. **Sentiment Analysis**: Buzz and perceived value from community reports.
@@ -303,11 +301,9 @@ Given the property data below, extract structured decision factors. For each fac
 115. **Flooring & Materials Palette**: From room_highlights + condition_and_finish. Tags = material concepts found across the home like "Vinyl Plank", "Hardwood", "Tile", "Carpet", "Granite Counters", "Wood Cabinets", "Stainless Steel", "Marble". Value = dominant flooring type. Generate 4-8 tags.
 116. **Spatial Flow & Layout**: From room_highlights + spatial descriptions. Tags = layout concepts like "Open Floor Plan", "Split Bedrooms", "Indoor-Outdoor Flow", "Single Story", "Two-Story", "Formal Dining Separate", "Kitchen Open to Living", "Jack-and-Jill Bath", "En-Suite Primary". Value = layout summary. Generate 4-8 tags.
 
-106. **Seismic Safety**: "Retrofitted", "Slab", or "Hillside" risk considerations.
-107. **Energy Efficiency**: Double-pane windows, insulation, or smart thermostat.
-108. **Sqft Discrepancy**: "Actual vs Public Record" notable differences.
-109. **Lot Boundary Verification**: "Encroachments" or "Easements" mentioned.
-110. **Zoning Flexibility**: ADU allowed, mixed-use, or R-2 potential.
+108. **Sqft Discrepancy**: Compare 'taxSqft' field vs 'property.livingAreaValue'. If diff > 100, tag as "Discrepancy: [X] sqft". Also look for "Addition not permitted" or "Buyer to verify sqft" in listingDescription.
+109. **Lot Boundary Verification**: Check listingDescription for "Encroachments", "Easements", "Fenced past property line", or "Shared driveway". Value = status of boundaries.
+110. **Zoning Flexibility**: Look for "ADU allowed", "R-2", "Multi-unit potential", "Lot can be split". Tag as "High Flexibility" if lot is large.
 
 ### Location Logistics (120-122)
 120. **Nearby Places Profile**: Highlight specific key brands nearby (Costco, Target, Starbucks).

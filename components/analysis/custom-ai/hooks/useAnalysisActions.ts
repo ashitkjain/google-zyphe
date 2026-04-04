@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react';
 import {
     CustomAIAnalysisResult,
     PropertySpecificInvestmentResult,
-    GeneralMarketIntelligenceResult,
-    ContextGraphExtractionResult
+    GeneralMarketIntelligenceResult
 } from '../../../../types';
+import { 
+    ContextGraphExtractionResult, 
+    mergeCityFactors,
+    CITY_LEVEL_FACTOR_IDS
+} from '../../../../constants/contextGraphFactors';
 import {
     getImageQualityAnalysisFromCloud,
     getCommunityPulseFromCloud,
@@ -20,7 +24,9 @@ import {
     saveDeepInvestmentResearchToCloud,
     getContextGraphFromCloud,
     saveContextGraphToCloud,
-    saveThirdPartyDataToCloud
+    saveThirdPartyDataToCloud,
+    getCityContextGraphFromCloud,
+    saveCityContextGraphToCloud
 } from '../../../../services/firebaseService';
 import { fetchNearbyPlaces } from '../../../../services/apiService';
 import {
@@ -31,7 +37,8 @@ import {
     analyzeCommunityPulse as aiAnalyzePulse,
     analyzeNeighborhood as aiAnalyzeNeighborhood,
     analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch,
-    extractContextGraphFactors as aiExtractGraphFactors
+    extractContextGraphFactors as aiExtractGraphFactors,
+    extractCityContextGraph as aiExtractCityContextGraph
 } from '../../../../services/geminiService';
 import { APP_CONFIG } from '../../../../config';
 export const useAnalysisActions = (
@@ -179,60 +186,56 @@ export const useAnalysisActions = (
         if (!analysis || !zpid || !propertyData || investmentLoading) return;
 
         setTimer(0);
-        addLog('System', { type: 'info' }, { message: "Market Intelligence (Regional) is currently DISABLED." });
-        setInvestmentLoading(false);
-        return;
-        /*
-                addLog('System', { type: 'info' }, { task: 'investment_research_parallel_init', zpid });
-        
-                try {
-                    let propInvestment: PropertySpecificInvestmentResult | null = await getPropertyInvestmentFromCloud(zpid);
-                    if (propInvestment) {
-                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'property_investment', zpid });
-                    } else {
-                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'property_investment', zpid });
-                        const res = await aiAnalyzeInvestment(propertyData);
-                        propInvestment = res.data;
-                        await savePropertyInvestmentToCloud(zpid, propInvestment);
-                        addLog('Gemini AI', { type: 'response' }, { task: 'property_investment', zpid }, (res as any).usage);
-                    }
-        
-                    const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-                    const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-                    const cityStateKey = generateCityStateKey(city, state);
-        
-                    let generalMarket: GeneralMarketIntelligenceResult | null = null;
-                    if (cityStateKey) {
-                        generalMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
-                    }
-        
-                    if (generalMarket) {
-                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'general_market_intelligence', location: cityStateKey || zpid });
-                    } else {
-                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'general_market_intelligence', location: cityStateKey || zpid });
-                        const res = await aiAnalyzeMarket(propertyData);
-                        generalMarket = res.data;
-                        if (cityStateKey) {
-                            await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
-                        } else {
-                            await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket!);
-                        }
-                        addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', location: cityStateKey || zpid }, (res as any).usage);
-                    }
-        
-                    onUpdateAnalysis({
-                        ...analysis,
-                        property_investment: propInvestment,
-                        general_market_intelligence: generalMarket
-                    });
-        
-                } catch (err: any) {
-                    console.error("Investment Research Failed:", err);
-                    addLog('System', { type: 'error' }, { message: "Investment Research Failed", error: err.message || err });
-                } finally {
-                    setInvestmentLoading(false);
+        setInvestmentLoading(true);
+        addLog('System', { type: 'info' }, { task: 'investment_research_parallel_init', zpid });
+
+        try {
+            let propInvestment: PropertySpecificInvestmentResult | null = await getPropertyInvestmentFromCloud(zpid);
+            if (propInvestment) {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'property_investment', zpid });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'property_investment', zpid });
+                const res = await aiAnalyzeInvestment(propertyData);
+                propInvestment = res.data;
+                await savePropertyInvestmentToCloud(zpid, propInvestment);
+                addLog('Gemini AI', { type: 'response' }, { task: 'property_investment', zpid }, (res as any).usage);
+            }
+
+            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+            const cityStateKey = generateCityStateKey(city, state);
+
+            let generalMarket: GeneralMarketIntelligenceResult | null = null;
+            if (cityStateKey) {
+                generalMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
+            }
+
+            if (generalMarket) {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'general_market_intelligence', location: cityStateKey || zpid });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'general_market_intelligence', location: cityStateKey || zpid });
+                const res = await aiAnalyzeMarket(propertyData);
+                generalMarket = res.data;
+                if (cityStateKey) {
+                    await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
+                } else {
+                    await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket!);
                 }
-        */
+                addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', location: cityStateKey || zpid }, (res as any).usage);
+            }
+
+            onUpdateAnalysis({
+                ...analysis,
+                property_investment: propInvestment,
+                general_market_intelligence: generalMarket
+            });
+
+        } catch (err: any) {
+            console.error("Investment Research Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Investment Research Failed", error: err.message || err });
+        } finally {
+            setInvestmentLoading(false);
+        }
     };
 
 
@@ -319,7 +322,10 @@ export const useAnalysisActions = (
                 const cached = await getContextGraphFromCloud(zpid);
                 if (cached && cached.factors && cached.factors.length > 0) {
                     addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'context_graph', zpid, factors: cached.factors.length });
-                    setGraphResult(cached as ContextGraphExtractionResult);
+                    
+                    // Always ensure latest city context is merged into the cached property graph
+                    const finalGraph = await handleCityMerge(cached as ContextGraphExtractionResult);
+                    setGraphResult(finalGraph);
                     setGraphLoading(false);
                     return;
                 }
@@ -408,13 +414,45 @@ export const useAnalysisActions = (
 
             // 3. Extract via Gemini
             addLog('Gemini AI', { type: 'request' }, { task: 'context_graph_extraction', zpid, model: 'gemini-2.0-flash' });
+            
+            // 3.0 Pre-extraction check: Ensure city context graph exists, auto-extract if missing
+            // If the city data (pulse/research) was just loaded, we might need to fill those factors
+            if (cityStateKey) {
+                const cityGraph = await getCityContextGraphFromCloud(cityStateKey);
+                if (!cityGraph && enrichedAnalysis.deep_investment_research && enrichedAnalysis.community_pulse) {
+                    addLog('Gemini AI', { type: 'request' }, { status: 'City_Factors_Auto_Spawn', cityStateKey });
+                    const cityCity = propertyData?.city;
+                    const cityState = propertyData?.state;
+                    if (cityCity && cityState) {
+                        try {
+                            const spawned = await aiExtractCityContextGraph(
+                                cityCity, cityState, 
+                                enrichedAnalysis.deep_investment_research, 
+                                enrichedAnalysis.community_pulse,
+                                auth.currentUser?.uid || 'anon'
+                            );
+                            if (spawned.data) {
+                                await saveCityContextGraphToCloud(cityStateKey, spawned.data);
+                                addLog('Cloud Cache', { type: 'info' }, { status: 'City_Factors_Saved', cityStateKey });
+                            }
+                        } catch (e) {
+                            console.warn('[Context Graph] Automatic city factor extraction failed:', e);
+                        }
+                    }
+                }
+            }
+
             const res = await aiExtractGraphFactors(propertyData, enrichedAnalysis, comprehensiveResult || null);
 
             if (res.data) {
-                setGraphResult(res.data);
-                addLog('Gemini AI', { type: 'response' }, { task: 'context_graph_extraction', zpid, factors: res.data.factors?.length }, (res as any).usage);
+                // Merge latest city factors after fresh extraction
+                const finalGraph = await handleCityMerge(res.data);
+                setGraphResult(finalGraph);
+                addLog('Gemini AI', { type: 'response' }, { task: 'context_graph_extraction', zpid, factors: finalGraph.factors?.length }, (res as any).usage);
 
                 // 4. Save to Firestore cache (overwrite on re-extract)
+                // Note: We save the property-specific graph res.data (NOT the merged graph)
+                // to keep the property doc clean and allow read-time city updates.
                 if (zpid) {
                     await saveContextGraphToCloud(zpid, res.data, propertyData?.city, propertyData?.state, {
                         price: propertyData?.price ?? propertyData?.zestimate,
@@ -431,7 +469,7 @@ export const useAnalysisActions = (
                 // 5. Sync back to main analysis state
                 onUpdateAnalysis({
                     ...enrichedAnalysis,
-                    context_graph: res.data
+                    context_graph: finalGraph
                 });
             }
         } catch (err: any) {
@@ -439,6 +477,27 @@ export const useAnalysisActions = (
             addLog('System', { type: 'error' }, { message: "Context Graph Extraction Failed", error: err.message || err });
         } finally {
             setGraphLoading(false);
+        }
+    };
+
+    /** Unified helper to merge current city intelligence into any property-level graph */
+    const handleCityMerge = async (graph: ContextGraphExtractionResult): Promise<ContextGraphExtractionResult> => {
+        const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+        const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+        const cityStateKey = generateCityStateKey(city, state);
+        
+        if (!cityStateKey) return graph;
+        
+        try {
+            const cityGraph = await getCityContextGraphFromCloud(cityStateKey);
+            if (!cityGraph) return graph;
+            
+            const merged = mergeCityFactors(graph, cityGraph);
+            console.log(`[Context Graph] Merged ${CITY_LEVEL_FACTOR_IDS.length} city-level factors for ${city}`);
+            return merged;
+        } catch (e) {
+            console.warn('[Context Graph] City factor merge failed:', e);
+            return graph;
         }
     };
 

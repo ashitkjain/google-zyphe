@@ -1074,7 +1074,3 @@ export function precomputeDataFactors(
 }
 
 
-/** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 16, 18, 20, 21, 28, 30, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 106, 108, 109, 120, 121, 122];
-
-

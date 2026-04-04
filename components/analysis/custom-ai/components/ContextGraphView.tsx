@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { ExtractedFactor } from '../../../../utils/contextGraphPrecompute';
 import { ContextGraphExtractionResult } from '../../../../types';
-import { FACTOR_NAMES } from '../../../../constants/contextGraphFactors';
+import {
+    FACTOR_NAMES,
+    expandFactor,
+    resolveFactor,
+    DELETED_FACTOR_IDS,
+    ExtractedFactor
+} from '../../../../constants/contextGraphFactors';
 
 interface Props {
     data: ContextGraphExtractionResult;
@@ -50,15 +55,7 @@ const TAG_COLOR_MAP: Record<number, { bg: string; text: string; border: string }
 const DEFAULT_TAG_STYLE = { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' };
 
 
-/** Expand compact factor {i, t, v?} to full {id, name, tags, value?} — handles both old and new format */
-const expandFactor = (f: any): ExtractedFactor => {
-    if (f.i != null) {
-        // Compact format
-        return { id: f.i, name: FACTOR_NAMES[f.i] || `Factor ${f.i}`, tags: f.t || [], value: f.v };
-    }
-    // Old format — add name from lookup if missing
-    return { id: f.id, name: f.name || FACTOR_NAMES[f.id] || `Factor ${f.id}`, tags: f.tags || [], value: f.value };
-};
+
 
 
 
@@ -143,11 +140,10 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     if (!data) return null;
 
     // Normalize factors: expand compact {i,t,v} and old {id,name,tags} formats
-    const SUPPRESSED_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 107, 110, 112]);
-    const normalizedFactors = data.factors.map(expandFactor);
+    const normalizedFactors = (data.factors || []).map(resolveFactor).filter((f): f is ExtractedFactor => f !== null);
     const grouped: Record<string, ExtractedFactor[]> = {};
     for (const factor of normalizedFactors) {
-        if (SUPPRESSED_IDS.has(factor.id)) continue;
+        if (DELETED_FACTOR_IDS.has(factor.id)) continue;
         const cat = getCategoryForFactor(factor.id);
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(factor);
@@ -158,7 +154,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
         : [activeFilter];
 
     const totalFactors = normalizedFactors.length;
-    const allTags = normalizedFactors.flatMap(f => f.tags);
+    const allTags = normalizedFactors.flatMap(f => f.tags || []);
     const uniqueTags = new Set(allTags);
 
     // Estimate token count (~4 chars per token for Gemini)
@@ -167,8 +163,8 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
     const tokenLabel = estimatedTokens >= 1000 ? `${(estimatedTokens / 1000).toFixed(1)}K` : String(estimatedTokens);
 
     // Extract neighborhood name from factor 83 (Micro-Neighborhood Identity)
-    const neighborhoodFactor = data.factors.find(f => f.id === 83);
-    const neighborhoodName = neighborhoodFactor?.value && neighborhoodFactor.value !== 'Data not available'
+    const neighborhoodFactor = normalizedFactors.find(f => f.id === 83);
+    const neighborhoodName = neighborhoodFactor?.value && typeof neighborhoodFactor.value === 'string' && neighborhoodFactor.value !== 'Data not available'
         ? neighborhoodFactor.value.split(' — ')[0].split(',')[0].trim()
         : null;
 
@@ -194,10 +190,10 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         <i className="fa-solid fa-thumbs-up"></i> Top Strengths
                     </h4>
                     <ul className="space-y-2">
-                        {data.summary.topStrengths.map((s, i) => (
+                        {Array.isArray(data.summary.topStrengths) && data.summary.topStrengths.map((s, i) => (
                             <li key={i} className="text-sm text-emerald-700 flex items-start gap-2">
                                 <i className="fa-solid fa-check text-[10px] mt-1.5"></i>
-                                {s}
+                                {typeof s === 'string' ? s : JSON.stringify(s)}
                             </li>
                         ))}
                     </ul>
@@ -207,10 +203,10 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         <i className="fa-solid fa-triangle-exclamation"></i> Top Concerns
                     </h4>
                     <ul className="space-y-2">
-                        {data.summary.topConcerns.map((c, i) => (
+                        {Array.isArray(data.summary.topConcerns) && data.summary.topConcerns.map((c, i) => (
                             <li key={i} className="text-sm text-amber-700 flex items-start gap-2">
                                 <i className="fa-solid fa-circle-exclamation text-[10px] mt-1.5"></i>
-                                {c}
+                                {typeof c === 'string' ? c : JSON.stringify(c)}
                             </li>
                         ))}
                     </ul>
@@ -236,7 +232,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                         {Object.entries(data.keyMetrics).filter(([, v]) => v != null).map(([key, val]) => (
                             <div key={key} className="bg-white border border-slate-100 rounded-lg px-3 py-2 text-center">
                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
-                                <div className="text-sm font-black text-slate-700">{typeof val === 'number' && val > 999 ? val.toLocaleString() : val}</div>
+                                <div className="text-sm font-black text-slate-700">{typeof val === 'number' && val > 999 ? val.toLocaleString() : String(val)}</div>
                             </div>
                         ))}
                     </div>

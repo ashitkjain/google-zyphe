@@ -2,13 +2,8 @@
  * Context Graph Factor Names
  *
  * Single source of truth for the Factor ID → Name mapping used throughout the app.
- * Firestore context graphs store factors as {i, t} (id, tags) without names,
- * so this map resolves them to human-readable labels.
- *
- * Used by:
- * - ContextGraphView (display)
- * - ExploreTab / BrowseByCitySection (buyer matching)
- * - Buyer story extraction prompt (AI extraction guide)
+ * Firestore context graphs store factors as {i, t, v} (id, tags, value) to save space,
+ * so this registry resolves them to human-readable labels and typed structures.
  */
 
 export const FACTOR_NAMES: Record<number, string> = {
@@ -34,8 +29,19 @@ export const FACTOR_NAMES: Record<number, string> = {
 export const FACTOR_NAME_LIST = [...new Set(Object.values(FACTOR_NAMES))];
 
 /**
- * City-level factor IDs — extracted ONCE per city from deep_investment_research
- * and community_pulse, then merged into property context graphs at read time.
+ * Factors that are no longer supported or represent duplicate/low-value data.
+ * These are filtered out during storage and masked in the UI.
+ */
+export const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 87, 107, 110, 112]);
+
+/**
+ * Factors computed directly from property fields (no AI needed).
+ * Used to instruct the AI to skip these during extraction.
+ */
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 14, 16, 18, 20, 21, 28, 30, 33, 39, 41, 43, 46, 47, 48, 49, 50, 52, 59, 65, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 106, 108, 109, 120, 121, 122];
+
+/**
+ * City-level factor IDs — merged into property context graphs at read time.
  * These are identical across all properties in the same city.
  */
 export const CITY_LEVEL_FACTOR_IDS: number[] = [
@@ -54,3 +60,105 @@ export const CITY_LEVEL_FACTOR_IDS: number[] = [
     102, // Sentiment
     103, // Market Narrative
 ];
+
+export interface ContextGraphExtractionResult {
+    factors: any[];
+    summary: {
+        topStrengths: string[];
+        topConcerns: string[];
+        propertyHighlight: string;
+    };
+    keyMetrics?: any;
+    extractedAt: string;
+}
+
+export interface ExtractedFactor {
+    id: number;
+    name: string;
+    value?: string;
+    tags: string[];
+}
+
+/**
+ * Resolves any factor format (compact {i,t,v} or full {id,name,tags}) into a 
+ * standardized ExtractedFactor object.
+ */
+export const resolveFactor = (f: any): ExtractedFactor | null => {
+    if (!f) return null;
+    
+    // Support both compact format {i, t, v} and legacy format {id, name, tags}
+    const id = f.i || f.id;
+    if (id == null) return null;
+    
+    const tags = f.t || f.tags || [];
+    const value = f.v || f.value || '';
+    const name = f.name || FACTOR_NAMES[id] || `Factor ${id}`;
+    
+    return {
+        id,
+        name,
+        value,
+        tags: Array.isArray(tags) ? tags : []
+    };
+};
+
+/**
+ * Returns a human-readable string representation of a factor.
+ * Used for simple displays like badges or lists.
+ */
+export const expandFactor = (f: any): string => {
+    const resolved = resolveFactor(f);
+    if (!resolved) return typeof f === 'string' ? f : '';
+    
+    if (resolved.tags.length > 0) {
+        return `${resolved.name}: ${resolved.tags.join(', ')}`;
+    }
+    if (resolved.value) {
+        return `${resolved.name}: ${resolved.value}`;
+    }
+    return resolved.name;
+};
+
+/**
+ * Merges city-level factors into a property's context graph result.
+ * Ensures that city-wide intelligence (appreciation, sentiment, etc.) 
+ * is correctly combined with property-specific insights at read-time.
+ */
+export const mergeCityFactors = (propertyGraph: ContextGraphExtractionResult, cityGraph: any): ContextGraphExtractionResult => {
+    if (!cityGraph?.factors || !Array.isArray(cityGraph.factors)) return propertyGraph;
+    
+    // Create a set of city-level factor IDs to merge
+    const cityIds = new Set(CITY_LEVEL_FACTOR_IDS);
+    
+    // Find factors from cityGraph that are in the cityIds set
+    const cityFactors = cityGraph.factors.filter((f: any) => {
+        const id = f.i || f.id;
+        return id != null && cityIds.has(id);
+    });
+    
+    if (cityFactors.length === 0) return propertyGraph;
+    
+    // Merge: Property factors take precedence. If a city factor exists but is already 
+    // present in property factors, keep the property factor.
+    const merged = [...(propertyGraph.factors || [])];
+    const propertyIds = new Set(merged.map(f => f.i || f.id));
+    
+    for (const cf of cityFactors) {
+        const id = cf.i || cf.id;
+        if (!propertyIds.has(id)) {
+            merged.push(cf);
+        }
+    }
+    
+    // Maintain consistent sort order
+    merged.sort((a, b) => {
+        const idA = a.i || a.id || 0;
+        const idB = b.i || b.id || 0;
+        return idA - idB;
+    });
+    
+    return {
+        ...propertyGraph,
+        factors: merged
+    };
+};

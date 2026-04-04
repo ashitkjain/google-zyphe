@@ -672,7 +672,7 @@ export const extractContextGraphFactors = async (
   const aiResult = await executeGeminiRequest<ContextGraphExtractionResult>({
     model: FLASH_MODEL,
     contents: prompt,
-    config: { temperature: 0.3, maxOutputTokens: 16384 },
+    config: { temperature: 0.3, maxOutputTokens: 32768 },
     userId,
     zpid: property.zpid,
     address: property.address,
@@ -686,6 +686,9 @@ export const extractContextGraphFactors = async (
   const mergedFactors = [...aiFactors];
 
   for (const [id, factor] of precomputed.entries()) {
+    const hasData = (factor.tags && factor.tags.length > 0) || (factor.value && factor.value.trim().length > 0);
+    if (!hasData) continue;
+
     const existingIdx = mergedFactors.findIndex(f => f.id === id);
     if (existingIdx >= 0) {
       // Replace AI version with our accurate computed version

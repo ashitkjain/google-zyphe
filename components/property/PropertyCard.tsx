@@ -1,6 +1,7 @@
 import React from 'react';
 import { PropertyData } from '../../types';
 import { getDaysOnMarket } from '../../utils/property';
+import { expandFactor } from '../../constants/contextGraphFactors';
 
 interface PropertyCardProps {
     property: PropertyData;
@@ -142,7 +143,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
                         <div className="mt-4 pt-3 flex flex-wrap gap-1 border-t border-slate-100">
                             {displayFactors.slice(0, 8).map((f, i) => (
                                 <span key={i} className="px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 text-[8px] font-bold text-slate-500 whitespace-nowrap">
-                                    {f}
+                                    {expandFactor(f)}
                                 </span>
                             ))}
                         </div>
