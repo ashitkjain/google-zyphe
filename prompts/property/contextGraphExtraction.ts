@@ -144,13 +144,33 @@ export const getContextGraphExtractionPrompt = (context: any, skipIds: number[] 
         : '';
 
     return `
-You are a real estate data analyst. Your task is to extract structured decision factors from property data.
+You are a real estate data analyst. These factors will be used for SEMANTIC BUYER MATCHING — a buyer
+describes what they want in natural language, and Gemini (an LLM) matches their story against these tags
+to score and rank properties. Tags must therefore read as natural, self-contained property attributes
+that an LLM can reliably map to buyer requirements like "I need a home office", "top-rated schools",
+or "south-facing backyard for my vegetable garden".
 ${skipNote}
 Given the property data below, extract structured decision factors. For each factor, return:
 - The factor ID (no name needed)
-- Tags: 2-4 EXTREMELY short labels (1-2 words each).
-- Value: A single short sentence or phrase (max 10 words).
-- BREVITY IS CRITICAL. Do not repeat data. Only return factors that have meaningful info.
+- Tags: 2-6 labels, each exactly 2-5 words. Every tag must be:
+  (a) SELF-CONTAINED — meaningful without reading other tags or the factor name
+  (b) SPECIFIC — include qualifiers, locations, materials, measurements
+  (c) SEARCH-READY — phrased as a natural property attribute a buyer would describe
+  (d) NON-REDUNDANT — no two tags in the same factor should overlap in meaning
+
+  GOOD tags: ["Ground floor home office", "Dedicated WFH den", "Fiber internet available"]
+  BAD tags: ["Office", "Work from home"] ← 1 word; redundant pair (same idea twice)
+
+  GOOD tags: ["South-facing skylights", "Floor-to-ceiling windows", "All-day natural light"]
+  BAD tags: ["Natural Light", "Bright home"] ← restates factor name; vague duplicate
+
+  GOOD tags: ["Hardwood floors main level", "Tile in all bathrooms", "Carpet in bedrooms"]
+  BAD tags: ["Hardwood", "Nice floors"] ← too short; generic
+
+  GOOD tags: ["Move-in ready condition", "Recently renovated kitchen", "Fresh interior paint"]
+  BAD tags: ["Turn-key", "Move-in ready"] ← redundant pair saying same thing
+
+- BREVITY IS CRITICAL. No filler. Only return factors with meaningful data.
 
 ## FACTOR DEFINITIONS
 
@@ -179,11 +199,11 @@ Given the property data below, extract structured decision factors. For each fac
 20. **Construction Era**: "Pre-War", "Mid-Century", "80s-90s", "New Build".
 
 ### Interior Design & Visual (21-30)
-21. **Move-In Readiness**: "Turn-key" if renovated/new, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned.
+21. **Move-In Readiness**: "Turn-key" if renovated/new/updated, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned. From listingDescription or resoFacts.propertyCondition or visualAnalysis.condition_and_finish or room_highlights.
 22. **Renovation Upside**: High if condition is "Needs cosmetic updates" but structural era is good.
 23. **Architecture**: Mediterranean, Craftsman, Modern, Tudor, etc. (from visualAnalysis or architecturalStyle). Use only the specific style names as tags (e.g. "Modern", "Tudor") and do NOT include the word "Style" unless it is part of a standard name.
 24. **Natural Light / Brightness**: From visualAnalysis.interior_analysis or listingDescription ("Skylights", "Large windows", "South facing").
-25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in visualAnalysis.interior_analysis or listingDescription.
+25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" or "Great room" mentioned in visualAnalysis.interior_analysis or listingDescription or room_highlights.
 26. **Kitchen Profile**: Combines caliber ("Chef's") with materials ("Quartz counters"). From visualAnalysis.room_highlights or listingDescription.
 27. **Bathroom Profile**: Luxury finishes ("Soaking tub"). From visualAnalysis.room_highlights or listingDescription.
 28. **Flooring Material**: Hardwood, Carpet, Tile, etc. From visualAnalysis.interior_analysis or listingDescription or property.resoFacts.flooring.
@@ -325,8 +345,7 @@ Return a JSON object with this structure:
   "factors": [
     {
       "id": 23,
-      "tags": ["Modern", "Minimalist"],
-      "value": "Clean contemporary architecture with flat roof and large glass panes."
+      "tags": ["Modern flat roof", "Floor-to-ceiling glass", "Minimalist exterior"]
     },
     ...
   ],
@@ -339,10 +358,12 @@ Return a JSON object with this structure:
 
 CRITICAL RULES:
 - Extract ALL non-skipped factors. If NO information is found for a factor (total absence of data), return tags: [] (empty array). Do NOT use any filler text like "Data Not Available".
-- Tags are the ONLY output per factor — they must capture ALL relevant information including numbers, percentages, categories, and concepts
-- Each tag should be 1-4 words, suitable for search indexing and graph nodes
-- Generate 2-8 tags per factor. For factors 89-105, generate 3-8 rich concept tags
-- Be specific — include actual numbers and descriptors ("Score 85" not just "Good")
+- Tags are the ONLY output per factor — all context must live in the tags themselves
+- Each tag must be 2-5 words. Single-word tags are FORBIDDEN — they are too ambiguous for semantic matching
+- No two tags within the same factor may overlap in meaning or say the same thing differently
+- Generate 2-6 tags per factor. For factors 89-105, generate 4-8 rich concept tags
+- Embed actual numbers directly in tags: "85 walk score", "$450/mo HOA", "6% LTR yield", "2-car attached garage"
+- Write tags as natural property attributes a buyer would say, not internal classifications
 - The summary should synthesize the factors into actionable buyer intelligence
 `;
 };
@@ -355,11 +376,10 @@ const factorSchema = {
         tags: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: "2-4 short labels"
-        },
-        value: { type: Type.STRING, description: "Max 10-word summary" }
+            description: "2-6 semantic matching tags, each 2-5 words. Self-contained, non-redundant, search-ready natural language phrases."
+        }
     },
-    required: ["id", "tags", "value"]
+    required: ["id", "tags"]
 };
 
 const summarySchema = {

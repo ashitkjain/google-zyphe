@@ -2,12 +2,12 @@
  * Context Graph Factor Names
  *
  * Single source of truth for the Factor ID → Name mapping used throughout the app.
- * Firestore context graphs store factors as {i, t, v} (id, tags, value) to save space,
+ * Firestore context graphs store factors as {i, t} (id, tags) to save space,
  * so this registry resolves them to human-readable labels and typed structures.
  */
 
 export const FACTOR_NAMES: Record<number, string> = {
-    1: 'Price', 2: 'HOA', 4: 'Carrying Cost', 5: 'Seller Motivation', 6: 'ADU Potential', 7: 'STR', 8: 'Rental Yield', 9: 'Appreciation',
+    1: 'Price', 2: 'HOA', 3: 'Property Tax', 4: 'Carrying Cost', 5: 'Seller Motivation', 6: 'ADU Potential', 7: 'STR', 8: 'Rental Yield', 9: 'Appreciation',
     14: 'Sqft', 17: 'Home Office', 19: 'Foundation', 20: 'Construction Era', 21: 'Move-In Ready', 22: 'Renovation Upside',
     23: 'Architecture', 24: 'Natural Light', 25: 'Open Concept', 26: 'Kitchen', 27: 'Bathroom', 28: 'Flooring', 29: 'Ceilings', 30: 'Finishes',
     31: 'Fenced Yard', 32: 'Outdoor Entertainment', 33: 'Privacy', 34: 'Curb Appeal', 35: 'Topography', 36: 'View', 37: 'Street Noise',
@@ -32,7 +32,7 @@ export const FACTOR_NAME_LIST = [...new Set(Object.values(FACTOR_NAMES))];
  * Factors that are no longer supported or represent duplicate/low-value data.
  * These are filtered out during storage and masked in the UI.
  */
-export const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 87, 107, 110, 112]);
+export const DELETED_FACTOR_IDS = new Set([10, 11, 12, 13, 15, 16, 18, 53, 55, 56, 62, 63, 66, 69, 78, 87, 107, 110, 112, 117, 118, 119]);
 
 /**
  * Factors computed directly from property fields (no AI needed).

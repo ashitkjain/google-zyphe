@@ -75,6 +75,11 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor') || 'buyer';
     const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
 
+    // Stable ref for onTabChange — prevents the PostHog useEffect from re-running
+    // every time the parent re-renders with a new inline arrow function reference.
+    const onTabChangeRef = useRef(onTabChange);
+    useEffect(() => { onTabChangeRef.current = onTabChange; }, [onTabChange]);
+
     // Live-patched orientation_ai — starts from Firestore cache, updated when Satellitary tab runs
     const [orientationAI, setOrientationAI] = React.useState<any>(propertyData?.orientation_ai ?? null);
 
@@ -155,15 +160,15 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         }
     }, [tabs, activeTab]);
 
-    // Update PostHog super properties with the deepest sub-tab
+    // Update PostHog super properties with the deepest sub-tab.
+    // Uses a ref for onTabChange to avoid the infinite loop caused by inline arrow
+    // function props (new reference on every parent render → effect re-fires → loop).
     useEffect(() => {
         const tabLabel = tabs.find(t => t.id === activeTab)?.label || activeTab;
         setCurrentPage(activeTab, `Explore > ${tabLabel}`);
         // Synchronize with parent so it's sticky across refreshes/re-renders
-        if (onTabChange) {
-            onTabChange(activeTab);
-        }
-    }, [activeTab, tabs, onTabChange]);
+        onTabChangeRef.current?.(activeTab);
+    }, [activeTab, tabs]);
 
     // Auto-run satellite analysis when Exterior tab is active and no orientation_ai cached
     const [satelliteLoading, setSatelliteLoading] = React.useState(false);

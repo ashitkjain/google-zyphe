@@ -747,27 +747,12 @@ export const extractContextGraphFactors = async (
   // 6. Remove deleted/suppressed factors — never store or send downstream
   const cleanedFactors = mergedFactors.filter(f => !DELETED_FACTOR_IDS.has(f.id));
 
-  // 7. Deduplicate & Clean: remove tags that are already substrings of the value,
-  // and strip any "Data Not Available" placeholders if they leak.
-  const dedupedFactors = cleanedFactors.map(f => {
-    if (!f.tags?.length) return f;
-
-    // Always strip "Data Not Available" filler if it appears
-    let filtered = f.tags.filter(t => t.toLowerCase().trim() !== 'data not available');
-
-    if (f.value) {
-      const valueLower = f.value.toLowerCase();
-      filtered = filtered.filter(tag => !valueLower.includes(tag.toLowerCase()));
-    }
-    return { ...f, tags: filtered };
-  });
-
-  // 7. Compact: strip name, shorten keys {id→i, tags→t, value→v} to save tokens
-  const compactFactors = dedupedFactors.map(f => {
-    const compact: any = { i: f.id, t: f.tags };
-    if (f.value) compact.v = f.value;
-    return compact;
-  });
+  // 7. Compact: shorten keys {id→i, tags→t} to save tokens. No value field.
+  // Cast to any[] — compact {i,t} is the serialization format; resolveFactor() expands it at read time.
+  const compactFactors = cleanedFactors.map(f => ({
+    i: f.id,
+    t: f.tags ?? []
+  })) as any[];
 
   return {
     ...aiResult,
