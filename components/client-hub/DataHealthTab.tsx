@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, orderBy, limit, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, documentId, collectionGroup } from 'firebase/firestore';
 import { db, auth } from '../../services/firebase/config';
 import { APICallEvent } from '../../services/firebase/api_logs';
 import { LLMCallEvent } from '../../types/ai';
@@ -59,16 +59,41 @@ const DataHealthTab: React.FC = () => {
             const properties = propertySnapshot.docs.map(doc => ({ zpid: doc.id, ...doc.data() } as any));
             setTotalCount(properties.length);
 
-            // 2. Fetch Data Collections (Source of Truth)
-            const visualSnapshot = await getDocs(collection(db, "property_analyses_visual"));
-            const qualitySnapshot = await getDocs(collection(db, "image_quality_analysis"));
-            const investmentSnapshot = await getDocs(collection(db, "property_investment_research"));
-            const comprehensiveSnapshot = await getDocs(collection(db, "property_analyses_comprehensive"));
+            // 2. Fetch Data Collections (Supporting both legacy and nested paths)
+            const visualAnalysisMap: Record<string, any> = {};
+            const qualityMap: Record<string, any> = {};
+            const investmentMap: Record<string, any> = {};
+            const comprehensiveMap: Record<string, any> = {};
 
-            const visualAnalysisMap = Object.fromEntries(visualSnapshot.docs.map(d => [d.id, d.data()]));
-            const qualityMap = Object.fromEntries(qualitySnapshot.docs.map(d => [d.id, d.data()]));
-            const investmentMap = Object.fromEntries(investmentSnapshot.docs.map(d => [d.id, d.data()]));
-            const comprehensiveMap = Object.fromEntries(comprehensiveSnapshot.docs.map(d => [d.id, d.data()]));
+            // 2a. Legacy top-level docs
+            const [visualSnapshot, qualitySnapshot, investmentSnapshot, comprehensiveSnapshot] = await Promise.all([
+                getDocs(collection(db, "property_analyses_visual")),
+                getDocs(collection(db, "image_quality_analysis")),
+                getDocs(collection(db, "property_investment_research")),
+                getDocs(collection(db, "property_analyses_comprehensive"))
+            ]);
+
+            visualSnapshot.docs.forEach(d => { visualAnalysisMap[d.id] = d.data(); });
+            qualitySnapshot.docs.forEach(d => { qualityMap[d.id] = d.data(); });
+            investmentSnapshot.docs.forEach(d => { investmentMap[d.id] = d.data(); });
+            comprehensiveSnapshot.docs.forEach(d => { comprehensiveMap[d.id] = d.data(); });
+
+            // 2b. New nested analysis documents (using collectionGroup)
+            try {
+                const analysisGroupSnapshot = await getDocs(collectionGroup(db, 'analysis'));
+                analysisGroupSnapshot.forEach(d => {
+                    const zpid = d.ref.parent.parent?.id;
+                    if (!zpid) return;
+                    
+                    const data = d.data();
+                    if (d.id === 'visual') visualAnalysisMap[zpid] = { ...(visualAnalysisMap[zpid] || {}), ...data };
+                    if (d.id === 'assets') qualityMap[zpid] = { ...(qualityMap[zpid] || {}), ...data };
+                    if (d.id === 'investment') investmentMap[zpid] = { ...(investmentMap[zpid] || {}), ...data };
+                    if (d.id === 'comprehensive') comprehensiveMap[zpid] = { ...(comprehensiveMap[zpid] || {}), ...data };
+                });
+            } catch (cgError) {
+                console.warn("[DataHealthTab] collectionGroup('analysis') query failed:", cgError);
+            }
 
             // 3. Map properties to Health items
             const healthItems: PropertyHealth[] = properties.map(p => {
@@ -452,12 +477,15 @@ const DataHealthTab: React.FC = () => {
                                     </td>
                                     <td className="p-6">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner border
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner border relative group/tooltip
                                                 ${prop.status === 'healthy' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     prop.status === 'error' ? 'bg-rose-50 text-rose-600 border-rose-100 animate-pulse' :
                                                         'bg-amber-50 text-amber-600 border-amber-100'}
                                             `}>
                                                 <i className={`fa-solid ${prop.status === 'healthy' ? 'fa-square-check' : prop.status === 'error' ? 'fa-triangle-exclamation' : 'fa-clock-rotate-left'} text-xl`}></i>
+                                                <div className="absolute bottom-full mb-3 px-3 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-xl whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-xl border border-white/10">
+                                                    {prop.status === 'healthy' ? "System Status: Healthy" : prop.status === 'error' ? "System Status: Errors Detected" : "System Status: Warnings/Pending"}
+                                                </div>
                                             </div>
                                             <div>
                                                 <div className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">

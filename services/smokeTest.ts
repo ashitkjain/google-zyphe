@@ -18,7 +18,10 @@ import {
 } from 'firebase/firestore';
 import { db, generateCityStateKey } from './firebase/config';
 import { normalizeEnvDoc } from './firebase/googleData';
+import { getCommunityPulseFromCloud, getDeepInvestmentResearchFromCloud, getSchoolAnalysisFromCloud } from './firebase/properties';
 import { resoFieldKey } from '../utils/propertyFieldConfig';
+import { isSupportedPropertyType, isGhostListing } from '../utils/propertyValidation';
+
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -130,7 +133,17 @@ export function runChecks(
     const rapidapiMeta = prop?._fetchMeta?.rapidapi;
     const envMeta = env?._fetchMeta?.environmental;
 
+    // ── 0. Property Type Validation ──────────────────────────────────────────
+    // Determine if this is a supported property type (Single Family, Townhouse, Condo).
+    const isSupported = isSupportedPropertyType(prop || {});
+    const isGhost = isGhostListing(prop || { address: addressHint });
+    const isUnderperformingLot = !isGhost && isSupported && (prop?.bedrooms <= 0 || prop?.bathrooms <= 0 || prop?.livingAreaValue <= 0);
+    const hasTypeFailure = !isSupported || isGhost || isUnderperformingLot;
+    chk(checks, 'typeValidation', 'Property Type Support', 'error', 'rapidapi', !hasTypeFailure,
+        isGhost ? 'Ghost/Placeholder' : !isSupported ? `Unsupported (${prop?.homeType || 'LOT/LAND'})` : isUnderperformingLot ? 'Lot-like (Zero rooms/sqft)' : 'Valid Residential');
+
     // ── 1. Core listing data ─────────────────────────────────────────────────
+
     // These fields are always present from RapidAPI — one group check
     const isAuction = !!(prop?.listingSubType?.is_forAuction);
     const coreFields = isAuction
@@ -598,20 +611,29 @@ export const runCitySmokeTest = async (
 
     let done = 0;
     await Promise.all(chunks.map(async (chunk) => {
-        const [propSnap, assetSnap, visualSnap, envSnap, compSnap, investSnap] = await Promise.all([
-            getDocs(query(collection(db!, 'properties'), where(documentId(), 'in', chunk))),
-            getDocs(query(collection(db!, 'property_assets'), where(documentId(), 'in', chunk))),
-            getDocs(query(collection(db!, 'property_analyses_visual'), where(documentId(), 'in', chunk))),
-            getDocs(query(collection(db!, 'google_environmental_data'), where(documentId(), 'in', chunk))),
-            getDocs(query(collection(db!, 'property_analyses_comprehensive'), where(documentId(), 'in', chunk))),
-            getDocs(query(collection(db!, 'property_investment_research'), where(documentId(), 'in', chunk))),
-        ]);
+        // Properties: still in flat collection
+        const propSnap = await getDocs(query(collection(db!, 'properties'), where(documentId(), 'in', chunk)));
         propSnap.forEach(d => { allProps[d.id] = d.data(); });
-        assetSnap.forEach(d => { allAssets[d.id] = d.data(); });
-        visualSnap.forEach(d => { allVisual[d.id] = d.data(); });
-        envSnap.forEach(d => { allEnv[d.id] = normalizeEnvDoc(d.data() as Record<string, any>); });
-        compSnap.forEach(d => { allComp[d.id] = d.data(); });
-        investSnap.forEach(d => { allInvest[d.id] = d.data(); });
+
+        // Migrated analyses: now at properties/{zpid}/analysis/{type}
+        // Env data: now at properties/{zpid}/environmental/thirdparty_data
+        await Promise.all(chunk.map(async (zpid) => {
+            const [assetSnap, visualSnap, compSnap, investSnap, envSnap, envLegacySnap] = await Promise.all([
+                getDoc(doc(db!, 'properties', zpid, 'analysis', 'assets')),
+                getDoc(doc(db!, 'properties', zpid, 'analysis', 'visual')),
+                getDoc(doc(db!, 'properties', zpid, 'analysis', 'comprehensive')),
+                getDoc(doc(db!, 'properties', zpid, 'analysis', 'investment')),
+                getDoc(doc(db!, 'properties', zpid, 'environmental', 'thirdparty_data')),
+                getDoc(doc(db!, 'properties', zpid, 'environmental', 'google_data')), // legacy fallback
+            ]);
+            if (assetSnap.exists()) allAssets[zpid] = assetSnap.data();
+            if (visualSnap.exists()) allVisual[zpid] = visualSnap.data();
+            if (compSnap.exists()) allComp[zpid] = compSnap.data();
+            if (investSnap.exists()) allInvest[zpid] = investSnap.data();
+            const envData = envSnap.exists() ? envSnap.data() : (envLegacySnap.exists() ? envLegacySnap.data() : null);
+            if (envData) allEnv[zpid] = normalizeEnvDoc(envData as Record<string, any>);
+        }));
+
         done += chunk.length;
         onProgress?.(done, zpids.length);
     }));
@@ -636,67 +658,33 @@ export const runCitySmokeTest = async (
         }
     }
 
-    // Fetch school analyses in chunks
+    // Fetch school analyses — now at cities/{city_state}/schools/{cacheKey}
     if (schoolCacheKeys.size > 0) {
-        const schoolKeyArray = Array.from(schoolCacheKeys);
-        const schoolChunks: string[][] = [];
-        for (let i = 0; i < schoolKeyArray.length; i += CHUNK) schoolChunks.push(schoolKeyArray.slice(i, i + CHUNK));
-        await Promise.all(schoolChunks.map(async (chunk) => {
-            const snap = await getDocs(query(collection(db!, 'schools_intelligence'), where(documentId(), 'in', chunk)));
-            snap.forEach(d => { allSchoolAnalyses[d.id] = d.data(); });
+        await Promise.all(Array.from(schoolCacheKeys).map(async (key) => {
+            const data = await getSchoolAnalysisFromCloud(key);
+            if (data) allSchoolAnalyses[key] = data;
         }));
     }
 
     // Fetch city-level data (community_pulse, deep_investment_research)
-    // These are keyed by cityStateKey (e.g. "pleasanton-ca"), not by zpid
+    // These are keyed by cityStateKey — use the same getCityDocWithFallback-backed
+    // helpers that the app uses, so nested + legacy paths are both covered.
     const cityDataMap: Record<string, { communityPulse?: any; deepInvestmentResearch?: any }> = {};
-    const cityKeysSet = new Set<string>();
-    // Build case variants (mirrors getCityDocWithFallback logic)
-    const variantToCanonical: Record<string, string> = {};
+    const canonicalCityKeys = new Set<string>();
     for (const zpid of resolvedZpids) {
         const prop = allProps[zpid];
         const key = generateCityStateKey(prop?.city, prop?.state);
-        if (key) {
-            cityKeysSet.add(key);
-            // Generate case variants: pleasanton-ca, pleasanton-CA
-            const parts = key.split('-');
-            if (parts.length === 2) {
-                const [city, state] = parts;
-                const variants = [
-                    `${city}-${state}`,                         // as-is
-                    `${city}-${state.toUpperCase()}`,            // pleasanton-CA
-                    `${city.toLowerCase()}-${state.toUpperCase()}`, // pleasanton-CA
-                    `${city.toLowerCase()}-${state.toLowerCase()}`, // pleasanton-ca
-                ];
-                for (const v of variants) {
-                    cityKeysSet.add(v);
-                    variantToCanonical[v] = key;
-                }
-            }
-            variantToCanonical[key] = key;
-        }
+        if (key) canonicalCityKeys.add(key);
     }
-    const cityKeys = Array.from(cityKeysSet);
-    if (cityKeys.length > 0) {
-        const cityChunks: string[][] = [];
-        for (let i = 0; i < cityKeys.length; i += CHUNK) cityChunks.push(cityKeys.slice(i, i + CHUNK));
-        await Promise.all(cityChunks.map(async (chunk) => {
-            const [cpSnap, dirSnap] = await Promise.all([
-                getDocs(query(collection(db!, 'community_pulse'), where(documentId(), 'in', chunk))),
-                getDocs(query(collection(db!, 'deep_investment_research'), where(documentId(), 'in', chunk))),
-            ]);
-            cpSnap.forEach(d => {
-                const canonical = variantToCanonical[d.id] || d.id;
-                if (!cityDataMap[canonical]) cityDataMap[canonical] = {};
-                cityDataMap[canonical].communityPulse = d.data();
-            });
-            dirSnap.forEach(d => {
-                const canonical = variantToCanonical[d.id] || d.id;
-                if (!cityDataMap[canonical]) cityDataMap[canonical] = {};
-                cityDataMap[canonical].deepInvestmentResearch = d.data();
-            });
-        }));
-    }
+    await Promise.all(Array.from(canonicalCityKeys).map(async (key) => {
+        const [cp, dir] = await Promise.all([
+            getCommunityPulseFromCloud(key),
+            getDeepInvestmentResearchFromCloud(key),
+        ]);
+        if (!cityDataMap[key]) cityDataMap[key] = {};
+        if (cp) cityDataMap[key].communityPulse = cp;
+        if (dir) cityDataMap[key].deepInvestmentResearch = dir;
+    }));
 
     const results = resolvedZpids.map(zpid => {
         const prop = allProps[zpid];

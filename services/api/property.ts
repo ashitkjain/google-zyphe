@@ -156,7 +156,8 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
 
                 if (!response.ok) {
                     if (response.status === 429 && attempt < retries) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
                         continue;
                     }
                     throw new Error(`Images API Error: ${response.status}`);

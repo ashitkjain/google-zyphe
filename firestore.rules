@@ -25,7 +25,8 @@ service cloud.firestore {
         'deprecated_distressed_properties',
         'lifestyle_insights',
         'address_index',
-        'cities'
+        'cities',
+        'schools_intelligence'
       ];
       allow write: if request.auth != null && collectionName in [
         'properties', 
@@ -46,7 +47,8 @@ service cloud.firestore {
         'deprecated_distressed_properties',
         'lifestyle_insights',
         'address_index',
-        'cities'
+        'cities',
+        'schools_intelligence'
       ];
     }
 

@@ -88,3 +88,6 @@ export const getThirdPartyDataFromCloud = async (zpid: string): Promise<ThirdPar
         return null;
     }
 };
+
+/** @deprecated Use getThirdPartyDataFromCloud — renamed for consistency */
+export const getGoogleDataFromCloud = getThirdPartyDataFromCloud;

@@ -93,13 +93,33 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 getDocs(collection(db, 'ai_assessment')),
             ]);
 
-            // Build a zpid → neighborhood orientation lookup from visual analyses
+            // Build a zpid → neighborhood orientation lookup from visual analyses (supporting both legacy and nested paths)
             const visualOrientationMap: Record<string, string> = {};
+            
+            // 2a. Legacy top-level collection
             visualSnap.docs.forEach(d => {
                 const va = d.data() as any;
                 const fo = va?.neighborhood?.orientation?.final_orientation;
                 if (fo) visualOrientationMap[d.id] = fo;
             });
+
+            // 2b. New nested analysis documents (using collectionGroup)
+            try {
+                const { collectionGroup } = await import('firebase/firestore');
+                const analysisGroupSnapshot = await getDocs(collectionGroup(db, 'analysis'));
+                analysisGroupSnapshot.forEach(d => {
+                    if (d.id === 'visual') {
+                        const zpid = d.ref.parent.parent?.id;
+                        if (zpid) {
+                            const va = d.data() as any;
+                            const fo = va?.neighborhood?.orientation?.final_orientation;
+                            if (fo) visualOrientationMap[zpid] = fo;
+                        }
+                    }
+                });
+            } catch (cgError) {
+                console.warn("[OrientationAuditTab] collectionGroup('analysis') query failed:", cgError);
+            }
 
             // Build a zpid → orientation_assessment[] and assessedAt lookup from ai_assessment
             // Handles both old single-string format and new array format

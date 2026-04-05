@@ -722,9 +722,6 @@ export const getCityContextGraphFromCloud = async (cityStateKey: string): Promis
 export const saveLifestyleInsightsToCloud = async (zpid: string, insights: any) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
-        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
-        logFirestoreQuery('setDoc', 'property_analyses_comprehensive (lifestyle_insights)', { zpid });
-        // 2. Also save to new nested path
         const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
         logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'lifestyle_insights' });
         await setDoc(nestedRef, {
@@ -770,9 +767,6 @@ export const getLifestyleInsightsFromCloud = async (zpid: string): Promise<any |
 export const saveLifestyleFitToCloud = async (zpid: string, fit: any) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
-        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
-        logFirestoreQuery('setDoc', 'property_analyses_comprehensive (lifestyle_fit)', { zpid });
-        // 2. Also save to new nested path
         const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
         logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'lifestyle_fit' });
         await setDoc(nestedRef, {
@@ -1435,37 +1429,79 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
         const canonicalStatuses: Record<string, PropertyStatusDetails> = {};
 
         await Promise.all(canonicalChunks.map(async (chunk) => {
-            const [snapProps, snapAssets, snapVisual] = await Promise.all([
-                getDocs(query(collection(db, "properties"), where(documentId(), "in", chunk))),
-                getDocs(query(collection(db, "property_assets"), where(documentId(), "in", chunk))),
-                getDocs(query(collection(db, "property_analyses_visual"), where(documentId(), "in", chunk)))
-            ]);
+            const snapProps = await getDocs(query(collection(db, "properties"), where(documentId(), "in", chunk)));
 
             snapProps.forEach(doc => {
+                const propData = doc.data();
                 if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
-                canonicalStatuses[doc.id].property = { timestamp: doc.data().lastUpdated };
+                canonicalStatuses[doc.id].property = { timestamp: propData.lastUpdated };
+                
+                if (!canonicalStatuses[doc.id].assets) canonicalStatuses[doc.id].assets = {} as any;
+
+                // Satellite URL is stored on the property doc OR assets
+                if (propData.satelliteImageUrl?.includes('firebasestorage')) {
+                    canonicalStatuses[doc.id].assets!.satellite = true;
+                }
+                
+                // Orientation check
+                if (propData.orientation_ai?.final_orientation && propData.orientation_ai.final_orientation !== 'UNCLEAR_IMAGE') {
+                    (canonicalStatuses[doc.id].assets as any).orientation = true;
+                }
             });
 
-            snapAssets.forEach(doc => {
-                if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
-                const data = doc.data();
-                const imagesSecured = data.images?.length > 0 && data.images[0].includes('firebasestorage');
-                const securedImageCount = imagesSecured ? data.images.filter((u: string) => u?.includes('firebasestorage')).length : 0;
-                canonicalStatuses[doc.id].assets = {
-                    images: imagesSecured,
-                    imageCount: securedImageCount,
-                    map: !!data.mapZoomIn && data.mapZoomIn.includes('firebasestorage'),
-                    streetView: !!data.streetView && data.streetView.includes('firebasestorage'),
-                    satellite: !!data.satelliteImageUrl && data.satelliteImageUrl.includes('firebasestorage'),
-                    timestamp: data.lastVerified,
-                    thumbnailUrl: imagesSecured ? data.images[0] : undefined
-                };
-            });
+            // Read assets and visual from new nested paths; fallback to legacy for assets
+            await Promise.all(chunk.map(async (zpid) => {
+                // Assets: new nested path → legacy fallback
+                let assetData: any = null;
+                const assetSnap = await getDoc(doc(db, "properties", zpid, "analysis", "assets"));
+                if (assetSnap.exists()) {
+                    assetData = assetSnap.data();
+                } else {
+                    const legacySnap = await getDoc(doc(db, "property_assets", zpid));
+                    if (legacySnap.exists()) assetData = legacySnap.data();
+                }
 
-            snapVisual.forEach(doc => {
-                if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
-                canonicalStatuses[doc.id].visual = { timestamp: doc.data().timestamp };
-            });
+                // If still missing, check properties doc itself for some fields (backup)
+                const propDoc = snapProps.docs.find(d => d.id === zpid);
+                const propData = propDoc?.data();
+
+                if (assetData || propData) {
+                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                    
+                    const imagesArr = assetData?.images || propData?.images || [];
+                    const imagesSecured = imagesArr.length > 0 && imagesArr[0]?.includes('firebasestorage');
+                    
+                    // StreetView might be in assets OR environmental/thirdparty_data (env)
+                    let hasStreetView = !!assetData?.streetView && assetData.streetView.includes('firebasestorage');
+                    if (!hasStreetView) {
+                        try {
+                            const envSnap = await getDoc(doc(db, "properties", zpid, "environmental", "thirdparty_data"));
+                            if (envSnap.exists()) {
+                                const envData = envSnap.data();
+                                hasStreetView = !!envData.streetViewAnalysis?.imageUrl?.includes('firebasestorage');
+                            }
+                        } catch (e) { /* ignore */ }
+                    }
+
+                    canonicalStatuses[zpid].assets = {
+                        ...canonicalStatuses[zpid].assets,
+                        images: imagesSecured,
+                        imageCount: imagesSecured ? imagesArr.filter((u: string) => u?.includes('firebasestorage')).length : 0,
+                        map: (!!assetData?.mapZoomIn && assetData.mapZoomIn.includes('firebasestorage')) || (!!propData?.mapZoomIn && propData.mapZoomIn.includes('firebasestorage')),
+                        streetView: hasStreetView,
+                        satellite: canonicalStatuses[zpid].assets?.satellite || (!!assetData?.satelliteImageUrl && assetData.satelliteImageUrl.includes('firebasestorage')),
+                        timestamp: assetData?.lastVerified || propData?.lastUpdated,
+                        thumbnailUrl: imagesSecured ? imagesArr[0] : undefined
+                    };
+                }
+
+                // Visual (AI RUN): now written to new nested path
+                const visualSnap = await getDoc(doc(db, "properties", zpid, "analysis", "visual"));
+                if (visualSnap.exists()) {
+                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                    canonicalStatuses[zpid].visual = { timestamp: visualSnap.data().timestamp };
+                }
+            }));
         }));
 
         // Step 3: Map canonical statuses back to requested IDs
@@ -1483,47 +1519,136 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
     return statuses;
 };
 
+/**
+ * Manually refresh Street View imagery for a specific property.
+ * Hits the Google Street View Metadata API to check availability and triggers re-analysis if found.
+ */
+export const refreshStreetView = async (zpid: string, address: string): Promise<{ success: boolean; status: string; detail?: string }> => {
+    try {
+        console.log(`[Manual Refresh] Street View re-validation for ${address} (${zpid})...`);
+        
+        // 1. Fetch live metadata to see if imagery is available
+        const { APP_CONFIG } = await import('../../config');
+        const apiKey = APP_CONFIG.maps.key;
+        const encodedAddress = encodeURIComponent(address);
+        const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${encodedAddress}&radius=100&source=outdoor&key=${apiKey}`;
+        
+        const metaResponse = await fetch(metaUrl);
+        if (!metaResponse.ok) throw new Error(`Google API returned status ${metaResponse.status}`);
+        
+        const meta = await metaResponse.json();
+        const available = meta.status === 'OK';
+        
+        if (!available) {
+            return { 
+                success: false, 
+                status: meta.status, 
+                detail: meta.status === 'ZERO_RESULTS' ? 'No outdoor imagery found within 100m' : `Google API Error: ${meta.status}`
+            };
+        }
+
+        // 2. If available, trigger the full fetch pipeline with forceEnvironment=true
+        // This will run the Gemini analysis and store the image.
+        const { fetchPropertyDataFull } = await import('../api/propertyDataFull');
+        const { getPropertyFromCloud } = await import('./properties');
+        
+        // Load property first to get coordinates for orientation analysis
+        const property = await getPropertyFromCloud(zpid);
+        
+        await fetchPropertyDataFull(zpid, true, true);
+
+        // 3. Trigger Orientation re-analysis now that we have fresh Street View
+        if (property?.coordinates?.latitude && property?.coordinates?.longitude) {
+            console.log(`[Manual Refresh] Re-running Orientation analysis for ${zpid}...`);
+            try {
+                const { runSatellitaryAnalysis } = await import('../satellitaryService');
+                const { getPropertyAssetsFromCloud } = await import('./properties');
+                const assetDoc = await getPropertyAssetsFromCloud(zpid);
+                const streetViewUrl = assetDoc?.streetView || null;
+
+                await runSatellitaryAnalysis(
+                    property.coordinates.latitude,
+                    property.coordinates.longitude,
+                    streetViewUrl,
+                    'manual-refresh',
+                    zpid,
+                    address,
+                    property.description || null
+                );
+            } catch (orientErr) {
+                console.error('[Manual Refresh] Orientation re-analysis failed:', orientErr);
+                // Non-blocking for the imagery refresh
+            }
+        }
+        
+        return { success: true, status: 'OK', detail: 'Imagery secured, AI analysis updated, and Orientation re-calibrated' };
+    } catch (e: any) {
+        console.error('[Manual Refresh] Failed:', e);
+        return { success: false, status: 'ERROR', detail: e.message };
+    }
+};
+
+
+
 export const deletePropertyAnalysis = async (zpid: string, mode: 'all' | 'intelligence' | 'assets' = 'all') => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID", tables: [] };
 
-    const intelligenceTables = [
-        "property_analyses_comprehensive",
-        "property_analyses_visual",
-        "image_quality_analysis",
-        "property_investment_research"
-    ];
-
-    const collections: string[] = [];
-
-    if (mode === 'all' || mode === 'intelligence') {
-        collections.push(...intelligenceTables);
-    }
-
-    if (mode === 'all') {
-        collections.push("properties");
-    }
-
-    if (mode === 'all' || mode === 'assets') {
-        collections.push("property_assets");
-    }
+    const { deleteDoc } = await import("firebase/firestore");
+    const deleted: string[] = [];
 
     try {
         console.log(`[Firestore] Deleting mode "${mode}" for ZPID: "${zpid}"...`);
 
-        // Use proper deleteDoc for clean removal
-        const { deleteDoc } = await import("firebase/firestore");
-        await Promise.all(collections.map(coll => {
-            logFirestoreQuery('deleteDoc', coll, { zpid });
-            return deleteDoc(doc(db, coll, String(zpid)));
+        // New nested paths (primary)
+        const nestedDocs: { path: string; ref: any }[] = [];
+
+        if (mode === 'all' || mode === 'intelligence') {
+            nestedDocs.push(
+                { path: `properties/${zpid}/analysis/visual`,        ref: doc(db, "properties", zpid, "analysis", "visual") },
+                { path: `properties/${zpid}/analysis/comprehensive`,  ref: doc(db, "properties", zpid, "analysis", "comprehensive") },
+                { path: `properties/${zpid}/analysis/image_quality`,  ref: doc(db, "properties", zpid, "analysis", "image_quality") },
+                { path: `properties/${zpid}/analysis/investment`,     ref: doc(db, "properties", zpid, "analysis", "investment") },
+            );
+        }
+
+        if (mode === 'all' || mode === 'assets') {
+            nestedDocs.push(
+                { path: `properties/${zpid}/analysis/assets`,                           ref: doc(db, "properties", zpid, "analysis", "assets") },
+                { path: `properties/${zpid}/environmental/thirdparty_data`,              ref: doc(db, "properties", zpid, "environmental", "thirdparty_data") },
+                { path: `properties/${zpid}/environmental/google_data`,                  ref: doc(db, "properties", zpid, "environmental", "google_data") }, // legacy env fallback
+            );
+        }
+
+        if (mode === 'all') {
+            // Delete root property doc last (subcollection docs must be deleted individually in Firestore)
+            nestedDocs.push({ path: `properties/${zpid}`, ref: doc(db, "properties", zpid) });
+        }
+
+        await Promise.all(nestedDocs.map(({ path, ref }) => {
+            logFirestoreQuery('deleteDoc', path, { zpid });
+            deleted.push(path);
+            return deleteDoc(ref).catch(() => { /* doc may not exist — silently ignore */ });
         }));
 
-        console.log(`[Firestore] SUCCESS: Removed ZPID "${zpid}" from ${collections.length} collections.`);
-        return { success: true, tables: collections };
+        // Also attempt legacy flat collections silently (clean up any pre-migration data)
+        const legacyCollections: string[] = [];
+        if (mode === 'all' || mode === 'intelligence') {
+            legacyCollections.push("property_analyses_comprehensive", "property_analyses_visual", "image_quality_analysis", "property_investment_research");
+        }
+        if (mode === 'all' || mode === 'assets') {
+            legacyCollections.push("property_assets");
+        }
+        await Promise.all(legacyCollections.map(coll =>
+            deleteDoc(doc(db, coll, zpid)).catch(() => { /* not found — expected post-migration */ })
+        ));
+
+        console.log(`[Firestore] SUCCESS: Deleted ZPID "${zpid}" (mode=${mode}).`);
+        return { success: true, tables: deleted };
     } catch (error) {
         return {
             success: false,
             error: handleFirestoreError(error, "deletePropertyAnalysis") as string,
-            tables: collections
+            tables: deleted
         };
     }
 };
@@ -1701,16 +1826,11 @@ export const runDeprecationSweep = async (
                     return;
                 }
 
-                // ── SCOPE CHECK ──────────────────────────────────────────────
-                // Only evaluate properties whose city is in the loaded listings.
-                // Properties from other cities are completely ignored so we don't
-                // accidentally deprecate cities we never searched.
                 const propertyCity = normalise(data.city || '');
                 if (!scopedNormalised.has(propertyCity)) {
                     // Not in scope — leave untouched
                     return;
                 }
-
                 // Skip if already deprecated
                 if (data.deprecated === true) {
                     skipped.push(zpid);

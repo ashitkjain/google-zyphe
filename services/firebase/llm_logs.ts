@@ -6,12 +6,11 @@ export const logLLMCall = async (event: Omit<LLMCallEvent, 'id' | 'timestamp'>):
     if (!db) return null;
 
     try {
-        const uid = auth?.currentUser?.uid || 'unknown';
-
-        let finalUserId = event.user_id;
-        if (!finalUserId || finalUserId === 'unknown') {
-            finalUserId = uid;
-        }
+        // Always use the real auth UID when the user is logged in.
+        // Pipeline strings like 'preload-pipeline' don't satisfy the Firestore rule
+        // that requires user_id == request.auth.uid.
+        const uid = auth?.currentUser?.uid;
+        const finalUserId = uid || event.user_id || 'unknown';
 
         const eventToLog: any = { ...event };
 

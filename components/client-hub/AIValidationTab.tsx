@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, collectionGroup } from 'firebase/firestore';
 import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllAuditors, sendInternalMessage } from '../../services/firebaseService';
 import { getDeprecatedProperties, restoreDeprecatedProperty } from '../../services/firebase/properties';
 import { getZipsForCity, getZipListings } from '../../services/firebase/cityData';
@@ -99,9 +99,30 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                 .map(doc => ({ zpid: doc.id, ...doc.data() } as any));
 
 
-            // 2. Fetch Visual Analysis for interior check
+            // 2. Fetch Visual Analysis for interior check (supporting both legacy and nested paths)
+            const visualMap: Record<string, any> = {};
+
+            // 2a. Legacy top-level collection
             const visualSnapshot = await getDocs(collection(db, "property_analyses_visual"));
-            const visualMap = Object.fromEntries(visualSnapshot.docs.map(d => [d.id, d.data()]));
+            visualSnapshot.docs.forEach(d => { visualMap[d.id] = d.data(); });
+
+            // 2b. New nested analysis/visual documents (using collectionGroup)
+            try {
+                const visualGroupSnapshot = await getDocs(collectionGroup(db, 'analysis'));
+                visualGroupSnapshot.forEach(d => {
+                    if (d.id === 'visual') {
+                        // For nested docs, the ZPID is the parent's parent ID: properties/{zpid}/analysis/visual
+                        const zpid = d.ref.parent.parent?.id;
+                        if (zpid) {
+                            // Merge/overwrite: newer nested data takes precedence if it exists
+                            visualMap[zpid] = { ...(visualMap[zpid] || {}), ...d.data() };
+                        }
+                    }
+                });
+            } catch (cgError) {
+                console.warn("[AIValidationTab] collectionGroup('analysis') query failed (likely missing index):", cgError);
+                // Fallback: we still have the legacy data and individual properties
+            }
 
             // 3. Fetch existing assessments and relevant user profiles
             const existingAssessments = await getAIAssessments();
@@ -138,9 +159,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             setUserNames(nameMap);
             setAllAuditors(auditorList);
 
-            // 4. Map and determine status — only include properties that have a visual analysis entry
+            // 4. Map and determine status
             const mapped: PropertyValidationStatus[] = rawProperties
-                .filter(p => !!visualMap[p.zpid])  // hide properties with no visual analysis
                 .map(p => {
                     const visual = visualMap[p.zpid] as any;
 
@@ -583,19 +603,27 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                             const localComment = assessments[prop.zpid]?.comment || prop.comment || '';
                                             const localVisualComment = assessments[prop.zpid]?.visual_ai_comment || prop.visual_ai_comment || '';
 
-                                            return (
-                                                <tr key={prop.zpid} className={`group hover:bg-slate-50/50 transition-colors ${prop.isGrayedOut ? 'opacity-40' : ''}`}>
+                                             return (
+                                                <tr key={prop.zpid} className="group hover:bg-slate-50/50 transition-colors">
                                                     <td className="p-6">
                                                         <div
                                                             onClick={() => handlePropertyClick(prop.address)}
                                                             className="text-left group/link flex items-center gap-4 cursor-pointer"
                                                         >
-                                                            <div className="w-16 h-12 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                                                            <div className="w-16 h-12 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200 relative">
                                                                 {prop.images?.[0] ? (
                                                                     <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover/link:scale-110 transition-transform duration-500" />
                                                                 ) : (
                                                                     <div className="w-full h-full flex items-center justify-center text-slate-300">
                                                                         <i className="fa-solid fa-house text-xs"></i>
+                                                                    </div>
+                                                                )}
+                                                                {!prop.hasInterior && (
+                                                                    <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] flex items-center justify-center group/tooltip">
+                                                                        <i className="fa-solid fa-clock-rotate-left text-white text-xs drop-shadow-md animate-pulse"></i>
+                                                                        <div className="absolute bottom-full mb-2 px-3 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-xl whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-xl border border-white/10">
+                                                                            Visual AI Analysis Pending
+                                                                        </div>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -604,6 +632,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                                     <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
                                                                         {prop.address}
                                                                     </div>
+                                                                    {!prop.hasInterior && (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-100 text-amber-600 text-[8px] font-black uppercase tracking-widest rounded-lg animate-pulse">
+                                                                            <i className="fa-solid fa-hourglass-start text-[7px]"></i> Pending AI Analysis
+                                                                        </span>
+                                                                    )}
                                                                     {assessments[prop.zpid]?.auditor && (
                                                                         <button
                                                                             onClick={(e) => {

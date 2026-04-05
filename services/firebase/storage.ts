@@ -113,36 +113,8 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
     try {
         const storageRef = ref(storage, path);
 
-        // Optimization: Check if the file already exists in storage and is still valid.
-        // We use getMetadata instead of getDownloadURL to avoid noisy 404 network errors
-        // in the browser console. getMetadata throws a JS error (storage/object-not-found)
-        // but does NOT generate a red GET 404 in the network tab.
-        try {
-            const { getMetadata } = await import('firebase/storage');
-            const metadata = await getMetadata(storageRef);
-
-            const isGoogleSource = url.includes("maps.googleapis.com") || url.includes("google.com/maps");
-            const GOOGLE_MAPS_TTL = 30 * 24 * 60 * 60 * 1000; // 30 Days
-
-            if (isGoogleSource) {
-                const createdTime = new Date(metadata.timeCreated).getTime();
-                const age = Date.now() - createdTime;
-                if (age > GOOGLE_MAPS_TTL) {
-                    console.log(`[Storage] Google Maps content is stale (${Math.round(age / 86400000)} days old). Re-downloading: ${path}`);
-                    // Fall through to download and upload new version
-                } else {
-                    // File exists and is fresh — return its URL
-                    const existingURL = await getDownloadURL(storageRef);
-                    return existingURL;
-                }
-            } else {
-                // Non-Google file exists — return its URL
-                const existingURL = await getDownloadURL(storageRef);
-                return existingURL;
-            }
-        } catch {
-            // File doesn't exist yet — proceed to download & upload (normal first-run path)
-        }
+        // Upload directly — the caller (runImageOnlyPipeline) already checks whether
+        // the property has secured images before calling this, so no storage pre-check needed.
 
         // Fetch the image (with proxy fallback if direct fetch fails due to CORS/etc)
         let blob: Blob;

@@ -381,6 +381,11 @@ export interface ComprehensiveAnalysisResult {
         professionals: string;
     };
     schools_summary?: string;
+    lifestyle_fit?: {
+        working_professionals?: { verdict: string; details: string; confidence: number };
+        families_with_kids?: { verdict: string; details: string; confidence: number };
+        seniors?: { verdict: string; details: string; confidence: number };
+    };
 }
 
 

@@ -10,7 +10,7 @@ import {
     removePropertyFromZipCache,
     getCachedCities
 } from '../../services/firebase/cityData';
-import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep } from '../../services/firebase/properties';
+import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep, refreshStreetView } from '../../services/firebase/properties';
 import { fetchPropertySpecs } from '../../services/api/property';
 
 import { PropertyData } from '../../types';
@@ -215,6 +215,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         fetchStatuses(listings);
     }, [listings]);
 
+    // Load all cached cities for suggestion list
+    React.useEffect(() => {
+        const loadAvailableCities = async () => {
+            const cities = await getCachedCities(SUPPORTED_STATES);
+            setAvailableCities(cities);
+        };
+        loadAvailableCities();
+    }, []);
+
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const toggleSelection = (id: string) => {
@@ -306,7 +315,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         });
         setIngestionQueue(newJobs);
 
-        const CHUNK_SIZE = 5;
+        const CHUNK_SIZE = 1;
         let successCount = 0;
 
         for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
@@ -626,7 +635,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                     if (failedSources.has('parcel')) {
                         const { runPropertyDataOnlyPipeline } = await import('../../services/preloadService');
-                        await runPropertyDataOnlyPipeline(addr, () => {}, zpid, (msg) => addLog(msg));
+                        await runPropertyDataOnlyPipeline(addr, () => { }, zpid, (msg) => addLog(msg));
                     }
 
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
@@ -793,7 +802,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             for (const item of removed) {
                                 const zpid = String(item.zpid);
                                 addLog(`  ✗ Deleting (${item.homeType || 'no type'}): ${item.location?.address?.line || zpid}`);
-                                deletePropertyAnalysis(zpid, 'all').catch(() => {});
+                                deletePropertyAnalysis(zpid, 'all').catch(() => { });
                             }
                         });
                     }
@@ -970,15 +979,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                         if (Array.isArray(zipResult)) {
                             foundEntries = zipResult.map((x: any) => ({
-                                zip: x.zipCode || x.zip_code || (typeof x === 'string' ? x : ''),
-                                city: x.uspsMainCityName || x.city || normalizedCity,
-                                state: x.stateCode || x.state || x.state_code || 'Unknown'
+                                zip: x.zip_code,
+                                city: x.city || normalizedCity,
+                                state: x.state_code || 'Unknown',
                             }));
                         } else if (zipResult.results && Array.isArray(zipResult.results)) {
                             foundEntries = zipResult.results.map((x: any) => ({
-                                zip: x.zipCode || x.zip_code,
-                                city: x.uspsMainCityName || x.city || normalizedCity,
-                                state: x.stateCode || x.state || x.state_code || 'Unknown'
+                                zip: x.zip_code,
+                                city: x.city || normalizedCity,
+                                state: x.state_code || 'Unknown',
                             }));
                         } else if (zipResult.zip_codes) {
                             foundEntries = zipResult.zip_codes.map((z: any) => ({
@@ -1112,7 +1121,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     const fallbackCity = matchedListing?.location?.address?.city;
                                     const fallbackState = matchedListing?.location?.address?.state_code;
                                     const csk = fallbackCity && fallbackState ? `${fallbackCity.toLowerCase().replace(/\s+/g, '_')}_${fallbackState.toLowerCase()}` : undefined;
-                                    if (zip) await removePropertyFromZipCache(zip, zpid, csk).catch(() => {});
+                                    if (zip) await removePropertyFromZipCache(zip, zpid, csk).catch(() => { });
                                     setListings(prev => prev.filter(l => String(l.zpid) !== zpid));
                                     enrichSkipped++;
                                     return false;
@@ -1178,6 +1187,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         } finally {
             setSmokeRunning(false);
             setSmokeProgress(null);
+        }
+    };
+
+    const toggleSmokeCheckFilter = (id: string, isNA: boolean = false) => {
+        const fullId = isNA ? `na:${id}` : id;
+        if (smokeCheckFilter === fullId) {
+            setSmokeCheckFilter(null);
+        } else {
+            setSmokeCheckFilter(fullId);
+            if (smokeSummary) {
+                const targetZpids = new Set<string>();
+                smokeSummary.results.forEach(r => {
+                    const match = isNA
+                        ? r.checks.some(c => c.id === id && c.sourceNull)
+                        : r.checks.some(c => c.id === id && !c.passed && !c.sourceNull);
+                    if (match) targetZpids.add(r.zpid);
+                });
+                if (targetZpids.size > 0) {
+                    setSelectedIds(targetZpids);
+                    addLog(`[Selection] ${targetZpids.size} properties failing "${id}" are now selected.`);
+                }
+            }
         }
     };
 
@@ -1593,6 +1624,55 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) {
+            addLog('[Delete] No properties selected.');
+            return;
+        }
+        if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected properties? This will wipe all analysis, assets, and metadata from Firestore.`)) {
+            return;
+        }
+
+        setLoading(true);
+        addLog(`[Delete] Wiping ${selectedIds.size} properties from Firestore...`);
+        let deleted = 0;
+        let failed = 0;
+
+        try {
+            const { deletePropertyAnalysis } = await import('../../services/firebase/properties');
+            const { deleteDoc, doc: firestoreDoc } = await import('firebase/firestore');
+            const { db: firestoreDb } = await import('../../services/firebase/config');
+
+            for (const zpid of Array.from(selectedIds)) {
+                try {
+                    // 1. Delete nested analysis subcollections
+                    await deletePropertyAnalysis(String(zpid));
+                    // 2. Delete core doc
+                    if (firestoreDb) {
+                        await deleteDoc(firestoreDoc(firestoreDb, 'properties', String(zpid)));
+                    }
+                    deleted++;
+                } catch (e: any) {
+                    console.error(`Failed to delete ${zpid}:`, e);
+                    failed++;
+                }
+            }
+
+            addLog(`[Delete] Complete: ${deleted} deleted, ${failed} failed.`);
+            setCachedPropertyIds(prev => {
+                const next = new Set(prev);
+                selectedIds.forEach(id => next.delete(id));
+                return next;
+            });
+            setSelectedIds(new Set());
+            fetchStatuses(listings);
+        } catch (e: any) {
+            addLog(`[Delete] Critical failure: ${e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // ── Buyer Story Search ─────────────────────────────────────────────
     const handleBuyerSearch = async () => {
         if (!buyerStory.trim()) return;
@@ -1882,7 +1962,7 @@ ${JSON.stringify(propertySummaries)}
                                 <img src={item.primary_photo.href} alt="" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                    <i className="fa-solid fa-image"></i>
+                                    <i className="fa-solid fa-house text-xs"></i>
                                 </div>
                             )}
                             {isDeprecated && (
@@ -1908,6 +1988,11 @@ ${JSON.stringify(propertySummaries)}
                                 >
                                     {item.location?.address?.line || 'Unknown Address'}
                                 </button>
+                                {isCached && !propertyStatuses[itemId]?.visual && !isDeprecated && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[8px] font-black uppercase tracking-widest rounded-lg animate-pulse">
+                                        <i className="fa-solid fa-spinner animate-spin text-[7px]"></i> Pending AI
+                                    </span>
+                                )}
                                 {isDeprecated && (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 text-amber-700 text-[8px] font-black uppercase tracking-widest rounded-lg">
                                         <i className="fa-solid fa-ban text-[7px]"></i> Deprecated
@@ -1924,16 +2009,60 @@ ${JSON.stringify(propertySummaries)}
                 <td className="p-4">
                     <div className="flex items-center gap-3">
                         {/* Asset Icons */}
-                        <div className="flex items-center gap-1.5">
-                            <i className={`fa-solid fa-image text-[10px] ${propertyStatuses[itemId]?.assets?.images ? 'text-emerald-500' : 'text-slate-200'}`} title="Photos"></i>
-                            <i className={`fa-solid fa-map-location-dot text-[10px] ${propertyStatuses[itemId]?.assets?.map ? 'text-emerald-500' : 'text-slate-200'}`} title="Radar Maps"></i>
-                            <i className={`fa-solid fa-street-view text-[10px] ${propertyStatuses[itemId]?.assets?.streetView ? 'text-emerald-500' : 'text-slate-200'}`} title="StreetView"></i>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-image text-[10px] ${propertyStatuses[itemId]?.assets?.images ? 'text-emerald-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.assets?.images ? "Property Photos Verified" : "Photos Missing"}
+                                </div>
+                            </div>
+
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-map-location-dot text-[10px] ${propertyStatuses[itemId]?.assets?.map ? 'text-emerald-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.assets?.map ? "Radar Maps (Close-up) Verified" : "Radar Maps Missing"}
+                                </div>
+                            </div>
+
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-street-view text-[10px] ${propertyStatuses[itemId]?.assets?.streetView ? 'text-emerald-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.assets?.streetView ? "Street View Imagery Secured" : "Street View Missing"}
+                                </div>
+                            </div>
+
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-satellite text-[10px] ${propertyStatuses[itemId]?.assets?.satellite ? 'text-emerald-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.assets?.satellite ? "Satellite Imagery (2x Res) Verified" : "Satellite Imagery Missing"}
+                                </div>
+                            </div>
                         </div>
+                        
                         <div className="w-px h-3 bg-slate-100"></div>
+                        
                         {/* Intel Icons */}
-                        <div className="flex items-center gap-1.5">
-                            <i className={`fa-solid fa-file-invoice text-[10px] ${propertyStatuses[itemId]?.property ? 'text-indigo-500' : 'text-slate-200'}`} title="Property View"></i>
-                            <i className={`fa-solid fa-brain text-[10px] ${propertyStatuses[itemId]?.visual ? 'text-indigo-500' : 'text-slate-200'}`} title="Visual AI Analysis"></i>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-compass text-[10px] ${(propertyStatuses[itemId]?.assets as any)?.orientation ? 'text-amber-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {(propertyStatuses[itemId]?.assets as any)?.orientation ? "Orientation & Compass Analysis Done" : "Orientation Analysis Missing"}
+                                </div>
+                            </div>
+
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-file-invoice text-[10px] ${propertyStatuses[itemId]?.property ? 'text-indigo-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.property ? "Database Record Verified" : "No Database Record Found"}
+                                </div>
+                            </div>
+
+                            <div className="relative group/tooltip">
+                                <i className={`fa-solid fa-brain text-[10px] ${propertyStatuses[itemId]?.visual ? 'text-indigo-500' : 'text-slate-200'}`}></i>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/tooltip:translate-y-0 shadow-lg">
+                                    {propertyStatuses[itemId]?.visual ? "Gemini Visual Analysis Complete" : "AI Analysis Pending"}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </td>
@@ -1945,28 +2074,67 @@ ${JSON.stringify(propertySummaries)}
                 <td className="p-4 text-right">
                     <div className="flex justify-end items-center gap-1">
                         {isCached && (
-                            <button
-                                onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm(`Are you sure you want to delete ${item.location?.address?.line} from cache? This will remove all AI analysis.`)) {
-                                        const res = await deletePropertyAnalysis(itemId);
+                            <>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || itemId);
+                                        
+                                        // Simple immediate feedback
+                                        const btn = e.currentTarget;
+                                        const icon = btn.querySelector('i');
+                                        if (icon) icon.className = 'fa-solid fa-spinner animate-spin';
+                                        btn.disabled = true;
+
+                                        const res = await refreshStreetView(itemId, fullAddress);
+                                        
                                         if (res.success) {
-                                            setDeletionStatus({ address: item.location?.address?.line || itemId, tables: res.tables });
-                                            setCachedPropertyIds(prev => {
-                                                const next = new Set(prev);
-                                                next.delete(itemId);
-                                                return next;
-                                            });
-                                            // Clear notification after 5 seconds
-                                            setTimeout(() => setDeletionStatus(null), 5000);
+                                            alert(`Success: ${res.detail}`);
+                                            // Refresh local status
+                                            const newStatuses = await getPropertyStatusesBatch([itemId]);
+                                            setPropertyStatuses(prev => ({ ...prev, ...newStatuses }));
+                                        } else {
+                                            alert(`Unavailable: ${res.detail} (Status: ${res.status})`);
                                         }
-                                    }
-                                }}
-                                className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                title="Clear from Cache"
-                            >
-                                <i className="fa-solid fa-trash-can"></i>
-                            </button>
+
+                                        if (icon) icon.className = 'fa-solid fa-street-view';
+                                        btn.disabled = false;
+                                    }}
+                                    className="p-2 text-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all relative group/action-tooltip"
+                                    title="Refresh Street View"
+                                >
+                                    <i className="fa-solid fa-street-view"></i>
+                                    <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/action-tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/action-tooltip:translate-y-0 shadow-lg">
+                                        Re-validate Street View
+                                    </div>
+                                </button>
+
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Are you sure you want to delete ${item.location?.address?.line} from cache? This will remove all AI analysis.`)) {
+                                            const res = await deletePropertyAnalysis(itemId);
+                                            if (res.success) {
+                                                setDeletionStatus({ address: item.location?.address?.line || itemId, tables: res.tables });
+                                                setCachedPropertyIds(prev => {
+                                                    const next = new Set(prev);
+                                                    next.delete(itemId);
+                                                    return next;
+                                                });
+                                                // Clear notification after 5 seconds
+                                                setTimeout(() => setDeletionStatus(null), 5000);
+                                            }
+                                        }
+                                    }}
+                                    className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all relative group/action-tooltip"
+                                    title="Clear from Cache"
+                                >
+                                    <i className="fa-solid fa-trash-can"></i>
+                                    <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider rounded whitespace-nowrap z-50 opacity-0 group-hover/action-tooltip:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover/action-tooltip:translate-y-0 shadow-lg">
+                                        Clear from Cache
+                                    </div>
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={(e) => {
@@ -2069,6 +2237,18 @@ ${JSON.stringify(propertySummaries)}
                                             )}
                                         </button>
                                     )}
+                                    {visibleSelectedCount > 0 && (
+                                        <button
+                                            onClick={handleBulkDelete}
+                                            disabled={loading}
+                                            className="px-6 py-3 bg-white border-2 border-rose-200 hover:border-rose-400 hover:bg-rose-50 text-rose-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                            title={`Permanently delete ${visibleSelectedCount} selected properties from Firestore`}
+                                        >
+                                            <i className="fa-solid fa-trash-can text-rose-400 group-hover:scale-110 transition-transform"></i>
+                                            Wipe Selection ({visibleSelectedCount})
+                                        </button>
+                                    )}
+
                                     {cachedPropertyIds.size > 0 && (
                                         <button
                                             onClick={handleCityContextGraph}
@@ -3111,7 +3291,7 @@ ${JSON.stringify(propertySummaries)}
                                             <div className="flex flex-wrap gap-1.5">
                                                 {sortedFails.map(([id, { label, severity, count }]) => (
                                                     <button key={id}
-                                                        onClick={() => setSmokeCheckFilter(smokeCheckFilter === id ? null : id)}
+                                                        onClick={() => toggleSmokeCheckFilter(id, false)}
                                                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all ${severity === 'error'
                                                             ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
                                                             : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
@@ -3136,7 +3316,7 @@ ${JSON.stringify(propertySummaries)}
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {sortedNA.map(([id, { label, count }]) => (
                                                         <button key={`na-${id}`}
-                                                            onClick={() => setSmokeCheckFilter(smokeCheckFilter === `na:${id}` ? null : `na:${id}`)}
+                                                            onClick={() => toggleSmokeCheckFilter(id, true)}
                                                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all
                                                                 bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-150 hover:text-slate-500
                                                                 ${smokeCheckFilter === `na:${id}` ? 'ring-2 ring-offset-1 ring-slate-300' : ''}`}

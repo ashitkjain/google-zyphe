@@ -184,8 +184,8 @@ export const runFullIntelligencePipeline = async (
         // This is extensible: adding new checks to smokeTest.ts automatically extends healing.
         try {
           const { runChecks } = await import('./smokeTest');
-          const { getGoogleDataFromCloud } = await import('./firebase/googleData');
-          const envDoc = await getGoogleDataFromCloud(zpid).catch(() => null);
+          const { getThirdPartyDataFromCloud } = await import('./firebase/googleData');
+          const envDoc = await getThirdPartyDataFromCloud(zpid).catch(() => null);
           const smokeResult = runChecks(zpid, enrichedData, null, null, envDoc, null, null, {}, enrichedData.address);
           const failedSources = new Set(
             smokeResult.checks.filter(c => !c.passed).map(c => c.source)
@@ -900,7 +900,7 @@ export const runFullIntelligencePipeline = async (
         getPropertyFromCloud(zpid),
         import('./firebase/properties').then(m => m.getPropertyAssetsFromCloud(zpid)).catch(() => null),
         getVisualAnalysisFromCloud(zpid),
-        import('./firebase/googleData').then(m => m.getGoogleDataFromCloud(zpid)).catch(() => null),
+        import('./firebase/googleData').then(m => m.getThirdPartyDataFromCloud(zpid)).catch(() => null),
         getComprehensiveAnalysisFromCloud(zpid),
         getPropertyInvestmentFromCloud(zpid).catch(() => null),
       ]);

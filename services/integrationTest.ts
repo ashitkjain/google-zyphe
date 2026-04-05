@@ -99,7 +99,7 @@ async function runSmokeForProperty(zpid: string): Promise<{ errors: string[]; wa
     getPropertyFromCloud(zpid),
     import('./firebase/properties').then(m => m.getPropertyAssetsFromCloud(zpid)).catch(() => null),
     getVisualAnalysisFromCloud(zpid),
-    import('./firebase/googleData').then(m => m.getGoogleDataFromCloud(zpid)).catch(() => null),
+    import('./firebase/googleData').then(m => m.getThirdPartyDataFromCloud(zpid)).catch(() => null),
     getComprehensiveAnalysisFromCloud(zpid),
     getPropertyInvestmentFromCloud(zpid).catch(() => null),
   ]);

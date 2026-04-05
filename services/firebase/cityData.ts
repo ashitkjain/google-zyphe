@@ -44,7 +44,7 @@ export const saveZipMetadataBatch = async (data: { zip: string, city: string, st
             const cityNorm = item.city.toLowerCase().trim().replace(/\s+/g, '_');
             const stateNorm = item.state.toLowerCase().trim();
             const cityStateKey = `${cityNorm}_${stateNorm}`;
-            
+
             if (!cityGroups[cityStateKey]) {
                 cityGroups[cityStateKey] = {
                     city: item.city.trim(),
@@ -83,19 +83,40 @@ export const saveZipMetadataBatch = async (data: { zip: string, city: string, st
     }
 };
 
-export const getZipsForCity = async (city: string, state: string): Promise<Record<string, string[]> | null> => {
+export const getZipsForCity = async (city: string, state?: string): Promise<Record<string, string[]> | null> => {
     if (!db) return null;
     try {
         const cityNorm = city.toLowerCase().trim().replace(/\s+/g, '_');
-        const stateNorm = state.toLowerCase().trim();
-        const key = `${cityNorm}_${stateNorm}`;
-        
-        // 1. Consolidated path lookup (ONLY)
-        const cityRef = doc(db, "cities", key, "index", "zips");
-        logFirestoreQuery('getDoc', 'cities/index', { key });
-        const citySnap = await getDoc(cityRef);
-        
-        if (citySnap.exists()) return citySnap.data().zipsByState || null;
+
+        // If state is known, go directly to the consolidated path
+        if (state) {
+            const key = `${cityNorm}_${state.toLowerCase().trim()}`;
+            const cityRef = doc(db, "cities", key, "index", "zips");
+            logFirestoreQuery('getDoc', 'cities/index', { key });
+            const citySnap = await getDoc(cityRef);
+            if (citySnap.exists()) return citySnap.data().zipsByState || null;
+            return null;
+        }
+
+        // State not provided (legacy call sites) — try each supported state
+        const { SUPPORTED_STATES } = await import("../../config");
+        for (const st of SUPPORTED_STATES) {
+            const key = `${cityNorm}_${st.toLowerCase()}`;
+            const cityRef = doc(db, "cities", key, "index", "zips");
+            logFirestoreQuery('getDoc', 'cities/index', { key });
+            const citySnap = await getDoc(cityRef);
+            if (citySnap.exists()) {
+                const data = citySnap.data().zipsByState;
+                if (data && Object.keys(data).length > 0) return data;
+            }
+        }
+
+        // Final fallback: legacy city_zip_cache collection
+        const legacyRef = doc(db, "city_zip_cache", cityNorm);
+        logFirestoreQuery('getDoc', 'city_zip_cache', { city: cityNorm });
+        const legacySnap = await getDoc(legacyRef);
+        if (legacySnap.exists()) return legacySnap.data().zipsByState || null;
+
         return null;
     } catch (error: any) {
         handleFirestoreError(error, "getZipsForCity");
@@ -270,39 +291,70 @@ export const getZipSoldListings = async (zipCode: string, cityStateKey?: string)
 export const getCachedCities = async (supportedStates: string[]): Promise<string[]> => {
     if (!db) return [];
     try {
-        const snap = await getDocs(collection(db, 'city_zip_cache'));
-        const allCities: string[] = [];
-        const matchedCities: string[] = [];
+        const [snapLegacy, snapNew, snapIndex] = await Promise.all([
+            getDocs(collection(db, 'city_zip_cache')),
+            getDocs(collection(db, 'cities')),
+            getDocs(collection(db, 'address_index'))
+        ]);
 
-        // Build a set of lowercase abbreviations AND common full-name variants
+        const uniqueCities = new Set<string>();
+        const supportedNorm = new Set(supportedStates.map(s => s.toLowerCase()));
+
         const STATE_NAME_MAP: Record<string, string> = {
             ca: 'CA', california: 'CA', tx: 'TX', texas: 'TX',
             az: 'AZ', arizona: 'AZ', nv: 'NV', nevada: 'NV',
             or: 'OR', oregon: 'OR', wa: 'WA', washington: 'WA',
             co: 'CO', colorado: 'CO', ut: 'UT', utah: 'UT',
         };
-        const supportedNorm = new Set(supportedStates.map(s => s.toLowerCase()));
 
-        snap.forEach(docSnap => {
-            const data = docSnap.data();
-            const cityName: string = data.city || docSnap.id;
-            const zipsByState: Record<string, string[]> = data.zipsByState || {};
-            allCities.push(cityName);
+        const processDoc = (data: any, id: string) => {
+            const cityName: string = data.city || id;
+            if (!cityName) return;
 
-            // Check each key in zipsByState against the supported states (case-insensitive + full name)
+            // For legacy city_zip_cache, we have zipsByState
+            const zipsByState = data.zipsByState || {};
             const matches = Object.keys(zipsByState).some(key => {
                 const keyLower = key.toLowerCase();
                 const normalized = STATE_NAME_MAP[keyLower] || key.toUpperCase();
-                return (
-                    supportedNorm.has(keyLower) ||
-                    supportedStates.includes(normalized)
-                ) && Array.isArray(zipsByState[key]) && zipsByState[key].length > 0;
+                return (supportedNorm.has(keyLower) || supportedStates.includes(normalized));
             });
-            if (matches) matchedCities.push(cityName);
+
+            if (matches || id.includes('_')) { // id.includes('_') is a heuristic for new 'cities' docs like pleasanton_ca
+                // Format nicely: pleasanton_ca -> Pleasanton, CA
+                if (id.includes('_')) {
+                    const parts = id.split('_');
+                    const c = parts[0].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const s = parts[1].toUpperCase();
+                    uniqueCities.add(`${c}, ${s}`);
+                } else {
+                    // Try to find state from zipsByState
+                    const stateKey = Object.keys(zipsByState).find(key => {
+                        const keyLower = key.toLowerCase();
+                        return supportedNorm.has(keyLower) || supportedStates.includes(STATE_NAME_MAP[keyLower] || key.toUpperCase());
+                    });
+                    if (stateKey) {
+                        const s = (STATE_NAME_MAP[stateKey.toLowerCase()] || stateKey.toUpperCase());
+                        const c = cityName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        uniqueCities.add(`${c}, ${s}`);
+                    } else {
+                        uniqueCities.add(cityName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+                    }
+                }
+            }
+        };
+
+        snapLegacy.forEach(d => processDoc(d.data(), d.id));
+        snapNew.forEach(d => processDoc(d.data(), d.id));
+        
+        // Final pass: address_index collection (docId is often just city name)
+        snapIndex.forEach(d => {
+            const cityNameRaw = d.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            // Only add if not already present as "City, ST"
+            const exists = Array.from(uniqueCities).some(val => val.startsWith(`${cityNameRaw},`) || val === cityNameRaw);
+            if (!exists) uniqueCities.add(cityNameRaw);
         });
 
-        return matchedCities.sort((a, b) => a.localeCompare(b));
-
+        return Array.from(uniqueCities).sort((a, b) => a.localeCompare(b));
     } catch (error: any) {
         handleFirestoreError(error, 'getCachedCities');
         return [];
