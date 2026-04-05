@@ -1530,8 +1530,17 @@ export const refreshStreetView = async (zpid: string, address: string): Promise<
         // 1. Fetch live metadata to see if imagery is available
         const { APP_CONFIG } = await import('../../config');
         const apiKey = APP_CONFIG.maps.key;
-        const encodedAddress = encodeURIComponent(address);
-        const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${encodedAddress}&radius=100&source=outdoor&key=${apiKey}`;
+        
+        // Load property first to get coordinates for higher precision
+        const property = await getPropertyFromCloud(zpid);
+        const hasCoords = !!(property?.coordinates?.latitude && property?.coordinates?.longitude);
+        const locationParam = hasCoords 
+            ? `${property!.coordinates!.latitude},${property!.coordinates!.longitude}`
+            : encodeURIComponent(address);
+        
+        // Increase radius for suburban setbacks
+        const checkRadius = 150;
+        const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${locationParam}&radius=${checkRadius}&source=outdoor&key=${apiKey}`;
         
         const metaResponse = await fetch(metaUrl);
         if (!metaResponse.ok) throw new Error(`Google API returned status ${metaResponse.status}`);
@@ -1550,11 +1559,6 @@ export const refreshStreetView = async (zpid: string, address: string): Promise<
         // 2. If available, trigger the full fetch pipeline with forceEnvironment=true
         // This will run the Gemini analysis and store the image.
         const { fetchPropertyDataFull } = await import('../api/propertyDataFull');
-        const { getPropertyFromCloud } = await import('./properties');
-        
-        // Load property first to get coordinates for orientation analysis
-        const property = await getPropertyFromCloud(zpid);
-        
         await fetchPropertyDataFull(zpid, true, true);
 
         // 3. Trigger Orientation re-analysis now that we have fresh Street View
@@ -1562,7 +1566,6 @@ export const refreshStreetView = async (zpid: string, address: string): Promise<
             console.log(`[Manual Refresh] Re-running Orientation analysis for ${zpid}...`);
             try {
                 const { runSatellitaryAnalysis } = await import('../satellitaryService');
-                const { getPropertyAssetsFromCloud } = await import('./properties');
                 const assetDoc = await getPropertyAssetsFromCloud(zpid);
                 const streetViewUrl = assetDoc?.streetView || null;
 
