@@ -58,6 +58,7 @@ import ClimateRiskSection from './components/property/ClimateRiskSection';
 import PreloadManager from './components/property/PreloadManager';
 import ChatInterface from './components/shared/ChatInterface';
 import MyZypheTab from './components/client-hub/MyZypheTab';
+import CostDashboardTab from './components/client-hub/CostDashboardTab';
 import Logo from './components/shared/Logo';
 import AuthModal from './components/auth/AuthModal';
 import AddClientModal from './components/client-hub/AddClientModal';
@@ -73,7 +74,7 @@ import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
 const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe' | 'api_monitor';
 
 // Initialize PostHog immediately (synchronous) so it's ready before any events fire
 initPostHog();
@@ -1401,6 +1402,10 @@ const App: React.FC = () => {
               cloudHistory={cloudHistory}
               favorites={favorites}
             />
+          </div>
+        ) : viewMode === 'api_monitor' ? (
+          <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 rounded-[2.5rem]">
+            <CostDashboardTab />
           </div>
         ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">

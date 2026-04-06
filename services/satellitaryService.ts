@@ -79,22 +79,43 @@ export async function getOrCacheAerialSatelliteUrl(
     lat: number,
     lng: number
 ): Promise<string> {
-    const { uploadRemoteImageToStorage } = await import('./firebase/storage');
-    const { savePropertyToCloud } = await import('./firebase/properties');
-
+    const { getDownloadURL, ref } = await import('firebase/storage');
+    const { storage } = await import('./firebase/config');
     const aerialUrl = buildAerialUrl(lat, lng);
     const storagePath = `properties/${zpid}/maps/aerial_satellite_scale2.jpg`;
 
-    // uploadRemoteImageToStorage already does a getDownloadURL check before uploading
-    const cachedUrl = await uploadRemoteImageToStorage(aerialUrl, storagePath);
+    // 1. Try to get existing download URL first (free)
+    if (storage) {
+        try {
+            const storageRef = ref(storage, storagePath);
+            const existingUrl = await getDownloadURL(storageRef);
+            console.log(`[Satellitary] Cache hit for ${zpid}: ${existingUrl}`);
+            
+            // Ensure the property doc is in sync with this URL
+            const { savePropertyToCloud } = await import('./firebase/properties');
+            await savePropertyToCloud(zpid, { satelliteImageUrl: existingUrl } as any).catch(() => {});
+            
+            return existingUrl;
+        } catch (err: any) {
+            // object-not-found is expected if this is the first run
+            if (err?.code !== 'storage/object-not-found' && err?.code !== 'storage/unknown') {
+                console.log(`[Satellitary] Cache miss for ${zpid} — proceeding to download.`);
+            }
+        }
+    }
+
+    // 2. Download and upload if not found
+    const { uploadRemoteImageToStorage } = await import('./firebase/storage');
+    const freshUrl = await uploadRemoteImageToStorage(aerialUrl, storagePath);
 
     // Persist the cached URL to Firestore under its own dedicated field
-    if (cachedUrl.includes('firebasestorage')) {
-        savePropertyToCloud(zpid, { satelliteImageUrl: cachedUrl } as any)
+    if (freshUrl.includes('firebasestorage')) {
+        const { savePropertyToCloud } = await import('./firebase/properties');
+        savePropertyToCloud(zpid, { satelliteImageUrl: freshUrl } as any)
             .catch(e => console.warn('[Satellitary] Failed to cache satellite URL to property doc:', e));
     }
 
-    return cachedUrl;
+    return freshUrl;
 }
 
 /**
@@ -358,7 +379,15 @@ export async function runSatellitaryAnalysis(
     description?: string | null
 ): Promise<SatellitaryResult> {
     // ── 1. Resolve image URLs ──────────────────────────────────────────────────
-    const aerialUrl = buildAerialUrl(lat, lng);
+    // Use the cached satellite downloader to ensure the image is persisted to Storage
+    // and registered on the property doc as satelliteImageUrl.
+    let aerialUrl: string;
+    if (zpid) {
+        aerialUrl = await getOrCacheAerialSatelliteUrl(zpid, lat, lng);
+        console.log(`[Satellitary] Using secured satellite URL: ${aerialUrl}`);
+    } else {
+        aerialUrl = buildAerialUrl(lat, lng);
+    }
 
     // Prefer Firebase Storage cached URL. Fall back to live Street View API.
     // If street view completely unavailable, run aerial-only analysis.

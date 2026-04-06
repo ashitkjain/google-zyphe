@@ -8,6 +8,7 @@ import {
     handleFirestoreError,
     generateCityStateKey
 } from "./config";
+import { logAPICall, updateAPICall } from "./api_logs";
 import {
     PropertyData,
     CustomAIAnalysisResult,
@@ -1542,7 +1543,27 @@ export const refreshStreetView = async (zpid: string, address: string): Promise<
         const checkRadius = 150;
         const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${locationParam}&radius=${checkRadius}&source=outdoor&key=${apiKey}`;
         
+        const logId = await logAPICall({
+            user_id: auth?.currentUser?.uid || 'unknown',
+            zpid: zpid,
+            address: address,
+            api_name: 'Google Maps',
+            endpoint: 'streetview/metadata',
+            params: { location: locationParam, radius: checkRadius, source: 'outdoor', mode: 'manual-refresh' },
+            status: 'pending'
+        });
+        const start = Date.now();
+
         const metaResponse = await fetch(metaUrl);
+
+        if (logId) {
+            updateAPICall(logId, {
+                status: metaResponse.ok ? 'completed' : 'failed',
+                response_time_ms: Date.now() - start,
+                error: metaResponse.ok ? undefined : `Status ${metaResponse.status}`
+            });
+        }
+
         if (!metaResponse.ok) throw new Error(`Google API returned status ${metaResponse.status}`);
         
         const meta = await metaResponse.json();

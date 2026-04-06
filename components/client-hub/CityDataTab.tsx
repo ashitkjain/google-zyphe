@@ -109,6 +109,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [orientBatchRunning, setOrientBatchRunning] = useState(false);
     const [orientBatchProgress, setOrientBatchProgress] = useState<{ computed: number; cached: number; failed: number; total: number } | null>(null);
 
+    // Advanced Filtering
+    const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('ALL');
+    const [missingStreetViewOnly, setMissingStreetViewOnly] = useState<boolean>(false);
+
     // Load cities from city_zip_cache filtered to SUPPORTED_STATES on mount
     useEffect(() => {
         getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
@@ -140,6 +144,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         return Array.from(states).sort();
     }, [listings]);
 
+    const availablePropertyTypes = useMemo(() => {
+        const types = new Set<string>();
+        listings.forEach(item => {
+            const hType = item.homeType || item.prop_type || item.propertyType || item.property_type;
+            if (hType) types.add(hType);
+        });
+        return Array.from(types).sort();
+    }, [listings]);
+
     // Reset group pages when listings or state filter changes
     React.useEffect(() => { setGroupPages({}); }, [listings, stateFilter]);
 
@@ -161,18 +174,29 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const groups: Record<string, any[]> = {};
 
         listings.forEach(item => {
+            const id = String(item.zpid);
             const itemCity = item.location?.address?.city || 'Unknown City';
             const state = item.location?.address?.state_code || 'Unknown State';
+            const hType = item.homeType || item.prop_type || item.propertyType || item.property_type || 'Residential';
 
-            // ONLY filter by state if a specific state is selected in the UI
+            // 1. Filter by State
             if (stateFilter && stateFilter !== 'ALL' && state !== stateFilter) return;
+
+            // 2. Filter by Property Type
+            if (propertyTypeFilter !== 'ALL' && hType !== propertyTypeFilter) return;
+
+            // 3. Filter by Missing Street View Health
+            if (missingStreetViewOnly) {
+                const status = propertyStatuses[id];
+                if (status?.assets?.streetView) return; // Skip if it HAS street view
+            }
 
             const key = `${itemCity}, ${state}`;
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         });
         return groups;
-    }, [listings, stateFilter]);
+    }, [listings, stateFilter, propertyTypeFilter, missingStreetViewOnly, propertyStatuses]);
 
     const addLog = (message: string) => {
         console.log(message);
@@ -512,27 +536,32 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             // Check image status
             const imgCheck = smoke.checks.find(c => c.id === 'images');
-            if (imgCheck && !imgCheck.passed) {
-                noImages.push(zpid);
-                continue;
-            }
+            const hasEnoughPhotos = imgCheck?.passed ?? true;
 
             // Classify by failed check sources
             const failedSources = new Set(smoke.checks.filter(c => !c.passed).map(c => c.source));
             const hasGeminiNeeds = [...failedSources].some(s => GEMINI_SOURCES.has(s as string));
+            const hasNonGeminiNeeds = [...failedSources].some(s => NON_GEMINI_SOURCES.has(s as string));
 
             if (hasGeminiNeeds) {
+                // If user wants Full Intel, always run Gemini phase. 
+                // The pipeline will handle internal data/asset healing in Phase 1 of the backend.
                 needsGemini.push(zpid);
-            } else {
+            } else if (hasNonGeminiNeeds) {
+                // Only rout to Phase 1 (Data-only) if they DON'T need Gemini
                 needsNonGeminiOnly.push(zpid);
+            }
+
+            if (hasGeminiNeeds && !hasEnoughPhotos) {
+                noImages.push(zpid);
             }
         }
 
         addLog(`[Triage] Classification complete:`);
-        addLog(`  ✓ ${fullyPassed.length} fully passed — skipping`);
-        addLog(`  ✗ ${noImages.length} missing images — skipping (need manual image upload)`);
-        addLog(`  ⚡ ${needsNonGeminiOnly.length} need data healing only (no Gemini cost)`);
-        addLog(`  🤖 ${needsGemini.length} need Gemini AI analysis`);
+        addLog(`  ✓ ${fullyPassed.length} already healthy (skipped)`);
+        addLog(`  ⚠ ${noImages.length} insufficient photos (<3 images) — image analysis will be limited`);
+        addLog(`  ⚡ ${needsNonGeminiOnly.length} need data/asset healing only (no Gemini cost)`);
+        addLog(`  🤖 ${needsGemini.length} scheduled for Full Gemini Enterprise Suite`);
 
         // ── Time Estimation ────────────────────────────────────────────────
         const GEMINI_BATCH = 3;
@@ -635,7 +664,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                     if (failedSources.has('parcel')) {
                         const { runPropertyDataOnlyPipeline } = await import('../../services/preloadService');
-                        await runPropertyDataOnlyPipeline(addr, () => { }, zpid, (msg) => addLog(msg));
+                        await runPropertyDataOnlyPipeline(addr, () => { }, zpid, (msg) => addLog(`  [Parcel] ${msg}`));
+                    }
+
+                    if (failedSources.has('assets')) {
+                        const { runImageOnlyPipeline } = await import('../../services/preloadService');
+                        await runImageOnlyPipeline(addr, (progress) => {
+                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                        }, zpid, (msg) => addLog(`  [Assets] ${msg}`));
                     }
 
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
@@ -2003,8 +2039,8 @@ ${JSON.stringify(propertySummaries)}
                     </div>
                 </td>
 
-                <td className={`p-4 text-right font-medium text-slate-900`}>
-                    ${item.list_price?.toLocaleString() || '--'}
+                <td className="p-4 text-right font-bold text-slate-800 text-[10px] uppercase tracking-widest bg-slate-50/20">
+                    {item.homeType || item.prop_type || item.propertyType || item.property_type || 'Residential'}
                 </td>
                 <td className="p-4">
                     <div className="flex items-center gap-3">
@@ -3008,26 +3044,85 @@ ${JSON.stringify(propertySummaries)}
                     {viewMode === 'table' && (
                         listings.length > 0 ? (
                             <div className="space-y-12 pb-20">
-                                {/* State Selection */}
-                                {availableStates.length > 0 && (
-                                    <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-fit shadow-sm">
-                                        {availableStates.map(st => (
-                                            <button
-                                                key={st}
-                                                onClick={() => setStateFilter(st)}
-                                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}
-                                            >
-                                                {st}
-                                            </button>
-                                        ))}
-                                        <button
-                                            onClick={() => setStateFilter('ALL')}
-                                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}
-                                        >
-                                            View All
-                                        </button>
+                                <div className="flex flex-col gap-6">
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        {/* State Selection */}
+                                        {availableStates.length > 0 && (
+                                            <div className="flex items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                                                {availableStates.map(st => (
+                                                    <button
+                                                        key={st}
+                                                        onClick={() => setStateFilter(st)}
+                                                        className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                                                    >
+                                                        {st}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={() => setStateFilter('ALL')}
+                                                    className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                                                >
+                                                    All States
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Property Type Selection */}
+                                        {availablePropertyTypes.length > 0 && (
+                                            <div className="flex items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                                                {availablePropertyTypes.map(pt => (
+                                                    <button
+                                                        key={pt}
+                                                        onClick={() => setPropertyTypeFilter(pt)}
+                                                        className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${propertyTypeFilter === pt ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                                                    >
+                                                        {pt.replace(/_/g, ' ')}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={() => setPropertyTypeFilter('ALL')}
+                                                    className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${propertyTypeFilter === 'ALL' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                                                >
+                                                    All Types
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+
+                                    {/* Asset Health Filters */}
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => setMissingStreetViewOnly(!missingStreetViewOnly)}
+                                            className={`flex items-center gap-2.5 px-6 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 shadow-sm
+                                                ${missingStreetViewOnly 
+                                                    ? 'bg-amber-500 border-amber-600 text-white shadow-amber-200/50 scale-105' 
+                                                    : 'bg-white border-slate-200 text-slate-400 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50/10'}`}
+                                        >
+                                            <i className={`fa-solid fa-street-view ${missingStreetViewOnly ? 'animate-pulse' : ''}`}></i>
+                                            {missingStreetViewOnly ? 'Isolating: Missing Street View' : 'Hide Solid Street View'}
+                                            {missingStreetViewOnly && (
+                                                <span className="flex h-2 w-2 relative">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                                </span>
+                                            )}
+                                        </button>
+                                        
+                                        {(stateFilter !== 'ALL' || propertyTypeFilter !== 'ALL' || missingStreetViewOnly) && (
+                                            <button 
+                                                onClick={() => {
+                                                    setStateFilter('ALL');
+                                                    setPropertyTypeFilter('ALL');
+                                                    setMissingStreetViewOnly(false);
+                                                }}
+                                                className="px-4 py-2 text-[9px] font-black text-slate-300 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-2"
+                                            >
+                                                <i className="fa-solid fa-filter-circle-xmark"></i>
+                                                Reset Filters
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
 
                                 {/* Location Groups */}
                                 {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => {
@@ -3126,7 +3221,7 @@ ${JSON.stringify(propertySummaries)}
                                                         <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">
                                                             <th className="p-6 w-20 text-center">Batch</th>
                                                             <th className="p-6">Property</th>
-                                                            <th className="p-6 text-right">Market Price</th>
+                                                            <th className="p-6 text-right">Property Type</th>
                                                             <th className="p-6">Cache Status</th>
                                                             <th className="p-6 text-center">Last Scan</th>
                                                             <th className="p-6 text-right">Actions</th>

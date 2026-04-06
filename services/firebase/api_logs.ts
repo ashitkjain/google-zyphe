@@ -28,12 +28,12 @@ export const logAPICall = async (event: Omit<APICallEvent, 'id' | 'timestamp'>):
             finalUserId = uid;
         }
 
-        const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+        const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
         const docData = sanitizeForFirestore({
             ...event,
             user_id: finalUserId,
             timestamp: serverTimestamp(),
-            expireAt: FsTimestamp.fromMillis(Date.now() + TWO_DAYS_MS),
+            expireAt: FsTimestamp.fromMillis(Date.now() + NINETY_DAYS_MS),
         });
 
         const docRef = await addDoc(collection(db, "api_call_events"), docData);

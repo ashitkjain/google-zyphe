@@ -319,13 +319,39 @@ export const fetchPropertyDataFull = async (
                     mappedData.streetViewAnalysis = undefined;
                 }
 
-                const encodedAddress = encodeURIComponent(mappedData.address);
+                const hasCoords = !!(mappedData.coordinates?.latitude && mappedData.coordinates?.longitude);
+                const locationParam = hasCoords 
+                    ? `${mappedData.coordinates!.latitude},${mappedData.coordinates!.longitude}`
+                    : encodeURIComponent(mappedData.address);
+                
+                // Increase radius to 150m for suburban setbacks
+                const checkRadius = 150;
 
                 // Check Street View Metadata API first — free JSON call, no image quota.
                 let imageryAvailable = false;
                 try {
-                    const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${encodedAddress}&radius=100&source=outdoor&key=${MAPS_API_KEY}`;
+                    const logId = await logAPICall({
+                        user_id: auth?.currentUser?.uid || 'unknown',
+                        zpid: mappedData.zpid,
+                        address: mappedData.address,
+                        api_name: 'Google Maps',
+                        endpoint: 'streetview/metadata',
+                        params: { location: locationParam, radius: checkRadius, source: 'outdoor' },
+                        status: 'pending'
+                    });
+                    const start = Date.now();
+
+                    const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${locationParam}&radius=${checkRadius}&source=outdoor&key=${MAPS_API_KEY}`;
                     const metaResponse = await fetch(metaUrl);
+                    
+                    if (logId) {
+                        updateAPICall(logId, {
+                            status: metaResponse.ok ? 'completed' : 'failed',
+                            response_time_ms: Date.now() - start,
+                            error: metaResponse.ok ? undefined : `Status ${metaResponse.status}`
+                        });
+                    }
+
                     if (metaResponse.ok) {
                         const meta = await metaResponse.json();
                         imageryAvailable = meta.status === 'OK';
@@ -336,7 +362,7 @@ export const fetchPropertyDataFull = async (
                 }
 
                 if (imageryAvailable) {
-                    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x800&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
+                    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x800&location=${locationParam}&fov=90&radius=${checkRadius}&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
                     try {
                         const userId = auth?.currentUser?.uid || 'unknown';
                         const svAnalysis = await analyzeStreetView(streetViewUrl, mappedData, userId);

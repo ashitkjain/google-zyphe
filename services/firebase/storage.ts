@@ -110,6 +110,23 @@ export const uploadProfileImage = async (userId: string, file: File): Promise<st
 export const uploadRemoteImageToStorage = async (url: string, path: string): Promise<string> => {
     if (!storage) throw new Error("Firebase Storage not initialized");
 
+    const { logAPICall, updateAPICall } = await import('./api_logs');
+    const { auth } = await import('./config');
+    
+    // Extract ZPID from path (e.g., properties/12345/maps/...)
+    const zpidMatch = path.match(/properties\/([^/]+)/);
+    const zpid = zpidMatch ? zpidMatch[1] : undefined;
+
+    const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        zpid: zpid,
+        api_name: url.includes('google') ? 'Google Maps' : url.includes('radar') ? 'Radar' : 'Remote Image',
+        endpoint: url.includes('streetview') ? 'streetview/image' : url.includes('staticmap') ? 'staticmap/image' : 'download',
+        params: { url, path },
+        status: 'pending'
+    });
+    const start = Date.now();
+
     try {
         const storageRef = ref(storage, path);
 
@@ -153,8 +170,23 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
 
         // Get URL
         const downloadURL = await getDownloadURL(snapshot.ref);
+
+        if (logId) {
+            updateAPICall(logId, {
+                status: 'completed',
+                response_time_ms: Date.now() - start
+            });
+        }
+
         return downloadURL;
     } catch (error: any) {
+        if (logId) {
+            updateAPICall(logId, {
+                status: 'failed',
+                response_time_ms: Date.now() - start,
+                error: error.message
+            });
+        }
         console.error(`[Storage] Failed to upload remote image from ${url}:`, error);
         // Fallback: return the original URL if upload fails so we don't break the app
         return url;
