@@ -34,7 +34,7 @@ const uploadWithRetry = async (url: string, path: string, index: number, maxRetr
 export const securePropertyAssets = async (
     zpid: string,
     imageUrls: string[],
-    maps?: { zoomIn?: string; zoomOut?: string; streetView?: string },
+    maps?: { zoomIn?: string; zoomOut?: string; streetView?: string; satelliteImageUrl?: string },
     onProgress?: (p: AssetProgress) => void
 ): Promise<PropertyAssets> => {
 
@@ -52,6 +52,7 @@ export const securePropertyAssets = async (
     let persistentMapZoomIn = maps?.zoomIn;
     let persistentMapZoomOut = maps?.zoomOut;
     let persistentStreetView = maps?.streetView;
+    let persistentSatellite = maps?.satelliteImageUrl;
 
     // 2. Secure Maps
     // We always attempt maps if provided because uploadRemoteImageToStorage 
@@ -77,6 +78,16 @@ export const securePropertyAssets = async (
             persistentStreetView = await uploadWithRetry(maps.streetView, `properties/${zpid}/maps/street_view.jpg`, -3);
         } catch (e) {
             console.warn("[AssetService] Street View failed to secure:", e);
+        }
+    }
+
+    if (maps?.satelliteImageUrl) {
+        try {
+            // Satellite is usually already in storage via getOrCacheAerialSatelliteUrl
+            // but we ensure it's tracked in the assets registry here.
+            persistentSatellite = maps.satelliteImageUrl;
+        } catch (e) {
+            console.warn("[AssetService] Satellite check failed:", e);
         }
     }
 
@@ -121,6 +132,7 @@ export const securePropertyAssets = async (
         mapZoomIn: persistentMapZoomIn || null,
         mapZoomOut: persistentMapZoomOut || null,
         streetView: persistentStreetView || null,
+        satelliteImageUrl: persistentSatellite || null,
         lastVerified: null
     };
 

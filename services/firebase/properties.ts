@@ -1472,8 +1472,11 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
                     const imagesArr = assetData?.images || propData?.images || [];
                     const imagesSecured = imagesArr.length > 0 && imagesArr[0]?.includes('firebasestorage');
                     
-                    // StreetView might be in assets OR environmental/thirdparty_data (env)
-                    let hasStreetView = !!assetData?.streetView && assetData.streetView.includes('firebasestorage');
+                    // StreetView might be in assets subfolder OR root property doc OR environmental subfolder
+                    let hasStreetView = (!!assetData?.streetView && assetData.streetView.includes('firebasestorage')) ||
+                                        (!!propData?.streetViewAnalysis?.imageUrl && propData.streetViewAnalysis.imageUrl.includes('firebasestorage')) ||
+                                        (!!propData?.streetView && propData.streetView.includes('firebasestorage'));
+
                     if (!hasStreetView) {
                         try {
                             const envSnap = await getDoc(doc(db, "properties", zpid, "environmental", "thirdparty_data"));

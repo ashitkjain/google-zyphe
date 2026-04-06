@@ -187,10 +187,10 @@ export function runChecks(
     chk(checks, 'mapZoomOut', 'Map Zoom-Out (Storage)', 'error', 'assets', isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut),
         isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut) ? 'present' : 'missing/not in Storage');
     const svImgUrl = assets?.streetView || env?.streetViewAnalysis?.imageUrl;
-    chk(checks, 'streetView', 'Street View (Storage)', 'warn', 'assets', isFirebaseStorageUrl(svImgUrl),
+    chk(checks, 'streetView', 'Street View (Storage)', 'error', 'assets', isFirebaseStorageUrl(svImgUrl),
         isFirebaseStorageUrl(svImgUrl) ? 'present' : 'missing');
     const satUrl = assets?.satelliteImageUrl || assets?.satellite || prop?.satelliteImageUrl;
-    chk(checks, 'satellite', 'Satellite Image (Storage)', 'warn', 'assets', isFirebaseStorageUrl(satUrl),
+    chk(checks, 'satellite', 'Satellite Image (Storage)', 'error', 'assets', isFirebaseStorageUrl(satUrl),
         isFirebaseStorageUrl(satUrl) ? 'present' : (satUrl ? 'present (not in Storage)' : 'missing'));
 
     // ── 5. Parcel / APN data ──────────────────────────────────────────────────
@@ -307,7 +307,7 @@ export function runChecks(
         ext?.exterior_and_lot_appeal?.curb_appeal ? `${ext.exterior_and_lot_appeal.curb_appeal.length} chars` : 'missing');
     chk(checks, 'backyardPatio', 'AI Visual — Backyard/Patio', 'warn', 'ai_visual', !!(ext?.exterior_and_lot_appeal?.backyard_and_patio),
         ext?.exterior_and_lot_appeal?.backyard_and_patio ? `${ext.exterior_and_lot_appeal.backyard_and_patio.length} chars` : 'missing');
-    chk(checks, 'privacyVisual', 'AI Visual — Privacy', 'warn', 'ai_visual', !!(ext?.views_privacy_orientation?.privacy),
+    chk(checks, 'privacyVisual', 'AI Visual — Privacy', 'error', 'ai_visual', !!(ext?.views_privacy_orientation?.privacy),
         ext?.views_privacy_orientation?.privacy || 'missing');
 
     // Neighborhood spatial analysis
@@ -318,7 +318,7 @@ export function runChecks(
     // Orientation AI (saved on properties doc)
     const orientationAi = prop?.orientation_ai;
     const hasOrientation = !!(orientationAi?.final_orientation);
-    chk(checks, 'orientationAi', 'Front Orientation AI', 'warn', 'ai_visual', hasOrientation,
+    chk(checks, 'orientationAi', 'Front Orientation AI', 'error', 'ai_visual', hasOrientation,
         hasOrientation ? orientationAi.final_orientation : 'missing');
 
     // Street view AI (lives on google_environmental_data)
@@ -368,7 +368,7 @@ export function runChecks(
     const hasSummary = !!(comprehensive?.summary && comprehensive.summary.length > 30);
     chk(checks, 'compSummary', 'Narrative Summary', 'error', 'ai_comprehensive', hasSummary,
         hasSummary ? `${comprehensive.summary.length} chars` : 'missing');
-    chk(checks, 'compRisks', 'Risks & Considerations', 'warn', 'ai_comprehensive', !!(comprehensive?.risks_considerations),
+    chk(checks, 'compRisks', 'Risks & Considerations', 'error', 'ai_comprehensive', !!(comprehensive?.risks_considerations),
         comprehensive?.risks_considerations ? 'present' : 'missing');
 
     // ── 10. Interior Summary (inside property_analyses_comprehensive) ─────────
@@ -451,15 +451,15 @@ export function runChecks(
     // ── 12. Lifestyle Insights (inside property_analyses_comprehensive) ────────
     const life = comprehensive?.lifestyle_insights;
     const hasLifestyle = !!(life?.outdoor && life?.family);
-    chk(checks, 'lifestyleInsights', 'Lifestyle Insights', 'warn', 'ai_comprehensive', hasLifestyle,
+    chk(checks, 'lifestyleInsights', 'Lifestyle Insights', 'error', 'ai_comprehensive', hasLifestyle,
         hasLifestyle ? 'present (outdoor, family, etc.)' : 'missing');
 
     // ── 13. Property Investment Research (property_investment_research) ───────
     const hasSTR = !!(investment?.str_performance?.adr);
     const hasLTR = !!(investment?.ltr_analysis?.monthly_rent);
-    chk(checks, 'investmentSTR', 'STR Performance (ADR)', 'warn', 'ai_investment', hasSTR,
+    chk(checks, 'investmentSTR', 'STR Performance (ADR)', 'error', 'ai_investment', hasSTR,
         hasSTR ? `ADR: ${investment.str_performance.adr}` : 'missing');
-    chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'warn', 'ai_investment', hasLTR,
+    chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'error', 'ai_investment', hasLTR,
         hasLTR ? `Rent: ${investment.ltr_analysis.monthly_rent}` : 'missing');
 
     // ── 16. Risk Scores (properties doc — flat fields, single source of truth) ──

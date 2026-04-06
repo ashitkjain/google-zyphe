@@ -4,44 +4,96 @@ import { Type } from "@google/genai";
  * City-Level Neighborhood Miner Prompt
  *
  * Runs ONCE per city to catalog ALL residential neighborhoods with
- * full identity data (character, pricing, features, HOA, etc.).
+ * full identity data (character, pricing, features, HOA, etc.)
+ * AND live Nextdoor community intelligence (topics, events, sentiment).
  *
- * Results are cached in Firestore `city_neighborhoods/{cityStateKey}`
+ * Results are cached in Firestore `cities/{cityStateKey}/index/neighborhoods`
  * and reused for lightweight per-property matching, eliminating
  * redundant Gemini calls across properties in the same city.
  */
 
 export const getCityNeighborhoodMinerPrompt = (city: string, state: string) => {
+    const stateSlug = state.toLowerCase().trim();
+    const citySlug = city.toLowerCase().trim().replace(/\s+/g, '-');
+
     return `
-Act as a comprehensive neighborhood intelligence tool specializing in residential area identification and analysis.
+Act as a comprehensive neighborhood intelligence tool specializing in residential area identification and Nextdoor community analysis.
 
-TASK: Identify and catalog ALL known residential neighborhoods, subdivisions, and communities in ${city}, ${state}.
+TASK: Identify and catalog ALL known residential neighborhoods in ${city}, ${state}, enriched with live Nextdoor community data.
 
-INSTRUCTIONS:
-1. Use Google Search grounding to find EVERY residential neighborhood, subdivision, and named community in ${city}.
-2. For each neighborhood, provide:
-   - The "social name" that residents, real estate agents, and locals actually use
-   - Alternative names (subdivision name, tract name, historical name)
+═══════════════════════════════════════════════════════
+STEP 1 — DISCOVER NEIGHBORHOODS
+═══════════════════════════════════════════════════════
+Use Google Search to find EVERY residential neighborhood, subdivision, and named community in ${city}, ${state}.
+- Use names that residents, real estate agents, and MLS listings actually use (Zillow/Redfin/Nextdoor names, not just county records).
+- Include both established (1960s-1990s) and newer (2000s+) communities.
+- Include small subdivisions and HOA communities, not just large area names.
+- Focus on RESIDENTIAL neighborhoods — exclude commercial zones, road names, and mall areas.
+
+═══════════════════════════════════════════════════════
+STEP 2 — ENRICH WITH NEXTDOOR DATA
+═══════════════════════════════════════════════════════
+For each neighborhood discovered in Step 1, collect two types of Nextdoor data:
+
+2A. RANKINGS PAGE — Use this for official scores (friendliness, affordability, city rank):
+  Search: site:nextdoor.com/rankings best-places-to-live ${city} ${state}
+  URL:    https://nextdoor.com/rankings/best-places-to-live/${citySlug}--${stateSlug}/
+
+  From this page, extract for each neighborhood that appears:
+  • Numeric city rank (#1 = highest rated overall)
+  • Friendliness score (as rated by Nextdoor residents — record EXACTLY as shown)
+  • Affordability score (as rated by Nextdoor residents — record EXACTLY as shown)
+  • Home ownership percentage
+
+  NOTE: Not all neighborhoods will appear here (e.g. gated/premium communities like Ruby Hill may
+  be absent). That is expected — record nextdoor_found: true but leave ranking fields null for those.
+
+2B. INDIVIDUAL NEIGHBORHOOD SEARCH — Use this for topics, description, and events:
+  Search: site:nextdoor.com "{neighborhood name}" ${city}
+  Examples:
+    - site:nextdoor.com "Ruby Hill" ${city}
+    - site:nextdoor.com "Birdland" ${city}
+    - site:nextdoor.com "Val Vista" ${city}
+
+  From these results, extract:
+  • description        — Nextdoor's neighborhood description blurb
+  • key_topics         — Top 3-5 discussion topics/categories with 1-2 sentence summaries each
+                         (e.g. "Outdoor Activities & Gear", "Safety Alerts", "City & Park Updates")
+  • upcoming_events    — Any specific upcoming events with name + date
+  • local_events_count — Approximate event count ("3", "10+", "Unknown")
+
+  For neighborhoods NOT on the rankings page, infer:
+  • friendliness_score  — 1-10, based on topic tone and community post variety
+  • affordability_score — 1-10, based on price tier relative to city (10 = most affordable)
+  • overall_city_rank   — Qualitative: "Top 5 most active", "Mid-tier", "Lower activity"
+
+  • nextdoor_url — Construct as: https://nextdoor.com/neighborhood/{slug}--${citySlug}--${stateSlug}/
+                   where {slug} = neighborhood name lowercased, spaces → hyphens
+
+If no Nextdoor results are found at all for a neighborhood, set nextdoor_found: false.
+
+═══════════════════════════════════════════════════════
+STEP 3 — COMPILE FULL NEIGHBORHOOD PROFILE
+═══════════════════════════════════════════════════════
+For each neighborhood, combine real estate data + Nextdoor data:
    - Physical character (architecture, era, community type, home/lot sizes)
-   - Price positioning within the city (Entry-Level through Ultra-Luxury)
+   - Price positioning within the city (Entry-Level → Ultra-Luxury)
    - HOA details if applicable
    - Unique physical features (trails, views, parks, proximity to landmarks)
-3. Be EXHAUSTIVE — include small subdivisions, newer developments, and established neighborhoods alike.
-4. Order neighborhoods roughly by price tier (Entry-Level first, Ultra-Luxury last).
-5. ALSO provide a "city_summary" that:
-   - Gives an overall summary of the residential landscape in ${city}
-   - Explains the key trade-offs between neighborhoods (e.g. price vs lot size, schools vs commute, newer vs established)
-   - Provides practical buying guidance: how should a prospective buyer go about deciding which neighborhood to buy a home in?
-   - Highlights any neighborhood clusters or corridors that share similar characteristics
-   - Keep this to 3-5 paragraphs, written in a helpful, advisory tone
+   - Full Nextdoor community intelligence (from Step 2)
 
-IMPORTANT RULES:
-- Focus on RESIDENTIAL neighborhoods only (not commercial districts).
-- Include both established (1960s-1990s) and newer (2000s+) communities.
-- For "social names," use the name agents list on MLS/Zillow/Redfin, not just official county names.
-- If a neighborhood has both a subdivision name and a broader area name, list both.
+═══════════════════════════════════════════════════════
+STEP 4 — CITY SUMMARY
+═══════════════════════════════════════════════════════
+Provide a "city_summary" (3-5 paragraphs) covering:
+  - Overall residential landscape
+  - Key trade-offs between neighborhoods (price vs lot size, schools vs commute, newer vs established)
+  - Which neighborhoods rank highest on Nextdoor for community engagement and friendliness
+  - Practical buying guidance for a prospective buyer deciding between neighborhoods
 
-CRITICAL COMPLIANCE RULE: Do NOT include ANY information about demographic composition, racial/ethnic makeup, religious institutions, age distribution, household types, or familial characteristics of residents. Focus EXCLUSIVELY on physical property characteristics, market data, infrastructure, and geography. This is required for Fair Housing Act and FEHA compliance.
+ORDERING: Sort neighborhoods by price tier (Entry-Level first, Ultra-Luxury last).
+
+CRITICAL COMPLIANCE RULE: Do NOT include ANY information about demographic composition, racial/ethnic makeup, religious institutions, age distribution, household types, or familial characteristics of residents. Focus EXCLUSIVELY on physical property characteristics, market data, infrastructure, geography, and community activity. This is required for Fair Housing Act and FEHA compliance.
 
 Return ONLY valid JSON matching the schema.
 `.trim();
@@ -55,11 +107,11 @@ export const cityNeighborhoodMinerSchema = {
         total_neighborhoods: { type: Type.NUMBER, description: "Total number of neighborhoods identified." },
         city_summary: {
             type: Type.STRING,
-            description: "3-5 paragraph summary of the city's residential landscape. Covers how neighborhoods compare, key trade-offs (price vs lot size, schools vs commute, newer vs established), practical buying guidance for prospective buyers on how to decide which neighborhood to buy in, and any notable neighborhood clusters or corridors."
+            description: "3-5 paragraph summary of the city's residential landscape including which neighborhoods rank highest on Nextdoor for community engagement, key trade-offs, and practical buying guidance."
         },
         neighborhoods: {
             type: Type.ARRAY,
-            description: "All identified residential neighborhoods in the city.",
+            description: "All identified residential neighborhoods in the city, enriched with Nextdoor community data.",
             items: {
                 type: Type.OBJECT,
                 properties: {
@@ -74,54 +126,129 @@ export const cityNeighborhoodMinerSchema = {
                     },
                     source_type: {
                         type: Type.STRING,
-                        description: "Where the name was sourced from: 'Real Estate / Google Maps', 'County Records', 'Community Forums', etc."
+                        description: "Where the name was sourced from: 'Real Estate / MLS', 'Nextdoor', 'Google Maps', 'County Records', 'Community Forums', etc."
                     },
+
+                    // ── Physical Character ──────────────────────────────────
                     character: {
                         type: Type.OBJECT,
                         properties: {
                             description: { type: Type.STRING, description: "2-3 sentence description of the neighborhood's physical character." },
-                            architectural_style: { type: Type.STRING, description: "Dominant home style (e.g., 'Mediterranean Revival', 'Ranch-style')." },
-                            era_built: { type: Type.STRING, description: "When most homes were built (e.g., '1970s-1980s')." },
+                            architectural_style: { type: Type.STRING, description: "Dominant home style (e.g., 'Mediterranean Revival', 'Ranch-style', 'Contemporary')." },
+                            era_built: { type: Type.STRING, description: "When most homes were built (e.g., '1970s-1980s', '2005-2015')." },
                             community_type: { type: Type.STRING, description: "One of: 'Gated Community', 'HOA Community', 'Open Neighborhood', 'Master-Planned', 'Rural/Estate'." },
                             typical_home_size: { type: Type.STRING, description: "Typical home size range (e.g., '1,800 - 2,500 sqft')." },
                             typical_lot_size: { type: Type.STRING, description: "Typical lot size range (e.g., '6,000 - 8,000 sqft')." },
                         },
                         required: ["description"]
                     },
+
+                    // ── Pricing ─────────────────────────────────────────────
                     price_context: {
                         type: Type.OBJECT,
                         properties: {
                             tier: { type: Type.STRING, description: "One of: 'Entry-Level', 'Mid-Range', 'Upper Mid-Range', 'Premium', 'Ultra-Luxury'." },
-                            typical_range: { type: Type.STRING, description: "Typical price range (e.g., '$1.2M - $1.8M')." },
+                            typical_range: { type: Type.STRING, description: "Typical active listing price range (e.g., '$1.2M - $1.8M')." },
+                            city_rank: { type: Type.NUMBER, description: "Price rank within the city — 1 = most affordable, higher = more expensive." },
                             context: { type: Type.STRING, description: "1-2 sentences on how this neighborhood is positioned within the city's market." }
                         },
                         required: ["tier", "typical_range"]
                     },
+
+                    // ── HOA ─────────────────────────────────────────────────
                     hoa: {
                         type: Type.OBJECT,
                         properties: {
                             has_hoa: { type: Type.BOOLEAN, description: "Whether this neighborhood has an HOA." },
-                            monthly_fee: { type: Type.STRING, description: "Monthly HOA fee if known." },
-                            covers: { type: Type.STRING, description: "What the HOA covers." },
-                            notable_rules: { type: Type.STRING, description: "Any notable HOA restrictions." }
+                            monthly_fee: { type: Type.STRING, description: "Monthly HOA fee range if known (e.g., '$150 - $250/mo')." },
+                            covers: { type: Type.STRING, description: "What the HOA fee covers (e.g., 'landscaping, pool, tennis courts')." },
+                            notable_rules: { type: Type.STRING, description: "Any notable HOA restrictions buyers should know." }
                         },
                         required: ["has_hoa"]
                     },
+
+                    // ── Physical Features ────────────────────────────────────
                     infrastructure_quality: {
                         type: Type.STRING,
-                        description: "Assessment of physical infrastructure (2-3 sentences). Focus ONLY on physical attributes."
+                        description: "2-3 sentence assessment of physical infrastructure (roads, sidewalks, streetlights, parks)."
                     },
                     upcoming_changes: {
                         type: Type.STRING,
-                        description: "Any planned developments or zoning changes. Say 'None known' if nothing found."
+                        description: "Any planned developments, zoning changes, or infrastructure projects. Say 'None known' if nothing found."
                     },
                     unique_features: {
                         type: Type.ARRAY,
                         items: { type: Type.STRING },
-                        description: "2-5 physical features that make this neighborhood stand out."
+                        description: "2-5 physical features that make this neighborhood stand out (e.g., 'Adjacent to Shadow Cliffs Regional Park', 'Hillside views of Tri-Valley')."
+                    },
+
+                    // ── Nextdoor Community Intelligence ─────────────────────
+                    nextdoor: {
+                        type: Type.OBJECT,
+                        description: "Live community intelligence sourced from the neighborhood's Nextdoor page.",
+                        properties: {
+                            found: {
+                                type: Type.BOOLEAN,
+                                description: "Whether a Nextdoor page was found for this neighborhood."
+                            },
+                            url: {
+                                type: Type.STRING,
+                                description: "The Nextdoor URL checked (e.g., 'https://nextdoor.com/neighborhood/ruby-hill--pleasanton--ca/')."
+                            },
+                            description: {
+                                type: Type.STRING,
+                                description: "Official neighborhood description as shown on the Nextdoor page."
+                            },
+                            friendliness_score: {
+                                type: Type.NUMBER,
+                                description: "Community friendliness/engagement score on a 1-10 scale based on Nextdoor activity, reviews, and tone. 10 = extremely friendly and active."
+                            },
+                            affordability_score: {
+                                type: Type.NUMBER,
+                                description: "Affordability score on a 1-10 scale based on home prices relative to city average. 10 = most affordable in the city."
+                            },
+                            home_ownership_pct: {
+                                type: Type.STRING,
+                                description: "Estimated percentage of owner-occupied homes (e.g., '78%') if available on Nextdoor or from public data."
+                            },
+                            local_events_count: {
+                                type: Type.STRING,
+                                description: "Approximate number of local events listed on Nextdoor (e.g., '3', '10+', '20+'). Use 'Unknown' if not available."
+                            },
+                            upcoming_events: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        name: { type: Type.STRING, description: "Event name." },
+                                        date: { type: Type.STRING, description: "Event date or date range (e.g., 'April 12, 2025')." },
+                                        description: { type: Type.STRING, description: "Brief description of the event." }
+                                    },
+                                    required: ["name"]
+                                },
+                                description: "Specific upcoming events found on the Nextdoor neighborhood page."
+                            },
+                            key_topics: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        topic: { type: Type.STRING, description: "Topic name (e.g., 'Outdoor Activities & Gear', 'Safety Alerts', 'Lost & Found Pets', 'City & Park Updates')." },
+                                        description: { type: Type.STRING, description: "1-2 sentence summary of what neighbors discuss under this topic." }
+                                    },
+                                    required: ["topic"]
+                                },
+                                description: "Top 3-6 discussion topics/categories currently active on this neighborhood's Nextdoor page."
+                            },
+                            overall_city_rank: {
+                                type: Type.STRING,
+                                description: "Qualitative ranking of this neighborhood within the city on Nextdoor (e.g., 'Top 3 most active', 'Mid-tier engagement', 'Lower activity'). Based on post volume and event count relative to other neighborhoods in the city."
+                            }
+                        },
+                        required: ["found", "url"]
                     }
                 },
-                required: ["neighborhood_name", "alternative_names", "source_type", "character", "price_context"]
+                required: ["neighborhood_name", "alternative_names", "source_type", "character", "price_context", "nextdoor"]
             }
         }
     },
@@ -129,6 +256,30 @@ export const cityNeighborhoodMinerSchema = {
 };
 
 // ── TypeScript types ──────────────────────────────────────────────────────────
+
+export interface NextdoorUpcomingEvent {
+    name: string;
+    date?: string;
+    description?: string;
+}
+
+export interface NextdoorKeyTopic {
+    topic: string;
+    description?: string;
+}
+
+export interface NeighborhoodNextdoorData {
+    found: boolean;
+    url: string;
+    description?: string;
+    friendliness_score?: number;
+    affordability_score?: number;
+    home_ownership_pct?: string;
+    local_events_count?: string;
+    upcoming_events?: NextdoorUpcomingEvent[];
+    key_topics?: NextdoorKeyTopic[];
+    overall_city_rank?: string;
+}
 
 export interface CityNeighborhoodEntry {
     neighborhood_name: string;
@@ -145,6 +296,7 @@ export interface CityNeighborhoodEntry {
     price_context: {
         tier: string;
         typical_range: string;
+        city_rank?: number;
         context?: string;
     };
     hoa?: {
@@ -156,6 +308,7 @@ export interface CityNeighborhoodEntry {
     infrastructure_quality?: string;
     upcoming_changes?: string;
     unique_features?: string[];
+    nextdoor: NeighborhoodNextdoorData;
 }
 
 export interface CityNeighborhoodsResult {

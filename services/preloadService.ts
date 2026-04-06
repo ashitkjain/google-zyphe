@@ -1161,6 +1161,19 @@ export const runImageOnlyPipeline = async (
 
     const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodeURIComponent(radar.formattedAddress)}&fov=90&radius=100&source=outdoor&key=${configMapsKey}`;
 
+    // 4. Satellite Fetch
+    onProgress({ step: 'Securing', status: 'running', message: 'Fetching high-res satellite imagery...' });
+    let satelliteImageUrl: string | undefined;
+    try {
+      const { getOrCacheAerialSatelliteUrl } = await import('./satellitaryService');
+      if (radar.coordinates) {
+        satelliteImageUrl = await getOrCacheAerialSatelliteUrl(zpid, radar.coordinates.latitude, radar.coordinates.longitude);
+        onLog?.(`[Satellite] Aerial image secured.`);
+      }
+    } catch (e) {
+      onLog?.(`[Satellite] Fetch failed (non-blocking): ${e}`);
+    }
+
     // 4. Secure Assets
     onProgress({ step: 'Securing', status: 'running', message: 'Uploading to cloud storage...' });
     const assets = await securePropertyAssets(
@@ -1169,7 +1182,8 @@ export const runImageOnlyPipeline = async (
       {
         zoomIn: radar.mapZoomIn,
         zoomOut: radar.mapZoomOut,
-        streetView: streetViewUrl
+        streetView: streetViewUrl,
+        satelliteImageUrl: satelliteImageUrl
       },
       (p) => onLog?.(`[Cloud] ${p.message}`)
     );
@@ -1191,7 +1205,8 @@ export const runImageOnlyPipeline = async (
       streetViewAnalysis: {
         ...propData.streetViewAnalysis,
         imageUrl: assets.streetView || propData.streetViewAnalysis?.imageUrl
-      } as any
+      } as any,
+      satelliteImageUrl: assets.satelliteImageUrl || propData.satelliteImageUrl
     };
 
     await savePropertyToCloud(zpid, updatedData as PropertyData);

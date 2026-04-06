@@ -531,6 +531,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             // Already fully healthy
             if (smoke.errorCount === 0 && smoke.warnCount === 0) {
                 fullyPassed.push(zpid);
+                // console.log(`[Triage] ${zpid} is already healthy — skipping.`);
                 continue;
             }
 
@@ -2905,46 +2906,33 @@ ${JSON.stringify(propertySummaries)}
                                     }
                                     if (!s) s = 'CA';
 
-                                    addLog(`[City Neighborhoods] Checking cache for ${c}, ${s}...`);
+                                    addLog(`[City Neighborhoods] Force mining neighborhoods for ${c}, ${s}...`);
                                     try {
-                                        const { generateCityStateKey } = await import('../../services/firebase/config');
-                                        const { getCityNeighborhoodsFromCloud } = await import('../../services/firebase/properties');
-                                        const cacheKey = generateCityStateKey(c, s);
-                                        const cached = await getCityNeighborhoodsFromCloud(cacheKey);
-
-                                        if (cached?.neighborhoods?.length > 0) {
-                                            const count = cached.neighborhoods.length;
-                                            setCachedNeighborhoodCount(count);
-                                            setNeighborhoodMiningStatus(`✓ ${count} neighborhoods (cached)`);
-                                            addLog(`[City Neighborhoods] ✓ Found ${count} cached neighborhoods for ${c}, ${s}. Skipping mining.`);
-                                            logPipelineAudit('Mine Neighborhoods', `${c}, ${s}`, 'success', `${count} neighborhoods found in cache`);
-                                        } else {
-                                            addLog(`[City Neighborhoods] No cache found. Mining neighborhoods for ${c}, ${s}...`);
-                                            const { mineCityNeighborhoods } = await import('../../services/geminiService');
-                                            const userId = auth?.currentUser?.uid || 'unknown';
-                                            const result = await mineCityNeighborhoods(c, s, userId, (msg) => {
-                                                setNeighborhoodMiningStatus(msg);
-                                                addLog(msg);
-                                            });
-                                            const count = result.data?.neighborhoods?.length || 0;
-                                            setCachedNeighborhoodCount(count);
-                                            setNeighborhoodMiningStatus(`✓ ${count} neighborhoods`);
-                                            addLog(`[City Neighborhoods] ✓ Mined and cached ${count} neighborhoods for ${c}, ${s}.`);
-                                            logPipelineAudit('Mine Neighborhoods', `${c}, ${s}`, 'success', `${count} neighborhoods mined and cached`);
-                                        }
+                                        const { mineCityNeighborhoods } = await import('../../services/geminiService');
+                                        const userId = auth?.currentUser?.uid || 'unknown';
+                                        const result = await mineCityNeighborhoods(c, s, userId, (msg) => {
+                                            setNeighborhoodMiningStatus(msg);
+                                            addLog(msg);
+                                        });
+                                        const count = result.data?.neighborhoods?.length || 0;
+                                        setCachedNeighborhoodCount(count);
+                                        setNeighborhoodMiningStatus(`✓ ${count} neighborhoods`);
+                                        addLog(`[City Neighborhoods] ✓ Mined and cached ${count} neighborhoods for ${c}, ${s}.`);
+                                        logPipelineAudit('Mine Neighborhoods', `${c}, ${s}`, 'success', `${count} neighborhoods mined and cached`);
                                     } catch (e: any) {
                                         setNeighborhoodMiningStatus(`✗ Failed`);
                                         addLog(`[City Neighborhoods] Error: ${e.message}`);
                                         logPipelineAudit('Mine Neighborhoods', `${c}, ${s}`, 'error', e.message);
                                     }
                                     setNeighborhoodMining(false);
+
                                 }}
                                 disabled={loading || !city || neighborhoodMining}
                                 className={`px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 disabled:opacity-50 ${cachedNeighborhoodCount && cachedNeighborhoodCount > 0
                                     ? 'bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
                                     : 'bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100'
                                     }`}
-                                title={cachedNeighborhoodCount ? `${cachedNeighborhoodCount} neighborhoods cached — click to re-mine` : 'Mine all neighborhoods for this city using Gemini 3 Flash Preview'}
+                                title={`Force re-mine all neighborhoods for ${city || 'this city'} using Gemini 3 Pro — overwrites cache`}
                             >
                                 {neighborhoodMining ? (
                                     <><i className="fa-solid fa-spinner animate-spin"></i> Mining...</>

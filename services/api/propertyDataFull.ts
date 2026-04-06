@@ -12,6 +12,7 @@ import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore, fetc
 import { fetchHistoricalDisasters } from './disasters';
 import { fetchBroadbandData } from './broadband';
 import { fetchDroughtData } from './drought';
+import { logAPICall, updateAPICall } from '../firebase/api_logs';
 
 const MAPS_API_KEY = APP_CONFIG.maps.key;
 
