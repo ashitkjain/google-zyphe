@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, serverTimestamp, query, collection, where, documentId, getDocs, getCountFromServer, limit, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, query, collection, collectionGroup, where, documentId, getDocs, getCountFromServer, limit, deleteDoc } from "firebase/firestore";
 
 import {
     db,
@@ -307,46 +307,46 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
         return snapshot.docs
             .filter(d => !d.data().deprecated)
             .map(d => {
-            const data = d.data();
-            const coords = data.coordinates ? { latitude: data.coordinates.latitude, longitude: data.coordinates.longitude } : undefined;
-            // Prefer AI-resolved neighborhood name (actual neighborhoods), fall back to geo-based school zone lookup
-            const resolvedNeighborhood = data.neighborhood_identity?.resolved_name || '';
-            return {
-                zpid: d.id,
-                address: data.address || '',
-                zipcode: data.zipcode || data.zip || '',
-                listPrice: data.listPrice ?? data.list_price ?? data.price,
-                bedrooms: data.bedrooms,
-                bathrooms: data.bathrooms,
-                livingArea: data.squareFootage ?? data.livingAreaValue ?? data.livingArea ?? data.living_area ?? undefined,
-                lotSize: data.lotSize || data.lot_size || data.resoFacts?.lotSize || '',
-                homeType: data.homeType || data.home_type || data.propertyType || data.property_type || '',
-                neighborhood: resolvedNeighborhood,
-                coordinates: coords,
-                images: data.images?.slice(0, 1) || [],
-                // Additional MLS fields
-                yearBuilt: data.yearBuilt ?? data.year_built ?? undefined,
-                stories: data.stories ?? data.resoFacts?.stories ?? undefined,
-                garage: data.garageSpaces ?? data.resoFacts?.garageSpaces ?? undefined,
-                pool: data.resoFacts?.hasPool === true || data.pool === true || false,
-                homeStatus: data.homeStatus || data.home_status || '',
-                daysOnZillow: data.daysOnZillow ?? data.days_on_zillow ?? undefined,
-                listedDate: data.listedDate ?? undefined,
-                hoa: data.monthlyHoaFee ?? data.hoaFee ?? undefined,
-                city: data.city || '',
-                maxSchoolRating: (() => {
-                    const schools = data.schools as { rating?: string | number }[] | undefined;
-                    if (!schools?.length) return undefined;
-                    let best = 0;
-                    for (const s of schools) {
-                        const r = parseFloat(String(s.rating).replace(/\/.*/, '')) || 0;
-                        if (r > best) best = r;
-                    }
-                    return best > 0 ? best : undefined;
-                })(),
-                orientation: data.orientation_ai?.final_orientation || '',
-            };
-        });
+                const data = d.data();
+                const coords = data.coordinates ? { latitude: data.coordinates.latitude, longitude: data.coordinates.longitude } : undefined;
+                // Prefer AI-resolved neighborhood name (actual neighborhoods), fall back to geo-based school zone lookup
+                const resolvedNeighborhood = data.neighborhood_identity?.resolved_name || '';
+                return {
+                    zpid: d.id,
+                    address: data.address || '',
+                    zipcode: data.zipcode || data.zip || '',
+                    listPrice: data.listPrice ?? data.list_price ?? data.price,
+                    bedrooms: data.bedrooms,
+                    bathrooms: data.bathrooms,
+                    livingArea: data.squareFootage ?? data.livingAreaValue ?? data.livingArea ?? data.living_area ?? undefined,
+                    lotSize: data.lotSize || data.lot_size || data.resoFacts?.lotSize || '',
+                    homeType: data.homeType || data.home_type || data.propertyType || data.property_type || '',
+                    neighborhood: resolvedNeighborhood,
+                    coordinates: coords,
+                    images: data.images?.slice(0, 1) || [],
+                    // Additional MLS fields
+                    yearBuilt: data.yearBuilt ?? data.year_built ?? undefined,
+                    stories: data.stories ?? data.resoFacts?.stories ?? undefined,
+                    garage: data.garageSpaces ?? data.resoFacts?.garageSpaces ?? undefined,
+                    pool: data.resoFacts?.hasPool === true || data.pool === true || false,
+                    homeStatus: data.homeStatus || data.home_status || '',
+                    daysOnZillow: data.daysOnZillow ?? data.days_on_zillow ?? undefined,
+                    listedDate: data.listedDate ?? undefined,
+                    hoa: data.monthlyHoaFee ?? data.hoaFee ?? undefined,
+                    city: data.city || '',
+                    maxSchoolRating: (() => {
+                        const schools = data.schools as { rating?: string | number }[] | undefined;
+                        if (!schools?.length) return undefined;
+                        let best = 0;
+                        for (const s of schools) {
+                            const r = parseFloat(String(s.rating).replace(/\/.*/, '')) || 0;
+                            if (r > best) best = r;
+                        }
+                        return best > 0 ? best : undefined;
+                    })(),
+                    orientation: data.orientation_ai?.final_orientation || '',
+                };
+            });
     } catch (error: any) {
         handleFirestoreError(error, "getPropertiesByCity");
         return [];
@@ -533,9 +533,8 @@ export const saveGeneralMarketIntelligenceToCloud = async (cityStateKey: string,
             lastUpdated: serverTimestamp()
         };
 
-        // 1. Consolidated write (ONLY)
-        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "intel", "market_intelligence");
-        logFirestoreQuery('setDoc', 'cities/intel', { cityStateKey });
+        const cityRef = doc(db, 'cities', cityStateKey.toLowerCase(), 'data', 'market_intelligence');
+        logFirestoreQuery('setDoc', 'cities/data/market_intelligence', { cityStateKey });
         await setDoc(cityRef, payload, { merge: true });
 
         return { success: true };
@@ -548,7 +547,7 @@ export const getGeneralMarketIntelligenceFromCloud = async (cityStateKey: string
     if (!db || !cityStateKey) return null;
     try {
         logFirestoreQuery('getDoc', 'general_market_intelligence', { cityStateKey });
-        const data = await getCityDocWithFallback('general_market_intelligence', cityStateKey);
+        const data = await getCityDoc('general_market_intelligence', cityStateKey);
         return data as GeneralMarketIntelligenceResult | null;
     } catch (error) {
         handleFirestoreError(error, "getGeneralMarketIntelligenceFromCloud");
@@ -566,9 +565,8 @@ export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: Com
             lastUpdated: serverTimestamp()
         };
 
-        // 1. Consolidated write (ONLY)
-        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "intel", "community_pulse");
-        logFirestoreQuery('setDoc', 'cities/intel', { cityStateKey });
+        const cityRef = doc(db, 'cities', cityStateKey.toLowerCase(), 'data', 'community_pulse');
+        logFirestoreQuery('setDoc', 'cities/data/community_pulse', { cityStateKey });
         await setDoc(cityRef, payload, { merge: true });
 
         return { success: true };
@@ -577,73 +575,30 @@ export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: Com
     }
 };
 
-/**
- * Case-robust city document reader.
- * Prioritizes the consolidated `cities` collection.
- */
-async function getCityDocWithFallback(collectionName: string, cityStateKey: string): Promise<any | null> {
+
+// Flat map: logical name → document ID under cities/{key}/data/
+const CITY_DOC_MAP: Record<string, string> = {
+    'city_neighborhoods':         'neighborhoods',
+    'city_context_graph':         'context_graph',
+    'deep_investment_research':   'deep_research',
+    'general_market_intelligence':'market_intelligence',
+    'community_pulse':            'community_pulse',
+};
+
+async function getCityDoc(collectionName: string, cityStateKey: string): Promise<any | null> {
     if (!db || !cityStateKey) return null;
-
-    // Mapping legacy collections to new consolidated subcollection paths
-    const CONSOLIDATED_MAP: Record<string, { type: 'index' | 'intel', docId: string }> = {
-        'city_zip_cache': { type: 'index', docId: 'zips' },
-        'city_neighborhoods': { type: 'index', docId: 'neighborhoods' },
-        'city_context_graph': { type: 'index', docId: 'context_graph' },
-        'deep_investment_research': { type: 'intel', docId: 'deep_research' },
-        'general_market_intelligence': { type: 'intel', docId: 'market_intelligence' },
-        'community_pulse': { type: 'intel', docId: 'community_pulse' },
-    };
-
-    // Build case and formatting variants
-    const variants = new Set<string>();
-    const normalized = cityStateKey.toLowerCase().trim();
-    variants.add(normalized);
-    variants.add(normalized.replace('-', '_'));
-    variants.add(normalized.replace('_', '-'));
-    
-    // Add versions with all special chars/spaces removed for extreme robustness
-    const ultraFlat = normalized.replace(/[^a-z0-9]/g, '');
-    if (ultraFlat !== normalized) {
-        variants.add(ultraFlat);
-    }
-
-    const nested = CONSOLIDATED_MAP[collectionName];
-
-    // 1. Prioritize the Consolidated "cities" collection
-    if (nested) {
-        for (const key of variants) {
-            try {
-                const nestedRef = doc(db, "cities", key, nested.type, nested.docId);
-                const nestedSnap = await getDoc(nestedRef);
-                if (nestedSnap.exists()) {
-                    console.log(`[getCityDocWithFallback] Hit: cities/${key}/${nested.type}/${nested.docId}`);
-                    return nestedSnap.data();
-                }
-            } catch (e) { /* continue */ }
-        }
-    }
-
-    // 2. Fallback to the Legacy Top-Level Collection
-    for (const key of variants) {
-        try {
-            const legacyRef = doc(db, collectionName, key);
-            const legacySnap = await getDoc(legacyRef);
-            if (legacySnap.exists()) {
-                console.log(`[getCityDocWithFallback] Hit legacy: ${collectionName}/${key}`);
-                return legacySnap.data();
-            }
-        } catch (e) { /* continue */ }
-    }
-
-    console.warn(`[getCityDocWithFallback] Missed all variants for: ${collectionName} / ${cityStateKey}`);
-    return null;
+    const docId = CITY_DOC_MAP[collectionName];
+    if (!docId) return null;
+    const ref = doc(db, 'cities', cityStateKey, 'data', docId);
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() : null;
 }
 
 export const getCommunityPulseFromCloud = async (cityStateKey: string): Promise<CommunityPulseResult | null> => {
     if (!db || !cityStateKey) return null;
     try {
         logFirestoreQuery('getDoc', 'community_pulse', { cityStateKey });
-        const data = await getCityDocWithFallback('community_pulse', cityStateKey);
+        const data = await getCityDoc('community_pulse', cityStateKey);
         return data as CommunityPulseResult | null;
     } catch (error) {
         handleFirestoreError(error, "getCommunityPulseFromCloud");
@@ -661,9 +616,8 @@ export const saveDeepInvestmentResearchToCloud = async (cityStateKey: string, re
             lastUpdated: serverTimestamp()
         };
 
-        // 1. Consolidated write (ONLY)
-        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "intel", "deep_research");
-        logFirestoreQuery('setDoc', 'cities/intel', { cityStateKey });
+        const cityRef = doc(db, 'cities', cityStateKey.toLowerCase(), 'data', 'deep_research');
+        logFirestoreQuery('setDoc', 'cities/data/deep_research', { cityStateKey });
         await setDoc(cityRef, payload, { merge: true });
 
         return { success: true };
@@ -676,7 +630,7 @@ export const getDeepInvestmentResearchFromCloud = async (cityStateKey: string): 
     if (!db || !cityStateKey) return null;
     try {
         logFirestoreQuery('getDoc', 'deep_investment_research', { cityStateKey });
-        const data = await getCityDocWithFallback('deep_investment_research', cityStateKey);
+        const data = await getCityDoc('deep_investment_research', cityStateKey);
         return data as DeepInvestmentResearchResult | null;
     } catch (error) {
         handleFirestoreError(error, "getDeepInvestmentResearchFromCloud");
@@ -693,9 +647,8 @@ export const saveCityContextGraphToCloud = async (cityStateKey: string, data: an
             lastUpdated: serverTimestamp()
         };
 
-        // 1. Consolidated write (ONLY)
-        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "index", "context_graph");
-        logFirestoreQuery('setDoc', 'cities/index', { cityStateKey });
+        const cityRef = doc(db, 'cities', cityStateKey.toLowerCase(), 'data', 'context_graph');
+        logFirestoreQuery('setDoc', 'cities/data/context_graph', { cityStateKey });
         await setDoc(cityRef, payload, { merge: true });
 
         return { success: true };
@@ -708,7 +661,7 @@ export const getCityContextGraphFromCloud = async (cityStateKey: string): Promis
     if (!db || !cityStateKey) return null;
     try {
         logFirestoreQuery('getDoc', 'city_context_graph', { cityStateKey });
-        const data = await getCityDocWithFallback('city_context_graph', cityStateKey);
+        const data = await getCityDoc('city_context_graph', cityStateKey);
         return data || null;
     } catch (error) {
         handleFirestoreError(error, "getCityContextGraphFromCloud");
@@ -846,16 +799,23 @@ export const getNeighborhoodIdentityFromCloud = async (zpid: string): Promise<an
 export const saveCityNeighborhoodsToCloud = async (cityStateKey: string, data: any) => {
     if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing city key" };
     try {
+        const key = cityStateKey.toLowerCase();
         const payload = {
             ...sanitizeForFirestore(data),
-            cityStateKey,
+            cityStateKey: key,
             lastUpdated: serverTimestamp()
         };
 
-        // 1. Consolidated write (ONLY)
-        const cityRef = doc(db, "cities", cityStateKey.toLowerCase(), "index", "neighborhoods");
-        logFirestoreQuery('setDoc', 'cities/index', { cityStateKey });
-        await setDoc(cityRef, payload);
+        await setDoc(doc(db, 'cities', key, 'data', 'neighborhoods'), payload);
+        logFirestoreQuery('setDoc', 'cities/data/neighborhoods', { cityStateKey: key });
+
+        // Write parent city doc so getAllMinedCities() can list this city.
+        await setDoc(doc(db, 'cities', key), {
+            city: data.city || key,
+            state: data.state || '',
+            total_neighborhoods: data.neighborhoods?.length || 0,
+            lastUpdated: serverTimestamp(),
+        }, { merge: true });
 
         return { success: true };
     } catch (error) {
@@ -866,9 +826,10 @@ export const saveCityNeighborhoodsToCloud = async (cityStateKey: string, data: a
 export const getCityNeighborhoodsFromCloud = async (cityStateKey: string): Promise<any | null> => {
     if (!db || !cityStateKey) return null;
     try {
-        logFirestoreQuery('getDoc', 'city_neighborhoods', { cityStateKey });
-        const data = await getCityDocWithFallback('city_neighborhoods', cityStateKey);
-        return data || null;
+        const ref = doc(db, 'cities', cityStateKey.toLowerCase(), 'data', 'neighborhoods');
+        logFirestoreQuery('getDoc', 'cities/data/neighborhoods', { cityStateKey });
+        const snap = await getDoc(ref);
+        return snap.exists() ? snap.data() : null;
     } catch (error) {
         handleFirestoreError(error, "getCityNeighborhoodsFromCloud");
         return null;
@@ -878,46 +839,18 @@ export const getCityNeighborhoodsFromCloud = async (cityStateKey: string): Promi
 export const getAllMinedCities = async (): Promise<{ key: string; city: string; state: string; count: number; lastUpdated?: any }[]> => {
     if (!db) return [];
     try {
-        // Query both legacy and consolidated collections
-        logFirestoreQuery('getDocs', 'city_neighborhoods', { action: 'listAll' });
-        const legacySnap = await getDocs(collection(db, "city_neighborhoods"));
-        
         logFirestoreQuery('getDocs', 'cities', { action: 'listAll' });
-        const consolidatedSnap = await getDocs(collection(db, "cities"));
-        
-        const citiesMap = new Map<string, { key: string; city: string; state: string; count: number; lastUpdated?: any }>();
-        
-        // Process legacy first
-        legacySnap.docs.forEach(d => {
+        const snap = await getDocs(collection(db, 'cities'));
+        return snap.docs.map(d => {
             const data = d.data();
-            citiesMap.set(d.id, {
+            return {
                 key: d.id,
-                city: data.city || d.id.split('_')[0] || 'Unknown',
-                state: data.state || d.id.split('_')[1] || '',
-                count: data.neighborhoods?.length || data.total_neighborhoods || 0,
-                lastUpdated: data.lastUpdated
-            });
+                city: data.city || d.id,
+                state: data.state || '',
+                count: data.total_neighborhoods || 0,
+                lastUpdated: data.lastUpdated,
+            };
         });
-        
-        // Merging consolidated documents
-        consolidatedSnap.docs.forEach(d => {
-            const data = d.data();
-            const existing = citiesMap.get(d.id);
-            if (!existing) {
-                citiesMap.set(d.id, {
-                    key: d.id,
-                    city: data.city || d.id.split('_')[0] || 'Unknown',
-                    state: data.state || d.id.split('_')[1] || '',
-                    count: data.total_neighborhoods || 0,
-                    lastUpdated: data.lastUpdated
-                });
-            } else if (data.lastUpdated) {
-                // If consolidated exists, just updating metadata if newer
-                existing.lastUpdated = data.lastUpdated;
-            }
-        });
-        
-        return Array.from(citiesMap.values());
     } catch (error) {
         handleFirestoreError(error, "getAllMinedCities");
         return [];
@@ -1070,12 +1003,12 @@ export const queryContextGraphs = async (filters: ContextGraphQuery): Promise<Ma
 
         constraints.push(limit(maxResults));
 
-        logFirestoreQuery('getDocs', 'context_graph', { 
-            city: normalizedCity, 
-            priceMin: filters.priceMin, 
+        logFirestoreQuery('getDocs', 'context_graph', {
+            city: normalizedCity,
+            priceMin: filters.priceMin,
             priceMax: filters.priceMax,
             minBeds: filters.minBeds,
-            minBaths: filters.minBaths 
+            minBaths: filters.minBaths
         });
 
         const q = query(collection(db, "context_graph"), ...constraints);
@@ -1436,14 +1369,14 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
                 const propData = doc.data();
                 if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
                 canonicalStatuses[doc.id].property = { timestamp: propData.lastUpdated };
-                
+
                 if (!canonicalStatuses[doc.id].assets) canonicalStatuses[doc.id].assets = {} as any;
 
                 // Satellite URL is stored on the property doc OR assets
                 if (propData.satelliteImageUrl?.includes('firebasestorage')) {
                     canonicalStatuses[doc.id].assets!.satellite = true;
                 }
-                
+
                 // Orientation check
                 if (propData.orientation_ai?.final_orientation && propData.orientation_ai.final_orientation !== 'UNCLEAR_IMAGE') {
                     (canonicalStatuses[doc.id].assets as any).orientation = true;
@@ -1468,14 +1401,14 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
 
                 if (assetData || propData) {
                     if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
-                    
+
                     const imagesArr = assetData?.images || propData?.images || [];
                     const imagesSecured = imagesArr.length > 0 && imagesArr[0]?.includes('firebasestorage');
-                    
+
                     // StreetView might be in assets subfolder OR root property doc OR environmental subfolder
                     let hasStreetView = (!!assetData?.streetView && assetData.streetView.includes('firebasestorage')) ||
-                                        (!!propData?.streetViewAnalysis?.imageUrl && propData.streetViewAnalysis.imageUrl.includes('firebasestorage')) ||
-                                        (!!propData?.streetView && propData.streetView.includes('firebasestorage'));
+                        (!!propData?.streetViewAnalysis?.imageUrl && propData.streetViewAnalysis.imageUrl.includes('firebasestorage')) ||
+                        (!!propData?.streetView && propData.streetView.includes('firebasestorage'));
 
                     if (!hasStreetView) {
                         try {
@@ -1530,22 +1463,22 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
 export const refreshStreetView = async (zpid: string, address: string): Promise<{ success: boolean; status: string; detail?: string }> => {
     try {
         console.log(`[Manual Refresh] Street View re-validation for ${address} (${zpid})...`);
-        
+
         // 1. Fetch live metadata to see if imagery is available
         const { APP_CONFIG } = await import('../../config');
         const apiKey = APP_CONFIG.maps.key;
-        
+
         // Load property first to get coordinates for higher precision
         const property = await getPropertyFromCloud(zpid);
         const hasCoords = !!(property?.coordinates?.latitude && property?.coordinates?.longitude);
-        const locationParam = hasCoords 
+        const locationParam = hasCoords
             ? `${property!.coordinates!.latitude},${property!.coordinates!.longitude}`
             : encodeURIComponent(address);
-        
+
         // Increase radius for suburban setbacks
         const checkRadius = 150;
         const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${locationParam}&radius=${checkRadius}&source=outdoor&key=${apiKey}`;
-        
+
         const logId = await logAPICall({
             user_id: auth?.currentUser?.uid || 'unknown',
             zpid: zpid,
@@ -1568,14 +1501,14 @@ export const refreshStreetView = async (zpid: string, address: string): Promise<
         }
 
         if (!metaResponse.ok) throw new Error(`Google API returned status ${metaResponse.status}`);
-        
+
         const meta = await metaResponse.json();
         const available = meta.status === 'OK';
-        
+
         if (!available) {
-            return { 
-                success: false, 
-                status: meta.status, 
+            return {
+                success: false,
+                status: meta.status,
                 detail: meta.status === 'ZERO_RESULTS' ? 'No outdoor imagery found within 100m' : `Google API Error: ${meta.status}`
             };
         }
@@ -1607,7 +1540,7 @@ export const refreshStreetView = async (zpid: string, address: string): Promise<
                 // Non-blocking for the imagery refresh
             }
         }
-        
+
         return { success: true, status: 'OK', detail: 'Imagery secured, AI analysis updated, and Orientation re-calibrated' };
     } catch (e: any) {
         console.error('[Manual Refresh] Failed:', e);
@@ -1631,18 +1564,18 @@ export const deletePropertyAnalysis = async (zpid: string, mode: 'all' | 'intell
 
         if (mode === 'all' || mode === 'intelligence') {
             nestedDocs.push(
-                { path: `properties/${zpid}/analysis/visual`,        ref: doc(db, "properties", zpid, "analysis", "visual") },
-                { path: `properties/${zpid}/analysis/comprehensive`,  ref: doc(db, "properties", zpid, "analysis", "comprehensive") },
-                { path: `properties/${zpid}/analysis/image_quality`,  ref: doc(db, "properties", zpid, "analysis", "image_quality") },
-                { path: `properties/${zpid}/analysis/investment`,     ref: doc(db, "properties", zpid, "analysis", "investment") },
+                { path: `properties/${zpid}/analysis/visual`, ref: doc(db, "properties", zpid, "analysis", "visual") },
+                { path: `properties/${zpid}/analysis/comprehensive`, ref: doc(db, "properties", zpid, "analysis", "comprehensive") },
+                { path: `properties/${zpid}/analysis/image_quality`, ref: doc(db, "properties", zpid, "analysis", "image_quality") },
+                { path: `properties/${zpid}/analysis/investment`, ref: doc(db, "properties", zpid, "analysis", "investment") },
             );
         }
 
         if (mode === 'all' || mode === 'assets') {
             nestedDocs.push(
-                { path: `properties/${zpid}/analysis/assets`,                           ref: doc(db, "properties", zpid, "analysis", "assets") },
-                { path: `properties/${zpid}/environmental/thirdparty_data`,              ref: doc(db, "properties", zpid, "environmental", "thirdparty_data") },
-                { path: `properties/${zpid}/environmental/google_data`,                  ref: doc(db, "properties", zpid, "environmental", "google_data") }, // legacy env fallback
+                { path: `properties/${zpid}/analysis/assets`, ref: doc(db, "properties", zpid, "analysis", "assets") },
+                { path: `properties/${zpid}/environmental/thirdparty_data`, ref: doc(db, "properties", zpid, "environmental", "thirdparty_data") },
+                { path: `properties/${zpid}/environmental/google_data`, ref: doc(db, "properties", zpid, "environmental", "google_data") }, // legacy env fallback
             );
         }
 
@@ -1848,7 +1781,7 @@ export const runDeprecationSweep = async (
                 const homeType = data.homeType || '';
                 if (homeType && !ALLOWED_HOME_TYPES.includes(homeType)) {
                     log(`[Sweep] Deleting unsupported type (${homeType}): ${data.address || zpid}`);
-                    await deletePropertyAnalysis(zpid, 'all').catch(() => {});
+                    await deletePropertyAnalysis(zpid, 'all').catch(() => { });
                     deprecated.push(zpid);
                     return;
                 }

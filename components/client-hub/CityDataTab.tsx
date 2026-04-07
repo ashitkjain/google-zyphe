@@ -45,6 +45,14 @@ interface IngestionJob {
     completedSteps?: { name: string; outcome: 'ran' | 'cached' | 'skipped' | 'failed' }[];
 }
 
+
+/** Parses 'Dublin, CA' → { cityName: 'Dublin', stateCode: 'CA' | undefined } */
+function parseCityInput(input: string): { cityName: string; stateCode?: string } {
+    const match = input.trim().match(/^(.+),\s*([A-Z]{2})$/);
+    if (match) return { cityName: match[1].trim(), stateCode: match[2] };
+    return { cityName: input.trim() };
+}
+
 const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => void }> = ({ onNavigate }) => {
     const [city, setCity] = useState('');
     // State removed as per new API requirements
@@ -113,9 +121,95 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('ALL');
     const [missingStreetViewOnly, setMissingStreetViewOnly] = useState<boolean>(false);
 
-    // Load cities from city_zip_cache filtered to SUPPORTED_STATES on mount
+    // Load available cities from the cities collection on mount
     useEffect(() => {
         getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
+    }, []);
+
+    // Dev-only: expose one-time key migration to browser console.
+    // Run: window.__migrateCityKeys() — moves hyphen-keyed docs (e.g. pleasanton-ca)
+    // to canonical underscore keys (pleasanton_ca) then deletes the old ones.
+    useEffect(() => {
+        if (process.env.NODE_ENV !== 'production') {
+            (window as any).__migrateCityKeys = async () => {
+                const { db } = await import('../../services/firebase/config');
+                const { collectionGroup, getDocs, doc, getDoc, setDoc, deleteDoc } = await import('firebase/firestore');
+                if (!db) { console.error('DB not ready'); return; }
+
+                const SUBCOLLECTIONS = [
+                    { type: 'index', docId: 'neighborhoods' },
+                    { type: 'index', docId: 'zips' },
+                    { type: 'index', docId: 'context_graph' },
+                    { type: 'intel', docId: 'deep_research' },
+                    { type: 'intel', docId: 'market_intelligence' },
+                    { type: 'intel', docId: 'community_pulse' },
+                ];
+
+                const snap = await getDocs(collectionGroup(db, 'neighborhoods'));
+                const allKeys = [...new Set(
+                    snap.docs.filter(d => d.ref.parent.id === 'index').map(d => d.ref.parent.parent!.id)
+                )];
+
+                let migrated = 0;
+                for (const oldKey of allKeys) {
+                    const canonicalKey = oldKey.replace(/-/g, '_');
+                    if (oldKey === canonicalKey) { console.log(`✓ Already canonical: ${oldKey}`); continue; }
+
+                    for (const { type, docId } of SUBCOLLECTIONS) {
+                        const oldRef = doc(db, 'cities', oldKey, type, docId);
+                        const newRef = doc(db, 'cities', canonicalKey, type, docId);
+                        const oldSnap = await getDoc(oldRef);
+                        if (!oldSnap.exists()) continue;
+                        const newSnap = await getDoc(newRef);
+                        if (!newSnap.exists()) await setDoc(newRef, oldSnap.data());
+                        await deleteDoc(oldRef);
+                        console.log(`Moved ${oldKey}/${type}/${docId} → ${canonicalKey}/${type}/${docId}`);
+                    }
+                    migrated++;
+                }
+                console.log(`Migration complete. Moved ${migrated} city key(s). Refresh the page.`);
+            };
+            console.log('[Dev] City key migration available. Run: window.__migrateCityKeys()');
+
+            // Deletes all city docs whose key does not end in _ca (non-California cities).
+            (window as any).__cleanupNonCACities = async () => {
+                const { db } = await import('../../services/firebase/config');
+                const { collectionGroup, getDocs, collection, doc, getDoc, deleteDoc } = await import('firebase/firestore');
+                if (!db) { console.error('DB not ready'); return; }
+
+                const SUBCOLLECTIONS = [
+                    { type: 'index', docId: 'neighborhoods' },
+                    { type: 'index', docId: 'zips' },
+                    { type: 'index', docId: 'context_graph' },
+                    { type: 'intel', docId: 'deep_research' },
+                    { type: 'intel', docId: 'market_intelligence' },
+                    { type: 'intel', docId: 'community_pulse' },
+                ];
+
+                const snap = await getDocs(collectionGroup(db, 'neighborhoods'));
+                const allKeys = [...new Set(
+                    snap.docs.filter(d => d.ref.parent.id === 'index').map(d => d.ref.parent.parent!.id)
+                )];
+
+                const nonCA = allKeys.filter(k => !k.endsWith('_ca'));
+                if (nonCA.length === 0) { console.log('✓ No non-CA city keys found.'); return; }
+
+                console.log(`Found ${nonCA.length} non-CA key(s) to delete:`, nonCA);
+                for (const key of nonCA) {
+                    for (const { type, docId } of SUBCOLLECTIONS) {
+                        const ref = doc(db, 'cities', key, type, docId);
+                        const snap = await getDoc(ref);
+                        if (snap.exists()) { await deleteDoc(ref); console.log(`Deleted cities/${key}/${type}/${docId}`); }
+                    }
+                    // Also delete parent doc if it exists
+                    const parentRef = doc(db, 'cities', key);
+                    const parentSnap = await getDoc(parentRef);
+                    if (parentSnap.exists()) { await deleteDoc(parentRef); console.log(`Deleted cities/${key} (parent)`); }
+                }
+                console.log(`Cleanup complete. Deleted ${nonCA.length} non-CA city key(s). Refresh the page.`);
+            };
+            console.log('[Dev] Non-CA cleanup available. Run: window.__cleanupNonCACities()');
+        }
     }, []);
 
     // Check cached neighborhood count whenever city changes
@@ -980,9 +1074,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 targetZips = [city.trim()];
                 addLog(`Identified direct Zip Code: ${targetZips[0]}`);
             } else {
-                const normalizedCity = city.trim();
+                const { cityName: parsedCity, stateCode: parsedState } = parseCityInput(city);
+                const normalizedCity = parsedCity;
                 addLog(`Checking regional resolution for ${normalizedCity}...`);
-                cachedGroups = await getZipsForCity(normalizedCity);
+                cachedGroups = await getZipsForCity(normalizedCity, parsedState);
 
                 if (cachedGroups) {
                     // zipsByState keys may be full names (e.g. "California") — resolve via STATE_NAME_MAP
@@ -1307,7 +1402,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const firstListing = listings[0];
             const resolvedState = firstListing?.location?.address?.state_code
                 || firstListing?.location?.address?.state || '';
-            const cityStateKey = generateCityStateKey(city.trim(), resolvedState);
+            const cityStateKey = generateCityStateKey(parseCityInput(city).cityName, resolvedState || parseCityInput(city).stateCode || '');
 
             if (!cityStateKey) {
                 addLog('[City Context] Could not resolve city+state key.');
@@ -1329,7 +1424,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             addLog(`[City Context] Loaded: ${deepResearch ? '✓ deep_research' : '✗ no deep_research'}, ${communityPulse ? '✓ community_pulse' : '✗ no pulse'}`);
 
             const result = await extractCityContextGraph(
-                city.trim(),
+                parseCityInput(city).cityName,
                 resolvedState,
                 deepResearch,
                 communityPulse,
@@ -1384,7 +1479,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const firstListing = listings[0];
         const resolvedState = firstListing?.location?.address?.state_code
             || firstListing?.location?.address?.state || '';
-        const cityStateKey = generateCityStateKey(city.trim(), resolvedState);
+        const cityStateKey = generateCityStateKey(parseCityInput(city).cityName, resolvedState || parseCityInput(city).stateCode || '');
 
         if (cityStateKey) {
             const toMs = (ts: any): number => {
@@ -2075,9 +2170,9 @@ ${JSON.stringify(propertySummaries)}
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="w-px h-3 bg-slate-100"></div>
-                        
+
                         {/* Intel Icons */}
                         <div className="flex items-center gap-1.5 mt-1">
                             <div className="relative group/tooltip">
@@ -2116,7 +2211,7 @@ ${JSON.stringify(propertySummaries)}
                                     onClick={async (e) => {
                                         e.stopPropagation();
                                         const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || itemId);
-                                        
+
                                         // Simple immediate feedback
                                         const btn = e.currentTarget;
                                         const icon = btn.querySelector('i');
@@ -2124,7 +2219,7 @@ ${JSON.stringify(propertySummaries)}
                                         btn.disabled = true;
 
                                         const res = await refreshStreetView(itemId, fullAddress);
-                                        
+
                                         if (res.success) {
                                             alert(`Success: ${res.detail}`);
                                             // Refresh local status
@@ -2681,13 +2776,14 @@ ${JSON.stringify(propertySummaries)}
                                     setLoading(true);
                                     setListings([]);
                                     setStateFilter('ALL');
-                                    const normalizedCity = city.trim();
+                                    const { cityName: parsedCity, stateCode: parsedState } = parseCityInput(city);
+                                    const normalizedCity = parsedCity;
                                     addLog(`[Cache Refresh] Resolving zips for ${normalizedCity}...`);
 
                                     // Resolve zips
-                                    const cachedGroups = await getZipsForCity(normalizedCity);
+                                    const cachedGroups = await getZipsForCity(normalizedCity, parsedState);
                                     if (!cachedGroups) {
-                                        addLog('⚠ No zips found in city_zip_cache. Run ingestion first.');
+                                        addLog('⚠ No zips found. Run zip ingestion first.');
                                         setLoading(false);
                                         return;
                                     }
@@ -3082,8 +3178,8 @@ ${JSON.stringify(propertySummaries)}
                                         <button
                                             onClick={() => setMissingStreetViewOnly(!missingStreetViewOnly)}
                                             className={`flex items-center gap-2.5 px-6 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 shadow-sm
-                                                ${missingStreetViewOnly 
-                                                    ? 'bg-amber-500 border-amber-600 text-white shadow-amber-200/50 scale-105' 
+                                                ${missingStreetViewOnly
+                                                    ? 'bg-amber-500 border-amber-600 text-white shadow-amber-200/50 scale-105'
                                                     : 'bg-white border-slate-200 text-slate-400 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50/10'}`}
                                         >
                                             <i className={`fa-solid fa-street-view ${missingStreetViewOnly ? 'animate-pulse' : ''}`}></i>
@@ -3095,9 +3191,9 @@ ${JSON.stringify(propertySummaries)}
                                                 </span>
                                             )}
                                         </button>
-                                        
+
                                         {(stateFilter !== 'ALL' || propertyTypeFilter !== 'ALL' || missingStreetViewOnly) && (
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     setStateFilter('ALL');
                                                     setPropertyTypeFilter('ALL');

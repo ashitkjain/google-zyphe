@@ -1122,12 +1122,18 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
 };
 
 import { getNeighborhoodIdentityPrompt, neighborhoodIdentitySchema, NeighborhoodIdentityResult } from "../prompts/property/neighborhoodIdentity";
-import { getCityNeighborhoodMinerPrompt, cityNeighborhoodMinerSchema, CityNeighborhoodsResult } from "../prompts/city/cityNeighborhoodMiner";
+import {
+  getCityNeighborhoodMinerPrompt, cityNeighborhoodMinerSchema, CityNeighborhoodsResult,
+  getCityNeighborhoodDiscoveryPrompt, cityNeighborhoodDiscoverySchema,
+  getCityNeighborhoodEnrichPrompt,
+} from "../prompts/city/cityNeighborhoodMiner";
 import { getNeighborhoodMatcherPrompt, neighborhoodMatcherSchema, NeighborhoodMatchResult } from "../prompts/property/neighborhoodMatcher";
 
 /**
- * Mine ALL neighborhoods for a city. Runs once per city, results cached in Firestore.
- * Uses Gemini 3 Flash + Google Search grounding to exhaustively catalog neighborhoods.
+ * Mine ALL neighborhoods for a city using a two-pass approach:
+ *  - Pass 1: Discover ALL neighborhood names cheaply (small output, exhaustive)
+ *  - Pass 2: Enrich in batches of 10 with full detail (character, pricing, HOA, Nextdoor)
+ * Results cached in Firestore. Falls back to single-pass if Pass 1 yields nothing.
  */
 export const mineCityNeighborhoods = async (
   city: string,
@@ -1139,30 +1145,119 @@ export const mineCityNeighborhoods = async (
   if (!cityStateKey) throw new Error(`Invalid city/state: ${city}, ${state}`);
 
   onLog?.(`[City Neighborhoods] Mining all neighborhoods for ${city}, ${state}...`);
-  console.log(`[City Neighborhoods] Starting city-level mining for ${city}, ${state}...`);
 
-  const prompt = getCityNeighborhoodMinerPrompt(city, state);
+  // ── Pass 1: Discover all neighborhood names ──────────────────────────────
+  onLog?.(`[City Neighborhoods] Pass 1: Discovering all neighborhood names...`);
+  const discoveryPrompt = getCityNeighborhoodDiscoveryPrompt(city, state);
 
-  const result = await executeGeminiRequest<CityNeighborhoodsResult>({
+  const discoveryResult = await executeGeminiRequest<{ city: string; state: string; neighborhoods: { name: string; tier: string; has_hoa?: boolean; source?: string }[] }>({
     model: 'gemini-3-pro-preview',
-    contents: prompt,
-    config: { tools: [groundingTool], temperature: 0.3, maxOutputTokens: 100000 },
+    contents: discoveryPrompt,
+    config: { tools: [groundingTool], temperature: 0.2, maxOutputTokens: 8192 },
     userId,
     zpid: cityStateKey,
     address: `${city}, ${state}`,
     promptFilename: "cityNeighborhoodMiner.ts",
     extractResultJson: true,
-    schema: cityNeighborhoodMinerSchema
+    schema: cityNeighborhoodDiscoverySchema,
+    skipWatchdog: true,
   });
 
-  // Save to Firestore
-  if (result.data?.neighborhoods?.length) {
-    onLog?.(`[City Neighborhoods] Found ${result.data.neighborhoods.length} neighborhoods. Saving to cache...`);
-    await saveCityNeighborhoodsToCloud(cityStateKey, result.data);
-    onLog?.(`[City Neighborhoods] ✓ Cached ${result.data.neighborhoods.length} neighborhoods for ${city}.`);
+  const discovered = discoveryResult.data?.neighborhoods || [];
+  onLog?.(`[City Neighborhoods] Pass 1 complete: found ${discovered.length} neighborhood names.`);
+
+  if (discovered.length === 0) {
+    // Fallback to single-pass if discovery failed
+    onLog?.(`[City Neighborhoods] Pass 1 returned nothing — falling back to single-pass mining.`);
+    const prompt = getCityNeighborhoodMinerPrompt(city, state);
+    const result = await executeGeminiRequest<CityNeighborhoodsResult>({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: { tools: [groundingTool], temperature: 0.3, maxOutputTokens: 32768 },
+      userId, zpid: cityStateKey, address: `${city}, ${state}`,
+      promptFilename: "cityNeighborhoodMiner.ts",
+      extractResultJson: true, schema: cityNeighborhoodMinerSchema, skipWatchdog: true,
+    });
+    if (result.data?.neighborhoods?.length) {
+      await saveCityNeighborhoodsToCloud(cityStateKey, result.data);
+      onLog?.(`[City Neighborhoods] ✓ Fallback cached ${result.data.neighborhoods.length} neighborhoods.`);
+    }
+    return result;
   }
 
-  return result;
+  // ── Pass 2: Enrich in batches of 10 ─────────────────────────────────────
+  const BATCH_SIZE = 10;
+  const names = discovered.map(n => n.name);
+  const allEnriched: any[] = [];
+  let lastUsage = discoveryResult.usage;
+
+  for (let i = 0; i < names.length; i += BATCH_SIZE) {
+    const batch = names.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(names.length / BATCH_SIZE);
+    onLog?.(`[City Neighborhoods] Pass 2: Enriching batch ${batchNum}/${totalBatches} (${batch.length} neighborhoods)...`);
+
+    const enrichPrompt = getCityNeighborhoodEnrichPrompt(city, state, batch);
+    const enrichSchema = {
+      ...cityNeighborhoodMinerSchema,
+      properties: {
+        ...cityNeighborhoodMinerSchema.properties,
+        neighborhoods: cityNeighborhoodMinerSchema.properties.neighborhoods,
+      }
+    };
+
+    try {
+      const enrichResult = await executeGeminiRequest<CityNeighborhoodsResult>({
+        model: 'gemini-3-pro-preview',
+        contents: enrichPrompt,
+        config: { tools: [groundingTool], temperature: 0.3, maxOutputTokens: 16384 },
+        userId, zpid: cityStateKey, address: `${city}, ${state}`,
+        promptFilename: "cityNeighborhoodMiner.ts",
+        extractResultJson: true, schema: enrichSchema, skipWatchdog: true,
+      });
+
+      const enriched = enrichResult.data?.neighborhoods || [];
+      allEnriched.push(...enriched);
+      lastUsage = enrichResult.usage;
+      onLog?.(`[City Neighborhoods] Batch ${batchNum} enriched ${enriched.length} neighborhoods.`);
+    } catch (e: any) {
+      onLog?.(`[City Neighborhoods] Batch ${batchNum} failed: ${e.message}. Using discovery data for these.`);
+      // Fall back to basic data from Pass 1 for this batch
+      batch.forEach(name => {
+        const basic = discovered.find(n => n.name === name);
+        if (basic) allEnriched.push({
+          neighborhood_name: basic.name,
+          alternative_names: [],
+          source_type: basic.source || 'Real Estate / MLS',
+          character: { description: `Residential neighborhood in ${city}, ${state}.` },
+          price_context: { tier: basic.tier, typical_range: 'N/A' },
+          hoa: { has_hoa: basic.has_hoa ?? false },
+          nextdoor: { found: false, url: '' },
+        });
+      });
+    }
+
+    // Brief pause between batches to avoid rate limiting
+    if (i + BATCH_SIZE < names.length) {
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+
+  onLog?.(`[City Neighborhoods] Pass 2 complete: ${allEnriched.length} neighborhoods enriched.`);
+
+  // ── Assemble final result ────────────────────────────────────────────────
+  const finalData: CityNeighborhoodsResult = {
+    city,
+    state,
+    total_neighborhoods: allEnriched.length,
+    city_summary: '',  // Will be filled by a follow-up call if needed
+    neighborhoods: allEnriched,
+  };
+
+  await saveCityNeighborhoodsToCloud(cityStateKey, finalData);
+  onLog?.(`[City Neighborhoods] ✓ Cached ${allEnriched.length} neighborhoods for ${city}.`);
+
+  return { data: finalData, usage: lastUsage };
 };
 
 /**

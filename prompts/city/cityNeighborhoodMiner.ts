@@ -99,6 +99,76 @@ Return ONLY valid JSON matching the schema.
 `.trim();
 };
 
+/**
+ * Pass 1 — Exhaustive name discovery only.
+ * Very small output per neighborhood so the model can return ALL of them without truncation.
+ */
+export const getCityNeighborhoodDiscoveryPrompt = (city: string, state: string) => `
+You are a residential real estate expert with access to live web search.
+
+TASK: Find all residential neighborhoods in ${city}, ${state} as buyers and real estate agents know them.
+
+Use Google Search to find neighborhood names from Zillow, Redfin, Nextdoor, and local real estate sites.
+Include established neighborhoods, subdivisions, HOA communities, and master-planned areas.
+
+Return ONLY valid JSON matching the schema.
+`.trim();
+
+export const cityNeighborhoodDiscoverySchema = {
+    type: Type.OBJECT,
+    properties: {
+        city: { type: Type.STRING },
+        state: { type: Type.STRING },
+        neighborhoods: {
+            type: Type.ARRAY,
+            description: "ALL residential neighborhoods. Be exhaustive.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING, description: "Neighborhood name as used by residents and listings." },
+                    tier: { type: Type.STRING, description: "One of: Entry-Level, Mid-Range, Upper Mid-Range, Premium, Ultra-Luxury" },
+                    has_hoa: { type: Type.BOOLEAN, description: "Whether this neighborhood has an HOA." },
+                    source: { type: Type.STRING, description: "Where found (e.g., Zillow, Nextdoor, Redfin)." },
+                },
+                required: ["name", "tier"]
+            }
+        }
+    },
+    required: ["city", "state", "neighborhoods"]
+};
+
+/**
+ * Pass 2 — Enrich a batch of neighborhoods with full detail.
+ */
+export const getCityNeighborhoodEnrichPrompt = (city: string, state: string, names: string[]) => {
+    const stateSlug = state.toLowerCase().trim();
+    const citySlug = city.toLowerCase().trim().replace(/\s+/g, '-');
+    const nameList = names.map((n, i) => `${i + 1}. ${n}`).join('\n');
+    return `
+You are a neighborhood intelligence expert with live web search access.
+
+TASK: Enrich these ${names.length} neighborhoods in ${city}, ${state}:
+
+${nameList}
+
+For EACH neighborhood provide:
+1. Physical character (architecture, era, home/lot sizes, community type)
+2. Price context (tier, typical listing range, 1-2 sentence market position)
+3. HOA details (monthly fee range, what covers, notable rules)
+4. Unique physical features (trails, views, parks, proximity to landmarks)
+5. Nextdoor data:
+   - Check rankings: https://nextdoor.com/rankings/best-places-to-live/${citySlug}--${stateSlug}/
+   - Search: site:nextdoor.com "{neighborhood}" ${city}
+   - Extract: description, friendliness score, affordability score, key topics, upcoming events
+
+COMPLIANCE: Exclude demographic, racial, ethnic, religious, age, or family composition data (Fair Housing / FEHA).
+
+CRITICAL: Return ALL ${names.length} neighborhoods — do not skip any.
+
+Return ONLY valid JSON matching the schema.
+`.trim();
+};
+
 export const cityNeighborhoodMinerSchema = {
     type: Type.OBJECT,
     properties: {

@@ -123,24 +123,20 @@ export const STATE_MAP: Record<string, string> = {
 };
 
 /**
- * Generates a standardized, duplicate-proof key for city-state data.
- * Format: "LosAngeles-CA" (Case insensitive, spaces removed)
- * Normalizes full state names to 2-letter abbreviations.
+ * Canonical key for all city-level Firestore documents.
+ * Format: city_state — e.g. pleasanton_ca, dublin_ca, losangeles_ca
+ * Single source of truth. Do not format city keys anywhere else.
  */
 export const generateCityStateKey = (city: string | undefined, state: string | undefined): string | null => {
     if (!city || !state) return null;
 
-    // Standardize City: remove spaces, special chars, and lowercase strictly
     const cleanCity = city.trim().toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 
-    // Standardize State: handle abbreviations and full names strictly
     let lookupState = state.replace(/[^a-zA-Z\s]/g, '').trim().toUpperCase();
-
-    // If it's a known full name, map it. If it's length 2, keep as-is. If unknown, lowercase it.
     let cleanState = STATE_MAP[lookupState] || (lookupState.length === 2 ? lookupState : lookupState);
     cleanState = cleanState.toLowerCase().trim();
 
     if (!cleanCity || !cleanState) return null;
 
-    return `${cleanCity}-${cleanState}`;
+    return `${cleanCity}_${cleanState}`;
 };
