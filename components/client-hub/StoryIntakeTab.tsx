@@ -279,6 +279,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
         preferredMethod: 'Email',
         budget: '',
         targetLocations: '',
+        homeType: 'SINGLE_FAMILY',
         personaProfile: '',
         targetTimeline: '',
         chapter01: '',
@@ -414,44 +415,42 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
     const wordCount = fullStory.split(/\s+/).filter(Boolean).length;
     const isReady = fullStory.length > 30 || data.selectedAnchors.length > 0;
 
+    const handleSaveToProfile = async () => {
+        if (!data.email && !data.phone) {
+            setSaveFeedback('Please provide at least email or phone to save your profile.');
+            return;
+        }
+        setSynthesizing(true);
+        setSaveFeedback(null);
+        try {
+            const result = await upsertStoryLead(realtorId, {
+                ...data,
+                story: fullStory,
+            });
+            if (result) {
+                setSaveFeedback(
+                    result.action === 'updated'
+                        ? 'Profile updated successfully'
+                        : 'Profile saved successfully'
+                );
+                setSaved(true);
+            }
+        } catch (err) {
+            console.error('[StoryIntake] Failed to save profile:', err);
+            setSaveFeedback('Error saving profile. Please try again.');
+        } finally {
+            setSynthesizing(false);
+        }
+    };
+
     const handleDiscover = async () => {
         if (!isReady) return;
         setSynthesizing(true);
         setSaveFeedback(null);
 
-        try {
-            // Upsert the lead in the realtor's collection
-            const result = await upsertStoryLead(realtorId, {
-                name: data.name,
-                email: data.email,
-                phone: data.phone,
-                preferredMethod: data.preferredMethod,
-                budget: data.budget,
-                targetLocations: data.targetLocations,
-                personaProfile: data.personaProfile,
-                targetTimeline: data.targetTimeline,
-                chapter01: data.chapter01,
-                chapter02: data.chapter02,
-                chapter03: data.chapter03,
-                chapter04: data.chapter04,
-                story: fullStory,
-                selectedAnchors: data.selectedAnchors,
-            });
-
-            if (result) {
-                setSaveFeedback(
-                    result.action === 'updated'
-                        ? 'Your story has been updated — searching for matches...'
-                        : 'Your story has been saved — searching for matches...'
-                );
-            }
-        } catch (err) {
-            console.error('[StoryIntake] Failed to save lead:', err);
-            setSaveFeedback('Something went wrong saving your story. Please try again.');
-        }
-
+        // Discovery now strictly skips saving to profile as requested
         setSynthesizing(false);
-        setSaved(true);
+        setSaved(false);
 
         // Parse cities from target locations
         const cities = data.targetLocations
@@ -898,28 +897,45 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
             )}
         </div>
         {/* ── Footer CTA ── */}
-            <div className="max-w-5xl mx-auto px-8 mt-6 flex items-center justify-between">
-                <div className="text-[10px] text-slate-400 font-medium">
-                {saveFeedback
-                        ? <><i className={`fa-solid ${saveFeedback.includes('wrong') ? 'fa-exclamation-circle text-red-500' : 'fa-check text-emerald-500'} mr-1`}></i>{saveFeedback}</>
-                        : saved
-                            ? <><i className="fa-solid fa-check text-emerald-500 mr-1"></i>Your story is saved</>
-                            : data.selectedAnchors.length > 0
-                                ? `${data.selectedAnchors.length} anchor${data.selectedAnchors.length > 1 ? 's' : ''} selected`
-                                : 'Select anchors or write your story to begin'
-                    }
+            <div className="max-w-5xl mx-auto px-8 mt-6">
+                <div className="flex items-center justify-between">
+                    <div className="text-[10px] text-slate-400 font-medium">
+                    {saveFeedback
+                            ? <><i className={`fa-solid ${saveFeedback.includes('Error') || saveFeedback.includes('Please provide') ? 'fa-exclamation-circle text-red-500' : 'fa-check text-emerald-500'} mr-1`}></i>{saveFeedback}</>
+                            : saved
+                                ? <><i className="fa-solid fa-check text-emerald-500 mr-1"></i>Your story is synced to profile</>
+                                : data.selectedAnchors.length > 0
+                                    ? `${data.selectedAnchors.length} anchor${data.selectedAnchors.length > 1 ? 's' : ''} selected`
+                                    : 'Select anchors or write your story to begin'
+                        }
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleSaveToProfile}
+                            disabled={synthesizing || (!data.email && !data.phone)}
+                            className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-900 rounded-2xl text-sm font-black tracking-wide shadow-sm hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <i className="fa-solid fa-cloud-arrow-up"></i>
+                            Save to Profile
+                        </button>
+                        <button
+                            onClick={handleDiscover}
+                            disabled={synthesizing || !isReady}
+                            className="flex items-center gap-3 px-7 py-3.5 bg-slate-900 text-white rounded-2xl text-sm font-black tracking-wide shadow-xl hover:bg-indigo-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {synthesizing ? (
+                                <><i className="fa-solid fa-spinner animate-spin"></i>Finding matches...</>
+                            ) : (
+                                <>Begin Discovery <i className="fa-solid fa-arrow-right ml-1"></i></>
+                            )}
+                        </button>
+                    </div>
                 </div>
-                <button
-                    onClick={handleDiscover}
-                    disabled={synthesizing || !isReady}
-                    className="flex items-center gap-3 px-7 py-3.5 bg-slate-900 text-white rounded-2xl text-sm font-black tracking-wide shadow-xl hover:bg-indigo-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    {synthesizing ? (
-                        <><i className="fa-solid fa-spinner animate-spin"></i>Finding matches...</>
-                    ) : (
-                        <>Begin Discovery <i className="fa-solid fa-arrow-right ml-1"></i></>
-                    )}
-                </button>
+                <div className="mt-3 text-right">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic opacity-70">
+                        * Begin discovery will not save the story to profile.
+                    </p>
+                </div>
             </div>
 
         {/* ── ClientEditModal (pre-filled from story data) ── */}

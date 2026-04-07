@@ -2496,21 +2496,25 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                 </div>
             )}
 
-            {/* Results area */}
-            {browsing && (
-                <div className="flex items-center justify-center py-16">
-                    <div className="w-10 h-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
-                </div>
+            {/* Results area - Hidden when intake form is open to prevent UI overlap */}
+            {!showMyStory && (
+                <>
+                    {browsing && (
+                        <div className="flex items-center justify-center py-16">
+                            <div className="w-10 h-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
+                        </div>
+                    )}
+
+                    {!browsing && hasSearched && results.length === 0 && (
+                        <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 mt-6">
+                            <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-200 mb-3"></i>
+                            <p className="text-sm font-bold text-slate-400">No properties found in {selectedCity}</p>
+                        </div>
+                    )}
+                </>
             )}
 
-            {!browsing && hasSearched && results.length === 0 && (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 mt-6">
-                    <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-200 mb-3"></i>
-                    <p className="text-sm font-bold text-slate-400">No properties found in {selectedCity}</p>
-                </div>
-            )}
-
-            {!browsing && results.length > 0 && (
+            {!showMyStory && !browsing && results.length > 0 && (
                 <div className="mt-6 space-y-3">
 
                     {/* ── MARKET SNAPSHOT BAR / STORY EDITOR ── */}
