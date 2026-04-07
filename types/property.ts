@@ -96,6 +96,7 @@ import { CustomAIAnalysisResult, ComprehensiveAnalysisResult, StreetViewAnalysis
 import type { HistoricalDisasterData } from '../services/api/disasters';
 import type { BroadbandData } from '../services/api/broadband';
 import type { DroughtData } from '../services/api/drought';
+import type { CensusDemographics } from '../services/api/environmental';
 
 export interface PropertyData {
     zpid?: string;
@@ -320,6 +321,11 @@ export interface PropertyData {
     historical_disasters?: HistoricalDisasterData | null;
     broadband?: BroadbandData | null;
     drought?: DroughtData | null;
+    census_demographics?: CensusDemographics | null;
+    affordability_analysis?: {
+        score: number;
+        signals: any;
+    } | null;
 }
 
 export interface PropertyDetails {

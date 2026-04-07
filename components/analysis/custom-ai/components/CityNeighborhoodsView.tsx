@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { calculateAffordabilityScore } from '../../../../services/affordabilityService';
 
 interface CityNeighborhoodsViewProps {
     propertyData?: any;
@@ -205,6 +206,20 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
                                 const isExpanded = expandedNh.has(n.neighborhood_name);
                                 const tierKey = (n.price_context?.tier || '').toLowerCase();
                                 const icon = TIER_ICONS[tierKey] || 'fa-location-dot';
+
+                                // Calculate affordability if census data exists
+                                const affordability = n.census_demographics ? calculateAffordabilityScore({
+                                    tractId: '', 
+                                    tractLabel: n.neighborhood_name,
+                                    medianHouseholdIncome: n.census_demographics.median_household_income,
+                                    medianGrossRent: n.census_demographics.median_gross_rent,
+                                    rentBurdenPct: n.census_demographics.rent_burden_pct,
+                                    medianHomeValue: n.census_demographics.median_home_value,
+                                    ownerPct: n.census_demographics.owner_pct,
+                                    renterPct: n.census_demographics.renter_pct,
+                                    totalPopulation: 0
+                                } as any) : null;
+
                                 return (
                                     <div
                                         key={idx}
@@ -331,8 +346,148 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
                                                         </div>
                                                     </div>
                                                 )}
-                                                <div className="pt-2">
-                                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Source: {n.source_type || 'Unknown'}</span>
+
+
+                                                {/* Nextdoor Community Intelligence */}
+                                                {n.nextdoor?.found && (
+                                                    <div className="pt-4 border-t border-gray-100 space-y-4">
+                                                        <div className="flex flex-col gap-1 w-full">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                                    <i className="fa-solid fa-people-group" />
+                                                                    Community Intelligence
+                                                                </div>
+                                                                {n.nextdoor.overall_city_rank && (
+                                                                    <span className="text-[9px] font-bold text-gray-400 italic">
+                                                                        #{n.nextdoor.overall_city_rank} in {selectedCity?.city || 'City'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-[8px] text-gray-400 font-medium italic opacity-60">
+                                                                {affordability ? '*Housing metrics from Census Bureau (ACS); social data from platforms' : '*Aggregated from social platforms'}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Metrics Grid */}
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/50">
+                                                                <div className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1.5">Affordability</div>
+                                                                <div className="flex items-end gap-1.5">
+                                                                    <span className="text-2xl font-black text-amber-800 leading-none">
+                                                                        {affordability?.score || n.nextdoor.affordability_score || '—'}
+                                                                    </span>
+                                                                    <span className="text-[11px] font-bold text-amber-600/60 pb-1">/ 10</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100/50">
+                                                                 <div className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1.5">Social Activity Score</div>
+                                                                <div className="flex items-end gap-1.5">
+                                                                    <span className="text-2xl font-black text-emerald-800 leading-none">{n.nextdoor.friendliness_score || '—'}</span>
+                                                                    <span className="text-[11px] font-bold text-emerald-600/60 pb-1">/ 10</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200/50">
+                                                                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Ownership</div>
+                                                                <div className="text-2xl font-black text-gray-800 leading-none">
+                                                                    {affordability?.signals?.ownerPct != null ? `${affordability?.signals?.ownerPct}%*` : (n.nextdoor.home_ownership_pct || '—')}
+                                                                </div>
+                                                            </div>
+                                                            {(n.census_demographics?.rent_burden_pct || n.nextdoor.local_events_count) && (
+                                                                <div className={`${n.census_demographics?.rent_burden_pct ? 'bg-blue-50/50 border-blue-100/50' : 'bg-indigo-50/50 border-indigo-100/50'} rounded-2xl p-4 border`}>
+                                                                    <div className={`text-[9px] font-black ${n.census_demographics?.rent_burden_pct ? 'text-blue-500' : 'text-indigo-500'} uppercase tracking-widest mb-1.5`}>
+                                                                        {n.census_demographics?.rent_burden_pct ? 'Cost Burden' : 'Local Events'}
+                                                                    </div>
+                                                                    <div className={`text-${n.census_demographics?.rent_burden_pct ? '2xl' : 'lg'} font-black ${n.census_demographics?.rent_burden_pct ? 'text-blue-800' : 'text-indigo-800'} leading-none`}>
+                                                                        {n.census_demographics?.rent_burden_pct ? `${n.census_demographics.rent_burden_pct}%` : `${n.nextdoor.local_events_count} active`}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Topics */}
+                                                        {n.nextdoor.key_topics?.length > 0 && (
+                                                            <div>
+                                                                 <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">Active Local Themes</div>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {n.nextdoor.key_topics.map((t: any, ti: number) => (
+                                                                        <span key={ti} className="text-[11px] font-semibold text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm" title={t.description}>
+                                                                            {t.topic}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Community Events */}
+                                                        {n.nextdoor.upcoming_events?.length > 0 && (
+                                                            <div className="space-y-3">
+                                                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Upcoming Community Events</div>
+                                                                <div className="grid grid-cols-1 gap-2">
+                                                                    {n.nextdoor.upcoming_events.slice(0, 3).map((e: any, ei: number) => (
+                                                                        <div key={ei} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 group/event">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-[13px] font-bold text-gray-900 leading-snug">{e.name}</span>
+                                                                                {e.description && <p className="text-[11px] text-gray-500 mt-0.5 italic">{e.description}</p>}
+                                                                            </div>
+                                                                            {e.date && (
+                                                                                <div className="shrink-0 bg-white px-2.5 py-1.5 rounded-xl border border-indigo-100 shadow-sm">
+                                                                                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-tighter">{e.date}</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Source + Social Platforms */}
+                                                <div className="pt-3 border-t border-gray-100 space-y-2">
+                                                    <div className="text-[9px] font-black text-gray-400 uppercase tracking-[0.15em]">
+                                                        Source: {n.source_type || 'Real Estate / MLS'}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {/* Nextdoor */}
+                                                        <span
+                                                            className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${
+                                                                n.nextdoor?.found
+                                                                    ? 'bg-[#00b246]/10 border-[#00b246]/30 text-[#008c38]'
+                                                                    : 'bg-gray-50 border-gray-200 text-gray-400'
+                                                            }`}
+                                                            title={n.nextdoor?.found ? 'Community data sourced from Nextdoor' : 'Nextdoor data not available'}
+                                                        >
+                                                            <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3.5 3.5 0 110 7 3.5 3.5 0 010-7zm0 14.5a8.5 8.5 0 01-6.277-2.77C6.96 15.122 9.35 14 12 14s5.04 1.122 6.277 2.73A8.5 8.5 0 0112 19.5z"/>
+                                                            </svg>
+                                                            Nextdoor
+                                                            {n.nextdoor?.found && (
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#00b246] inline-block ml-0.5" />
+                                                            )}
+                                                        </span>
+
+                                                        {/* Reddit */}
+                                                        <span
+                                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border bg-orange-50/70 border-orange-200/50 text-orange-500"
+                                                            title="Local subreddit community signals"
+                                                        >
+                                                            <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+                                                            </svg>
+                                                            Reddit
+                                                        </span>
+
+                                                        {/* Facebook Community */}
+                                                        <span
+                                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border bg-blue-50/70 border-blue-200/50 text-blue-500"
+                                                            title="Local Facebook community group signals"
+                                                        >
+                                                            <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                                            </svg>
+                                                            Facebook
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}

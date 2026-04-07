@@ -38,7 +38,7 @@ export const APP_CONFIG = {
     },
     rapidapi: {
         realtyInUsApi: {
-            key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || '',
+            key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || process.env.VITE_RAPIDAPI_KEY || '',
             host: 'realty-in-us.p.rapidapi.com',
             endpoints: {
                 list: '/properties/v3/list',
@@ -55,40 +55,40 @@ export const APP_CONFIG = {
             }
         },
         zipCodesApi: {
-            key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || '',
+            key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || process.env.VITE_RAPIDAPI_KEY || '',
             host: 'us-zipcodes.p.rapidapi.com',
             endpoint: '/get',
             path: '/codes'
         }
     },
     usHousingApi: {
-        key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || '',
+        key: (import.meta as any).env?.VITE_RAPIDAPI_KEY || process.env.VITE_RAPIDAPI_KEY || '',
         host: 'us-housing-market-data1.p.rapidapi.com'
     },
     radar: {
-        key: (import.meta as any).env?.VITE_RADAR_KEY || ''
+        key: (import.meta as any).env?.VITE_RADAR_KEY || process.env.VITE_RADAR_KEY || ''
     },
     gemini: {
-        key: (import.meta as any).env?.VITE_GEMINI_API_KEY || ""
+        key: (import.meta as any).env?.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ""
     },
     maps: {
-        key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || ""
+        key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ""
     },
     groq: {
-        key: (import.meta as any).env?.VITE_GROQ_API_KEY || ''
+        key: (import.meta as any).env?.VITE_GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || ''
     },
     howLoud: {
-        key: (import.meta as any).env?.VITE_HOWLOUD_API_KEY || ''
+        key: (import.meta as any).env?.VITE_HOWLOUD_API_KEY || process.env.VITE_HOWLOUD_API_KEY || ''
     },
     rentcast: {
-        key: (import.meta as any).env?.VITE_RENTCAST_KEY || '',
+        key: (import.meta as any).env?.VITE_RENTCAST_KEY || process.env.VITE_RENTCAST_KEY || '',
         baseUrl: 'https://api.rentcast.io/v1'
     },
     foursquare: {
-        key: (import.meta as any).env?.VITE_FOURSQUARE_API_KEY || ''
+        key: (import.meta as any).env?.VITE_FOURSQUARE_API_KEY || process.env.VITE_FOURSQUARE_API_KEY || ''
     },
     tomorrow: {
-        key: (import.meta as any).env?.VITE_TOMORROW_API_KEY || ''
+        key: (import.meta as any).env?.VITE_TOMORROW_API_KEY || process.env.VITE_TOMORROW_API_KEY || ''
     },
     concierge: {
         zoomRoomId: '82485671234' // Placeholder Zoom Meeting ID

@@ -755,7 +755,33 @@ export const runFullIntelligencePipeline = async (
     let visualResult: any = null;
     let visualError: string | null = null;
 
-    const [_visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, lifestyleResult, schoolsResult, neighborhoodIdentity] = await Promise.all([
+    const livingWageTask = async () => {
+      try {
+        const { fetchMitLivingWage } = await import('./geminiService.ts');
+        const census = (enrichedData as any).census_demographics || {};
+        const metroCode = census.metroCbsaCode || (enrichedData as any).metroCbsaCode;
+        const countyFips = census.countyFips || (enrichedData as any).countyFips;
+        const city = enrichedData.city || '';
+        const state = enrichedData.state || '';
+        const county = (enrichedData as any).county || '';
+        if (!metroCode && !countyFips) {
+          onLog?.(`[Living Wage] No metroCode or countyFips available — skipping.`);
+          return null;
+        }
+        onLog?.(`[Living Wage] Checking cache (${metroCode ? `metro ${metroCode}` : `county FIPS ${countyFips}`})...`);
+        const result = await fetchMitLivingWage(
+          { city, state, county, countyFips, metroCode, metroName: census.metroName },
+          userId
+        );
+        onLog?.(`[Living Wage] ${result.fromCache ? '✓ Cache hit' : '✓ Fetched from MIT'} — $${result.data?.living_wage_hourly}/hr per adult`);
+        return result;
+      } catch (e: any) {
+        onLog?.(`[Living Wage] Failed (non-blocking): ${e.message}`);
+        return null;
+      }
+    };
+
+    const [_visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, lifestyleResult, schoolsResult, neighborhoodIdentity, livingWageResult] = await Promise.all([
       visualTask().then(r => { visualResult = r; return r; }).catch(e => { visualError = e.message || String(e); onLog?.(`[Visual] ❌ Failed: ${visualError}`); return null; }),
       neighborhoodTask(),
       pulseTask(),
@@ -763,7 +789,8 @@ export const runFullIntelligencePipeline = async (
       marketIntTask(),
       lifestyleTask(),
       schoolsTask(),
-      neighborhoodIdentityTask()
+      neighborhoodIdentityTask(),
+      livingWageTask(),
     ]);
 
     const _lifestyleData = lifestyleResult?.data ?? null;
@@ -791,6 +818,7 @@ export const runFullIntelligencePipeline = async (
     reportSubtask('Lifestyle', _lifestyleData, lifestyleFromCache);
     reportSubtask('Schools', schoolsResult?.schools || schoolsResult, !!(schoolsResult && schoolsResult._allCached));
     reportSubtask('Neighborhood ID', neighborhoodIdentity, !!(neighborhoodIdentity?.gemini?.neighborhood_name));
+    reportSubtask('Living Wage', livingWageResult?.data, livingWageResult?.fromCache ?? false);
 
     // Check for visual AI issues
     if (!visualResult) warnings.push(`Visual AI${visualError ? `: ${visualError}` : ''}`);

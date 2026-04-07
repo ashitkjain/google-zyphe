@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db, generateCityStateKey } from './firebase/config';
 import { normalizeEnvDoc } from './firebase/googleData';
-import { getCommunityPulseFromCloud, getDeepInvestmentResearchFromCloud, getSchoolAnalysisFromCloud } from './firebase/properties';
+import { getCommunityPulseFromCloud, getDeepInvestmentResearchFromCloud, getSchoolAnalysisFromCloud, getLivingWageFromCloud } from './firebase/properties';
 import { resoFieldKey } from '../utils/propertyFieldConfig';
 import { isSupportedPropertyType, isGhostListing } from '../utils/propertyValidation';
 
@@ -127,7 +127,7 @@ export function runChecks(
     investment: any | null,
     schoolAnalyses: Record<string, any>,
     addressHint?: string,
-    cityData?: { communityPulse?: any; deepInvestmentResearch?: any }
+    cityData?: { communityPulse?: any; deepInvestmentResearch?: any; livingWage?: any }
 ): PropertySmokeResult {
     const checks: SmokeCheck[] = [];
     const rapidapiMeta = prop?._fetchMeta?.rapidapi;
@@ -340,6 +340,13 @@ export function runChecks(
     chk(checks, 'communityPulse', 'Community Pulse', 'warn', 'city_data', !!(hasCpLike || hasCpComplaint),
         cp ? `like: ${cp.what_residents_like?.points?.length || 0}, complaints: ${cp.common_complaints?.points?.length || 0}` : 'missing');
 
+    // ── 7c. MIT Living Wage (city-level, metro or county scope) ──────────────
+    const lw = cityData?.livingWage;
+    const hasLivingWage = !!(lw?.living_wage_hourly && lw.living_wage_hourly > 0);
+    chk(checks, 'livingWage', 'MIT Living Wage Data', 'warn', 'city_data', hasLivingWage,
+        hasLivingWage
+            ? `$${lw.living_wage_hourly}/hr per adult · ${lw.geographic_level || '?'}-level · ${lw.data_updated || 'date unknown'}`
+            : 'not fetched — open Neighborhood tab to populate');
 
     // Custom visual analysis (lives on property_analyses_visual doc)
     const hasCustomAnalysis = !!(visual?.report_title || visual?.home_interior);
@@ -669,13 +676,26 @@ export const runCitySmokeTest = async (
     // Fetch city-level data (community_pulse, deep_investment_research)
     // These are keyed by cityStateKey — use the same getCityDocWithFallback-backed
     // helpers that the app uses, so nested + legacy paths are both covered.
-    const cityDataMap: Record<string, { communityPulse?: any; deepInvestmentResearch?: any }> = {};
+    const cityDataMap: Record<string, { communityPulse?: any; deepInvestmentResearch?: any; livingWage?: any }> = {};
     const canonicalCityKeys = new Set<string>();
+
+    // Collect unique metro/county keys for living wage lookup
+    // Living wage is scoped to metro CBSA (preferred) or county FIPS
+    const livingWageKeys = new Map<string, { cacheKey: string; geoLevel: 'metro' | 'county' }>();
     for (const zpid of resolvedZpids) {
         const prop = allProps[zpid];
         const key = generateCityStateKey(prop?.city, prop?.state);
         if (key) canonicalCityKeys.add(key);
+        // Derive the living wage cache key from census_demographics fields saved on the property
+        const metroCode = prop?.census_demographics?.metroCbsaCode || prop?.metroCbsaCode;
+        const countyFips = prop?.census_demographics?.countyFips || prop?.countyFips;
+        if (metroCode) {
+            livingWageKeys.set(metroCode, { cacheKey: String(metroCode), geoLevel: 'metro' });
+        } else if (countyFips) {
+            livingWageKeys.set(String(countyFips), { cacheKey: String(countyFips), geoLevel: 'county' });
+        }
     }
+
     await Promise.all(Array.from(canonicalCityKeys).map(async (key) => {
         const [cp, dir] = await Promise.all([
             getCommunityPulseFromCloud(key),
@@ -685,6 +705,26 @@ export const runCitySmokeTest = async (
         if (cp) cityDataMap[key].communityPulse = cp;
         if (dir) cityDataMap[key].deepInvestmentResearch = dir;
     }));
+
+    // Fetch living wage data for all unique metro/county keys
+    const livingWageCache = new Map<string, any>();
+    await Promise.all(Array.from(livingWageKeys.values()).map(async ({ cacheKey, geoLevel }) => {
+        const lw = await getLivingWageFromCloud(cacheKey, geoLevel);
+        if (lw) livingWageCache.set(cacheKey, lw);
+    }));
+
+    // Attach living wage to each city's data slot
+    for (const zpid of resolvedZpids) {
+        const prop = allProps[zpid];
+        const cityKey = generateCityStateKey(prop?.city, prop?.state) || '';
+        if (!cityDataMap[cityKey]) cityDataMap[cityKey] = {};
+        const metroCode = prop?.census_demographics?.metroCbsaCode || prop?.metroCbsaCode;
+        const countyFips = prop?.census_demographics?.countyFips || prop?.countyFips;
+        const lw = metroCode
+            ? livingWageCache.get(String(metroCode))
+            : countyFips ? livingWageCache.get(String(countyFips)) : null;
+        if (lw) cityDataMap[cityKey].livingWage = lw;
+    }
 
     const results = resolvedZpids.map(zpid => {
         const prop = allProps[zpid];

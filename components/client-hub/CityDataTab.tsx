@@ -4406,19 +4406,84 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                                             <p className="text-[10px] text-amber-700 mt-0.5">{n.upcoming_changes}</p>
                                                         </div>
                                                     )}
-                                                    {n.unique_features?.length > 0 && (
-                                                        <div>
-                                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Standout Features</span>
-                                                            <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                                                {n.unique_features.map((f: string, fi: number) => (
-                                                                    <span key={fi} className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg text-[9px] font-semibold">
-                                                                        {f}
+                                                    {n.nextdoor?.found && (
+                                                        <div className="pt-2 border-t border-slate-50 space-y-3">
+                                                            <div className="flex flex-col gap-1 mb-1">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1">
+                                                                        <i className="fa-solid fa-people-group text-[9px]"></i>
+                                                                        Community Intelligence
                                                                     </span>
-                                                                ))}
+                                                                    {n.nextdoor.overall_city_rank && (
+                                                                        <span className="text-[8px] font-bold text-slate-400 italic">#{n.nextdoor.overall_city_rank} in {selectedCity?.city || 'the city'}</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[7px] text-slate-400 font-medium italic opacity-60">*Aggregated from social platforms</div>
                                                             </div>
+
+                                                            {/* Quick Metrics Grid */}
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div className="bg-emerald-50/50 rounded-xl p-2 border border-emerald-100/50">
+                                                                    <div className="text-[7px] font-black text-emerald-500 uppercase tracking-tight mb-0.5">Friendliness</div>
+                                                                    <div className="flex items-end gap-1">
+                                                                        <span className="text-sm font-black text-emerald-700 leading-none">{n.nextdoor.friendliness_score || '—'}</span>
+                                                                        <span className="text-[8px] font-bold text-emerald-600/60 pb-0.5">/ 10</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="bg-slate-50 rounded-xl p-2 border border-slate-200/50">
+                                                                    <div className="text-[7px] font-black text-slate-400 uppercase tracking-tight mb-0.5">Ownership</div>
+                                                                    <div className="text-sm font-black text-slate-700 leading-none">{n.nextdoor.home_ownership_pct || '—'}</div>
+                                                                </div>
+                                                                {n.nextdoor.local_events_count && (
+                                                                    <div className="bg-indigo-50/50 rounded-xl p-2 border border-indigo-100/50">
+                                                                        <div className="text-[7px] font-black text-indigo-500 uppercase tracking-tight mb-0.5">Local Events</div>
+                                                                        <div className="text-xs font-black text-indigo-700 leading-none">{n.nextdoor.local_events_count} active</div>
+                                                                    </div>
+                                                                )}
+                                                                <div className="bg-amber-50/50 rounded-xl p-2 border border-amber-100/50">
+                                                                    <div className="text-[7px] font-black text-amber-500 uppercase tracking-tight mb-0.5">Affordability</div>
+                                                                    <div className="flex items-end gap-1">
+                                                                        <span className="text-sm font-black text-amber-700 leading-none">{n.nextdoor.affordability_score || '—'}</span>
+                                                                        <span className="text-[8px] font-bold text-amber-600/60 pb-0.5">/ 10</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Topics */}
+                                                            {n.nextdoor.key_topics?.length > 0 && (
+                                                                <div>
+                                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Active Discussion Topics</span>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {n.nextdoor.key_topics.map((t: any, ti: number) => (
+                                                                            <span key={ti} className="text-[9px] font-medium text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-sm hover:border-emerald-300 transition-colors" title={t.description}>
+                                                                                {t.topic}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Events */}
+                                                            {n.nextdoor.upcoming_events?.length > 0 && (
+                                                                <div className="space-y-1.5">
+                                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Upcoming Community Events</span>
+                                                                    <div className="space-y-1">
+                                                                        {n.nextdoor.upcoming_events.slice(0, 2).map((e: any, ei: number) => (
+                                                                            <div key={ei} className="flex flex-col p-1.5 rounded-lg bg-slate-50/80 border border-slate-100">
+                                                                                <div className="flex justify-between items-start gap-2">
+                                                                                    <span className="text-[10px] font-bold text-slate-800 leading-tight">{e.name}</span>
+                                                                                    {e.date && <span className="text-[7px] font-black text-indigo-500 uppercase tracking-tighter whitespace-nowrap bg-white px-1.5 py-0.5 rounded-md border border-indigo-100">{e.date}</span>}
+                                                                                </div>
+                                                                                {e.description && <p className="text-[9px] text-slate-500 mt-0.5 line-clamp-1 italic">{e.description}</p>}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                     <div className="pt-1">
+
                                                         <span className="text-[8px] text-slate-300 font-medium">Source: {n.source_type || 'Unknown'}</span>
                                                     </div>
                                                 </div>

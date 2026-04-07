@@ -43,7 +43,8 @@ import {
   saveGeneralMarketIntelligenceToCloud,
   saveDeepInvestmentResearchToCloud,
   saveCityNeighborhoodsToCloud,
-  getCityNeighborhoodsFromCloud
+  getCityNeighborhoodsFromCloud,
+  getPropertiesByCity
 } from "./firebase/properties";
 import { generateCityStateKey } from "./firebase/config";
 
@@ -55,6 +56,7 @@ import { Lead, CRMTask, CalendarEvent } from "../types";
 import { executePythonDeepResearch } from "./pythonResearchService";
 import { DailyPulseResult, PollenAnalysisResult } from "../types/ai";
 import { getPollenAnalysisPrompt, pollenAnalysisSchema } from "../prompts/property/pollenAnalysis";
+import { getMitLivingWagePrompt, mitLivingWageSchema, MitLivingWageResult, MitLivingWageParams } from "../prompts/property/mitLivingWage";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi, optimizeVisualForAi } from "../utils/aiOptimization";
@@ -85,13 +87,20 @@ export class AiResponseError extends Error {
 let aiInstance: GoogleGenAI | null = null;
 
 export const getAi = async () => {
-  if (!aiInstance) {
-    // Load all API keys from Firestore (once per session)
-    const { loadApiKeys } = await import('./apiKeyLoader');
-    await loadApiKeys();
+    if (!aiInstance) {
+        // Load all API keys from Firestore (once per session)
+        const { loadApiKeys } = await import('./apiKeyLoader');
+        await loadApiKeys();
 
-    const apiKey = APP_CONFIG.gemini.key;
-    if (!apiKey) throw new Error('Gemini API Key missing. Set it in Firestore (app_config/api_keys → gemini_key) or VITE_GEMINI_API_KEY env var.');
+        // Final safety check for CLI/Standalone environments
+        let apiKey = APP_CONFIG.gemini.key;
+        if (!apiKey) {
+            apiKey = process.env.VITE_GEMINI_API_KEY || '';
+            // If we found it here but not in APP_CONFIG, patch it
+            if (apiKey) (APP_CONFIG as any).gemini.key = apiKey;
+        }
+
+        if (!apiKey) throw new Error('Gemini API Key missing. Set it in Firestore (app_config/api_keys → gemini_key) or VITE_GEMINI_API_KEY env var.');
 
     // Explicitly hit Google directly to avoid routing/proxy issues on various hosts
     aiInstance = new GoogleGenAI({
@@ -1146,11 +1155,25 @@ export const mineCityNeighborhoods = async (
 
   onLog?.(`[City Neighborhoods] Mining all neighborhoods for ${city}, ${state}...`);
 
+  // ── Step 0: Gather existing neighborhood tags from properties ────────────
+  onLog?.(`[City Neighborhoods] Step 0: Checking existing property data for neighborhood tags...`);
+  const properties = await getPropertiesByCity(city, 200);
+  const existingHoodNames = new Set<string>();
+  properties.forEach(p => {
+    if (p.neighborhood && p.neighborhood.trim().length > 0) {
+      existingHoodNames.add(p.neighborhood.trim());
+    }
+  });
+  const knownFromProperties = Array.from(existingHoodNames);
+  if (knownFromProperties.length > 0) {
+    onLog?.(`[City Neighborhoods] Found ${knownFromProperties.length} neighborhoods already tagged in properties: ${knownFromProperties.slice(0, 5).join(', ')}${knownFromProperties.length > 5 ? '...' : ''}`);
+  }
+
   // ── Pass 1: Discover all neighborhood names ──────────────────────────────
   onLog?.(`[City Neighborhoods] Pass 1: Discovering all neighborhood names...`);
-  const discoveryPrompt = getCityNeighborhoodDiscoveryPrompt(city, state);
+  const discoveryPrompt = getCityNeighborhoodDiscoveryPrompt(city, state, knownFromProperties);
 
-  const discoveryResult = await executeGeminiRequest<{ city: string; state: string; neighborhoods: { name: string; tier: string; has_hoa?: boolean; source?: string }[] }>({
+  const discoveryResult = await executeGeminiRequest<{ city: string; state: string; neighborhoods: { name: string; tier: string; has_hoa?: boolean; source?: string; latitude: number; longitude: number }[] }>({
     model: 'gemini-3-pro-preview',
     contents: discoveryPrompt,
     config: { tools: [groundingTool], temperature: 0.2, maxOutputTokens: 8192 },
@@ -1164,6 +1187,22 @@ export const mineCityNeighborhoods = async (
   });
 
   const discovered = discoveryResult.data?.neighborhoods || [];
+  
+  // Ensure "known" neighborhoods are definitely in the list, even if Gemini missed them in Pass 1
+  knownFromProperties.forEach(name => {
+    const alreadyPresent = discovered.find(d => d.name.toLowerCase() === name.toLowerCase());
+    if (!alreadyPresent) {
+      onLog?.(`[City Neighborhoods] Forcing inclusion of property-tagged neighborhood: ${name}`);
+      discovered.push({
+        name,
+        tier: 'Mid-Range', // Default
+        latitude: 0,       // Batch enrichment will try to find real ones
+        longitude: 0,
+        source: 'Property Tag'
+      });
+    }
+  });
+
   onLog?.(`[City Neighborhoods] Pass 1 complete: found ${discovered.length} neighborhood names.`);
 
   if (discovered.length === 0) {
@@ -1572,3 +1611,86 @@ function dehydratePayload(payload: any): any {
 
   return payload;
 }
+
+// ── MIT Living Wage Lookup ────────────────────────────────────────────────────
+
+/**
+ * Fetches MIT Living Wage Calculator data using Gemini + Google Search grounding.
+ * Targets the "2 Adults, 2 Children (Both Working)" family type.
+ *
+ * Cache strategy:
+ *   1. Check Firestore (metro → county, 300-day TTL)
+ *   2. On miss → call Gemini + Google Search grounding
+ *   3. Save result back to Firestore keyed by metroCode or countyFips
+ *
+ * @param params  - Location params including optional metroCode/metroName for metro-first lookup
+ * @param userId  - Firebase UID for logging
+ */
+export const fetchMitLivingWage = async (
+    params: MitLivingWageParams,
+    userId: string = 'unknown'
+): Promise<{ data: MitLivingWageResult; sources?: { url: string; title: string }[] | null; fromCache: boolean }> => {
+    const { saveLivingWageToCloud, getLivingWageFromCloud } = await import('./firebase/properties');
+
+    // Quality gate: cached docs must have living_wage_hourly + expenses to be usable
+    const isLivingWageComplete = (cached: any): boolean =>
+        !!(cached?.living_wage_hourly && cached?.expenses && typeof cached.expenses === 'object');
+
+    // ── 1. Cache check (metro preferred, county fallback) ────────────────────
+    if (params.metroCode) {
+        const cached = await getLivingWageFromCloud(params.metroCode, 'metro');
+        if (cached) {
+            if (isLivingWageComplete(cached)) {
+                console.log(`[MIT Living Wage] ✓ Cache hit (metro ${params.metroCode})`);
+                return { data: cached as MitLivingWageResult, fromCache: true };
+            }
+            console.warn(`[MIT Living Wage] Cached metro doc is incomplete (missing expenses) — re-fetching for ${params.metroCode}`);
+        }
+    }
+    if (params.countyFips) {
+        const cached = await getLivingWageFromCloud(params.countyFips, 'county');
+        if (cached) {
+            if (isLivingWageComplete(cached)) {
+                console.log(`[MIT Living Wage] ✓ Cache hit (county FIPS ${params.countyFips})`);
+                return { data: cached as MitLivingWageResult, fromCache: true };
+            }
+            console.warn(`[MIT Living Wage] Cached county doc is incomplete (missing expenses) — re-fetching for ${params.countyFips}`);
+        }
+    }
+
+    // ── 2. Gemini + Search grounding ─────────────────────────────────────────
+    const prompt = getMitLivingWagePrompt(params);
+    const locationTag = params.metroName
+        ? `metro: ${params.metroName}`
+        : `${params.county || params.city} County, ${params.state} (FIPS: ${params.countyFips || 'unknown'})`;
+    console.log(`[MIT Living Wage] Cache miss — fetching for ${locationTag}...`);
+
+    const result = await executeGeminiRequest<MitLivingWageResult>({
+        model: 'gemini-3-flash-preview',  // supports both schema + grounding simultaneously
+        contents: prompt,
+        config: { tools: [groundingTool], temperature: 0.1 },
+        userId,
+        promptFilename: 'mitLivingWage.ts',
+        extractResultJson: true,
+        schema: mitLivingWageSchema,
+    });
+
+    // ── 3. Save to Firestore ──────────────────────────────────────────────────
+    if (result.data) {
+        const geoLevel = result.data.geographic_level ?? (params.metroCode ? 'metro' : 'county');
+        const cacheKey = geoLevel === 'metro'
+            ? (params.metroCode || params.countyFips || '')
+            : (params.countyFips || params.metroCode || '');
+
+        if (cacheKey) {
+            saveLivingWageToCloud(cacheKey, geoLevel, result.data)
+                .then(r => {
+                    if (r.success) console.log(`[MIT Living Wage] Saved to Firestore (${geoLevel} ${cacheKey})`);
+                    else console.warn(`[MIT Living Wage] Save failed: ${r.error}`);
+                })
+                .catch(e => console.warn('[MIT Living Wage] Save error:', e));
+        }
+    }
+
+    return { data: result.data, sources: result.sources, fromCache: false };
+};

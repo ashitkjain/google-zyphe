@@ -782,6 +782,12 @@ exports.proxyCensusACS = functions.https.onRequest(async (req, res) => {
             'B15003_023E', // Master's degree
             'B15003_024E', // Professional degree
             'B15003_025E', // Doctorate degree
+            'B25064_001E', // Median gross rent
+            'B25070_001E', // Total for Gross Rent as % of Income
+            'B25070_007E', // 30.0-34.9% rent burden
+            'B25070_008E', // 35.0-39.9% rent burden
+            'B25070_009E', // 40.0-49.9% rent burden
+            'B25070_010E', // 50.0% or more rent burden
         ].join(',');
 
         const acsUrl = `https://api.census.gov/data/2022/acs/acs5?get=${acsVariables}&for=tract:${tractId}&in=state:${stateFips}&in=county:${countyFips}`;

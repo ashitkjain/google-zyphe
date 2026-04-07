@@ -103,16 +103,28 @@ Return ONLY valid JSON matching the schema.
  * Pass 1 — Exhaustive name discovery only.
  * Very small output per neighborhood so the model can return ALL of them without truncation.
  */
-export const getCityNeighborhoodDiscoveryPrompt = (city: string, state: string) => `
+export const getCityNeighborhoodDiscoveryPrompt = (city: string, state: string, knownNames: string[] = []) => {
+    const knownContext = knownNames.length > 0 
+        ? `\n\nMASTER NEIGHBORHOOD LIST (Priority): We already have properties tagged in these neighborhoods: ${knownNames.join(', ')}. 
+        
+CRITICAL DEDUPLICATION RULES:
+1. Normalize All Matches: If you find a neighborhood that is a synonym or slight variation of a name in the Master List (e.g. "Ruby Hill" vs "Ruby Hill HOA"), you MUST use the name from the Master List.
+2. No Overlaps: Do not return multiple entries for the same physical area.
+3. Priority: Your primary task is to find the location data (lat/lng), price tier, and HOA status for the neighborhoods in the Master List, AND THEN discover any missing residential areas not already listed.`
+        : '';
+
+    return `
 You are a residential real estate expert with access to live web search.
 
-TASK: Find all residential neighborhoods in ${city}, ${state} as buyers and real estate agents know them.
+TASK: Find and coordinate all residential neighborhoods in ${city}, ${state}.
+${knownContext}
 
-Use Google Search to find neighborhood names from Zillow, Redfin, Nextdoor, and local real estate sites.
+Use Google Search to verify names from Zillow, Redfin, Nextdoor, and MLS listings.
 Include established neighborhoods, subdivisions, HOA communities, and master-planned areas.
 
 Return ONLY valid JSON matching the schema.
 `.trim();
+};
 
 export const cityNeighborhoodDiscoverySchema = {
     type: Type.OBJECT,
@@ -129,8 +141,10 @@ export const cityNeighborhoodDiscoverySchema = {
                     tier: { type: Type.STRING, description: "One of: Entry-Level, Mid-Range, Upper Mid-Range, Premium, Ultra-Luxury" },
                     has_hoa: { type: Type.BOOLEAN, description: "Whether this neighborhood has an HOA." },
                     source: { type: Type.STRING, description: "Where found (e.g., Zillow, Nextdoor, Redfin)." },
+                    latitude: { type: Type.NUMBER, description: "Representative latitude for the neighborhood center." },
+                    longitude: { type: Type.NUMBER, description: "Representative longitude for the neighborhood center." },
                 },
-                required: ["name", "tier"]
+                required: ["name", "tier", "latitude", "longitude"]
             }
         }
     },
@@ -316,9 +330,25 @@ export const cityNeighborhoodMinerSchema = {
                             }
                         },
                         required: ["found", "url"]
+                    },
+
+                    // ── Geography & Census ──────────────────────────────────
+                    latitude: { type: Type.NUMBER, description: "Representative latitude for the neighborhood center." },
+                    longitude: { type: Type.NUMBER, description: "Representative longitude for the neighborhood center." },
+                    census_demographics: {
+                        type: Type.OBJECT,
+                        description: "Professional demographic and affordability metrics from the U.S. Census Bureau (ACS).",
+                        properties: {
+                            median_household_income: { type: Type.NUMBER },
+                            median_gross_rent: { type: Type.NUMBER },
+                            rent_burden_pct: { type: Type.NUMBER, description: "Percentage of renters spending >30% on housing." },
+                            median_home_value: { type: Type.NUMBER },
+                            owner_pct: { type: Type.NUMBER },
+                            renter_pct: { type: Type.NUMBER }
+                        }
                     }
                 },
-                required: ["neighborhood_name", "alternative_names", "source_type", "character", "price_context", "nextdoor"]
+                required: ["neighborhood_name", "alternative_names", "source_type", "character", "price_context", "nextdoor", "latitude", "longitude"]
             }
         }
     },
@@ -379,6 +409,16 @@ export interface CityNeighborhoodEntry {
     upcoming_changes?: string;
     unique_features?: string[];
     nextdoor: NeighborhoodNextdoorData;
+    latitude?: number;
+    longitude?: number;
+    census_demographics?: {
+        median_household_income?: number;
+        median_gross_rent?: number;
+        rent_burden_pct?: number;
+        median_home_value?: number;
+        owner_pct?: number;
+        renter_pct?: number;
+    };
 }
 
 export interface CityNeighborhoodsResult {

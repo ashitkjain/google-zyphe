@@ -1,21 +1,32 @@
 /**
- * Standalone script to re-mine Pleasanton, CA neighborhoods.
- * Bypasses the cache check so it always runs fresh.
- *
+ * Dynamic City Mining Script
+ * 
  * Usage:
- *   npx ts-node --esm scripts/mine_neighborhoods.ts
- *   OR
- *   npx tsx scripts/mine_neighborhoods.ts
+ *   npx ts-node --esm scripts/mine_neighborhoods.ts --city=Dublin --state=CA
  */
+
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env first, then override with .env.local if present
+dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true });
 
 import { mineCityNeighborhoods } from '../services/geminiService';
 
-const CITY = 'Pleasanton';
-const STATE = 'CA';
+// ── GET ARGUMENTS ─────────────────────────────────────────────────────────────
+const args = process.argv.slice(2);
+const cityArg = args.find(a => a.startsWith('--city='))?.split('=')[1];
+const stateArg = args.find(a => a.startsWith('--state='))?.split('=')[1];
+
+const CITY = cityArg || 'Dublin';
+const STATE = stateArg || 'CA';
 const USER_ID = 'script-runner';
 
 async function main() {
-    console.log(`\n🏔  Mining neighborhoods for ${CITY}, ${STATE}...\n`);
+    const key = process.env.VITE_GEMINI_API_KEY || '';
+    const keyPreview = key ? `${key.substring(0, 8)}...` : 'MISSING';
+    console.log(`\n🏔  Mining neighborhoods for ${CITY}, ${STATE}... (Key: ${keyPreview})\n`);
     console.log('Model: gemini-3-pro-preview | Grounding: enabled\n');
     console.log('─'.repeat(60));
 
@@ -35,11 +46,11 @@ async function main() {
             result.data.neighborhoods.forEach((n, i) => {
                 const nd = n as any;
                 const rank = nd.nextdoor?.overall_city_rank ?? '—';
-                const friendly = nd.nextdoor?.friendliness_score ?? '—';
+                const score = nd.nextdoor?.friendliness_score ?? '—';
                 const afford = nd.nextdoor?.affordability_score ?? '—';
                 console.log(
                     `  ${String(i + 1).padStart(2)}. ${nd.neighborhood_name.padEnd(30)} ` +
-                    `rank=${rank}  friendly=${friendly}  afford=${afford}`
+                    `rank=${rank}  social=${score}  afford=${afford}`
                 );
             });
         }

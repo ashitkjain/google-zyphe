@@ -857,7 +857,83 @@ export const getAllMinedCities = async (): Promise<{ key: string; city: string; 
     }
 };
 
+// ── MIT Living Wage Cache ─────────────────────────────────────────────────────
+// Keyed by metro CBSA code (preferred) or county FIPS (fallback).
+//   Metro path:  metros/{metroCode}/data/living_wage
+//   County path: cities/{countyFipsKey}/data/living_wage   (e.g. "fips_06001")
+//
+// MIT data is metro/county-scoped — shared across ALL properties in the same area.
+// No need to re-fetch per ZPID. Data updated annually (MIT publishes ~Feb each year).
+
+/**
+ * Saves MIT Living Wage data to Firestore.
+ * @param cacheKey  - metroCode (e.g. "41860") or countyFips (e.g. "06001")
+ * @param geoLevel  - "metro" | "county"
+ * @param data      - MitLivingWageResult
+ */
+export const saveLivingWageToCloud = async (
+    cacheKey: string,
+    geoLevel: 'metro' | 'county',
+    data: any
+): Promise<{ success: boolean; error?: string }> => {
+    if (!db || !cacheKey) return { success: false, error: 'DB not initialized or missing cache key' };
+    try {
+        const collection = geoLevel === 'metro' ? 'metros' : 'cities';
+        const docKey = geoLevel === 'metro' ? cacheKey : `fips_${cacheKey}`;
+        const ref = doc(db, collection, docKey, 'data', 'living_wage');
+        logFirestoreQuery('setDoc', `${collection}/data/living_wage`, { cacheKey, geoLevel });
+        await setDoc(ref, {
+            ...sanitizeForFirestore(data),
+            cacheKey,
+            geoLevel,
+            cachedAt: serverTimestamp(),
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, 'saveLivingWageToCloud') as string };
+    }
+};
+
+/**
+ * Loads MIT Living Wage data from Firestore.
+ * @param cacheKey  - metroCode or countyFips
+ * @param geoLevel  - "metro" | "county"
+ * @param maxAgeDays - how old is acceptable (default 300 days — MIT updates annually)
+ */
+export const getLivingWageFromCloud = async (
+    cacheKey: string,
+    geoLevel: 'metro' | 'county',
+    maxAgeDays: number = 300
+): Promise<any | null> => {
+    if (!db || !cacheKey) return null;
+    try {
+        const collection = geoLevel === 'metro' ? 'metros' : 'cities';
+        const docKey = geoLevel === 'metro' ? cacheKey : `fips_${cacheKey}`;
+        const ref = doc(db, collection, docKey, 'data', 'living_wage');
+        logFirestoreQuery('getDoc', `${collection}/data/living_wage`, { cacheKey, geoLevel });
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return null;
+
+        const cached = snap.data();
+
+        // Freshness check — MIT data is annual; 300 days default is safe
+        if (cached.cachedAt?.seconds) {
+            const ageDays = (Date.now() - cached.cachedAt.seconds * 1000) / (1000 * 60 * 60 * 24);
+            if (ageDays > maxAgeDays) {
+                console.log(`[Living Wage] Cache stale (${Math.round(ageDays)} days old > ${maxAgeDays}d limit) — will refresh`);
+                return null;
+            }
+        }
+
+        return cached;
+    } catch (error) {
+        handleFirestoreError(error, 'getLivingWageFromCloud');
+        return null;
+    }
+};
+
 // ── Schools Intelligence Cache (keyed by school name + city, shared across properties) ──
+
 
 export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => {
     if (!db || !cacheKey) return { success: false, error: "Database not initialized or missing cache key" };

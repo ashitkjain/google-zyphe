@@ -21,6 +21,8 @@ import LifestyleInsightsSection from './LifestyleInsightsSection';
 import SeasonalSunCard from './SeasonalSunCard';
 import { fetchMicroclimateDelta, MicroclimateDelta, fetchCensusDemographics, CensusDemographics } from '../../services/api/environmental';
 import { StickyNotesLayer } from '../analysis/custom-ai/components/StickyNotesLayer';
+import { AffordabilityCard } from '../analysis/custom-ai/components/AffordabilityCard';
+import { CensusDemographicsCard } from '../analysis/custom-ai/components/CensusDemographicsCard';
 
 
 import ChatInterface from '../shared/ChatInterface';
@@ -544,7 +546,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                                             }`}
                                     >
-                                        <i className="fa-solid fa-database text-sm"></i>
                                         Overview
                                     </button>
 
@@ -659,7 +660,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 {/* 3rd Party Data heading */}
                                                 <div className="flex items-center gap-2 mt-6 mb-2">
                                                     <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                        <i className="fa-solid fa-database text-emerald-600 text-[11px]"></i>
                                                     </div>
                                                     <span className="text-lg font-black text-slate-900 tracking-tight">3rd Party Data</span>
                                                 </div>
@@ -684,62 +684,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                         {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview || analysis) && (
                                             <div className="flex flex-col gap-3">
-                                                {/* Executive Summary */}
-                                                {(() => {
-                                                    if (!analysis) return null;
-
-                                                    const parts = [
-                                                        { text: analysis.summary },
-                                                        { text: analysis.strategic_insights },
-                                                        { text: analysis.risks_considerations, type: 'risk' }
-                                                    ].filter(p => p.text);
-
-                                                    if (parts.length === 0) return null;
-
-                                                    return (
-                                                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white px-2 mb-1 shadow-sm">
-                                                            <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl p-3">
-                                                                <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
-                                                                    <div className="p-4">
-                                                                        {/* Header */}
-                                                                        <div className="flex items-center gap-2 mb-3">
-                                                                            <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                                <i className="fa-solid fa-bolt-lightning text-indigo-600 text-[11px]"></i>
-                                                                            </div>
-                                                                            <div>
-                                                                                <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Executive Summary</h3>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {/* Content Area */}
-                                                                        <div className="text-[13px] text-slate-600 leading-relaxed text-left flex flex-col gap-4">
-                                                                            {parts.map((p: any, i: number) => {
-                                                                                const text = p.text || '';
-                                                                                return (
-                                                                                    <div
-                                                                                        key={i}
-                                                                                        className={p.type === 'risk' ? 'bg-rose-50 p-6 rounded-2xl border border-rose-100 flex gap-4 shadow-sm mt-2' : ''}
-                                                                                    >
-                                                                                        {p.type === 'risk' && <i className="fa-solid fa-flag text-rose-500 mt-1 flex-shrink-0"></i>}
-                                                                                        <div className="flex-1">
-                                                                                            {text.split('\n\n').filter(Boolean).map((para: string, pi: number) => (
-                                                                                                <p key={pi} className={pi > 0 ? 'mt-4' : ''}>
-                                                                                                    {para.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                                        j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                                                                    ))}
-                                                                                                </p>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
+                                                {/* Executive Summary hidden per user request */}
 
                                                 {/* Interior Summary Intelligence */}
                                                 {(customAnalysis || currentInteriorSummary || analysis) && (
@@ -1217,136 +1162,41 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                                 </div>
                                                                                 <span className="text-[16px] font-black text-slate-700 tracking-tight">Neighborhood: {nid.resolved_name}</span>
                                                                             </div>
-                                                                            {gem?.character?.description && (
-                                                                                <p className="text-[11px] text-slate-600 leading-relaxed mb-3">{gem.character.description}</p>
-                                                                            )}
-                                                                            {/* Tags */}
-                                                                            <div className="flex flex-wrap gap-1.5 mb-2">
-                                                                                {gem?.price_context?.tier && (
-                                                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tierColors[gem.price_context.tier] || 'bg-gray-100 text-gray-700'}`}>
-                                                                                        <i className="fa-solid fa-tag mr-1 text-[8px]" />{gem.price_context.tier}
-                                                                                    </span>
-                                                                                )}
-                                                                                {gem?.price_context?.typical_range && (
-                                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                                                                        <i className="fa-solid fa-dollar-sign mr-1 text-[8px]" />{gem.price_context.typical_range}
-                                                                                    </span>
-                                                                                )}
-                                                                                {gem?.character?.community_type && (
-                                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
-                                                                                        {gem.character.community_type}
-                                                                                    </span>
-                                                                                )}
-                                                                                {gem?.character?.era_built && (
-                                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                                                                        Built {gem.character.era_built}
-                                                                                    </span>
-                                                                                )}
-                                                                                {propertyData?.subdivision && (
-                                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
-                                                                                        <i className="fa-solid fa-location-dot mr-1 text-[8px]" />Subdivision: {propertyData.subdivision}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            {/* Standout Features */}
-                                                                            {gem?.unique_features?.length > 0 && (
-                                                                                <div className="mt-2">
-                                                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Standout Features</div>
-                                                                                    <div className="flex flex-wrap gap-1">
-                                                                                        {gem.unique_features.map((feat: string, i: number) => (
-                                                                                            <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white border border-violet-100 text-violet-700 shadow-sm">
-                                                                                                {feat}
-                                                                                            </span>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-                                                                            {gem?.price_context?.context && (
-                                                                                <div className="mt-2">
-                                                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Market Position</div>
-                                                                                    <p className="text-[10px] text-slate-600 leading-relaxed">{gem.price_context.context}</p>
-                                                                                </div>
-                                                                            )}
-                                                                            {gem?.infrastructure_quality && (
-                                                                                <div className="mt-2">
-                                                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Infrastructure</div>
-                                                                                    <p className="text-[10px] text-slate-600 leading-relaxed">{gem.infrastructure_quality}</p>
-                                                                                </div>
-                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             );
                                                         })()}
+
+                                                        {/* Row 1, Box 5: Affordability */}
+                                                        {propertyData && (
+                                                            <div className="flex flex-col gap-3 group">
+                                                                <AffordabilityCard
+                                                                    state={propertyData.state}
+                                                                    city={propertyData.city}
+                                                                    county={propertyData.county}
+                                                                    countyFips={
+                                                                        propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips
+                                                                            ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
+                                                                            : undefined
+                                                                    }
+                                                                    userId={(propertyData as any)._userId}
+                                                                    compact
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {/* Row 1, Box 6: Census Demographics */}
+                                                        {propertyData?.census_demographics && (
+                                                            <div className="flex flex-col gap-3 group">
+                                                                <CensusDemographicsCard 
+                                                                    data={propertyData.census_demographics as unknown as CensusDemographics} 
+                                                                    compact
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-
-                                                {/* Census Demographics */}
-                                                {census && (() => {
-                                                    const fmt = (n: number | null) => n != null ? `$${n.toLocaleString()}` : '—';
-                                                    return (
-                                                        <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                                                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                                <div className="p-4">
-                                                                    <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                            <i className="fa-solid fa-users text-indigo-600 text-[12px]"></i>
-                                                                        </div>
-                                                                        <div>
-                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Census Demographics</span>
-                                                                            <div className="text-[9px] text-slate-400">{census.tractLabel} · ACS 5-Year Estimates</div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="grid grid-cols-3 gap-2 mb-3">
-                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Median Income</div>
-                                                                            <div className="text-[15px] font-black text-emerald-600">{fmt(census.medianHouseholdIncome)}</div>
-                                                                        </div>
-                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Median Age</div>
-                                                                            <div className="text-[15px] font-black text-slate-700">{census.medianAge ?? '—'}</div>
-                                                                        </div>
-                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Population</div>
-                                                                            <div className="text-[15px] font-black text-slate-700">{census.totalPopulation?.toLocaleString() ?? '—'}</div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="grid grid-cols-3 gap-2 mb-3">
-                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Owner-Occupied</div>
-                                                                            <div className="text-[15px] font-black text-blue-600">{census.ownerPct != null ? `${census.ownerPct}%` : '—'}</div>
-                                                                        </div>
-                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Value</div>
-                                                                            <div className="text-[15px] font-black text-emerald-600">{fmt(census.medianHomeValue)}</div>
-                                                                        </div>
-                                                                        <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">College Educated</div>
-                                                                            <div className="text-[15px] font-black text-violet-600">{census.bachelorsPlusPct != null ? `${census.bachelorsPlusPct}%` : '—'}</div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Owner vs Renter bar */}
-                                                                    {census.ownerPct != null && census.renterPct != null && (
-                                                                        <div className="mb-2">
-                                                                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1">
-                                                                                <span className="text-blue-600">Owner {census.ownerPct}%</span>
-                                                                                <span className="text-amber-600">Renter {census.renterPct}%</span>
-                                                                            </div>
-                                                                            <div className="h-2 rounded-full bg-amber-100 overflow-hidden">
-                                                                                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${census.ownerPct}%` }}></div>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-
-                                                                    <div className="text-[8px] text-slate-400 text-right">U.S. Census Bureau · ACS 2022</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
 
                                                 {/* Row: Unified Lifestyle Fit */}
                                                 {(() => {

@@ -62,7 +62,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
             </div>
             <div>
               <h3 className="text-xl font-black text-gray-900 tracking-tight">Intelligence Pipeline</h3>
-              <p className="text-indigo-500 text-[10px] font-black uppercase tracking-widest">Cache Warming Engine</p>
+              <p className="text-indigo-500 text-[10px] font-black uppercase tracking-widest">Intelligence Warming Engine</p>
             </div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -167,7 +167,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
               </div>
               <div>
                 <h4 className="font-black text-indigo-900 text-sm">Property Ready!</h4>
-                <p className="text-indigo-700/70 text-xs">All intelligence layers are now cached in the cloud for this address.</p>
+                <p className="text-indigo-700/70 text-xs">All intelligence layers are now live in the cloud for this address.</p>
               </div>
               <button onClick={onClose} className="ml-auto bg-gradient-to-r from-indigo-700 to-gray-900 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:scale-[1.05] transition-all">Close</button>
             </div>

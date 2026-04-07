@@ -461,6 +461,8 @@ export interface CensusDemographics {
     ownerPct: number | null;       // 0-100
     renterPct: number | null;
     medianHomeValue: number | null;
+    medianGrossRent: number | null;
+    rentBurdenPct: number | null;  // % of renters spending >30% on rent
     bachelorsPlusPct: number | null; // % with bachelor's or higher
     tractLabel: string;            // human-friendly label e.g. "Census Tract 4515.02"
     insight: string;
@@ -481,6 +483,12 @@ const ACS_VARIABLES = [
     'B15003_023E', // Master's degree
     'B15003_024E', // Professional degree
     'B15003_025E', // Doctorate degree
+    'B25064_001E', // Median gross rent
+    'B25070_001E', // Total for Gross Rent as % of Income
+    'B25070_007E', // 30.0-34.9% rent burden
+    'B25070_008E', // 35.0-39.9% rent burden
+    'B25070_009E', // 40.0-49.9% rent burden
+    'B25070_010E', // 50.0% or more rent burden
 ].join(',');
 
 export const fetchCensusDemographics = async (
@@ -571,6 +579,11 @@ export const fetchCensusDemographics = async (
         const ownerPct = totalTenure && totalTenure > 0 && ownerOcc != null ? Math.round((ownerOcc / totalTenure) * 100) : null;
         const renterPct = totalTenure && totalTenure > 0 && renterOcc != null ? Math.round((renterOcc / totalTenure) * 100) : null;
 
+        const medianGrossRent = getVal('B25064_001E');
+        const rentTotal = getVal('B25070_001E');
+        const rentBurden30 = (getVal('B25070_007E') || 0) + (getVal('B25070_008E') || 0) + (getVal('B25070_009E') || 0) + (getVal('B25070_010E') || 0);
+        const rentBurdenPct = rentTotal && rentTotal > 0 ? Math.round((rentBurden30 / rentTotal) * 100) : null;
+
         // Generate insight
         let insight = `Census Tract ${tract.tractName}`;
         if (medianIncome) insight += ` · Median income $${medianIncome.toLocaleString()}`;
@@ -594,6 +607,8 @@ export const fetchCensusDemographics = async (
             ownerPct,
             renterPct,
             medianHomeValue: medianHomeVal,
+            medianGrossRent,
+            rentBurdenPct,
             bachelorsPlusPct,
             tractLabel: `Census Tract ${tract.tractName}`,
             insight,

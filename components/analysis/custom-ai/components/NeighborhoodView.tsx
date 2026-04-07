@@ -4,6 +4,10 @@ import { EmptyState } from './CommonComponents';
 import StaticParcelMap from '../../../property/StaticParcelMap';
 import NeighborhoodPlacesSection from '../../../property/NeighborhoodPlacesSection';
 import HistoricalDisasterSection from '../../../property/HistoricalDisasterSection';
+import { calculateAffordabilityScore } from '../../../../services/affordabilityService';
+import { AffordabilityCard } from './AffordabilityCard';
+import { CensusDemographicsCard } from './CensusDemographicsCard';
+import { CensusDemographics } from '../../../../services/api/environmental';
 
 interface NeighborhoodViewProps {
     data: CustomAIAnalysisResult['neighborhood'];
@@ -58,6 +62,13 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
         if (!raw || !Array.isArray(raw) || raw.length < 3) return undefined;
         return raw.map((pt: any) => Array.isArray(pt) ? pt : [pt.lon, pt.lat]) as [number, number][];
     }, [propertyData]);
+
+    const affordability = React.useMemo(() => {
+        if (propertyData?.census_demographics) {
+            return calculateAffordabilityScore(propertyData.census_demographics);
+        }
+        return null;
+    }, [propertyData?.census_demographics]);
 
     // Price tier color mapping
     const tierColors: Record<string, string> = {
@@ -237,95 +248,148 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
 
                     {/* Source attribution + data source detail cards */}
                     <div className="mt-4 pt-2 space-y-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Data Sources Queried:</span>
-                            <span className={`text-[10px] font-semibold ${cityPlan ? 'text-teal-500' : 'text-slate-300'}`}><i className="fa-solid fa-city mr-1" />City Plan</span>
-                            <span className={`text-[10px] font-semibold ${surveyorTract?.tract_id ? 'text-violet-500' : 'text-slate-300'}`}><i className="fa-solid fa-map mr-1" />Surveyor Tract</span>
-                        </div>
-
-                        {/* Data source detail cards — always show all sources */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-
-                            {/* City Plan (LMD + Specific Plan + Land Use) */}
-                            <div className={`rounded-xl p-4 shadow-sm ${cityPlan ? 'bg-white border border-teal-100' : 'bg-slate-50/50 border border-dashed border-slate-200'}`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${cityPlan ? 'bg-teal-50' : 'bg-slate-100'}`}>
-                                        <i className={`fa-solid fa-city text-[11px] ${cityPlan ? 'text-teal-500' : 'text-slate-300'}`} />
-                                    </div>
-                                    <div className={`text-[10px] font-black uppercase tracking-wider ${cityPlan ? 'text-teal-600' : 'text-slate-400'}`}>City of Pleasanton</div>
-                                </div>
-                                {cityPlan ? (
-                                    <>
-                                        {/* Primary name: LMD > Specific Plan */}
-                                        {(cityPlan.lmd_name || cityPlan.specific_plan) && (
-                                            <div className="text-[14px] font-bold text-slate-800 mb-1">
-                                                {cityPlan.lmd_name || cityPlan.specific_plan}
-                                            </div>
-                                        )}
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {cityPlan.lmd_name && (
-                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                                    <i className="fa-solid fa-tree mr-1 text-[8px]" />LMD
-                                                </span>
-                                            )}
-                                            {cityPlan.specific_plan && cityPlan.lmd_name && (
-                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">
-                                                    {cityPlan.specific_plan}
-                                                </span>
-                                            )}
-                                            {cityPlan.land_use_designation && (
-                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                                    {cityPlan.land_use_designation}
-                                                </span>
-                                            )}
-                                            {cityPlan.land_use_category && (
-                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200">
-                                                    {cityPlan.land_use_category}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="mt-1.5 text-[10px] text-slate-400">City ArcGIS — 3 layers queried</div>
-                                    </>
-                                ) : (
-                                    <div className="text-[12px] text-slate-400 italic">Outside city coverage</div>
-                                )}
+                        {/* Source attribution + data source detail cards */}
+                        <div className="mt-4 pt-2 space-y-4">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Data Sources Queried:</span>
+                                <span className={`text-[10px] font-semibold ${surveyorTract?.tract_id ? 'text-violet-500' : 'text-slate-300'}`}><i className="fa-solid fa-map mr-1" />Surveyor Tract</span>
+                                <span className={`text-[10px] font-semibold ${gemini?.nextdoor?.found ? 'text-emerald-500' : 'text-slate-300'}`}><i className="fa-solid fa-people-group mr-1" />Community Intelligence</span>
                             </div>
 
-                            {/* Surveyor Tract Map */}
-                            <div className={`rounded-xl p-4 shadow-sm ${surveyorTract?.tract_id ? 'bg-white border border-violet-100' : 'bg-slate-50/50 border border-dashed border-slate-200'}`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${surveyorTract?.tract_id ? 'bg-violet-50' : 'bg-slate-100'}`}>
-                                        <i className={`fa-solid fa-scroll text-[11px] ${surveyorTract?.tract_id ? 'text-violet-500' : 'text-slate-300'}`} />
+                            {/* Data source detail cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+
+                                {/* Nextdoor Community Intelligence */}
+                                {gemini?.nextdoor?.found && (
+                                    <div className="rounded-xl p-4 shadow-sm bg-white border border-emerald-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-50">
+                                                <i className="fa-solid fa-people-group text-[11px] text-emerald-500" />
+                                            </div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Community Intelligence</div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="bg-emerald-50/30 rounded-lg p-2 border border-emerald-100/50">
+                                                    <div className="text-[8px] font-black text-emerald-500 uppercase tracking-tight mb-0.5">Social Activity Score</div>
+                                                    <div className="flex items-end gap-1">
+                                                        <span className="text-sm font-black text-emerald-800 leading-none">{gemini.nextdoor.friendliness_score || '—'}</span>
+                                                        <span className="text-[9px] font-bold text-emerald-600/60 pb-0.5">/10</span>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-slate-50 rounded-lg p-2 border border-slate-200/50">
+                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-tight mb-0.5">Ownership</div>
+                                                    <div className="text-sm font-black text-slate-800 leading-none">
+                                                        {affordability?.signals?.ownerPct != null ? `${affordability.signals.ownerPct}%*` : (gemini.nextdoor?.home_ownership_pct || '—')}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-amber-50/30 rounded-lg p-2 border border-amber-100/50">
+                                                    <div className="text-[8px] font-black text-amber-500 uppercase tracking-tight mb-0.5">Affordability</div>
+                                                    <div className="flex items-end gap-1">
+                                                        <span className="text-sm font-black text-amber-800 leading-none">
+                                                            {affordability?.score || gemini.nextdoor?.affordability_score || '—'}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-amber-600/60 pb-0.5">/10</span>
+                                                    </div>
+                                                </div>
+                                                {affordability?.signals?.rentBurden !== undefined && affordability?.signals?.rentBurden !== null && (
+                                                    <div className="bg-blue-50/30 rounded-lg p-2 border border-blue-100/50">
+                                                        <div className="text-[8px] font-black text-blue-500 uppercase tracking-tight mb-0.5">Cost Burden</div>
+                                                        <div className="text-sm font-black text-blue-800 leading-none">{affordability?.signals?.rentBurden}%</div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {gemini.nextdoor.key_topics?.length > 0 && (
+                                                <div>
+                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Active Local Themes</div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {gemini.nextdoor.key_topics.slice(0, 3).map((t: any, ti: number) => (
+                                                            <span key={ti} className="text-[9px] font-medium text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-sm" title={t.description}>
+                                                                {t.topic}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {gemini.nextdoor.upcoming_events?.length > 0 && (
+                                                <div className="space-y-1.5">
+                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Upcoming Events</div>
+                                                    <div className="space-y-1">
+                                                        {gemini.nextdoor.upcoming_events.slice(0, 2).map((e: any, ei: number) => (
+                                                            <div key={ei} className="flex justify-between items-center p-1.5 rounded-lg bg-slate-50/80 border border-slate-100 gap-2">
+                                                                <span className="text-[10px] font-bold text-slate-800 truncate">{e.name}</span>
+                                                                <span className="shrink-0 text-[7px] font-black text-indigo-500 uppercase tracking-tighter bg-white px-1 py-0.5 rounded border border-indigo-100">{e.date}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                                {gemini.nextdoor.overall_city_rank && (
+                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-emerald-50/50">
+                                                        <div className="text-[7px] text-slate-400 font-medium italic opacity-60">*Aggregated from social platforms</div>
+                                                        <div className="text-[8px] text-slate-400 italic">#{gemini.nextdoor.overall_city_rank} neighborhood in {propertyData?.city || 'City'}</div>
+                                                    </div>
+                                                )}
+                                        </div>
                                     </div>
-                                    <div className={`text-[10px] font-black uppercase tracking-wider ${surveyorTract?.tract_id ? 'text-violet-600' : 'text-slate-400'}`}>Surveyor Tract Map</div>
-                                </div>
-                                {surveyorTract?.tract_id ? (
-                                    <>
-                                        <div className="text-[14px] font-bold text-slate-800">{surveyorTract.description || surveyorTract.tract_id}</div>
-                                        <div className="flex flex-wrap gap-1.5 mt-2">
-                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
-                                                <i className="fa-solid fa-hashtag mr-1 text-[8px]" />{surveyorTract.tract_id}
-                                            </span>
-                                            {surveyorTract.year && (
+                                )}
+
+                                {/* Surveyor Tract Map */}
+                                {surveyorTract?.tract_id && (
+                                    <div className="rounded-xl p-4 shadow-sm bg-white border border-violet-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-violet-50">
+                                                <i className="fa-solid fa-scroll text-[11px] text-violet-500" />
+                                            </div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-violet-600">Surveyor Tract Map</div>
+                                        </div>
+                                        <>
+                                            <div className="text-[14px] font-bold text-slate-800">{surveyorTract.description || surveyorTract.tract_id}</div>
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
                                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
-                                                    <i className="fa-solid fa-calendar mr-1 text-[8px]" />Filed {surveyorTract.year}
+                                                    <i className="fa-solid fa-hashtag mr-1 text-[8px]" />{surveyorTract.tract_id}
                                                 </span>
-                                            )}
-                                        </div>
-                                        {surveyorTract.roads && surveyorTract.roads.toUpperCase() !== 'NONE' && (
-                                            <div className="mt-2 text-[11px] text-slate-500">
-                                                <span className="font-bold text-slate-600">Roads: </span>{surveyorTract.roads}
+                                                {surveyorTract.year && (
+                                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
+                                                        <i className="fa-solid fa-calendar mr-1 text-[8px]" />Filed {surveyorTract.year}
+                                                    </span>
+                                                )}
                                             </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="text-[12px] text-slate-400 italic">No tract found in Alameda County Surveyor records</div>
+                                            {surveyorTract.roads && surveyorTract.roads.toUpperCase() !== 'NONE' && (
+                                                <div className="mt-2 text-[11px] text-slate-500">
+                                                    <span className="font-bold text-slate-600">Roads: </span>{surveyorTract.roads}
+                                                </div>
+                                            )}
+                                        </>
+                                    </div>
                                 )}
                             </div>
-
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ── Census Demographics Card ────────────────────── */}
+            {propertyData?.census_demographics && (
+                <CensusDemographicsCard data={propertyData.census_demographics as unknown as CensusDemographics} />
+            )}
+
+            {/* ── Cost of Living Card ──────────────────────── */}
+            {propertyData && (
+                <AffordabilityCard
+                    state={propertyData.state}
+                    city={propertyData.city}
+                    county={propertyData.county}
+                    countyFips={
+                        propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips
+                            ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
+                            : undefined
+                    }
+                    userId={(propertyData as any)._userId}
+                />
             )}
 
             {/* ── Hazard ──────────────────────────────────── */}
