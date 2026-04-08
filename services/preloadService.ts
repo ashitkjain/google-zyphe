@@ -310,7 +310,11 @@ export const runFullIntelligencePipeline = async (
       const assets = await securePropertyAssets(
         zpid,
         propData.images || [],
-        { zoomIn: radar.mapZoomIn, zoomOut: radar.mapZoomOut },
+        { 
+          zoomIn: radar.mapZoomIn, 
+          zoomOut: radar.mapZoomOut,
+          streetView: propData.streetView || null
+        },
         (p) => onLog?.(`[Assets] ${p.message}`)
       );
 
@@ -328,6 +332,7 @@ export const runFullIntelligencePipeline = async (
         coordinates: radar.coordinates,
         mapZoomIn: assets.mapZoomIn,
         mapZoomOut: assets.mapZoomOut,
+        streetView: assets.streetView,
         address: address
       };
       await savePropertyToCloud(zpid, enrichedData);

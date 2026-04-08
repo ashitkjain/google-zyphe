@@ -375,9 +375,33 @@ export const fetchPropertyDataFull = async (
                         // DON'T set streetViewDirty — this was an AI failure, not "source unavailable"
                     }
                 } else {
-                    console.log('[fetchPropertyDataFull] No Street View imagery available — skipping AI analysis.');
-                    mappedData.streetViewAnalysis = undefined;
-                    streetViewDirty = true; // Definitive: imagery confirmed unavailable
+                    // --- STORAGE DISCOVERY FALLBACK ---
+                    // Metadata check failed, but let's check if we already have it in storage
+                    let storageUrl: string | null = null;
+                    try {
+                        const { ref, getDownloadURL } = await import('firebase/storage');
+                        const { storage } = await import('../firebase/config');
+                        if (storage) {
+                            const svRef = ref(storage, `properties/${mappedData.zpid}/maps/street_view.jpg`);
+                            storageUrl = await getDownloadURL(svRef);
+                        }
+                    } catch { /* ignore discovery errors */ }
+
+                    if (storageUrl) {
+                        console.log(`[fetchPropertyDataFull] Discovered existing street view in storage for ${mappedData.zpid}. Running AI analysis...`);
+                        try {
+                            const userId = auth?.currentUser?.uid || 'unknown';
+                            const svAnalysis = await analyzeStreetView(storageUrl, mappedData, userId);
+                            mappedData.streetViewAnalysis = svAnalysis.data;
+                            streetViewDirty = true;
+                        } catch (e: any) {
+                            console.warn('[fetchPropertyDataFull] AI analysis on storage image failed:', e.message);
+                        }
+                    } else {
+                        console.log('[fetchPropertyDataFull] No Street View imagery available (API & Storage) — skipping AI analysis.');
+                        mappedData.streetViewAnalysis = undefined;
+                        streetViewDirty = true; // Definitive: imagery confirmed unavailable
+                    }
                 }
                 _mark('Street View analysis done');
             }

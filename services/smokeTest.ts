@@ -292,12 +292,13 @@ export function runChecks(
     chk(checks, 'conditionFinish', 'AI Visual — Condition & Finish', 'warn', 'ai_visual', !!(hi?.condition_and_finish && hi.condition_and_finish.length > 10),
         hi?.condition_and_finish ? `${hi.condition_and_finish.length} chars` : 'missing');
     const roomCount = Array.isArray(visual?.room_highlights) ? visual.room_highlights.length : 0;
-    // Relaxed rule: as long as at least one room is detected, we skip the warning.
-    // This allows "SBR" or "1 room" labels to pass regardless of the MLS bedroom count.
-    const roomCoverageOk = roomCount >= 1;
+    // Compare AI rooms against property bedrooms — the AI should document at least every bedroom.
+    // resoFacts.rooms is the total room count (often 8-10+), but bedrooms is the reliable minimum.
+    const bedroomCount = prop?.bedrooms ?? 0;
+    const roomCoverageOk = roomCount >= 1 && (bedroomCount === 0 || roomCount >= bedroomCount);
     chk(checks, 'roomHighlights', 'AI Visual — Room Highlights', 'warn', 'ai_visual', roomCoverageOk,
         roomCount > 0
-            ? `${roomCount} room${roomCount !== 1 ? 's' : ''} detected`
+            ? `${roomCount} rooms vs ${bedroomCount}BR${!roomCoverageOk ? ' — incomplete coverage' : ''}`
             : 'missing');
 
     // Visual sub-fields: curb appeal, backyard, privacy

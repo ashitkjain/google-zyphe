@@ -91,6 +91,34 @@ export const securePropertyAssets = async (
         }
     }
 
+    // --- STORAGE DISCOVERY FALLBACK ---
+    // If street view or maps are missing from input but exist in storage, recover them.
+    try {
+        const { ref, getDownloadURL } = await import('firebase/storage');
+        const { storage } = await import('./firebase/config');
+        if (storage) {
+            if (!persistentStreetView || !persistentStreetView.includes('firebasestorage')) {
+                const svRef = ref(storage, `properties/${zpid}/maps/street_view.jpg`);
+                await getDownloadURL(svRef).then(url => {
+                    persistentStreetView = url;
+                    console.log(`[AssetService] Recovered existing street view from storage for ${zpid}`);
+                }).catch(() => {});
+            }
+            if (!persistentMapZoomIn || !persistentMapZoomIn.includes('firebasestorage')) {
+                const ziRef = ref(storage, `properties/${zpid}/maps/zoom_in.png`);
+                await getDownloadURL(ziRef).then(url => {
+                    persistentMapZoomIn = url;
+                }).catch(() => {});
+            }
+            if (!persistentMapZoomOut || !persistentMapZoomOut.includes('firebasestorage')) {
+                const zoRef = ref(storage, `properties/${zpid}/maps/location_context.png`);
+                await getDownloadURL(zoRef).then(url => {
+                    persistentMapZoomOut = url;
+                }).catch(() => {});
+            }
+        }
+    } catch (e) { /* ignore discovery errors */ }
+
     // 3. Secure Gallery Images in batches
     const CHUNK_SIZE = 5;
     const total = imageUrls.length;
