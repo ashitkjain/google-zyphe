@@ -19,6 +19,7 @@ interface OrientationRow {
         final_orientation: string;
         azimuth_degrees: number | null;
         confidence: 'high' | 'medium' | 'low';
+        property_layout_type?: string;
         image_quality?: 'clear' | 'acceptable' | 'blurry';
         aerial_only_mode: boolean;
         feng_shui_vastu?: string | null;
@@ -249,6 +250,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
                     confidence: result.confidence,
+                    property_layout_type: result.property_layout_type,
                     image_quality: result.image_quality,
                     aerial_only_mode: result.aerial_only_mode,
                     feng_shui_vastu: result.feng_shui_vastu,
@@ -296,6 +298,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
                     confidence: result.confidence,
+                    property_layout_type: result.property_layout_type,
                     image_quality: result.image_quality,
                     aerial_only_mode: result.aerial_only_mode,
                     feng_shui_vastu: result.feng_shui_vastu,
@@ -524,6 +527,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Close-up Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Orientation Case</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[130px]">Radar Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Orientation Assessment</th>
@@ -613,6 +617,17 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                 },
                                             }} />
+                                        </td>
+
+                                        {/* Orientation Case */}
+                                        <td className="p-5">
+                                            {row.orientationAI?.property_layout_type ? (
+                                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 text-[10px] font-black uppercase tracking-tight">
+                                                    {row.orientationAI.property_layout_type.replace(/_/g, ' ')}
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                            )}
                                         </td>
 
                                         {/* Cached property orientation */}
@@ -802,6 +817,7 @@ interface OrientationSummary {
         final_orientation: string;
         azimuth_degrees: number | null;
         confidence: 'high' | 'medium' | 'low';
+        property_layout_type?: string;
         image_quality?: 'clear' | 'acceptable' | 'blurry';
         aerial_only_mode: boolean;
         feng_shui_vastu?: string | null;
