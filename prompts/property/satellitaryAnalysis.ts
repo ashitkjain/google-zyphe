@@ -109,8 +109,8 @@ TASK:
 1. FIRST — use Image A (aerial) to find the architectural FRONT ENTRANCE:
    - MANDATORY WALKWAY RULE: Trace the walkway. A walkway leading from the sidewalk 
      to a door defines the FRONT. 
-   - FOR TOWNHOMES/CORNER LOTS: The garage frequently faces the primary street while 
-     the front door faces a side courtyard or inner walkway (e.g., South).
+   - FOR TOWNHOMES/CORNER LOTS: The garage may face the primary street while 
+     the front door may face a side courtyard or inner walkway (e.g., South).
    - EXTREMELY IMPORTANT: Even if there is a house number (e.g. 3016) visible above 
      a door in Street View, if that door is attached to a garage and the aerial 
      shows a more formal walkway leading to a *different* face, you MUST choose 
@@ -301,6 +301,11 @@ export const satellitarySchema = {
             description: 'Approximate azimuth in degrees (0=North, 90=East, 180=South, 270=West). Omit or use null if truly uncertain.',
             nullable: true
         },
+        property_layout_type: {
+            type: Type.STRING,
+            enum: ['standard_lot', 'corner_lot', 'cul_de_sac', 'townhome_complex', 'flag_lot', 'irregular_lot', 'other'],
+            description: 'Categorize the property layout based on its position and access.'
+        },
         confidence: {
             type: Type.STRING,
             enum: ['high', 'medium', 'low'],
@@ -372,7 +377,7 @@ export const satellitarySchema = {
             nullable: true
         }
     },
-    required: ['image_quality', 'final_orientation', 'confidence', 'explanation', 'privacy_insight', 'buyer_pro', 'buyer_con', 'orientation_highlights']
+    required: ['property_layout_type', 'image_quality', 'final_orientation', 'confidence', 'explanation', 'privacy_insight', 'buyer_pro', 'buyer_con', 'orientation_highlights']
 };
 
 // ─── Legacy Aliases ───────────────────────────────────────────────────────────
@@ -390,6 +395,7 @@ export const ORIENTATION_PROMPT = ORIENTATION_PROMPT_DUAL;
 
 export function getDualPromptFinalInstructions(streetViewHeading?: number | null): string {
     return `
+0. PRE-TASK Analysis: Identify the property layout (standard, corner lot, cul-de-sac, townhome complex, flag lot, etc.).
 1. FIRST — use Image A (aerial) to identify the true FRONT DOOR location:
    - For CORNER LOTS: Prioritize the walkway/porch over side-facing garages.
 2. SECOND — Evaluate Image B (Street View):

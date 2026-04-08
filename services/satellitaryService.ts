@@ -25,6 +25,7 @@ export interface SatellitaryResult {
     azimuth_degrees: number | null;   // 0–360, GPS-accurate refined azimuth
     visual_azimuth_estimate: number | null; // The AI's raw visual guess before GPS refinement
     confidence: 'high' | 'medium' | 'low';
+    property_layout_type: 'standard_lot' | 'corner_lot' | 'cul_de_sac' | 'townhome_complex' | 'flag_lot' | 'irregular_lot' | 'other';
     image_quality: 'clear' | 'acceptable' | 'blurry'; // Satellite image clarity assessment
     explanation: string;              // Detailed step-by-step reasoning
     feng_shui_vastu: string | null;   // Feng Shui / Vastu tips (null if not applicable)
