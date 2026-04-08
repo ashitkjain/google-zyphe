@@ -15,10 +15,10 @@
 
 import { APP_CONFIG } from '../config';
 import { urlToBase64, executeGeminiRequest, FLASH_MODEL } from './geminiService';
-import { buildOrientationPromptDual, buildOrientationPromptAerialOnly, satellitarySchema } from '../prompts/property/satellitaryAnalysis';
+import { buildOrientationPromptDual, buildOrientationPromptAerialOnly, satellitarySchema, getDualPromptFinalInstructions } from '../prompts/property/satellitaryAnalysis';
 import { savePropertyOrientationToCloud } from './firebase/properties';
 
-const MAPS_API_KEY = APP_CONFIG.maps.key;
+const getMapsApiKey = () => APP_CONFIG.maps.key;
 
 export interface SatellitaryResult {
     final_orientation: string;        // e.g. "Northeast (approx. 45°)"
@@ -60,7 +60,7 @@ function buildAerialUrl(lat: number, lng: number): string {
         `&scale=2` +
         `&maptype=satellite` +
         `&markers=color:red%7Csize:mid%7C${lat},${lng}` +
-        `&key=${MAPS_API_KEY}`
+        `&key=${getMapsApiKey()}`
     );
 }
 
@@ -268,7 +268,7 @@ function buildStreetViewUrl(lat: number, lng: number, heading?: number | null): 
         `&source=outdoor` +
         `&return_error_code=true` +
         headingParam +
-        `&key=${MAPS_API_KEY}`
+        `&key=${getMapsApiKey()}`
     );
 }
 
@@ -293,7 +293,7 @@ async function fetchStreetViewHeading(
             `?location=${propertyLat},${propertyLng}` +
             `&radius=100` +
             `&source=outdoor` +
-            `&key=${MAPS_API_KEY}`;
+            `&key=${getMapsApiKey()}`;
         const meta = await fetch(metaUrl).then(r => r.json());
 
         // null == truly unavailable at this location
@@ -331,13 +331,11 @@ async function fetchStreetViewHeading(
 /**
  * Computes the GPS-accurate azimuth using Gemini's explicit front-face determination.
  *
- * Gemini's `street_view_shows_front` boolean (derived from aerial analysis) tells us
- * definitively whether Image B is showing the front or back of the house:
- *   - true  → camera photographed the FRONT → front faces BACK toward camera → (heading+180)%360
- *   - false → camera photographed the BACK/SIDE → front faces the SAME direction as camera → heading
- *   - null  → ambiguous (e.g. aerial-only mode) → fall back to Gemini's azimuth estimate
- *
- * This is deterministic — no proximity voting, no oscillation.
+ * Gemini's \`street_view_shows_front\` boolean tells us how to use the GPS heading:
+ *   - true  → camera is looking at the FRONT DOOR → front faces back toward camera → (heading+180)%360
+ *   - false → camera is looking at something else (side garage/back) → trust Gemini's reasoned aerial estimate.
+ *     (We can't safely assume it's the "back" because it might be a side-facing street.)
+ *   - null  → ambiguous/not asked → fall back to proximity-based voting.
  */
 function computeAccurateAzimuth(
     geminiAzimuth: number | null,
@@ -347,15 +345,19 @@ function computeAccurateAzimuth(
     // No heading → can't GPS-correct; trust Gemini's aerial estimate
     if (heading == null) return geminiAzimuth;
 
-    // Gemini explicitly told us which face Image B shows → apply GPS formula directly
+    // Gemini definitively identified the FRONT DOOR face → use GPS-accurate formula
     if (streetViewShowsFront === true) {
         return Math.round((heading + 180) % 360);
     }
+
+    // Gemini explicitly said the image is NOT the front door (e.g., side garage or back).
+    // In this case, 'heading' or 'heading+180' are unreliable candidates.
+    // We trust Gemini's reasoned aerial estimate instead.
     if (streetViewShowsFront === false) {
-        return Math.round(heading);
+        return geminiAzimuth;
     }
 
-    // Fallback: field missing (old results / aerial-only) → proximity-vote between candidates
+    // Fallback: field missing or ambiguous → proximity-vote between Front and Back candidates
     if (geminiAzimuth == null) return null;
     const angularDist = (a: number, b: number): number => {
         const d = Math.abs(a - b) % 360;
@@ -365,7 +367,7 @@ function computeAccurateAzimuth(
     const candidateBack  = heading;
     const dFront = angularDist(candidateFront, geminiAzimuth);
     const dBack  = angularDist(candidateBack,  geminiAzimuth);
-    if (Math.abs(dFront - dBack) < 5) return geminiAzimuth; // equidistant → keep Gemini's guess
+    if (Math.abs(dFront - dBack) < 5) return geminiAzimuth; // equidistant → keep Gemini
     return dFront < dBack ? candidateFront : candidateBack;
 }
 
@@ -433,9 +435,12 @@ export async function runSatellitaryAnalysis(
     const usesDualImage = !!streetB64;
     // Pass the known camera heading, address, and listing description into the prompt
     // so Gemini has maximum context (description may contain explicit facing direction)
-    const prompt = usesDualImage
+    const basePrompt = usesDualImage
         ? buildOrientationPromptDual(streetViewHeading, address, description)
         : buildOrientationPromptAerialOnly(address, description);
+
+    // Reinforce final instructions to ensure accurate door-vs-garage differentiation for corner lots
+    const prompt = basePrompt + "\n\n" + getDualPromptFinalInstructions(streetViewHeading);
 
     // ── 3. Call Gemini ────────────────────────────────────────────────────────
     const parts: any[] = [

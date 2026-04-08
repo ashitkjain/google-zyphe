@@ -190,10 +190,8 @@ export const runFullIntelligencePipeline = async (
           const { runChecks } = await import('./smokeTest');
           const { getThirdPartyDataFromCloud } = await import('./firebase/googleData');
           const envDoc = await getThirdPartyDataFromCloud(zpid).catch(() => null);
-          const smokeResult = runChecks(zpid, enrichedData, null, null, envDoc, null, null, {}, enrichedData.address);
-          const failedSources = new Set(
-            smokeResult.checks.filter(c => !c.passed).map(c => c.source)
-          );
+          const smokeResult = await runChecks(zpid, enrichedData, null, null, envDoc, null, null, {}, enrichedData.address);
+          const failedSources = new Set(smokeResult.checks.filter(c => !c.passed).map(c => c.source));
           const failedLabels = smokeResult.checks.filter(c => !c.passed).map(c => c.label);
 
           if (failedSources.size === 0) {
@@ -953,7 +951,7 @@ export const runFullIntelligencePipeline = async (
         }
       }
 
-      const smoke = runChecks(zpid, finalProp, finalAssets, finalVisual, finalEnv, finalComp, finalInv, schoolAnalyses);
+      const smoke = await runChecks(zpid, finalProp, finalAssets, finalVisual, finalEnv, finalComp, finalInv, schoolAnalyses);
       const failed = smoke.checks.filter(c => !c.passed);
 
       if (failed.length > 0) {
@@ -1000,7 +998,7 @@ export const runFullIntelligencePipeline = async (
         }
 
         // Re-run smoke test after retries to log final state
-        const finalSmoke = runChecks(zpid, 
+        const finalSmoke = await runChecks(zpid, 
           needsRapidApi ? enrichedData : finalProp,
           finalAssets, 
           needsVisual.length ? await getVisualAnalysisFromCloud(zpid) : finalVisual,

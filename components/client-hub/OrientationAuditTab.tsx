@@ -81,6 +81,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
     const [redownloadRunning, setRedownloadRunning] = useState(false);
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
+    const [showMissingOnly, setShowMissingOnly] = useState(false);
 
     // ── Fetch all properties + visual analyses ────────────────────────────────
     const fetchData = async () => {
@@ -178,31 +179,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 const sorted = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]);
                 setActiveCity(sorted[0]?.[0] || null);
             }
-
-            // Background: pre-cache satellite images for rows that don't have one yet
-            const toFetch = built.filter(
-                r => r.coordinates && !r.satelliteImageUrl
-            );
-            const CONCURRENCY = 10;
-            for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
-                const batch = toFetch.slice(i, i + CONCURRENCY);
-                await Promise.allSettled(
-                    batch.map(async row => {
-                        try {
-                            const url = await getOrCacheAerialSatelliteUrl(
-                                row.zpid,
-                                row.coordinates!.latitude,
-                                row.coordinates!.longitude
-                            );
-                            setRows(prev => prev.map(r =>
-                                r.zpid === row.zpid ? { ...r, satelliteImageUrl: url } : r
-                            ));
-                        } catch (e) {
-                            console.warn(`[OrientationAudit] Satellite cache failed for ${row.zpid}:`, e);
-                        }
-                    })
-                );
-            }
         } catch (e) {
             console.error('[OrientationAudit] Failed to fetch properties:', e);
         } finally {
@@ -221,9 +197,13 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             .map(([name, total]) => ({ name, total }));
     }, [rows]);
 
-    const filteredRows = useMemo(() =>
-        activeCity ? rows.filter(r => r.city === activeCity) : rows
-        , [rows, activeCity]);
+    const filteredRows = useMemo(() => {
+        let rs = activeCity ? rows.filter(r => r.city === activeCity) : rows;
+        if (showMissingOnly) {
+            rs = rs.filter(r => r.orientationAssessment.length === 0);
+        }
+        return rs;
+    }, [rows, activeCity, showMissingOnly]);
 
     // Running tally: how many filteredRows include each assessment option
     const assessmentCounts = useMemo(() => {
@@ -403,6 +383,19 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     )}
 
 
+                    {/* Filter missing */}
+                    <button
+                        onClick={() => setShowMissingOnly(!showMissingOnly)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showMissingOnly 
+                            ? 'bg-rose-50 border-rose-200 text-rose-700' 
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title="Toggle: show only properties needing assessment"
+                    >
+                        <i className={`fa-solid ${showMissingOnly ? 'fa-filter-circle-xmark' : 'fa-filter'} text-xs`} />
+                        {showMissingOnly ? 'Showing Missing' : 'Filter Missing'}
+                    </button>
+
                     {/* Re-download satellites — admin only */}
                     {isAdmin && (
                         <button
@@ -419,7 +412,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             ) : (
                                 <>
                                     <i className="fa-solid fa-satellite text-xs" />
-                                    Re-download Satellites
+                                    Refresh city images
                                 </>
                             )}
                         </button>
@@ -802,6 +795,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 // ─── Orientation summary types shared with MapThumb ─────────────────────────
 
 interface OrientationSummary {
+    zpid?: string;
+    coordinates?: { latitude: number; longitude: number };
     finalOrientation?: string | null;
     orientationAI?: {
         final_orientation: string;
@@ -837,10 +832,38 @@ function MapThumb({ url, label, orientations }: {
         <>
             <button
                 onClick={() => setOpen(true)}
-                className="w-16 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm hover:shadow-md hover:scale-105 transition-all mx-auto block"
+                className="w-16 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm hover:shadow-md hover:scale-105 transition-all mx-auto block relative group"
                 title={`View ${label}`}
             >
-                <img src={url} alt={label} className="w-full h-full object-cover" />
+                <img 
+                    src={url} 
+                    alt={label} 
+                    className="w-full h-full object-cover" 
+                    onError={async (e) => {
+                        const target = e.target as HTMLImageElement;
+                        console.warn(`[MapThumb] 404/Error on thumbnail: ${label} for ${orientations?.zpid}`);
+                        // 1. Show placeholder
+                        target.src = 'https://placehold.co/100x100/1e293b/FFFFFF?text=404';
+                        
+                        // 2. Proactive recovery: if we have coordinates and zpid, try to re-fetch/re-cache URL
+                        if (orientations?.zpid && (orientations as any).coordinates && label === 'Satellite' && ! (target as any)._retried) {
+                             (target as any)._retried = true;
+                             try {
+                                 const freshUrl = await getOrCacheAerialSatelliteUrl(
+                                     orientations.zpid, 
+                                     (orientations as any).coordinates.latitude, 
+                                     (orientations as any).coordinates.longitude
+                                 );
+                                 if (freshUrl) target.src = freshUrl;
+                             } catch (err) {
+                                 console.warn('[MapThumb] Auto-recovery failed:', err);
+                             }
+                        }
+                    }}
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <i className="fa-solid fa-expand text-[10px] text-white" />
+                </div>
             </button>
             {open && (
                 <div
@@ -854,7 +877,16 @@ function MapThumb({ url, label, orientations }: {
                         {/* Image */}
                         <div>
                             <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-2">{label}</div>
-                            <img src={url} alt={label} className="w-full rounded-2xl shadow-2xl" />
+                            <img 
+                                src={url} 
+                                alt={label} 
+                                className="w-full rounded-2xl shadow-2xl" 
+                                onError={(e) => {
+                                    // Handle broken storage links by attempting to clear them or showing error state
+                                    console.warn(`[MapThumb] Image failed to load: ${url}`);
+                                    (e.target as HTMLImageElement).src = 'https://placehold.co/640x640/1e293b/FFFFFF?text=Image+Unavailable';
+                                }}
+                            />
                         </div>
 
                         {/* Orientation panel */}

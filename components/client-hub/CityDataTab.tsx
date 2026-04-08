@@ -257,7 +257,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const id = String(item.zpid);
             const addrObj = item.location?.address;
             const builtAddress = addrObj
-                ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                ? centralFormatAddress(addrObj)
                 : (item.location?.address?.line || id);
             map[id] = builtAddress;
         });
@@ -3590,7 +3590,11 @@ ${JSON.stringify(propertySummaries)}
                                                     {/* Address */}
                                                     <div className="flex-1 min-w-0">
                                                         <div className="text-sm font-bold text-slate-900 truncate">{result.address}</div>
-                                                        <div className="text-[10px] text-slate-400 font-medium">{result.zpid}</div>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[10px] text-slate-400 font-medium">{result.zpid}</span>
+                                                            <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                                                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{result.homeType?.replace(/_/g, ' ')}</span>
+                                                        </div>
                                                     </div>
                                                     {/* Counts */}
                                                     <div className="flex items-center gap-2 shrink-0">

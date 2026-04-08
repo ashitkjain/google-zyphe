@@ -69,10 +69,10 @@ export const APP_CONFIG = {
         key: (import.meta as any).env?.VITE_RADAR_KEY || process.env.VITE_RADAR_KEY || ''
     },
     gemini: {
-        key: (import.meta as any).env?.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ""
+        get key() { return (import.meta as any).env?.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ""; }
     },
     maps: {
-        key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ""
+        get key() { return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ""; }
     },
     groq: {
         key: (import.meta as any).env?.VITE_GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || ''

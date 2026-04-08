@@ -471,20 +471,27 @@ export async function urlToBase64(url: string): Promise<{ data: string, mimeType
         throw new Error(`Status ${response.status}`);
       }
       const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          if (!result) {
-            reject(new Error("Empty result from FileReader"));
-            return;
-          }
-          const base64String = result.split(',')[1];
-          resolve({ data: base64String, mimeType: blob.type });
-        };
-        reader.onerror = () => reject(new Error("FileReader failed"));
-        reader.readAsDataURL(blob);
-      });
+      const mimeType = blob.type;
+
+      // Browser fallback (FileReader)
+      if (typeof FileReader !== 'undefined') {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            if (!result) { reject(new Error("Empty result from FileReader")); return; }
+            const base64String = result.split(',')[1];
+            resolve({ data: base64String, mimeType });
+          };
+          reader.onerror = () => reject(new Error("FileReader failed"));
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        // Node.js fallback (Buffer)
+        const arrayBuffer = await blob.arrayBuffer();
+        const base64String = Buffer.from(arrayBuffer).toString('base64');
+        return { data: base64String, mimeType };
+      }
     } catch (e: any) {
       console.log(`[urlToBase64] Direct fetch failed for ${url}: ${e.message}. Attempting proxy as last resort...`);
       try {

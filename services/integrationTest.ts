@@ -116,7 +116,7 @@ async function runSmokeForProperty(zpid: string): Promise<{ errors: string[]; wa
     }
   }
 
-  const result = runChecks(zpid, prop, assets, visual, env, comp, inv, schoolAnalyses);
+  const result = await runChecks(zpid, prop, assets, visual, env, comp, inv, schoolAnalyses);
   const errors = result.checks.filter(c => !c.passed && c.severity === 'error').map(c => c.id);
   const warnings = result.checks.filter(c => !c.passed && c.severity === 'warn').map(c => c.id);
   return { errors, warnings };

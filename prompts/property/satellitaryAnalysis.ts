@@ -75,9 +75,10 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
         `\n` +
         `STEP 0.5 — RESOLVE USING IMAGE A (do this before deciding how to use the heading):\n` +
         `Look at the aerial and identify which side of the building is the FRONT by finding:\n` +
-        `  • Driveway and/or garage door (strongest signal — which direction does it open toward?)\n` +
-        `  • Front walkway or landscaped front yard\n` +
-        `  • Which road the main entrance faces\n` +
+        `  • Driveway and/or garage door (usually a strong signal).\n` +
+        `  • Front walkway or landscaped front yard (often the DECISIVE signal for corner lots).\n` +
+        `  • Which road the main entrance faces.\n` +
+        `  • For CORNER LOTS: The garage is often on the secondary street, while the front door faces the primary address street. Look for architectural features like the porch or walkway.\n` +
         `  • For courts/cul-de-sacs: the front faces INTO the court (toward the court center/opening)\n` +
         `  • For complexes: the fronts face an internal private lane, NOT the bordering public road\n` +
         `\n` +
@@ -105,22 +106,31 @@ Assess the sharpness and resolution of Image A (Aerial Satellite).
 - If the image is sharp and detailed, set image_quality to "clear" and continue.
 
 TASK:
-1. FIRST — use Image A (aerial) to identify the FRONT of the property:
-   - Look for: driveway, garage door opening direction, front walkway, landscaped front yard.
-   - Strongest signal: which direction does the driveway/garage open toward on the North-up aerial?
-   - For courts/cul-de-sacs: the front faces INTO the court (toward the court center/opening).
-   - For multi-unit complexes: fronts face an internal private lane, NOT the bordering public road.
-   - Determine the compass direction that front wall points on the North-up aerial frame.
+1. FIRST — use Image A (aerial) to find the architectural FRONT ENTRANCE:
+   - MANDATORY WALKWAY RULE: Trace the walkway. A walkway leading from the sidewalk 
+     to a door defines the FRONT. 
+   - FOR TOWNHOMES/CORNER LOTS: The garage frequently faces the primary street while 
+     the front door faces a side courtyard or inner walkway (e.g., South).
+   - EXTREMELY IMPORTANT: Even if there is a house number (e.g. 3016) visible above 
+     a door in Street View, if that door is attached to a garage and the aerial 
+     shows a more formal walkway leading to a *different* face, you MUST choose 
+     the door with the walkway as the FRONT.
 
-2. Use the camera heading (${streetViewHeading != null ? `${streetViewHeading}°` : 'not available'}) as a SUPPORTING clue only:
-   - First decide which wall Image B is showing (front, back, or side) based on your aerial analysis.
-   - If Image B shows the FRONT: the front orientation = the direction that wall faces back toward the camera
-     (i.e., ~${streetViewHeading != null ? `${(streetViewHeading + 180) % 360}°` : 'N/A'} if scenario A applies).
-   - If Image B shows the BACK or SIDE: ignore the heading formula; use aerial cues for orientation.
-   - The heading is NOT a blindly-applied formula — confirm it makes sense against the aerial first.
+2. SECOND — Analyze Image B (Street View) to verify the face:
+   - Identify if Image B shows: (a) Garage, (b) Front Door, (c) Side Wall.
+   - If Image B shows a garage, and Image A shows a walkway to a DIFFERENT face, 
+     then \`street_view_shows_front\` MUST be false.
+   - Use the camera heading (${streetViewHeading != null ? `${streetViewHeading}°` : 'not available'}) 
+     to confirm which face you are looking at.
 
-3. Confirm the compass direction from the North-up aerial frame.
-4. Express the result as a specific compass direction and approximate azimuth in degrees.
+3. FINAL ORIENTATION:
+   - The orientation MUST be the direction the architectural FRONT DOOR points.
+   - PRIORITY: Walkway (Image A) > Architectural Features (Image B) > Street Address Name.
+   - Correctness is better than "appearing" correct based on the street name.
+
+4. FINAL VERIFICATION:
+   - Ensure \`final_orientation\` matches the DOOR face, NOT the garage face.
+
 5. If the orientation has a notably positive or auspicious quality in Feng Shui or Vastu Shastra
    (e.g. South-facing in Vastu, North or East in many Feng Shui traditions), provide a brief,
    warm feng_shui_vastu tip. If the orientation is neutral or unfavourable, set feng_shui_vastu to null.
@@ -154,7 +164,7 @@ TASK:
 
 Use this step-by-step reasoning format in your explanation:
   Step 1: Describe what you see in Image A. Identify which side of the building is the front
-          (look for driveway, garage, front yard, access road relationship). State the compass direction it faces.
+          (look for driveway, garage, front yard, access road relationship).
   Step 2: State the camera heading. Determine which face Image B is showing (front/back/side)
           based on your Step 1 aerial conclusion. Confirm or revise accordingly.
   Step 3: State your final compass direction and azimuth.
@@ -217,6 +227,8 @@ of the house faces using aerial cues only.
 TASK:
 1. Identify the building footprint.
 2. Determine which side of the building faces its primary entrance road.
+   - For CORNER LOTS: Do NOT default to the garage direction. The garage often faces a 
+     different street than the front door. Look for the front walkway or porch.
    - First, check if there is a small unnamed internal lane or private drive within or adjacent
      to the complex — units in apartments/townhomes typically front onto these internal roads.
    - If no internal lane exists: prefer the smaller, narrower residential road over a wide arterial.
@@ -373,3 +385,29 @@ export const ORIENTATION_PROMPT_AERIAL_ONLY = buildOrientationPromptAerialOnly()
 
 /** Legacy alias kept for backward compatibility. */
 export const ORIENTATION_PROMPT = ORIENTATION_PROMPT_DUAL;
+
+// ─── New: Final instruction block for the dual-prompt ─────────────────────
+
+export function getDualPromptFinalInstructions(streetViewHeading?: number | null): string {
+    return `
+1. FIRST — use Image A (aerial) to identify the true FRONT DOOR location:
+   - For CORNER LOTS: Prioritize the walkway/porch over side-facing garages.
+2. SECOND — Evaluate Image B (Street View):
+   - Skeptically check if it shows a garage or the actual front entrance.
+   - If Image B only shows the garage and the aerial says the front door is elsewhere, set \`street_view_shows_front\` to FALSE.
+3. FINAL ORIENTATION:
+   - MUST be the orientation of the FRONT DOOR face.
+   - Use camera heading (${streetViewHeading != null ? `${streetViewHeading}°` : 'not available'}) ONLY if Image B shows the front door.
+   - Otherwise, strictly use Northern-Oriented Aerial clues.
+4. Provide Feng Shui/Vastu tip if applicable.
+5. Identify privacy concerns (neighbors overlooking backyard).
+6. Estimate lot coverage/hardscape.
+7. Write buyer pro/con and highlights.
+8. Set \`street_view_shows_front\`: based on whether Image B is the wall with the FRONT DOOR.
+
+KEY HEURISTICS:
+- For CORNER LOTS: Do NOT confuse the garage face with the front door face. Look for architectural entrance features.
+- IMPORTANT: final_orientation MUST be the FRONT DOOR direction.
+- Base \`street_view_shows_front\` on your aerial analysis.
+`.trim();
+}
