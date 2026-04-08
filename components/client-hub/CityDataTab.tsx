@@ -3130,26 +3130,7 @@ ${JSON.stringify(propertySummaries)}
                             <div className="space-y-12 pb-20">
                                 <div className="flex flex-col gap-6">
                                     <div className="flex flex-wrap items-center gap-4">
-                                        {/* State Selection */}
-                                        {availableStates.length > 0 && (
-                                            <div className="flex items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                                                {availableStates.map(st => (
-                                                    <button
-                                                        key={st}
-                                                        onClick={() => setStateFilter(st)}
-                                                        className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
-                                                    >
-                                                        {st}
-                                                    </button>
-                                                ))}
-                                                <button
-                                                    onClick={() => setStateFilter('ALL')}
-                                                    className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
-                                                >
-                                                    All States
-                                                </button>
-                                            </div>
-                                        )}
+                                        {/* State Selection Removed as per Request */}
 
                                         {/* Property Type Selection */}
                                         {availablePropertyTypes.length > 0 && (
