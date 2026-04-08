@@ -303,8 +303,8 @@ export const satellitarySchema = {
         },
         property_layout_type: {
             type: Type.STRING,
-            enum: ['standard_lot', 'corner_lot', 'cul_de_sac', 'townhome_complex', 'flag_lot', 'irregular_lot', 'other'],
-            description: 'Categorize the property layout based on its position and access.'
+            enum: ['standard', 'standard_lot', 'corner_lot', 'cul_de_sac', 'flag_lot', 'irregular_lot', 'other'],
+            description: 'Categorize the property layout. "corner_lot" refers to a property or unit at an intersection or edge exposed on multiple sides.'
         },
         confidence: {
             type: Type.STRING,
@@ -395,7 +395,7 @@ export const ORIENTATION_PROMPT = ORIENTATION_PROMPT_DUAL;
 
 export function getDualPromptFinalInstructions(streetViewHeading?: number | null): string {
     return `
-0. PRE-TASK Analysis: Identify the property layout (standard, corner lot, cul-de-sac, townhome complex, flag lot, etc.).
+0. PRE-TASK Analysis: Identify the property layout (standard, corner lot (at intersection or edge), cul-de-sac, flag lot (long driveway access), etc.).
 1. FIRST — use Image A (aerial) to identify the true FRONT DOOR location:
    - For CORNER LOTS: Prioritize the walkway/porch over side-facing garages.
 2. SECOND — Evaluate Image B (Street View):

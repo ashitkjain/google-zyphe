@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, collectionGroup } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze } from '../../services/satellitaryService';
-
+import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl } from '../../services/satellitaryService';
+import { getLatestOrientationVersions } from '../../services/firebase/orientation_history';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
@@ -11,6 +11,8 @@ interface OrientationRow {
     zpid: string;
     address: string;
     city: string;
+    propertyType: string;
+    previousOrientation?: string;
     mapZoomIn?: string;           // Radar close-up road map
     mapZoomOut?: string;          // Radar wider-area road map
     satelliteImageUrl?: string;   // Google satellite 2× (for orientation analysis)
@@ -88,43 +90,33 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Fetch properties, visual analyses, and ai_assessment in parallel
             const [propSnap, visualSnap, assessmentSnap] = await Promise.all([
                 getDocs(query(collection(db, 'properties'), orderBy('address', 'asc'))),
                 getDocs(collection(db, 'property_analyses_visual')),
                 getDocs(collection(db, 'ai_assessment')),
             ]);
 
-            // Build a zpid → neighborhood orientation lookup from visual analyses (supporting both legacy and nested paths)
             const visualOrientationMap: Record<string, string> = {};
-            
-            // 2a. Legacy top-level collection
             visualSnap.docs.forEach(d => {
                 const va = d.data() as any;
                 const fo = va?.neighborhood?.orientation?.final_orientation;
                 if (fo) visualOrientationMap[d.id] = fo;
             });
 
-            // 2b. New nested analysis documents (using collectionGroup)
-            try {
-                const { collectionGroup } = await import('firebase/firestore');
-                const analysisGroupSnapshot = await getDocs(collectionGroup(db, 'analysis'));
-                analysisGroupSnapshot.forEach(d => {
-                    if (d.id === 'visual') {
-                        const zpid = d.ref.parent.parent?.id;
-                        if (zpid) {
-                            const va = d.data() as any;
-                            const fo = va?.neighborhood?.orientation?.final_orientation;
-                            if (fo) visualOrientationMap[zpid] = fo;
-                        }
-                    }
-                });
-            } catch (cgError) {
-                console.warn("[OrientationAuditTab] collectionGroup('analysis') query failed:", cgError);
-            }
+            const ALLOWED_CITIES = new Set(['Pleasanton', 'Dublin', 'pleasanton', 'dublin']);
 
-            // Build a zpid → orientation_assessment[] and assessedAt lookup from ai_assessment
-            // Handles both old single-string format and new array format
+            const activeDocs = propSnap.docs.filter(d => {
+                const data = d.data() as any;
+                const city = (data.city || '').trim();
+                // Exclude deprecated properties
+                if (data.deprecated === true || data.deprecated === 'true') return false;
+                // Only include Pleasanton and Dublin
+                return ALLOWED_CITIES.has(city);
+            });
+
+            const zpids = activeDocs.map(d => d.id);
+            const historyMap = await getLatestOrientationVersions(zpids);
+
             const orientationAssessmentMap: Record<string, OrientationAssessmentValue[]> = {};
             const assessedAtMap: Record<string, any> = {};
             assessmentSnap.docs.forEach(d => {
@@ -135,42 +127,37 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 if (Array.isArray(raw)) {
                     orientationAssessmentMap[d.id] = raw as OrientationAssessmentValue[];
                 } else if (typeof raw === 'string') {
-                    // backward compat: old single-value string
                     orientationAssessmentMap[d.id] = [raw as OrientationAssessmentValue];
                 }
             });
 
-            const HIDDEN_CITIES = new Set(['Hayward', 'hayward']);
-
-            const built: OrientationRow[] = propSnap.docs
-                .filter(d => !(d.data() as any).deprecated) // Skip deprecated (sold/inactive) properties
-                .filter(d => !HIDDEN_CITIES.has((d.data() as any).city || '')) // Skip hidden cities
-                .map(d => {
-                    const p = d.data() as any;
-                    return {
-                        zpid: d.id,
-                        address: p.address || d.id,
-                        city: p.city || 'Other',
-                        mapZoomIn: p.mapZoomIn || undefined,
-                        mapZoomOut: p.mapZoomOut || undefined,
-                        // Only use the satellite field — never fall back to mapZoomOut (which is a Radar road map)
-                        satelliteImageUrl: (p.satelliteImageUrl && p.satelliteImageUrl.includes('firebasestorage'))
-                            ? p.satelliteImageUrl : undefined,
-                        streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
-                        orientationAI: p.orientation_ai || null,
-                        finalOrientation:
-                            // 1. Satellitary-cached orientation (new, more accurate AI)
-                            (p.orientation_ai?.final_orientation as string | undefined) ||
-                            // 2. Neighborhood AI analysis (legacy/fallback)
-                            visualOrientationMap[d.id] ||
-                            null,
-                        coordinates: p.coordinates || undefined,
-                        orientationAssessment: orientationAssessmentMap[d.id] ?? [],
-                        assessedAt: assessedAtMap[d.id] ?? null,
-                        calculatedAt: p.orientation_calculated_at ?? null,
-                        status: 'idle' as const,
-                    };
-                });
+            const built: OrientationRow[] = activeDocs.map(d => {
+                const p = d.data() as any;
+                return {
+                    zpid: d.id,
+                    address: p.address || d.id,
+                    city: p.city || 'Other',
+                    propertyType: p.propertyType || 'Unknown',
+                    previousOrientation: historyMap[d.id] 
+                        ? `${historyMap[d.id].details.orientation} (v${historyMap[d.id].version})`
+                        : undefined,
+                    mapZoomIn: p.mapZoomIn || undefined,
+                    mapZoomOut: p.mapZoomOut || undefined,
+                    satelliteImageUrl: (p.satelliteImageUrl && p.satelliteImageUrl.includes('firebasestorage'))
+                        ? p.satelliteImageUrl : undefined,
+                    streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
+                    orientationAI: p.orientation_ai || null,
+                    finalOrientation:
+                        (p.orientation_ai?.final_orientation as string | undefined) ||
+                        visualOrientationMap[d.id] ||
+                        null,
+                    coordinates: p.coordinates || undefined,
+                    orientationAssessment: orientationAssessmentMap[d.id] ?? [],
+                    assessedAt: assessedAtMap[d.id] ?? null,
+                    calculatedAt: p.orientation_calculated_at ?? null,
+                    status: 'idle' as const,
+                };
+            });
 
             setRows(built);
 
@@ -206,10 +193,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         return rs;
     }, [rows, activeCity, showMissingOnly]);
 
-    // Running tally: how many filteredRows include each assessment option
     const assessmentCounts = useMemo(() => {
         const counts: Record<OrientationAssessmentValue, number> = {
-            radar_map: 0, satellite: 0, none: 0, all: 0,
+            radar_map: 0, satellite: 0, none: 0, all: 0, geocode: 0,
         };
         for (const row of filteredRows) {
             for (const v of row.orientationAssessment) {
@@ -224,7 +210,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         [filteredRows]
     );
 
-    // ── Run single row ────────────────────────────────────────────────────────
     const runForRow = async (zpid: string) => {
         const row = rows.find(r => r.zpid === zpid);
         if (!row?.coordinates) {
@@ -238,7 +223,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 row.coordinates.latitude,
                 row.coordinates.longitude,
                 row.streetView,
-                auth?.currentUser?.uid || 'unknown',  // userId for llm_call_events logging
+                auth?.currentUser?.uid || 'unknown',
                 zpid,
                 row.address
             );
@@ -269,7 +254,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
     };
 
-    // ── Force-refresh single row (delete images → re-download → re-analyze) ───
     const forceRefreshForRow = async (zpid: string) => {
         const row = rows.find(r => r.zpid === zpid);
         if (!row?.coordinates) {
@@ -290,10 +274,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
                 status: 'done',
-                // Update images with freshly downloaded versions
                 satelliteImageUrl: result.freshAerialUrl || r.satelliteImageUrl,
                 streetView: result.freshStreetViewUrl || r.streetView,
-                // Update orientation results
                 orientationAI: {
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
@@ -315,7 +297,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
     };
 
-    // ── Batch calculate orientations ──────────────────────────────────────────
     const handleBatchRun = async () => {
         const targets = filteredRows.filter(r => r.coordinates && r.status !== 'running');
         if (targets.length === 0) return;
@@ -329,8 +310,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         setBatchProgress(null);
     };
 
-
-    // ── Force re-download satellite images ────────────────────────────────────
     const handleRedownloadSatellites = async () => {
         const targets = filteredRows.filter(r => r.coordinates);
         if (targets.length === 0) return;
@@ -361,10 +340,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         setRedownloadProgress(null);
     };
 
-    // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-xl font-black text-slate-900">Orientation Audit</h2>
@@ -373,7 +350,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     </p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    {/* Refresh — admin only */}
                     {isAdmin && (
                         <button
                             onClick={fetchData}
@@ -384,9 +360,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             <i className={`fa-solid fa-arrows-rotate text-xs ${loading ? 'animate-spin' : ''}`} />
                         </button>
                     )}
-
-
-                    {/* Filter missing */}
                     <button
                         onClick={() => setShowMissingOnly(!showMissingOnly)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showMissingOnly 
@@ -399,7 +372,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         {showMissingOnly ? 'Showing Missing' : 'Filter Missing'}
                     </button>
 
-                    {/* Re-download satellites — admin only */}
                     {isAdmin && (
                         <button
                             onClick={handleRedownloadSatellites}
@@ -421,7 +393,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         </button>
                     )}
 
-                    {/* Calculate all orientations — admin only */}
                     {isAdmin && (
                         <button
                             onClick={handleBatchRun}
@@ -444,7 +415,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 </div>
             </div>
 
-            {/* City tabs */}
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
                 {cities.map(c => (
                     <button
@@ -463,7 +433,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 ))}
             </div>
 
-            {/* Progress bars */}
             {batchProgress && (
                 <ProgressBar label="Calculating satellite orientations…" progress={batchProgress} />
             )}
@@ -472,7 +441,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 <ProgressBar label="Re-downloading satellite images…" progress={redownloadProgress} />
             )}
 
-            {/* Table */}
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-32">
                     <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4" />
@@ -480,8 +448,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 </div>
             ) : (
                 <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-
-                    {/* Assessment accuracy summary bar */}
                     <div className="px-6 pt-5 pb-4 border-b border-slate-100">
                         <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-1">Assessment counts</span>
@@ -524,22 +490,24 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 <tr className="bg-slate-50 border-b border-slate-100">
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[140px]">Property</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Type</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Close-up Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Orientation Case</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[130px]">Radar Map</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Satellite</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Orientation Assessment</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Case</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Radar</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Latest AI</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Prev AI</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Assessment</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Calculated</th>
-                                <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Last Assessed</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Audited</th>
                                     {isAdmin && <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredRows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="py-24 text-center">
+                                        <td colSpan={14} className="py-24 text-center">
                                             <i className="fa-solid fa-folder-open text-4xl text-slate-100 mb-3 block" />
                                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties in this city</p>
                                         </td>
@@ -572,6 +540,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             {row.status === 'refreshing' && (
                                                 <div className="text-[9px] text-indigo-500 font-black mt-1">↻ Refreshing…</div>
                                             )}
+                                        </td>
+
+                                        <td className="p-5">
+                                            <div className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{row.propertyType}</div>
                                         </td>
 
                                         {/* Close-up map */}
@@ -630,7 +602,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             )}
                                         </td>
 
-                                        {/* Cached property orientation */}
+                                        {/* Radar orientation */}
                                         <td className="p-5">
                                             {row.finalOrientation ? (
                                                 <DirBadge label={row.finalOrientation} color="bg-slate-100 text-slate-700 border-slate-200" />
@@ -674,6 +646,17 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 </div>
                                             ) : (
                                                 <span className="text-[10px] text-slate-300 font-bold">—</span>
+                                            )}
+                                        </td>
+
+                                        {/* Last Result History */}
+                                        <td className="p-5">
+                                            {row.previousOrientation ? (
+                                                <div className="inline-flex items-center px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-lg">
+                                                    {row.previousOrientation}
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] font-black text-slate-200 italic">No history</span>
                                             )}
                                         </td>
 
@@ -1111,6 +1094,7 @@ function MapThumb({ url, label, orientations }: {
 const ASSESSMENT_OPTIONS: { value: OrientationAssessmentValue; label: string }[] = [
     { value: 'radar_map', label: 'Radar Map' },
     { value: 'satellite', label: 'Satellite' },
+    { value: 'geocode', label: 'Geocode' },
     { value: 'none', label: 'None' },
     { value: 'all', label: 'All' },
 ];
@@ -1118,6 +1102,7 @@ const ASSESSMENT_OPTIONS: { value: OrientationAssessmentValue; label: string }[]
 const ASSESSMENT_CHIP_COLOR: Record<OrientationAssessmentValue, string> = {
     radar_map: 'bg-amber-100  text-amber-700  border-amber-200',
     satellite: 'bg-blue-100   text-blue-700   border-blue-200',
+    geocode: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     none: 'bg-rose-100   text-rose-700   border-rose-200',
     all: 'bg-violet-100 text-violet-700 border-violet-200',
 };

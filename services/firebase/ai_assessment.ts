@@ -65,7 +65,7 @@ export const getAIAssessmentForProperty = async (mlsid: string) => {
 
 // ─── Orientation Assessment ───────────────────────────────────────────────────
 
-export type OrientationAssessmentValue = 'radar_map' | 'satellite' | 'none' | 'all';
+export type OrientationAssessmentValue = 'radar_map' | 'satellite' | 'none' | 'all' | 'geocode';
 
 /**
  * Saves only the orientation_assessment field to ai_assessment/{zpid}.

@@ -17,6 +17,9 @@ import { APP_CONFIG } from '../config';
 import { urlToBase64, executeGeminiRequest, FLASH_MODEL } from './geminiService';
 import { buildOrientationPromptDual, buildOrientationPromptAerialOnly, satellitarySchema, getDualPromptFinalInstructions } from '../prompts/property/satellitaryAnalysis';
 import { savePropertyOrientationToCloud } from './firebase/properties';
+import { logOrientationVersion } from './firebase/orientation_history';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase/config';
 
 const getMapsApiKey = () => APP_CONFIG.maps.key;
 
@@ -25,7 +28,7 @@ export interface SatellitaryResult {
     azimuth_degrees: number | null;   // 0–360, GPS-accurate refined azimuth
     visual_azimuth_estimate: number | null; // The AI's raw visual guess before GPS refinement
     confidence: 'high' | 'medium' | 'low';
-    property_layout_type: 'standard_lot' | 'corner_lot' | 'cul_de_sac' | 'townhome_complex' | 'flag_lot' | 'irregular_lot' | 'other';
+    property_layout_type: 'standard' | 'standard_lot' | 'corner_lot' | 'cul_de_sac' | 'flag_lot' | 'irregular_lot' | 'other';
     image_quality: 'clear' | 'acceptable' | 'blurry'; // Satellite image clarity assessment
     explanation: string;              // Detailed step-by-step reasoning
     feng_shui_vastu: string | null;   // Feng Shui / Vastu tips (null if not applicable)
@@ -521,6 +524,21 @@ export async function runSatellitaryAnalysis(
 
     // ── 4. Cache results to Firestore (fire-and-forget) ───────────────────────
     if (zpid) {
+        // Log orientation version for history
+        const docRef = doc(db, 'properties', zpid);
+        const propSnap = await getDoc(docRef);
+        const propertyData = propSnap.data() as any;
+        
+        await logOrientationVersion({
+            zpid,
+            city: propertyData?.city || 'unknown',
+            zip: propertyData?.zipCode || propertyData?.zip || 'unknown',
+            orientation: result.final_orientation,
+            azimuth: result.azimuth_degrees,
+            layout: result.property_layout_type
+        });
+
+        // Main persistence
         savePropertyOrientationToCloud(
             zpid,
             {

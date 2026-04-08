@@ -24,4 +24,5 @@ export * from './firebase/googleData';
 export * from './assetService';
 export * from './firebase/ai_assessment';
 export * from './firebase/stickyNotes';
+export * from './firebase/orientation_history';
 
