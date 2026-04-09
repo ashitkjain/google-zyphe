@@ -346,33 +346,55 @@ function computeAccurateAzimuth(
     heading: number | null,
     streetViewShowsFront: boolean | null | undefined
 ): number | null {
-    // No heading → can't GPS-correct; trust Gemini's aerial estimate
+    // If we have no street view heading, we MUST trust Gemini's aerial estimate
     if (heading == null) return geminiAzimuth;
 
-    // Gemini definitively identified the FRONT DOOR face → use GPS-accurate formula
-    if (streetViewShowsFront === true) {
-        return Math.round((heading + 180) % 360);
-    }
+    // The heading is the CAMERA's looking direction.
+    // If the camera looks at the FRONT face, the home faces BACK toward the camera (heading + 180).
+    const candidateFront = (heading + 180) % 360;
+    const candidateBack  = heading;
+    const candidateLeft  = (heading + 90) % 360;
+    const candidateRight = (heading + 270) % 360;
 
-    // Gemini explicitly said the image is NOT the front door (e.g., side garage or back).
-    // In this case, 'heading' or 'heading+180' are unreliable candidates.
-    // We trust Gemini's reasoned aerial estimate instead.
-    if (streetViewShowsFront === false) {
-        return geminiAzimuth;
-    }
-
-    // Fallback: field missing or ambiguous → proximity-vote between Front and Back candidates
-    if (geminiAzimuth == null) return null;
+    // Use Gemini's visual guess from the aerial image to "vote" for which candidate is most likely.
+    // Aerial guesses are usually fuzzy but get the "general quadrant" right.
     const angularDist = (a: number, b: number): number => {
         const d = Math.abs(a - b) % 360;
         return d > 180 ? 360 - d : d;
     };
-    const candidateFront = (heading + 180) % 360;
-    const candidateBack  = heading;
-    const dFront = angularDist(candidateFront, geminiAzimuth);
-    const dBack  = angularDist(candidateBack,  geminiAzimuth);
-    if (Math.abs(dFront - dBack) < 5) return geminiAzimuth; // equidistant → keep Gemini
-    return dFront < dBack ? candidateFront : candidateBack;
+
+    // If Gemini explicitly says street view is the front, we trust the heading+180 formula completely
+    if (streetViewShowsFront === true) {
+        return Math.round(candidateFront);
+    }
+
+    // If Gemini is unsure or says it's NOT the front (side/back), 
+    // we use geminiAzimuth as a compass to pick the closest 90-degree orthogonal candidate.
+    // This snaps Gemini's fuzzy visual guess to a GPS-accurate camera axis.
+    if (geminiAzimuth != null) {
+        const candidates = [
+            { angle: candidateFront, weight: streetViewShowsFront === false ? 0.5 : 1.0 }, // discount front if Gemini said it's not the front
+            { angle: candidateBack,  weight: streetViewShowsFront === false ? 1.5 : 1.0 }, // boost back/sides if Gemini said it's not the front
+            { angle: candidateLeft,  weight: streetViewShowsFront === false ? 1.5 : 1.0 },
+            { angle: candidateRight, weight: streetViewShowsFront === false ? 1.5 : 1.0 }
+        ];
+
+        let bestAngle = candidateFront;
+        let minDist = 360;
+
+        for (const c of candidates) {
+            const d = angularDist(c.angle, geminiAzimuth);
+            // Apply a small bias to the distance based on weight
+            const weightedDist = d / c.weight; 
+            if (weightedDist < minDist) {
+                minDist = weightedDist;
+                bestAngle = c.angle;
+            }
+        }
+        return Math.round(bestAngle);
+    }
+
+    return geminiAzimuth;
 }
 
 export async function runSatellitaryAnalysis(
@@ -561,6 +583,7 @@ export async function runSatellitaryAnalysis(
                 pool_direction: result.pool_direction ?? null,
                 garage_direction: result.garage_direction ?? null,
                 open_sky_direction: result.open_sky_direction ?? null,
+                layout: result.property_layout_type,
             }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }

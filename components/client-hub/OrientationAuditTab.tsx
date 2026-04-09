@@ -30,8 +30,13 @@ interface OrientationRow {
         lot_coverage_pervious?: number | null;
         buyer_pro?: string;
         buyer_con?: string;
+        pool_direction?: string | null;
+        garage_direction?: string | null;
+        open_sky_direction?: string | null;
+        layout?: string | null;
     } | null;
     finalOrientation?: string | null;
+    radarOrientation?: string | null;
     coordinates?: { latitude: number; longitude: number };
     orientationAssessment: OrientationAssessmentValue[];  // multi-select
     assessedAt?: any;        // Firestore Timestamp of last orientation_assessment save
@@ -85,6 +90,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [redownloadRunning, setRedownloadRunning] = useState(false);
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
     const [showMissingOnly, setShowMissingOnly] = useState(false);
+    const [showOrientationDiffOnly, setShowOrientationDiffOnly] = useState(false);
+    const [caseFilter, setCaseFilter] = useState<string>('all');
+    const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
 
     // ── Fetch all properties + visual analyses ────────────────────────────────
     const fetchData = async () => {
@@ -115,7 +123,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             });
 
             const zpids = activeDocs.map(d => d.id);
-            const historyMap = await getLatestOrientationVersions(zpids);
+            const historyMap = await getLatestOrientationVersions();
 
             const orientationAssessmentMap: Record<string, OrientationAssessmentValue[]> = {};
             const assessedAtMap: Record<string, any> = {};
@@ -133,13 +141,25 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
             const built: OrientationRow[] = activeDocs.map(d => {
                 const p = d.data() as any;
+                const history = historyMap[d.id];
+                const aiOrientation = p.orientation_ai?.final_orientation || null;
+                const radarOrientation = visualOrientationMap[d.id] || null;
+
+                // Determine "Previous" value:
+                // If history.latest matches current AI (likely just calculated), use history.previous
+                // Otherwise use history.latest as the baseline.
+                let prevRecord = history?.latest;
+                if (aiOrientation && prevRecord && normalizeDir(prevRecord.details.orientation) === normalizeDir(aiOrientation)) {
+                    prevRecord = history?.previous;
+                }
+
                 return {
                     zpid: d.id,
                     address: p.address || d.id,
                     city: p.city || 'Other',
-                    propertyType: p.propertyType || 'Unknown',
-                    previousOrientation: historyMap[d.id] 
-                        ? `${historyMap[d.id].details.orientation} (v${historyMap[d.id].version})`
+                    propertyType: (p.homeType || p.propertyType || p.home_type || p.property_type || p.type || 'Unknown').replace(/_/g, ' '),
+                    previousOrientation: prevRecord 
+                        ? `${prevRecord.details.orientation} (v${prevRecord.version})`
                         : undefined,
                     mapZoomIn: p.mapZoomIn || undefined,
                     mapZoomOut: p.mapZoomOut || undefined,
@@ -147,10 +167,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         ? p.satelliteImageUrl : undefined,
                     streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
                     orientationAI: p.orientation_ai || null,
-                    finalOrientation:
-                        (p.orientation_ai?.final_orientation as string | undefined) ||
-                        visualOrientationMap[d.id] ||
-                        null,
+                    finalOrientation: aiOrientation || radarOrientation,
+                    radarOrientation: radarOrientation,
                     coordinates: p.coordinates || undefined,
                     orientationAssessment: orientationAssessmentMap[d.id] ?? [],
                     assessedAt: assessedAtMap[d.id] ?? null,
@@ -185,13 +203,59 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             .map(([name, total]) => ({ name, total }));
     }, [rows]);
 
+    const allCases = useMemo(() => {
+        const cases = new Set<string>();
+        rows.forEach(r => {
+            if (r.orientationAI?.property_layout_type) {
+                cases.add(r.orientationAI.property_layout_type);
+            }
+        });
+        return Array.from(cases).sort();
+    }, [rows]);
+
+    const allPropertyTypes = useMemo(() => {
+        const types = new Set<string>();
+        rows.forEach(r => {
+            if (r.propertyType) {
+                types.add(r.propertyType);
+            }
+        });
+        return Array.from(types).sort();
+    }, [rows]);
+
+    const normalizeDir = (s: string) => {
+        if (!s) return '';
+        // Extract "North" from "North (~0°)" or "NORTH (v1)"
+        return s.split(' ')[0].split('(')[0].trim().toLowerCase();
+    };
+
     const filteredRows = useMemo(() => {
         let rs = activeCity ? rows.filter(r => r.city === activeCity) : rows;
         if (showMissingOnly) {
             rs = rs.filter(r => r.orientationAssessment.length === 0);
         }
+        if (showOrientationDiffOnly) {
+            rs = rs.filter(r => {
+                if (!r.orientationAI) return false;
+                const current = normalizeDir(r.orientationAI.final_orientation);
+                
+                // Only count as "changed" if it differs from an existing baseline
+                // (Radar or History). If there's no baseline, it's considered "new", not "changed".
+                
+                if (r.radarOrientation && normalizeDir(r.radarOrientation) !== current) return true;
+                if (r.previousOrientation && normalizeDir(r.previousOrientation) !== current) return true;
+                
+                return false;
+            });
+        }
+        if (caseFilter !== 'all') {
+            rs = rs.filter(r => r.orientationAI?.property_layout_type === caseFilter);
+        }
+        if (propertyTypeFilter !== 'all') {
+            rs = rs.filter(r => r.propertyType === propertyTypeFilter);
+        }
         return rs;
-    }, [rows, activeCity, showMissingOnly]);
+    }, [rows, activeCity, showMissingOnly, showOrientationDiffOnly, caseFilter, propertyTypeFilter]);
 
     const assessmentCounts = useMemo(() => {
         const counts: Record<OrientationAssessmentValue, number> = {
@@ -369,8 +433,48 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         title="Toggle: show only properties needing assessment"
                     >
                         <i className={`fa-solid ${showMissingOnly ? 'fa-filter-circle-xmark' : 'fa-filter'} text-xs`} />
-                        {showMissingOnly ? 'Showing Missing' : 'Filter Missing'}
+                        {showMissingOnly ? 'Missing Assessment' : 'Filter Missing'}
                     </button>
+
+                    <button
+                        onClick={() => setShowOrientationDiffOnly(!showOrientationDiffOnly)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showOrientationDiffOnly 
+                            ? 'bg-amber-50 border-amber-200 text-amber-700' 
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title="Toggle: show properties where current AI orientation differs from history"
+                    >
+                        <i className={`fa-solid fa-code-compare text-xs`} />
+                        {showOrientationDiffOnly ? 'Orientation Changed' : 'Filter Changed'}
+                    </button>
+
+                    <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-xl shadow-sm">
+                        <span className="text-[9px] font-black text-slate-400 uppercase">Case:</span>
+                        <select 
+                            value={caseFilter}
+                            onChange={(e) => setCaseFilter(e.target.value)}
+                            className="bg-transparent text-[11px] font-black text-slate-700 uppercase tracking-tight focus:outline-none cursor-pointer"
+                        >
+                            <option value="all">All Cases</option>
+                            {allCases.map(c => (
+                                <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-xl shadow-sm">
+                        <span className="text-[9px] font-black text-slate-400 uppercase">Type:</span>
+                        <select 
+                            value={propertyTypeFilter}
+                            onChange={(e) => setPropertyTypeFilter(e.target.value)}
+                            className="bg-transparent text-[11px] font-black text-slate-700 uppercase tracking-tight focus:outline-none cursor-pointer"
+                        >
+                            <option value="all">All Types</option>
+                            {allPropertyTypes.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
 
                     {isAdmin && (
                         <button
@@ -593,9 +697,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                         {/* Orientation Case */}
                                         <td className="p-5">
-                                            {row.orientationAI?.property_layout_type ? (
+                                            {row.orientationAI?.layout || row.orientationAI?.property_layout_type ? (
                                                 <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 text-[10px] font-black uppercase tracking-tight">
-                                                    {row.orientationAI.property_layout_type.replace(/_/g, ' ')}
+                                                    {(row.orientationAI?.layout || row.orientationAI?.property_layout_type || '').replace(/_/g, ' ')}
                                                 </div>
                                             ) : (
                                                 <span className="text-[10px] text-slate-200 font-bold">—</span>
@@ -604,8 +708,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                         {/* Radar orientation */}
                                         <td className="p-5">
-                                            {row.finalOrientation ? (
-                                                <DirBadge label={row.finalOrientation} color="bg-slate-100 text-slate-700 border-slate-200" />
+                                            {row.radarOrientation ? (
+                                                <DirBadge label={row.radarOrientation} color="bg-slate-100 text-slate-700 border-slate-200" />
                                             ) : (
                                                 <span className="text-[10px] text-slate-300 font-bold">—</span>
                                             )}

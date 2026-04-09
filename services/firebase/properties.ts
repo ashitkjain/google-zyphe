@@ -181,6 +181,7 @@ export const savePropertyOrientationToCloud = async (
         pool_direction?: string | null;
         garage_direction?: string | null;
         open_sky_direction?: string | null;
+        layout?: string | null;
     } | null
 ): Promise<{ success: boolean; error?: string }> => {
     if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };

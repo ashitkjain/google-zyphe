@@ -1,5 +1,6 @@
 import { db } from './config';
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, limit, getDocs, collectionGroup } from 'firebase/firestore';
+import * as firestore from 'firebase/firestore';
+
 
 export interface OrientationVersion {
     zpid: string;
@@ -12,6 +13,11 @@ export interface OrientationVersion {
         layout?: string;
     };
     dateMined: any;
+}
+
+export interface OrientationHistorySnapshot {
+    latest?: OrientationVersion;
+    previous?: OrientationVersion;
 }
 
 /**
@@ -31,22 +37,22 @@ export async function logOrientationVersion(data: {
         const zpid = data.zpid;
 
         // Path: orientation_versions/{city}/zips/{zip}/zpids/{zpid}/history/{vN}
-        const historyColRef = collection(db, 'orientation_versions', city, 'zips', zip, 'zpids', zpid, 'history');
+        const historyColRef = firestore.collection(db, 'orientation_versions', city, 'zips', zip, 'zpids', zpid, 'history');
         
         // Find next version number for this specific property
-        const qLast = query(
+        const qLast = firestore.query(
             historyColRef,
-            orderBy('version', 'desc'),
-            limit(1)
+            firestore.orderBy('version', 'desc'),
+            firestore.limit(1)
         );
-        const lastSnap = await getDocs(qLast);
+        const lastSnap = await firestore.getDocs(qLast);
         let nextVersion = 1;
         if (!lastSnap.empty) {
             nextVersion = (lastSnap.docs[0].data().version || 0) + 1;
         }
 
         const docId = `v${nextVersion}`;
-        await setDoc(doc(historyColRef, docId), {
+        await firestore.setDoc(firestore.doc(historyColRef, docId), {
             city,
             zip,
             zpid,
@@ -56,38 +62,44 @@ export async function logOrientationVersion(data: {
                 azimuth: data.azimuth,
                 layout: data.layout
             },
-            dateMined: serverTimestamp()
+            dateMined: firestore.serverTimestamp()
         });
+
+        console.log(`[logOrientationVersion] Successfully logged v${nextVersion} for ${zpid} under ${city}/${zip}`);
     } catch (e) {
-        console.error("[logOrientationVersion] Error saving history:", e);
+        console.error('[logOrientationVersion] Error saving history:', e);
     }
 }
 
 /**
- * Fetches the most recent previous orientation versions for a list of ZPIDs
+ * Retrieves latest versions for all zpids using collectionGroup
  */
-export async function getLatestOrientationVersions(zpids: string[]): Promise<Record<string, OrientationVersion>> {
-    const results: Record<string, OrientationVersion> = {};
-    if (!zpids.length) return results;
-
+export async function getLatestOrientationVersions(): Promise<Record<string, OrientationHistorySnapshot>> {
+    const results: Record<string, OrientationHistorySnapshot> = {};
     try {
         // Use collectionGroup to fetch across all 'history' subcollections
-        const snap = await getDocs(collectionGroup(db, 'history'));
+        const snap = await firestore.getDocs(firestore.collectionGroup(db, 'history'));
         
-        const latestByZpid: Record<string, any> = {};
+        // Group by ZPID and sort by dateMined descending
+        const grouped: Record<string, OrientationVersion[]> = {};
         snap.docs.forEach(d => {
-            const data = d.data();
-            const zpid = data.zpid;
-            const time = data.dateMined?.toMillis?.() || 0;
-            if (!latestByZpid[zpid] || time > (latestByZpid[zpid].dateMined?.toMillis?.() || 0)) {
-                latestByZpid[zpid] = { ...data };
-            }
+            const data = d.data() as OrientationVersion;
+            if (!grouped[data.zpid]) grouped[data.zpid] = [];
+            grouped[data.zpid].push(data);
         });
 
-        zpids.forEach(zpid => {
-            if (latestByZpid[zpid]) {
-                results[zpid] = latestByZpid[zpid] as OrientationVersion;
-            }
+        Object.keys(grouped).forEach(zpid => {
+            // Sort by dateMined (latest first)
+            const sorted = grouped[zpid].sort((a, b) => {
+                const tA = a.dateMined?.toMillis?.() || 0;
+                const tB = b.dateMined?.toMillis?.() || 0;
+                return tB - tA;
+            });
+
+            results[zpid] = {
+                latest: sorted[0],
+                previous: sorted[1]
+            };
         });
     } catch (e) {
         console.error("[getLatestOrientationVersions] Error fetching history:", e);
