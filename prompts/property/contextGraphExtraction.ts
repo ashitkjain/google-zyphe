@@ -152,6 +152,7 @@ or "south-facing backyard for my vegetable garden".
 ${skipNote}
 Given the property data below, extract structured decision factors. For each factor, return:
 - The factor ID (no name needed)
+- Value: A concise, 1-2 sentence human-readable summary of the factor's state for this specific property (e.g., "Recently renovated with modern quartz counters and hardwood floors. Features high-end stainless steel appliances.")
 - Tags: 2-6 labels, each exactly 2-5 words. Every tag must be:
   (a) SELF-CONTAINED — meaningful without reading other tags or the factor name
   (b) SPECIFIC — include qualifiers, locations, materials, measurements
@@ -341,10 +342,10 @@ ${JSON.stringify(context, null, 2)}
 Return a JSON object with this structure:
 {
   "address": "full address",
-  "extractedAt": "ISO timestamp",
   "factors": [
     {
       "id": 23,
+      "value": "Modern architectural style with floor-to-ceiling glass and a flat roof design. The exterior features a mix of cedar siding and concrete panels.",
       "tags": ["Modern flat roof", "Floor-to-ceiling glass", "Minimalist exterior"]
     },
     ...
@@ -373,13 +374,14 @@ const factorSchema = {
     type: Type.OBJECT,
     properties: {
         id: { type: Type.NUMBER, description: "Factor ID" },
+        value: { type: Type.STRING, description: "Exactly one human-readable sentence summarizing the factor." },
         tags: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
             description: "2-6 semantic matching tags, each 2-5 words. Self-contained, non-redundant, search-ready natural language phrases."
         }
     },
-    required: ["id", "tags"]
+    required: ["id", "value", "tags"]
 };
 
 const summarySchema = {
@@ -396,10 +398,9 @@ export const contextGraphExtractionSchema = {
     type: Type.OBJECT,
     properties: {
         address: { type: Type.STRING },
-        extractedAt: { type: Type.STRING },
         factors: { type: Type.ARRAY, items: factorSchema },
         summary: summarySchema
     },
-    required: ["address", "extractedAt", "factors", "summary"]
+    required: ["address", "factors", "summary"]
 };
 

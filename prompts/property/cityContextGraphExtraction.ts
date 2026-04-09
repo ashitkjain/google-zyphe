@@ -12,8 +12,8 @@ import { CITY_LEVEL_FACTOR_IDS, FACTOR_NAMES } from "../../constants/contextGrap
 
 export interface CityContextGraphResult {
     city: string;
-    extractedAt: string;
-    factors: { id: number; tags: string[] }[];
+    lastUpdated?: any;
+    factors: { id: number; value: string; tags: string[] }[];
     summary: {
         marketOverview: string;
         communityHighlights: string;
@@ -105,9 +105,12 @@ ${JSON.stringify(context, null, 0)}
 Return a JSON object:
 {
   "city": "${context.city}",
-  "extractedAt": "ISO timestamp",
   "factors": [
-    { "id": 70, "tags": ["Seller's Market", "12 Days Median DOM", "Low Inventory"] },
+    { 
+      "id": 70, 
+      "value": "Major tech and healthcare hub with sustained population growth. The market remains competitive due to high-paying jobs and limited new supply.", 
+      "tags": ["Primary tech hub", "Healthcare industry base", "Sustained jobs growth"] 
+    },
     ...
   ],
   "summary": {
@@ -118,8 +121,9 @@ Return a JSON object:
 
 RULES:
 - Extract ALL 14 factors listed above (IDs: ${CITY_LEVEL_FACTOR_IDS.join(', ')})
-- If data is missing for a factor, use tags: ["Data Not Available"]
-- Tags: 2-8 short labels (1-4 words each) with specific numbers and categories
+- **One-Sentence Summaries**: For each factor, provide a **1-2 sentence** human-readable value that summarizes the data.
+- For each factor, return a 'value' and 2-8 'tags' (1-4 words each)
+- If data is missing for a factor, use tags: ["Data Not Available"] and a generic value.
 - Be specific — include actual percentages, DOM numbers, and trend data
 `;
 };
@@ -128,16 +132,16 @@ export const cityContextGraphSchema = {
     type: Type.OBJECT,
     properties: {
         city: { type: Type.STRING },
-        extractedAt: { type: Type.STRING },
         factors: {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
                     id: { type: Type.NUMBER },
+                    value: { type: Type.STRING, description: "Exactly one human-readable sentence summarizing the city-level factor." },
                     tags: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ["id", "tags"]
+                required: ["id", "value", "tags"]
             }
         },
         summary: {
@@ -149,5 +153,5 @@ export const cityContextGraphSchema = {
             required: ["marketOverview", "communityHighlights"]
         }
     },
-    required: ["city", "extractedAt", "factors", "summary"]
+    required: ["city", "factors", "summary"]
 };

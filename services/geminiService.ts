@@ -651,7 +651,7 @@ export const extractCityContextGraph = async (
 
   console.log(`[City Context Graph] Extracting 14 city-level factors for ${city}, ${state}...`);
 
-  return executeGeminiRequest<CityContextGraphResult>({
+  const result = await executeGeminiRequest<CityContextGraphResult>({
     model: FLASH_MODEL,
     contents: prompt,
     config: { temperature: 0.3, maxOutputTokens: 4096 },
@@ -660,6 +660,11 @@ export const extractCityContextGraph = async (
     extractResultJson: true,
     schema: cityContextGraphSchema
   });
+
+  if (result.data) {
+    result.data.lastUpdated = new Date();
+  }
+  return result;
 };
 
 // ── Property-Level Context Graph ──────────────────────────────────────────
@@ -769,6 +774,7 @@ export const extractContextGraphFactors = async (
   // Cast to any[] — compact {i,t} is the serialization format; resolveFactor() expands it at read time.
   const compactFactors = cleanedFactors.map(f => ({
     i: f.id,
+    v: f.value ?? '',
     t: f.tags ?? []
   })) as any[];
 
@@ -778,6 +784,7 @@ export const extractContextGraphFactors = async (
       ...aiResult.data,
       factors: compactFactors,
       keyMetrics,
+      lastUpdated: new Date()
     }
   };
 };

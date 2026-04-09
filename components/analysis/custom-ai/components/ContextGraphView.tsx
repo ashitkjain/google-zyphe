@@ -72,13 +72,18 @@ const getCategoryForFactor = (id: number): string => {
 const FactorRow: React.FC<{ factor: ExtractedFactor }> = ({ factor }) => {
     const tagStyle = TAG_COLOR_MAP[factor.id] || DEFAULT_TAG_STYLE;
     return (
-        <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-            <td className="py-2 px-3 text-sm text-slate-700 font-medium whitespace-nowrap">
-                <span className="text-[9px] font-black text-slate-300 mr-1.5">#{factor.id}</span>
-                {factor.name}
+        <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors align-top">
+            <td className="py-3 px-3 text-sm text-slate-700 font-medium w-[20%]">
+                <div className="flex items-center">
+                    <span className="text-[9px] font-black text-slate-300 mr-1.5">#{factor.id}</span>
+                    <span className="font-bold">{factor.name}</span>
+                </div>
             </td>
-            <td className="py-2 px-3">
-                <div className="flex flex-wrap gap-1">
+            <td className="py-3 px-3 text-[11px] text-slate-500 font-normal leading-relaxed italic w-[45%] pr-4 border-x border-slate-50">
+                {factor.value && factor.value !== 'Data not available' ? factor.value : '-'}
+            </td>
+            <td className="py-3 px-3 w-[35%]">
+                <div className="flex flex-wrap gap-1 mt-0.5">
                     {factor.tags.map((tag, i) => (
                         <span key={i} className={`text-[10px] font-bold ${tagStyle.text} ${tagStyle.bg} px-2 py-0.5 rounded-md border ${tagStyle.border}`}>
                             {tag}
@@ -97,7 +102,7 @@ const CategorySection: React.FC<{ categoryKey: string; factors: ExtractedFactor[
     return (
         <>
             <tr className={`bg-${cat.color}-50/50`}>
-                <td colSpan={2} className="py-2.5 px-3">
+                <td colSpan={3} className="py-2.5 px-3">
                     <div className="flex items-center gap-2">
                         <i className={`fa-solid ${cat.icon} text-${cat.color}-500 text-xs`}></i>
                         <span className="text-xs font-black text-slate-700">{cat.label}</span>
@@ -168,6 +173,15 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
         ? neighborhoodFactor.value.split(' — ')[0].split(',')[0].trim()
         : null;
 
+    // Helper to format lastUpdated from either Firestore Timestamp or Date
+    const formatUpdateDate = (dateInfo: any) => {
+        if (!dateInfo) return 'Unknown';
+        // Firestore Timestamp
+        if (dateInfo.seconds) return new Date(dateInfo.seconds * 1000).toLocaleDateString();
+        // Date object or string
+        return new Date(dateInfo).toLocaleDateString();
+    };
+
     return (
         <div className="space-y-6">
             {/* Minimal header */}
@@ -176,7 +190,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                     {neighborhoodName && (
                         <><span className="text-slate-600 font-semibold">{neighborhoodName}</span> · </>
                     )}
-                    Extracted {new Date(data.extractedAt).toLocaleDateString()} · {totalFactors} factors · ~{tokenLabel} tokens
+                    Extracted {formatUpdateDate(data.lastUpdated)} · {totalFactors} factors · ~{tokenLabel} tokens
                 </span>
                 <button onClick={onExtract} title="Re-extract context graph" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                     <i className="fa-solid fa-rotate text-slate-400 hover:text-indigo-500 text-[11px]"></i>
@@ -269,8 +283,9 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
             <table className="w-full border-collapse bg-white border border-slate-200 rounded-xl overflow-hidden">
                 <thead>
                     <tr className="bg-slate-100 border-b border-slate-200">
-                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-1/3">Factor</th>
-                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Tags</th>
+                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[20%]">Factor</th>
+                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[45%]">Insight</th>
+                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[35%]">Semantic Tags</th>
                     </tr>
                 </thead>
                 <tbody>

@@ -275,7 +275,8 @@ export interface ContextGraphEnrichment {
 
 export interface ContextGraphExtractionResult {
     address: string;
-    extractedAt: string;
+    extractedAt?: string;
+    lastUpdated?: any;
     factors: ExtractedFactor[];
     keyMetrics?: ContextGraphKeyMetrics;
     enrichment?: ContextGraphEnrichment;
