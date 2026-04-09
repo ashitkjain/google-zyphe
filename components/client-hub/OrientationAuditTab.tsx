@@ -41,6 +41,10 @@ interface OrientationRow {
     orientationAssessment: OrientationAssessmentValue[];  // multi-select
     assessedAt?: any;        // Firestore Timestamp of last orientation_assessment save
     calculatedAt?: any;      // Firestore Timestamp of last AI orientation calculation
+    /** The very first orientation ever recorded for this property (v1 baseline). */
+    firstOrientation?: string;
+    /** True when the current AI orientation direction differs from the first-ever recorded version. */
+    changedFromFirst: boolean;
     status: 'idle' | 'running' | 'refreshing' | 'done' | 'error';
     error?: string;
 }
@@ -91,6 +95,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
     const [showMissingOnly, setShowMissingOnly] = useState(false);
     const [showOrientationDiffOnly, setShowOrientationDiffOnly] = useState(false);
+    const [showChangedFromFirstOnly, setShowChangedFromFirstOnly] = useState(false);
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
 
@@ -153,6 +158,27 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     prevRecord = history?.previous;
                 }
 
+                // Pre-compute the v1 change flag: compare the LATEST history entry
+                // vs the FIRST history entry. `aiOrientation` is always written in sync with
+                // `history.latest`, so aiOrient vs firstHist is always the same value —
+                // the real check is whether the direction changed across all recorded versions.
+                const firstHistoryOrientation = history?.first?.details?.orientation || null;
+                const latestHistoryOrientation = history?.latest?.details?.orientation || null;
+                const latestDirNorm = latestHistoryOrientation
+                    ? latestHistoryOrientation.split(' ')[0].split('(')[0].trim().toLowerCase()
+                    : '';
+                const firstDirNorm = firstHistoryOrientation
+                    ? firstHistoryOrientation.split(' ')[0].split('(')[0].trim().toLowerCase()
+                    : '';
+                // Need at least 2 history versions AND a direction change to flag as changed
+                const changedFromFirst = !!(
+                    latestHistoryOrientation &&
+                    firstHistoryOrientation &&
+                    latestHistoryOrientation !== firstHistoryOrientation &&
+                    latestDirNorm && firstDirNorm &&
+                    latestDirNorm !== firstDirNorm
+                );
+
                 return {
                     zpid: d.id,
                     address: p.address || d.id,
@@ -161,6 +187,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     previousOrientation: prevRecord 
                         ? `${prevRecord.details.orientation} (v${prevRecord.version})`
                         : undefined,
+                    firstOrientation: firstHistoryOrientation,
+                    changedFromFirst,
                     mapZoomIn: p.mapZoomIn || undefined,
                     mapZoomOut: p.mapZoomOut || undefined,
                     satelliteImageUrl: (p.satelliteImageUrl && p.satelliteImageUrl.includes('firebasestorage'))
@@ -248,6 +276,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 return false;
             });
         }
+        if (showChangedFromFirstOnly) {
+            rs = rs.filter(r => r.changedFromFirst);
+        }
         if (caseFilter !== 'all') {
             rs = rs.filter(r => r.orientationAI?.property_layout_type === caseFilter);
         }
@@ -255,7 +286,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             rs = rs.filter(r => r.propertyType === propertyTypeFilter);
         }
         return rs;
-    }, [rows, activeCity, showMissingOnly, showOrientationDiffOnly, caseFilter, propertyTypeFilter]);
+    }, [rows, activeCity, showMissingOnly, showOrientationDiffOnly, showChangedFromFirstOnly, caseFilter, propertyTypeFilter]);
 
     const assessmentCounts = useMemo(() => {
         const counts: Record<OrientationAssessmentValue, number> = {
@@ -448,6 +479,26 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         {showOrientationDiffOnly ? 'Orientation Changed' : 'Filter Changed'}
                     </button>
 
+                    {/* ── Changed from V1 filter (matches pink-highlighted rows) ── */}
+                    {(() => {
+                        const v1ChangedCount = (activeCity ? rows.filter(r => r.city === activeCity) : rows)
+                            .filter(r => r.changedFromFirst).length;
+                        return (
+                            <button
+                                onClick={() => setShowChangedFromFirstOnly(!showChangedFromFirstOnly)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${
+                                    showChangedFromFirstOnly
+                                        ? 'bg-pink-50 border-pink-300 text-pink-700'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-pink-50 hover:border-pink-200 hover:text-pink-600'
+                                }`}
+                                title="Show only properties where orientation changed from the first-ever recorded version (v1 baseline)"
+                            >
+                                <i className="fa-solid fa-arrow-rotate-left text-xs" />
+                                {showChangedFromFirstOnly ? `Showing V1 Changed (${v1ChangedCount})` : `V1 Changed (${v1ChangedCount})`}
+                            </button>
+                        );
+                    })()}
+
                     <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-xl shadow-sm">
                         <span className="text-[9px] font-black text-slate-400 uppercase">Case:</span>
                         <select 
@@ -608,7 +659,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     {isAdmin && <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody>
                                 {filteredRows.length === 0 ? (
                                     <tr>
                                         <td colSpan={14} className="py-24 text-center">
@@ -616,10 +667,17 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties in this city</p>
                                         </td>
                                     </tr>
-                                ) : filteredRows.map((row, idx) => (
+                                ) : filteredRows.map((row, idx) => {
+                                    return (
                                     <tr
                                         key={row.zpid}
-                                        className={`group hover:bg-slate-50/40 transition-colors ${(row.status === 'running' || row.status === 'refreshing') ? 'animate-pulse' : ''}`}
+                                        className={`group transition-colors ${
+                                            (row.status === 'running' || row.status === 'refreshing') ? 'animate-pulse' : ''
+                                        } ${
+                                            row.changedFromFirst
+                                                ? 'bg-pink-50/60 border-b border-slate-100 border-l-2 border-l-pink-400'
+                                                : 'bg-white border-b border-slate-100 hover:bg-slate-50/40'
+                                        }`}
                                     >
                                         <td className="p-5 text-center w-10">
                                             <span className="text-[11px] font-black text-slate-300 font-mono">{idx + 1}</span>
@@ -753,15 +811,27 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             )}
                                         </td>
 
-                                        {/* Last Result History */}
+                                        {/* Last Result History — shows first baseline + prev version */}
                                         <td className="p-5">
-                                            {row.previousOrientation ? (
-                                                <div className="inline-flex items-center px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-lg">
-                                                    {row.previousOrientation}
-                                                </div>
-                                            ) : (
-                                                <span className="text-[10px] font-black text-slate-200 italic">No history</span>
-                                            )}
+                                            <div className="space-y-1">
+                                                {/* v1 baseline badge — only shown when it differs from current */}
+                                                {row.changedFromFirst && (
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-[8px] font-black text-pink-500 uppercase tracking-widest whitespace-nowrap">v1 was</span>
+                                                                <div className="inline-flex items-center px-2 py-0.5 bg-pink-100 border border-pink-300 text-pink-700 text-[10px] font-black uppercase rounded-lg">
+                                                                    {row.firstOrientation}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {/* Previous version (penultimate) */}
+                                                        {row.previousOrientation ? (
+                                                            <div className="inline-flex items-center px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-lg">
+                                                                {row.previousOrientation}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[10px] font-black text-slate-200 italic">No history</span>
+                                                        )}
+                                                    </div>
                                         </td>
 
 
@@ -884,7 +954,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             </td>
                                         )}
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

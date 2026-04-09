@@ -18,6 +18,8 @@ export interface OrientationVersion {
 export interface OrientationHistorySnapshot {
     latest?: OrientationVersion;
     previous?: OrientationVersion;
+    /** The very first orientation ever recorded for this property (v1 baseline). */
+    first?: OrientationVersion;
 }
 
 /**
@@ -89,7 +91,7 @@ export async function getLatestOrientationVersions(): Promise<Record<string, Ori
         });
 
         Object.keys(grouped).forEach(zpid => {
-            // Sort by dateMined (latest first)
+            // Sort by dateMined descending (latest first)
             const sorted = grouped[zpid].sort((a, b) => {
                 const tA = a.dateMined?.toMillis?.() || 0;
                 const tB = b.dateMined?.toMillis?.() || 0;
@@ -98,7 +100,9 @@ export async function getLatestOrientationVersions(): Promise<Record<string, Ori
 
             results[zpid] = {
                 latest: sorted[0],
-                previous: sorted[1]
+                previous: sorted[1],
+                // The very first recorded orientation is at the end of the descending list
+                first: sorted[sorted.length - 1],
             };
         });
     } catch (e) {
