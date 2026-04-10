@@ -20,7 +20,7 @@ import { db, generateCityStateKey } from './firebase/config';
 import { normalizeEnvDoc } from './firebase/googleData';
 import { getCommunityPulseFromCloud, getDeepInvestmentResearchFromCloud, getSchoolAnalysisFromCloud, getLivingWageFromCloud } from './firebase/properties';
 import { resoFieldKey } from '../utils/propertyFieldConfig';
-import { isSupportedPropertyType, isGhostListing } from '../utils/propertyValidation';
+import { isSupportedPropertyType, isGhostListing, isSingleFamily, isTownhome } from '../utils/propertyPolicies';
 import { APP_CONFIG } from '../config';
 
 
@@ -696,8 +696,7 @@ export const runCitySmokeTest = async (
     const resolvedZpids = zpids.filter(zpid => {
         const prop = allProps[zpid];
         if (!prop) return false;
-        const ht = (prop.homeType || '').toUpperCase();
-        return ht === 'SINGLE_FAMILY' || ht === 'TOWNHOUSE';
+        return isSingleFamily(prop) || isTownhome(prop);
     });
 
     // Batch-fetch school analyses: derive cache keys from each property's schools list

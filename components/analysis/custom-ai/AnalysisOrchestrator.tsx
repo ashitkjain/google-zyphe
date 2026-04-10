@@ -26,6 +26,7 @@ import { CityNeighborhoodsView } from './components/CityNeighborhoodsView';
 
 import { VastuCard } from '../../property/VastuCard';
 import { runSatellitaryAnalysis } from '../../../services/satellitaryService';
+import { isTargetForOrientationAnalysis } from '../../../utils/propertyPolicies';
 
 interface Props {
     analysis: CustomAIAnalysisResult | null;
@@ -351,10 +352,11 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                         satellitaryOrientation={orientationAI}
                                         satelliteLoading={satelliteLoading}
                                         onRefreshOrientation={refreshOrientation}
+                                        propertyData={propertyData}
                                     />
 
                                     {/* Vastu Analysis — bottom of exterior tab */}
-                                    {orientationAI?.azimuth_degrees != null && (
+                                    {isTargetForOrientationAnalysis(propertyData).target && orientationAI?.azimuth_degrees != null && (
                                         <div className="mt-4">
                                             <VastuCard
                                                 azimuth_degrees={orientationAI.azimuth_degrees}

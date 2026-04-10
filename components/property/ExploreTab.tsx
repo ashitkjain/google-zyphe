@@ -46,7 +46,7 @@ import {
     saveLifestyleInsightsToCloud
 } from '../../services/firebase/properties';
 import { getSchoolCacheKey } from '../../prompts/property/schoolsAnalysis';
-import { hasEssentialData } from '../../utils/propertyValidation';
+import { hasEssentialData } from '../../utils/propertyPolicies';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 import PropertyMapView from './PropertyMapView';
 import PropertyCard from './PropertyCard';
@@ -65,6 +65,7 @@ import {
 import { buildExtractionPrompt, buildMatchingPrompt, PersonaContext } from '../../services/prompts/buyerStoryMatch';
 import { Type } from '@google/genai';
 import { getDaysOnMarket } from '../../utils/property.ts';
+import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -771,7 +772,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
                                                         {/* Front Orientation */}
-                                                        {(propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+                                                        {propertyData && isTargetForOrientationAnalysis(propertyData).target && (propertyData as any).orientation_ai && (propertyData as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                                                             const sat = (propertyData as any).orientation_ai;
                                                             return (
                                                                 <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">

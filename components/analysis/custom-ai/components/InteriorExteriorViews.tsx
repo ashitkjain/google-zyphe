@@ -1,6 +1,7 @@
 import React from 'react';
 import { CustomAIAnalysisResult } from '../../../../types';
 import { EmptyState } from './CommonComponents';
+import { isTargetForOrientationAnalysis } from '../../../../utils/propertyPolicies';
 
 interface InteriorViewProps {
     data: CustomAIAnalysisResult['home_interior'];
@@ -208,10 +209,14 @@ interface ExteriorViewProps {
     satellitaryOrientation?: SatellitaryOrientation | null;
     satelliteLoading?: boolean;
     onRefreshOrientation?: () => void;
+    propertyData?: any;
 }
 
-export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation, satelliteLoading, onRefreshOrientation }) => {
+export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation, satelliteLoading, onRefreshOrientation, propertyData }) => {
     if (!data?.exterior_and_lot_appeal?.architecture_style) return <EmptyState section="Exterior" />;
+    
+    // Check if this property is a target for orientation analysis
+    const isTarget = propertyData ? isTargetForOrientationAnalysis(propertyData).target : true;
     return (
         <section className="space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
@@ -324,8 +329,8 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                         </div>
                     )}
 
-                    {/* Satellite cards — only when orientation data is available */}
-                    {satellitaryOrientation && satellitaryOrientation.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+                    {/* Satellite cards — only when orientation data is available AND it is a target */}
+                    {isTarget && satellitaryOrientation && satellitaryOrientation.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                         const sat = satellitaryOrientation;
                         return (<>
                             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">

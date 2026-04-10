@@ -52,7 +52,8 @@ Step 0: Quality Check. If Image A is too blurry to see building edges, set image
 Step 1: Aerial Analysis. Identify the FRONT wall using the Walkway Rule. Determine its compass orientation from the North-up frame.
 Step 2: Street View Verification. Identify what Image B shows (Front Door, Garage, or Side). Check if this matches your Step 1 conclusion.
 Step 3: Resolve Ambiguity. If the camera heading (${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'}) points at the wall you identified as the front, then street_view_shows_front is TRUE and the orientation is opposite to the heading.
-Step 4: Finalize Result. Set final_orientation and azimuth_degrees for the FRONT DOOR face.
+Step 4: Finalize Result. Set final_orientation, azimuth_degrees, and property_layout_type.
+⚠️ CUL-DE-SAC CUE: Check the AERIAL lot shape. If it is pie-shaped (narrow at street, wide at back) on a rounded dead-end, it is a cul_de_sac. Even if the Street View looks like a straight street (which might be a back/side road), the aerial lot shape is ground truth for layout.
 
 ADDITIONAL ANALYSIS:
 - Privacy: Assess neighboring sightlines into the backyard/pool (e.g., second-story windows).
@@ -115,8 +116,15 @@ export const satellitarySchema = {
         },
         property_layout_type: {
             type: Type.STRING,
-            enum: ['standard', 'standard_lot', 'corner_lot', 'cul_de_sac', 'flag_lot', 'irregular_lot', 'other'],
-            description: 'Categorize the property layout. "corner_lot" refers to a property or unit at an intersection or edge exposed on multiple sides.'
+            enum: ['corner_lot', 'cul_de_sac', 'flag_lot', 'irregular_lot', 'standard', 'other'],
+            description:
+                'Categorize the property layout by checking these types IN ORDER. Stop at the first one that fits: ' +
+                '1. corner_lot: lot sits at a street intersection, exposed on two street sides. ' +
+                '2. cul_de_sac: the house faces a rounded dead-end / circular street terminus (teardrop shape). ' +
+                '3. flag_lot: lot is set back behind another, accessed via a long narrow "pole" driveway. ' +
+                '4. irregular_lot: non-rectangular boundary with significant curves or angles. ' +
+                '5. standard: most typical lots (rectangular, on a non-ending through-street). ' +
+                '6. other: none of the above match.'
         },
         confidence: {
             type: Type.STRING,

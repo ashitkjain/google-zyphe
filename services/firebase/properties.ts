@@ -20,7 +20,7 @@ import {
     CommunityPulseResult,
     DeepInvestmentResearchResult
 } from "../../types";
-import { ALLOWED_HOME_TYPES } from "../../utils/propertyValidation";
+import { ALLOWED_HOME_TYPES } from "../../utils/propertyPolicies";
 
 export const savePropertyAssetsToCloud = async (zpid: string, assets: PropertyAssets) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
@@ -80,59 +80,50 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
 
 /**
  * Normalizes inconsistent field names before any write to the `properties` collection.
- *
- * The `properties` table is populated by multiple independent sources:
- *   - RESO MLS API        → writes `price`      (from raw.ListPrice)
- *   - Zillow/city scan    → writes `list_price`  (snake_case as-is)
- *   - RapidAPI            → writes `price`       (sometimes both)
- *   - Legacy ingestion    → writes `listPrice`   (camelCase)
- *
- * This function collapses all variants into a single canonical `price` field
- * and removes the redundant aliases so reads never need a fallback chain.
+ * Aligns strictly with the PropertyData schema.
  */
-function normalizePropertyFields(doc: Record<string, any>): Record<string, any> {
+export function normalizePropertyFields(doc: Record<string, any>): Record<string, any> {
     const out = { ...doc };
 
     // ── Price ──────────────────────────────────────────────────────────────────
-    // Canonical field: `listPrice`
-    // Aliases: price, list_price, ListPrice
-    const listPrice =
-        out.listPrice ??
-        out.price ??
-        out.list_price ??
-        out.ListPrice ??
-        null;
-
-    if (listPrice != null) {
-        out.listPrice = typeof listPrice === 'string' ? parseFloat(listPrice.replace(/[^0-9.]/g, '')) || listPrice : listPrice;
+    // Canonical field: `price`
+    const price = out.price ?? out.listPrice ?? out.list_price ?? out.ListPrice ?? null;
+    if (price != null) {
+        out.price = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.]/g, '')) || price : price;
     }
-    // Remove aliases so the doc stays clean
-    delete out.price;
+    delete out.listPrice;
     delete out.list_price;
     delete out.ListPrice;
 
-    // ── Square footage ─────────────────────────────────────────────────────────
-    // Canonical field: `squareFootage`
-    // Aliases: square_footage, sqft, LivingArea
-    const sqft =
-        out.squareFootage ??
-        out.square_footage ??
-        out.sqft ??
-        out.LivingArea ??
-        null;
-
+    // ── Living Area ────────────────────────────────────────────────────────────
+    // Canonical field: `livingAreaValue`
+    const sqft = out.livingAreaValue ?? out.sqft ?? out.livingArea ?? out.square_footage ?? out.squareFootage ?? out.LivingArea ?? null;
     if (sqft != null) {
-        out.squareFootage = typeof sqft === 'string' ? parseFloat(sqft) || sqft : sqft;
+        out.livingAreaValue = typeof sqft === 'string' ? parseFloat(sqft) || sqft : sqft;
     }
-    delete out.square_footage;
     delete out.sqft;
+    delete out.livingArea;
+    delete out.square_footage;
+    delete out.squareFootage;
     delete out.LivingArea;
 
-    // ── Moved Collections ──────────────────────────────────────────────────────
-    // The following fields have been moved to dedicated collections (like 
-    // thirdparty_data / environmental sub-collection) to avoid the 
-    // 1MB Firestore limit, but may still be present on the data object for 
-    // frontend rendering. We strip them here to keep the `properties` collection lean.
+    // ── Beds/Baths ─────────────────────────────────────────────────────────────
+    // Canonical fields: `bedrooms`, `bathrooms`
+    if (out.beds != null && out.bedrooms == null) {
+        out.bedrooms = out.beds;
+        delete out.beds;
+    }
+    if (out.baths != null && out.bathrooms == null) {
+        out.bathrooms = out.baths;
+        delete out.baths;
+    }
+
+    if (out.home_type != null && out.homeType == null) {
+        out.homeType = out.home_type;
+        delete out.home_type;
+    }
+
+    // ── Cleanup Moved Collections ──────────────────────────────────────────────
     delete out.google_places;
     delete out.airQuality;
     delete out.pollen;
@@ -149,8 +140,7 @@ function normalizePropertyFields(doc: Record<string, any>): Record<string, any> 
     delete out.evChargers;
     delete out.drought;
     delete out.broadband;
-    delete out.streetViewAnalysis; // Also moved to environmental
-
+    delete out.streetViewAnalysis;
 
     return out;
 }
@@ -181,7 +171,7 @@ export const savePropertyOrientationToCloud = async (
         pool_direction?: string | null;
         garage_direction?: string | null;
         open_sky_direction?: string | null;
-        layout?: string | null;
+        property_layout_type?: string | null;
     } | null
 ): Promise<{ success: boolean; error?: string }> => {
     if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
@@ -308,31 +298,30 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
         return snapshot.docs
             .filter(d => !d.data().deprecated)
             .map(d => {
-                const data = d.data();
+                const raw = d.data();
+                const data = normalizePropertyFields(raw);
                 const coords = data.coordinates ? { latitude: data.coordinates.latitude, longitude: data.coordinates.longitude } : undefined;
-                // Prefer AI-resolved neighborhood name (actual neighborhoods), fall back to geo-based school zone lookup
-                const resolvedNeighborhood = data.neighborhood_identity?.resolved_name || '';
+                const resolvedNeighborhood = (data as any).neighborhood_identity?.resolved_name || '';
                 return {
                     zpid: d.id,
                     address: data.address || '',
-                    zipcode: data.zipcode || data.zip || '',
-                    listPrice: data.listPrice ?? data.list_price ?? data.price,
-                    bedrooms: data.bedrooms,
-                    bathrooms: data.bathrooms,
-                    livingArea: data.squareFootage ?? data.livingAreaValue ?? data.livingArea ?? data.living_area ?? undefined,
-                    lotSize: data.lotSize || data.lot_size || data.resoFacts?.lotSize || '',
-                    homeType: data.homeType || data.home_type || data.propertyType || data.property_type || '',
+                    zipcode: data.zipCode || '',
+                    listPrice: data.price || 0,
+                    bedrooms: data.bedrooms || 0,
+                    bathrooms: data.bathrooms || 0,
+                    livingArea: data.livingAreaValue || 0,
+                    lotSize: data.lotSize || '',
+                    homeType: data.homeType || '',
                     neighborhood: resolvedNeighborhood,
                     coordinates: coords,
                     images: data.images?.slice(0, 1) || [],
-                    // Additional MLS fields
-                    yearBuilt: data.yearBuilt ?? data.year_built ?? undefined,
-                    stories: data.stories ?? data.resoFacts?.stories ?? undefined,
-                    garage: data.garageSpaces ?? data.resoFacts?.garageSpaces ?? undefined,
+                    yearBuilt: data.yearBuilt || undefined,
+                    stories: data.stories || data.resoFacts?.stories || undefined,
+                    garage: data.garageSpaces || data.resoFacts?.garageSpaces || undefined,
                     pool: data.resoFacts?.hasPool === true || data.pool === true || false,
-                    homeStatus: data.homeStatus || data.home_status || '',
-                    daysOnZillow: data.daysOnZillow ?? data.days_on_zillow ?? undefined,
-                    listedDate: data.listedDate ?? undefined,
+                    homeStatus: data.homeStatus || '',
+                    daysOnZillow: data.timeOnZillow || undefined,
+                    listedDate: data.listedDate || undefined,
                     hoa: data.monthlyHoaFee ?? data.hoaFee ?? undefined,
                     city: data.city || '',
                     maxSchoolRating: (() => {

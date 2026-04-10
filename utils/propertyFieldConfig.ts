@@ -8,7 +8,7 @@
  * Imported by:
  *   services/api/property.ts       → builds _fetchMeta.fieldsNull
  *   services/smokeTest.ts          → maps fieldsNull to sourceNull checks
- *   utils/propertyValidation.ts    → isSupportedPropertyType
+ *   utils/propertyPolicies.ts      → isSupportedPropertyType
  */
 
 // ── resoFacts sub-field audit ──────────────────────────────────────────────────

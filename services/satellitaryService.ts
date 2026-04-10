@@ -21,14 +21,73 @@ import { logOrientationVersion } from './firebase/orientation_history';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 
+import { isTargetForOrientationAnalysis } from '../utils/propertyPolicies';
+
 const getMapsApiKey = () => APP_CONFIG.maps.key;
+
+/**
+ * Removes orientation-related data from a property document and deletes its history.
+ * Accepts optional city + zip so it can navigate straight to the known subcollection path
+ * (orientation_versions/{city}/zips/{zip}/zpids/{zpid}/history) without needing a
+ * collectionGroup index. Falls back to collectionGroup only when city/zip are absent.
+ */
+export async function deleteOrientationVersionsForProperty(
+    zpid: string,
+    city?: string | null,
+    zip?: string | null,
+): Promise<{ deleted: boolean }> {
+    const { collection, getDocs, writeBatch, deleteField } = await import('firebase/firestore');
+
+    try {
+        // 1. Clear orientation fields on property document (exact Firestore snake_case names)
+        const propRef = doc(db, 'properties', zpid);
+        await updateDoc(propRef, {
+            orientation_ai: deleteField(),
+            orientation_calculated_at: deleteField(),
+            orientation_history: deleteField(),
+            satelliteImageUrl: deleteField(),
+        });
+
+        // 2. Delete history subcollection docs
+        // Use the known direct path when city+zip are provided (no index required).
+        // Fall back to collectionGroup only as a last resort.
+        let historySnap: any;
+        if (city && zip) {
+            const historyColRef = collection(
+                db,
+                'orientation_versions', city.trim(),
+                'zips', zip.trim(),
+                'zpids', zpid,
+                'history'
+            );
+            historySnap = await getDocs(historyColRef);
+        } else {
+            // Fallback: collectionGroup (requires Firestore index on zpid)
+            const { collectionGroup, query, where } = await import('firebase/firestore');
+            const q = query(collectionGroup(db, 'history'), where('zpid', '==', zpid));
+            historySnap = await getDocs(q);
+        }
+
+        if (!historySnap.empty) {
+            const batch = writeBatch(db);
+            historySnap.docs.forEach((d: any) => batch.delete(d.ref));
+            await batch.commit();
+            console.log(`[Satellitary] Deleted ${historySnap.size} orientation history records for ${zpid}`);
+        }
+
+        return { deleted: true };
+    } catch (e) {
+        console.error(`[Satellitary] Cleanup failed for ${zpid}:`, e);
+        return { deleted: false };
+    }
+}
 
 export interface SatellitaryResult {
     final_orientation: string;        // e.g. "Northeast (approx. 45°)"
     azimuth_degrees: number | null;   // 0–360, GPS-accurate refined azimuth
     visual_azimuth_estimate: number | null; // The AI's raw visual guess before GPS refinement
     confidence: 'high' | 'medium' | 'low';
-    property_layout_type: 'standard' | 'standard_lot' | 'corner_lot' | 'cul_de_sac' | 'flag_lot' | 'irregular_lot' | 'other';
+    property_layout_type: 'standard' | 'corner_lot' | 'cul_de_sac' | 'flag_lot' | 'irregular_lot' | 'other';
     image_quality: 'clear' | 'acceptable' | 'blurry'; // Satellite image clarity assessment
     explanation: string;              // Detailed step-by-step reasoning
     feng_shui_vastu: string | null;   // Feng Shui / Vastu tips (null if not applicable)
@@ -277,54 +336,142 @@ function buildStreetViewUrl(lat: number, lng: number, heading?: number | null): 
 }
 
 /**
- * Fetches the Street View metadata for the given coordinates and derives the
- * camera heading so Gemini always knows which direction the camera is pointing.
+ * Extracts just the street name from a full address string.
+ * "4052 Knightstown St, Dublin, CA 94568 US" → "knightstown st"
+ * Used to match panos to the property's front street by name.
+ */
+function extractStreetName(address: string): string {
+    // Remove house number (leading digits + optional directly-attached letter like "123A"),
+    // then the mandatory whitespace, grab everything before the first comma.
+    // e.g. "4052 Knightstown St, Dublin..." → "knightstown st"
+    //      "123B Oak Ave, ..."              → "oak ave"
+    return (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim().toLowerCase();
+}
+
+/** Compute compass bearing (0–360°) from (lat1,lng1) to (lat2,lng2). */
+function computeBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const φ1 = lat1 * (Math.PI / 180);
+    const φ2 = lat2 * (Math.PI / 180);
+    const dλ = (lng2 - lng1) * (Math.PI / 180);
+    const y = Math.sin(dλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(dλ);
+    return Math.round(((Math.atan2(y, x) * (180 / Math.PI)) + 360) % 360);
+}
+
+/**
+ * Fetches a Street View pano for the property and derives the camera heading.
  *
- * Heading resolution order:
- *   1. meta.heading — when the API includes it directly.
- *   2. Computed bearing from panorama location → property location — the camera
- *      us the precise camera heading using the standard spherical-Earth atan2 formula.
+ * Simple principle: "house is on the left/right of a named street → front faces that street."
  *
- * Returns null ONLY when Street View is genuinely unavailable (status !== 'OK').
+ * Step 1: fetch the nearest pano (existing behaviour, radius=100m).
+ * Step 2: if `address` is provided, reverse-geocode the pano to check the road name.
+ *         If the pano road does NOT match the address street (e.g. pano landed on a
+ *         back alley instead of the front street), try panos at ±60m offsets in all
+ *         four cardinal directions until we find one on the correct street.
+ * Step 3: return bearing(winning pano → property) as the heading.
+ *
+ * Returns null only when Street View is genuinely unavailable everywhere (status !== 'OK').
  */
 async function fetchStreetViewHeading(
     propertyLat: number,
-    propertyLng: number
-): Promise<{ heading: number | null; status: string } | null> {
-    try {
-        const metaUrl =
+    propertyLng: number,
+    address?: string | null
+): Promise<{ heading: number | null; status: string; panoCoords?: { lat: number; lng: number } } | null> {
+
+    const apiKey = getMapsApiKey();
+
+    /** Fetch Street View metadata for a search point, return pano location + status. */
+    const fetchPanoAt = async (lat: number, lng: number, radius = 100) => {
+        const url =
             `https://maps.googleapis.com/maps/api/streetview/metadata` +
-            `?location=${propertyLat},${propertyLng}` +
-            `&radius=100` +
-            `&source=outdoor` +
-            `&key=${getMapsApiKey()}`;
-        const meta = await fetch(metaUrl).then(r => r.json());
+            `?location=${lat},${lng}&radius=${radius}&source=outdoor&key=${apiKey}`;
+        try {
+            return await fetch(url).then(r => r.json()) as any;
+        } catch { return null; }
+    };
 
-        // null == truly unavailable at this location
-        if (meta.status !== 'OK') {
+    /** Reverse-geocode a latlng and return the first road/route name (lower-case). */
+    const getRoadName = async (lat: number, lng: number): Promise<string> => {
+        try {
+            const url =
+                `https://maps.googleapis.com/maps/api/geocode/json` +
+                `?latlng=${lat},${lng}&result_type=route&key=${apiKey}`;
+            const res = await fetch(url).then(r => r.json()) as any;
+            const name = res.results?.[0]?.address_components?.find(
+                (c: any) => c.types.includes('route')
+            )?.long_name || '';
+            return name.toLowerCase();
+        } catch { return ''; }
+    };
 
-            return null;
+    try {
+        // ── Step 1: nearest pano ──────────────────────────────────────────────────
+        const primaryMeta = await fetchPanoAt(propertyLat, propertyLng);
+        if (!primaryMeta || primaryMeta.status !== 'OK') return null;
+
+        const primaryPano = primaryMeta.location as { lat: number; lng: number } | undefined;
+
+        // ── Step 2: if we have an address, verify the pano is on the right street ─
+        if (address && primaryPano?.lat != null) {
+            const targetStreet = extractStreetName(address); // e.g. "knightstown st"
+
+            if (targetStreet) {
+                const primaryRoad = await getRoadName(primaryPano.lat, primaryPano.lng);
+                
+                // Fuzzy match: remove spaces/punctuation and compare first 4 chars
+                const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const targetNorm = normalize(targetStreet);
+                const primaryNorm = normalize(primaryRoad);
+                
+                const onFrontStreet = primaryNorm.includes(targetNorm.substring(0, 4)); 
+
+                if (!onFrontStreet) {
+                    // Primary pano is on the wrong road (e.g. back alley).
+                    // Try 4 offsets ~80m in each cardinal direction to find the front street.
+                    const OFFSET = 0.00075; // ≈ 80 m
+                    const offsets = [
+                        [propertyLat + OFFSET, propertyLng],          // N
+                        [propertyLat - OFFSET, propertyLng],          // S
+                        [propertyLat,          propertyLng + OFFSET],  // E
+                        [propertyLat,          propertyLng - OFFSET],  // W
+                    ];
+                    for (const [oLat, oLng] of offsets) {
+                        const altMeta = await fetchPanoAt(oLat, oLng, 80);
+                        const altPano = altMeta?.location as { lat: number; lng: number } | undefined;
+                        if (altMeta?.status !== 'OK' || !altPano?.lat) continue;
+
+                        const altRoad = await getRoadName(altPano.lat, altPano.lng);
+                        const altNorm = (altRoad || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        // targetNorm and targetStreet should be available in the scope
+                        if (altNorm.includes(targetStreet.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 4))) {
+                            // Found a pano on the correct (front) street → use it.
+                            // IMPORTANT: also return panoCoords so the caller builds the
+                            // Street View *image* URL from this pano, not from the property
+                            // centroid (which would revert to the nearest/wrong pano).
+                            console.log(`[Satellitary] Switched to front-street pano: ${altRoad} (was ${primaryRoad})`);
+                            return {
+                                heading: computeBearing(altPano.lat, altPano.lng, propertyLat, propertyLng),
+                                status: altMeta.status,
+                                panoCoords: { lat: altPano.lat, lng: altPano.lng },
+                            };
+                        }
+                    }
+                    // None of the offsets found the named street — fall through to primary pano
+                    console.warn(`[Satellitary] Could not find pano on "${targetStreet}"; using nearest (${primaryRoad})`);
+                }
+            }
         }
 
-        // 1. Derive heading from panorama position → property position.
-        //    meta.location = where the Street View camera is parked on the street.
-        //    The camera faces the property, so bearing(pano → property) = camera heading.
-        const panoLoc = meta.location; // { lat, lng }
-        if (panoLoc?.lat != null && panoLoc?.lng != null) {
-            const lat1 = panoLoc.lat * (Math.PI / 180);
-            const lat2 = propertyLat * (Math.PI / 180);
-            const dLon = (propertyLng - panoLoc.lng) * (Math.PI / 180);
-
-            const y = Math.sin(dLon) * Math.cos(lat2);
-            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-            const bearing = Math.round(((Math.atan2(y, x) * (180 / Math.PI)) + 360) % 360);
-
-            return { heading: bearing, status: meta.status };
+        // ── Step 3: use primary pano ──────────────────────────────────────────────
+        if (primaryPano?.lat != null && primaryPano?.lng != null) {
+            return {
+                heading: computeBearing(primaryPano.lat, primaryPano.lng, propertyLat, propertyLng),
+                status: primaryMeta.status,
+                panoCoords: { lat: primaryPano.lat, lng: primaryPano.lng },
+            };
         }
 
-        // Panorama location missing — street view available but no heading derivable
-
-        return { heading: null, status: meta.status };
+        return { heading: null, status: primaryMeta.status };
 
     } catch (e) {
         console.warn('[Satellitary] Failed to fetch street view heading:', e);
@@ -335,21 +482,25 @@ async function fetchStreetViewHeading(
 /**
  * Computes the GPS-accurate azimuth using Gemini's explicit front-face determination.
  *
- * The Street View camera is parked on the street and points toward the property.
- * This gives us two physically meaningful candidates for the front face:
- *   candidateFront = (heading + 180) % 360  — camera is looking at the FRONT
- *   candidateBack  = heading                — camera is looking at the BACK
+ * `heading` = bearing(pano → property): the compass direction FROM the Street View
+ * camera TO the house. This gives us two GPS-grounded candidate front azimuths:
  *
- * Side candidates (heading ± 90°) are intentionally excluded. A street-parked
- * camera never points at a pure side wall — it always approaches from the street,
- * so snapping to a 90° axis would introduce exactly the kind of systematic 90°
- * error seen on cul-de-sac and complex lots where the aerial azimuth drifts.
+ *   candidateFront = (heading + 180) % 360
+ *     → the face the camera is LOOKING AT (visible face).
+ *     → front = this face when shows_front = true.
  *
- * Gemini's `street_view_shows_front` boolean tells us which candidate to use:
- *   - true  → camera sees the FRONT DOOR → front faces back toward camera → candidateFront
- *   - false → camera sees side/back     → trust Gemini's raw aerial azimuth
- *             (the camera might be on a side street; no safe GPS axis to snap to)
- *   - null  → ambiguous                → proximity-vote between front and back only
+ *   candidateBack = heading
+ *     → the face pointing TOWARD where the camera came from (the other street).
+ *     → front = this face when shows_front = false (camera on back/side road).
+ *
+ * Side candidates (heading ± 90°) are intentionally excluded to prevent the
+ * systematic 90° errors seen on cul-de-sac and complex lots where aerials drift.
+ *
+ * Gemini's `street_view_shows_front` boolean tells us which candidate wins:
+ *   - true  → camera sees FRONT DOOR → front = candidateFront
+ *   - false → camera sees BACK/SIDE  → front = candidateBack
+ *             (e.g. pano is on a back alley; GPS bearing still gives correct answer)
+ *   - null  → ambiguous → proximity-vote between front and back only
  */
 function computeAccurateAzimuth(
     geminiAzimuth: number | null,
@@ -364,29 +515,115 @@ function computeAccurateAzimuth(
         return d > 180 ? 360 - d : d;
     };
 
-    const candidateFront = (heading + 180) % 360;
-    const candidateBack  = heading;
+    const candidateFront = (heading + 180) % 360;  // face VISIBLE to camera
+    const candidateBack  = heading;                  // face AWAY from camera (toward camera's street)
 
-    // Gemini definitively identified the FRONT DOOR face → GPS-accurate formula
+    // Gemini definitively identified the FRONT DOOR → snap to the visible face
     if (streetViewShowsFront === true) {
         return Math.round(candidateFront);
     }
 
-    // Gemini explicitly said the image is NOT the front door (side garage or back).
-    // The camera might be on a secondary/side street so we cannot safely snap to
-    // candidateBack either. Trust Gemini's reasoned aerial estimate directly.
+    // Gemini says NOT the front door (back or side visible).
+    // The GPS bearing from pano→property points toward the house from the camera's side road.
+    // → The front faces in that SAME direction (candidateBack = heading).
+    // This correctly handles back-alley panos: if camera on west alley sees the back,
+    // candidateBack = East = front street direction ✓
     if (streetViewShowsFront === false) {
-        return geminiAzimuth;
+        return Math.round(candidateBack);
     }
 
-    // Fallback (null / not provided): proximity-vote between front and back candidates ONLY.
-    // Side candidates are excluded to prevent systematic 90° errors on complex lots.
-    if (geminiAzimuth == null) return null;
-    const dFront = angularDist(candidateFront, geminiAzimuth);
-    const dBack  = angularDist(candidateBack,  geminiAzimuth);
-    // Only keep Gemini's raw estimate if truly equidistant (within 2°) — a 3°+ difference is decisive
-    if (Math.abs(dFront - dBack) < 2) return geminiAzimuth;
-    return dFront < dBack ? candidateFront : candidateBack;
+    // Ambiguous (null/undefined): trust Gemini's high-level spatial reasoning 
+    // over my distance-based candidate logic. Aerial reasoning (driveways/walkways)
+    // is often more stable than guessing which face a side-street pano sees.
+    return geminiAzimuth;
+}
+
+// ─── Description-First Orientation ───────────────────────────────────────────
+
+const DIRECTION_MAP: Record<string, { label: string; azimuth: number }> = {
+    'north':     { label: 'North',     azimuth: 0   },
+    'northeast': { label: 'Northeast', azimuth: 45  },
+    'east':      { label: 'East',      azimuth: 90  },
+    'southeast': { label: 'Southeast', azimuth: 135 },
+    'south':     { label: 'South',     azimuth: 180 },
+    'southwest': { label: 'Southwest', azimuth: 225 },
+    'west':      { label: 'West',      azimuth: 270 },
+    'northwest': { label: 'Northwest', azimuth: 315 },
+    'ne': { label: 'Northeast', azimuth: 45  },
+    'se': { label: 'Southeast', azimuth: 135 },
+    'sw': { label: 'Southwest', azimuth: 225 },
+    'nw': { label: 'Northwest', azimuth: 315 },
+};
+
+/**
+ * Scans a listing description for explicit orientation phrases and returns the
+ * front-door direction if found with high confidence.
+ *
+ * Handles front-of-house phrases:
+ *   "north-facing", "facing north", "north facing", "faces north"
+ *
+ * Handles backyard phrases (front = opposite):
+ *   "east-facing backyard/yard/garden/patio" → front faces West
+ *
+ * Returns null when no clear orientation phrase is present so Gemini runs normally.
+ */
+export function extractOrientationFromDescription(
+    description: string | string[] | null | undefined
+): { direction: string; azimuth: number } | null {
+    if (!description) return null;
+    const text = (Array.isArray(description) ? description.join(' ') : description).toLowerCase();
+
+    const DIRS = 'north(?:east|west)?|south(?:east|west)?|east|west|ne|nw|se|sw';
+    // Words that indicate the described direction is the BACKYARD (so front = opposite).
+    const BACK_WORDS = /\b(backyard|back[\s-]yard|rear\s+yard|garden|patio|pool area|rear\s+exposure)\b/;
+    // Words that confirm a front-facing reference.
+    const FRONT_WORDS = /\b(home|house|front|entry|entrance|door|property|lot|unit|condo|townhome|facing home)\b/;
+
+    /** Resolve direction key → {label, azimuth}, or null. */
+    const resolve = (key: string) => DIRECTION_MAP[key.toLowerCase()] ?? null;
+
+    /** Flip a cardinal azimuth 180°. */
+    const opposite = (az: number) => (az + 180) % 360;
+    const labelFor = (az: number) =>
+        Object.values(DIRECTION_MAP).find(v => v.azimuth === az)?.label ?? String(az);
+
+    // ── Pattern 1: "(dir)-facing (word)" ──────────────────────────────────────
+    const hyphenRe = new RegExp(`(${DIRS})-facing\\s*(\\w+(?:[\\s-]\\w+)?)`, 'gi');
+    for (const m of text.matchAll(hyphenRe)) {
+        const info = resolve(m[1]);
+        const context = m[2]?.toLowerCase() ?? '';
+        if (!info) continue;
+        if (BACK_WORDS.test(context)) {
+            // "east-facing backyard" → front faces West
+            const az = opposite(info.azimuth);
+            return { direction: labelFor(az), azimuth: az };
+        }
+        // Everything else → treat as front-facing
+        return { direction: info.label, azimuth: info.azimuth };
+    }
+
+    // ── Pattern 2: "facing (dir)" ──────────────────────────────────────────────
+    const facingRe = new RegExp(`\\bfacing\\s+(${DIRS})\\b`, 'gi');
+    for (const m of text.matchAll(facingRe)) {
+        const info = resolve(m[1]);
+        if (info) return { direction: info.label, azimuth: info.azimuth };
+    }
+
+    // ── Pattern 3: "(dir) facing" (standalone, not already caught by pattern 1) ─
+    const dirFacingRe = new RegExp(`\\b(${DIRS})\\s+facing\\b`, 'gi');
+    for (const m of text.matchAll(dirFacingRe)) {
+        const info = resolve(m[1]);
+        if (info) return { direction: info.label, azimuth: info.azimuth };
+    }
+
+    // ── Pattern 4: "faces (dir)" ───────────────────────────────────────────────
+    const facesRe = new RegExp(`\\bfaces\\s+(${DIRS})\\b`, 'gi');
+    for (const m of text.matchAll(facesRe)) {
+        const info = resolve(m[1]);
+        if (info) return { direction: info.label, azimuth: info.azimuth };
+    }
+
+    return null;
 }
 
 export async function runSatellitaryAnalysis(
@@ -398,6 +635,38 @@ export async function runSatellitaryAnalysis(
     address?: string,
     description?: string | null
 ): Promise<SatellitaryResult> {
+    // ── 0. Description-first: skip Gemini if orientation is explicit ──────────
+    const descMatch = extractOrientationFromDescription(description);
+    if (descMatch) {
+        console.log(`[Satellitary] Orientation from description: ${descMatch.direction} (~${descMatch.azimuth}°) — skipping Gemini.`);
+        const aerialUrl = zpid
+            ? await getOrCacheAerialSatelliteUrl(zpid, lat, lng)
+            : buildAerialUrl(lat, lng);
+        return {
+            final_orientation: `${descMatch.direction} (~${descMatch.azimuth}°)`,
+            azimuth_degrees: descMatch.azimuth,
+            visual_azimuth_estimate: descMatch.azimuth,
+            confidence: 'high',
+            property_layout_type: 'standard',
+            image_quality: 'clear',
+            explanation: `Orientation extracted directly from listing description. No AI analysis required.`,
+            feng_shui_vastu: null,
+            privacy_insight: 'Not assessed — orientation sourced from listing description.',
+            lot_coverage_hardscape: null,
+            lot_coverage_pervious: null,
+            buyer_pro: '',
+            buyer_con: '',
+            orientation_highlights: '',
+            pool_visible: null,
+            pool_direction: null,
+            garage_direction: null,
+            open_sky_direction: null,
+            aerial_url: aerialUrl,
+            street_view_url: '',
+            aerial_only_mode: false,
+        };
+    }
+
     // ── 1. Resolve image URLs ──────────────────────────────────────────────────
     // Use the cached satellite downloader to ensure the image is persisted to Storage
     // and registered on the property doc as satelliteImageUrl.
@@ -419,11 +688,15 @@ export async function runSatellitaryAnalysis(
     // the camera angle is unknown — sending that to Gemini causes wrong orientation.
     // We always build a fresh heading-locked live URL for AI analysis.
     try {
-        const headingResult = await fetchStreetViewHeading(lat, lng);
+        const headingResult = await fetchStreetViewHeading(lat, lng, address);
         if (headingResult) {
             streetViewHeading = headingResult.heading;
-            // Build a fresh URL with the heading baked in — used for AI analysis
-            streetViewUrl = buildStreetViewUrl(lat, lng, streetViewHeading);
+            // Use the winning pano's coordinates (not the property centroid) so Google
+            // renders the image from the correct street pano (e.g. Rosehill Pl, not Tassajara).
+            // Using property coords would revert to the nearest pano = back-road pano.
+            const svLat = headingResult.panoCoords?.lat ?? lat;
+            const svLng = headingResult.panoCoords?.lng ?? lng;
+            streetViewUrl = buildStreetViewUrl(svLat, svLng, streetViewHeading);
         } else if (!headingResult && !cachedStreetViewUrl) {
             // Truly unavailable (status !== OK) and no cached fallback → aerial-only
             streetViewUrl = null;
@@ -549,7 +822,7 @@ export async function runSatellitaryAnalysis(
             zip: propertyData?.zipCode || propertyData?.zip || 'unknown',
             orientation: result.final_orientation,
             azimuth: result.azimuth_degrees,
-            layout: result.property_layout_type
+            property_layout_type: result.property_layout_type
         });
 
         // Main persistence
@@ -575,7 +848,7 @@ export async function runSatellitaryAnalysis(
                 pool_direction: result.pool_direction ?? null,
                 garage_direction: result.garage_direction ?? null,
                 open_sky_direction: result.open_sky_direction ?? null,
-                layout: result.property_layout_type,
+                property_layout_type: result.property_layout_type,
             }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }

@@ -31,7 +31,8 @@ export async function logOrientationVersion(data: {
     zip: string;
     orientation: string;
     azimuth: number | null;
-    layout?: string;
+    property_layout_type?: string | null;
+    layout?: string | null;
 }) {
     try {
         const city = (data.city || 'Unknown').trim();
@@ -62,7 +63,7 @@ export async function logOrientationVersion(data: {
             details: {
                 orientation: data.orientation,
                 azimuth: data.azimuth,
-                layout: data.layout
+                property_layout_type: data.property_layout_type || data.layout || null,
             },
             dateMined: firestore.serverTimestamp()
         });

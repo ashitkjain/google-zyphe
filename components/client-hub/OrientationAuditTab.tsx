@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, orderBy, getDocs, collectionGroup } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty } from '../../services/satellitaryService';
+import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
 import { getLatestOrientationVersions } from '../../services/firebase/orientation_history';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
+import { normalizePropertyFields } from '../../services/firebase/properties';
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
 
@@ -11,7 +13,8 @@ interface OrientationRow {
     zpid: string;
     address: string;
     city: string;
-    propertyType: string;
+    homeType?: string;    // Raw Firestore value e.g. 'SINGLE_FAMILY', 'TOWNHOUSE'
+    propertyType: string; // Display label (underscores replaced with spaces)
     previousOrientation?: string;
     mapZoomIn?: string;           // Radar close-up road map
     mapZoomOut?: string;          // Radar wider-area road map
@@ -33,14 +36,15 @@ interface OrientationRow {
         pool_direction?: string | null;
         garage_direction?: string | null;
         open_sky_direction?: string | null;
-        layout?: string | null;
     } | null;
     finalOrientation?: string | null;
+    description?: string | null;     // Listing description for description-first optimization
     radarOrientation?: string | null;
     coordinates?: { latitude: number; longitude: number };
     orientationAssessment: OrientationAssessmentValue[];  // multi-select
     assessedAt?: any;        // Firestore Timestamp of last orientation_assessment save
     calculatedAt?: any;      // Firestore Timestamp of last AI orientation calculation
+    zip?: string;            // Zip code — needed to build the orientation history path
     /** The very first orientation ever recorded for this property (v1 baseline). */
     firstOrientation?: string;
     /** True when the current AI orientation direction differs from the first-ever recorded version. */
@@ -51,6 +55,26 @@ interface OrientationRow {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+
+
+const getRelativeTime = (date: any): { relative: string; full: string } => {
+    if (!date) return { relative: '—', full: '' };
+    const d = date instanceof Date ? date : (date?.toDate?.() ?? new Date(date));
+    const diffMs = Date.now() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHrs = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHrs / 24);
+    
+    let relative = '';
+    if (diffMins < 1) relative = 'just now';
+    else if (diffMins < 60) relative = `${diffMins}m ago`;
+    else if (diffHrs < 24) relative = `${diffHrs}h ago`;
+    else if (diffDays < 7) relative = `${diffDays}d ago`;
+    else relative = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    
+    const full = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return { relative, full };
+};
 const CONF_COLOR: Record<string, string> = {
     high: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     medium: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -100,7 +124,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
 
     // ── Fetch all properties + visual analyses ────────────────────────────────
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [propSnap, visualSnap, assessmentSnap] = await Promise.all([
@@ -145,7 +169,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             });
 
             const built: OrientationRow[] = activeDocs.map(d => {
-                const p = d.data() as any;
+                const p = normalizePropertyFields(d.data() as any);
                 const history = historyMap[d.id];
                 const aiOrientation = p.orientation_ai?.final_orientation || null;
                 const radarOrientation = visualOrientationMap[d.id] || null;
@@ -181,26 +205,32 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                 return {
                     zpid: d.id,
-                    address: p.address || d.id,
-                    city: p.city || 'Other',
-                    propertyType: (p.homeType || p.propertyType || p.home_type || p.property_type || p.type || 'Unknown').replace(/_/g, ' '),
+                    address: p.address,
+                    city: p.city,
+                    homeType: p.homeType,
+                    propertyType: (p.homeType || 'Unknown').replace(/_/g, ' '),
                     previousOrientation: prevRecord 
                         ? `${prevRecord.details.orientation} (v${prevRecord.version})`
                         : undefined,
                     firstOrientation: firstHistoryOrientation,
                     changedFromFirst,
-                    mapZoomIn: p.mapZoomIn || undefined,
-                    mapZoomOut: p.mapZoomOut || undefined,
+                    mapZoomIn: p.mapZoomIn,
+                    mapZoomOut: p.mapZoomOut,
                     satelliteImageUrl: (p.satelliteImageUrl && p.satelliteImageUrl.includes('firebasestorage'))
                         ? p.satelliteImageUrl : undefined,
-                    streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
-                    orientationAI: p.orientation_ai || null,
+                    streetView: p.streetView || p.streetViewAnalysis?.imageUrl,
+                    description: p.description,
+                    orientationAI: p.orientation_ai ? {
+                        ...p.orientation_ai,
+                        property_layout_type: p.orientation_ai.property_layout_type || p.orientation_ai.layout
+                    } : null,
                     finalOrientation: aiOrientation || radarOrientation,
                     radarOrientation: radarOrientation,
-                    coordinates: p.coordinates || undefined,
+                    coordinates: p.coordinates,
                     orientationAssessment: orientationAssessmentMap[d.id] ?? [],
                     assessedAt: assessedAtMap[d.id] ?? null,
                     calculatedAt: p.orientation_calculated_at ?? null,
+                    zip: history?.latest?.zip || p.zipCode,
                     status: 'idle' as const,
                 };
             });
@@ -218,13 +248,46 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeCity]); 
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const [purgeRunning, setPurgeRunning] = useState(false);
+    const handlePurgeNonTargets = async () => {
+        if (!isAdmin) return;
+        const nonTargets = rows.filter(r => !isTargetForOrientationAnalysis(r).target && (r.orientationAI || r.finalOrientation));
+        if (nonTargets.length === 0) {
+            alert('No properties to purge.');
+            return;
+        }
+        if (!confirm(`${nonTargets.length} ${nonTargets.length === 1 ? 'property' : 'properties'} will have no orientation data after this purge.\n\nProceed?`)) return;
+        
+        setPurgeRunning(true);
+        try {
+            let deleted = 0;
+            let failed = 0;
+            for (const row of nonTargets) {
+                const result = await deleteOrientationVersionsForProperty(row.zpid, row.city, row.zip);
+                if (result.deleted) deleted++;
+                else failed++;
+            }
+            await fetchData();
+            const failNote = failed > 0 ? ` (${failed} failed)` : '';
+            alert(`Purge complete — ${deleted} of ${nonTargets.length} properties cleared.${failNote}`);
+        } finally {
+            setPurgeRunning(false);
+        }
+    };
 
     const cities = useMemo(() => {
         const m: Record<string, number> = {};
-        rows.forEach(r => { m[r.city] = (m[r.city] || 0) + 1; });
+        rows.forEach(r => { 
+            if (isTargetForOrientationAnalysis(r).target) {
+                m[r.city] = (m[r.city] || 0) + 1; 
+            }
+        });
         return Object.entries(m)
             .filter(([, c]) => c >= 5)
             .sort((a, b) => b[1] - a[1])
@@ -234,7 +297,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const allCases = useMemo(() => {
         const cases = new Set<string>();
         rows.forEach(r => {
-            if (r.orientationAI?.property_layout_type) {
+            if (isTargetForOrientationAnalysis(r).target && r.orientationAI?.property_layout_type) {
                 cases.add(r.orientationAI.property_layout_type);
             }
         });
@@ -244,7 +307,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const allPropertyTypes = useMemo(() => {
         const types = new Set<string>();
         rows.forEach(r => {
-            if (r.propertyType) {
+            if (isTargetForOrientationAnalysis(r).target && r.propertyType) {
                 types.add(r.propertyType);
             }
         });
@@ -258,7 +321,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     };
 
     const filteredRows = useMemo(() => {
-        let rs = activeCity ? rows.filter(r => r.city === activeCity) : rows;
+        // Enforce targeting: only show properties that are targets for analysis
+        let rs = rows.filter(r => isTargetForOrientationAnalysis(r).target);
+        if (activeCity) rs = rs.filter(r => r.city === activeCity);
         if (showMissingOnly) {
             rs = rs.filter(r => r.orientationAssessment.length === 0);
         }
@@ -305,9 +370,20 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         [filteredRows]
     );
 
+
+
     const runForRow = async (zpid: string) => {
         const row = rows.find(r => r.zpid === zpid);
-        if (!row?.coordinates) {
+        if (!row) return;
+
+        const { target, reason } = isTargetForOrientationAnalysis(row);
+        if (!target) {
+            setRows(prev => prev.map(r => r.zpid === zpid
+                ? { ...r, status: 'error', error: reason } : r));
+            return;
+        }
+
+        if (!row.coordinates) {
             setRows(prev => prev.map(r => r.zpid === zpid
                 ? { ...r, status: 'error', error: 'No coordinates' } : r));
             return;
@@ -320,12 +396,15 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 row.streetView,
                 auth?.currentUser?.uid || 'unknown',
                 zpid,
-                row.address
+                row.address,
+                row.description       // ← enables description-first optimization
             );
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
                 status: 'done',
                 calculatedAt: new Date(),
+                // Update the displayed orientation immediately — do NOT leave it stale
+                finalOrientation: result.final_orientation,
                 orientationAI: {
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
@@ -343,6 +422,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 mapZoomIn: r.mapZoomIn || result.aerial_url,
                 streetView: r.streetView || result.street_view_url || undefined,
             } : r));
+            
+            // Re-fetch everything to ensure history, ChangedFromFirst, and Case labels are perfectly in sync
+            setTimeout(() => fetchData(), 500); 
+            
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
                 ? { ...r, status: 'error', error: e.message || 'Unknown error' } : r));
@@ -351,7 +434,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
     const forceRefreshForRow = async (zpid: string) => {
         const row = rows.find(r => r.zpid === zpid);
-        if (!row?.coordinates) {
+        if (!row) return;
+
+        const { target, reason } = isTargetForOrientationAnalysis(row);
+        if (!target) {
+            setRows(prev => prev.map(r => r.zpid === zpid
+                ? { ...r, status: 'error', error: reason } : r));
+            return;
+        }
+
+        if (!row.coordinates) {
             setRows(prev => prev.map(r => r.zpid === zpid
                 ? { ...r, status: 'error', error: 'No coordinates' } : r));
             return;
@@ -364,13 +456,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 row.coordinates.latitude,
                 row.coordinates.longitude,
                 auth?.currentUser?.uid || 'unknown',
-                row.address
+                row.address,
+                row.description       // ← enables description-first optimization
             );
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
                 status: 'done',
                 satelliteImageUrl: result.freshAerialUrl || r.satelliteImageUrl,
                 streetView: result.freshStreetViewUrl || r.streetView,
+                // Update the displayed orientation immediately — do NOT leave it stale
+                finalOrientation: result.final_orientation,
                 orientationAI: {
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
@@ -386,6 +481,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     buyer_con: result.buyer_con,
                 },
             } : r));
+
+            // Re-fetch consistency check
+            setTimeout(() => fetchData(), 500);
+
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
                 ? { ...r, status: 'error', error: e.message || 'Refresh failed' } : r));
@@ -393,7 +492,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     };
 
     const handleBatchRun = async () => {
-        const targets = filteredRows.filter(r => r.coordinates && r.status !== 'running');
+        const targets = filteredRows.filter(r => {
+            if (!r.coordinates || r.status === 'running') return false;
+            return isTargetForOrientationAnalysis(r).target;
+        });
         if (targets.length === 0) return;
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
@@ -549,23 +651,38 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     )}
 
                     {isAdmin && (
-                        <button
-                            onClick={handleBatchRun}
-                            disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
-                            className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                        >
-                            {batchRunning ? (
-                                <>
-                                    <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                    {batchProgress ? `${batchProgress.done}/${batchProgress.total}` : 'Running…'}
-                                </>
-                            ) : (
-                                <>
-                                    <i className="fa-solid fa-satellite-dish text-xs" />
-                                    Calculate All ({filteredRows.filter(r => r.coordinates).length})
-                                </>
-                            )}
-                        </button>
+                        <>
+                            <button
+                                onClick={handleBatchRun}
+                                disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
+                                className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            >
+                                {batchRunning ? (
+                                    <>
+                                        <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                        {batchProgress ? `${batchProgress.done}/${batchProgress.total}` : 'Running…'}
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fa-solid fa-satellite-dish text-xs" />
+                                        Calculate All ({filteredRows.filter(r => r.coordinates).length})
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                onClick={handlePurgeNonTargets}
+                                disabled={purgeRunning || loading}
+                                className="flex items-center gap-2.5 px-5 py-2.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all disabled:opacity-40"
+                            >
+                                {purgeRunning ? (
+                                    <i className="fa-solid fa-spinner animate-spin" />
+                                ) : (
+                                    <i className="fa-solid fa-trash-can" />
+                                )}
+                                Purge Non-Targets
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -646,11 +763,11 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[140px]">Property</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Type</th>
+
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Close-up Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Case</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Radar</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Latest AI</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Prev AI</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Assessment</th>
@@ -708,6 +825,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             <div className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{row.propertyType}</div>
                                         </td>
 
+
                                         {/* Close-up map */}
                                         <td className="p-5 text-center">
                                             <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={{
@@ -755,23 +873,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                         {/* Orientation Case */}
                                         <td className="p-5">
-                                            {row.orientationAI?.layout || row.orientationAI?.property_layout_type ? (
+                                            {row.orientationAI?.property_layout_type ? (
                                                 <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 text-[10px] font-black uppercase tracking-tight">
-                                                    {(row.orientationAI?.layout || row.orientationAI?.property_layout_type || '').replace(/_/g, ' ')}
+                                                    {row.orientationAI.property_layout_type.replace(/_/g, ' ')}
                                                 </div>
                                             ) : (
                                                 <span className="text-[10px] text-slate-200 font-bold">—</span>
                                             )}
                                         </td>
 
-                                        {/* Radar orientation */}
-                                        <td className="p-5">
-                                            {row.radarOrientation ? (
-                                                <DirBadge label={row.radarOrientation} color="bg-slate-100 text-slate-700 border-slate-200" />
-                                            ) : (
-                                                <span className="text-[10px] text-slate-300 font-bold">—</span>
-                                            )}
-                                        </td>
+
 
                                         {/* AI orientation */}
                                         <td className="p-5">
@@ -853,31 +964,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                         {/* Calculated At */}
                                         <td className="p-5">
                                             <div className="flex items-center gap-2">
-                                                {row.calculatedAt ? (() => {
-                                                    const d = row.calculatedAt instanceof Date
-                                                        ? row.calculatedAt
-                                                        : row.calculatedAt?.toDate?.() ?? new Date(row.calculatedAt);
-                                                    const diffMs = Date.now() - d.getTime();
-                                                    const diffMins = Math.floor(diffMs / 60000);
-                                                    const diffHrs = Math.floor(diffMins / 60);
-                                                    const diffDays = Math.floor(diffHrs / 24);
-                                                    const relative = diffMins < 1 ? 'just now'
-                                                        : diffMins < 60 ? `${diffMins}m ago`
-                                                            : diffHrs < 24 ? `${diffHrs}h ago`
-                                                                : diffDays < 7 ? `${diffDays}d ago`
-                                                                    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                                                    const fullDate = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                                    return (
-                                                        <span
-                                                            title={fullDate}
-                                                            className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap"
-                                                        >
+                                                {(() => {
+                                                    const { relative, full } = getRelativeTime(row.calculatedAt);
+                                                    return relative === '—' ? (
+                                                        <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                                    ) : (
+                                                        <span title={full} className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap">
                                                             {relative}
                                                         </span>
                                                     );
-                                                })() : (
-                                                    <span className="text-[10px] text-slate-200 font-bold">—</span>
-                                                )}
+                                                })()}
 
                                                 {isAdmin && row.coordinates && (
                                                     <button
@@ -897,31 +993,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                         {/* Last Assessed */}
                                         <td className="p-5">
-                                            {row.assessedAt ? (() => {
-                                                const d = row.assessedAt instanceof Date
-                                                    ? row.assessedAt
-                                                    : row.assessedAt?.toDate?.() ?? new Date(row.assessedAt);
-                                                const diffMs = Date.now() - d.getTime();
-                                                const diffMins = Math.floor(diffMs / 60000);
-                                                const diffHrs = Math.floor(diffMins / 60);
-                                                const diffDays = Math.floor(diffHrs / 24);
-                                                const relative = diffMins < 1 ? 'just now'
-                                                    : diffMins < 60 ? `${diffMins}m ago`
-                                                        : diffHrs < 24 ? `${diffHrs}h ago`
-                                                            : diffDays < 7 ? `${diffDays}d ago`
-                                                                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                                                const fullDate = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                                return (
-                                                    <span
-                                                        title={fullDate}
-                                                        className="text-[10px] font-semibold text-slate-400 cursor-default whitespace-nowrap"
-                                                    >
+                                            {(() => {
+                                                const { relative, full } = getRelativeTime(row.assessedAt);
+                                                return relative === '—' ? (
+                                                    <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                                ) : (
+                                                    <span title={full} className="text-[10px] font-semibold text-slate-500 cursor-default whitespace-nowrap">
                                                         {relative}
                                                     </span>
                                                 );
-                                            })() : (
-                                                <span className="text-[10px] text-slate-200 font-bold">—</span>
-                                            )}
+                                            })()}
                                         </td>
 
                                         {/* Action — admin only */}
@@ -959,9 +1040,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             </tbody>
                         </table>
                     </div>
-                </div >
+                </div>
             )}
-        </div >
+        </div>
     );
 };
 

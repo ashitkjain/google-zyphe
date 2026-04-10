@@ -14,7 +14,7 @@ import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalys
 import { fetchPropertySpecs } from '../../services/api/property';
 
 import { PropertyData } from '../../types';
-import { isSupportedPropertyType, hasEssentialData } from '../../utils/propertyValidation';
+import { isSupportedPropertyType, hasEssentialData } from '../../utils/propertyPolicies';
 import { GEMINI_CHECK_SOURCES, NON_GEMINI_CHECK_SOURCES } from '../../utils/pipelineCheckConfig';
 import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
