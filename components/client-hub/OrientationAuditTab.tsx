@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, orderBy, getDocs, collectionGroup } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl } from '../../services/satellitaryService';
 import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
 import { getLatestOrientationVersions } from '../../services/firebase/orientation_history';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
@@ -372,7 +372,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
 
 
-    const runForRow = async (zpid: string) => {
+    const runForRow = async (zpid: string, skipFetch = false) => {
         const row = rows.find(r => r.zpid === zpid);
         if (!row) return;
 
@@ -424,7 +424,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             } : r));
             
             // Re-fetch everything to ensure history, ChangedFromFirst, and Case labels are perfectly in sync
-            setTimeout(() => fetchData(), 500); 
+            if (!skipFetch) {
+                setTimeout(() => fetchData(), 500); 
+            }
             
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
@@ -432,7 +434,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
     };
 
-    const forceRefreshForRow = async (zpid: string) => {
+    const forceRefreshForRow = async (zpid: string, skipFetch = false) => {
         const row = rows.find(r => r.zpid === zpid);
         if (!row) return;
 
@@ -483,7 +485,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             } : r));
 
             // Re-fetch consistency check
-            setTimeout(() => fetchData(), 500);
+            if (!skipFetch) {
+                setTimeout(() => fetchData(), 500);
+            }
 
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
@@ -500,11 +504,49 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
         for (let i = 0; i < targets.length; i++) {
-            await runForRow(targets[i].zpid);
+            await forceRefreshForRow(targets[i].zpid, true);
             setBatchProgress({ done: i + 1, total: targets.length });
         }
         setBatchRunning(false);
         setBatchProgress(null);
+        // Single final fetch after batch finishes
+        fetchData();
+    };
+
+    const handleCalculateMissed = async () => {
+        const now = Date.now();
+        const twoHoursAgo = now - (2 * 60 * 60 * 1000);
+        
+        const targets = filteredRows.filter(r => {
+            if (!r.coordinates || r.status === 'running') return false;
+            if (!isTargetForOrientationAnalysis(r).target) return false;
+            
+            // If never calculated, it's missed
+            if (!r.calculatedAt) return true;
+            
+            // If calculated more than 2 hours ago, it's potentially stale/missed in previous run
+            try {
+                const calcDate = r.calculatedAt.toDate ? r.calculatedAt.toDate() : new Date(r.calculatedAt);
+                return calcDate.getTime() < twoHoursAgo;
+            } catch (e) {
+                return true; // Fallback to treat as missed if date is weird
+            }
+        });
+        
+        if (targets.length === 0) {
+            alert('No missed properties found in the last 2 hours.');
+            return;
+        }
+        
+        setBatchRunning(true);
+        setBatchProgress({ done: 0, total: targets.length });
+        for (let i = 0; i < targets.length; i++) {
+            await forceRefreshForRow(targets[i].zpid, true);
+            setBatchProgress({ done: i + 1, total: targets.length });
+        }
+        setBatchRunning(false);
+        setBatchProgress(null);
+        fetchData();
     };
 
     const handleRedownloadSatellites = async () => {
@@ -668,6 +710,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                         Calculate All ({filteredRows.filter(r => r.coordinates).length})
                                     </>
                                 )}
+                            </button>
+
+                            <button
+                                onClick={handleCalculateMissed}
+                                disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
+                                className="flex items-center gap-2.5 px-5 py-2.5 bg-white border-2 border-slate-800 text-slate-800 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Recalculate only for properties not updated in the last 2 hours"
+                            >
+                                <i className="fa-solid fa-clock-rotate-left text-xs" />
+                                Resume / Fix Missed
                             </button>
 
                             <button
@@ -838,6 +890,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
                                                     saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                 },
+                                            }} onRefreshUrl={(newUrl) => {
+                                                setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, mapZoomIn: newUrl } : r));
                                             }} />
                                         </td>
 
@@ -853,6 +907,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
                                                     saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                 },
+                                            }} onRefreshUrl={(newUrl) => {
+                                                setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, satelliteImageUrl: newUrl } : r));
                                             }} />
                                         </td>
 
@@ -868,6 +924,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
                                                     saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                 },
+                                            }} onRefreshUrl={(newUrl) => {
+                                                setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, streetView: newUrl } : r));
                                             }} />
                                         </td>
 
@@ -1072,10 +1130,11 @@ interface OrientationSummary {
 
 // ─── Image thumbnail with full-screen modal ───────────────────────────────────
 
-function MapThumb({ url, label, orientations }: {
+function MapThumb({ url, label, orientations, onRefreshUrl }: {
     url?: string;
     label: string;
     orientations?: OrientationSummary;
+    onRefreshUrl?: (newUrl: string) => void;
 }) {
     const [open, setOpen] = useState(false);
     if (!url) return (
@@ -1101,17 +1160,27 @@ function MapThumb({ url, label, orientations }: {
                         target.src = 'https://placehold.co/100x100/1e293b/FFFFFF?text=404';
                         
                         // 2. Proactive recovery: if we have coordinates and zpid, try to re-fetch/re-cache URL
-                        if (orientations?.zpid && (orientations as any).coordinates && label === 'Satellite' && ! (target as any)._retried) {
+                        if (orientations?.zpid && (orientations as any).coordinates && ! (target as any)._retried) {
+                             if (label !== 'Satellite' && label !== 'Street View') return;
                              (target as any)._retried = true;
                              try {
-                                 const freshUrl = await getOrCacheAerialSatelliteUrl(
-                                     orientations.zpid, 
-                                     (orientations as any).coordinates.latitude, 
-                                     (orientations as any).coordinates.longitude
-                                 );
-                                 if (freshUrl) target.src = freshUrl;
+                                 const freshUrl = label === 'Satellite' 
+                                     ? await getOrCacheAerialSatelliteUrl(
+                                         orientations.zpid, 
+                                         (orientations as any).coordinates.latitude, 
+                                         (orientations as any).coordinates.longitude
+                                       )
+                                     : await forceRefreshStreetViewUrl(
+                                         orientations.zpid,
+                                         (orientations as any).coordinates.latitude,
+                                         (orientations as any).coordinates.longitude
+                                       );
+                                 if (freshUrl) {
+                                     target.src = freshUrl;
+                                     if (onRefreshUrl) onRefreshUrl(freshUrl);
+                                 }
                              } catch (err) {
-                                 console.warn('[MapThumb] Auto-recovery failed:', err);
+                                 console.warn(`[MapThumb] Auto-recovery failed for ${label}:`, err);
                              }
                         }
                     }}
