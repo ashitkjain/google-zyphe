@@ -36,6 +36,8 @@ interface OrientationRow {
         pool_direction?: string | null;
         garage_direction?: string | null;
         open_sky_direction?: string | null;
+        explanation?: string | null;
+        is_under_construction?: boolean;
     } | null;
     finalOrientation?: string | null;
     description?: string | null;     // Listing description for description-first optimization
@@ -64,14 +66,14 @@ const getRelativeTime = (date: any): { relative: string; full: string } => {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHrs = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHrs / 24);
-    
+
     let relative = '';
     if (diffMins < 1) relative = 'just now';
     else if (diffMins < 60) relative = `${diffMins}m ago`;
     else if (diffHrs < 24) relative = `${diffHrs}h ago`;
     else if (diffDays < 7) relative = `${diffDays}d ago`;
     else relative = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    
+
     const full = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     return { relative, full };
 };
@@ -209,7 +211,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     city: p.city,
                     homeType: p.homeType,
                     propertyType: (p.homeType || 'Unknown').replace(/_/g, ' '),
-                    previousOrientation: prevRecord 
+                    previousOrientation: prevRecord
                         ? `${prevRecord.details.orientation} (v${prevRecord.version})`
                         : undefined,
                     firstOrientation: firstHistoryOrientation,
@@ -222,7 +224,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     description: p.description,
                     orientationAI: p.orientation_ai ? {
                         ...p.orientation_ai,
-                        property_layout_type: p.orientation_ai.property_layout_type || p.orientation_ai.layout
+                        property_layout_type: p.orientation_ai.property_layout_type || p.orientation_ai.layout,
+                        explanation: p.orientation_ai.explanation ?? null,
+                        is_under_construction: p.orientation_ai.is_under_construction,
                     } : null,
                     finalOrientation: aiOrientation || radarOrientation,
                     radarOrientation: radarOrientation,
@@ -248,7 +252,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         } finally {
             setLoading(false);
         }
-    }, [activeCity]); 
+    }, [activeCity]);
 
     useEffect(() => {
         fetchData();
@@ -263,7 +267,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             return;
         }
         if (!confirm(`${nonTargets.length} ${nonTargets.length === 1 ? 'property' : 'properties'} will have no orientation data after this purge.\n\nProceed?`)) return;
-        
+
         setPurgeRunning(true);
         try {
             let deleted = 0;
@@ -283,9 +287,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
     const cities = useMemo(() => {
         const m: Record<string, number> = {};
-        rows.forEach(r => { 
+        rows.forEach(r => {
             if (isTargetForOrientationAnalysis(r).target) {
-                m[r.city] = (m[r.city] || 0) + 1; 
+                m[r.city] = (m[r.city] || 0) + 1;
             }
         });
         return Object.entries(m)
@@ -331,13 +335,13 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             rs = rs.filter(r => {
                 if (!r.orientationAI) return false;
                 const current = normalizeDir(r.orientationAI.final_orientation);
-                
+
                 // Only count as "changed" if it differs from an existing baseline
                 // (Radar or History). If there's no baseline, it's considered "new", not "changed".
-                
+
                 if (r.radarOrientation && normalizeDir(r.radarOrientation) !== current) return true;
                 if (r.previousOrientation && normalizeDir(r.previousOrientation) !== current) return true;
-                
+
                 return false;
             });
         }
@@ -352,6 +356,27 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
         return rs;
     }, [rows, activeCity, showMissingOnly, showOrientationDiffOnly, showChangedFromFirstOnly, caseFilter, propertyTypeFilter]);
+
+    const missedProperties = useMemo(() => {
+        const now = Date.now();
+        const twoHoursAgo = now - (2 * 60 * 60 * 1000);
+
+        return filteredRows.filter(r => {
+            // Only count as missed if it IS a target for analysis
+            if (!isTargetForOrientationAnalysis(r).target) return false;
+            if (!r.coordinates) return false;
+
+            // Only count as missed if it was NEVER calculated OR calculated > 2 hours ago (broken retry)
+            const calcAt = r.calculatedAt;
+            if (!calcAt) return true;
+
+            // If it has errors, count it as missed so we can retry
+            if (r.status === 'error') return true;
+
+            const date = (calcAt as any)?.toDate?.() || (calcAt instanceof Date ? calcAt : new Date(calcAt));
+            return date.getTime() < twoHoursAgo;
+        });
+    }, [filteredRows]);
 
     const assessmentCounts = useMemo(() => {
         const counts: Record<OrientationAssessmentValue, number> = {
@@ -418,16 +443,18 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     lot_coverage_pervious: result.lot_coverage_pervious,
                     buyer_pro: result.buyer_pro,
                     buyer_con: result.buyer_con,
+                    explanation: result.explanation ?? null,
+                    is_under_construction: result.is_under_construction,
                 },
                 mapZoomIn: r.mapZoomIn || result.aerial_url,
                 streetView: r.streetView || result.street_view_url || undefined,
             } : r));
-            
+
             // Re-fetch everything to ensure history, ChangedFromFirst, and Case labels are perfectly in sync
             if (!skipFetch) {
-                setTimeout(() => fetchData(), 500); 
+                setTimeout(() => fetchData(), 500);
             }
-            
+
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
                 ? { ...r, status: 'error', error: e.message || 'Unknown error' } : r));
@@ -481,6 +508,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     lot_coverage_pervious: result.lot_coverage_pervious,
                     buyer_pro: result.buyer_pro,
                     buyer_con: result.buyer_con,
+                    explanation: result.explanation ?? null,
+                    is_under_construction: result.is_under_construction,
                 },
             } : r));
 
@@ -516,28 +545,14 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const handleCalculateMissed = async () => {
         const now = Date.now();
         const twoHoursAgo = now - (2 * 60 * 60 * 1000);
-        
-        const targets = filteredRows.filter(r => {
-            if (!r.coordinates || r.status === 'running') return false;
-            if (!isTargetForOrientationAnalysis(r).target) return false;
-            
-            // If never calculated, it's missed
-            if (!r.calculatedAt) return true;
-            
-            // If calculated more than 2 hours ago, it's potentially stale/missed in previous run
-            try {
-                const calcDate = r.calculatedAt.toDate ? r.calculatedAt.toDate() : new Date(r.calculatedAt);
-                return calcDate.getTime() < twoHoursAgo;
-            } catch (e) {
-                return true; // Fallback to treat as missed if date is weird
-            }
-        });
-        
+
+        const targets = missedProperties.filter(r => r.status !== 'running');
+
         if (targets.length === 0) {
             alert('No missed properties found in the last 2 hours.');
             return;
         }
-        
+
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
         for (let i = 0; i < targets.length; i++) {
@@ -601,10 +616,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     )}
                     <button
                         onClick={() => setShowMissingOnly(!showMissingOnly)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showMissingOnly 
-                            ? 'bg-rose-50 border-rose-200 text-rose-700' 
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showMissingOnly
+                            ? 'bg-rose-50 border-rose-200 text-rose-700'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                        }`}
+                            }`}
                         title="Toggle: show only properties needing assessment"
                     >
                         <i className={`fa-solid ${showMissingOnly ? 'fa-filter-circle-xmark' : 'fa-filter'} text-xs`} />
@@ -613,10 +628,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                     <button
                         onClick={() => setShowOrientationDiffOnly(!showOrientationDiffOnly)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showOrientationDiffOnly 
-                            ? 'bg-amber-50 border-amber-200 text-amber-700' 
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showOrientationDiffOnly
+                            ? 'bg-amber-50 border-amber-200 text-amber-700'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                        }`}
+                            }`}
                         title="Toggle: show properties where current AI orientation differs from history"
                     >
                         <i className={`fa-solid fa-code-compare text-xs`} />
@@ -630,11 +645,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         return (
                             <button
                                 onClick={() => setShowChangedFromFirstOnly(!showChangedFromFirstOnly)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${
-                                    showChangedFromFirstOnly
-                                        ? 'bg-pink-50 border-pink-300 text-pink-700'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-pink-50 hover:border-pink-200 hover:text-pink-600'
-                                }`}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-sm border ${showChangedFromFirstOnly
+                                    ? 'bg-pink-50 border-pink-300 text-pink-700'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-pink-50 hover:border-pink-200 hover:text-pink-600'
+                                    }`}
                                 title="Show only properties where orientation changed from the first-ever recorded version (v1 baseline)"
                             >
                                 <i className="fa-solid fa-arrow-rotate-left text-xs" />
@@ -645,7 +659,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                     <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-xl shadow-sm">
                         <span className="text-[9px] font-black text-slate-400 uppercase">Case:</span>
-                        <select 
+                        <select
                             value={caseFilter}
                             onChange={(e) => setCaseFilter(e.target.value)}
                             className="bg-transparent text-[11px] font-black text-slate-700 uppercase tracking-tight focus:outline-none cursor-pointer"
@@ -659,7 +673,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                     <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-xl shadow-sm">
                         <span className="text-[9px] font-black text-slate-400 uppercase">Type:</span>
-                        <select 
+                        <select
                             value={propertyTypeFilter}
                             onChange={(e) => setPropertyTypeFilter(e.target.value)}
                             className="bg-transparent text-[11px] font-black text-slate-700 uppercase tracking-tight focus:outline-none cursor-pointer"
@@ -719,7 +733,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 title="Recalculate only for properties not updated in the last 2 hours"
                             >
                                 <i className="fa-solid fa-clock-rotate-left text-xs" />
-                                Resume / Fix Missed
+                                Resume / Fix Missed {missedProperties.length > 0 && `(${missedProperties.length})`}
                             </button>
 
                             <button
@@ -821,6 +835,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Case</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Latest AI</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Explanation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Prev AI</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Assessment</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Calculated</th>
@@ -838,261 +853,307 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     </tr>
                                 ) : filteredRows.map((row, idx) => {
                                     return (
-                                    <tr
-                                        key={row.zpid}
-                                        className={`group transition-colors ${
-                                            (row.status === 'running' || row.status === 'refreshing') ? 'animate-pulse' : ''
-                                        } ${
-                                            row.changedFromFirst
-                                                ? 'bg-pink-50/60 border-b border-slate-100 border-l-2 border-l-pink-400'
-                                                : 'bg-white border-b border-slate-100 hover:bg-slate-50/40'
-                                        }`}
-                                    >
-                                        <td className="p-5 text-center w-10">
-                                            <span className="text-[11px] font-black text-slate-300 font-mono">{idx + 1}</span>
-                                        </td>
-                                        <td className="p-5">
-                                            <a
-                                                href={`/?zpid=${row.zpid}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-[11px] font-black text-indigo-700 hover:text-indigo-500 hover:underline leading-tight line-clamp-2 transition-colors"
-                                                title="Open in Explore"
-                                            >
-                                                {row.address}
-                                            </a>
-                                            <div className="text-[9px] font-mono text-slate-400 mt-0.5">{row.zpid}</div>
-                                            {row.status === 'error' && (
-                                                <div className="text-[9px] text-rose-500 font-bold mt-1 truncate max-w-[120px]">{row.error}</div>
-                                            )}
-                                            {row.status === 'done' && (
-                                                <div className="text-[9px] text-emerald-600 font-black mt-1">✓ Updated</div>
-                                            )}
-                                            {row.status === 'refreshing' && (
-                                                <div className="text-[9px] text-indigo-500 font-black mt-1">↻ Refreshing…</div>
-                                            )}
-                                        </td>
+                                        <tr
+                                            key={row.zpid}
+                                            className={`group transition-colors ${(row.status === 'running' || row.status === 'refreshing') ? 'animate-pulse' : ''
+                                                } ${row.changedFromFirst
+                                                    ? 'bg-pink-50/60 border-b border-slate-100 border-l-2 border-l-pink-400'
+                                                    : 'bg-white border-b border-slate-100 hover:bg-slate-50/40'
+                                                }`}
+                                        >
+                                            <td className="p-5 text-center w-10">
+                                                <span className="text-[11px] font-black text-slate-300 font-mono">{idx + 1}</span>
+                                            </td>
+                                            <td className="p-5">
+                                                <a
+                                                    href={`/?zpid=${row.zpid}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[11px] font-black text-indigo-700 hover:text-indigo-500 hover:underline leading-tight line-clamp-2 transition-colors"
+                                                    title="Open in Explore"
+                                                >
+                                                    {row.address}
+                                                </a>
+                                                <div className="text-[9px] font-mono text-slate-400 mt-0.5">{row.zpid}</div>
+                                                {row.status === 'error' && (
+                                                    <div className="text-[9px] text-rose-500 font-bold mt-1 truncate max-w-[120px]">{row.error}</div>
+                                                )}
+                                                {row.status === 'done' && (
+                                                    <div className="text-[9px] text-emerald-600 font-black mt-1">✓ Updated</div>
+                                                )}
+                                                {row.status === 'refreshing' && (
+                                                    <div className="text-[9px] text-indigo-500 font-black mt-1">↻ Refreshing…</div>
+                                                )}
+                                            </td>
 
-                                        <td className="p-5">
-                                            <div className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{row.propertyType}</div>
-                                        </td>
+                                            <td className="p-5">
+                                                <div className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{row.propertyType}</div>
+                                            </td>
 
 
-                                        {/* Close-up map */}
-                                        <td className="p-5 text-center">
-                                            <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={{
-                                                ...row,
-                                                selectedAssessment: row.orientationAssessment,
-                                                onSelectAssessment: (v) => {
-                                                    const next = row.orientationAssessment.includes(v)
-                                                        ? row.orientationAssessment.filter(x => x !== v)
-                                                        : [...row.orientationAssessment, v];
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
-                                                    saveOrientationAssessment(row.zpid, next).catch(console.error);
-                                                },
-                                            }} onRefreshUrl={(newUrl) => {
-                                                setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, mapZoomIn: newUrl } : r));
-                                            }} />
-                                        </td>
+                                            {/* Close-up map */}
+                                            <td className="p-5 text-center">
+                                                <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={{
+                                                    ...row,
+                                                    selectedAssessment: row.orientationAssessment,
+                                                    onSelectAssessment: (v) => {
+                                                        const next = row.orientationAssessment.includes(v)
+                                                            ? row.orientationAssessment.filter(x => x !== v)
+                                                            : [...row.orientationAssessment, v];
+                                                        setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
+                                                        saveOrientationAssessment(row.zpid, next).catch(console.error);
+                                                    },
+                                                }} onRefreshUrl={(newUrl) => {
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, mapZoomIn: newUrl } : r));
+                                                }} />
+                                            </td>
 
-                                        {/* Satellite */}
-                                        <td className="p-5 text-center">
-                                            <MapThumb url={row.satelliteImageUrl} label="Satellite" orientations={{
-                                                ...row,
-                                                selectedAssessment: row.orientationAssessment,
-                                                onSelectAssessment: (v) => {
-                                                    const next = row.orientationAssessment.includes(v)
-                                                        ? row.orientationAssessment.filter(x => x !== v)
-                                                        : [...row.orientationAssessment, v];
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
-                                                    saveOrientationAssessment(row.zpid, next).catch(console.error);
-                                                },
-                                            }} onRefreshUrl={(newUrl) => {
-                                                setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, satelliteImageUrl: newUrl } : r));
-                                            }} />
-                                        </td>
+                                            {/* Satellite */}
+                                            <td className="p-5 text-center">
+                                                <MapThumb url={row.satelliteImageUrl} label="Satellite" orientations={{
+                                                    ...row,
+                                                    selectedAssessment: row.orientationAssessment,
+                                                    onSelectAssessment: (v) => {
+                                                        const next = row.orientationAssessment.includes(v)
+                                                            ? row.orientationAssessment.filter(x => x !== v)
+                                                            : [...row.orientationAssessment, v];
+                                                        setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
+                                                        saveOrientationAssessment(row.zpid, next).catch(console.error);
+                                                    },
+                                                }} onRefreshUrl={(newUrl) => {
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, satelliteImageUrl: newUrl } : r));
+                                                }} />
+                                            </td>
 
-                                        {/* Street view */}
-                                        <td className="p-5 text-center">
-                                            <MapThumb url={row.streetView} label="Street View" orientations={{
-                                                ...row,
-                                                selectedAssessment: row.orientationAssessment,
-                                                onSelectAssessment: (v) => {
-                                                    const next = row.orientationAssessment.includes(v)
-                                                        ? row.orientationAssessment.filter(x => x !== v)
-                                                        : [...row.orientationAssessment, v];
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
-                                                    saveOrientationAssessment(row.zpid, next).catch(console.error);
-                                                },
-                                            }} onRefreshUrl={(newUrl) => {
-                                                setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, streetView: newUrl } : r));
-                                            }} />
-                                        </td>
+                                            {/* Street view */}
+                                            <td className="p-5 text-center">
+                                                <MapThumb url={row.streetView} label="Street View" orientations={{
+                                                    ...row,
+                                                    selectedAssessment: row.orientationAssessment,
+                                                    onSelectAssessment: (v) => {
+                                                        const next = row.orientationAssessment.includes(v)
+                                                            ? row.orientationAssessment.filter(x => x !== v)
+                                                            : [...row.orientationAssessment, v];
+                                                        setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
+                                                        saveOrientationAssessment(row.zpid, next).catch(console.error);
+                                                    },
+                                                }} onRefreshUrl={(newUrl) => {
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, streetView: newUrl } : r));
+                                                }} />
+                                            </td>
 
-                                        {/* Orientation Case */}
-                                        <td className="p-5">
-                                            {row.orientationAI?.property_layout_type ? (
-                                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 text-[10px] font-black uppercase tracking-tight">
-                                                    {row.orientationAI.property_layout_type.replace(/_/g, ' ')}
-                                                </div>
-                                            ) : (
-                                                <span className="text-[10px] text-slate-200 font-bold">—</span>
-                                            )}
-                                        </td>
-
-
-
-                                        {/* AI orientation */}
-                                        <td className="p-5">
-                                            {row.orientationAI ? (
-                                                <div className="space-y-1.5">
-                                                    {row.orientationAI.image_quality === 'blurry' ? (
-                                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-black bg-slate-100 text-slate-400 border-slate-200">
-                                                            <i className="fa-solid fa-eye-slash text-[8px]" />
-                                                            Unclear Image
-                                                        </div>
-                                                    ) : (
-                                                        <DirBadge
-                                                            label={`~${row.orientationAI.final_orientation}`}
-                                                            azimuth={row.orientationAI.azimuth_degrees}
-                                                            color="bg-indigo-50 text-indigo-700 border-indigo-200"
-                                                        />
-                                                    )}
-                                                    <div className="flex items-center gap-1 flex-wrap">
-                                                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${CONF_COLOR[row.orientationAI.confidence]}`}>
-                                                            {row.orientationAI.confidence}
-                                                        </div>
-                                                        {row.orientationAI.image_quality && row.orientationAI.image_quality !== 'clear' && (
-                                                            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${row.orientationAI.image_quality === 'blurry'
-                                                                ? 'bg-slate-100 text-slate-400 border-slate-200'
-                                                                : 'bg-amber-50 text-amber-600 border-amber-200'
-                                                                }`}>
-                                                                {row.orientationAI.image_quality}
-                                                            </div>
-                                                        )}
+                                            {/* Orientation Case */}
+                                            <td className="p-5">
+                                                {row.orientationAI?.property_layout_type ? (
+                                                    <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 text-[10px] font-black uppercase tracking-tight">
+                                                        {row.orientationAI.property_layout_type.replace(/_/g, ' ')}
                                                     </div>
-                                                    {row.orientationAI.aerial_only_mode && (
-                                                        <div className="text-[9px] text-amber-600 font-black">aerial only</div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-[10px] text-slate-300 font-bold">—</span>
-                                            )}
-                                        </td>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                                )}
+                                            </td>
 
-                                        {/* Last Result History — shows first baseline + prev version */}
-                                        <td className="p-5">
-                                            <div className="space-y-1">
-                                                {/* v1 baseline badge — only shown when it differs from current */}
-                                                {row.changedFromFirst && (
-                                                            <div className="flex items-center gap-1">
-                                                                <span className="text-[8px] font-black text-pink-500 uppercase tracking-widest whitespace-nowrap">v1 was</span>
-                                                                <div className="inline-flex items-center px-2 py-0.5 bg-pink-100 border border-pink-300 text-pink-700 text-[10px] font-black uppercase rounded-lg">
-                                                                    {row.firstOrientation}
-                                                                </div>
+
+
+                                            {/* AI orientation */}
+                                            <td className="p-5">
+                                                {row.orientationAI ? (
+                                                    <div className="space-y-1.5">
+                                                        {row.orientationAI.final_orientation === 'UNDER_CONSTRUCTION' || row.orientationAI.is_under_construction ? (
+                                                            <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-black bg-amber-50 text-amber-600 border-amber-200">
+                                                                <i className="fa-solid fa-person-digging text-[8px]" />
+                                                                Under Construction
                                                             </div>
-                                                        )}
-                                                        {/* Previous version (penultimate) */}
-                                                        {row.previousOrientation ? (
-                                                            <div className="inline-flex items-center px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-lg">
-                                                                {row.previousOrientation}
+                                                        ) : row.orientationAI.image_quality === 'blurry' ? (
+                                                            <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-black bg-slate-100 text-slate-400 border-slate-200">
+                                                                <i className="fa-solid fa-eye-slash text-[8px]" />
+                                                                Unclear Image
                                                             </div>
                                                         ) : (
-                                                            <span className="text-[10px] font-black text-slate-200 italic">No history</span>
+                                                            <DirBadge
+                                                                label={`~${row.orientationAI.final_orientation}`}
+                                                                azimuth={row.orientationAI.azimuth_degrees}
+                                                                color="bg-indigo-50 text-indigo-700 border-indigo-200"
+                                                            />
+                                                        )}
+                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${CONF_COLOR[row.orientationAI.confidence]}`}>
+                                                                {row.orientationAI.confidence}
+                                                            </div>
+                                                            {row.orientationAI.image_quality && row.orientationAI.image_quality !== 'clear' && (
+                                                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${row.orientationAI.image_quality === 'blurry'
+                                                                    ? 'bg-slate-100 text-slate-400 border-slate-200'
+                                                                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                                                                    }`}>
+                                                                    {row.orientationAI.image_quality}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {row.orientationAI.aerial_only_mode && (
+                                                            <div className="text-[9px] text-amber-600 font-black">aerial only</div>
                                                         )}
                                                     </div>
-                                        </td>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-300 font-bold">—</span>
+                                                )}
+                                            </td>
 
-
-                                        {/* Orientation Assessment */}
-                                        <td className="p-5">
-                                            <AssessmentDropdown
-                                                value={row.orientationAssessment}
-                                                onChange={(next) => {
-                                                    const now = new Date();
-                                                    setRows(prev => prev.map(r =>
-                                                        r.zpid === row.zpid ? { ...r, orientationAssessment: next, assessedAt: now } : r
-                                                    ));
-                                                    saveOrientationAssessment(row.zpid, next)
-                                                        .catch(e => console.error('[OrientationAudit] Failed to save assessment:', e));
-                                                }}
-                                            />
-                                        </td>
-
-                                        {/* Calculated At */}
-                                        <td className="p-5">
-                                            <div className="flex items-center gap-2">
+                                            {/* Explanation */}
+                                            <td className="p-5">
                                                 {(() => {
-                                                    const { relative, full } = getRelativeTime(row.calculatedAt);
+                                                    const explanation = row.orientationAI?.explanation;
+                                                    const privacyInsight = row.orientationAI?.privacy_insight;
+                                                    
+                                                    // Detection logic for "From description"
+                                                    const isFromDescription = 
+                                                        explanation?.startsWith('Orientation extracted') || 
+                                                        privacyInsight?.startsWith('Not assessed — orientation sourced');
+                                                        
+                                                    let displayText = "";
+                                                    let isLegacyGemini = false;
+
+                                                    if (isFromDescription) {
+                                                        displayText = "Orientation extracted from description";
+                                                    } else if (explanation) {
+                                                        displayText = explanation;
+                                                    } else if (row.orientationAI) {
+                                                        // It's a Gemini result (since orientationAI exists) but no explanation field (Legacy)
+                                                        displayText = "AI reasoning not captured (Legacy)";
+                                                        isLegacyGemini = true;
+                                                    } else {
+                                                        displayText = "—";
+                                                    }
+                                                    
+                                                    if (displayText === "—") return <span className="text-[10px] text-slate-200 font-bold">—</span>;
+
+                                                    const words = displayText.split(' ');
+                                                    const preview = words.slice(0, 10).join(' ') + (words.length > 10 ? '…' : '');
+
+                                                    return (
+                                                        <span
+                                                            className={`text-[10px] leading-snug cursor-default ${isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')}`}
+                                                            title={explanation || privacyInsight || (isLegacyGemini ? 'This record was created before the explanation field was being persisted.' : '')}
+                                                        >
+                                                            {isFromDescription && <i className="fa-solid fa-align-left text-[8px] mr-1" />}
+                                                            {preview}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </td>
+
+                                            {/* Last Result History — shows first baseline + prev version */}
+                                            <td className="p-5">
+                                                <div className="space-y-1">
+                                                    {/* v1 baseline badge — only shown when it differs from current */}
+                                                    {row.changedFromFirst && (
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-[8px] font-black text-pink-500 uppercase tracking-widest whitespace-nowrap">v1 was</span>
+                                                            <div className="inline-flex items-center px-2 py-0.5 bg-pink-100 border border-pink-300 text-pink-700 text-[10px] font-black uppercase rounded-lg">
+                                                                {row.firstOrientation}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {/* Previous version (penultimate) */}
+                                                    {row.previousOrientation ? (
+                                                        <div className="inline-flex items-center px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-lg">
+                                                            {row.previousOrientation}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[10px] font-black text-slate-200 italic">No history</span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+
+                                            {/* Orientation Assessment */}
+                                            <td className="p-5">
+                                                <AssessmentDropdown
+                                                    value={row.orientationAssessment}
+                                                    onChange={(next) => {
+                                                        const now = new Date();
+                                                        setRows(prev => prev.map(r =>
+                                                            r.zpid === row.zpid ? { ...r, orientationAssessment: next, assessedAt: now } : r
+                                                        ));
+                                                        saveOrientationAssessment(row.zpid, next)
+                                                            .catch(e => console.error('[OrientationAudit] Failed to save assessment:', e));
+                                                    }}
+                                                />
+                                            </td>
+
+                                            {/* Calculated At */}
+                                            <td className="p-5">
+                                                <div className="flex items-center gap-2">
+                                                    {(() => {
+                                                        const { relative, full } = getRelativeTime(row.calculatedAt);
+                                                        return relative === '—' ? (
+                                                            <span className="text-[10px] text-slate-200 font-bold">—</span>
+                                                        ) : (
+                                                            <span title={full} className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap">
+                                                                {relative}
+                                                            </span>
+                                                        );
+                                                    })()}
+
+                                                    {isAdmin && row.coordinates && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                runForRow(row.zpid);
+                                                            }}
+                                                            disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning}
+                                                            className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all disabled:opacity-30"
+                                                            title="Rerun orientation analysis"
+                                                        >
+                                                            <i className={`fa-solid fa-rotate text-[10px] ${(row.status === 'running') ? 'animate-spin' : ''}`} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* Last Assessed */}
+                                            <td className="p-5">
+                                                {(() => {
+                                                    const { relative, full } = getRelativeTime(row.assessedAt);
                                                     return relative === '—' ? (
                                                         <span className="text-[10px] text-slate-200 font-bold">—</span>
                                                     ) : (
-                                                        <span title={full} className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap">
+                                                        <span title={full} className="text-[10px] font-semibold text-slate-500 cursor-default whitespace-nowrap">
                                                             {relative}
                                                         </span>
                                                     );
                                                 })()}
-
-                                                {isAdmin && row.coordinates && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            runForRow(row.zpid);
-                                                        }}
-                                                        disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning}
-                                                        className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all disabled:opacity-30"
-                                                        title="Rerun orientation analysis"
-                                                    >
-                                                        <i className={`fa-solid fa-rotate text-[10px] ${(row.status === 'running') ? 'animate-spin' : ''}`} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-
-                                        {/* Last Assessed */}
-                                        <td className="p-5">
-                                            {(() => {
-                                                const { relative, full } = getRelativeTime(row.assessedAt);
-                                                return relative === '—' ? (
-                                                    <span className="text-[10px] text-slate-200 font-bold">—</span>
-                                                ) : (
-                                                    <span title={full} className="text-[10px] font-semibold text-slate-500 cursor-default whitespace-nowrap">
-                                                        {relative}
-                                                    </span>
-                                                );
-                                            })()}
-                                        </td>
-
-                                        {/* Action — admin only */}
-                                        {isAdmin && (
-                                            <td className="p-5 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {/* Force-refresh: delete images → re-download → re-analyze */}
-                                                    <button
-                                                        onClick={() => forceRefreshForRow(row.zpid)}
-                                                        disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
-                                                        title={!row.coordinates ? 'No coordinates available' : 'Force-refresh: delete cached images, re-download, and re-run orientation analysis'}
-                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                                    >
-                                                        {row.status === 'refreshing'
-                                                            ? <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                                            : <i className="fa-solid fa-arrows-rotate text-xs" />}
-                                                    </button>
-                                                    {/* Run analysis only (uses existing cached images) */}
-                                                    <button
-                                                        onClick={() => runForRow(row.zpid)}
-                                                        disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
-                                                        title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis (uses existing cached images)'}
-                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                                    >
-                                                        {row.status === 'running'
-                                                            ? <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                                            : <i className="fa-solid fa-rotate text-xs" />}
-                                                    </button>
-                                                </div>
                                             </td>
-                                        )}
-                                    </tr>
+
+                                            {/* Action — admin only */}
+                                            {isAdmin && (
+                                                <td className="p-5 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {/* Force-refresh: delete images → re-download → re-analyze */}
+                                                        <button
+                                                            onClick={() => forceRefreshForRow(row.zpid)}
+                                                            disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
+                                                            title={!row.coordinates ? 'No coordinates available' : 'Force-refresh: delete cached images, re-download, and re-run orientation analysis'}
+                                                            className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        >
+                                                            {row.status === 'refreshing'
+                                                                ? <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                                                : <i className="fa-solid fa-arrows-rotate text-xs" />}
+                                                        </button>
+                                                        {/* Run analysis only (uses existing cached images) */}
+                                                        <button
+                                                            onClick={() => runForRow(row.zpid)}
+                                                            disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
+                                                            title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis (uses existing cached images)'}
+                                                            className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        >
+                                                            {row.status === 'running'
+                                                                ? <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                                                : <i className="fa-solid fa-rotate text-xs" />}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
                                     );
                                 })}
                             </tbody>
@@ -1149,39 +1210,39 @@ function MapThumb({ url, label, orientations, onRefreshUrl }: {
                 className="w-16 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm hover:shadow-md hover:scale-105 transition-all mx-auto block relative group"
                 title={`View ${label}`}
             >
-                <img 
-                    src={url} 
-                    alt={label} 
-                    className="w-full h-full object-cover" 
+                <img
+                    src={url}
+                    alt={label}
+                    className="w-full h-full object-cover"
                     onError={async (e) => {
                         const target = e.target as HTMLImageElement;
                         console.warn(`[MapThumb] 404/Error on thumbnail: ${label} for ${orientations?.zpid}`);
                         // 1. Show placeholder
                         target.src = 'https://placehold.co/100x100/1e293b/FFFFFF?text=404';
-                        
+
                         // 2. Proactive recovery: if we have coordinates and zpid, try to re-fetch/re-cache URL
-                        if (orientations?.zpid && (orientations as any).coordinates && ! (target as any)._retried) {
-                             if (label !== 'Satellite' && label !== 'Street View') return;
-                             (target as any)._retried = true;
-                             try {
-                                 const freshUrl = label === 'Satellite' 
-                                     ? await getOrCacheAerialSatelliteUrl(
-                                         orientations.zpid, 
-                                         (orientations as any).coordinates.latitude, 
-                                         (orientations as any).coordinates.longitude
-                                       )
-                                     : await forceRefreshStreetViewUrl(
-                                         orientations.zpid,
-                                         (orientations as any).coordinates.latitude,
-                                         (orientations as any).coordinates.longitude
-                                       );
-                                 if (freshUrl) {
-                                     target.src = freshUrl;
-                                     if (onRefreshUrl) onRefreshUrl(freshUrl);
-                                 }
-                             } catch (err) {
-                                 console.warn(`[MapThumb] Auto-recovery failed for ${label}:`, err);
-                             }
+                        if (orientations?.zpid && (orientations as any).coordinates && !(target as any)._retried) {
+                            if (label !== 'Satellite' && label !== 'Street View') return;
+                            (target as any)._retried = true;
+                            try {
+                                const freshUrl = label === 'Satellite'
+                                    ? await getOrCacheAerialSatelliteUrl(
+                                        orientations.zpid,
+                                        (orientations as any).coordinates.latitude,
+                                        (orientations as any).coordinates.longitude
+                                    )
+                                    : await forceRefreshStreetViewUrl(
+                                        orientations.zpid,
+                                        (orientations as any).coordinates.latitude,
+                                        (orientations as any).coordinates.longitude
+                                    );
+                                if (freshUrl) {
+                                    target.src = freshUrl;
+                                    if (onRefreshUrl) onRefreshUrl(freshUrl);
+                                }
+                            } catch (err) {
+                                console.warn(`[MapThumb] Auto-recovery failed for ${label}:`, err);
+                            }
                         }
                     }}
                 />
@@ -1201,10 +1262,10 @@ function MapThumb({ url, label, orientations, onRefreshUrl }: {
                         {/* Image */}
                         <div>
                             <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-2">{label}</div>
-                            <img 
-                                src={url} 
-                                alt={label} 
-                                className="w-full rounded-2xl shadow-2xl" 
+                            <img
+                                src={url}
+                                alt={label}
+                                className="w-full rounded-2xl shadow-2xl"
                                 onError={(e) => {
                                     // Handle broken storage links by attempting to clear them or showing error state
                                     console.warn(`[MapThumb] Image failed to load: ${url}`);

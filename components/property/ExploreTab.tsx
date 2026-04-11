@@ -1210,6 +1210,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                         { key: 'working_professionals', label: 'Working Professionals', icon: 'fa-briefcase', bg: 'bg-sky-100', text: 'text-sky-600', type: 'fit' as const },
                                                         { key: 'families_with_kids', label: 'Families with Kids', icon: 'fa-children', bg: 'bg-blue-100', text: 'text-blue-600', type: 'fit' as const },
                                                         { key: 'seniors', label: 'Seniors', icon: 'fa-heart-pulse', bg: 'bg-rose-100', text: 'text-rose-600', type: 'fit' as const },
+                                                        { key: 'neighborhood', label: 'Neighborhood', icon: 'fa-street-view', bg: 'bg-slate-100', text: 'text-slate-600', type: 'neighborhood' as const },
                                                         { key: 'outdoor', label: 'Outdoor & Recreation', icon: 'fa-mountain-sun', bg: 'bg-emerald-100', text: 'text-emerald-600', type: 'neighborhood' as const },
                                                         { key: 'pets', label: 'Pet Friendly', icon: 'fa-paw', bg: 'bg-amber-100', text: 'text-amber-600', type: 'neighborhood' as const },
                                                         { key: 'food', label: 'Food & Entertainment', icon: 'fa-utensils', bg: 'bg-violet-100', text: 'text-violet-600', type: 'neighborhood' as const },
@@ -1248,8 +1249,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                     {ALL_TABS.map(tab => {
                                                                         const isActive = tab.key === lifestyleFitTab;
                                                                         const hasContent = tab.type === 'fit'
-                                                                            ? !!lifestyleFit?.[tab.key]
-                                                                            : !!lifestyleInsights?.[tab.key as keyof typeof lifestyleInsights];
+                                                                            ? (!!lifestyleFit?.[tab.key] || lifestyleLoading)
+                                                                            : tab.key === 'neighborhood' 
+                                                                                ? (!!neighborhoodOverview || !!propertyData?.neighborhood_identity?.resolved_name || lifestyleLoading)
+                                                                                : (!!lifestyleInsights?.[tab.key as keyof typeof lifestyleInsights] || lifestyleLoading);
                                                                         const fitData = tab.type === 'fit' ? lifestyleFit?.[tab.key] : null;
                                                                         return (
                                                                             <button
@@ -1276,10 +1279,32 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                     })}
                                                                 </div>
 
-                                                                {/* Content panel — adapts based on tab type */}
                                                                 {activeTab.type === 'fit' ? (() => {
-                                                                    const fitData = lifestyleFit?.[activeTab.key];
-                                                                    if (!fitData) return (
+                                                                    const fitData = lifestyleFit?.[lifestyleFitTab];
+                                                                    if (!fitData) return lifestyleLoading ? (
+                                                                        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4">
+                                                                            <div className="flex justify-between items-start">
+                                                                                <div className="w-24 h-6 bg-slate-100 rounded animate-pulse" />
+                                                                                <div className="w-20 h-5 bg-slate-100 rounded animate-pulse" />
+                                                                            </div>
+                                                                            <div className="space-y-2">
+                                                                                <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+                                                                                <div className="h-4 w-5/6 bg-slate-100 rounded animate-pulse" />
+                                                                            </div>
+                                                                            <div className="grid grid-cols-2 gap-4">
+                                                                                <div className="space-y-2">
+                                                                                    <div className="h-3 w-16 bg-slate-100 rounded animate-pulse" />
+                                                                                    <div className="h-4 w-full bg-slate-50 rounded animate-pulse" />
+                                                                                    <div className="h-4 w-5/6 bg-slate-50 rounded animate-pulse" />
+                                                                                </div>
+                                                                                <div className="space-y-2">
+                                                                                    <div className="h-3 w-16 bg-slate-100 rounded animate-pulse" />
+                                                                                    <div className="h-4 w-full bg-slate-50 rounded animate-pulse" />
+                                                                                    <div className="h-4 w-5/6 bg-slate-50 rounded animate-pulse" />
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
                                                                         <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
                                                                             <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
                                                                                 <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
@@ -1362,8 +1387,16 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                                     );
                                                                 })() : (() => {
                                                                     // Neighborhood tab — show paragraph text
-                                                                    const nbText = lifestyleInsights?.[activeTab.key as keyof typeof lifestyleInsights];
-                                                                    if (!nbText) return (
+                                                                    const nbText = lifestyleInsights?.[activeTab.key as keyof typeof lifestyleInsights] || 
+                                                                                 (activeTab.key === 'neighborhood' ? (neighborhoodOverview || propertyData?.neighborhood_identity?.gemini?.character?.description) : null);
+                                                                    
+                                                                    if (!nbText) return lifestyleLoading ? (
+                                                                        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-3">
+                                                                            <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+                                                                            <div className="h-4 w-5/6 bg-slate-100 rounded animate-pulse" />
+                                                                            <div className="h-4 w-4/6 bg-slate-100 rounded animate-pulse" />
+                                                                        </div>
+                                                                    ) : (
                                                                         <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-8 flex flex-col items-center justify-center text-center">
                                                                             <div className={`w-10 h-10 rounded-full ${activeTab.bg} flex items-center justify-center mb-3`}>
                                                                                 <i className={`fa-solid ${activeTab.icon} ${activeTab.text} text-sm`} />
@@ -1391,182 +1424,212 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 })()}
 
                                                 {/* Row 2: Investment Insights */}
-                                                {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse) && (
+                                                {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && (
                                                     <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                                                             {/* Community Pulse */}
-                                                            {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse) && (
-                                                                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                                        <div className="p-4">
-                                                                            <div className="flex items-center justify-between mb-3">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                                                                                        <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[11px]"></i>
+                                                            {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && (
+                                                                <>
+                                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                            <div className="p-4">
+                                                                                <div className="flex items-center justify-between mb-3">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                                                                                            <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[11px]"></i>
+                                                                                        </div>
+                                                                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
                                                                                     </div>
-                                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
+                                                                                    {userRole === 'admin' && onRefreshCommunityPulse && (
+                                                                                        <button
+                                                                                            onClick={async () => {
+                                                                                                setIsRefreshingPulse(true);
+                                                                                                await onRefreshCommunityPulse();
+                                                                                                setIsRefreshingPulse(false);
+                                                                                            }}
+                                                                                            disabled={isRefreshingPulse}
+                                                                                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
+                                                                                            title="Refresh Community Pulse"
+                                                                                        >
+                                                                                            <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
+                                                                                        </button>
+                                                                                    )}
                                                                                 </div>
-                                                                                {userRole === 'admin' && onRefreshCommunityPulse && (
-                                                                                    <button
-                                                                                        onClick={async () => {
-                                                                                            setIsRefreshingPulse(true);
-                                                                                            await onRefreshCommunityPulse();
-                                                                                            setIsRefreshingPulse(false);
-                                                                                        }}
-                                                                                        disabled={isRefreshingPulse}
-                                                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
-                                                                                        title="Refresh Community Pulse"
-                                                                                    >
-                                                                                        <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                            {/* Structured green/red points from raw community_pulse */}
-                                                                            {(() => {
-                                                                                const cp = customAnalysis?.community_pulse as any;
-                                                                                if (!cp) {
-                                                                                    // Fallback: show comprehensive analysis paragraph
-                                                                                    return analysis?.detailed_analysis?.community_pulse ? (
-                                                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                                                            {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                                                            ))}
-                                                                                        </p>
-                                                                                    ) : null;
-                                                                                }
-                                                                                const positives = cp.what_residents_like?.points || [];
-                                                                                const negatives = [
-                                                                                    ...(cp.common_complaints?.points || []),
-                                                                                    ...(cp.safety_and_concerns?.points || []).filter((p: string) => {
-                                                                                        const lower = p.toLowerCase();
-                                                                                        return lower.includes('concern') || lower.includes('crime') || lower.includes('complaint') || lower.includes('issue') || lower.includes('risk') || lower.includes('noise') || lower.includes('traffic');
-                                                                                    }),
-                                                                                ];
-                                                                                const PULSE_LIMIT = 3;
-                                                                                const showPos = pulseExpanded ? positives : positives.slice(0, PULSE_LIMIT);
-                                                                                const showNeg = pulseExpanded ? negatives : negatives.slice(0, PULSE_LIMIT);
-                                                                                const hasMore = positives.length > PULSE_LIMIT || negatives.length > PULSE_LIMIT;
-                                                                                return (
-                                                                                    <div>
-                                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                                            {positives.length > 0 && (
-                                                                                                <div className="space-y-1.5">
-                                                                                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">What Residents Love</div>
-                                                                                                    {showPos.map((item: string, i: number) => (
-                                                                                                        <div key={i} className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-[12px] text-emerald-800 flex items-start gap-2">
-                                                                                                            <i className="fa-solid fa-circle-check text-emerald-400 text-[10px] mt-0.5 flex-shrink-0"></i>
-                                                                                                            {item}
-                                                                                                        </div>
-                                                                                                    ))}
+                                                                                {/* Structured green/red points from raw community_pulse */}
+                                                                                {(() => {
+                                                                                    const cp = customAnalysis?.community_pulse as any;
+                                                                                    if (!cp) {
+                                                                                        if (lifestyleLoading) {
+                                                                                            return (
+                                                                                                <div className="space-y-3">
+                                                                                                    <div className="h-4 w-full bg-slate-50 rounded animate-pulse" />
+                                                                                                    <div className="h-4 w-5/6 bg-slate-50 rounded animate-pulse" />
                                                                                                 </div>
-                                                                                            )}
-                                                                                            {negatives.length > 0 && (
-                                                                                                <div className="space-y-1.5">
-                                                                                                    <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Common Complaints</div>
-                                                                                                    {showNeg.map((item: string, i: number) => (
-                                                                                                        <div key={i} className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-[12px] text-red-800 flex items-start gap-2">
-                                                                                                            <i className="fa-solid fa-circle-exclamation text-red-400 text-[10px] mt-0.5 flex-shrink-0"></i>
-                                                                                                            {item}
-                                                                                                        </div>
-                                                                                                    ))}
-                                                                                                </div>
+                                                                                            );
+                                                                                        }
+                                                                                        // Fallback: show comprehensive analysis paragraph
+                                                                                        return analysis?.detailed_analysis?.community_pulse ? (
+                                                                                            <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                                                                {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                                                                    j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                                                                ))}
+                                                                                            </p>
+                                                                                        ) : null;
+                                                                                    }
+                                                                                    const positives = cp.what_residents_like?.points || [];
+                                                                                    const negatives = [
+                                                                                        ...(cp.common_complaints?.points || []),
+                                                                                        ...(cp.safety_and_concerns?.points || []).filter((p: string) => {
+                                                                                            const lower = p.toLowerCase();
+                                                                                            return lower.includes('concern') || lower.includes('crime') || lower.includes('complaint') || lower.includes('issue') || lower.includes('risk') || lower.includes('noise') || lower.includes('traffic');
+                                                                                        }),
+                                                                                    ];
+                                                                                    const PULSE_LIMIT = 3;
+                                                                                    const showPos = pulseExpanded ? positives : positives.slice(0, PULSE_LIMIT);
+                                                                                    const showNeg = pulseExpanded ? negatives : negatives.slice(0, PULSE_LIMIT);
+                                                                                    const hasMore = positives.length > PULSE_LIMIT || negatives.length > PULSE_LIMIT;
+                                                                                    return (
+                                                                                        <div>
+                                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                                                {positives.length > 0 && (
+                                                                                                    <div className="space-y-1.5">
+                                                                                                        <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">What Residents Love</div>
+                                                                                                        {showPos.map((item: string, i: number) => (
+                                                                                                            <div key={i} className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-[12px] text-emerald-800 flex items-start gap-2">
+                                                                                                                <i className="fa-solid fa-circle-check text-emerald-400 text-[10px] mt-0.5 flex-shrink-0"></i>
+                                                                                                                {item}
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                                {negatives.length > 0 && (
+                                                                                                    <div className="space-y-1.5">
+                                                                                                        <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Common Complaints</div>
+                                                                                                        {showNeg.map((item: string, i: number) => (
+                                                                                                            <div key={i} className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-[12px] text-red-800 flex items-start gap-2">
+                                                                                                                <i className="fa-solid fa-circle-exclamation text-red-400 text-[10px] mt-0.5 flex-shrink-0"></i>
+                                                                                                                {item}
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            {hasMore && (
+                                                                                                <button
+                                                                                                    onClick={() => setPulseExpanded(!pulseExpanded)}
+                                                                                                    className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+                                                                                                >
+                                                                                                    <i className={`fa-solid ${pulseExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[8px]`}></i>
+                                                                                                    {pulseExpanded ? 'Show less' : 'Show more'}
+                                                                                                </button>
                                                                                             )}
                                                                                         </div>
-                                                                                        {hasMore && (
-                                                                                            <button
-                                                                                                onClick={() => setPulseExpanded(!pulseExpanded)}
-                                                                                                className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
-                                                                                            >
-                                                                                                <i className={`fa-solid ${pulseExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[8px]`}></i>
-                                                                                                {pulseExpanded ? 'Show less' : 'Show more'}
-                                                                                            </button>
-                                                                                        )}
-                                                                                    </div>
-                                                                                );
-                                                                            })()}
+                                                                                    );
+                                                                                })()}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
+                                                                </>
                                                             )}
 
                                                             {/* Market Insights */}
-                                                            {keyInsights && (
-                                                                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                                        <div className="p-4">
-                                                                            <div className="flex items-center gap-2 mb-3">
-                                                                                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 transition-colors">
-                                                                                    <i className="fa-solid fa-microscope text-violet-600 group-hover:text-white text-[11px]"></i>
-                                                                                </div>
-                                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
-                                                                            </div>
-                                                                            {keyInsights.executive_summary && keyInsights.executive_summary !== 'N/A' && (
-                                                                                <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
-                                                                            )}
-                                                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                                                                                {[
-                                                                                    { label: 'Median', value: keyInsights.median_price_range },
-                                                                                    { label: 'PPSF', value: keyInsights.ppsf_benchmark },
-                                                                                    { label: 'Supply', value: keyInsights.months_of_supply },
-                                                                                    { label: 'DOM', value: keyInsights.dom_range },
-                                                                                ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
-                                                                                    <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                                        <div className="min-w-0">
-                                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
-                                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
-                                                                                        </div>
+                                                            {(keyInsights || lifestyleLoading) && (
+                                                                <>
+                                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                            <div className="p-4">
+                                                                                <div className="flex items-center gap-2 mb-3">
+                                                                                    <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 transition-colors">
+                                                                                        <i className="fa-solid fa-microscope text-violet-600 group-hover:text-white text-[11px]"></i>
                                                                                     </div>
-                                                                                ))}
-                                                                            </div>
-                                                                            {keyInsights.risk_tags && keyInsights.risk_tags.length > 0 && (
-                                                                                <div className="flex flex-wrap gap-1.5 mt-3">
-                                                                                    {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
-                                                                                        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
-                                                                                            <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
-                                                                                            {tag}
-                                                                                        </span>
-                                                                                    ))}
+                                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
                                                                                 </div>
-                                                                            )}
+                                                                                {(!keyInsights && lifestyleLoading) ? (
+                                                                                    <div className="h-4 w-3/4 bg-slate-50 rounded animate-pulse mb-3" />
+                                                                                ) : keyInsights?.executive_summary && keyInsights.executive_summary !== 'N/A' && (
+                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
+                                                                                )}
+                                                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                                                                    {(!keyInsights && lifestyleLoading) ? (
+                                                                                        Array.from({ length: 4 }).map((_, i) => (
+                                                                                            <div key={i} className="h-12 w-full bg-slate-50 rounded-lg animate-pulse border border-slate-100" />
+                                                                                        ))
+                                                                                    ) : (
+                                                                                        [
+                                                                                            { label: 'Median', value: keyInsights?.median_price_range },
+                                                                                            { label: 'PPSF', value: keyInsights?.ppsf_benchmark },
+                                                                                            { label: 'Supply', value: keyInsights?.months_of_supply },
+                                                                                            { label: 'DOM', value: keyInsights?.dom_range },
+                                                                                        ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
+                                                                                            <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                                <div className="min-w-0">
+                                                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
+                                                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        ))
+                                                                                    )}
+                                                                                </div>
+                                                                                {keyInsights?.risk_tags && keyInsights.risk_tags.length > 0 && (
+                                                                                    <div className="flex flex-wrap gap-1.5 mt-3">
+                                                                                        {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
+                                                                                            <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
+                                                                                                <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
+                                                                                                {tag}
+                                                                                            </span>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
+                                                                </>
                                                             )}
 
                                                             {/* Long Term Rental */}
-                                                            {ltrAnalysis && (ltrAnalysis.monthly_rent || ltrAnalysis.vacancy_rate) && (
-                                                                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                                                        <div className="p-4">
-                                                                            <div className="flex items-center gap-2 mb-3">
-                                                                                <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
-                                                                                    <i className="fa-solid fa-house-circle-check text-emerald-600 group-hover:text-white text-[11px]"></i>
+                                                            {(ltrAnalysis || lifestyleLoading) && (
+                                                                <>
+                                                                    <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                                                            <div className="p-4">
+                                                                                <div className="flex items-center gap-2 mb-3">
+                                                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
+                                                                                        <i className="fa-solid fa-house-circle-check text-emerald-600 group-hover:text-white text-[11px]"></i>
+                                                                                    </div>
+                                                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
                                                                                 </div>
-                                                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
-                                                                            </div>
-                                                                            <div className="grid grid-cols-2 gap-2">
-                                                                                {ltrAnalysis.monthly_rent && (
-                                                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                                        <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
-                                                                                        <div className="min-w-0">
-                                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
-                                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                                {ltrAnalysis.vacancy_rate && (
-                                                                                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                                        <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
-                                                                                        <div className="min-w-0">
-                                                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
-                                                                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
+                                                                                <div className="grid grid-cols-2 gap-2">
+                                                                                    {(!ltrAnalysis && lifestyleLoading) ? (
+                                                                                        Array.from({ length: 2 }).map((_, i) => (
+                                                                                            <div key={i} className="h-12 w-full bg-slate-50 rounded-lg animate-pulse border border-slate-100" />
+                                                                                        ))
+                                                                                    ) : (
+                                                                                        <>
+                                                                                            {ltrAnalysis?.monthly_rent && (
+                                                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                                    <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
+                                                                                                    <div className="min-w-0">
+                                                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
+                                                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {ltrAnalysis?.vacancy_rate && (
+                                                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
+                                                                                                    <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
+                                                                                                    <div className="min-w-0">
+                                                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
+                                                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
+                                                                </>
                                                             )}
                                                         </div>
                                                     </div>

@@ -523,18 +523,17 @@ function computeAccurateAzimuth(
         return Math.round(candidateFront);
     }
 
-    // Gemini says NOT the front door (back or side visible).
-    // The GPS bearing from pano→property points toward the house from the camera's side road.
-    // → The front faces in that SAME direction (candidateBack = heading).
-    // This correctly handles back-alley panos: if camera on west alley sees the back,
-    // candidateBack = East = front street direction ✓
-    if (streetViewShowsFront === false) {
-        return Math.round(candidateBack);
+    // Otherwise (false or null): we can't definitively force candidateFront (visible face),
+    // but we can snap to whichever of candidateFront/candidateBack is closer to 
+    // Gemini's high-level aerial reasoning. This provides the precision of GPS-based 
+    // street alignment while preventing erroneous 180° flips when the camera sees
+    // a garage or side facade on the front street.
+    if (geminiAzimuth != null) {
+        const dFront = angularDist(geminiAzimuth, candidateFront);
+        const dBack = angularDist(geminiAzimuth, candidateBack);
+        return Math.round(dFront <= dBack ? candidateFront : candidateBack);
     }
 
-    // Ambiguous (null/undefined): trust Gemini's high-level spatial reasoning 
-    // over my distance-based candidate logic. Aerial reasoning (driveways/walkways)
-    // is often more stable than guessing which face a side-street pano sees.
     return geminiAzimuth;
 }
 
@@ -648,7 +647,7 @@ export async function runSatellitaryAnalysis(
         aerialUrl = zpid
             ? await getOrCacheAerialSatelliteUrl(zpid, lat, lng)
             : buildAerialUrl(lat, lng);
-        
+
         result = {
             final_orientation: `${descMatch.direction} (~${descMatch.azimuth}°)`,
             azimuth_degrees: descMatch.azimuth,
@@ -815,6 +814,8 @@ export async function runSatellitaryAnalysis(
                 garage_direction: result.garage_direction ?? null,
                 open_sky_direction: result.open_sky_direction ?? null,
                 property_layout_type: result.property_layout_type,
+                explanation: result.explanation ?? null,
+                is_under_construction: result.is_under_construction,
             }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }

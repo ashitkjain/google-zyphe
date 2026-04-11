@@ -48,7 +48,9 @@ GUIDING PRINCIPLES:
 3. CORNER LOTS & COMPLEXES: Do not default to the garage. Garages often face secondary streets or rear alleys. The primary entrance is defined by the porch, large glazing, or walkway porch.
 
 TASK SEQUENCE:
-Step 0: Quality Check. If Image A is too blurry to see building edges, set image_quality="blurry", final_orientation="UNCLEAR_IMAGE", and stop.
+Step 0: Quality & Construction Check. 
+   - If Image A is too blurry to see building edges, set image_quality="blurry", final_orientation="UNCLEAR_IMAGE", and stop.
+   - If the site is a dirt lot, shows only a foundation, or is a framed structure without a finished roof/walls (Under Construction), set is_under_construction=true, final_orientation="UNDER_CONSTRUCTION", and stop.
 Step 1: Aerial Analysis. Identify the FRONT wall using the Walkway Rule. Determine its compass orientation from the North-up frame.
 Step 2: Street View Verification. Identify what Image B shows (Front Door, Garage, or Side). Check if this matches your Step 1 conclusion.
 Step 3: Resolve Ambiguity. If the camera heading (${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'}) points at the wall you identified as the front, then street_view_shows_front is TRUE and the orientation is opposite to the heading.
@@ -107,7 +109,7 @@ export const satellitarySchema = {
         },
         final_orientation: {
             type: Type.STRING,
-            description: 'Short compass direction the front of the house likely faces, e.g. "Northeast", "South", "East-Southeast". Use "UNCLEAR_IMAGE" if image_quality is blurry.'
+            description: 'Short compass direction the front of the house likely faces, e.g. "Northeast", "South", "East-Southeast". Use "UNCLEAR_IMAGE" if image_quality is blurry or "UNDER_CONSTRUCTION" if the site is not a finished home.'
         },
         azimuth_degrees: {
             type: Type.NUMBER,
@@ -130,6 +132,10 @@ export const satellitarySchema = {
             type: Type.STRING,
             enum: ['high', 'medium', 'low'],
             description: 'How confident you are in the orientation based on image clarity.'
+        },
+        is_under_construction: {
+            type: Type.BOOLEAN,
+            description: 'Set to true if the property appears to be a dirt lot, foundation, or framed structure under active construction. If true, set orientation to UNDER_CONSTRUCTION.'
         },
         explanation: {
             type: Type.STRING,

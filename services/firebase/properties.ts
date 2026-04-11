@@ -172,6 +172,8 @@ export const savePropertyOrientationToCloud = async (
         garage_direction?: string | null;
         open_sky_direction?: string | null;
         property_layout_type?: string | null;
+        explanation?: string | null;
+        is_under_construction?: boolean;
     } | null
 ): Promise<{ success: boolean; error?: string }> => {
     if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
@@ -568,11 +570,11 @@ export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: Com
 
 // Flat map: logical name → document ID under cities/{key}/data/
 const CITY_DOC_MAP: Record<string, string> = {
-    'city_neighborhoods':         'neighborhoods',
-    'city_context_graph':         'context_graph',
-    'deep_investment_research':   'deep_research',
-    'general_market_intelligence':'market_intelligence',
-    'community_pulse':            'community_pulse',
+    'city_neighborhoods': 'neighborhoods',
+    'city_context_graph': 'context_graph',
+    'deep_investment_research': 'deep_research',
+    'general_market_intelligence': 'market_intelligence',
+    'community_pulse': 'community_pulse',
 };
 
 async function getCityDoc(collectionName: string, cityStateKey: string): Promise<any | null> {
