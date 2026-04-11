@@ -39,6 +39,7 @@ import {
 import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, AIUsage } from '../types';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 import { securePropertyAssets } from './assetService';
+import { fetchCensusDemographics } from './api/environmental';
 import { VISUAL_CHECK_IDS, NARRATIVE_CHECK_IDS } from '../utils/pipelineCheckConfig';
 
 /**
@@ -333,8 +334,45 @@ export const runFullIntelligencePipeline = async (
         streetView: assets.streetView,
         address: address
       };
+      
+      // --- CENSUS PRE-FLIGHT (Required for Living Wage prefetch) ---
+      if (enrichedData.coordinates?.latitude && enrichedData.coordinates?.longitude) {
+        onProgress({ step: 'Discovery', status: 'running', message: 'Resolving Census demographics...' });
+        try {
+          const census = await fetchCensusDemographics(
+            enrichedData.coordinates.latitude, 
+            enrichedData.coordinates.longitude, 
+            zpid, 
+            enrichedData.address
+          );
+          if (census) {
+            enrichedData.census_demographics = census as any;
+            await savePropertyToCloud(zpid, { census_demographics: census } as any);
+            onLog?.(`[Census] ✓ Resolved tract ${census.tractId} (FIPS ${census.stateFips}${census.countyFips})`);
+          }
+        } catch (e: any) {
+          onLog?.(`[Census] Failed (non-blocking): ${e.message}`);
+        }
+      }
+
       await savePropertyToCloud(zpid, enrichedData);
       onProgress({ step: 'Cloud Storage', status: 'completed', message: 'Assets secured.' });
+    } else {
+      // Even if cached, if census is missing, try to resolve it now
+      if (!enrichedData.census_demographics && enrichedData.coordinates?.latitude) {
+         try {
+          const census = await fetchCensusDemographics(
+            enrichedData.coordinates.latitude, 
+            enrichedData.coordinates.longitude, 
+            zpid, 
+            enrichedData.address
+          );
+          if (census) {
+            (enrichedData as any).census_demographics = census;
+            await savePropertyToCloud(zpid, { census_demographics: census } as any);
+          }
+        } catch {}
+      }
     }
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");

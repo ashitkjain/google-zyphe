@@ -103,7 +103,7 @@ export const AffordabilityCard: React.FC<AffordabilityCardProps> = ({
                                 <i className="fa-solid fa-scale-balanced text-indigo-600 text-[11px]"></i>
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-[16px] font-black text-slate-700 tracking-tight leading-none">Affordability (MIT)</span>
+                                <span className="text-[16px] font-black text-slate-700 tracking-tight leading-none">Affordability</span>
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
                                     {data.location_name || metroName || resolvedCounty}
                                 </span>
@@ -150,7 +150,7 @@ export const AffordabilityCard: React.FC<AffordabilityCardProps> = ({
                                     rel="noopener noreferrer" 
                                     className="text-[9px] text-indigo-400 hover:text-indigo-600 font-black uppercase tracking-widest flex items-center gap-1"
                                 >
-                                    MIT URL <i className="fa-solid fa-arrow-up-right-from-square text-[7px]" />
+                                    Source: MIT survey <i className="fa-solid fa-arrow-up-right-from-square text-[7px]" />
                                 </a>
                             )}
                         </div>
