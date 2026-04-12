@@ -3,7 +3,9 @@ import { NeighborhoodAnalysis } from '../../types/ai';
 import PropertyHeader from './PropertyHeader';
 import PropertyImages from './PropertyImages';
 import PropertyFacts from './PropertyFacts';
-import AirQualitySection from './AirQualitySection';
+import DailyLivingSection from './DailyLivingSection';
+import EnvironmentSection from './EnvironmentSection';
+import EnergyMicroclimateSection from './EnergyMicroclimateSection';
 import PropertyDescription from './PropertyDescription';
 import StreetViewAnalysisSection from './StreetViewAnalysisSection';
 import PropertyMaps from './PropertyMaps';
@@ -366,19 +368,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             />
                                         </div>
 
-                                        {(propertyData.airQuality || propertyData.solarData || propertyData.noiseData || propertyData.climateRiskDetail || propertyData.pollenIndex || propertyData.historical_disasters || propertyData.broadband || propertyData.drought) && (
-                                            <>
-                                                {/* 3rd Party Data heading */}
-                                                <div className="flex items-center gap-2 mt-6 mb-2">
-                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                    </div>
-                                                    <span className="text-lg font-black text-slate-900 tracking-tight">3rd Party Data</span>
-                                                </div>
-                                                <div className="rounded-2xl border-2 border-indigo-200 overflow-visible">
-                                                    <AirQualitySection data={propertyData} neighborhoodOverview={neighborhoodOverview} disasterData={propertyData.historical_disasters} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
-                                                </div>
-                                            </>
-                                        )}
+                                        <DailyLivingSection data={propertyData} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
+                                        <EnvironmentSection data={propertyData} disasterData={propertyData.historical_disasters} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
+                                        <EnergyMicroclimateSection data={propertyData} micro={micro} />
 
                                         {/* AI Insights heading */}
                                         <div className="flex items-center gap-2 mt-6 mb-2">
