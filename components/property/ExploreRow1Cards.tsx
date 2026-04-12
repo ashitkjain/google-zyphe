@@ -9,7 +9,7 @@
  */
 import React from 'react';
 import VastuCard from './VastuCard';
-import SeasonalSunCard from './SeasonalSunCard';
+
 import { AffordabilityCard } from '../analysis/custom-ai/components/AffordabilityCard';
 import { CensusDemographicsCard } from '../analysis/custom-ai/components/CensusDemographicsCard';
 import { CensusDemographics } from '../../services/api/environmental';
@@ -28,8 +28,8 @@ interface ExploreRow1CardsProps {
     lifestyleInsights: any;
     userRole?: string;
     // Additional derived data
-    micro?: { insight: string; fetchedAt: number } | null;
     designStyle?: { style?: string; reasoning?: string } | null;
+
 }
 
 
@@ -44,9 +44,9 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
     lifestyleFit,
     lifestyleInsights,
     userRole,
-    micro,
     designStyle,
 }) => {
+
 
     return (
         <>
@@ -354,27 +354,6 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                                         )}
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Seasonal Sun */}
-                                                        {propertyData.coordinates && (
-                                                            <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                                                                <SeasonalSunCard
-                                                                    lat={propertyData.coordinates.latitude}
-                                                                    lng={propertyData.coordinates.longitude}
-                                                                    orientation={(propertyData as any).orientation_ai?.final_orientation}
-                                                                />
-                                                                {/* Microclimate Thermal Fingerprint */}
-                                                                {micro && (
-                                                                    <div className="pt-2 border-t border-slate-100">
-                                                                        <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                                                                            <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
-                                                                            "{micro.insight}"
-                                                                        </p>
-                                                                        <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
-                                                                    </div>
-                                                                )}
                                                             </div>
                                                         )}
 

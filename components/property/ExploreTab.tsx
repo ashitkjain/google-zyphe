@@ -4,8 +4,7 @@ import PropertyHeader from './PropertyHeader';
 import PropertyImages from './PropertyImages';
 import PropertyFacts from './PropertyFacts';
 import DailyLivingSection from './DailyLivingSection';
-import EnvironmentSection from './EnvironmentSection';
-import EnergyMicroclimateSection from './EnergyMicroclimateSection';
+import EnvironmentResilienceSection from './EnvironmentResilienceSection';
 import PropertyDescription from './PropertyDescription';
 import StreetViewAnalysisSection from './StreetViewAnalysisSection';
 import PropertyMaps from './PropertyMaps';
@@ -369,8 +368,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         </div>
 
                                         <DailyLivingSection data={propertyData} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
-                                        <EnvironmentSection data={propertyData} disasterData={propertyData.historical_disasters} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
-                                        <EnergyMicroclimateSection data={propertyData} micro={micro} />
+                                        <EnvironmentResilienceSection data={propertyData} disasterData={propertyData.historical_disasters} micro={micro} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
 
                                         {/* AI Insights heading */}
                                         <div className="flex items-center gap-2 mt-6 mb-2">
