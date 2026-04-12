@@ -65,10 +65,67 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                 <span className="text-lg font-black text-slate-900 tracking-tight">Daily Living & Commute</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 
+                {/* Noise */}
+                <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                 
-                    <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
+                    {hasNoise && (
+                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                            <div className="p-4">
+                                {/* Header */}
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
+                                            <i className="fa-solid fa-volume-xmark text-purple-600 text-[13px]"></i>
+                                        </div>
+                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Noise</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[13px]">
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Score</span>
+                                            <span className={`font-black ${data.noiseScore! >= 80 ? 'text-emerald-500' : data.noiseScore! >= 65 ? 'text-amber-500' : 'text-orange-500'}`}>
+                                                {data.noiseScore}/100
+                                            </span>
+                                        </div>
+                                        <div className="w-px h-6 bg-slate-200"></div>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Level</span>
+                                            <span className="font-black text-slate-700">{data.noiseScoreDesc ?? 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Bars */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(data.noiseScore!)}%`, background: getNoiseColor(data.noiseScore!) }} />
+                                        </div>
+                                    </div>
+                                    {[
+                                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
+                                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
+                                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
+                                    ].filter(s => s.score != null).map(({ label, score, desc }) => (
+                                        <div key={label} className="flex items-center gap-1.5">
+                                            <span className="text-[11px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
+                                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(score!)}%`, background: getNoiseColor(score!) }} />
+                                            </div>
+                                            <span className="text-[12px] text-slate-500 w-10 text-right flex-shrink-0">{desc ?? score}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="text-[8px] text-slate-700 mt-2 text-right">HowLoud</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+
+                {/* Mobility & Commute */}
+                <div className="flex flex-col gap-3 lg:col-span-2 h-full">
+                    <div className="flex flex-col gap-3 hover:shadow-xl transition-all duration-300 h-full">
                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                         <div className="p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -98,6 +155,15 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                             <div className="text-[8px] text-slate-700 mt-2 text-right">Walk Score</div>
                         </div>
                     </div>
+                </div>
+
+                                        {/* Commute Calculator */}
+                    {data.coordinates && (
+                    <div className="flex flex-col gap-3 hover:shadow-xl transition-all duration-300 h-full">
+                        <CommuteCalculator originLat={data.coordinates.latitude} originLng={data.coordinates.longitude} propertyAddress={data.address} />
+                    </div>
+                    )}
+
                 </div>
 
                 {/* Connectivity */}
@@ -199,68 +265,12 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                     </div>
                     )}
 
-                    {/* Commute Calculator */}
-                    {data.coordinates && (
-                    <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
-                        <CommuteCalculator originLat={data.coordinates.latitude} originLng={data.coordinates.longitude} propertyAddress={data.address} />
-                    </div>
-                    )}
 
                 
-                {/* Noise */}
-                <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    
+
+
                 
-                    {hasNoise && (
-                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                            <div className="p-4">
-                                {/* Header */}
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
-                                            <i className="fa-solid fa-volume-xmark text-purple-600 text-[13px]"></i>
-                                        </div>
-                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Noise</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-[13px]">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Score</span>
-                                            <span className={`font-black ${data.noiseScore! >= 80 ? 'text-emerald-500' : data.noiseScore! >= 65 ? 'text-amber-500' : 'text-orange-500'}`}>
-                                                {data.noiseScore}/100
-                                            </span>
-                                        </div>
-                                        <div className="w-px h-6 bg-slate-200"></div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Level</span>
-                                            <span className="font-black text-slate-700">{data.noiseScoreDesc ?? 'N/A'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Bars */}
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(data.noiseScore!)}%`, background: getNoiseColor(data.noiseScore!) }} />
-                                        </div>
-                                    </div>
-                                    {[
-                                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
-                                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
-                                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
-                                    ].filter(s => s.score != null).map(({ label, score, desc }) => (
-                                        <div key={label} className="flex items-center gap-1.5">
-                                            <span className="text-[11px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
-                                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(score!)}%`, background: getNoiseColor(score!) }} />
-                                            </div>
-                                            <span className="text-[12px] text-slate-500 w-10 text-right flex-shrink-0">{desc ?? score}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="text-[8px] text-slate-700 mt-2 text-right">HowLoud</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
         
                 {/* EV Charging */}
                 <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
