@@ -322,9 +322,10 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                 
             </div>
             </div>
+            </div>
             
             {/* Row 2: Solar, Sun */}
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4 mt-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 mt-3">
 
                 {/* Solar */}
                 <div className="flex flex-col gap-3 col-span-1 lg:col-span-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -586,7 +587,6 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                             </div>
                         </div>
                     )}
-                </div>
                 </div>
             </div>
         </div>
