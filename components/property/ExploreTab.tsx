@@ -30,6 +30,7 @@ import { BrowseHomeSection } from './BrowseByCitySection';
 import { useExploreTabData } from './hooks/useExploreTabData';
 import { ExploreRow1Cards } from './ExploreRow1Cards';
 import { ExploreRow2Cards } from './ExploreRow2Cards';
+import PropertyOverviewDashboard from './PropertyOverviewDashboard';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -342,31 +343,18 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     <div className="flex flex-col gap-2.5">
 
 
-                                        {/* Property Images + MLS Details — side by side */}
-                                        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-2.5">
-                                            {propertyData.images && propertyData.images.length > 0 && (
-                                                <div className="rounded-2xl overflow-hidden">
-                                                    <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
-                                                </div>
-                                            )}
-                                            <PropertyHeader
-                                                data={propertyData}
-                                                isFavorited={isFavorited}
-                                                onToggleFavorite={onToggleFavorite}
-                                                onRunAnalysis={() => onRunCustomAnalysis(false)}
-                                                designStyle={designStyle}
-                                                marketDynamics={marketDynamics}
-                                                section="details"
-                                                parcelPolygon={
-                                                    propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                                        ? propertyData.parcelPolygon.map((pt: any) =>
-                                                            Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                                        )
-                                                        : undefined
-                                                }
-                                            />
-                                        </div>
+                                        {/* ── New Dashboard Overview ── */}
+                                        <PropertyOverviewDashboard
+                                            propertyData={propertyData}
+                                            analysis={comprehensiveAnalysis}
+                                            customAnalysis={customAnalysis}
+                                            micro={micro}
+                                            schoolsIntelligence={schoolsIntelligence}
+                                            census={census}
+                                            onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                        />
 
+                                        {/* ── Detailed Data Sections (scrollable) ── */}
                                         <DailyLivingSection data={propertyData} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
                                         <EnvironmentResilienceSection data={propertyData} disasterData={propertyData.historical_disasters} micro={micro} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
 
