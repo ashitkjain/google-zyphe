@@ -65,9 +65,10 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                 <span className="text-lg font-black text-slate-900 tracking-tight">Daily Living & Commute</span>
             </div>
             
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                 
-                <div className="flex flex-col gap-3 bg-white rounded-xl border border-slate-100/80 p-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                
+                    <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                         <div className="p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -97,9 +98,11 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                             <div className="text-[8px] text-slate-700 mt-2 text-right">Walk Score</div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Connectivity */}
+                {/* Connectivity */}
                     {data.broadband && (
+                    <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
                         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                             <div className="p-3">
                                 <div className="flex items-center gap-2 mb-2.5">
@@ -193,14 +196,15 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                 <div className="text-[8px] text-slate-700 mt-1 text-right">BroadbandMap</div>
                             </div>
                         </div>
+                    </div>
                     )}
 
                     {/* Commute Calculator */}
                     {data.coordinates && (
+                    <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
                         <CommuteCalculator originLat={data.coordinates.latitude} originLng={data.coordinates.longitude} propertyAddress={data.address} />
+                    </div>
                     )}
-
-                </div>
 
                 
                 {/* Noise */}
