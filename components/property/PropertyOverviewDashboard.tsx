@@ -336,7 +336,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 </button>
 
                                 {mlsOpen && (
-                                    <div className="px-5 pb-5 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                                    <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 animate-in slide-in-from-top-1 duration-200">
 
                                         {/* Structure */}
                                         <MLSGroup icon="fa-landmark" title="Structure" rows={[
