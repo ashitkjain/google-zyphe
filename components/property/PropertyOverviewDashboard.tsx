@@ -403,13 +403,6 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                             ]} />
                                         )}
 
-                                        {/* Financial */}
-                                        <MLSGroup icon="fa-tag" title="Financials" rows={[
-                                            { label: 'List Price', value: price ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price) : null },
-                                            { label: 'Tax/Year', value: data.resoFacts?.taxAnnualAmount ? `$${Number(data.resoFacts.taxAnnualAmount).toLocaleString()}` : null },
-                                            { label: 'Zoning', value: parseVal(data.resoFacts?.zoning) },
-                                            { label: 'MLS #', value: parseVal(data.resoFacts?.mlsId) },
-                                        ]} />
 
                                     </div>
                                 )}
