@@ -593,7 +593,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                         <div className="p-4 space-y-3">
                             {price && (
                                 <div>
-                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Market Estimate</div>
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">List Price</div>
                                     <div className="text-[26px] font-black text-slate-900 tracking-tight leading-none">{formatCurrency(price)}</div>
                                     {data.livingAreaValue && (
                                         <div className="text-[11px] text-slate-400 font-medium mt-1">${Math.round(price / data.livingAreaValue).toLocaleString()} / sf</div>
