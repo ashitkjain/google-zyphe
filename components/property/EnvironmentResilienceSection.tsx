@@ -30,6 +30,10 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
     const [isTriggersExpanded, setIsTriggersExpanded] = React.useState(false);
     
     const aq = data.airQuality;
+    const hasNoise = data.noiseScore != null;
+    const getNoiseColor = (s: number) => s >= 80 ? '#22c55e' : s >= 65 ? '#eab308' : '#f97316';
+    const noisePct = (s: number) => Math.max(0, Math.min(100, ((s - 0) / 100) * 100));
+
     const hasClimate = !!(data.windRiskScore || data.floodRiskScore || data.fireRiskScore || data.heatRiskScore);
     const hasPollen = !!(data.pollen?.score != null || data.pollen?.category);
 
@@ -48,7 +52,7 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
 
 
 
-    if (!aq && !hasClimate && !hasPollen && !disasterData && !data.coordinates) return null;
+    if (!hasNoise && !aq && !hasClimate && !hasPollen && !disasterData && !data.coordinates) return null;
 
     return (
         <div className="bg-white px-6 pt-6 pb-6 rounded-2xl border-2 border-slate-100 overflow-visible mb-6">
@@ -61,6 +65,63 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
             
             {/* Row 1: AQ, Pollen, Climate, Sun */}
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+
+                {/* Noise & Air Quality Stack */}
+                <div className="flex flex-col gap-3 lg:col-span-1 h-full">
+                {/* Noise */}
+                <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                
+                    {hasNoise && (
+                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                            <div className="p-4">
+                                {/* Header */}
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
+                                            <i className="fa-solid fa-volume-xmark text-purple-600 text-[13px]"></i>
+                                        </div>
+                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Noise</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[13px]">
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Score</span>
+                                            <span className={`font-black ${data.noiseScore! >= 80 ? 'text-emerald-500' : data.noiseScore! >= 65 ? 'text-amber-500' : 'text-orange-500'}`}>
+                                                {data.noiseScore}/100
+                                            </span>
+                                        </div>
+                                        <div className="w-px h-6 bg-slate-200"></div>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Level</span>
+                                            <span className="font-black text-slate-700">{data.noiseScoreDesc ?? 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Bars */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(data.noiseScore!)}%`, background: getNoiseColor(data.noiseScore!) }} />
+                                        </div>
+                                    </div>
+                                    {[
+                                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
+                                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
+                                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
+                                    ].filter(s => s.score != null).map(({ label, score, desc }) => (
+                                        <div key={label} className="flex items-center gap-1.5">
+                                            <span className="text-[11px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
+                                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(score!)}%`, background: getNoiseColor(score!) }} />
+                                            </div>
+                                            <span className="text-[12px] text-slate-500 w-10 text-right flex-shrink-0">{desc ?? score}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="text-[8px] text-slate-700 mt-2 text-right">HowLoud</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                     {aq && (
@@ -246,6 +307,8 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                             <div className="text-[8px] text-slate-700 mt-1 text-right px-3 pb-1.5">Google Pollen API</div>
                         </div>
                     )}
+                </div>
+
                 </div>
 
                 
