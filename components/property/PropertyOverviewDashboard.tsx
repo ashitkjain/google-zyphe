@@ -117,6 +117,44 @@ const MiniNav: React.FC<{ items: NavItem[]; activeId: string }> = ({ items, acti
     );
 };
 
+// ── MLS Detail helpers ────────────────────────────────────────────────────────
+const parseVal = (val: any): string | null => {
+    if (val === null || val === undefined || val === '') return null;
+    if (Array.isArray(val)) return val.filter(Boolean).join(', ') || null;
+    if (typeof val === 'string' && val.startsWith('[')) {
+        try { const p = JSON.parse(val); if (Array.isArray(p)) return p.filter(Boolean).join(', '); } catch {}
+    }
+    return String(val);
+};
+const parseList = (val: any): string[] => {
+    if (!val) return [];
+    if (typeof val === 'string') {
+        if (val.startsWith('[')) { try { return JSON.parse(val).filter(Boolean); } catch {} }
+        return val.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+    if (Array.isArray(val)) return val.filter(Boolean).map(String);
+    return [String(val)];
+};
+const MLSRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+    <div className="flex gap-3 py-1.5 border-b border-slate-50 last:border-0">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wide w-28 flex-shrink-0 pt-0.5">{label}</span>
+        <span className="text-[12px] text-slate-700 font-medium leading-snug">{value}</span>
+    </div>
+);
+const MLSGroup: React.FC<{ icon: string; title: string; rows: { label: string; value: string | null }[] }> = ({ icon, title, rows }) => {
+    const valid = rows.filter(r => r.value);
+    if (!valid.length) return null;
+    return (
+        <div className="bg-slate-50 rounded-xl border border-slate-100 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+                <i className={`fa-solid ${icon} text-[9px] text-indigo-400`} />
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{title}</span>
+            </div>
+            {valid.map(r => <MLSRow key={r.label} label={r.label} value={r.value!} />)}
+        </div>
+    );
+};
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 const PropertyOverviewDashboard: React.FC<Props> = ({
     propertyData: data,
@@ -143,6 +181,9 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
     const hasSolar = !!solar;
     const hasCoords = !!data.coordinates;
     const hasEnv = !!(hasClimate || hasPollen || data.airQuality || hasNoise || data.drought || (data as any).historical_disasters);
+
+    // MLS accordion state
+    const [mlsOpen, setMlsOpen] = React.useState(false);
 
     // — Section nav items (order matches rendered sections) —
     const navItems: NavItem[] = [
@@ -275,6 +316,105 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 )}
                             </div>
                         </div>
+
+                        {/* ── Collapsible MLS Details ── */}
+                        {data.resoFacts && (
+                            <div className="border-t border-slate-100">
+                                <button
+                                    onClick={() => setMlsOpen(v => !v)}
+                                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                            <i className="fa-solid fa-list text-slate-400 group-hover:text-indigo-500 text-[8px] transition-colors" />
+                                        </div>
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-700 transition-colors">
+                                            MLS Details
+                                        </span>
+                                    </div>
+                                    <i className={`fa-solid fa-chevron-${mlsOpen ? 'up' : 'down'} text-[9px] text-slate-400 transition-transform duration-200`} />
+                                </button>
+
+                                {mlsOpen && (
+                                    <div className="px-5 pb-5 space-y-2 animate-in slide-in-from-top-1 duration-200">
+
+                                        {/* Structure */}
+                                        <MLSGroup icon="fa-landmark" title="Structure" rows={[
+                                            { label: 'Style', value: parseVal(data.resoFacts?.architecturalStyle) },
+                                            { label: 'Stories', value: data.resoFacts?.stories ? `${data.resoFacts.stories}` : null },
+                                            { label: 'Construction', value: parseVal(data.resoFacts?.constructionMaterials) },
+                                            { label: 'Flooring', value: parseVal(data.resoFacts?.flooring) },
+                                            { label: 'Roof', value: parseVal(data.resoFacts?.roofType) },
+                                            { label: 'Condition', value: parseVal(data.resoFacts?.propertyCondition) },
+                                        ]} />
+
+                                        {/* Parking */}
+                                        <MLSGroup icon="fa-car-side" title="Parking" rows={[
+                                            { label: 'Garage', value: parseVal(data.resoFacts?.garageParkingCapacity) },
+                                            { label: 'Parking', value: parseVal(data.resoFacts?.parkingFeatures) },
+                                        ]} />
+
+                                        {/* Interior */}
+                                        <MLSGroup icon="fa-couch" title="Interior" rows={[
+                                            { label: 'Heating', value: parseVal(data.resoFacts?.heating) },
+                                            { label: 'Cooling', value: parseVal(data.resoFacts?.cooling) },
+                                            { label: 'Appliances', value: parseVal(data.resoFacts?.appliances) },
+                                            { label: 'Basement', value: parseVal(data.resoFacts?.basement) },
+                                            { label: 'Features', value: parseVal(data.resoFacts?.interiorFeatures) },
+                                        ]} />
+
+                                        {/* Utilities */}
+                                        <MLSGroup icon="fa-plug" title="Utilities" rows={[
+                                            { label: 'Utilities', value: parseVal(data.resoFacts?.utilities) },
+                                            { label: 'Electric', value: parseVal(data.resoFacts?.electric) },
+                                            { label: 'Sewer', value: parseVal(data.resoFacts?.sewer) },
+                                            { label: 'Water', value: parseVal(data.resoFacts?.waterSource) },
+                                        ]} />
+
+                                        {/* Lot & Outdoor */}
+                                        {(() => {
+                                            const lotFeats = parseList(data.resoFacts?.lotFeatures);
+                                            const fencing = parseList(data.resoFacts?.fencing);
+                                            const rows = [
+                                                { label: 'Lot Size', value: data.lotSize ?? null },
+                                                { label: 'Lot Features', value: lotFeats.length ? lotFeats.join(', ') : null },
+                                                { label: 'Fencing', value: fencing.length ? fencing.join(', ') : null },
+                                            ];
+                                            return <MLSGroup icon="fa-chart-area" title="Lot & Outdoor" rows={rows} />;
+                                        })()}
+
+                                        {/* Security & Windows */}
+                                        <MLSGroup icon="fa-shield" title="Security & Windows" rows={[
+                                            { label: 'Security', value: parseVal(data.resoFacts?.securityFeatures) },
+                                            { label: 'Windows', value: parseVal(data.resoFacts?.windowFeatures) },
+                                            { label: 'Fireplace', value: parseVal(data.resoFacts?.fireplaceFeatures) },
+                                            { label: 'Laundry', value: parseVal(data.resoFacts?.laundryFeatures) },
+                                        ]} />
+
+                                        {/* HOA */}
+                                        {data.hoa && (
+                                            <MLSGroup icon="fa-building" title="HOA" rows={[
+                                                { label: 'Name', value: data.hoa.name ?? null },
+                                                { label: 'Fee', value: data.hoa.fee ?? null },
+                                                { label: 'Phone', value: data.hoa.phone ?? null },
+                                                { label: 'Covers', value: data.hoa.feeIncludes?.filter((x: string) => x !== 'Other' && x !== 'None').join(', ') || null },
+                                                { label: 'Amenities', value: data.hoa.amenities?.filter((x: string) => x !== 'Other').join(', ') || null },
+                                                { label: 'Units', value: data.resoFacts?.numberOfUnitsInCommunity ? `${data.resoFacts.numberOfUnitsInCommunity}` : null },
+                                            ]} />
+                                        )}
+
+                                        {/* Financial */}
+                                        <MLSGroup icon="fa-tag" title="Financials" rows={[
+                                            { label: 'List Price', value: price ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price) : null },
+                                            { label: 'Tax/Year', value: data.resoFacts?.taxAnnualAmount ? `$${Number(data.resoFacts.taxAnnualAmount).toLocaleString()}` : null },
+                                            { label: 'Zoning', value: parseVal(data.resoFacts?.zoning) },
+                                            { label: 'MLS #', value: parseVal(data.resoFacts?.mlsId) },
+                                        ]} />
+
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Environment & Resilience */}
