@@ -185,13 +185,16 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
     // MLS accordion state
     const [mlsOpen, setMlsOpen] = React.useState(false);
 
+    // Environment sub-section accordion state
+    const [envOpen, setEnvOpen] = React.useState<Record<string, boolean>>({});
+    const toggleEnv = (key: string) => setEnvOpen(prev => ({ ...prev, [key]: !prev[key] }));
+
     // — Section nav items (order matches rendered sections) —
     const navItems: NavItem[] = [
         { id: 'ov-property',     label: 'Property',          icon: 'fa-house',               visible: true },
-        { id: 'ov-environment',  label: 'Environment',        icon: 'fa-leaf',                visible: hasEnv },
+        { id: 'ov-environment',  label: 'Environment',        icon: 'fa-leaf',                visible: hasEnv || hasCoords },
         { id: 'ov-solar',        label: 'Solar',              icon: 'fa-solar-panel',         visible: hasSolar },
         { id: 'ov-connectivity', label: 'Connectivity',       icon: 'fa-wifi',                visible: hasBroadband },
-        { id: 'ov-sunpath',      label: 'Sun Path',           icon: 'fa-sun',                 visible: hasCoords },
         { id: 'ov-mobility',     label: 'Mobility',           icon: 'fa-person-walking',      visible: hasWalk },
         { id: 'ov-ev',           label: 'EV Charging',        icon: 'fa-charging-station',    visible: hasEV },
         { id: 'ov-schools',      label: 'Education',          icon: 'fa-graduation-cap',      visible: hasSchools },
@@ -410,179 +413,370 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                         )}
                     </div>
 
-                    {/* Environment & Resilience */}
-                    {hasEnv && (
-                        <SectionCard
-                            id="ov-environment"
-                            title="Environment & Resilience"
-                            subtitle="Risk assessment and climate data"
-                            badge={
+                    {/* Environment & Resilience — unified card */}
+                    {(hasEnv || hasCoords) && (
+                        <div id="ov-environment" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24">
+
+                            {/* ── Card header ── */}
+                            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Environment &amp; Resilience</h3>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">Advanced risk assessment and climate projections</p>
+                                </div>
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-600 rounded-full text-[9px] font-black text-white uppercase tracking-wider">
                                     <i className="fa-solid fa-bolt text-[7px]" /> AI Risk Scored
                                 </span>
-                            }
-                        >
-                            <div className="space-y-4">
-                                {hasClimate && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                        {[
-                                            { label: 'Flood Risk', score: data.floodRiskScore, icon: 'fa-water', iconBg: 'bg-blue-50', iconColor: 'text-blue-500' },
-                                            { label: 'Fire Threat', score: data.fireRiskScore, icon: 'fa-fire', iconBg: 'bg-orange-50', iconColor: 'text-orange-500' },
-                                            { label: 'Wind Risk', score: data.windRiskScore, icon: 'fa-wind', iconBg: 'bg-cyan-50', iconColor: 'text-cyan-500' },
-                                            { label: 'Heat Stress', score: data.heatRiskScore, icon: 'fa-temperature-high', iconBg: 'bg-rose-50', iconColor: 'text-rose-500' },
-                                        ].filter(r => r.score != null).map(r => {
-                                            const rl = riskLevel(r.score);
-                                            return (
-                                                <div key={r.label} className="bg-slate-50 rounded-xl border border-slate-100 p-3 flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`w-6 h-6 rounded-md ${r.iconBg} flex items-center justify-center flex-shrink-0`}>
-                                                            <i className={`fa-solid ${r.icon} ${r.iconColor} text-[10px]`} />
-                                                        </div>
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{r.label}</span>
-                                                    </div>
-                                                    <div className={`text-[16px] font-black tracking-tight leading-none ${rl.color}`}>{rl.label}</div>
-                                                    <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full ${riskBarColor(r.score)}`} style={{ width: `${Math.min(100, (r.score! / 10) * 100)}%` }} />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                                {(data.airQuality || hasNoise) && (
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {data.airQuality && (
-                                            <div className="bg-slate-50 rounded-xl border border-slate-100 p-3">
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                    <div className="w-6 h-6 rounded-md bg-emerald-50 flex items-center justify-center">
-                                                        <i className="fa-solid fa-leaf text-emerald-500 text-[10px]" />
-                                                    </div>
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Air Quality</span>
-                                                </div>
-                                                <div className="flex items-baseline gap-1.5">
-                                                    <span className={`text-[20px] font-black tracking-tight leading-none ${getAQIColor(data.airQuality.aqi)}`}>{data.airQuality.aqi}</span>
-                                                    <span className="text-[10px] font-bold text-slate-400">AQI</span>
-                                                </div>
-                                                <div className={`text-[11px] font-black mt-0.5 ${getAQIColor(data.airQuality.aqi)}`}>{getAQILabel(data.airQuality.aqi)}</div>
-                                            </div>
-                                        )}
-                                        {hasNoise && (
-                                            <div className="bg-slate-50 rounded-xl border border-slate-100 p-3">
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                    <div className="w-6 h-6 rounded-md bg-purple-50 flex items-center justify-center">
-                                                        <i className="fa-solid fa-volume-xmark text-purple-500 text-[10px]" />
-                                                    </div>
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Noise Level</span>
-                                                </div>
-                                                <div className="flex items-baseline gap-1.5">
-                                                    <span className={`text-[20px] font-black tracking-tight leading-none ${data.noiseScore! >= 80 ? 'text-emerald-600' : data.noiseScore! >= 65 ? 'text-amber-600' : 'text-orange-600'}`}>{data.noiseScore}</span>
-                                                    <span className="text-[10px] font-bold text-slate-400">/100</span>
-                                                </div>
-                                                <div className="text-[11px] font-black text-slate-500 mt-0.5">{data.noiseScoreDesc ?? ''}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                                {data.drought && (data.drought.drought_level !== 'none' || data.seismicHazardZone) && (
-                                    <div className="bg-slate-800 rounded-xl p-3 space-y-1.5">
-                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Hazard Zones</div>
-                                        {data.seismicHazardZone && (
-                                            <div className="flex items-center justify-between text-[12px]">
-                                                <span className="text-slate-300 font-medium">Seismic Activity</span>
-                                                <span className="font-black text-white">{data.seismicHazardZone}</span>
-                                            </div>
-                                        )}
-                                        {data.drought && (
-                                            <div className="flex items-center justify-between text-[12px]">
-                                                <span className="text-slate-300 font-medium">Drought Vulnerability</span>
-                                                <span className={`font-black ${data.drought.drought_level === 'none' ? 'text-emerald-400' : data.drought.drought_level === 'moderate' ? 'text-amber-400' : 'text-red-400'}`}>
-                                                    {data.drought.drought_level ? data.drought.drought_level.charAt(0).toUpperCase() + data.drought.drought_level.slice(1) : 'N/A'}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {hasNoise && (
-                                            <div className="flex items-center justify-between text-[12px]">
-                                                <span className="text-slate-300 font-medium">Noise Pollution</span>
-                                                <span className="font-black text-white">{data.noiseScore}/100</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                             </div>
-                        </SectionCard>
-                    )}
 
-                    {/* Solar Potential */}
-                    {hasSolar && (
-                        <SectionCard id="ov-solar" title="Solar Potential" subtitle="Efficiency metrics">
-                            <div className="grid grid-cols-3 gap-2">
-                                <MetricTile icon="fa-sun" iconBg="bg-yellow-50" iconColor="text-yellow-500" label="Sunshine" value={`${Math.round((solar!.maxSunshineHoursPerYear || 0) / 100) / 10}K`} sublabel="hrs / yr" valueColor="text-yellow-600" />
-                                {solarPotential && <MetricTile icon="fa-bolt" iconBg="bg-indigo-50" iconColor="text-indigo-500" label="Production" value={`${Math.round(solarPotential.annualKwh / 100) / 10}K`} sublabel="kWh / yr" valueColor="text-indigo-600" />}
-                                {solar?.financialAnalysis?.cashPurchase?.paybackYears != null && <MetricTile icon="fa-clock-rotate-left" iconBg="bg-amber-50" iconColor="text-amber-500" label="Payback" value={`${Number(solar.financialAnalysis.cashPurchase.paybackYears).toFixed(1)}`} sublabel="years" valueColor="text-amber-600" />}
-                                {solar?.financialAnalysis?.cashPurchase?.savings?.savingsYear20 != null && <MetricTile icon="fa-chart-line" iconBg="bg-emerald-50" iconColor="text-emerald-500" label="20-Yr Savings" value={`$${Math.round(solar!.financialAnalysis!.cashPurchase!.savings!.savingsYear20 / 1000)}K`} valueColor="text-emerald-600" />}
-                                {solarBench && <MetricTile icon="fa-map-location-dot" iconBg="bg-slate-100" iconColor="text-slate-500" label={`vs ${solarBench.benchmarkCity}`} value={`${solarBench.sunshinePctOfAvg}%`} sublabel={solarBench.sunshinePctOfAvg >= 100 ? 'Sun-Drenched' : 'Below Avg'} valueColor={solarBench.sunshinePctOfAvg >= 100 ? 'text-emerald-600' : 'text-amber-600'} />}
-                            </div>
-                        </SectionCard>
-                    )}
-
-                    {/* Connectivity */}
-                    {hasBroadband && (
-                        <SectionCard id="ov-connectivity" title="Connectivity">
-                            <div className="space-y-2">
-                                {data.broadband!.internetProviders.slice(0, 3).map((p, i) => {
-                                    const techColors: Record<string, string> = { Fiber: 'bg-emerald-100 text-emerald-700', Cable: 'bg-blue-100 text-blue-700' };
-                                    const color = techColors[p.technology] || 'bg-slate-100 text-slate-600';
-                                    const speedLabel = p.maxDownloadMbps >= 1000 ? `${(p.maxDownloadMbps / 1000).toFixed(1)} Gbps` : `${p.maxDownloadMbps} Mbps`;
-                                    const speedTag = p.maxDownloadMbps >= 1000 ? 'ULTRAFAST' : p.maxDownloadMbps >= 500 ? 'FAST' : 'STANDARD';
+                            {/* ── Highlight tiles row ── */}
+                            <div className="px-5 pt-4 pb-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {/* Flood Risk */}
+                                {data.floodRiskScore != null && (() => {
+                                    const rl = riskLevel(data.floodRiskScore);
                                     return (
-                                        <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                                <i className={`fa-solid ${p.technology === 'Fiber' ? 'fa-bolt' : 'fa-ethernet'} text-blue-500 text-[11px]`} />
+                                        <div className="bg-blue-50 rounded-xl border border-blue-100 p-3">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <i className="fa-solid fa-water text-blue-500 text-[9px]" />
+                                                <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Flood Risk</span>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-[12px] font-black text-slate-700 truncate">{p.name}</div>
-                                                <div className="text-[10px] text-slate-400 font-medium">{p.technology}</div>
-                                            </div>
-                                            <div className="flex flex-col items-end flex-shrink-0">
-                                                <span className="text-[14px] font-black text-slate-900">{speedLabel}</span>
-                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${color}`}>{speedTag}</span>
+                                            <div className={`text-[15px] font-black leading-none ${rl.color}`}>{data.floodZone ? `Zone ${data.floodZone}` : rl.label}</div>
+                                            <div className="text-[9px] text-blue-500/70 font-bold mt-0.5">{rl.label}</div>
+                                            <div className="h-0.5 bg-blue-100 rounded-full mt-2 overflow-hidden">
+                                                <div className={`h-full rounded-full ${riskBarColor(data.floodRiskScore)}`} style={{ width: `${Math.min(100, (data.floodRiskScore / 10) * 100)}%` }} />
                                             </div>
                                         </div>
                                     );
-                                })}
-                                {data.broadband!.cellCoverage.length > 0 && (
-                                    <div className="flex gap-2 pt-1">
-                                        {Array.from(new Set(data.broadband!.cellCoverage.map(c => c.network))).slice(0, 4).map((carrier, i) => {
-                                            const best = data.broadband!.cellCoverage.filter(c => c.network === carrier).sort((a, b) => (b.rsrpDbm || 0) - (a.rsrpDbm || 0))[0];
-                                            const isGood = best?.signalLevel === 'Good';
-                                            return (
-                                                <div key={i} className="flex-1 p-2 bg-slate-50 rounded-lg border border-slate-100 text-center">
-                                                    <div className={`text-[10px] font-black ${isGood ? 'text-emerald-600' : 'text-amber-600'}`}>{carrier}</div>
-                                                    <div className={`text-[9px] font-medium ${isGood ? 'text-emerald-500' : 'text-amber-500'}`}>{best?.signalLevel || 'Fair'}</div>
-                                                </div>
-                                            );
-                                        })}
+                                })()}
+                                {/* Fire Threat */}
+                                {data.fireRiskScore != null && (() => {
+                                    const rl = riskLevel(data.fireRiskScore);
+                                    return (
+                                        <div className="bg-orange-50 rounded-xl border border-orange-100 p-3">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <i className="fa-solid fa-fire text-orange-500 text-[9px]" />
+                                                <span className="text-[8px] font-black text-orange-400 uppercase tracking-widest">Fire Threat</span>
+                                            </div>
+                                            <div className={`text-[15px] font-black leading-none ${rl.color}`}>{rl.label}</div>
+                                            <div className="h-0.5 bg-orange-100 rounded-full mt-2 overflow-hidden">
+                                                <div className={`h-full rounded-full ${riskBarColor(data.fireRiskScore)}`} style={{ width: `${Math.min(100, (data.fireRiskScore / 10) * 100)}%` }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                {/* AQI */}
+                                {data.airQuality && (() => {
+                                    const aqiColor = getAQIColor(data.airQuality!.aqi);
+                                    return (
+                                        <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-3">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <i className="fa-solid fa-leaf text-emerald-500 text-[9px]" />
+                                                <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">AQI Level</span>
+                                            </div>
+                                            <div className={`text-[15px] font-black leading-none ${aqiColor}`}>{data.airQuality!.aqi} <span className="text-[10px] font-bold">({getAQILabel(data.airQuality!.aqi)})</span></div>
+                                        </div>
+                                    );
+                                })()}
+                                {/* Heat Stress */}
+                                {data.heatRiskScore != null && (() => {
+                                    const rl = riskLevel(data.heatRiskScore);
+                                    return (
+                                        <div className="bg-rose-50 rounded-xl border border-rose-100 p-3">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <i className="fa-solid fa-temperature-high text-rose-500 text-[9px]" />
+                                                <span className="text-[8px] font-black text-rose-400 uppercase tracking-widest">Heat Stress</span>
+                                            </div>
+                                            <div className={`text-[15px] font-black leading-none ${rl.color}`}>{rl.label}</div>
+                                            <div className="h-0.5 bg-rose-100 rounded-full mt-2 overflow-hidden">
+                                                <div className={`h-full rounded-full ${riskBarColor(data.heatRiskScore)}`} style={{ width: `${Math.min(100, (data.heatRiskScore / 10) * 100)}%` }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                {/* Noise pill (if no heat score) */}
+                                {data.heatRiskScore == null && hasNoise && (
+                                    <div className="bg-purple-50 rounded-xl border border-purple-100 p-3">
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <i className="fa-solid fa-volume-xmark text-purple-500 text-[9px]" />
+                                            <span className="text-[8px] font-black text-purple-400 uppercase tracking-widest">Noise</span>
+                                        </div>
+                                        <div className="text-[15px] font-black leading-none text-purple-700">{data.noiseScore}/100</div>
+                                        <div className="text-[9px] text-purple-500/70 font-bold mt-0.5">{data.noiseScoreDesc ?? ''}</div>
                                     </div>
                                 )}
                             </div>
-                        </SectionCard>
+
+                            {/* ── Collapsible sub-sections ── */}
+                            <div className="border-t border-slate-100 divide-y divide-slate-50">
+
+                                {/* 1. Climate Risk */}
+                                {hasClimate && (() => {
+                                    const open = !!envOpen['climate'];
+                                    return (
+                                        <div>
+                                            <button onClick={() => toggleEnv('climate')} className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-md bg-orange-50 flex items-center justify-center">
+                                                        <i className="fa-solid fa-shield-halved text-orange-400 text-[8px]" />
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Climate Risk</span>
+                                                </div>
+                                                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-[9px] text-slate-400`} />
+                                            </button>
+                                            {open && (
+                                                <div className="px-5 pb-4 space-y-2">
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        {[
+                                                            { label: 'Flood Risk', score: data.floodRiskScore, icon: 'fa-water', bar: 'bg-blue-400' },
+                                                            { label: 'Fire Threat', score: data.fireRiskScore, icon: 'fa-fire', bar: 'bg-orange-400' },
+                                                            { label: 'Wind Risk', score: data.windRiskScore, icon: 'fa-wind', bar: 'bg-cyan-400' },
+                                                            { label: 'Heat Stress', score: data.heatRiskScore, icon: 'fa-temperature-high', bar: 'bg-rose-400' },
+                                                        ].filter(r => r.score != null).map(r => {
+                                                            const rl = riskLevel(r.score);
+                                                            return (
+                                                                <div key={r.label} className="bg-slate-50 rounded-xl border border-slate-100 p-3">
+                                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                                        <i className={`fa-solid ${r.icon} text-slate-400 text-[9px]`} />
+                                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide">{r.label}</span>
+                                                                    </div>
+                                                                    <div className={`text-[14px] font-black leading-none ${rl.color}`}>{rl.label}</div>
+                                                                    <div className="h-1 bg-slate-200 rounded-full mt-2 overflow-hidden">
+                                                                        <div className={`h-full rounded-full ${r.bar}`} style={{ width: `${Math.min(100, (r.score! / 10) * 100)}%` }} />
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {(data.seismicHazardZone || data.drought) && (
+                                                        <div className="bg-slate-800 rounded-xl p-3 space-y-1.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Hazard Zones</div>
+                                                            {data.seismicHazardZone && (
+                                                                <div className="flex items-center justify-between text-[12px]">
+                                                                    <span className="text-slate-300 font-medium">Seismic Activity</span>
+                                                                    <span className="font-black text-white">{data.seismicHazardZone}</span>
+                                                                </div>
+                                                            )}
+                                                            {data.drought && (
+                                                                <div className="flex items-center justify-between text-[12px]">
+                                                                    <span className="text-slate-300 font-medium">Drought Vulnerability</span>
+                                                                    <span className={`font-black ${
+                                                                        data.drought.drought_level === 'none' ? 'text-emerald-400' :
+                                                                        data.drought.drought_level === 'moderate' ? 'text-amber-400' : 'text-red-400'
+                                                                    }`}>
+                                                                        {data.drought.drought_level ? data.drought.drought_level.charAt(0).toUpperCase() + data.drought.drought_level.slice(1) : 'N/A'}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {data.floodZone && (
+                                                                <div className="flex items-center justify-between text-[12px]">
+                                                                    <span className="text-slate-300 font-medium">Flood Zone</span>
+                                                                    <span className="font-black text-white">{data.floodZone}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* 2. Air Quality */}
+                                {data.airQuality && (() => {
+                                    const open = !!envOpen['aqi'];
+                                    const aqi = data.airQuality!;
+                                    return (
+                                        <div>
+                                            <button onClick={() => toggleEnv('aqi')} className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-md bg-emerald-50 flex items-center justify-center">
+                                                        <i className="fa-solid fa-leaf text-emerald-400 text-[8px]" />
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Air Quality</span>
+                                                    <span className={`text-[10px] font-black ${getAQIColor(aqi.aqi)} ml-1`}>{aqi.aqi} AQI · {getAQILabel(aqi.aqi)}</span>
+                                                </div>
+                                                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-[9px] text-slate-400`} />
+                                            </button>
+                                            {open && (
+                                                <div className="px-5 pb-4 space-y-2">
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+                                                            <div className={`text-[22px] font-black leading-none ${getAQIColor(aqi.aqi)}`}>{aqi.aqi}</div>
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">AQI</div>
+                                                        </div>
+                                                        {aqi.pm25 != null && (
+                                                            <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+                                                                <div className="text-[22px] font-black leading-none text-slate-700">{aqi.pm25.toFixed(1)}</div>
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">PM2.5 μg/m³</div>
+                                                            </div>
+                                                        )}
+                                                        {aqi.pm10 != null && (
+                                                            <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+                                                                <div className="text-[22px] font-black leading-none text-slate-700">{aqi.pm10.toFixed(1)}</div>
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">PM10 μg/m³</div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {(aqi.o3 != null || aqi.no2 != null || aqi.co != null || aqi.so2 != null) && (
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                            {[{ k: 'o3', label: 'Ozone (O₃)' }, { k: 'no2', label: 'NO₂' }, { k: 'co', label: 'CO' }, { k: 'so2', label: 'SO₂' }].filter(x => (aqi as any)[x.k] != null).map(x => (
+                                                                <div key={x.k} className="bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
+                                                                    <div className="text-[14px] font-black text-slate-700 leading-none">{((aqi as any)[x.k]).toFixed(1)}</div>
+                                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-wide mt-0.5">{x.label}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {aqi.dominantPollutant && (
+                                                        <div className="px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg text-[11px] text-amber-700 font-bold">
+                                                            <i className="fa-solid fa-triangle-exclamation mr-1 text-[9px]" /> Dominant pollutant: <strong>{aqi.dominantPollutant}</strong>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* 3. Pollen */}
+                                {hasPollen && (() => {
+                                    const open = !!envOpen['pollen'];
+                                    const pollen = data.pollen!;
+                                    const pollenColor = (score?: number | null) => {
+                                        if (!score) return 'text-emerald-600';
+                                        if (score <= 1) return 'text-emerald-600';
+                                        if (score <= 2) return 'text-amber-600';
+                                        return 'text-rose-600';
+                                    };
+                                    const pollenLabel = (score?: number | null) => {
+                                        if (!score || score === 0) return 'None';
+                                        if (score === 1) return 'Low';
+                                        if (score === 2) return 'Moderate';
+                                        if (score === 3) return 'High';
+                                        return 'Very High';
+                                    };
+                                    return (
+                                        <div>
+                                            <button onClick={() => toggleEnv('pollen')} className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-md bg-yellow-50 flex items-center justify-center">
+                                                        <i className="fa-solid fa-seedling text-yellow-500 text-[8px]" />
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Pollen</span>
+                                                    {pollen.category && <span className="text-[10px] font-black text-amber-600 ml-1">{pollen.category}</span>}
+                                                </div>
+                                                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-[9px] text-slate-400`} />
+                                            </button>
+                                            {open && (
+                                                <div className="px-5 pb-4 space-y-2">
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {[
+                                                            { label: 'Tree', score: pollen.treeScore, icon: 'fa-tree' },
+                                                            { label: 'Grass', score: pollen.grassScore, icon: 'fa-leaf' },
+                                                            { label: 'Weed', score: pollen.weedScore, icon: 'fa-star' },
+                                                        ].map(p => (
+                                                            <div key={p.label} className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
+                                                                <i className={`fa-solid ${p.icon} text-slate-300 text-[10px] mb-1 block`} />
+                                                                <div className={`text-[14px] font-black leading-none ${pollenColor(p.score)}`}>{pollenLabel(p.score)}</div>
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">{p.label}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {pollen.triggers && pollen.triggers.length > 0 && (
+                                                        <div className="px-3 py-2 bg-yellow-50 border border-yellow-100 rounded-lg">
+                                                            <div className="text-[9px] font-black text-yellow-600 uppercase tracking-widest mb-1">Active Triggers</div>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {pollen.triggers.map((t: string, i: number) => (
+                                                                    <span key={i} className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-bold">{t}</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* 4. Noise */}
+                                {hasNoise && (() => {
+                                    const open = !!envOpen['noise'];
+                                    return (
+                                        <div>
+                                            <button onClick={() => toggleEnv('noise')} className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-md bg-purple-50 flex items-center justify-center">
+                                                        <i className="fa-solid fa-volume-xmark text-purple-400 text-[8px]" />
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Noise</span>
+                                                    <span className={`text-[10px] font-black ml-1 ${data.noiseScore! >= 80 ? 'text-emerald-600' : data.noiseScore! >= 65 ? 'text-amber-600' : 'text-orange-600'}`}>{data.noiseScore}/100</span>
+                                                </div>
+                                                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-[9px] text-slate-400`} />
+                                            </button>
+                                            {open && (
+                                                <div className="px-5 pb-4 space-y-2">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                                            <div className={`text-[28px] font-black leading-none ${data.noiseScore! >= 80 ? 'text-emerald-600' : data.noiseScore! >= 65 ? 'text-amber-600' : 'text-orange-600'}`}>{data.noiseScore}</div>
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">Score / 100</div>
+                                                        </div>
+                                                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-center">
+                                                            <div className="text-[12px] font-black text-slate-700">{data.noiseScoreDesc ?? '—'}</div>
+                                                            <div className="text-[9px] text-slate-400 font-medium mt-1">Noise classification</div>
+                                                        </div>
+                                                    </div>
+                                                    {[{ label: 'Traffic Noise', val: (data as any).trafficNoiseScore }, { label: 'Local Noise', val: (data as any).localNoiseScore }, { label: 'Airport Noise', val: (data as any).airportNoiseScore }].filter(x => x.val != null).map(x => (
+                                                        <div key={x.label}>
+                                                            <div className="flex justify-between text-[10px] mb-1">
+                                                                <span className="font-black text-slate-500 uppercase tracking-wide">{x.label}</span>
+                                                                <span className="font-black text-slate-700">{x.val}/100</span>
+                                                            </div>
+                                                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-purple-400 rounded-full" style={{ width: `${x.val}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* 5. Seasonal Sun */}
+                                {hasCoords && (() => {
+                                    const open = !!envOpen['sun'];
+                                    return (
+                                        <div>
+                                            <button onClick={() => toggleEnv('sun')} className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-md bg-amber-50 flex items-center justify-center">
+                                                        <i className="fa-solid fa-sun text-amber-400 text-[8px]" />
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Seasonal Sun</span>
+                                                </div>
+                                                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-[9px] text-slate-400`} />
+                                            </button>
+                                            {open && (
+                                                <div className="px-5 pb-4 space-y-2">
+                                                    <SeasonalSunCard lat={data.coordinates!.latitude} lng={data.coordinates!.longitude} orientation={(data as any).orientation_ai?.final_orientation} />
+                                                    {micro && (
+                                                        <div className="px-3 py-2 bg-blue-50/60 rounded-lg border border-blue-100">
+                                                            <p className="text-[11px] text-blue-700 leading-relaxed italic">
+                                                                <i className="fa-solid fa-temperature-half mr-1" />
+                                                                &ldquo;{micro.insight}&rdquo;
+                                                            </p>
+                                                            <div className="text-[8px] text-blue-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                            </div>{/* end sub-sections */}
+                        </div>
                     )}
 
-                    {/* Sun Path */}
-                    {hasCoords && (
-                        <SectionCard id="ov-sunpath" title="Sun Path Analysis" subtitle="Seasonal shadow projections and daylight saturation">
-                            <SeasonalSunCard lat={data.coordinates!.latitude} lng={data.coordinates!.longitude} orientation={(data as any).orientation_ai?.final_orientation} />
-                            {micro && (
-                                <div className="mt-3 px-3 py-2 bg-blue-50/60 rounded-lg border border-blue-100">
-                                    <p className="text-[11px] text-blue-700 leading-relaxed italic">
-                                        <i className="fa-solid fa-temperature-half mr-1" />
-                                        &ldquo;{micro.insight}&rdquo;
-                                    </p>
-                                    <div className="text-[8px] text-blue-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
-                                </div>
-                            )}
-                        </SectionCard>
-                    )}
                 </div>
 
                 {/* ── RIGHT COLUMN ── */}
