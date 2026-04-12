@@ -302,9 +302,6 @@ const EnergyMicroclimateSection: React.FC<Props> = ({ data, micro }) => {
                     )}
 
                 </div>
-
-                
-                </div>
             </div>
 
         </div>

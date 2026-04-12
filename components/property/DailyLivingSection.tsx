@@ -370,11 +370,8 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                             </div>
                         );
                     })()}
-
-
-                    
             </div>
-
+            </div>
         </div>
     );
 };
