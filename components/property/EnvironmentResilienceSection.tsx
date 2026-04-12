@@ -68,8 +68,8 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                 <span className="text-lg font-black text-slate-900 tracking-tight">Environment & Resilience</span>
             </div>
             
-            {/* Row 1: AQ, Pollen, Climate */}
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+            {/* Row 1: AQ, Pollen, Climate, Sun */}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
 
                 <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                     {aq && (
@@ -321,11 +321,37 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                     
                 
             </div>
+            
+                {/* Seasonal Sun */}
+                <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                
+                    {data.coordinates && (
+                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                            <div className="p-3">
+                                <SeasonalSunCard
+                                    lat={data.coordinates.latitude}
+                                    lng={data.coordinates.longitude}
+                                    orientation={(data as any).orientation_ai?.final_orientation}
+                                />
+                                {/* Microclimate Thermal Fingerprint */}
+                                {micro && (
+                                    <div className="pt-2 mt-2 border-t border-slate-100">
+                                        <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                                            <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
+                                            &ldquo;{micro.insight}&rdquo;
+                                        </p>
+                                        <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
             </div>
             
-            {/* Row 2: Solar, Sun */}
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 mt-3">
+            {/* Row 2: Solar */}
+            <div className="grid grid-cols-1 mt-3">
 
                 {/* Solar */}
                 <div className="flex flex-col gap-3 col-span-1 lg:col-span-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -562,31 +588,6 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                     )}
 
                     
-                </div>
-                {/* Seasonal Sun */}
-                <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                
-                    {data.coordinates && (
-                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                            <div className="p-3">
-                                <SeasonalSunCard
-                                    lat={data.coordinates.latitude}
-                                    lng={data.coordinates.longitude}
-                                    orientation={(data as any).orientation_ai?.final_orientation}
-                                />
-                                {/* Microclimate Thermal Fingerprint */}
-                                {micro && (
-                                    <div className="pt-2 mt-2 border-t border-slate-100">
-                                        <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                                            <i className="fa-solid fa-temperature-half text-blue-500 mr-1"></i>
-                                            &ldquo;{micro.insight}&rdquo;
-                                        </p>
-                                        <div className="text-[8px] text-slate-400 mt-0.5 text-right">Tomorrow.io · {new Date(micro.fetchedAt).toLocaleTimeString()}</div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
