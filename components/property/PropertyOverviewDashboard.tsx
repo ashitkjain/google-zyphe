@@ -64,7 +64,7 @@ const SectionCard: React.FC<{
         id={id}
         className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 transition-all hover:shadow-md/5 ${className}`}
     >
-        <div className="px-5 py-4 border-b border-slate-100/80 flex items-center justify-between">
+        <div className="px-5 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
                 {icon && (
                     <div className={`w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center border border-slate-100/50`}>
@@ -222,7 +222,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                     {/* Property title */}
                     <div id="ov-property" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden scroll-mt-24">
-                        <div className="px-5 py-4 border-b border-slate-100/80 flex items-center gap-3">
+                        <div className="px-5 py-4 flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center border border-slate-100/50">
                                 <i className="fa-solid fa-table-cells-large text-indigo-500 text-[13px]" />
                             </div>

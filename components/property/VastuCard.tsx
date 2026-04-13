@@ -208,7 +208,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
         return (
             <div className="flex flex-col gap-2">
                 <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100/50 overflow-hidden relative">
-                    <div className="px-4 py-3 border-b border-emerald-100/30 flex items-center justify-between">
+                    <div className="px-4 py-3 flex items-center justify-between">
                         <div>
                             <div className="text-[10px] font-black text-emerald-600/60 uppercase tracking-[0.2em] mb-1">Vastu Shastra</div>
                             <div className="text-[17px] font-black text-slate-800 tracking-tight">
@@ -248,7 +248,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
                             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowBasics(false)} />
                             <div className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                                <div className="px-6 py-4 flex items-center justify-between bg-slate-50">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
                                             <i className="fa-solid fa-compass text-sm" />
@@ -335,7 +335,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
     return (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {/* Header */}
-            <div className={`flex items-center justify-between px-4 py-3 border-b ${
+            <div className={`flex items-center justify-between px-4 py-3 ${
                 vastu.auspiciousness === 'Auspicious'   ? 'bg-emerald-50 border-emerald-100' :
                 vastu.auspiciousness === 'Inauspicious' ? 'bg-red-50 border-red-100' :
                 'bg-amber-50 border-amber-100'

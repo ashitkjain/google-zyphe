@@ -418,7 +418,7 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
             {section !== 'lifestyle' && (keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || lifestyleLoading || propertyData) && (
                 <div id="ov-community" className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 scroll-mt-24">
                     {/* Section Heading */}
-                    <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5 mb-4">
+                    <div className="px-5 py-3 flex items-center gap-2.5 mb-4">
                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
                             <i className="fa-solid fa-city text-indigo-500 text-[12px]" />
                         </div>

@@ -93,7 +93,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
     return (
         <div className="bg-white border-x border-slate-100 scroll-mt-24">
             {/* Main Section Header — Standardized Style */}
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5">
+            <div className="px-5 py-3 flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
                     <i className="fa-solid fa-eye text-indigo-500 text-[12px]" />
                 </div>

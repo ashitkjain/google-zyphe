@@ -43,7 +43,7 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
         <>
                                                 {/* Row 1: Property & Neighborhood Context */}
                                                 <div id="ov-ai-analysis" className="mx-2 mb-4 rounded-2xl border-2 border-slate-100 overflow-hidden bg-white shadow-sm scroll-mt-20">
-                                                    <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5">
+                                                    <div className="px-5 py-3 flex items-center gap-2.5">
                                                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
                                                             <i className="fa-solid fa-brain text-indigo-500 text-[12px]" />
                                                         </div>
