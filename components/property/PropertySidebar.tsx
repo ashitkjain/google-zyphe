@@ -33,7 +33,6 @@ const PropertySidebar: React.FC<PropertySidebarProps> = ({ items, activeId }) =>
                     </div>
                     <div>
                         <h2 className="text-[18px] font-black text-slate-900 leading-none tracking-tight">Architectural Analyst</h2>
-                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mt-1 block">Global Intelligence</span>
                     </div>
                 </div>
             </div>
@@ -64,17 +63,6 @@ const PropertySidebar: React.FC<PropertySidebarProps> = ({ items, activeId }) =>
                         </a>
                     );
                 })}
-            </div>
-
-            {/* Bottom Section */}
-            <div className="p-8 border-t border-slate-50 space-y-6">
-                <button className="flex items-center gap-3 px-2 py-1 w-full text-slate-400 font-bold hover:text-slate-600 transition-colors group">
-                    <i className="fa-solid fa-gear text-[16px] group-hover:rotate-90 transition-transform duration-500" />
-                    <span className="text-[13px] uppercase tracking-widest">Settings</span>
-                </button>
-                <button className="w-full bg-slate-900 hover:bg-black text-white py-4 rounded-2xl text-[12px] font-black uppercase tracking-[0.2em] transition-all hover:translate-y-[-2px] hover:shadow-2xl active:translate-y-0 shadow-xl shadow-slate-200">
-                    Download Report
-                </button>
             </div>
         </nav>
     );

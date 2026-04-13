@@ -8,7 +8,6 @@
  * Extracted from ExploreTab.tsx for maintainability.
  */
 import React from 'react';
-import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
 import ParcelValidationCard from './ParcelValidationCard';
 import StaticParcelMap from './StaticParcelMap';
 import PropertyFacts from './PropertyFacts';
@@ -134,18 +133,18 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                         <button
                             key={tab.key}
                             onClick={() => setKey(tab.key)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-left ${isActive
-                                ? `${tab.bg} border-current ${tab.text} shadow-sm`
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all text-left ${isActive
+                                ? `${tab.bg} border-current ${tab.text} shadow-md ring-2 ring-current ring-offset-1`
                                 : hasContent
-                                    ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
-                                    : 'bg-slate-50/30 border-slate-100 opacity-40 cursor-not-allowed'
+                                    ? 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer shadow-sm'
+                                    : 'bg-slate-50 border-slate-100 opacity-40 cursor-not-allowed'
                                 }`}
                             disabled={!hasContent}
                         >
-                            <i className={`fa-solid ${tab.icon} ${tab.text} text-[11px]`} />
-                            <span className={`text-[11px] font-bold whitespace-nowrap ${isActive ? 'text-slate-900' : 'text-slate-500'}`}>{tab.label}</span>
+                            <i className={`fa-solid ${tab.icon} ${tab.text} text-[14px]`} />
+                            <span className={`text-[13px] font-black whitespace-nowrap ${isActive ? 'text-slate-900' : 'text-slate-600'}`}>{tab.label}</span>
                             {fitData?.verdict && (
-                                <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-500'}`}>
+                                <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black border uppercase tracking-wider ${verdictColors[fitData.verdict] || 'bg-slate-100 text-slate-500'}`}>
                                     {fitData.verdict}
                                 </span>
                             )}
@@ -159,11 +158,11 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                             {/* Box 1: Lifestyle Fit (3x) */}
                             <div className="flex-1 lg:flex-[3] flex flex-col bg-slate-50 rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                 <div className="p-3 flex-1 flex flex-col">
-                                    <div className="flex items-center gap-2.5 mb-3">
-                                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                            <i className="fa-solid fa-people-arrows text-indigo-600 text-[12px]" />
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shadow-sm">
+                                            <i className="fa-solid fa-people-arrows text-indigo-600 text-[14px]" />
                                         </div>
-                                        <h3 className="text-[15px] font-black text-slate-700 tracking-tight">Lifestyle Fit</h3>
+                                        <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Lifestyle Fit</h3>
                                     </div>
 
                                     <div className="flex flex-wrap gap-1.5 mb-3">
@@ -191,33 +190,33 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
 
                                             return (
                                                 <div className="flex flex-col gap-3">
-                                                    <p className="text-[13px] text-slate-600 leading-relaxed font-medium">{fitData.summary}</p>
+                                                    <p className="text-[15px] text-slate-700 leading-relaxed font-bold">{fitData.summary}</p>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                         {fitData.strengths?.length > 0 && (
-                                                            <div className="bg-emerald-50/30 rounded-lg p-3 border border-emerald-100/50">
-                                                                <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                                    <i className="fa-solid fa-circle-check text-[10px]" /> Pros
+                                                            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 shadow-sm">
+                                                                <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                                    <i className="fa-solid fa-circle-check text-[12px]" /> Pros
                                                                 </div>
-                                                                <div className="flex flex-col gap-1.5">
+                                                                <div className="flex flex-col gap-2">
                                                                     {fitData.strengths.map((s: string, i: number) => (
-                                                                        <div key={i} className="flex items-start gap-2">
-                                                                            <div className="w-1 h-1 rounded-full bg-emerald-400 mt-2 flex-shrink-0" />
-                                                                            <span className="text-[12px] text-slate-700 leading-snug">{s}</span>
+                                                                        <div key={i} className="flex items-start gap-2.5">
+                                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2 flex-shrink-0" />
+                                                                            <span className="text-[14px] text-slate-700 leading-snug">{s}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
                                                             </div>
                                                         )}
                                                         {fitData.concerns?.length > 0 && (
-                                                            <div className="bg-amber-50/30 rounded-lg p-3 border border-amber-100/50">
-                                                                <div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                                    <i className="fa-solid fa-triangle-exclamation text-[10px]" /> Cons
+                                                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 shadow-sm">
+                                                                <div className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                                    <i className="fa-solid fa-triangle-exclamation text-[12px]" /> Cons
                                                                 </div>
-                                                                <div className="flex flex-col gap-1.5">
+                                                                <div className="flex flex-col gap-2">
                                                                     {fitData.concerns.map((c: string, i: number) => (
-                                                                        <div key={i} className="flex items-start gap-2">
-                                                                            <div className="w-1 h-1 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
-                                                                            <span className="text-[12px] text-slate-700 leading-snug">{c}</span>
+                                                                        <div key={i} className="flex items-start gap-2.5">
+                                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
+                                                                            <span className="text-[14px] text-slate-700 leading-snug">{c}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -225,9 +224,9 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                                                         )}
                                                     </div>
                                                     {fitData.tip && (
-                                                        <div className="flex items-start gap-2 bg-indigo-50/50 rounded-lg p-3 border border-indigo-100">
-                                                            <i className="fa-solid fa-lightbulb text-[11px] text-indigo-400 mt-0.5" />
-                                                            <span className="text-[12px] text-indigo-700 leading-snug">{fitData.tip}</span>
+                                                        <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm">
+                                                            <i className="fa-solid fa-lightbulb text-[14px] text-indigo-400 mt-1" />
+                                                            <span className="text-[14px] text-indigo-700 leading-relaxed font-medium">{fitData.tip}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -240,11 +239,11 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                             {/* Box 2: Interests (1x) */}
                             <div className="flex-1 flex flex-col bg-slate-50 rounded-2xl border-2 border-indigo-200 overflow-hidden">
                                 <div className="p-3 flex-1 flex flex-col">
-                                    <div className="flex items-center gap-2.5 mb-3">
-                                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                            <i className="fa-solid fa-star text-emerald-600 text-[12px]" />
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shadow-sm">
+                                            <i className="fa-solid fa-star text-emerald-600 text-[14px]" />
                                         </div>
-                                        <h3 className="text-[15px] font-black text-slate-700 tracking-tight">Interests</h3>
+                                        <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Interests</h3>
                                     </div>
 
                                     <div className="flex flex-wrap gap-1.5 mb-3">
@@ -268,9 +267,9 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                                             );
 
                                             return (
-                                                <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                <p className="text-[15px] text-slate-700 leading-relaxed text-left font-medium">
                                                     {String(nbText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
-                                                        j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                                        j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 border-b-2 border-emerald-100">{chunk}</strong> : chunk
                                                     ))}
                                                 </p>
                                             );
@@ -284,9 +283,140 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                 );
             })()}
 
-            {/* Row 2: Investment Insights */}
+            {/* Street View + Ground Truth Engine — side by side */}
+            {section !== 'lifestyle' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                    {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
+                        <div id="ov-streetview" className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
+                            <StreetViewAnalysisSection
+                                data={propertyData}
+                                onRefresh={onRefreshEnvironment}
+                                refreshing={environmentRefreshing}
+                            />
+                        </div>
+                    )}
+                    <div id="ov-lot" className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
+                        {/* Ground Truth Engine intro */}
+                        <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-tight">Lot Intelligence</h3>
+                                <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
+                                    Lot grades, driveway accessibility, backyard usability, and view potential using Google Elevation and then cross-references parcel data
+                                </p>
+                            </div>
+                        </div>
+                        {/* Parcel Map + Validation side by side */}
+                        <div className="flex flex-col gap-4 flex-1">
+                            <div className="w-full aspect-[4/3] flex flex-col overflow-hidden rounded-xl border border-slate-100">
+                                {/* Tabs — only show if satellite image exists */}
+                                {propertyData.satelliteImageUrl && (
+                                    <div className="flex items-center gap-1 mb-2">
+                                        <button
+                                            onClick={() => setGroundTruthMapTab('parcel')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'parcel'
+                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                }`}
+                                        >
+                                            <i className="fa-solid fa-map text-[9px]"></i>
+                                            Parcel
+                                        </button>
+                                        <button
+                                            onClick={() => setGroundTruthMapTab('satellite')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'satellite'
+                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                }`}
+                                        >
+                                            <i className="fa-solid fa-satellite text-[9px]"></i>
+                                            Satellite
+                                        </button>
+                                    </div>
+                                )}
+                                {/* Map content */}
+                                <div className="flex-1 min-h-0 relative">
+                                    {groundTruthMapTab === 'parcel' ? (
+                                        <StaticParcelMap data={propertyData} parcelPolygon={
+                                            propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
+                                                ? propertyData.parcelPolygon.map((pt: any) =>
+                                                    Array.isArray(pt) ? pt : [pt.lon, pt.lat]
+                                                )
+                                                : undefined
+                                        } />
+                                    ) : (
+                                        <>
+                                            <div
+                                                className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden h-full relative group cursor-pointer"
+                                                onClick={() => setIsSatelliteExpanded(true)}
+                                            >
+                                                <img
+                                                    src={propertyData.satelliteImageUrl}
+                                                    alt="Satellite View"
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                                                />
+                                                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100 z-10">
+                                                    Satellite View
+                                                </div>
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                                                        <i className="fa-solid fa-expand text-slate-700 text-sm"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Satellite Overlay */}
+                                            {isSatelliteExpanded && (
+                                                <div
+                                                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
+                                                    onClick={() => setIsSatelliteExpanded(false)}
+                                                >
+                                                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
+                                                    <div
+                                                        className="relative max-w-5xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
+                                                        style={{ maxHeight: '90vh' }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <button
+                                                            onClick={() => setIsSatelliteExpanded(false)}
+                                                            className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
+                                                        >
+                                                            <i className="fa-solid fa-xmark text-lg"></i>
+                                                        </button>
+
+                                                        {/* Top white border */}
+                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
+
+                                                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center relative p-4">
+                                                            <img
+                                                                src={propertyData.satelliteImageUrl}
+                                                                alt="Expanded Satellite View"
+                                                                className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl"
+                                                            />
+                                                        </div>
+
+                                                        {/* Bottom white border */}
+                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="w-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                                <ParcelValidationCard propertyData={propertyData} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Row 2: Investment Insights (Dublin Overview) */}
             {section !== 'lifestyle' && (keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || lifestyleLoading || propertyData) && (
-                <div className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4">
+                <div id="ov-community" className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 scroll-mt-24">
                     {/* Section Heading */}
                     <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5 mb-4">
                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
@@ -312,7 +442,7 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                                                     <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
                                                         <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[11px]"></i>
                                                     </div>
-                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Community Pulse</span>
+                                                    <span className="text-[15px] font-black text-slate-900 tracking-tight">Community Pulse</span>
                                                 </div>
                                                 {userRole === 'admin' && onRefreshCommunityPulse && (
                                                     <button
@@ -416,7 +546,7 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                                                 <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 transition-colors">
                                                     <i className="fa-solid fa-microscope text-violet-600 group-hover:text-white text-[11px]"></i>
                                                 </div>
-                                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Market Insights</span>
+                                                <span className="text-[15px] font-black text-slate-900 tracking-tight">Market Insights</span>
                                             </div>
                                             {(!keyInsights && lifestyleLoading) ? (
                                                 <div className="h-4 w-3/4 bg-slate-50 rounded animate-pulse mb-3" />
@@ -472,7 +602,7 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                                                     <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
                                                         <i className="fa-solid fa-house-circle-check text-emerald-600 group-hover:text-white text-[11px]"></i>
                                                     </div>
-                                                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Long Term Rental</span>
+                                                    <span className="text-[15px] font-black text-slate-900 tracking-tight">Long Term Rental</span>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     {(!ltrAnalysis && lifestyleLoading) ? (
@@ -538,151 +668,11 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                 </div>
             )}
 
-
-
-            {/* Street View + Ground Truth Engine — side by side */}
-            {section !== 'lifestyle' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-                    {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
-                        <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                            <StreetViewAnalysisSection
-                                data={propertyData}
-                                onRefresh={onRefreshEnvironment}
-                                refreshing={environmentRefreshing}
-                            />
-                        </div>
-                    )}
-                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                        {/* Ground Truth Engine intro */}
-                        <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
-                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                                <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
-                            </div>
-                            <div className="min-w-0">
-                                <div className="text-[13px] font-black text-slate-900 uppercase tracking-[0.2em]">Lot Intelligence</div>
-                                <p className="text-[13px] text-slate-700 leading-relaxed font-normal mt-0.5">
-                                    Lot grades, driveway accessibility, backyard usability, and view potential using Google Elevation and then cross-references parcel data
-                                </p>
-                            </div>
-                        </div>
-                        {/* Parcel Map + Validation side by side */}
-                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 flex-1">
-                            <div className="lg:col-span-3 aspect-square flex flex-col">
-                                {/* Tabs — only show if satellite image exists */}
-                                {propertyData.satelliteImageUrl && (
-                                    <div className="flex items-center gap-1 mb-2">
-                                        <button
-                                            onClick={() => setGroundTruthMapTab('parcel')}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'parcel'
-                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                                }`}
-                                        >
-                                            <i className="fa-solid fa-map text-[9px]"></i>
-                                            Parcel
-                                        </button>
-                                        <button
-                                            onClick={() => setGroundTruthMapTab('satellite')}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'satellite'
-                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                                }`}
-                                        >
-                                            <i className="fa-solid fa-satellite text-[9px]"></i>
-                                            Satellite
-                                        </button>
-                                    </div>
-                                )}
-                                {/* Map content */}
-                                <div className="flex-1 min-h-0 relative">
-                                    {groundTruthMapTab === 'parcel' ? (
-                                        <StaticParcelMap data={propertyData} parcelPolygon={
-                                            propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
-                                                ? propertyData.parcelPolygon.map((pt: any) =>
-                                                    Array.isArray(pt) ? pt : [pt.lon, pt.lat]
-                                                )
-                                                : undefined
-                                        } />
-                                    ) : (
-                                        <>
-                                            <div
-                                                className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden h-full relative group cursor-pointer"
-                                                onClick={() => setIsSatelliteExpanded(true)}
-                                            >
-                                                <img
-                                                    src={propertyData.satelliteImageUrl}
-                                                    alt="Satellite View"
-                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-                                                />
-                                                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100 z-10">
-                                                    Satellite View
-                                                </div>
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
-                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
-                                                        <i className="fa-solid fa-expand text-slate-700 text-sm"></i>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Expanded Satellite Overlay */}
-                                            {isSatelliteExpanded && (
-                                                <div
-                                                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
-                                                    onClick={() => setIsSatelliteExpanded(false)}
-                                                >
-                                                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
-                                                    <div
-                                                        className="relative max-w-5xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
-                                                        style={{ maxHeight: '90vh' }}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <button
-                                                            onClick={() => setIsSatelliteExpanded(false)}
-                                                            className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
-                                                        >
-                                                            <i className="fa-solid fa-xmark text-lg"></i>
-                                                        </button>
-
-                                                        {/* Top white border */}
-                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
-
-                                                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center relative p-4">
-                                                            <img
-                                                                src={propertyData.satelliteImageUrl}
-                                                                alt="Expanded Satellite View"
-                                                                className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl"
-                                                            />
-                                                        </div>
-
-                                                        {/* Bottom white border */}
-                                                        <div className="h-16 bg-white w-full flex-shrink-0" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="lg:col-span-2 h-full bg-slate-50/50 rounded-xl border border-slate-100/80 hover:bg-white transition-colors duration-300">
-                                <ParcelValidationCard propertyData={propertyData} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {section !== 'lifestyle' && propertyData.google_places && (
-                <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
-                    <NeighborhoodPlacesSection data={propertyData} visualPoi={visualPoi} mapLabels={mapLabels} mapZoomOut={propertyData.mapZoomOut} address={propertyData.address} neighborhoodOverview={neighborhoodOverview} hoaAmenities={propertyData.hoa?.amenities} />
-                </div>
-            )}
-
             {section !== 'lifestyle' && propertyData.resoFacts && (
                 <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden">
                     <PropertyFacts facts={propertyData.resoFacts} />
                 </div>
             )}
-
         </>
     );
 };

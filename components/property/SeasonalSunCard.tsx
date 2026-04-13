@@ -119,11 +119,9 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
         <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
             <div className="p-4">
                 {/* Header */}
-                <div className="flex items-center gap-2 mb-3">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                        <i className="fa-solid fa-sun text-amber-600 text-[12px]"></i>
-                    </div>
-                    <span className="text-[16px] font-black text-slate-700 tracking-tight">Seasonal Sun</span>
+                <div className="flex items-center gap-2 mb-3 px-1">
+                    <i className="fa-solid fa-sun text-amber-500 text-[13px]" />
+                    <span className="text-[12px] font-black text-slate-800 uppercase tracking-widest">Seasonal Sun Path</span>
                 </div>
 
                 {/* Season selector pills */}
@@ -131,16 +129,16 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                     {DATES.map((d, i) => {
                         const isActive = i === selectedIdx;
                         const bgMap: Record<string, string> = {
-                            blue: isActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300',
-                            emerald: isActive ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300',
-                            amber: isActive ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-500 border-slate-200 hover:border-amber-300',
-                            orange: isActive ? 'bg-orange-500 text-white border-orange-600' : 'bg-white text-slate-500 border-slate-200 hover:border-orange-300',
+                            blue: isActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-200',
+                            emerald: isActive ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-200',
+                            amber: isActive ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-500 border-slate-200 hover:border-amber-200',
+                            orange: isActive ? 'bg-orange-500 text-white border-orange-600' : 'bg-white text-slate-500 border-slate-200 hover:border-orange-200',
                         };
                         return (
                             <button
                                 key={i}
                                 onClick={() => setSelectedIdx(i)}
-                                className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${bgMap[d.color]}`}
+                                className={`flex-1 flex items-center justify-center gap-1.5 px-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${bgMap[d.color]}`}
                             >
                                 <i className={`fa-solid ${d.icon} text-[8px]`}></i>
                                 {d.label.split(' ')[0]}
@@ -150,11 +148,11 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                 </div>
 
                 {/* Mini sun arc chart */}
-                <div className="bg-white rounded-lg border border-slate-100 p-2 mb-3">
+                <div className="bg-white rounded-lg border border-slate-100 p-2.5 mb-3">
                     <div className="relative h-16">
                         {/* Y-axis label */}
-                        <div className="absolute left-0 top-0 text-[7px] font-bold text-slate-300 uppercase">{maxAlt.toFixed(0)}°</div>
-                        <div className="absolute left-0 bottom-0 text-[7px] font-bold text-slate-300">0°</div>
+                        <div className="absolute left-0 top-0 text-[8px] font-bold text-slate-300 uppercase">{maxAlt.toFixed(0)}°</div>
+                        <div className="absolute left-0 bottom-0 text-[8px] font-bold text-slate-300">0°</div>
                         {/* Chart area */}
                         <svg className="w-full h-full" viewBox="0 0 170 60" preserveAspectRatio="none">
                             {/* Gradient fill under curve */}
@@ -174,7 +172,7 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                                 points={current.hourlyAlt.map((h, i) => `${(i / (current.hourlyAlt.length - 1)) * 170},${60 - (h.alt / maxAlt) * 55}`).join(' ')}
                                 fill="none"
                                 stroke={currentDate.color === 'amber' ? '#f59e0b' : currentDate.color === 'blue' ? '#3b82f6' : currentDate.color === 'emerald' ? '#10b981' : '#f97316'}
-                                strokeWidth="2"
+                                strokeWidth="2.5"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                             />
@@ -183,12 +181,12 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                                 const peakIdx = current.hourlyAlt.reduce((pi, h, i, arr) => h.alt > arr[pi].alt ? i : pi, 0);
                                 const x = (peakIdx / (current.hourlyAlt.length - 1)) * 170;
                                 const y = 60 - (current.hourlyAlt[peakIdx].alt / maxAlt) * 55;
-                                return <circle cx={x} cy={y} r="3" fill={currentDate.color === 'amber' ? '#f59e0b' : currentDate.color === 'blue' ? '#3b82f6' : currentDate.color === 'emerald' ? '#10b981' : '#f97316'} stroke="white" strokeWidth="1.5" />;
+                                return <circle cx={x} cy={y} r="3.5" fill={currentDate.color === 'amber' ? '#f59e0b' : currentDate.color === 'blue' ? '#3b82f6' : currentDate.color === 'emerald' ? '#10b981' : '#f97316'} stroke="white" strokeWidth="2" />;
                             })()}
                         </svg>
                     </div>
                     {/* Time axis labels */}
-                    <div className="flex justify-between text-[8px] font-bold text-slate-400 mt-0.5 px-0.5">
+                    <div className="flex justify-between text-[9px] font-bold text-slate-400 mt-1 px-1">
                         <span>5am</span>
                         <span>9am</span>
                         <span>1pm</span>
@@ -198,55 +196,55 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                 </div>
 
                 {/* Key stats grid */}
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                        <i className="fa-solid fa-sunrise text-[10px] text-amber-400"></i>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                        <i className="fa-solid fa-sunrise text-[12px] text-amber-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Sunrise</div>
-                            <div className="text-[13px] font-black text-slate-700 leading-snug">
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sunrise</div>
+                            <div className="text-[16px] font-black text-slate-800 leading-tight">
                                 {formatTime(current.sunrise)}
-                                <span className="text-[9px] font-bold text-slate-400 ml-1">{azToDirection(current.sunriseAz)}</span>
+                                <span className="text-[10px] font-bold text-slate-400 ml-1.5">{azToDirection(current.sunriseAz)}</span>
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                        <i className="fa-solid fa-sunset text-[10px] text-orange-400"></i>
+                    <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                        <i className="fa-solid fa-sunset text-[12px] text-orange-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Sunset</div>
-                            <div className="text-[13px] font-black text-slate-700 leading-snug">
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sunset</div>
+                            <div className="text-[16px] font-black text-slate-800 leading-tight">
                                 {formatTime(current.sunset)}
-                                <span className="text-[9px] font-bold text-slate-400 ml-1">{azToDirection(current.sunsetAz)}</span>
+                                <span className="text-[10px] font-bold text-slate-400 ml-1.5">{azToDirection(current.sunsetAz)}</span>
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                        <i className="fa-solid fa-clock text-[10px] text-blue-400"></i>
+                    <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                        <i className="fa-solid fa-clock text-[12px] text-blue-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Daylight</div>
-                            <div className="text-[13px] font-black text-blue-600 leading-snug">{current.daylightHrs.toFixed(1)} hrs</div>
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Daylight</div>
+                            <div className="text-[16px] font-black text-blue-600 leading-tight">{current.daylightHrs.toFixed(1)} hrs</div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                        <i className="fa-solid fa-arrows-up-to-line text-[10px] text-indigo-400"></i>
+                    <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                        <i className="fa-solid fa-arrows-up-to-line text-[12px] text-indigo-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Noon Alt.</div>
-                            <div className="text-[13px] font-black text-indigo-600 leading-snug">{current.noonAltDeg.toFixed(1)}°</div>
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Noon Alt.</div>
+                            <div className="text-[16px] font-black text-indigo-600 leading-tight">{current.noonAltDeg.toFixed(1)}°</div>
                         </div>
                     </div>
                 </div>
 
 
                 {/* Insight */}
-                <div className="p-2.5 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-                    <div className="flex items-start gap-2">
-                        <i className="fa-solid fa-lightbulb text-indigo-400 text-[10px] mt-0.5 flex-shrink-0"></i>
-                        <p className="text-[11px] text-slate-600 leading-relaxed italic">
+                <div className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
+                    <div className="flex items-start gap-2.5">
+                        <i className="fa-solid fa-lightbulb text-indigo-400 text-[12px] mt-0.5 flex-shrink-0"></i>
+                        <p className="text-[12px] text-slate-600 leading-relaxed italic">
                             "{insight}"
                         </p>
                     </div>
                 </div>
             </div>
-            <div className="text-[8px] text-slate-700 text-right px-4 pb-1.5">SunCalc</div>
+            <div className="text-[9px] text-slate-400 font-bold uppercase text-right px-4 pb-2 tracking-widest">SunCalc Data Engine</div>
         </div>
     );
 };

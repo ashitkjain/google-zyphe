@@ -91,20 +91,22 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
     );
 
     return (
-        <div className="bg-white border-x border-slate-100 px-5 pt-0 pb-4 space-y-4">
-            <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest">
-                <div className="flex items-center">
-                    <i className="fa-solid fa-eye mr-2 text-indigo-400"></i>
-                    Google Street View AI
+        <div className="bg-white border-x border-slate-100 scroll-mt-24">
+            {/* Main Section Header — Standardized Style */}
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
+                    <i className="fa-solid fa-eye text-indigo-500 text-[12px]" />
                 </div>
+                <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-tight">
+                    Street View Analysis
+                </h3>
             </div>
 
-            {/* Stacked Layout — image on top, analysis below */}
-            <div className="flex flex-col gap-4">
-                {/* Visual Side — clickable to open interactive Street View */}
+            <div className="p-4 space-y-4">
+                {/* Visual Side — Almost square */}
                 {analysis.imageUrl && (
                     <div
-                        className="lg:w-full h-[400px] rounded-2xl overflow-hidden border border-slate-100 shadow-inner group relative cursor-pointer"
+                        className="w-4/5 mx-auto h-[375px] rounded-2xl overflow-hidden border border-slate-100 shadow-inner group relative cursor-pointer"
                         onClick={() => coords && setShowStreetView(true)}
                     >
                         <img
@@ -126,7 +128,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                     </div>
                 )}
 
-                {/* Interactive Street View Modal */}
+                {/* Interactive Street View Modal remain same... */}
                 {showStreetView && coords && (
                     <div
                         className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-500"
@@ -177,68 +179,59 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                     </div>
                 )}
 
-                {/* Information — orientation card style */}
+                {/* Information — AI label inside, larger text */}
                 <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                     <div className="p-4">
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                    <i className="fa-solid fa-eye text-indigo-600 text-[11px]"></i>
-                                </div>
-                                <span className="text-[16px] font-black text-slate-700 tracking-tight">Street View Analysis</span>
-                            </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
-                            {/* Quick stats as compact rows */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+                            {/* Analysis items with larger text size */}
                             {analysis.privacyRating && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-shield-halved text-[8px] text-indigo-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Privacy:</strong> {analysis.privacyRating}</div>
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-shield-halved text-[11px] text-indigo-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Privacy:</strong> {analysis.privacyRating}</div>
                                 </div>
                             )}
                             {analysis.parkingLogistics && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-car-side text-[8px] text-blue-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Parking:</strong> {analysis.parkingLogistics}</div>
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-car-side text-[11px] text-blue-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Parking:</strong> {analysis.parkingLogistics}</div>
                                 </div>
                             )}
                             {analysis.utilityAesthetic && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-plug-circle-bolt text-[8px] text-amber-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Utilities:</strong> {analysis.utilityAesthetic}</div>
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-plug-circle-bolt text-[11px] text-amber-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Utilities:</strong> {analysis.utilityAesthetic}</div>
                                 </div>
                             )}
                             {analysis.neighborhoodVibe && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-tree-city text-[8px] text-slate-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Vibe:</strong> {analysis.neighborhoodVibe}</div>
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-tree-city text-[11px] text-slate-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Vibe:</strong> {analysis.neighborhoodVibe}</div>
                                 </div>
                             )}
                             {analysis.familySafety && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-children text-[8px] text-emerald-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Safety:</strong> {analysis.familySafety}</div>
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-children text-[11px] text-emerald-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Safety:</strong> {analysis.familySafety}</div>
                                 </div>
                             )}
                             {analysis.solarObstructions && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-cloud-sun text-[8px] text-orange-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Solar:</strong> {analysis.solarObstructions}</div>
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-cloud-sun text-[11px] text-orange-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Solar:</strong> {analysis.solarObstructions}</div>
                                 </div>
                             )}
                             {analysis.neighborCondition && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-house-chimney-window text-[8px] text-sky-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug"><strong>Streetscape:</strong> {analysis.neighborCondition}</div>
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-house-chimney-window text-[11px] text-sky-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Streetscape:</strong> {analysis.neighborCondition}</div>
                                 </div>
                             )}
 
-                            {/* Maintenance Risks */}
                             {analysis.maintenanceRisks && analysis.maintenanceRisks.length > 0 && (
-                                <div className="flex items-start gap-1 py-0.5 px-1">
-                                    <i className="fa-solid fa-toolbox text-[8px] text-rose-500 mt-0.5"></i>
-                                    <div className="text-[11px] text-slate-900 font-medium leading-snug">
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-toolbox text-[11px] text-rose-500 mt-1"></i>
+                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed">
                                         <strong>Risks:</strong> {analysis.maintenanceRisks.join(' · ')}
                                     </div>
                                 </div>

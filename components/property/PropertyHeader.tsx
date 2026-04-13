@@ -343,11 +343,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                 <i className="fa-solid fa-calendar text-[7px] text-slate-400" />Built {data.yearBuilt}
               </span>
             )}
-            {(data.listPrice ?? data.price) && data.livingAreaValue && data.livingAreaValue > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded-md text-[11px] font-bold text-emerald-700">
-                <i className="fa-solid fa-tag text-[7px]" />${Math.round((data.listPrice ?? data.price!) / data.livingAreaValue)}/sf
-              </span>
-            )}
 
             {computedDaysOnMarket != null && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-600">

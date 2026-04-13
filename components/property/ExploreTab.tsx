@@ -124,12 +124,16 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
     const sidebarItems: NavItem[] = [
         { id: 'ov-lifestyle',   label: 'Lifestyle & Interests',    icon: 'fa-people-roof',       visible: !!(lifestyleFit || lifestyleInsights) },
+        { id: 'ov-community',   label: 'Community Overview',       icon: 'fa-city',              visible: true },
         { id: 'ov-property',    label: 'MLS Property Data',        icon: 'fa-table-cells-large', visible: true },
-        { id: 'ov-environment', label: 'Environment & Resilience', icon: 'fa-water',             visible: hasEnvData },
-        { id: 'ov-living',      label: 'Daily Living & Commute',   icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
-        { id: 'ov-ai-analysis', label: 'AI Property Analysis',     icon: 'fa-brain',             visible: true },
+        { id: 'ov-environment', label: 'Environment',             icon: 'fa-leaf',              visible: hasEnvData },
+        { id: 'ov-resilience',  label: 'Resilience',              icon: 'fa-shield-halved',     visible: hasEnvData },
+        { id: 'ov-living',      label: 'Daily Living',            icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
         { id: 'ov-schools',     label: 'Education',                icon: 'fa-graduation-cap',    visible: hasSchoolsData },
-        { id: 'ov-sun',         label: 'Sun Pathing',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
+        { id: 'ov-sun',         label: 'Solar Insights',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
+        { id: 'ov-nearby',      label: "What's Nearby",            icon: 'fa-map-location-dot',  visible: !!(propertyData as any)?.nearbyPlaces?.length },
+        { id: 'ov-streetview',  label: 'Street View Analysis',     icon: 'fa-street-view',       visible: true },
+        { id: 'ov-ai-analysis', label: 'AI Property Analysis',     icon: 'fa-brain',             visible: true },
     ];
 
     const [sidebarActiveId, setSidebarActiveId] = React.useState('ov-property');
@@ -319,7 +323,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
                                                 { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
                                                 { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
-                                                { id: 'schools', label: 'Schools', icon: 'fa-graduation-cap' },
                                                 { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
                                             ]).map(tab => {
                                                 const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
@@ -434,6 +437,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             micro={micro}
                                             schoolsIntelligence={schoolsIntelligence}
                                             census={census}
+                                            cityNhEntryOverview={cityNhEntryOverview}
+                                            visualPoi={visualPoi}
+                                            mapLabels={mapLabels}
+                                            neighborhoodOverview={neighborhoodOverview}
                                             onRunAnalysis={() => onRunCustomAnalysis(false)}
                                         />
 
@@ -451,10 +458,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     propertyData={propertyData}
                                                     analysis={analysis}
                                                     census={census}
-                                                    cityNhEntryOverview={cityNhEntryOverview}
-                                                    schoolsIntelligence={schoolsIntelligence}
-                                                    schoolsExpanded={schoolsExpanded}
-                                                    setSchoolsExpanded={setSchoolsExpanded}
                                                     lifestyleFit={lifestyleFit}
                                                     lifestyleInsights={lifestyleInsights}
                                                     userRole={userRole}

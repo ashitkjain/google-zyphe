@@ -47,13 +47,13 @@ const PLACE_CATEGORY_QUERIES: {
     radius: number;
 }[] = [
         { key: 'dining', types: ['restaurant', 'cafe', 'bakery'], radius: 1500 },
-        { key: 'shopping', types: ['shopping_mall', 'supermarket', 'grocery_store'], radius: 5000 },
+        { key: 'shopping', types: ['shopping_mall', 'supermarket', 'grocery_store', 'gas_station'], radius: 5000 },
         { key: 'parks', types: ['park', 'playground', 'hiking_area'], radius: 5000 },
-        { key: 'transit', types: ['transit_station', 'parking', 'electric_vehicle_charging_station'], radius: 5000 },
         { key: 'fitness', types: ['gym'], radius: 5000 },
         { key: 'schools', types: ['school', 'primary_school'], radius: 3000 },
         { key: 'medical', types: ['hospital'], radius: 5000 },
         { key: 'community', types: ['library', 'police', 'fire_station', 'bank'], radius: 5000 },
+        { key: 'transit', types: ['transit_station', 'parking', 'electric_vehicle_charging_station'], radius: 5000 },
         { key: 'others', types: ['stadium', 'night_club', 'liquor_store'], radius: 5000 },
     ];
 
@@ -132,7 +132,7 @@ export const fetchNearbyPlaces = async (
                     includedTypes: [
                         'supermarket', 'shopping_mall', 'hospital', 'police',
                         'fire_station', 'transit_station', 'parking', 'electric_vehicle_charging_station',
-                        'stadium', 'night_club', 'liquor_store'
+                        'gas_station', 'stadium', 'night_club', 'liquor_store'
                     ],
                     maxResultCount: 20,
                     locationRestriction: {

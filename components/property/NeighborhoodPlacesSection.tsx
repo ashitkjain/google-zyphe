@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PropertyData } from '../../types';
-import { NeighborhoodPlaces, NearbyPlace, NeighborhoodCategorySet } from '../../services/apiService';
+import { NeighborhoodPlaces, NearbyPlace } from '../../services/apiService';
 import { NeighborhoodAnalysis } from '../../types/ai';
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
     address?: string;
     neighborhoodOverview?: string | null;
     hoaAmenities?: string[];
+    isEmbeddedCard?: boolean;
 }
 
 const CATEGORY_CONFIG: {
@@ -20,14 +21,15 @@ const CATEGORY_CONFIG: {
     color: string;
     bgColor: string;
     borderColor: string;
+    activeBg: string;
+    activeText: string;
 }[] = [
-        { key: 'dining', label: 'Dining & Cafes', icon: 'fa-utensils', color: 'text-rose-500', bgColor: 'bg-rose-50', borderColor: 'border-rose-100' },
-        { key: 'transit', label: 'Transit', icon: 'fa-bus', color: 'text-blue-500', bgColor: 'bg-blue-50', borderColor: 'border-blue-100' },
-        { key: 'shopping', label: 'Shopping & Groceries', icon: 'fa-bag-shopping', color: 'text-orange-500', bgColor: 'bg-orange-50', borderColor: 'border-orange-100' },
-        { key: 'parks', label: 'Parks', icon: 'fa-tree', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-100' },
-        { key: 'medical', label: 'Medical', icon: 'fa-house-medical', color: 'text-rose-600', bgColor: 'bg-rose-50', borderColor: 'border-rose-100' },
-        { key: 'fitness', label: 'Fitness', icon: 'fa-dumbbell', color: 'text-purple-500', bgColor: 'bg-purple-50', borderColor: 'border-purple-100' },
-        { key: 'community', label: 'Community & Other', icon: 'fa-icons', color: 'text-teal-600', bgColor: 'bg-teal-50', borderColor: 'border-teal-100' },
+        { key: 'dining', label: 'Dining', icon: 'fa-utensils', color: 'text-rose-500', bgColor: 'bg-rose-50', borderColor: 'border-rose-100', activeBg: 'bg-rose-500', activeText: 'text-white' },
+        { key: 'shopping', label: 'Shopping', icon: 'fa-bag-shopping', color: 'text-orange-500', bgColor: 'bg-orange-50', borderColor: 'border-orange-100', activeBg: 'bg-orange-500', activeText: 'text-white' },
+        { key: 'parks', label: 'Parks', icon: 'fa-tree', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-100', activeBg: 'bg-green-600', activeText: 'text-white' },
+        { key: 'medical', label: 'Medical', icon: 'fa-house-medical', color: 'text-rose-600', bgColor: 'bg-rose-50', borderColor: 'border-rose-100', activeBg: 'bg-rose-600', activeText: 'text-white' },
+        { key: 'fitness', label: 'Fitness', icon: 'fa-dumbbell', color: 'text-purple-500', bgColor: 'bg-purple-50', borderColor: 'border-purple-100', activeBg: 'bg-purple-500', activeText: 'text-white' },
+        { key: 'community', label: 'Community', icon: 'fa-icons', color: 'text-teal-600', bgColor: 'bg-teal-50', borderColor: 'border-teal-100', activeBg: 'bg-teal-600', activeText: 'text-white' },
     ];
 
 const StarRating: React.FC<{ rating?: number }> = ({ rating }) => {
@@ -39,7 +41,7 @@ const StarRating: React.FC<{ rating?: number }> = ({ rating }) => {
             {Array.from({ length: 5 }).map((_, i) => (
                 <i
                     key={i}
-                    className={`fa-star text-[8px] ${i < full
+                    className={`fa-star text-[7px] ${i < full
                         ? 'fa-solid text-amber-400'
                         : i === full && hasHalf
                             ? 'fa-solid text-amber-300'
@@ -47,7 +49,7 @@ const StarRating: React.FC<{ rating?: number }> = ({ rating }) => {
                         }`}
                 />
             ))}
-            <span className="text-[9px] font-bold text-slate-500 ml-0.5">{rating.toFixed(1)}</span>
+            <span className="text-[9px] font-bold text-slate-400 ml-1">{rating.toFixed(1)}</span>
         </span>
     );
 };
@@ -56,80 +58,41 @@ const PlaceRow: React.FC<{ place: NearbyPlace }> = ({ place }) => {
     const distanceMiles = place.distanceMeters ? (place.distanceMeters * 0.000621371).toFixed(1) : null;
 
     return (
-        <div className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-50 last:border-0">
-            <div className="flex-1 min-w-0">
-                <div className="text-[12px] font-semibold text-slate-800 line-clamp-2 leading-tight">
-                    {place.googleMapsUri ? (
-                        <a
-                            href={place.googleMapsUri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-indigo-600 transition-colors"
-                        >
-                            {place.name}
-                            <i className="fa-solid fa-arrow-up-right-from-square text-[8px] ml-1 opacity-40" />
-                        </a>
-                    ) : (
-                        place.name
-                    )}
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                    {!place.isAiExtracted && distanceMiles && (
-                        <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{distanceMiles} mi</span>
-                    )}
-                    <StarRating rating={place.rating} />
-                    {place.userRatingCount != null && (
-                        <span className="text-[8px] text-slate-400 font-medium">({place.userRatingCount.toLocaleString()})</span>
-                    )}
-                </div>
+        <div className="flex flex-col py-2 border-b border-slate-100/50 last:border-0 group">
+            <div className="text-[14px] font-bold text-slate-800 leading-snug transition-colors group-hover:text-indigo-600 mb-0.5 break-words">
+                {place.googleMapsUri ? (
+                    <a href={place.googleMapsUri} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 focus:outline-none">
+                        {place.name}
+                        <i className="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-0 group-hover:opacity-40 transition-opacity" />
+                    </a>
+                ) : place.name}
             </div>
-        </div >
-    );
-};
-
-const CategoryCard: React.FC<{
-    icon: string;
-    label: string;
-    color: string;
-    bgColor: string;
-    borderColor: string;
-    places: NearbyPlace[];
-}> = ({ icon, label, color, bgColor, borderColor, places }) => {
-    const [expanded, setExpanded] = useState(false);
-    const visible = expanded ? places : places.slice(0, 4);
-
-    if (places.length === 0) return null;
-
-    return (
-        <div className={`rounded-xl border ${borderColor} ${bgColor} p-2.5 flex flex-col gap-1.5 self-start`}>
-            {/* Title & Badge */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
                 <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                        <i className={`fa-solid ${icon} ${color} text-[9px]`} />
-                    </div>
-                    <span className={`text-[11px] font-black uppercase tracking-widest ${color}`}>{label}</span>
+                    {place.rating != null && <StarRating rating={place.rating} />}
+                    {place.userRatingCount != null && (
+                        <span className="text-[9px] text-slate-400 font-medium whitespace-nowrap">({place.userRatingCount.toLocaleString()} reviews)</span>
+                    )}
                 </div>
+                {distanceMiles && (
+                    <div className="flex items-center gap-2">
+                        <span className="w-1 h-1 rounded-full bg-slate-200" />
+                        <span className="text-[10px] font-black text-indigo-500/70 tracking-tight whitespace-nowrap">
+                            {distanceMiles} mi
+                        </span>
+                    </div>
+                )}
             </div>
-
-            <div className="divide-y divide-slate-50">
-                {visible.map((place, i) => <PlaceRow key={i} place={place} />)}
-            </div>
-            {places.length > 4 && (
-                <button
-                    onClick={() => setExpanded(!expanded)}
-                    className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors mt-1 self-start"
-                >
-                    {expanded ? '▲ Show less' : `▼ +${places.length - 4} more`}
-                </button>
-            )}
         </div>
     );
 };
 
-const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels, mapZoomOut, address, neighborhoodOverview, hoaAmenities }) => {
-    const [mode, setMode] = useState<'places' | 'map'>('places');
+const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels, mapZoomOut, isEmbeddedCard }) => {
+    const [viewMode, setViewMode] = useState<'places' | 'map'>('places');
+    const [activeCategory, setActiveCategory] = useState<string>(CATEGORY_CONFIG[0].key);
+    const [isMapVisible, setIsMapVisible] = useState(false);
     const [expandedMap, setExpandedMap] = useState<string | null>(null);
+    
     const rawPlaces = data.google_places;
     if (!rawPlaces && !visualPoi && (!mapLabels || mapLabels.length === 0)) return null;
 
@@ -137,176 +100,165 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
 
     CATEGORY_CONFIG.forEach(cat => {
         let list: NearbyPlace[] = [];
-
-        if (mode === 'places') {
-            // Show Google Places API data
+        if (viewMode === 'places') {
             list = (rawPlaces as any)?.[cat.key] || [];
-            collections[cat.key] = [...list];
-        } else {
-            // Show only AI-extracted visual POI from the map
-            collections[cat.key] = [];
-            if (visualPoi && visualPoi[cat.key as keyof NeighborhoodAnalysis['visual_poi']]) {
-                const aiNames = visualPoi[cat.key as keyof NeighborhoodAnalysis['visual_poi']];
-                if (Array.isArray(aiNames)) {
-                    aiNames.forEach(name => {
-                        collections[cat.key].push({
-                            name,
-                            primaryTypeDisplayName: 'AI Visual Discovery',
-                            isAiExtracted: true
-                        });
-                    });
-                }
+            if (cat.key === 'community') {
+                list = [...list, ...((rawPlaces as any)?.['others'] || [])];
             }
+            collections[cat.key] = list;
+        } else {
+            const aiNames = (visualPoi as any)?.[cat.key] || (cat.key === 'community' ? (visualPoi as any)?.['others'] : []);
+            collections[cat.key] = Array.isArray(aiNames) ? aiNames.map(name => ({
+                name,
+                primaryTypeDisplayName: 'AI Visual Discovery',
+                isAiExtracted: true
+            })) : [];
         }
     });
 
-    // Merge 'others' data into the combined 'community' category
-    if (mode === 'places') {
-        const othersList = (rawPlaces as any)?.['others'] || [];
-        if (collections['community']) {
-            collections['community'] = [...collections['community'], ...othersList];
-        }
-    } else {
-        if (visualPoi && (visualPoi as any)['others']) {
-            const aiNames = (visualPoi as any)['others'];
-            if (Array.isArray(aiNames)) {
-                aiNames.forEach((name: string) => {
-                    collections['community']?.push({
-                        name,
-                        primaryTypeDisplayName: 'AI Visual Discovery',
-                        isAiExtracted: true
-                    });
-                });
-            }
-        }
-    }
+    const categoriesWithData = CATEGORY_CONFIG.filter(cat => (collections[cat.key] || []).length > 0);
+    const activePlaces = collections[activeCategory] || [];
 
-    const totalPlaces = CATEGORY_CONFIG.reduce((sum, cat) => {
-        return sum + (collections[cat.key] || []).length;
-    }, 0);
-
-    // Category grid
-    const hasActiveData = CATEGORY_CONFIG.some(cat => (collections[cat.key] || []).length > 0);
+    // Auto-select first available category if current one is empty
+    React.useEffect(() => {
+        if (activePlaces.length === 0 && categoriesWithData.length > 0) {
+            setActiveCategory(categoriesWithData[0].key);
+        }
+    }, [activePlaces.length, categoriesWithData]);
 
     return (
-        <div className="px-6 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Section Title */}
-            <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <i className="fa-solid fa-map-location-dot text-indigo-600 text-[11px]"></i>
-                </div>
-                <span className="text-lg font-black text-slate-900 tracking-tight">What's Nearby</span>
-            </div>
-
-
-
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-
-                <div className="flex items-center gap-2">
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <div className={`${isEmbeddedCard ? 'p-0 pb-4' : 'p-5 md:p-7'} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
+            {/* Header / Mode Switcher */}
+            {!isEmbeddedCard && (
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5 mb-8">
+                    <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shadow-sm shrink-0">
+                            <i className="fa-solid fa-map-location-dot text-indigo-500 text-sm"></i>
+                        </div>
+                        <div className="pt-0.5">
+                            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-2">What's Nearby?</h2>
+                            {mapZoomOut && (
+                                <button
+                                    onClick={() => setExpandedMap(mapZoomOut)}
+                                    className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 transition-all shadow-sm active:scale-95 group"
+                                    title="View Neighborhood Map"
+                                >
+                                    <i className="fa-solid fa-map-location-dot text-xs group-hover:scale-110 transition-transform"></i>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="flex bg-slate-100/60 p-1 rounded-xl border border-slate-200/40 backdrop-blur-sm self-start sm:self-auto shrink-0">
                         <button
-                            onClick={() => setMode('places')}
-                            className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all ${mode === 'places' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                            onClick={() => setViewMode('places')}
+                            className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all ${viewMode === 'places' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
                         >
-                            Google Places
+                            GOOGLE PLACES
                         </button>
                         <button
-                            onClick={() => setMode('map')}
-                            className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all ${mode === 'map' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                            onClick={() => setViewMode('map')}
+                            className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all ${viewMode === 'map' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
                         >
-                            More From The Map
+                            VISUAL POI
                         </button>
                     </div>
                 </div>
-            </div>
+            )}
 
-            {!hasActiveData ? (
-                <div className="py-12 flex flex-col items-center justify-center bg-slate-50 border border-slate-100 rounded-3xl">
-                    <i className="fa-solid fa-hourglass-half text-slate-300 text-2xl mb-3" />
-                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">No transit data in cache</p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-1">Please try searching again to refresh results</p>
-                </div>
-            ) : (
-                <div className="flex gap-3 items-start">
-                    {/* Neighborhood Map — fixed left column */}
+            {isEmbeddedCard && (
+                <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-50 bg-slate-50/30">
+                     <div className="flex bg-slate-100/60 p-1 rounded-xl border border-slate-200/40 backdrop-blur-sm shrink-0">
+                        <button
+                            onClick={() => setViewMode('places')}
+                            className={`px-4 py-1.5 text-[9px] font-black rounded-lg transition-all ${viewMode === 'places' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            GOOGLE PLACES
+                        </button>
+                        <button
+                            onClick={() => setViewMode('map')}
+                            className={`px-4 py-1.5 text-[9px] font-black rounded-lg transition-all ${viewMode === 'map' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            VISUAL POI
+                        </button>
+                    </div>
+
                     {mapZoomOut && (
-                        <div className="hidden lg:block w-[280px] flex-shrink-0">
-                            <div
-                                onClick={() => setExpandedMap(mapZoomOut)}
-                                className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group relative cursor-zoom-in w-full aspect-square"
-                            >
-                                <img
-                                    src={mapZoomOut}
-                                    alt="Neighborhood Map"
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                                />
-                                <div className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100">Neighborhood</div>
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
-                                    <i className="fa-solid fa-magnifying-glass-plus text-white opacity-0 group-hover:opacity-100 transition-all scale-50 group-hover:scale-100 text-2xl drop-shadow-md"></i>
-                                </div>
-                            </div>
-                        </div>
+                        <button
+                            onClick={() => setExpandedMap(mapZoomOut)}
+                            className="px-4 py-1.5 rounded-xl bg-white border border-slate-200 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 transition-all shadow-sm active:scale-95 group flex items-center gap-2"
+                        >
+                            <i className="fa-solid fa-map-location-dot text-[10px] group-hover:scale-110 transition-transform"></i>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Neighborhood Map</span>
+                        </button>
                     )}
+                </div>
+            )}
 
-                    {/* Category cards — masonry columns */}
-                    <div className="flex-1 min-w-0" style={{ columnCount: mapZoomOut ? 3 : 4, columnGap: '0.5rem' }}>
-                        {CATEGORY_CONFIG.map(cat => {
-                            const places = collections[cat.key] || [];
-                            if (places.length === 0) return null;
+            <div className={`flex flex-col ${isEmbeddedCard ? 'gap-4 p-4' : 'gap-8'}`}>
+                {/* Tabs & List */}
+                <div className="flex-1 min-w-0">
+                    {/* Category Tabs */}
+                    <div className={`flex flex-wrap ${isEmbeddedCard ? 'gap-2 mb-4' : 'gap-2.5 mb-8'}`}>
+                        {categoriesWithData.map(cat => {
+                            const isActive = activeCategory === cat.key;
                             return (
-                                <div key={cat.key} className="break-inside-avoid mb-2">
-                                    <CategoryCard
-                                        icon={cat.icon}
-                                        label={cat.label}
-                                        color={cat.color}
-                                        bgColor={cat.bgColor}
-                                        borderColor={cat.borderColor}
-                                        places={places}
-                                    />
-                                </div>
+                                <button
+                                    key={cat.key}
+                                    onClick={() => setActiveCategory(cat.key)}
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 ${
+                                        isActive 
+                                            ? `${cat.activeBg} ${cat.activeText} border-transparent shadow-lg shadow-${cat.key}-500/10` 
+                                            : `bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50/80`
+                                    }`}
+                                >
+                                    <i className={`fa-solid ${cat.icon} text-[11px] ${!isActive ? cat.color : ''}`}></i>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{cat.label}</span>
+                                    {!isEmbeddedCard && (
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
+                                            {(collections[cat.key] || []).length}
+                                        </span>
+                                    )}
+                                </button>
                             );
                         })}
                     </div>
+
+                    {/* Active Category Content */}
+                    <div className={`${isEmbeddedCard ? 'bg-white' : 'bg-white rounded-[2rem] border border-slate-100/80 shadow-sm p-1'}`}>
+                        {activePlaces.length > 0 ? (
+                            <div className={`grid grid-cols-1 gap-y-0 ${isEmbeddedCard ? 'max-h-[360px]' : 'max-h-[460px]'} overflow-y-auto px-2 custom-scrollbar`}>
+                                {activePlaces.map((place, i) => (
+                                    <PlaceRow key={i} place={place} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-16 flex flex-col items-center justify-center text-slate-400 text-center">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mb-4">
+                                    <i className="fa-solid fa-map-pin text-xl opacity-20" />
+                                </div>
+                                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">No locations discovered</p>
+                                <p className="text-[10px] font-medium text-slate-400 mt-1">Try switching to Visual POI for AI-extracted details</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            )}
+            </div>
 
             {/* Expanded Map Overlay */}
             {expandedMap && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-500"
-                    onClick={() => setExpandedMap(null)}
-                >
-                    <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-xl"></div>
-                    <div
-                        className="relative max-w-6xl w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col"
-                        style={{ maxHeight: '90vh' }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <button
-                            onClick={() => setExpandedMap(null)}
-                            className="absolute top-6 right-6 z-20 w-11 h-11 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
-                        >
-                            <i className="fa-solid fa-xmark text-lg"></i>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-12 animate-in fade-in duration-500" onClick={() => setExpandedMap(null)}>
+                    <div className="absolute inset-0 bg-slate-900/98 backdrop-blur-3xl"></div>
+                    <div className="relative max-w-7xl w-full bg-white rounded-[4rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col" style={{ maxHeight: '94vh' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setExpandedMap(null)} className="absolute top-10 right-10 z-20 w-14 h-14 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95">
+                            <i className="fa-solid fa-xmark text-2xl"></i>
                         </button>
-
-                        {/* Top white border */}
-                        <div className="h-16 bg-white w-full flex-shrink-0" />
-
-                        <div className="flex-1 overflow-hidden bg-slate-50 flex items-center justify-center p-4">
-                            <img
-                                src={expandedMap}
-                                alt="Expanded Map View"
-                                className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl shadow-lg"
-                            />
+                        <div className="flex-1 overflow-auto bg-slate-50 flex items-center justify-center p-12">
+                            <img src={expandedMap} alt="Map detail" className="max-w-full max-h-full h-auto object-contain rounded-[3rem] shadow-2xl border border-slate-200" />
                         </div>
-
-                        {/* Bottom white border */}
-                        <div className="h-16 bg-white w-full flex-shrink-0" />
                     </div>
                 </div>
             )}
-
         </div>
     );
 };
