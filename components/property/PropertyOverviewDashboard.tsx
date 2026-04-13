@@ -697,12 +697,6 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                                     <div className="h-2 bg-slate-200/50 rounded-full overflow-hidden mb-1.5 relative">
                                                         <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-amber-300 rounded-full" style={{ width: '60%' }} />
                                                     </div>
-                                                    <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center mb-6 shadow-sm">
-                                                        <span className="text-[13px] font-black text-orange-600 uppercase tracking-widest italic leading-none block mb-1">Impacted by obstructions</span>
-                                                        <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
-                                                            Based on roof pitch, trees, and Google Solar API models.
-                                                        </p>
-                                                    </div>
 
                                                     <div className="grid grid-cols-2 gap-4">
                                                         <div className="p-4 bg-white border border-slate-100 rounded-xl relative shadow-sm">
