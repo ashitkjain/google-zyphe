@@ -51,6 +51,7 @@ interface Props {
     onTabChange?: (tabId: TabType) => void;
 }
 
+
 const AnalysisOrchestrator: React.FC<Props> = ({
     analysis,
     loading,
@@ -334,6 +335,8 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         setMousePos({ x: e.clientX, y: e.clientY });
     };
 
+// ── School Details expandable sub-section ───────────────────────────────────
+
     if (loading) return <GeneralAnalysisLoading timer={timer} />;
     if (!analysis) return null;
 
@@ -395,211 +398,152 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                 <section>
                                     {!schoolsData?.schools?.length ? (
                                         <EmptyState section="Schools" />
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {/* District header */}
-                                            {schoolsData.district_name && (
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                                                        <i className="fa-solid fa-graduation-cap text-blue-600"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-lg font-black text-slate-800 tracking-tight">Schools Intelligence</h3>
-                                                        <p className="text-sm text-slate-400">{schoolsData.district_name} · {schoolsData.schools.length} schools analyzed</p>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* School tabs row */}
-                                            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                                                {schoolsData.schools.map((school: any, idx: number) => {
-                                                    const isActive = activeSchoolIdx === idx;
-                                                    const ratingNum = parseFloat(String(school.mls_rating)) || 0;
-                                                    const ratingColor = ratingNum >= 7 ? 'emerald' : ratingNum >= 5 ? 'amber' : 'rose';
-                                                    const levelIcon = school.level?.toLowerCase()?.includes('element') ? 'fa-child' :
-                                                        school.level?.toLowerCase()?.includes('middle') ? 'fa-school' : 'fa-building-columns';
-                                                    return (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => setActiveSchoolIdx(idx)}
-                                                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-left whitespace-nowrap transition-all flex-shrink-0 ${isActive
-                                                                ? 'bg-white shadow-md border border-slate-200 ring-1 ring-indigo-100'
-                                                                : 'bg-slate-50 border border-transparent hover:bg-slate-100'
+                                    ) : (() => {
+                                        const school = schoolsData.schools[activeSchoolIdx];
+                                        return (
+                                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                                {/* School tabs — horizontal */}
+                                                <div className="flex gap-2 overflow-x-auto px-4 pt-4 pb-3 border-b border-slate-100">
+                                                    {schoolsData.schools.map((s: any, i: number) => {
+                                                        const isSelected = activeSchoolIdx === i;
+                                                        const ratingNum = parseFloat(String(s.mls_rating)) || 0;
+                                                        const levelIcon = s.level?.toLowerCase()?.includes('element') ? 'fa-child' :
+                                                            s.level?.toLowerCase()?.includes('middle') ? 'fa-school' : 'fa-building-columns';
+                                                        return (
+                                                            <button
+                                                                key={i}
+                                                                onClick={() => setActiveSchoolIdx(i)}
+                                                                className={`flex items-center gap-2 px-3 py-2 rounded-xl border whitespace-nowrap flex-shrink-0 transition-all ${
+                                                                    isSelected
+                                                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                                                        : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
                                                                 }`}
-                                                        >
-                                                            <i className={`fa-solid ${levelIcon} text-[11px] ${isActive ? 'text-indigo-500' : 'text-slate-400'}`}></i>
-                                                            <div>
-                                                                <div className={`text-[12px] font-bold ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>{school.name}</div>
-                                                                <div className="text-[10px] text-slate-400">{school.grades_served}</div>
-                                                            </div>
-                                                            {school.mls_rating && (
-                                                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ml-1 bg-${ratingColor}-100 text-${ratingColor}-700`}>
-                                                                    {school.mls_rating}/10
-                                                                </span>
-                                                            )}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                                                            >
+                                                                <i className={`fa-solid ${levelIcon} text-[11px] ${isSelected ? 'text-white/70' : 'text-slate-300'}`} />
+                                                                <div className="text-left">
+                                                                    <span className="text-[12px] font-black block">{s.name}</span>
+                                                                    {s.grades_served && (
+                                                                        <span className={`text-[10px] ${isSelected ? 'text-white/60' : 'text-slate-400'}`}>{s.grades_served}</span>
+                                                                    )}
+                                                                </div>
+                                                                {s.mls_rating && (
+                                                                    <div className={`px-2 py-0.5 rounded-md text-[10px] font-black ml-1 ${
+                                                                        isSelected
+                                                                            ? 'bg-emerald-400 text-slate-900'
+                                                                            : ratingNum >= 7 ? 'bg-emerald-50 text-emerald-600' : ratingNum >= 5 ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
+                                                                    }`}>
+                                                                        {s.mls_rating}/10
+                                                                    </div>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
 
-                                            {/* Active school content */}
-                                            {(() => {
-                                                const school = schoolsData.schools[activeSchoolIdx];
-                                                if (!school) return null;
-                                                return (
-                                                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                                                        {/* Stat pills row */}
-                                                        <div className="flex flex-wrap gap-2 px-4 pt-4 pb-3">
+                                                {/* Selected school content — always visible */}
+                                                {school && (
+                                                    <div className="p-4 space-y-4">
+                                                        {/* Summary */}
+                                                        {school.overall_assessment && (
+                                                            <p className="text-[14px] text-slate-600 leading-relaxed font-medium">
+                                                                {school.overall_assessment}
+                                                            </p>
+                                                        )}
+
+                                                        {/* Stat pills */}
+                                                        <div className="flex flex-wrap gap-1.5">
                                                             {school.enrollment && (
-                                                                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
-                                                                    Enrollment: {school.enrollment?.toLocaleString()}
-                                                                </span>
+                                                                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">Enrollment: {school.enrollment?.toLocaleString()}</span>
                                                             )}
                                                             {school.student_teacher_ratio && (
-                                                                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
-                                                                    Ratio: {school.student_teacher_ratio}
-                                                                </span>
+                                                                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">Ratio: {school.student_teacher_ratio}</span>
                                                             )}
                                                             {school.graduation_rate && school.graduation_rate !== 'N/A' && (
-                                                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">
-                                                                    Graduation: {school.graduation_rate}
-                                                                </span>
+                                                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">Graduation: {school.graduation_rate}</span>
                                                             )}
-                                                            <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full capitalize">
-                                                                {school.type || 'Public'}
-                                                            </span>
+                                                            <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full capitalize">{school.type || 'Public'}</span>
                                                         </div>
 
-                                                        {/* Card grid — rooms pattern */}
-                                                        <div className="px-4 pb-4">
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                                                {school.overall_assessment && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col col-span-full">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-clipboard-check text-lg"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Summary</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{school.overall_assessment}</p>
-                                                                    </div>
-                                                                )}
-                                                                {school.test_scores && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-chart-line text-lg"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Test Scores</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{school.test_scores}</p>
-                                                                    </div>
-                                                                )}
-                                                                {school.ap_ib_programs && school.ap_ib_programs !== 'N/A' && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-award text-lg"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">AP / IB Programs</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{school.ap_ib_programs}</p>
-                                                                    </div>
-                                                                )}
-                                                                {school.college_readiness && school.college_readiness !== 'N/A' && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-user-graduate text-lg"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">College Readiness</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{school.college_readiness}</p>
-                                                                    </div>
-                                                                )}
+                                                        {/* Test scores */}
+                                                        {school.test_scores && (
+                                                            <div>
+                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Test Scores</div>
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">{school.test_scores}</p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Parent loves & concerns */}
+                                                        {(school.parent_sentiment_positive || school.parent_sentiment_concerns) && (
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                 {school.parent_sentiment_positive && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-thumbs-up text-lg"></i>
-                                                                            </div>
+                                                                    <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                                                                        <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                                                            <i className="fa-solid fa-thumbs-up text-[9px]" /> Parent Loves
                                                                         </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Parent Loves</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{school.parent_sentiment_positive}</p>
+                                                                        <p className="text-[12px] text-emerald-800 leading-relaxed font-medium">{school.parent_sentiment_positive}</p>
                                                                     </div>
                                                                 )}
                                                                 {school.parent_sentiment_concerns && (
-                                                                    <div className="bg-rose-50/60 p-6 rounded-2xl border border-rose-200/60 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center text-rose-500 group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-flag text-lg"></i>
-                                                                            </div>
-                                                                            <span className="text-[10px] font-black text-rose-500 bg-rose-100 px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
-                                                                                <i className="fa-solid fa-flag text-[9px]"></i>Flag
-                                                                            </span>
+                                                                    <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-100">
+                                                                        <div className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                                                            <i className="fa-solid fa-flag text-[9px]" /> Parent Concerns
                                                                         </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Parent Concerns</h4>
-                                                                        <p className="text-rose-900/80 font-sans font-normal text-[13px] leading-relaxed">{school.parent_sentiment_concerns}</p>
-                                                                    </div>
-                                                                )}
-                                                                {school.extracurriculars && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-trophy text-lg"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Activities & Strengths</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{school.extracurriculars}</p>
-                                                                    </div>
-                                                                )}
-                                                                {school.demographics_summary && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-users text-lg"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Demographics</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{school.demographics_summary}</p>
-                                                                    </div>
-                                                                )}
-                                                                {school.recent_news && (
-                                                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                                                        <div className="flex justify-between items-start mb-4">
-                                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                                                                <i className="fa-solid fa-newspaper text-lg"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Recent News</h4>
-                                                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed italic">{school.recent_news}</p>
+                                                                        <p className="text-[12px] text-rose-700 leading-relaxed font-medium">{school.parent_sentiment_concerns}</p>
                                                                     </div>
                                                                 )}
                                                             </div>
+                                                        )}
 
-                                                            {/* Sources — footer */}
-                                                            {school.sources?.length > 0 && (
-                                                                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
-                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase mr-1">Sources:</span>
-                                                                    {school.sources.map((src: any, sIdx: number) => {
-                                                                        const domain = (() => { try { return new URL(src.url).hostname.replace('www.', ''); } catch { return src.title || src.url; } })();
-                                                                        return (
-                                                                            <a key={sIdx} href={src.url} target="_blank" rel="noopener noreferrer"
-                                                                                className="text-[10px] text-blue-500 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-colors"
-                                                                                title={src.title || src.url}
-                                                                            >
-                                                                                {src.title || domain}
-                                                                            </a>
-                                                                        );
-                                                                    })}
+                                                        {/* Activities */}
+                                                        {school.extracurriculars && (
+                                                            <div>
+                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                                                    <i className="fa-solid fa-trophy text-[9px] text-amber-400" /> Activities &amp; Strengths
                                                                 </div>
-                                                            )}
-                                                        </div>
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">{school.extracurriculars}</p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Recent news */}
+                                                        {school.recent_news && (
+                                                            <div>
+                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Recent News</div>
+                                                                <p className="text-[13px] text-slate-500 leading-relaxed italic font-medium">{school.recent_news}</p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Demographics */}
+                                                        {school.demographics_summary && (
+                                                            <div>
+                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                                                    <i className="fa-solid fa-users text-[9px] text-indigo-400" /> Demographics
+                                                                </div>
+                                                                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">{school.demographics_summary}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    )}
+                                                )}
+
+                                                {/* Sources */}
+                                                {school?.sources?.length > 0 && (
+                                                    <div className="px-5 py-3 border-t border-slate-50 flex flex-wrap items-center gap-1.5">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Sources:</span>
+                                                        {school.sources.map((src: any, sIdx: number) => {
+                                                            const domain = (() => { try { return new URL(src.url).hostname.replace('www.', ''); } catch { return src.title || src.url; } })();
+                                                            return (
+                                                                <a key={sIdx} href={src.url} target="_blank" rel="noopener noreferrer"
+                                                                    className="text-[11px] text-blue-500 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-colors font-medium"
+                                                                    title={src.title || src.url}
+                                                                >
+                                                                    {src.title || domain}
+                                                                </a>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </section>
                             )}
                             {activeTab === 'pulse' && (

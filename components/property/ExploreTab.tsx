@@ -31,6 +31,7 @@ import { useExploreTabData } from './hooks/useExploreTabData';
 import { ExploreRow1Cards } from './ExploreRow1Cards';
 import { ExploreRow2Cards } from './ExploreRow2Cards';
 import PropertyOverviewDashboard from './PropertyOverviewDashboard';
+import PropertySidebar, { NavItem } from './PropertySidebar';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -103,6 +104,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         cityNhEntryOverview,
         lifestyleInsights, lifestyleLoading, lifestyleFit,
         lifestyleFitTab, setLifestyleFitTab,
+        lifestyleInterestTab, setLifestyleInterestTab,
         handleGenerateLifestyle,
         schoolsIntelligence, setSchoolsIntelligence,
         schoolsExpanded, setSchoolsExpanded,
@@ -112,6 +114,49 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         currentInteriorSummary, analysis,
         handleFullRefresh,
     } = useExploreTabData({ propertyData, viewMode, customAnalysis, comprehensiveAnalysis, onRunCustomAnalysis });
+
+    // — Sidebar nav items —
+    const hasWalkData = !!(propertyData?.walkScore || propertyData?.transitScore || propertyData?.bikeScore);
+    const hasBroadband = !!(propertyData as any)?.broadband;
+    const hasSchoolsData = !!(schoolsIntelligence?.schools?.length);
+    const hasEnvData = !!(propertyData?.windRiskScore || propertyData?.floodRiskScore || propertyData?.fireRiskScore ||
+        propertyData?.pollen || propertyData?.airQuality || (propertyData as any)?.historical_disasters);
+
+    const sidebarItems: NavItem[] = [
+        { id: 'ov-lifestyle',   label: 'Lifestyle & Interests',    icon: 'fa-people-roof',       visible: !!(lifestyleFit || lifestyleInsights) },
+        { id: 'ov-property',    label: 'MLS Property Data',        icon: 'fa-table-cells-large', visible: true },
+        { id: 'ov-environment', label: 'Environment & Resilience', icon: 'fa-water',             visible: hasEnvData },
+        { id: 'ov-living',      label: 'Daily Living & Commute',   icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
+        { id: 'ov-ai-analysis', label: 'AI Property Analysis',     icon: 'fa-brain',             visible: true },
+        { id: 'ov-schools',     label: 'Education',                icon: 'fa-graduation-cap',    visible: hasSchoolsData },
+        { id: 'ov-sun',         label: 'Sun Pathing',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
+    ];
+
+    const [sidebarActiveId, setSidebarActiveId] = React.useState('ov-property');
+
+    React.useEffect(() => {
+        if (!propertyData) return;
+        const ids = sidebarItems.filter(i => i.visible).map(i => i.id);
+        const observers: IntersectionObserver[] = [];
+        const handleIntersect = (entries: IntersectionObserverEntry[]) => {
+            const visible = entries
+                .filter(e => e.isIntersecting)
+                .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+            if (visible.length > 0) setSidebarActiveId(visible[0].target.id);
+        };
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const obs = new IntersectionObserver(handleIntersect, {
+                rootMargin: '-10% 0px -60% 0px',
+                threshold: 0,
+            });
+            obs.observe(el);
+            observers.push(obs);
+        });
+        return () => observers.forEach(o => o.disconnect());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sidebarItems.map(i => i.id + i.visible).join(','), propertyData?.zpid]);
 
     const isForSale = !propertyData || !propertyData.homeStatus ||
         propertyData.homeStatus.toUpperCase().includes('FOR_SALE');
@@ -338,10 +383,48 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     </div>
                                 </div>
 
-                                {/* ── Tab Content ── */}
+                                {/* ══ Tab Content ══ */}
                                 {activeTab === 'property-data' && (
-                                    <div className="flex flex-col gap-2.5">
+                                    <div className="flex gap-0 min-h-screen">
+                                        {/* Full-height Sidebar */}
+                                        <PropertySidebar items={sidebarItems} activeId={sidebarActiveId} />
 
+                                        {/* Scrollable content area */}
+                                        <div className="flex-1 min-w-0 flex flex-col gap-2.5 p-4">
+
+                                        {/* Lifestyle Fit — rendered ABOVE Environment & Resilience */}
+                                        <ExploreRow2Cards
+                                            propertyData={propertyData}
+                                            analysis={analysis}
+                                            customAnalysis={customAnalysis}
+                                            keyInsights={keyInsights}
+                                            ltrAnalysis={ltrAnalysis}
+                                            census={census}
+                                            visualPoi={visualPoi}
+                                            mapLabels={mapLabels}
+                                            neighborhoodOverview={neighborhoodOverview}
+                                            lifestyleFit={lifestyleFit}
+                                            lifestyleInsights={lifestyleInsights}
+                                            lifestyleLoading={lifestyleLoading}
+                                            lifestyleFitTab={lifestyleFitTab}
+                                            setLifestyleFitTab={setLifestyleFitTab}
+                                            lifestyleInterestTab={lifestyleInterestTab}
+                                            setLifestyleInterestTab={setLifestyleInterestTab}
+                                            handleGenerateLifestyle={handleGenerateLifestyle}
+                                            pulseExpanded={pulseExpanded}
+                                            setPulseExpanded={setPulseExpanded}
+                                            isRefreshingPulse={isRefreshingPulse}
+                                            setIsRefreshingPulse={setIsRefreshingPulse}
+                                            groundTruthMapTab={groundTruthMapTab}
+                                            setGroundTruthMapTab={setGroundTruthMapTab}
+                                            isSatelliteExpanded={isSatelliteExpanded}
+                                            setIsSatelliteExpanded={setIsSatelliteExpanded}
+                                            onRefreshEnvironment={onRefreshEnvironment}
+                                            environmentRefreshing={environmentRefreshing}
+                                            userRole={userRole}
+                                            onRefreshCommunityPulse={onRefreshCommunityPulse}
+                                            section="lifestyle"
+                                        />
 
                                         {/* ── New Dashboard Overview ── */}
                                         <PropertyOverviewDashboard
@@ -354,17 +437,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             onRunAnalysis={() => onRunCustomAnalysis(false)}
                                         />
 
-                                        {/* ── Detailed Data Sections (scrollable) ── */}
-                                        <DailyLivingSection data={propertyData} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
-                                        <EnvironmentResilienceSection data={propertyData} disasterData={propertyData.historical_disasters} micro={micro} onRefresh={onRefreshEnvironment} refreshing={environmentRefreshing} />
-
-                                        {/* AI Insights heading */}
-                                        <div className="flex items-center gap-2 mt-6 mb-2">
-                                            <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                <i className="fa-solid fa-brain text-indigo-600 text-[11px]"></i>
-                                            </div>
-                                            <span className="text-lg font-black text-slate-900 tracking-tight">AI Insights</span>
-                                        </div>
 
 
 
@@ -372,88 +444,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         {/* Horizontal Insight Strip */}
 
                                         {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview || analysis) && (
-                                            <div className="flex flex-col gap-3">
+                                            <div className="flex flex-col gap-2">
                                                 {/* Executive Summary hidden per user request */}
-
-                                                {/* Interior Summary Intelligence */}
-                                                {(customAnalysis || currentInteriorSummary || analysis) && (
-                                                    <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white px-2 mb-1 shadow-sm">
-                                                        <div className="flex flex-col gap-3 bg-slate-50/30 rounded-xl p-3">
-                                                            <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
-                                                                <div className="p-4">
-                                                                    <div className="flex items-center justify-between mb-3">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                                                                <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 text-[11px]"></i>
-                                                                            </div>
-                                                                            <h3 className="text-[16px] font-black text-slate-700 tracking-tight">Interiors</h3>
-                                                                        </div>
-
-                                                                    </div>
-
-                                                                    {!currentInteriorSummary ? (
-                                                                        <div className="py-8 flex flex-col items-center justify-center gap-3">
-                                                                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                                                                                <i className="fa-solid fa-magnifying-glass-plus text-sm"></i>
-                                                                            </div>
-                                                                            <div className="text-center">
-                                                                                <div className="text-[12px] font-bold text-slate-500">No interior analysis found</div>
-
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                                            <div className="space-y-4">
-                                                                                <div>
-                                                                                    <div className="flex items-center gap-2 mb-1.5 opacity-0 h-0 overflow-hidden">
-                                                                                        <i className="fa-solid fa-house-user text-indigo-400"></i>
-                                                                                        Overall Interior
-                                                                                    </div>
-                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                                                                                        {currentInteriorSummary.interior_summary}
-                                                                                    </p>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                                                                        <i className="fa-solid fa-door-open text-indigo-400"></i>
-                                                                                        Spaces
-                                                                                    </div>
-                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                                                                                        {currentInteriorSummary.rooms_summary}
-                                                                                    </p>
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="space-y-4">
-                                                                                <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
-                                                                                    <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                                                        <i className="fa-solid fa-palette"></i>
-                                                                                        Aesthetic Vibe
-                                                                                    </div>
-                                                                                    <div className="text-[14px] font-black text-indigo-900 tracking-tight leading-snug">
-                                                                                        {currentInteriorSummary.vibe}
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                                                        <i className="fa-solid fa-tags"></i>
-                                                                                        Physical Attributes
-                                                                                    </div>
-                                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                                        {currentInteriorSummary.objective_tags?.map((tag: string, idx: number) => (
-                                                                                            <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-600 shadow-sm">
-                                                                                                {tag}
-                                                                                            </span>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
 
                                                 <ExploreRow1Cards
                                                     propertyData={propertyData}
@@ -466,6 +458,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     lifestyleFit={lifestyleFit}
                                                     lifestyleInsights={lifestyleInsights}
                                                     userRole={userRole}
+                                                    designStyle={designStyle}
+                                                    currentInteriorSummary={currentInteriorSummary}
                                                 />
 
                                                 <ExploreRow2Cards
@@ -474,6 +468,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     customAnalysis={customAnalysis}
                                                     keyInsights={keyInsights}
                                                     ltrAnalysis={ltrAnalysis}
+                                                    census={census}
                                                     visualPoi={visualPoi}
                                                     mapLabels={mapLabels}
                                                     neighborhoodOverview={neighborhoodOverview}
@@ -495,12 +490,14 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     environmentRefreshing={environmentRefreshing}
                                                     userRole={userRole}
                                                     onRefreshCommunityPulse={onRefreshCommunityPulse}
+                                                    section="insights"
                                                 />
 
 
                                             </div>
                                         )}
 
+                                        </div>{/* end scrollable content area */}
                                     </div>
                                 )}
 

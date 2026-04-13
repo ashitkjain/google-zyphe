@@ -121,6 +121,7 @@ export function useExploreTabData({
     const [lifestyleLoading, setLifestyleLoading] = useState(false);
     const [lifestyleFit, setLifestyleFit] = useState<any>(null);
     const [lifestyleFitTab, setLifestyleFitTab] = useState<string>('working_professionals');
+    const [lifestyleInterestTab, setLifestyleInterestTab] = useState<string>('outdoor');
 
     useEffect(() => {
         setLifestyleInsights(null);
@@ -320,6 +321,7 @@ export function useExploreTabData({
         // Lifestyle
         lifestyleInsights, lifestyleLoading, lifestyleFit,
         lifestyleFitTab, setLifestyleFitTab,
+        lifestyleInterestTab, setLifestyleInterestTab,
         handleGenerateLifestyle,
         // Schools
         schoolsIntelligence, setSchoolsIntelligence,

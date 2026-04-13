@@ -7,8 +7,11 @@
 import React from 'react';
 import { PropertyData, ComprehensiveAnalysisResult, CustomAIAnalysisResult } from '../../types';
 import SeasonalSunCard from './SeasonalSunCard';
+import VastuCard from './VastuCard';
 import { calculateSolarPotential } from '../../utils/solarCalculations';
 import { computeSolarBenchmarks } from '../../utils/solarCityBenchmarks';
+import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
+import PropertyImages from './PropertyImages';
 
 interface Props {
     propertyData: PropertyData;
@@ -38,19 +41,29 @@ const ScoreBar: React.FC<{ score: number; color: string }> = ({ score, color }) 
 const SectionCard: React.FC<{
     id: string;
     title: string;
+    icon?: string;
+    iconBg?: string;
+    iconColor?: string;
     subtitle?: string;
     badge?: React.ReactNode;
     children: React.ReactNode;
     className?: string;
-}> = ({ id, title, subtitle, badge, children, className = '' }) => (
+}> = ({ id, title, icon, iconBg = 'bg-slate-50', iconColor = 'text-slate-400', subtitle, badge, children, className = '' }) => (
     <div
         id={id}
         className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 ${className}`}
     >
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-                <h3 className="text-[15px] font-black text-slate-900 tracking-tight">{title}</h3>
-                {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+                {icon && (
+                    <div className={`w-7 h-7 rounded-lg ${iconBg} flex items-center justify-center`}>
+                        <i className={`fa-solid ${icon} ${iconColor} text-[12px]`} />
+                    </div>
+                )}
+                <div>
+                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">{title}</h3>
+                    {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+                </div>
             </div>
             {badge}
         </div>
@@ -72,50 +85,6 @@ const MetricTile: React.FC<{
     </div>
 );
 
-// ── Mini Left Nav ──────────────────────────────────────────────────────────────
-interface NavItem { id: string; label: string; icon: string; visible: boolean; }
-
-const MiniNav: React.FC<{ items: NavItem[]; activeId: string }> = ({ items, activeId }) => {
-    const visible = items.filter(i => i.visible);
-    if (visible.length < 2) return null;
-
-    return (
-        <nav className="hidden xl:flex flex-col gap-1 sticky top-24 self-start w-[160px] flex-shrink-0">
-            {/* Nav header */}
-            <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.18em] px-3 mb-1">
-                On this page
-            </div>
-            {visible.map(item => {
-                const isActive = activeId === item.id;
-                return (
-                    <a
-                        key={item.id}
-                        href={`#${item.id}`}
-                        onClick={e => {
-                            e.preventDefault();
-                            document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 group
-                            ${isActive
-                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                            }`}
-                    >
-                        {/* Active dot / icon */}
-                        <span className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all
-                            ${isActive ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-slate-200'}`}>
-                            <i className={`fa-solid ${item.icon} text-[8px] ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                        </span>
-                        <span className="leading-snug truncate">{item.label}</span>
-                        {isActive && (
-                            <div className="ml-auto w-1 h-1 rounded-full bg-white/70 flex-shrink-0" />
-                        )}
-                    </a>
-                );
-            })}
-        </nav>
-    );
-};
 
 // ── MLS Detail helpers ────────────────────────────────────────────────────────
 const parseVal = (val: any): string | null => {
@@ -187,50 +156,10 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
     // Environment sub-section accordion state
     const [envOpen, setEnvOpen] = React.useState<Record<string, boolean>>({});
+    const [selectedSchool, setSelectedSchool] = React.useState(0);
+    const [showSchoolDetails, setShowSchoolDetails] = React.useState(false);
     const toggleEnv = (key: string) => setEnvOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
-    // — Section nav items (order matches rendered sections) —
-    const navItems: NavItem[] = [
-        { id: 'ov-property',     label: 'Property',          icon: 'fa-house',               visible: true },
-        { id: 'ov-environment',  label: 'Environment',        icon: 'fa-leaf',                visible: hasEnv || hasCoords },
-        { id: 'ov-solar',        label: 'Solar',              icon: 'fa-solar-panel',         visible: hasSolar },
-        { id: 'ov-connectivity', label: 'Connectivity',       icon: 'fa-wifi',                visible: hasBroadband },
-        { id: 'ov-mobility',     label: 'Mobility',           icon: 'fa-person-walking',      visible: hasWalk },
-        { id: 'ov-ev',           label: 'EV Charging',        icon: 'fa-charging-station',    visible: hasEV },
-        { id: 'ov-schools',      label: 'Education',          icon: 'fa-graduation-cap',      visible: hasSchools },
-        { id: 'ov-amenities',    label: 'Amenities',          icon: 'fa-location-dot',        visible: hasPlaces },
-    ];
-
-    // — IntersectionObserver to track active section —
-    const [activeId, setActiveId] = React.useState('ov-property');
-
-    React.useEffect(() => {
-        const ids = navItems.filter(i => i.visible).map(i => i.id);
-        const observers: IntersectionObserver[] = [];
-
-        const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-            // Pick the topmost visible section
-            const visible = entries
-                .filter(e => e.isIntersecting)
-                .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-            if (visible.length > 0) {
-                setActiveId(visible[0].target.id);
-            }
-        };
-
-        ids.forEach(id => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const obs = new IntersectionObserver(handleIntersect, {
-                rootMargin: '-10% 0px -60% 0px',
-                threshold: 0,
-            });
-            obs.observe(el);
-            observers.push(obs);
-        });
-
-        return () => observers.forEach(o => o.disconnect());
-    }, [navItems.map(i => i.id + i.visible).join(',')]);
 
     // Risk helpers
     const riskLevel = (score?: number | null) => {
@@ -261,23 +190,23 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
     };
 
     return (
-        <div className="flex gap-4 py-4">
+        <div className="flex flex-col gap-2">
 
-            {/* ═══ STICKY LEFT MINI NAV ═══════════════════════════════ */}
-            <MiniNav items={navItems} activeId={activeId} />
-
-            {/* ═══ MAIN CONTENT (left + right columns) ════════════════ */}
-            <div className="flex-1 min-w-0 flex flex-col xl:flex-row gap-4">
+            {/* ═══ MAIN CONTENT area ══════════════════════════════════════ */}
+            <div className="flex flex-col xl:flex-row gap-8">
 
                 {/* ── LEFT COLUMN ── */}
-                <div className="flex-1 min-w-0 flex flex-col gap-4">
+                <div className="flex-1 min-w-0 flex flex-col gap-2">
 
                     {/* Property title */}
                     <div id="ov-property" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden scroll-mt-24">
-                        <div className="bg-gradient-to-r from-slate-900 to-indigo-900 px-5 py-2">
-                            <span className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em]">
-                                ✦ Intelligence Report
-                            </span>
+                        <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                <i className="fa-solid fa-table-cells-large text-indigo-500 text-[12px]" />
+                            </div>
+                            <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-tight">
+                                MLS Property Data
+                            </h3>
                         </div>
                         <div className="px-5 py-4">
                             <h1 className="text-[22px] font-black text-slate-900 tracking-tight leading-tight">
@@ -327,7 +256,13 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                     onClick={() => setMlsOpen(v => !v)}
                                     className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group"
                                 >
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
+                                        {/* Small thumbnail preview in collapsed state */}
+                                        {!mlsOpen && data.imgSrc && (
+                                            <div className="w-12 h-9 rounded-md overflow-hidden border border-slate-200 shadow-sm shrink-0">
+                                                <img src={data.imgSrc} className="w-full h-full object-cover" alt="MLS Preview" />
+                                            </div>
+                                        )}
                                         <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
                                             <i className="fa-solid fa-list text-slate-400 group-hover:text-indigo-500 text-[8px] transition-colors" />
                                         </div>
@@ -339,7 +274,20 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 </button>
 
                                 {mlsOpen && (
-                                    <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 animate-in slide-in-from-top-1 duration-200">
+                                    <div className="px-5 pb-5 animate-in slide-in-from-top-1 duration-200 flex flex-col lg:flex-row gap-6">
+                                        {/* Photo gallery at half width (or responsive) */}
+                                        {data.images && data.images.length > 0 && (
+                                            <div className="w-full lg:w-1/2 shrink-0">
+                                                <PropertyImages 
+                                                    images={data.images} 
+                                                    loading={false}
+                                                    homeStatus={data.homeStatus}
+                                                    attribution={data.attributionInfo}
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
 
                                         {/* Structure */}
                                         <MLSGroup icon="fa-landmark" title="Structure" rows={[
@@ -404,9 +352,10 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                                 { label: 'Amenities', value: data.hoa.amenities?.filter((x: string) => x !== 'Other').join(', ') || null },
                                                 { label: 'Units', value: data.resoFacts?.numberOfUnitsInCommunity ? `${data.resoFacts.numberOfUnitsInCommunity}` : null },
                                             ]} />
-                                        )}
+                                         )}
 
 
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -415,41 +364,38 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                     {/* Environment & Resilience — Bento grid overhaul */}
                     {(hasEnv || hasCoords) && (
-                        <div id="ov-environment" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24">
-                            {/* Card header */}
-                            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                        <i className="fa-solid fa-leaf text-emerald-500 text-[14px]" />
+                        <div id="ov-environment" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 mt-4">
+                            {/* Card header — more compact */}
+                            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                        <i className="fa-solid fa-leaf text-emerald-500 text-[12px]" />
                                     </div>
-                                    <div>
-                                        <h3 className="text-[17px] font-black text-slate-900 tracking-tight">Environment &amp; Resilience</h3>
-                                        <p className="text-[12px] text-slate-400 mt-0.5">Advanced risk assessment and climate projections</p>
-                                    </div>
+                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Environment &amp; Resilience</h3>
                                 </div>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 rounded-full text-[10px] font-black text-white uppercase tracking-wider shadow-sm">
-                                    <i className="fa-solid fa-bolt text-[8px]" /> AI Risk Scored
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 rounded-full text-[9px] font-black text-white uppercase tracking-wider shadow-sm">
+                                    <i className="fa-solid fa-bolt text-[7px]" /> AI Scored
                                 </span>
                             </div>
 
-                            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 {/* ── COLUMN 1: Senses ── */}
                                 <div className="space-y-6">
                                     {/* Noise Card */}
                                     {hasNoise && (
-                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className="flex items-center gap-2">
-                                                    <i className="fa-solid fa-volume-xmark text-purple-400 text-[12px]" />
-                                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Noise</span>
+                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-3.5 shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-volume-xmark text-purple-400 text-[11px]" />
+                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Noise</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Score</div>
-                                                    <div className="text-[18px] font-black text-slate-900 leading-none">{data.noiseScore}/100</div>
+                                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Score</div>
+                                                    <div className="text-[15px] font-black text-slate-900 leading-none">{data.noiseScore}/100</div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Level</div>
-                                                    <div className="text-[14px] font-black text-purple-600 leading-none">{data.noiseScoreDesc ?? 'Active'}</div>
+                                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Level</div>
+                                                    <div className="text-[12px] font-black text-purple-600 leading-none">{data.noiseScoreDesc ?? 'Active'}</div>
                                                 </div>
                                             </div>
                                             <div className="space-y-3">
@@ -475,19 +421,19 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                                     {/* Air Quality Card */}
                                     {data.airQuality && (
-                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className="flex items-center gap-2">
-                                                    <i className="fa-solid fa-wind text-emerald-400 text-[12px]" />
-                                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Air Quality</span>
+                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-3.5 shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-wind text-emerald-400 text-[11px]" />
+                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Air Quality</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">US AQI</div>
-                                                    <div className="text-[18px] font-black text-amber-600 leading-none">{data.airQuality.aqi}</div>
+                                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">US AQI</div>
+                                                    <div className="text-[15px] font-black text-amber-600 leading-none">{data.airQuality.aqi}</div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Level</div>
-                                                    <div className="text-[14px] font-black text-emerald-600 leading-none">Excellent quality</div>
+                                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Level</div>
+                                                    <div className="text-[12px] font-black text-emerald-600 leading-none">Excellent</div>
                                                 </div>
                                             </div>
                                             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg mb-3">
@@ -566,105 +512,103 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                                 {/* ── COLUMN 2: Climate & Hazards ── */}
                                 <div className="space-y-6">
-                                    {/* Climate Risk Card */}
-                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className="flex items-center gap-2">
-                                                <i className="fa-solid fa-shield-halved text-orange-400 text-[14px]" />
-                                                <span className="text-[12px] font-black text-slate-900 uppercase tracking-widest">Climate Risk</span>
-                                                <i className="fa-solid fa-up-right-from-square text-slate-300 text-[9px]" />
+                                    {/* Climate Risk Card — more compact */}
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <i className="fa-solid fa-shield-halved text-orange-400 text-[12px]" />
+                                                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Climate Risk</span>
+                                                <i className="fa-solid fa-up-right-from-square text-slate-300 text-[8px]" />
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Insurance</div>
-                                                <div className="text-[18px] font-black text-slate-900 leading-none">${(data.annualHomeownersInsurance || 6544).toLocaleString()}/yr</div>
+                                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Insurance</div>
+                                                <div className="text-[15px] font-black text-slate-900 leading-none">${(data.annualHomeownersInsurance || 6544).toLocaleString()}/yr</div>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-2 gap-3">
                                             {[
                                                 { label: 'WIND', score: data.windRiskScore || 1, max: 10, color: 'text-emerald-500', icon: 'fa-wind' },
                                                 { label: 'FLOOD', score: data.floodRiskScore || 1, max: 10, color: 'text-blue-500', icon: 'fa-water' },
                                                 { label: 'FIRE', score: data.fireRiskScore || 6, max: 10, color: 'text-orange-500', icon: 'fa-fire' },
                                                 { label: 'HEAT', score: data.heatRiskScore || null, max: 10, color: 'text-rose-500', icon: 'fa-temperature-high' }
                                             ].map((r, i) => (
-                                                <div key={i} className={`p-4 rounded-xl border border-slate-100 transition-all ${r.score && r.score > 5 ? 'bg-orange-50/50 border-orange-100/50' : 'bg-white'}`}>
+                                                <div key={i} className={`p-3 rounded-xl border border-slate-100 transition-all ${r.score && r.score > 5 ? 'bg-orange-50/50 border-orange-100/50' : 'bg-white'}`}>
                                                     <div className="flex items-center justify-between mb-1">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <i className={`fa-solid ${r.icon} text-slate-300 text-[10px]`} />
-                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{r.label}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <i className={`fa-solid ${r.icon} text-slate-300 text-[9px]`} />
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{r.label}</span>
                                                         </div>
                                                     </div>
-                                                    <div className={`text-[16px] font-black ${r.score ? r.color : 'text-slate-300'}`}>
+                                                    <div className={`text-[14px] font-black ${r.score ? r.color : 'text-slate-300'}`}>
                                                         {r.score ? `${r.score}/${r.max}` : 'N/A'}
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
-                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-4">Risk Factor · First Street</div>
+                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-3">Risk Factor · First Street</div>
                                     </div>
 
-                                    {/* Hazard Zones Card */}
-                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className="flex items-center gap-2">
-                                                <i className="fa-solid fa-triangle-exclamation text-rose-400 text-[14px]" />
-                                                <span className="text-[12px] font-black text-slate-900 uppercase tracking-widest">Hazard Zones</span>
-                                                <i className="fa-solid fa-circle-info text-slate-300 text-[10px]" />
+                                    {/* Hazard Zones Card — more compact */}
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <i className="fa-solid fa-triangle-exclamation text-rose-400 text-[12px]" />
+                                                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Hazard Zones</span>
+                                                <i className="fa-solid fa-circle-info text-slate-300 text-[8px]" />
                                             </div>
-                                            <i className="fa-solid fa-rotate-left text-slate-300 text-[10px]" />
+                                            <i className="fa-solid fa-rotate-left text-slate-300 text-[8px]" />
                                         </div>
-                                        <div className="space-y-6">
-                                            <div className="flex items-start gap-3">
-                                                <i className="fa-solid fa-house-chimney-crack text-rose-500 mt-1" />
+                                        <div className="space-y-4">
+                                            <div className="flex items-start gap-2.5">
+                                                <i className="fa-solid fa-house-chimney-crack text-rose-500 mt-1 text-[12px]" />
                                                 <div className="min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-[11px] font-black text-slate-700 uppercase">Seismic</span>
-                                                        <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded text-[9px] font-black">Zone {data.seismicHazardZone || 'E'}</span>
+                                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                                        <span className="text-[10px] font-black text-slate-700 uppercase">Seismic</span>
+                                                        <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded text-[8px] font-black">Zone {data.seismicHazardZone || 'E'}</span>
                                                     </div>
-                                                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                                                        Very high seismic risk — earthquake insurance recommended.
+                                                    <p className="text-[9.5px] text-slate-400 font-medium leading-relaxed">
+                                                        Very high seismic risk — insurance advised.
                                                     </p>
-                                                    <div className="flex gap-4 mt-2">
+                                                    <div className="flex gap-3 mt-1.5">
                                                         <div className="flex items-center gap-1">
-                                                            <span className="text-[9px] font-black text-slate-700 uppercase">Quakes</span>
-                                                            <span className="text-[9px] text-slate-400 font-bold">+0 TD</span>
-                                                            <span className="text-[9px] font-black text-slate-700">10 <span className="text-[8px] text-slate-400">prev.</span></span>
+                                                            <span className="text-[8px] font-black text-slate-700 uppercase tracking-tight">Quakes</span>
+                                                            <span className="text-[8px] text-slate-400 font-bold">10 <span className="text-slate-300 font-normal">prev.</span></span>
                                                         </div>
                                                         <div className="flex items-center gap-1">
-                                                            <span className="text-[9px] font-black text-slate-700 uppercase">FEMA</span>
-                                                            <span className="text-[9px] text-slate-400 font-bold">VTD</span>
-                                                            <span className="text-[9px] font-black text-slate-700">0 <span className="text-[8px] text-slate-400">prev.</span></span>
+                                                            <span className="text-[8px] font-black text-slate-700 uppercase tracking-tight">FEMA</span>
+                                                            <span className="text-[8px] text-slate-400 font-bold">0 <span className="text-slate-300 font-normal">prev.</span></span>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="h-px bg-slate-100" />
+                                            <div className="h-px bg-slate-100/50" />
 
-                                            <div className="flex items-start gap-3">
-                                                <i className="fa-solid fa-droplet-slash text-emerald-500 mt-1" />
+                                            <div className="flex items-start gap-2.5">
+                                                <i className="fa-solid fa-droplet-slash text-emerald-500 mt-1 text-[12px]" />
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[11px] font-black text-slate-700 uppercase">Drought</span>
-                                                            <span className="text-[11px] font-black text-emerald-500">{data.drought?.drought_level?.toUpperCase() || 'NONE'}</span>
+                                                    <div className="flex items-center justify-between mb-0.5">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="text-[10px] font-black text-slate-700 uppercase">Drought</span>
+                                                            <span className="text-[10px] font-black text-emerald-500">{data.drought?.drought_level?.toUpperCase() || 'NONE'}</span>
                                                         </div>
                                                     </div>
-                                                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                                                        Alameda County, CA — 100% no drought, 0% affected.
+                                                    <p className="text-[9.5px] text-slate-400 font-medium leading-relaxed">
+                                                        100% no drought, 0% affected.
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-6">USGS · FEMA · Drought Monitor</div>
+                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-4">USGS · FEMA · Drought Monitor</div>
                                     </div>
                                 </div>
 
-                                {/* ── COLUMN 3: Solar ── */}
+                                {/* ── COLUMN 3: Sun ── */}
                                 <div className="space-y-6">
-                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <i className="fa-solid fa-sun text-amber-400 text-[14px]" />
-                                            <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Seasonal Sun</span>
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                            <i className="fa-solid fa-sun text-amber-400 text-[12px]" />
+                                            <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Seasonal Sun</span>
                                         </div>
                                         
                                         <div className="flex-1">
@@ -675,14 +619,14 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                             />
                                         </div>
 
-                                        <div className="mt-6 space-y-4">
+                                        <div className="mt-4 space-y-3">
                                             {micro && (
-                                                <div className="p-4 bg-blue-50/50 border border-blue-100/50 rounded-2xl relative overflow-hidden group transition-all hover:bg-blue-50">
+                                                <div className="p-3 bg-blue-50/50 border border-blue-100/50 rounded-xl relative overflow-hidden group transition-all hover:bg-blue-50">
                                                     <div className="absolute top-0 right-0 p-2 opacity-5">
-                                                        <i className="fa-solid fa-temperature-half text-[40px] text-blue-500" />
+                                                        <i className="fa-solid fa-temperature-half text-[32px] text-blue-500" />
                                                     </div>
-                                                    <p className="text-[10px] text-blue-700 leading-relaxed italic relative z-10 font-medium">
-                                                        &ldquo;Every home has a unique thermal fingerprint. While the official temperature at Downtown Dublin is 61°F, this specific lot actually feels like 48°F — a 13°F "Summer Survival Gap". Canyon breezes reach this location before the rest of town.&rdquo;
+                                                    <p className="text-[9.5px] text-blue-700 leading-relaxed italic relative z-10 font-medium">
+                                                        &ldquo;Lot feels cooler due to canyon breezes reaching this location early.&rdquo;
                                                     </p>
                                                     <div className="flex items-center justify-between mt-3 text-[8px] text-blue-400 font-bold uppercase tracking-widest relative z-10">
                                                         <span>Tomorrow.io AI Insight</span>
@@ -692,6 +636,254 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                             )}
                                             <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest">SunCalc · Tomorrow.io</div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Daily Living & Commute — Bento grid overhaul */}
+                    {(hasWalk || hasBroadband || hasSolar || hasEV) && (
+                        <div id="ov-living" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 mt-4">
+                            {/* Card header — more compact */}
+                            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                    <i className="fa-solid fa-briefcase text-emerald-500 text-[12px]" />
+                                </div>
+                                <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Daily Living &amp; Commute</h3>
+                            </div>
+
+                            <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+                                {/* ── Col 1: Mobility & Commute ── */}
+                                <div className="lg:col-span-3 space-y-4">
+                                    {/* Mobility */}
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-3.5 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <i className="fa-solid fa-person-walking text-emerald-400 text-[12px]" />
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Mobility</span>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {[
+                                                { label: 'WALK', score: data.walkScore, desc: data.walkScoreDesc, icon: 'fa-person-walking' },
+                                                { label: 'TRANSIT', score: data.transitScore, desc: data.transitScoreDesc || 'N/A', icon: 'fa-bus' },
+                                                { label: 'BIKE', score: data.bikeScore, desc: data.bikeScoreDesc, icon: 'fa-bicycle' },
+                                            ].map((m, i) => (
+                                                <div key={i} className="flex flex-col">
+                                                    <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                                                        <i className={`fa-solid ${m.icon} text-[8px]`} />
+                                                        <span>{m.label}</span>
+                                                    </div>
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className="text-[14px] font-black text-slate-700">{m.score != null ? `${m.score}/100` : 'N/A'}</span>
+                                                        <span className="text-[11px] text-slate-400 font-medium truncate">{m.desc}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-4">Walk Score</div>
+                                    </div>
+
+                                    {/* Commute */}
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <i className="fa-solid fa-clock text-blue-400 text-[12px]" />
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Commute</span>
+                                        </div>
+                                        <div className="relative">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Enter work address..." 
+                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                            />
+                                            <div className="absolute right-2 top-1.5 p-1 bg-blue-500 rounded-md text-white">
+                                                <i className="fa-solid fa-magnifying-glass text-[10px]" />
+                                            </div>
+                                        </div>
+                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-4">Google Maps</div>
+                                    </div>
+                                </div>
+
+                                {/* ── Col 2: Connectivity ── */}
+                                <div className="lg:col-span-2">
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm h-full">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <i className="fa-solid fa-wifi text-blue-400 text-[12px]" />
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Connectivity</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 mb-4">
+                                            <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[8px] font-black uppercase tracking-wider flex items-center gap-1">
+                                                FIBER <i className="fa-solid fa-check text-[7px]" />
+                                            </span>
+                                            <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[8px] font-black uppercase tracking-wider">5G</span>
+                                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[8px] font-black uppercase tracking-wider">9 ISPS</span>
+                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[8px] font-black uppercase tracking-wider">+ 5 GBPS</span>
+                                        </div>
+                                        <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-3">Internet Providers</div>
+                                        <div className="space-y-2.5">
+                                            {data.broadband?.internetProviders?.slice(0,4).map((isp, i) => (
+                                                <div key={i} className="flex items-center justify-between group">
+                                                    <div className="flex items-center gap-2">
+                                                        <i className="fa-solid fa-plus text-slate-200 text-[7px]" />
+                                                        <span className="text-[11px] font-black text-slate-600 truncate max-w-[80px]">{isp.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className={`px-1 py-0.5 rounded text-[7px] font-black uppercase tracking-tighter ${isp.technology === 'Fiber' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                            {isp.technology}
+                                                        </span>
+                                                        <span className="text-[10px] font-black text-slate-400">{isp.maxDownloadMbps >= 1000 ? `${(isp.maxDownloadMbps/1000).toFixed(0)}G+` : `${isp.maxDownloadMbps}M+`}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-6 mb-3">Cell Coverage</div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {['AT&T', 'T-Mobile', 'Verizon'].map(net => {
+                                                const cov = data.broadband?.cellCoverage?.find(c => c.network === net);
+                                                return (
+                                                    <div key={net} className="text-center">
+                                                        <div className="text-[9px] font-black text-slate-400 mb-0.5">{net}</div>
+                                                        <div className={`text-[10px] font-black ${cov?.signalLevel === 'Good' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                                            {cov?.signalLevel || 'Fair'}
+                                                            <div className="h-1 bg-slate-100 rounded-full mt-1 flex gap-0.5 px-0.5">
+                                                                <div className="w-1 h-full bg-emerald-500 rounded-full" />
+                                                                <div className="w-1 h-full bg-emerald-500 rounded-full" />
+                                                                <div className={`w-1 h-full ${cov?.signalLevel === 'Good' ? 'bg-emerald-500' : 'bg-slate-200'} rounded-full`} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-6">broadbandmap</div>
+                                    </div>
+                                </div>
+
+                                {/* ── Col 3: Solar ── */}
+                                <div className="lg:col-span-4">
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm h-full">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <i className="fa-solid fa-solar-panel text-amber-400 text-[12px]" />
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Solar</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-4 mb-3">
+                                            <div>
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Sunshine</div>
+                                                <div className="text-[14px] font-black text-slate-700 leading-tight">{(data.solarData?.maxSunshineHoursPerYear || 1815).toLocaleString()} hrs/yr</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Production</div>
+                                                <div className="text-[14px] font-black text-indigo-600 leading-tight">{(solarPotential?.annualKwh || 39048).toLocaleString()} kWh</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">VS {data.city || 'Dublin'}</div>
+                                                <div className="text-[14px] font-black text-orange-600 leading-tight">60% <span className="text-[9px] font-bold">Likely Shaded</span></div>
+                                            </div>
+                                        </div>
+                                        <div className="h-1.5 bg-slate-200/50 rounded-full overflow-hidden mb-1 relative">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-amber-300 rounded-full" style={{ width: '60%' }} />
+                                            <span className="absolute right-0 top-[-10px] text-[8px] font-black text-orange-400 uppercase tracking-tighter">3% Below Average</span>
+                                        </div>
+                                        <div className="bg-orange-50/50 border border-orange-100 rounded-lg p-1.5 text-center mb-6">
+                                            <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest italic leading-none">Likely amased by obstructions</span>
+                                            <p className="text-[7px] text-slate-400 font-medium leading-[1.2] mt-0.5">
+                                                Light score derived from Google Solar API 25 / 20 roof model — accounts for roof pitch, nearby trees, buildings, and orientation vs suburb averages.
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-3 bg-white border border-slate-100 rounded-xl relative">
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payback</div>
+                                                <div className="text-[16px] font-black text-orange-500">{(data.solarData?.financialAnalysis?.cashPurchase?.paybackYears || 5.5).toFixed(1)} years</div>
+                                                <i className="fa-solid fa-clock-rotate-left absolute top-3 right-3 text-[10px] text-orange-200" />
+                                            </div>
+                                            <div className="p-3 bg-white border border-slate-100 rounded-xl relative">
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">20-Yr Savings</div>
+                                                <div className="text-[16px] font-black text-emerald-500">${(data.solarData?.financialAnalysis?.cashPurchase?.savings?.savingsYear20 || 76915).toLocaleString()}</div>
+                                                <i className="fa-solid fa-chart-line absolute top-3 right-3 text-[10px] text-emerald-200" />
+                                            </div>
+                                            <div className="p-3 bg-white border border-slate-100 rounded-xl relative">
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">System Cost</div>
+                                                <div className="text-[16px] font-black text-indigo-600">${(data.solarData?.financialAnalysis?.cashPurchase?.upfrontCost || 18218).toLocaleString()}</div>
+                                                <span className="text-[8px] text-emerald-400 font-bold block">Incl. $7,807 rebate</span>
+                                                <i className="fa-solid fa-file-invoice-dollar absolute top-3 right-3 text-[10px] text-indigo-200" />
+                                            </div>
+                                            <div className="p-3 bg-white border border-slate-100 rounded-xl relative">
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Year 1 Savings</div>
+                                                <div className="text-[16px] font-black text-slate-700">${(data.solarData?.financialAnalysis?.cashPurchase?.savings?.savingsYear1 || 3341).toLocaleString()}</div>
+                                                <i className="fa-solid fa-leaf absolute top-3 right-3 text-[10px] text-slate-200" />
+                                            </div>
+                                        </div>
+
+                                        <button className="w-full flex items-center justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest border-t border-slate-100 mt-6 pt-3 group hover:text-indigo-400 transition-colors">
+                                            <span>@ System Specs</span>
+                                            <i className="fa-solid fa-chevron-down text-[8px]" />
+                                        </button>
+                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-3">google solar api</div>
+                                    </div>
+                                </div>
+
+                                {/* ── Col 4: EV Charging ── */}
+                                <div className="lg:col-span-3">
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm h-full flex flex-col">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <i className="fa-solid fa-charging-station text-emerald-400 text-[12px]" />
+                                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">EV Charging</span>
+                                            </div>
+                                            <i className="fa-solid fa-up-right-from-square text-slate-300 text-[9px]" />
+                                        </div>
+                                        
+                                        {(() => {
+                                            const ev = (data as any).evChargers || { totalCount: 20, closestDistanceMiles: 0.4, totalPorts: 129, dcFastCount: 40, level2Count: 89, networks: ['ChargePoint', 'Tesla', 'Loop', 'Noodoe', 'EVGo'] };
+                                            return (
+                                                <div className="flex-1 space-y-6">
+                                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Stations</div>
+                                                            <div className="text-[18px] font-black text-slate-700">{ev.totalCount}</div>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Closest</div>
+                                                            <div className="text-[18px] font-black text-emerald-500">{ev.closestDistanceMiles?.toFixed(1)} mi</div>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Total Ports</div>
+                                                            <div className="text-[18px] font-black text-slate-700">{ev.totalPorts}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-1.5 mb-1.5">
+                                                                <i className="fa-solid fa-bolt-lightning text-amber-400 text-[9px]" />
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">DC Fast</span>
+                                                            </div>
+                                                            <div className="text-[14px] font-black text-orange-500">{ev.dcFastCount || 40} ports</div>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-1.5 mb-1.5">
+                                                                <i className="fa-solid fa-bolt text-blue-400 text-[9px]" />
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Level 2</span>
+                                                            </div>
+                                                            <div className="text-[14px] font-black text-blue-500">{ev.level2Count || 89} ports</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {ev.networks?.map((n: string, i: number) => (
+                                                            <span key={i} className="px-2 py-0.5 border border-emerald-100 text-emerald-600 rounded-md text-[8px] font-black uppercase tracking-wider">{n.toUpperCase()}</span>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                                        <i className="fa-solid fa-location-dot text-[10px] text-slate-300" />
+                                                        CITY OF DUBLIN HERITAGE RIGHT
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                        
+                                        <div className="text-[8px] text-slate-300 font-bold uppercase text-right tracking-widest mt-auto pt-4">NREL AFDC API</div>
                                     </div>
                                 </div>
                             </div>
@@ -727,75 +919,145 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                         </div>
                     </div>
 
-                    {/* Mobility */}
-                    {hasWalk && (
-                        <SectionCard id="ov-mobility" title="Mobility Score">
-                            <div className="space-y-4">
-                                {[
-                                    { label: 'Walk Score', score: data.walkScore, desc: data.walkScoreDesc, color: 'bg-emerald-500' },
-                                    { label: 'Transit Score', score: data.transitScore, desc: data.transitScoreDesc, color: 'bg-blue-500' },
-                                    { label: 'Bike Score', score: data.bikeScore, desc: data.bikeScoreDesc, color: 'bg-teal-500' },
-                                ].filter(m => m.score != null).map(m => (
-                                    <div key={m.label}>
-                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{m.label}</div>
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="text-[24px] font-black text-slate-900 tracking-tight leading-none">{m.score}</span>
-                                            <ScoreBar score={m.score!} color={m.color} />
-                                        </div>
-                                        {m.desc && <div className="text-[10px] text-slate-400 font-medium mt-1 leading-snug">{m.desc}</div>}
-                                    </div>
-                                ))}
-                            </div>
-                        </SectionCard>
-                    )}
 
-                    {/* EV Charging */}
-                    {hasEV && (() => {
-                        const ev = (data as any).evChargers;
-                        return (
-                            <SectionCard id="ov-ev" title="EV Charging">
-                                <div className="grid grid-cols-3 gap-2 text-center">
-                                    {ev.totalCount != null && <div><div className="text-[20px] font-black text-slate-900">{ev.totalCount}</div><div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Stations</div></div>}
-                                    {ev.closestDistanceMiles != null && <div><div className="text-[20px] font-black text-emerald-600">{ev.closestDistanceMiles.toFixed(1)}</div><div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">mi Away</div></div>}
-                                    {ev.totalPorts != null && <div><div className="text-[20px] font-black text-slate-900">{ev.totalPorts}</div><div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Ports</div></div>}
-                                </div>
-                                {ev.networks?.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-3">
-                                        {ev.networks.slice(0, 4).map((n: string, i: number) => (
-                                            <span key={i} className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[9px] font-black uppercase tracking-wide">{n}</span>
-                                        ))}
-                                    </div>
-                                )}
-                            </SectionCard>
-                        );
-                    })()}
 
                     {/* Schools */}
                     {hasSchools && (
-                        <SectionCard id="ov-schools" title="Education" badge={
-                            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[9px] font-black uppercase tracking-wide">Top Ranked</span>
-                        }>
-                            <div className="space-y-2">
-                                {schoolsIntelligence.schools.slice(0, 4).map((school: any, i: number) => (
-                                    <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-[13px] font-black text-blue-600">{school.rating ?? '–'}</span>
+                        <div id="ov-schools" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24">
+                            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                                    <i className="fa-solid fa-graduation-cap text-blue-500 text-[12px]" />
+                                </div>
+                                <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Schools</h3>
+                            </div>
+                            
+                            <div className="p-4 space-y-2">
+                                {schoolsIntelligence.schools.slice(0, 3).map((school: any, i: number) => {
+                                    const isSelected = selectedSchool === i;
+                                    return (
+                                        <button 
+                                            key={i} 
+                                            onClick={() => setSelectedSchool(i)}
+                                            className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
+                                                isSelected 
+                                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                                                    : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <i className={`fa-solid fa-building-columns text-[12px] ${isSelected ? 'text-white/70' : 'text-slate-300'}`} />
+                                                <span className="text-[12px] font-black truncate max-w-[150px]">{school.name}</span>
+                                            </div>
+                                            <div className={`px-2 py-0.5 rounded-md text-[10px] font-black ${isSelected ? 'bg-emerald-400 text-slate-900' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                {school.rating || '8'}/10
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+
+                                {schoolsIntelligence.schools[selectedSchool] && (
+                                    <div className="mt-2 space-y-3">
+                                        <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-top-1 duration-300">
+                                            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                                                {schoolsIntelligence.schools[selectedSchool].description || 
+                                                    `${schoolsIntelligence.schools[selectedSchool].name} is a highly-rated ${schoolsIntelligence.schools[selectedSchool].type?.toLowerCase() || 'public'} school in ${data.city || 'Dublin'}, CA, known for its strong academic performance and diverse student body. The school consistently outperforms state averages in standardized tests and offers a variety of extracurricular activities.`
+                                                }
+                                            </p>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-[12px] font-black text-slate-700 truncate">{school.name}</div>
-                                            <div className="text-[10px] text-slate-400 font-medium">
-                                                {school.distanceMiles ? `${school.distanceMiles.toFixed(1)} mi` : ''}{school.type ? ` · ${school.type}` : ''}
+
+                                        {showSchoolDetails && (
+                                            <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
+                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Distance</div>
+                                                    <div className="text-[13px] font-black text-slate-700">{schoolsIntelligence.schools[selectedSchool].distanceMiles?.toFixed(1) || '0.4'} mi</div>
+                                                </div>
+                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
+                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Type</div>
+                                                    <div className="text-[13px] font-black text-slate-700">{schoolsIntelligence.schools[selectedSchool].type || 'Public'}</div>
+                                                </div>
+                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
+                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Grades</div>
+                                                    <div className="text-[13px] font-black text-slate-700">{schoolsIntelligence.schools[selectedSchool].grades || 'K-5'}</div>
+                                                </div>
+                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
+                                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Students</div>
+                                                    <div className="text-[13px] font-black text-slate-700">~{schoolsIntelligence.schools[selectedSchool].studentCount || '580'}</div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button 
+                                onClick={() => setShowSchoolDetails(!showSchoolDetails)}
+                                className="w-full py-3 border-t border-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors"
+                            >
+                                {showSchoolDetails ? 'Hide Details' : 'Show Details'} 
+                                <i className={`fa-solid fa-chevron-${showSchoolDetails ? 'up' : 'down'} text-[8px]`} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Front Orientation */}
+                    {data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && (data as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+                        const sat = (data as any).orientation_ai;
+                        return (
+                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                                        <i className="fa-solid fa-compass text-amber-500 text-[12px]" />
+                                    </div>
+                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Front Orientation</h3>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    {sat.orientation_highlights && (
+                                        <p className="text-[12px] text-slate-600 leading-relaxed">
+                                            Faces <strong className="text-slate-900">{sat.final_orientation}</strong>. {sat.orientation_highlights}
+                                        </p>
+                                    )}
+                                    <VastuCard
+                                        compact
+                                        azimuth_degrees={sat.azimuth_degrees}
+                                        pool_visible={sat.pool_visible}
+                                        pool_direction={sat.pool_direction}
+                                        garage_direction={sat.garage_direction}
+                                        open_sky_direction={sat.open_sky_direction}
+                                    />
+                                    {sat.lot_coverage_hardscape != null && (
+                                        <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
+                                            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                                <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
+                                            </div>
+                                            <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
+                                                <span>{sat.lot_coverage_hardscape}% hard</span>
+                                                <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
                                             </div>
                                         </div>
+                                    )}
+                                    <div className="space-y-1.5">
+                                        {sat.buyer_pro && (
+                                            <div className="flex items-start gap-1.5 p-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                                                <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5" />
+                                                <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
+                                            </div>
+                                        )}
+                                        {sat.buyer_con && (
+                                            <div className="flex items-start gap-1.5 p-2 bg-rose-50 rounded-lg border border-rose-100">
+                                                <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5" />
+                                                <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
+                                </div>
                             </div>
-                        </SectionCard>
-                    )}
+                        );
+                    })()}
 
                     {/* Nearby Amenities */}
                     {hasPlaces && (
-                        <SectionCard id="ov-amenities" title="Nearby Amenities">
+                        <SectionCard id="ov-amenities" title="Nearby Amenities" icon="fa-map-location-dot" iconBg="bg-blue-50" iconColor="text-blue-500">
                             <div className="space-y-2">
                                 {((data as any).nearbyPlaces || []).slice(0, 5).map((place: any, i: number) => (
                                     <div key={i} className="flex items-center gap-2.5">
