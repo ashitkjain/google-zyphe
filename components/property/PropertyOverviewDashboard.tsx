@@ -62,7 +62,7 @@ const SectionCard: React.FC<{
 }> = ({ id, title, icon, iconBg = 'bg-slate-50/50', iconColor = 'text-slate-400', subtitle, badge, children, className = '', noPadding = false }) => (
     <div
         id={id}
-        className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 transition-all hover:shadow-md/5 ${className}`}
+        className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 transition-all duration-300 hover:shadow-md hover:-translate-y-1 ${className}`}
     >
         <div className="px-5 pt-5 pb-0 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -78,7 +78,7 @@ const SectionCard: React.FC<{
             </div>
             {badge}
         </div>
-        <div className={noPadding ? '' : 'px-5 pb-5 pt-3'}>{children}</div>
+        <div className={noPadding ? '' : 'px-5 pb-5 pt-1.5'}>{children}</div>
     </div>
 );
 
@@ -230,45 +230,63 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 MLS Property Data
                             </h3>
                         </div>
-                        <div className="px-5 py-5">
-                            <h1 className="text-[22px] font-black text-slate-900 tracking-tight leading-tight">
-                                {data.address?.split(',')[0] || 'Property Overview'}
-                            </h1>
-                            <p className="text-[12px] text-slate-500 mt-1 font-semibold uppercase tracking-wider">
-                                {data.address?.split(',').slice(1).join(',').trim()}
-                            </p>
-                            <div className="flex flex-wrap gap-2 mt-4">
-                                {data.homeType && (
-                                    <span className="px-3 py-1.5 bg-indigo-50 border border-indigo-100/50 rounded-lg text-[10px] font-black text-indigo-700 uppercase tracking-[0.1em]">
-                                        {data.homeType.replace(/_/g, ' ')}
-                                    </span>
-                                )}
-                                {data.bedrooms != null && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        <i className="fa-solid fa-bed mr-2 text-[10px] text-slate-400" />{data.bedrooms} Bed
-                                    </span>
-                                )}
-                                {data.bathrooms != null && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        <i className="fa-solid fa-bath mr-2 text-[10px] text-slate-400" />{data.bathrooms} Bath
-                                    </span>
-                                )}
-                                {data.livingAreaValue && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        <i className="fa-solid fa-maximize mr-2 text-[10px] text-slate-400" />{data.livingAreaValue.toLocaleString()} SF
-                                    </span>
-                                )}
-                                {data.yearBuilt && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        Built {data.yearBuilt}
-                                    </span>
-                                )}
-                                {price && data.livingAreaValue && (
-                                    <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-100/50 rounded-lg text-[10px] font-black text-emerald-700 uppercase tracking-[0.1em]">
-                                        ${Math.round(price / data.livingAreaValue).toLocaleString()}/SF
-                                    </span>
-                                )}
+                        <div className="px-5 py-5 flex flex-col lg:flex-row gap-6">
+                            <div className="lg:flex-initial min-w-0">
+                                <h1 className="text-[22px] font-black text-slate-900 tracking-tight leading-tight">
+                                    {data.address?.split(',')[0] || 'Property Overview'}
+                                </h1>
+                                <p className="text-[12px] text-slate-500 mt-1 font-semibold uppercase tracking-wider">
+                                    {data.address?.split(',').slice(1).join(',').trim()}
+                                </p>
+                                <div className="flex flex-wrap gap-2 mt-4">
+                                    {data.homeType && (
+                                        <span className="px-3 py-1.5 bg-indigo-50 border border-indigo-100/50 rounded-lg text-[10px] font-black text-indigo-700 uppercase tracking-[0.1em]">
+                                            {data.homeType.replace(/_/g, ' ')}
+                                        </span>
+                                    )}
+                                    {data.bedrooms != null && (
+                                        <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                            <i className="fa-solid fa-bed mr-2 text-[10px] text-slate-400" />{data.bedrooms} Bed
+                                        </span>
+                                    )}
+                                    {data.bathrooms != null && (
+                                        <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                            <i className="fa-solid fa-bath mr-2 text-[10px] text-slate-400" />{data.bathrooms} Bath
+                                        </span>
+                                    )}
+                                    {data.livingAreaValue && (
+                                        <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                            <i className="fa-solid fa-maximize mr-2 text-[10px] text-slate-400" />{data.livingAreaValue.toLocaleString()} SF
+                                        </span>
+                                    )}
+                                    {data.yearBuilt && (
+                                        <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                            Built {data.yearBuilt}
+                                        </span>
+                                    )}
+                                    {price && data.livingAreaValue && (
+                                        <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-100/50 rounded-lg text-[10px] font-black text-emerald-700 uppercase tracking-[0.1em]">
+                                            ${Math.round(price / data.livingAreaValue).toLocaleString()}/SF
+                                        </span>
+                                    )}
+                                </div>
                             </div>
+
+                            {data.description && (
+                                <div className="flex-1 min-w-0">
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm h-full">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
+                                                <i className="fa-solid fa-align-left text-indigo-600 text-[10px]" />
+                                            </div>
+                                            <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Listing Remarks</span>
+                                        </div>
+                                        <p className="text-[12px] text-slate-600 leading-relaxed font-medium line-clamp-6 hover:line-clamp-none transition-all duration-300">
+                                            {data.description}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* ── Collapsible MLS Details ── */}
@@ -311,22 +329,9 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                                         {/* Right: Insights & Specs */}
                                         <div className="flex-1 flex flex-col gap-3 min-w-0">
-                                            {/* Property Description */}
-                                            {data.description && (
-                                                <div className="bg-slate-50 rounded-xl border border-slate-100 p-3.5">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
-                                                            <i className="fa-solid fa-align-left text-indigo-600 text-[10px]" />
-                                                        </div>
-                                                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Listing Remarks</span>
-                                                    </div>
-                                                    <p className="text-[13px] text-slate-600 leading-relaxed font-medium line-clamp-6 hover:line-clamp-none transition-all duration-300">
-                                                        {data.description}
-                                                    </p>
-                                                </div>
-                                            )}
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1.5">
 
                                         {/* Structure */}
                                         <MLSGroup icon="fa-landmark" title="Structure" rows={[
@@ -482,9 +487,12 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                             {envOpen['aqi_bento'] && (
                                                 <div className="pt-3 grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                                     {data.airQuality.pollutants?.map((p, i) => (
-                                                        <div key={i} className="flex flex-col p-2 bg-white rounded-lg border border-slate-100">
-                                                            <span className="text-[11px] font-bold text-slate-400">{p.fullName}</span>
-                                                            <span className="text-[15px] font-black text-slate-700">{p.concentration.toFixed(1)} {p.unit}</span>
+                                                        <div key={i} className="flex flex-col p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{p.fullName}</span>
+                                                            <div className="flex items-baseline gap-1.5">
+                                                                <span className="text-[10px] font-black text-slate-700">{p.concentration.toFixed(1)}</span>
+                                                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter truncate opacity-80">{p.unit.replace(/_/g, ' ')}</span>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -497,20 +505,20 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 {/* ── COLUMN 3: Pollen ── */}
                                 <div className="lg:col-span-1">
                                     {hasPollen && (
-                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 h-full">
                                             <div className="flex items-center justify-between mb-5">
                                                 <div className="flex items-center gap-2.5">
                                                     <i className="fa-solid fa-seedling text-amber-600 text-[14px]" />
-                                                    <span className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Pollen Report</span>
+                                                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">Pollen Report</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Level</div>
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Level</div>
                                                     <div className="text-[20px] font-black text-amber-600 leading-none">{data.pollen?.category || 'Low'}</div>
                                                 </div>
                                             </div>
                                             <div className="space-y-4">
                                                 <div className="p-4 bg-white border border-slate-100/80 rounded-2xl relative shadow-sm">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1.5">Dominant Type</div>
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1.5">Dominant Type</div>
                                                     <div className="text-[16px] font-black text-slate-800">{data.pollen?.dominantPollenType || 'Grasses'}</div>
                                                 </div>
                                                 <p className="text-[13px] text-slate-500 font-semibold leading-relaxed italic">
@@ -540,48 +548,55 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 {/* ── Resilience Columns ── */}
                                 <div className="lg:col-span-2">
                                      {/* Climate Risk Card */}
-                                      <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+                                      <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 h-full">
                                          <div className="flex items-center justify-between mb-6">
                                              <div className="flex items-center gap-2.5">
                                                  <i className="fa-solid fa-triangle-exclamation text-orange-500 text-[14px]" />
-                                                 <span className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Climate Risk Factors</span>
+                                                 <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">Climate Risk Factors</span>
                                              </div>
                                              <div className="text-right">
-                                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Forecasted Insurance</div>
+                                                 <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Forecasted Insurance</div>
                                                  <div className="text-[20px] font-black text-slate-900 leading-none">${(data.annualHomeownersInsurance || 6544).toLocaleString()}/yr</div>
                                              </div>
                                          </div>
-                                         <div className="grid grid-cols-2 gap-3">
-                                             {[
-                                                 { label: 'WIND', score: data.windRiskScore || 1, max: 10, color: 'text-emerald-500', icon: 'fa-wind' },
-                                                 { label: 'FLOOD', score: data.floodRiskScore || 1, max: 10, color: 'text-blue-500', icon: 'fa-water' },
-                                                 { label: 'FIRE', score: data.fireRiskScore || 6, max: 10, color: 'text-orange-500', icon: 'fa-fire' },
-                                                 { label: 'HEAT', score: data.heatRiskScore || 5, max: 10, color: 'text-rose-500', icon: 'fa-temperature-high' }
-                                             ].map((r, i) => (
-                                                 <div key={i} className={`p-4 rounded-xl border border-slate-100 transition-all shadow-sm ${r.score && r.score > 5 ? 'bg-orange-50/50 border-orange-100/50 shadow-orange-100/20' : 'bg-white'}`}>
-                                                     <div className="flex items-center justify-between mb-2">
-                                                         <div className="flex items-center gap-1.5">
-                                                             <i className={`fa-solid ${r.icon} text-slate-400 text-[12px]`} />
-                                                             <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{r.label}</span>
+                                                 <div className="grid grid-cols-2 gap-2">
+                                                     {[
+                                                         { label: 'WIND', score: data.windRiskScore || 1, max: 10, color: 'text-emerald-500', icon: 'fa-wind' },
+                                                         { label: 'FLOOD', score: data.floodRiskScore || 1, max: 10, color: 'text-blue-500', icon: 'fa-water' },
+                                                         { label: 'FIRE', score: data.fireRiskScore || 6, max: 10, color: 'text-orange-500', icon: 'fa-fire' },
+                                                         { label: 'HEAT', score: data.heatRiskScore || 5, max: 10, color: 'text-rose-500', icon: 'fa-temperature-high' }
+                                                     ].map((r, i) => (
+                                                         <div key={i} className={`p-2.5 rounded-xl border border-slate-100 transition-all shadow-sm ${r.score && r.score > 5 ? 'bg-orange-50/50 border-orange-100/50 shadow-orange-100/20' : 'bg-white'}`}>
+                                                             <div className="flex items-center justify-between mb-1.5">
+                                                                 <div className="flex items-center gap-1.5">
+                                                                     <i className={`fa-solid ${r.icon} text-slate-300 text-[10px]`} />
+                                                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{r.label}</span>
+                                                                 </div>
+                                                             </div>
+                                                             <div className="flex items-baseline gap-1">
+                                                                 <span className={`text-[10px] font-black ${r.score ? r.color : 'text-slate-300'}`}>
+                                                                     {r.score ? r.score : 'N/A'}
+                                                                 </span>
+                                                                 {r.score && (
+                                                                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">
+                                                                         / {r.max}
+                                                                     </span>
+                                                                 )}
+                                                             </div>
                                                          </div>
-                                                     </div>
-                                                     <div className={`text-[18px] font-black ${r.score ? r.color : 'text-slate-300'}`}>
-                                                         {r.score ? `${r.score}/${r.max}` : 'N/A'}
-                                                     </div>
+                                                     ))}
                                                  </div>
-                                             ))}
-                                         </div>
                                          <div className="text-[9px] text-slate-300 font-black uppercase text-right tracking-[0.2em] mt-6">Risk Factor · First Street</div>
                                      </div>
                                 </div>
 
                                 <div className="lg:col-span-2">
                                     {/* Hazard Zones Card */}
-                                     <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+                                     <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 h-full">
                                          <div className="flex items-center justify-between mb-6">
                                              <div className="flex items-center gap-2.5">
                                                  <i className="fa-solid fa-map-location-dot text-rose-500 text-[14px]" />
-                                                 <span className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Hazard Zones</span>
+                                                 <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">Hazard Zones</span>
                                              </div>
                                          </div>
                                         <div className="space-y-6">
@@ -635,7 +650,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                                 {/* ── COLUMN 3: Sun Pathing ── */}
                                 <div id="ov-sun" className="lg:col-span-4 scroll-mt-24 mt-4">
-                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
                                         <div className="flex items-center gap-2.5 mb-5">
                                             <i className="fa-solid fa-sun text-amber-500 text-[14px]" />
                                             <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Solar Insights</h3>
@@ -926,10 +941,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                                         ))}
                                                     </div>
 
-                                                    <div className="flex items-center gap-2 text-[13px] text-slate-400 font-medium">
-                                                        <i className="fa-solid fa-location-dot text-[11px] text-slate-300" />
-                                                        {ev.closestStationName || 'CITY OF DUBLIN HERITAGE'}
-                                                    </div>
+
                                                 </div>
                                             );
                                         })()}
@@ -1173,21 +1185,21 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                         </div>
                     )}
 
-                    {/* Front Orientation */}
+                    {/* Orientation and Vastu */}
                     {data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && (data as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                         const sat = (data as any).orientation_ai;
                         return (
                             <SectionCard
                                 id="ov-orientation"
-                                title="Front Orientation"
+                                title="Orientation and Vastu"
                                 icon="fa-compass"
                                 iconBg="bg-amber-50"
                                 iconColor="text-amber-500"
                             >
                                 <div className="p-4 space-y-3">
                                     {sat.orientation_highlights && (
-                                        <p className="text-[12px] text-slate-600 leading-relaxed">
-                                            Faces <strong className="text-slate-900">{sat.final_orientation}</strong>. {sat.orientation_highlights}
+                                        <p className="text-[14px] text-slate-600 leading-relaxed font-medium">
+                                            The front of the home likely faces <strong className="text-slate-900">{sat.final_orientation}</strong>. {sat.orientation_highlights}
                                         </p>
                                     )}
                                     <VastuCard
@@ -1308,7 +1320,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                         </div>
                                         <div className="space-y-3">
                                             <div>
-                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-1">Est. Monthly Rent</div>
+                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-1">Monthly Rent</div>
                                                 <div className="text-[20px] font-black text-slate-800">
                                                     {(() => {
                                                         const rent = ltrAnalysis.monthly_rent || "";
@@ -1320,7 +1332,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                             </div>
                                             {ltrAnalysis.vacancy_rate && (
                                                 <div className="flex items-center justify-between pt-2 border-t border-emerald-100/50">
-                                                    <span className="text-[11px] text-slate-500 font-medium">Est. Vacancy</span>
+                                                    <span className="text-[11px] text-slate-500 font-medium">Vacancy</span>
                                                     <span className="text-[11px] text-emerald-700 font-black">
                                                         {(() => {
                                                             const v = ltrAnalysis.vacancy_rate || "";
@@ -1342,7 +1354,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                         </div>
                                         <div className="space-y-3">
                                             <div>
-                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-1">Est. Annual Revenue</div>
+                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-1">Annual Revenue</div>
                                                 <div className="text-[20px] font-black text-slate-800">
                                                     {(() => {
                                                         const str = customAnalysis?.property_investment?.str_performance?.annual_revenue_projection || "";
@@ -1356,7 +1368,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between pt-2 border-t border-indigo-100/50">
-                                                <span className="text-[11px] text-slate-500 font-medium">Est. Occupancy</span>
+                                                <span className="text-[11px] text-slate-500 font-medium">Occupancy</span>
                                                 <span className="text-[11px] text-indigo-700 font-black">
                                                     {(() => {
                                                         const str = customAnalysis?.property_investment?.str_performance?.occupancy_rate || "";
@@ -1370,6 +1382,10 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-2">
+                                    <i className="fa-solid fa-wand-magic-sparkles text-indigo-400 text-[10px]" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Estimated Analysis</span>
                                 </div>
                             </div>
                         </SectionCard>

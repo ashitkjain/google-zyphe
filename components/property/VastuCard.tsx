@@ -26,8 +26,8 @@ const VastuCompass: React.FC<{ vastu: NonNullable<ReturnType<typeof computeVastu
 
     const sectors = vastu.allZones.map((zone) => {
         const startRad = ((zone.start - 90) * Math.PI) / 180;
-        const endAngle  = zone.start > zone.end ? zone.end + 360 : zone.end;
-        const endRad    = ((endAngle - 90) * Math.PI) / 180;
+        const endAngle = zone.start > zone.end ? zone.end + 360 : zone.end;
+        const endRad = ((endAngle - 90) * Math.PI) / 180;
 
         const x1 = CX + R_OUTER * Math.cos(startRad);
         const y1 = CY + R_OUTER * Math.sin(startRad);
@@ -111,11 +111,10 @@ const ZoneRow: React.FC<{ zone: VastuZoneWithAngle; isEntrance: boolean; auspici
             <td className="px-2 py-1.5 text-slate-500 font-medium">{zone.name}</td>
             <td className="px-2 py-1.5 text-slate-400 hidden sm:table-cell">{zone.ideal_rooms}</td>
             <td className="px-2 py-1.5 text-right">
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                    zone.relativePosition === 'Front' ? 'bg-indigo-100 text-indigo-700' :
-                    zone.relativePosition === 'Back'  ? 'bg-slate-100 text-slate-500' :
-                    'bg-slate-50 text-slate-400'
-                }`}>{zone.relativePosition}</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${zone.relativePosition === 'Front' ? 'bg-indigo-100 text-indigo-700' :
+                        zone.relativePosition === 'Back' ? 'bg-slate-100 text-slate-500' :
+                            'bg-slate-50 text-slate-400'
+                    }`}>{zone.relativePosition}</span>
             </td>
         </tr>
     );
@@ -132,10 +131,10 @@ const SiteFeatureRows: React.FC<{
     if (pool_visible == null && !garage_direction && !open_sky_direction) return null;
 
     // Same text in both modes — only size/padding differs
-    const rowCls   = compact ? 'flex items-start gap-2 px-2.5 py-2' : 'flex items-start gap-3 px-3 py-2.5';
-    const iconCls  = compact ? 'fa-solid text-[9px] w-3 mt-0.5'    : 'fa-solid text-xs w-4 mt-0.5';
-    const textCls  = compact ? 'text-[10px] text-slate-600 flex-1 leading-snug' : 'text-[11px] text-slate-600 flex-1 leading-snug';
-    const badgeCls = compact ? 'text-[11px] shrink-0' : 'text-[13px] shrink-0';
+    const rowCls = compact ? 'flex items-start gap-2 px-2.5 py-2.5' : 'flex items-start gap-3 px-3 py-3';
+    const iconCls = compact ? 'fa-solid text-[10px] w-3 mt-1' : 'fa-solid text-[13px] w-4 mt-1';
+    const textCls = compact ? 'text-[12px] text-slate-600 flex-1 leading-relaxed font-medium' : 'text-[13px] text-slate-600 flex-1 leading-relaxed font-medium';
+    const badgeCls = compact ? 'text-[14px] shrink-0' : 'text-[16px] shrink-0';
 
     return (
         <div className={compact
@@ -143,13 +142,13 @@ const SiteFeatureRows: React.FC<{
             : 'rounded-xl border border-slate-100 overflow-hidden divide-y divide-slate-50'
         }>
             {pool_visible != null && (() => {
-                const aus   = pool_direction && ['N', 'NE'].includes(pool_direction);
+                const aus = pool_direction && ['N', 'NE'].includes(pool_direction);
                 const inaus = pool_direction && ['SW', 'S'].includes(pool_direction);
                 const label = !pool_visible
                     ? 'No pool or water feature visible on the lot'
-                    : aus   ? `Pool is on the ${dirLabel(pool_direction)} side — favorable placement`
-                    : inaus ? `Pool is on the ${dirLabel(pool_direction)} side — less favorable placement`
-                    :         `Pool is on the ${dirLabel(pool_direction)} side`;
+                    : aus ? `Pool is on the ${dirLabel(pool_direction)} side — favorable placement`
+                        : inaus ? `Pool is on the ${dirLabel(pool_direction)} side — less favorable placement`
+                            : `Pool is on the ${dirLabel(pool_direction)} side`;
                 return (
                     <div className={rowCls}>
                         <i className={`fa-water text-blue-400 ${iconCls}`} />
@@ -160,11 +159,11 @@ const SiteFeatureRows: React.FC<{
             })()}
 
             {garage_direction && (() => {
-                const aus   = ['N', 'NW', 'W'].includes(garage_direction);
+                const aus = ['N', 'NW', 'W'].includes(garage_direction);
                 const inaus = ['NE', 'SW'].includes(garage_direction);
-                const label = aus   ? `Garage opens toward the ${dirLabel(garage_direction)} — good placement`
-                            : inaus ? `Garage opens toward the ${dirLabel(garage_direction)} — avoid this direction if possible`
-                            :         `Garage opens toward the ${dirLabel(garage_direction)}`;
+                const label = aus ? `Garage opens toward the ${dirLabel(garage_direction)} — good placement`
+                    : inaus ? `Garage opens toward the ${dirLabel(garage_direction)} — avoid this direction if possible`
+                        : `Garage opens toward the ${dirLabel(garage_direction)}`;
                 return (
                     <div className={rowCls}>
                         <i className={`fa-car-garage text-slate-400 ${iconCls}`} />
@@ -175,11 +174,11 @@ const SiteFeatureRows: React.FC<{
             })()}
 
             {open_sky_direction && (() => {
-                const aus   = ['N', 'NE', 'E'].includes(open_sky_direction);
+                const aus = ['N', 'NE', 'E'].includes(open_sky_direction);
                 const inaus = ['SW', 'S'].includes(open_sky_direction);
-                const label = aus   ? `Main outdoor space opens to the ${dirLabel(open_sky_direction)} — good for light and ventilation`
-                            : inaus ? `Main outdoor space opens to the ${dirLabel(open_sky_direction)} — gets more afternoon heat`
-                            :         `Main outdoor space opens to the ${dirLabel(open_sky_direction)}`;
+                const label = aus ? `Main outdoor space opens to the ${dirLabel(open_sky_direction)} — good for light and ventilation`
+                    : inaus ? `Main outdoor space opens to the ${dirLabel(open_sky_direction)} — gets more afternoon heat`
+                        : `Main outdoor space opens to the ${dirLabel(open_sky_direction)}`;
                 return (
                     <div className={rowCls}>
                         <i className={`fa-sun text-amber-300 ${iconCls}`} />
@@ -223,7 +222,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                             <i className="fa-solid fa-circle-question text-emerald-500 text-xs" />
                         </button>
                     </div>
-                    
+
                     <div className="px-4 pb-4 pt-2 flex items-center gap-4">
                         <div className="shrink-0 bg-white rounded-full p-1 shadow-sm border border-emerald-100/50">
                             <VastuCompass vastu={vastu} size={110} />
@@ -237,7 +236,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                                     {vastu.entranceZone.name}
                                 </span>
                             </div>
-                            <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                            <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
                                 {vastu.verdict}
                             </p>
                         </div>
@@ -288,11 +287,10 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                                                         <td className="px-4 py-3 font-black text-slate-700">{zone.name}</td>
                                                         <td className="px-4 py-3 text-slate-500 font-medium">{zone.ideal_rooms}</td>
                                                         <td className="px-4 py-3 text-right">
-                                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${
-                                                                zone.relativePosition === 'Front' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-                                                                zone.relativePosition === 'Back'  ? 'bg-slate-50 text-slate-500 border-slate-200' :
-                                                                'bg-white text-slate-400 border-slate-100'
-                                                            }`}>
+                                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${zone.relativePosition === 'Front' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                                                                    zone.relativePosition === 'Back' ? 'bg-slate-50 text-slate-500 border-slate-200' :
+                                                                        'bg-white text-slate-400 border-slate-100'
+                                                                }`}>
                                                                 {zone.relativePosition}
                                                             </span>
                                                         </td>
@@ -304,7 +302,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                                     <div className="mt-6 flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
                                         <i className="fa-solid fa-circle-info text-amber-500 mt-0.5" />
                                         <p className="text-[13px] text-amber-800 leading-relaxed font-medium">
-                                            <strong>Note:</strong> Orientation analysis and Vastu mapping are based on satellite building footprints and parcel alignment. We recommend on-site verification before making structural modifications.
+                                            <strong>Note:</strong> Orientation analysis and Vastu mapping are based on satellite building footprints and parcel alignment. We recommend on-site verification.
                                         </p>
                                     </div>
                                 </div>
@@ -322,8 +320,8 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                 />
 
                 <div className="flex items-start gap-1.5 px-1 pb-1">
-                    <i className="fa-solid fa-circle-info text-[9px] text-slate-300 mt-0.5" />
-                    <p className="text-[9px] font-medium text-slate-400 leading-normal italic">
+                    <i className="fa-solid fa-circle-info text-[10px] text-slate-300 mt-0.5" />
+                    <p className="text-[10px] font-medium text-slate-400 leading-normal italic">
                         Orientation and Vastu patterns are AI-inferred from aerial imagery and parcel data. Please verify on-site for absolute accuracy.
                     </p>
                 </div>
@@ -333,16 +331,15 @@ export const VastuCard: React.FC<VastuCardProps> = ({
 
     // ── Full card (Exterior tab) ──────────────────────────────────────────────
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-1">
             {/* Header */}
-            <div className={`flex items-center justify-between px-4 py-3 ${
-                vastu.auspiciousness === 'Auspicious'   ? 'bg-emerald-50 border-emerald-100' :
-                vastu.auspiciousness === 'Inauspicious' ? 'bg-red-50 border-red-100' :
-                'bg-amber-50 border-amber-100'
-            }`}>
+            <div className={`flex items-center justify-between px-4 py-3 ${vastu.auspiciousness === 'Auspicious' ? 'bg-emerald-50 border-emerald-100' :
+                    vastu.auspiciousness === 'Inauspicious' ? 'bg-red-50 border-red-100' :
+                        'bg-amber-50 border-amber-100'
+                }`}>
                 <div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Vastu Shastra</div>
-                    <div className="text-sm font-black text-slate-800">
+                    <div className="text-base font-black text-slate-800">
                         {final_orientation ?? azimuthToLabel(vastu.azimuth)} Facing
                     </div>
                 </div>
@@ -369,7 +366,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                     <VastuCompass vastu={vastu} />
                 </div>
                 <div className="flex-1 min-w-0 space-y-2">
-                    <p className="text-[11px] leading-relaxed text-slate-600">{vastu.verdict}</p>
+                    <p className="text-[13px] leading-relaxed text-slate-600 font-medium">{vastu.verdict}</p>
                     {/* Zone + Azimuth inline */}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
                         <div>
@@ -386,9 +383,9 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                     {/* Back / sides compact row */}
                     <div className="flex gap-4 pt-1 border-t border-slate-100 text-[10px]">
                         {[
-                            { label: 'Back',  az: vastu.backAzimuth },
+                            { label: 'Back', az: vastu.backAzimuth },
                             { label: 'Right', az: vastu.rightAzimuth },
-                            { label: 'Left',  az: vastu.leftAzimuth },
+                            { label: 'Left', az: vastu.leftAzimuth },
                         ].map(({ label, az }) => (
                             <div key={label}>
                                 <span className="text-slate-400 mr-1">{label}</span>
@@ -441,8 +438,8 @@ export const VastuCard: React.FC<VastuCardProps> = ({
             </div>
 
             <div className="flex items-start gap-1.5 px-4 pb-4">
-                <i className="fa-solid fa-circle-info text-[9px] text-slate-300 mt-0.5" />
-                <p className="text-[9px] font-medium text-slate-400 leading-normal italic">
+                <i className="fa-solid fa-circle-info text-[10px] text-slate-300 mt-0.5" />
+                <p className="text-[10px] font-medium text-slate-400 leading-normal italic">
                     Orientation and Vastu patterns are AI-inferred from aerial imagery and parcel data. Please verify on-site for absolute accuracy.
                 </p>
             </div>

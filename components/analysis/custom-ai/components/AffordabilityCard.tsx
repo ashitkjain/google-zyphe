@@ -213,7 +213,7 @@ export const AffordabilityCard: React.FC<AffordabilityCardProps> = ({
                     <i className="fa-solid fa-circle-info text-indigo-200 text-2xl shrink-0"></i>
                     <div>
                         <p className="text-sm font-black text-slate-800 uppercase tracking-wider">Required Annual Income</p>
-                        <p className="text-sm text-slate-500 leading-relaxed font-medium">Estimated before-tax income for: 2 Adults (Both Working) & 2 Children</p>
+                        <p className="text-sm text-slate-500 leading-relaxed font-medium">Before-tax income for: 2 Adults (Both Working) & 2 Children</p>
                     </div>
                 </div>
                 <div className="text-right bg-indigo-50/50 px-6 py-4 rounded-3xl border border-indigo-100">

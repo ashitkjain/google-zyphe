@@ -92,6 +92,7 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
     const [activeCategory, setActiveCategory] = useState<string>(CATEGORY_CONFIG[0].key);
     const [isMapVisible, setIsMapVisible] = useState(false);
     const [expandedMap, setExpandedMap] = useState<string | null>(null);
+    const [showAll, setShowAll] = useState(false);
     
     const rawPlaces = data.google_places;
     if (!rawPlaces && !visualPoi && (!mapLabels || mapLabels.length === 0)) return null;
@@ -124,7 +125,8 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
         if (activePlaces.length === 0 && categoriesWithData.length > 0) {
             setActiveCategory(categoriesWithData[0].key);
         }
-    }, [activePlaces.length, categoriesWithData]);
+        setShowAll(false);
+    }, [activePlaces.length, categoriesWithData, activeCategory, viewMode]);
 
     return (
         <div className={`${isEmbeddedCard ? 'p-0 pb-4' : 'p-5 md:p-7'} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
@@ -227,11 +229,26 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                     {/* Active Category Content */}
                     <div className={`${isEmbeddedCard ? 'bg-white' : 'bg-white rounded-[2rem] border border-slate-100/80 shadow-sm p-1'}`}>
                         {activePlaces.length > 0 ? (
-                            <div className={`grid grid-cols-1 gap-y-0 ${isEmbeddedCard ? 'max-h-[360px]' : 'max-h-[460px]'} overflow-y-auto px-2 custom-scrollbar`}>
-                                {activePlaces.map((place, i) => (
-                                    <PlaceRow key={i} place={place} />
-                                ))}
-                            </div>
+                            <>
+                                <div className={`grid grid-cols-1 gap-y-0 ${isEmbeddedCard && showAll ? 'max-h-[360px]' : ''} ${!isEmbeddedCard && showAll ? 'max-h-[460px]' : ''} overflow-y-auto px-2 custom-scrollbar`}>
+                                    {(showAll ? activePlaces : activePlaces.slice(0, 3)).map((place, i) => (
+                                        <PlaceRow key={i} place={place} />
+                                    ))}
+                                </div>
+                                {activePlaces.length > 3 && (
+                                    <div className="pt-3 px-2">
+                                        <button 
+                                            onClick={() => setShowAll(!showAll)}
+                                            className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 uppercase tracking-widest flex items-center gap-2 transition-all group"
+                                        >
+                                            <span className="flex items-center justify-center w-5 h-5 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 transition-colors">
+                                                <i className={`fa-solid fa-chevron-${showAll ? 'up' : 'down'} text-[8px]`} />
+                                            </span>
+                                            {showAll ? 'Show Less' : `Show ${activePlaces.length - 3} More Locations`}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="py-16 flex flex-col items-center justify-center text-slate-400 text-center">
                                 <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mb-4">

@@ -93,9 +93,17 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                     <div key={label} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                         <i className={`fa-solid ${icon} text-[10px] text-slate-300`}></i>
                                         <div className="min-w-0">
-                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{label}</div>
-                                            <div className="text-[13px] font-normal text-slate-800 leading-snug">
-                                                {score ? `${score}/100` : 'N/A'}{desc ? ` · ${desc}` : ''}
+                                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{label}</div>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-[10px] font-black text-slate-700">
+                                                    {score ? score : 'N/A'}
+                                                </span>
+                                                {score && (
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">
+                                                        / 100
+                                                    </span>
+                                                )}
+                                                {desc && <span className="text-[10px] text-slate-400 font-medium ml-1">· {desc}</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -138,7 +146,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                     <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-wider">
                                         {data.broadband.providerCount} ISPs
                                     </span>
-                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[9px] font-black uppercase tracking-wider">
                                         ↓ {data.broadband.topDownloadMbps >= 1000 ? `${(data.broadband.topDownloadMbps / 1000).toFixed(0)} Gbps` : `${data.broadband.topDownloadMbps} Mbps`}
                                     </span>
                                 </div>
@@ -161,7 +169,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${techColor}`}>{p.technology}</span>
-                                                        <span className="text-[11px] font-black text-slate-500">
+                                                        <span className="text-[10px] font-black text-slate-500">
                                                             {p.maxDownloadMbps >= 1000 ? `${(p.maxDownloadMbps / 1000).toFixed(0)}G` : `${p.maxDownloadMbps}M`}↓
                                                         </span>
                                                     </div>
@@ -199,7 +207,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                                     />
                                                                 ))}
                                                             </div>
-                                                            <div className="text-[10px] font-black text-slate-700 leading-none">{c.network}</div>
+                                                            <div className="text-[9px] font-black text-slate-700 leading-none">{c.network}</div>
                                                             <div className={`text-[9px] font-bold ${signalColor} capitalize`}>{c.signalLevel}</div>
                                                         </div>
                                                     );
@@ -241,14 +249,20 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                 <div className="flex items-center gap-3 mt-2 text-[12px]">
                                     <div className="flex flex-col">
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Sunshine</span>
-                                        <span className="font-black text-slate-700">{Math.round(solar.maxSunshineHoursPerYear || 0).toLocaleString()} hrs/yr</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-[10px] font-black text-slate-700">{Math.round(solar.maxSunshineHoursPerYear || 0).toLocaleString()}</span>
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">hrs/yr</span>
+                                        </div>
                                     </div>
                                     {solarPotential && (
                                         <>
                                             <div className="w-px h-6 bg-slate-200"></div>
                                             <div className="flex flex-col">
                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Production</span>
-                                                <span className="font-black text-indigo-600">{solarPotential.annualKwh.toLocaleString()} kWh</span>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-[10px] font-black text-indigo-600">{solarPotential.annualKwh.toLocaleString()}</span>
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">kWh</span>
+                                                </div>
                                             </div>
                                         </>
                                     )}
@@ -302,7 +316,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                     <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                                         <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${light.score}%` }}></div>
                                                     </div>
-                                                    <span className={`text-[11px] font-black ${textColor} whitespace-nowrap`}>{light.score} <span className="text-[9px] font-bold">{light.label}</span></span>
+                                                    <span className={`text-[10px] font-black ${textColor} whitespace-nowrap`}>{light.score} <span className="text-[9px] font-bold">{light.label}</span></span>
                                                 </div>
                                             )}
                                             {smartTags.length > 0 && (
@@ -331,8 +345,11 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                             {/* After Solar estimate */}
                                             {solar.financialAnalysis.remainingLifetimeCostBill != null && (
                                                 <div className="p-2 bg-emerald-50/60 rounded-lg border border-emerald-100/60">
-                                                    <div className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">After Solar</div>
-                                                    <div className="text-[13px] font-black text-emerald-600 leading-snug">${Math.round(solar.financialAnalysis.remainingLifetimeCostBill / 240).toLocaleString()}<span className="text-[10px] font-normal text-emerald-400">/mo est.</span></div>
+                                                    <div className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">After Solar</div>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-[10px] font-black text-emerald-600">${Math.round(solar.financialAnalysis.remainingLifetimeCostBill / 240).toLocaleString()}</span>
+                                                        <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-tighter">/mo</span>
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -343,8 +360,11 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                         <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                             <i className="fa-solid fa-clock-rotate-left text-[10px] text-amber-400"></i>
                                                             <div className="min-w-0">
-                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Payback</div>
-                                                                <div className="text-[13px] font-black text-amber-600 leading-snug">{Number(solar.financialAnalysis.cashPurchase.paybackYears).toFixed(1)} years</div>
+                                                                <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Payback</div>
+                                                                <div className="flex items-baseline gap-1">
+                                                                    <span className="text-[10px] font-black text-amber-600">{Number(solar.financialAnalysis.cashPurchase.paybackYears).toFixed(1)}</span>
+                                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">years</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}
@@ -352,8 +372,8 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                         <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                             <i className="fa-solid fa-chart-line text-[10px] text-emerald-400"></i>
                                                             <div className="min-w-0">
-                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">20-Yr Savings</div>
-                                                                <div className="text-[13px] font-black text-emerald-600 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}</div>
+                                                                <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">20-Yr Savings</div>
+                                                                <div className="text-[10px] font-black text-emerald-600">${solar.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}</div>
                                                             </div>
                                                         </div>
                                                     )}
@@ -361,10 +381,10 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                         <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                             <i className="fa-solid fa-receipt text-[10px] text-indigo-400"></i>
                                                             <div className="min-w-0">
-                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">System Cost</div>
-                                                                <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.upfrontCost.toLocaleString()}</div>
+                                                                <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">System Cost</div>
+                                                                <div className="text-[10px] font-black text-slate-700">${solar.financialAnalysis.cashPurchase.upfrontCost.toLocaleString()}</div>
                                                                 {solar.financialAnalysis.cashPurchase.rebateValue != null && solar.financialAnalysis.cashPurchase.rebateValue > 0 && (
-                                                                    <div className="text-[10px] text-emerald-500 font-semibold">incl. ${solar.financialAnalysis.cashPurchase.rebateValue.toLocaleString()} rebate</div>
+                                                                    <div className="text-[9px] text-emerald-500 font-bold uppercase tracking-wider">incl. ${solar.financialAnalysis.cashPurchase.rebateValue.toLocaleString()} rebate</div>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -373,8 +393,8 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                         <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                             <i className="fa-solid fa-calendar-check text-[10px] text-slate-300"></i>
                                                             <div className="min-w-0">
-                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Year 1 Savings</div>
-                                                                <div className="text-[13px] font-normal text-slate-800 leading-snug">${solar.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}</div>
+                                                                <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Year 1 Savings</div>
+                                                                <div className="text-[10px] font-black text-slate-700">${solar.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}</div>
                                                             </div>
                                                         </div>
                                                     )}
@@ -388,7 +408,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                     <div className="mt-3 bg-white/50 rounded-lg border border-slate-100 overflow-hidden">
                                         <button
                                             onClick={() => setIsSolarSpecsExpanded(!isSolarSpecsExpanded)}
-                                            className="w-full text-[11px] font-black text-slate-400 uppercase tracking-widest p-2 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                                            className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest p-2 flex items-center justify-between hover:bg-slate-50 transition-colors"
                                         >
                                             <div className="flex items-center gap-1.5">
                                                 <i className="fa-solid fa-microchip text-[9px]"></i>
@@ -404,15 +424,21 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                             <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                                 <i className="fa-solid fa-layer-group text-[10px] text-slate-300"></i>
                                                                 <div className="min-w-0">
-                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Capacity</div>
-                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{solarPotential.estimatedPanels} Panels</div>
+                                                                    <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Capacity</div>
+                                                                    <div className="flex items-baseline gap-1">
+                                                                        <span className="text-[10px] font-black text-slate-700">{solarPotential.estimatedPanels}</span>
+                                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">Panels</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                                 <i className="fa-solid fa-earth-americas text-[10px] text-emerald-400"></i>
                                                                 <div className="min-w-0">
-                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">CO₂ Offset</div>
-                                                                    <div className="text-[12px] font-black text-emerald-600 leading-none">{solarPotential.carbonOffsetTons} t/yr</div>
+                                                                    <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">CO₂ Offset</div>
+                                                                    <div className="flex items-baseline gap-1">
+                                                                        <span className="text-[10px] font-black text-emerald-600">{solarPotential.carbonOffsetTons}</span>
+                                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">t/yr</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </>
@@ -420,8 +446,11 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                         <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 col-span-2">
                                                             <i className="fa-solid fa-leaf text-[10px] text-slate-300"></i>
                                                             <div className="min-w-0">
-                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Offset Constant</div>
-                                                                <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.carbonOffsetFactorKgPerMwh || 0)} kg/MWh</div>
+                                                                <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Offset Constant</div>
+                                                                <div className="flex items-baseline gap-1">
+                                                                    <span className="text-[10px] font-black text-slate-700">{Math.round(solar.carbonOffsetFactorKgPerMwh || 0)}</span>
+                                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">kg/MWh</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}
@@ -430,15 +459,21 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                             <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                                 <i className="fa-solid fa-up-right-and-down-left-from-center text-[8px] text-slate-300"></i>
                                                                 <div className="min-w-0">
-                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Surface</div>
-                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.wholeRoofStats.areaMeters2 || 0)} m²</div>
+                                                                    <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Surface</div>
+                                                                    <div className="flex items-baseline gap-1">
+                                                                        <span className="text-[10px] font-black text-slate-700">{Math.round(solar.wholeRoofStats.areaMeters2 || 0)}</span>
+                                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">m²</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                                 <i className="fa-solid fa-vector-square text-[8px] text-slate-300"></i>
                                                                 <div className="min-w-0">
-                                                                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Footprint</div>
-                                                                    <div className="text-[13px] font-normal text-slate-800 leading-snug">{Math.round(solar.wholeRoofStats.groundAreaMeters2 || 0)} m²</div>
+                                                                    <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Footprint</div>
+                                                                    <div className="flex items-baseline gap-1">
+                                                                        <span className="text-[10px] font-black text-slate-700">{Math.round(solar.wholeRoofStats.groundAreaMeters2 || 0)}</span>
+                                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">m²</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </>
@@ -450,6 +485,10 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                 </>
 
 
+                                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-2 mb-3">
+                                    <i className="fa-solid fa-wand-magic-sparkles text-indigo-400 text-[10px]" />
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">AI Estimated Analysis</span>
+                                </div>
                                 <div className="text-[8px] text-slate-700 mt-2 text-right">Google Solar API</div>
                             </div>
                         </div>
@@ -493,7 +532,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                             <button
                                                 onClick={handleRefreshEV}
                                                 disabled={evLoading}
-                                                className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+                                                className="text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
                                             >
                                                 {evLoading ? 'Fetching...' : 'Fetch from NREL'}
                                             </button>
@@ -509,17 +548,20 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                             <div className="flex items-center gap-3 text-[12px] mb-3">
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Stations</span>
-                                                    <span className="font-black text-slate-700">{evData.totalStations}</span>
+                                                    <span className="text-[13px] font-black text-slate-700">{evData.totalStations}</span>
                                                 </div>
                                                 <div className="w-px h-6 bg-slate-200"></div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Closest</span>
-                                                    <span className="font-black text-emerald-600">{evData.closestDistanceMi} mi</span>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-[13px] font-black text-emerald-600">{evData.closestDistanceMi}</span>
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">mi</span>
+                                                    </div>
                                                 </div>
                                                 <div className="w-px h-6 bg-slate-200"></div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Total Ports</span>
-                                                    <span className="font-black text-slate-700">{evData.totalPorts}</span>
+                                                    <span className="text-[13px] font-black text-slate-700">{evData.totalPorts}</span>
                                                 </div>
                                             </div>
 
@@ -529,8 +571,11 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                     <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                         <i className="fa-solid fa-bolt text-[10px] text-amber-400"></i>
                                                         <div className="min-w-0">
-                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">DC Fast</div>
-                                                            <div className="text-[13px] font-black text-amber-600 leading-snug">{evData.dcFastPorts} ports</div>
+                                                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">DC Fast</div>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-[13px] font-black text-amber-600">{evData.dcFastPorts}</span>
+                                                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">ports</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -538,8 +583,11 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                                     <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
                                                         <i className="fa-solid fa-plug text-[10px] text-blue-400"></i>
                                                         <div className="min-w-0">
-                                                            <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Level 2</div>
-                                                            <div className="text-[13px] font-black text-blue-600 leading-snug">{evData.level2Ports} ports</div>
+                                                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Level 2</div>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-[13px] font-black text-blue-600">{evData.level2Ports}</span>
+                                                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">ports</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -557,12 +605,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                                             )}
 
                                             {/* Closest station name */}
-                                            {evData.closestStationName && (
-                                                <div className="mt-2 text-[11px] text-slate-500 font-medium truncate">
-                                                    <i className="fa-solid fa-location-dot text-emerald-400 mr-1 text-[9px]"></i>
-                                                    {evData.closestStationName}
-                                                </div>
-                                            )}
+
                                         </>
                                     )}
                                 </div>

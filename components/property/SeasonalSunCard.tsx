@@ -200,35 +200,43 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                     <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                         <i className="fa-solid fa-sunrise text-[12px] text-amber-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sunrise</div>
-                            <div className="text-[16px] font-black text-slate-800 leading-tight">
-                                {formatTime(current.sunrise)}
-                                <span className="text-[10px] font-bold text-slate-400 ml-1.5">{azToDirection(current.sunriseAz)}</span>
+                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Sunrise</div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-[10px] font-black text-slate-800">{formatTime(current.sunrise).split(' ')[0]}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{formatTime(current.sunrise).split(' ')[1]}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter ml-0.5">{azToDirection(current.sunriseAz)}</span>
                             </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                         <i className="fa-solid fa-sunset text-[12px] text-orange-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sunset</div>
-                            <div className="text-[16px] font-black text-slate-800 leading-tight">
-                                {formatTime(current.sunset)}
-                                <span className="text-[10px] font-bold text-slate-400 ml-1.5">{azToDirection(current.sunsetAz)}</span>
+                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Sunset</div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-[10px] font-black text-slate-800">{formatTime(current.sunset).split(' ')[0]}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{formatTime(current.sunset).split(' ')[1]}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter ml-0.5">{azToDirection(current.sunsetAz)}</span>
                             </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                         <i className="fa-solid fa-clock text-[12px] text-blue-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Daylight</div>
-                            <div className="text-[16px] font-black text-blue-600 leading-tight">{current.daylightHrs.toFixed(1)} hrs</div>
+                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Daylight</div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-[10px] font-black text-blue-600">{current.daylightHrs.toFixed(1)}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">hrs</span>
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                         <i className="fa-solid fa-arrows-up-to-line text-[12px] text-indigo-500"></i>
                         <div className="min-w-0">
-                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Noon Alt.</div>
-                            <div className="text-[16px] font-black text-indigo-600 leading-tight">{current.noonAltDeg.toFixed(1)}°</div>
+                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Noon Alt.</div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-[10px] font-black text-indigo-600">{current.noonAltDeg.toFixed(1)}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-80">°</span>
+                            </div>
                         </div>
                     </div>
                 </div>

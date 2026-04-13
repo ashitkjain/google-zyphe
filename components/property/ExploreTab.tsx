@@ -130,7 +130,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         { id: 'ov-sun',         label: 'Solar Insights',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
         { id: 'ov-living',      label: 'Daily Living',            icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
         { id: 'ov-schools',     label: 'Education',                icon: 'fa-graduation-cap',    visible: hasSchoolsData },
-        { id: 'ov-orientation', label: 'Front Orientation',       icon: 'fa-compass',           visible: !!(propertyData as any)?.orientation_ai },
+        { id: 'ov-orientation', label: 'Orientation and Vastu',       icon: 'fa-compass',           visible: !!(propertyData as any)?.orientation_ai },
         { id: 'ov-neighborhood',label: 'Neighborhood',            icon: 'fa-mountain-sun',      visible: !!propertyData?.neighborhood_identity },
         { id: 'ov-rental',      label: 'Rental Analysis',         icon: 'fa-sack-dollar',       visible: !!ltrAnalysis },
         { id: 'ov-nearby',      label: "What's Nearby",            icon: 'fa-map-location-dot',  visible: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) },

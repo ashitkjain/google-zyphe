@@ -49,7 +49,7 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                         </div>
                                                         <h3 className="text-[15px] font-black text-slate-900 tracking-tight">AI Property Analysis</h3>
                                                     </div>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-2 pb-2 pt-2">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-2 pb-2 pt-1.5">
 
                                                         {/* Interiors */}
                                                         {currentInteriorSummary && (

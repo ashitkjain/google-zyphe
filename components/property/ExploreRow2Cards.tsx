@@ -431,7 +431,7 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                     </div>
 
                     {/* Top row: Community Pulse · Market Dynamics · Market Pulse */}
-                    <div className="px-5 pb-5 pt-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="px-5 pb-5 pt-1.5 grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Community Pulse */}
                         {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && (
                             <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">

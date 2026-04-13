@@ -95,7 +95,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-[120] flex flex-col items-end">
+    <div className="fixed bottom-24 right-6 z-[120] flex flex-col items-end">
       {isOpen && (
         <div className="w-[380px] md:w-[450px] h-[600px] max-h-[calc(100vh-120px)] bg-white border border-slate-200 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-300 mb-4 ring-1 ring-slate-100">
           {/* Header */}
