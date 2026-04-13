@@ -304,7 +304,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                                     <div className="mt-6 flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
                                         <i className="fa-solid fa-circle-info text-amber-500 mt-0.5" />
                                         <p className="text-[13px] text-amber-800 leading-relaxed font-medium">
-                                            <strong>Note:</strong> Orientation analysis and Vastu mapping are based on satellite building footprints and parcel alignment. While highly accurate, we recommend on-site verification before making structural modifications.
+                                            <strong>Note:</strong> Orientation analysis and Vastu mapping are based on satellite building footprints and parcel alignment. We recommend on-site verification before making structural modifications.
                                         </p>
                                     </div>
                                 </div>
