@@ -124,16 +124,19 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
     const sidebarItems: NavItem[] = [
         { id: 'ov-lifestyle',   label: 'Lifestyle & Interests',    icon: 'fa-people-roof',       visible: !!(lifestyleFit || lifestyleInsights) },
-        { id: 'ov-community',   label: 'Community Overview',       icon: 'fa-city',              visible: true },
         { id: 'ov-property',    label: 'MLS Property Data',        icon: 'fa-table-cells-large', visible: true },
         { id: 'ov-environment', label: 'Environment',             icon: 'fa-leaf',              visible: hasEnvData },
         { id: 'ov-resilience',  label: 'Resilience',              icon: 'fa-shield-halved',     visible: hasEnvData },
+        { id: 'ov-sun',         label: 'Solar Insights',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
         { id: 'ov-living',      label: 'Daily Living',            icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
         { id: 'ov-schools',     label: 'Education',                icon: 'fa-graduation-cap',    visible: hasSchoolsData },
-        { id: 'ov-sun',         label: 'Solar Insights',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
-        { id: 'ov-nearby',      label: "What's Nearby",            icon: 'fa-map-location-dot',  visible: !!(propertyData as any)?.nearbyPlaces?.length },
-        { id: 'ov-streetview',  label: 'Street View Analysis',     icon: 'fa-street-view',       visible: true },
-        { id: 'ov-ai-analysis', label: 'AI Property Analysis',     icon: 'fa-brain',             visible: true },
+        { id: 'ov-orientation', label: 'Front Orientation',       icon: 'fa-compass',           visible: !!(propertyData as any)?.orientation_ai },
+        { id: 'ov-neighborhood',label: 'Neighborhood',            icon: 'fa-mountain-sun',      visible: !!propertyData?.neighborhood_identity },
+        { id: 'ov-rental',      label: 'Rental Analysis',         icon: 'fa-sack-dollar',       visible: !!ltrAnalysis },
+        { id: 'ov-nearby',      label: "What's Nearby",            icon: 'fa-map-location-dot',  visible: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) },
+        { id: 'ov-ai-analysis', label: 'AI Property Analysis',     icon: 'fa-brain',             visible: !!(designStyle || keyInsights || ltrAnalysis || (propertyData as any)?.orientation_ai || neighborhoodOverview || analysis) },
+        { id: 'ov-streetview',  label: 'Street View Analysis',     icon: 'fa-street-view',       visible: !!propertyData?.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false },
+        { id: 'ov-community',   label: 'Community Overview',       icon: 'fa-city',              visible: true },
     ];
 
     const [sidebarActiveId, setSidebarActiveId] = React.useState('ov-property');
