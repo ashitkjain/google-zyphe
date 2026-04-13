@@ -1198,32 +1198,6 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                         garage_direction={sat.garage_direction}
                                         open_sky_direction={sat.open_sky_direction}
                                     />
-                                    {sat.lot_coverage_hardscape != null && (
-                                        <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
-                                            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                                <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
-                                            </div>
-                                            <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
-                                                <span>{sat.lot_coverage_hardscape}% hard</span>
-                                                <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="space-y-1.5">
-                                        {sat.buyer_pro && (
-                                            <div className="flex items-start gap-1.5 p-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                                                <i className="fa-solid fa-plus text-[8px] text-emerald-500 mt-0.5" />
-                                                <div className="text-[11px] text-emerald-700 font-medium leading-snug">{sat.buyer_pro}</div>
-                                            </div>
-                                        )}
-                                        {sat.buyer_con && (
-                                            <div className="flex items-start gap-1.5 p-2 bg-rose-50 rounded-lg border border-rose-100">
-                                                <i className="fa-solid fa-minus text-[8px] text-rose-500 mt-0.5" />
-                                                <div className="text-[11px] text-rose-700 font-medium leading-snug">{sat.buyer_con}</div>
-                                            </div>
-                                        )}
-                                    </div>
                                 </div>
                             </SectionCard>
                         );
