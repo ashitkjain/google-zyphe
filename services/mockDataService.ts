@@ -1,6 +1,6 @@
 
 import { Lead, CRMTask, CommTemplate, Transaction } from '../types';
-import { generateMockLead, generateMockTransaction } from './mockData';
+import { generateMockLead, generateMockTransaction } from '../tests/mocks/mockData';
 
 export const getInitialMockLeads = (realtorId: string): Lead[] => {
     const leads: Lead[] = [];

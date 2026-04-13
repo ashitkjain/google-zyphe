@@ -8,36 +8,19 @@ import {
   LogEntry,
   UserProfile
 } from './types';
-import { normalizeAddress, fetchPropertyDataFull } from './services/apiService';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './services/geminiService';
 import {
-  savePropertyToCloud,
   saveVisualAnalysisToCloud,
-  getVisualAnalysisFromCloud,
-  saveComprehensiveAnalysisToCloud,
-  getComprehensiveAnalysisFromCloud,
   auth,
   getUserProfile,
-  trackUserPropertyView,
   getUserViewHistory,
 
   verifyFirestoreConnection,
-  getImageQualityAnalysisFromCloud,
-  getPropertyInvestmentFromCloud,
-  getGeneralMarketIntelligenceFromCloud,
   deleteUserAccount,
   toggleFavorite,
   getUserFavorites,
-  generateCityStateKey,
-  getCommunityPulseFromCloud,
-  saveCommunityPulseToCloud,
-  deletePropertyAnalysis,
-  getContextGraphFromCloud,
   saveContextGraphToCloud,
   getPropertyAssetsFromCloud,
-  getDeepInvestmentResearchFromCloud,
   loadAddressIndex,
-  updateAddressIndex,
   setTenantContext,
   clearTenantContext,
 } from './services/firebaseService';
@@ -70,6 +53,7 @@ import LegalDisclaimer from './components/legal/LegalDisclaimer';
 import TermsView from './components/legal/TermsView';
 import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import { useInactivitySignout } from './hooks/useInactivitySignout';
+import { usePropertyAnalysis } from './hooks/usePropertyAnalysis';
 import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
 const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
@@ -103,18 +87,47 @@ const App: React.FC = () => {
   const [favorites, setFavorites] = useState<any[]>([]);
 
   const [address, setAddress] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingSublabel, setLoadingSublabel] = useState('');
-  const [loadingTimer, setLoadingTimer] = useState(0);
-  const [imagesLoading, setImagesLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [propertyData, setPropertyData] = useState<PropertyData | null>(null);
-  const [customAnalysis, setCustomAnalysis] = useState<CustomAIAnalysisResult | null>(null);
-  const [customAnalysisLoading, setCustomAnalysisLoading] = useState(false);
-  const [comprehensiveAnalysis, setComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
-  const [comprehensiveLoading, setComprehensiveLoading] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [envRefreshing, setEnvRefreshing] = useState(false);
+
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AddressIndexEntry[]>([]);
+  const [addressIndex, setAddressIndex] = useState<AddressIndexEntry[]>([]);
+
+  const addToHistory = (newAddress: string) => {
+    setSearchHistory(prev => {
+      const now = Date.now();
+      const newItem = { address: newAddress, timestamp: now };
+      const filtered = prev.filter(item => item.address.toLowerCase() !== newAddress.toLowerCase());
+      const updated = [newItem, ...filtered].slice(0, 20); // Keep last 20
+      localStorage.setItem('zyphe_search_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const {
+    propertyData, setPropertyData,
+    loading, setLoading,
+    loadingSublabel, setLoadingSublabel,
+    loadingTimer,
+    imagesLoading,
+    error, setError,
+    customAnalysis, setCustomAnalysis,
+    customAnalysisLoading,
+    comprehensiveAnalysis, setComprehensiveAnalysis,
+    comprehensiveLoading,
+    logs, setLogs,
+    envRefreshing,
+    addLog,
+    performSearch,
+    handleRunCustomAnalysis,
+    handleRunComprehensive,
+    handleRefreshCommunityPulse,
+    handleRefreshEnvironment: handleRefreshEnvironmentBase
+  } = usePropertyAnalysis({
+    currentUser,
+    transitionToView: (view, addr) => transitionToView(view as ViewMode, addr),
+    addToHistory,
+    setAddress,
+    setAddressIndex
+  });
 
   // Dev memory monitor — tracks the heaviest React state for debugging
   const trackedState = useMemo(() => [
@@ -131,8 +144,6 @@ const App: React.FC = () => {
   const [contextGraphZpid, setContextGraphZpid] = useState<string>('');
   const [showPreload, setShowPreload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [addressIndex, setAddressIndex] = useState<AddressIndexEntry[]>([]);
-  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AddressIndexEntry[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -143,6 +154,182 @@ const App: React.FC = () => {
     setCloudHistory([]);
     setError(null);
   });
+
+  const handleHistoryItemClick = (item: string) => {
+    setAddress(item);
+    setShowHistory(false);
+    performSearch(item);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    // Handle Invites
+    if (params.get('mode') === 'invite') {
+      const email = params.get('email') || '';
+      const name = params.get('name') || '';
+      const role = params.get('role') as any || 'buyer';
+      const realtorId = params.get('realtorId') || '';
+      const realtorName = params.get('realtorName') || '';
+
+      setInviteData({ email, name, role, realtorId, realtorName });
+      setAuthModalOpen(true);
+
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // Handle Direct Property Search via Query Param
+    const queryAddr = params.get('q');
+    const queryZpid = params.get('zpid');
+
+    if (queryZpid || queryAddr) {
+      if (queryAddr) setAddress(queryAddr);
+
+      // If we are already on a realtor path, we might want to stay there, 
+      // but usually direct queries should land on the main explore view
+      if (window.location.pathname.startsWith('/realtor')) {
+        setViewMode('explore');
+      } else {
+        setViewMode('main');
+      }
+
+      if (queryZpid) {
+        performSearch(queryZpid, false, queryAddr || undefined);
+      } else {
+        performSearch(queryAddr!);
+      }
+
+      // Clean URL to prevent re-triggering on refresh while keeping state
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [currentUser, performSearch]); // currentUser added since performSearch might need auth context
+
+  useEffect(() => {
+    if (!auth) return;
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        let profile = null;
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        while (attempts < maxAttempts) {
+          try {
+            profile = await getUserProfile(user.uid);
+            if (profile) {
+              // Successfully got profile, clear temporary role storage
+              localStorage.removeItem('zyphe_pending_role');
+              break;
+            }
+          } catch (e: any) {
+            if (e.code === 'permission-denied') {
+              console.warn("Initial permission sync attempt failed, retrying...");
+            }
+          }
+          attempts++;
+          if (attempts < maxAttempts) {
+            console.log(`Retrying profile fetch (attempt ${attempts})...`);
+            await new Promise(resolve => setTimeout(resolve, 800 * attempts));
+          }
+        }
+
+        if (profile) {
+          if (user.email === 'tester@zyphe.ai') {
+            console.log("⚡️ [Auditor Override] Granting auditor privileges to:", user.email);
+            profile.role = 'auditor';
+          }
+          setCurrentUser(profile);
+          // Set tenant context for multi-tenant subcollection paths
+          const tenantId = (['realtor', 'admin', 'auditor'].includes(profile.role)) ? user.uid : (profile.realtorId || user.uid);
+          setTenantContext(tenantId, profile.role || 'buyer');
+          // Always identify the user in PostHog so events are attributed correctly
+          // (even on session restore — not just explicit logins)
+          identifyPH(user.uid, {
+            email: user.email || '',
+            name: profile.displayName || user.displayName || '',
+            role: profile.role || 'buyer'
+          });
+        } else {
+          // Fallback to localStorage role if available, otherwise default to buyer
+          const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
+          console.log(`Profile not found in Firestore. Using role: ${pendingRole}`);
+
+          setCurrentUser({
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || 'Guest User',
+            role: pendingRole,
+            createdAt: new Date()
+          });
+          // Set tenant context for fallback users too
+          setTenantContext(user.uid, pendingRole);
+        }
+
+        // Fetch cloud data regardless of profile existence as long as we have a UID
+        try {
+          const [history, favs, indexEntries] = await Promise.all([
+            getUserViewHistory(user.uid),
+            getUserFavorites(user.uid),
+            loadAddressIndex(['pleasanton', 'dublin']),
+          ]);
+          setCloudHistory(history);
+          console.log("[Auth] Loaded favorites for user:", favs.length);
+          setFavorites(favs);
+          if (indexEntries.length > 0) setAddressIndex(indexEntries);
+        } catch (e) {
+          console.warn("Could not retrieve cloud data:", e);
+        }
+      } else {
+        setCurrentUser(null);
+        setCloudHistory([]);
+        setFavorites([]);
+        // Still load address index for non-authenticated users
+        loadAddressIndex(['pleasanton', 'dublin']).then(entries => {
+          if (entries.length > 0) setAddressIndex(entries);
+        }).catch(() => {});
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.realtorId) {
+      getUserProfile(currentUser.realtorId).then(profile => {
+        if (profile) setRealtorName(profile.displayName);
+      });
+    } else {
+      setRealtorName(null);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
+        setShowHistory(false);
+      }
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+
+    // Load local history
+    try {
+      const stored = localStorage.getItem('zyphe_search_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const now = Date.now();
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        const valid = parsed.filter((item: any) => (now - item.timestamp) < thirtyDays);
+        setSearchHistory(valid);
+      }
+    } catch (e) {
+      console.error("Failed to load search history", e);
+    }
+
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Simple Routing Logic
   // Simple Routing Logic
@@ -253,16 +440,7 @@ const App: React.FC = () => {
 
   const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
 
-  useEffect(() => {
-    let interval: number;
-    if (loading && !propertyData) {
-      setLoadingTimer(0);
-      interval = window.setInterval(() => {
-        setLoadingTimer(t => t + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [loading, propertyData]);
+
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -437,369 +615,7 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const addLog = (service: string, { type }: any, content: any, usage?: any) => {
-    setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), service, type, content, usage }]);
-  };
 
-  const addToHistory = (newAddress: string) => {
-    setSearchHistory(prev => {
-      const now = Date.now();
-      const newItem = { address: newAddress, timestamp: now };
-      const filtered = prev.filter(item => item.address.toLowerCase() !== newAddress.toLowerCase());
-      const updated = [newItem, ...filtered].slice(0, 20); // Keep last 20
-      localStorage.setItem('zyphe_search_history', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const handleHistoryItemClick = (item: string) => {
-    setAddress(item);
-    setShowHistory(false);
-    performSearch(item);
-  };
-
-  const performSearch = async (searchAddress: string, forceRefresh: boolean = false, displayAddressOverride?: string) => {
-    if (!searchAddress.trim()) return;
-
-    const _t0 = performance.now();
-    const _elapsed = () => `${(performance.now() - _t0).toFixed(0)}ms`;
-    console.log(`%c[⏱ PageLoad] START search: "${searchAddress}"`, 'color: #f59e0b; font-weight: bold;');
-
-    setLoading(true);
-    setLoadingSublabel("Initializing session...");
-    setImagesLoading(true);
-    setError(null);
-    setPropertyData(null);
-    setCustomAnalysis(null);
-    setComprehensiveAnalysis(null);
-    setLogs([]);
-    setViewMode('main');
-
-    // logUserActivity(sessionId, searchAddress); // Removed as per user request
-
-    try {
-      let finalAddress = searchAddress;
-      let coords = null;
-      let mapIn = undefined;
-      let mapOut = undefined;
-
-      const isZpid = /^\d+$/.test(searchAddress);
-
-      if (!isZpid) {
-        console.log(`[⏱ PageLoad] +${_elapsed()} — Geocoding start`);
-        setLoadingSublabel("Normalizing address...");
-        addLog('Radar Geocode API', { type: 'request' }, { address: searchAddress });
-        const radarResult = await normalizeAddress(searchAddress);
-        console.log(`[⏱ PageLoad] +${_elapsed()} — Geocoding complete`);
-        addLog('Radar Geocode API', { type: 'response' }, radarResult);
-        finalAddress = radarResult.formattedAddress;
-        coords = radarResult.coordinates;
-        mapIn = radarResult.mapZoomIn;
-        mapOut = radarResult.mapZoomOut;
-        addToHistory(finalAddress);
-        setAddress(finalAddress);
-      } else {
-        setLoadingSublabel(`Direct ZPID Search: ${searchAddress}`);
-      }
-
-      console.log(`[⏱ PageLoad] +${_elapsed()} — fetchPropertyDataFull start`);
-      addLog('Zyphe Data Layer', { type: 'request' }, { target: finalAddress, isZpid });
-
-      const fullData = await fetchPropertyDataFull(
-        finalAddress,
-        isZpid,
-        false, // forceEnvironment
-        (step) => setLoadingSublabel(step)
-      );
-      console.log(`[⏱ PageLoad] +${_elapsed()} — fetchPropertyDataFull complete`);
-
-      // IDENTITY RESOLUTION: Centralize the "truth" for the property's primary identity.
-      // Priority chain:
-      //   1. displayAddressOverride — the original address from CityDataTab/URL (preserves user's city context)
-      //   2. finalAddress — the Radar-normalized clean address (for typed searches)
-      //   3. fullData.address — the property record's own address (from Zillow/RESO)
-      //   4. searchAddress — raw user input (last resort)
-      let resolvedAddress = "";
-      if (displayAddressOverride) {
-        resolvedAddress = displayAddressOverride;
-      } else if (isZpid) {
-        resolvedAddress = fullData.address || `Property ID: ${searchAddress}`;
-      } else {
-        resolvedAddress = finalAddress || fullData.address || searchAddress;
-      }
-
-      const mergedData: PropertyData = {
-        ...fullData,
-        coordinates: coords || fullData.coordinates,
-        mapZoomIn: mapIn || fullData.mapZoomIn,
-        mapZoomOut: mapOut || fullData.mapZoomOut,
-        address: resolvedAddress
-      };
-
-      addLog('Zyphe Data Layer', { type: 'response' }, mergedData);
-
-      const { db_instance } = await import('./services/firebaseService');
-      if (!db_instance) {
-        addLog('System', { type: 'error' }, "Firestore Database not initialized. Cloud caching will be disabled.");
-      }
-      console.log(`[⏱ PageLoad] +${_elapsed()} — Data merged, setting state`);
-      console.log(`[Zyphe API] Property Data Loaded. ZPID: ${mergedData.zpid || 'MISSING'}`);
-      setPropertyData(mergedData);
-      setAddress(mergedData.address); // Sync search bar with the final resolved identity
-      setLoading(false);
-      setImagesLoading(false);
-      console.log(`%c[⏱ PageLoad] +${_elapsed()} — DONE (loading=false, UI can render)`, 'color: #22c55e; font-weight: bold;');
-
-      if (currentUser && mergedData.zpid) {
-        trackUserPropertyView(currentUser.uid, mergedData);
-      }
-
-      // Fire-and-forget: update address index so this property is instantly searchable next time
-      if (mergedData.zpid && mergedData.city && mergedData.address) {
-        updateAddressIndex(mergedData.city, mergedData.address, mergedData.zpid).catch(() => {});
-        // Also update in-memory index
-        setAddressIndex(prev => {
-          if (prev.some(e => e.z === mergedData.zpid)) return prev;
-          return [...prev, { a: mergedData.address, z: mergedData.zpid! }];
-        });
-      }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred during property retrieval.');
-      addLog('System', { type: 'error' }, err);
-      setLoading(false);
-      setImagesLoading(false);
-    }
-  };
-
-  const handleRunCustomAnalysis = async (force = false) => {
-    if (!propertyData) return;
-
-    if (force) {
-      setComprehensiveAnalysis(null);
-      if (propertyData.zpid) {
-        // Clear from cloud to ensure a total reset
-        await deletePropertyAnalysis(propertyData.zpid, 'intelligence');
-        addLog('System', { type: 'info' }, "Forced Refresh: Intelligence cache cleared.");
-      }
-    }
-
-    setCustomAnalysisLoading(true);
-    transitionToView('visual-report' as ViewMode);
-
-    try {
-      const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-      const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-      const cityStateKey = generateCityStateKey(city, state);
-
-      // Pre-fetch city-level data even on force refresh to avoid redundant work
-      // deep_investment_research is city-level — never re-run during property refresh
-      const [pulseCached, genMarket, propInv, deepResearch] = await Promise.all([
-        cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
-        (APP_CONFIG.caching.investment_research && cityStateKey) ? getGeneralMarketIntelligenceFromCloud(cityStateKey) : Promise.resolve(null),
-        APP_CONFIG.caching.investment_research ? getPropertyInvestmentFromCloud(propertyData.zpid) : Promise.resolve(null),
-        cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
-      ]);
-
-      if (!force && propertyData.zpid) {
-        addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'visual_analysis' });
-
-        // Parallel cache check for all components
-        const [cached, qualityCached, graphCached] = await Promise.all([
-          getVisualAnalysisFromCloud(propertyData.zpid),
-          APP_CONFIG.caching.image_quality ? getImageQualityAnalysisFromCloud(propertyData.zpid) : Promise.resolve(null),
-          getContextGraphFromCloud(propertyData.zpid)
-        ]);
-
-        if (cached) {
-          if (qualityCached) cached.image_quality_analysis = qualityCached;
-          if (pulseCached) cached.community_pulse = pulseCached;
-          if (propInv) cached.property_investment = propInv;
-          if (genMarket) cached.general_market_intelligence = genMarket;
-          if (graphCached) cached.context_graph = graphCached;
-          // Always preserve city-level deep research — never re-run at property level
-          if (deepResearch?.content) cached.deep_investment_research = deepResearch;
-          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
-          setCustomAnalysis(cached);
-          setCustomAnalysisLoading(false);
-          return;
-        }
-        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
-      }
-
-      // Seed result with city-level data so it's present from the first render
-      const cityDataSeed: any = {};
-      if (pulseCached) cityDataSeed.community_pulse = pulseCached;
-      if (propInv) cityDataSeed.property_investment = propInv;
-      if (genMarket) cityDataSeed.general_market_intelligence = genMarket;
-      // deep_investment_research is city-level — always preserve, never re-run here
-      if (deepResearch?.content) cityDataSeed.deep_investment_research = deepResearch;
-
-
-      // MANDATORY ASSET SECURING ON REFRESH
-      // MANDATORY ASSET SECURING ON REFRESH
-      let currentImages = propertyData.images || [];
-      let propToAnalyze = propertyData;
-
-      if (force && propertyData.zpid) {
-        addLog('Zyphe Asset Engine', { type: 'request' }, { task: 'secure_assets', zpid: propertyData.zpid });
-        try {
-          const { securePropertyAssets } = await import('./services/assetService');
-          const assets = await securePropertyAssets(
-            propertyData.zpid,
-            currentImages,
-            { zoomIn: propertyData.mapZoomIn, zoomOut: propertyData.mapZoomOut }
-          );
-          currentImages = assets.images;
-
-          // Update local state and cloud record with persistent URLs
-          propToAnalyze = { ...propertyData, images: currentImages };
-          setPropertyData(propToAnalyze);
-          await savePropertyToCloud(propertyData.zpid, propToAnalyze);
-
-          addLog('Zyphe Asset Engine', { type: 'response' }, { status: 'Secured', count: currentImages.length });
-        } catch (e) {
-          console.warn("[App] Asset securing failed, proceeding with remote URLs", e);
-        }
-      }
-
-      addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis', forced: force, images_count: currentImages.length });
-      const res = await analyzePropertyImages(currentImages, propToAnalyze);
-      const result = { ...cityDataSeed, ...res.data };
-
-      if (propToAnalyze.mapZoomIn && propToAnalyze.mapZoomOut) {
-        try {
-          const neighborRes = await analyzeNeighborhood(propToAnalyze.mapZoomIn, propToAnalyze.mapZoomOut, propToAnalyze);
-          result.neighborhood = neighborRes.data;
-          addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
-        } catch (neighborErr) {
-          console.warn("Neighborhood analysis failed:", neighborErr);
-          addLog('System', { type: 'error' }, { message: "Neighborhood analysis skipped", error: neighborErr });
-        }
-      }
-
-      if (!result.community_pulse) {
-        try {
-          const pulseRes = await analyzeCommunityPulse(propToAnalyze);
-          result.community_pulse = pulseRes.data;
-          addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
-
-          // Save independently to city-level cache
-          const city = propToAnalyze?.city || (propToAnalyze?.address && propToAnalyze.address.split(',')[1]?.trim());
-          const state = propToAnalyze?.state || (propToAnalyze?.address && propToAnalyze.address.split(',')[2]?.split(' ')[1]?.trim());
-          const cityStateKey = generateCityStateKey(city, state);
-          if (cityStateKey) {
-            await saveCommunityPulseToCloud(cityStateKey, pulseRes.data);
-          }
-        } catch (pulseErr) {
-          console.warn("Community pulse analysis failed:", pulseErr);
-          addLog('System', { type: 'error' }, { message: "Community Pulse skipped", error: pulseErr });
-        }
-      }
-
-      setCustomAnalysis(result);
-      addLog('Gemini AI', { type: 'response' }, result, res.usage);
-      if (propToAnalyze.zpid) {
-        const saveResult = await saveVisualAnalysisToCloud(propToAnalyze.zpid, result);
-        if (!saveResult.success) {
-          addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: saveResult.error });
-        }
-      }
-
-      // Automatically trigger comprehensive refresh if this was a forced refresh
-      if (force) {
-        addLog('System', { type: 'info' }, "Visual refresh complete. Triggering narrative synthesis...");
-        // Pass local result directly since setCustomAnalysis is async and may not have propagated yet
-        handleRunComprehensive(true, result);
-      }
-      return result;
-    } catch (err: any) {
-      const logContent = err instanceof AiResponseError
-        ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
-        : err;
-      addLog('Gemini AI', { type: 'error' }, logContent);
-      setError("AI analysis failed. Check logs for details.");
-      return null;
-    } finally {
-      setCustomAnalysisLoading(false);
-    }
-  };
-
-  const handleRunComprehensive = async (force = false, providedVisual?: CustomAIAnalysisResult) => {
-    const visualContext = providedVisual || customAnalysis;
-    if (!propertyData || !visualContext) return;
-
-    if (!force && comprehensiveAnalysis) {
-      transitionToView('comprehensive-report' as ViewMode);
-      return;
-    }
-
-    setComprehensiveLoading(true);
-    transitionToView('comprehensive-report' as ViewMode);
-
-    try {
-      if (!force && propertyData.zpid) {
-        addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'comprehensive_analysis' });
-        const cached = await getComprehensiveAnalysisFromCloud(propertyData.zpid);
-        if (cached) {
-          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
-          setComprehensiveAnalysis(cached);
-          setComprehensiveLoading(false);
-          return;
-        }
-        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
-      }
-
-      addLog('Gemini AI', { type: 'request' }, { task: 'comprehensive_analysis', forced: force });
-      const res = await analyzeComprehensive(propertyData, visualContext);
-      const result = res.data;
-      setComprehensiveAnalysis(result);
-      addLog('Gemini AI', { type: 'response' }, result, res.usage);
-      if (propertyData.zpid) await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
-    } catch (err: any) {
-      const logContent = err instanceof AiResponseError
-        ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
-        : err;
-      addLog('Gemini AI', { type: 'error' }, logContent);
-      setError("Comprehensive report failed. Check logs for details.");
-    } finally {
-      setComprehensiveLoading(false);
-    }
-  };
-
-  const handleRefreshCommunityPulse = async () => {
-    if (!propertyData) return;
-    try {
-      addLog('Gemini AI', { type: 'request' }, { task: 'community_pulse_refresh' });
-      const pulseRes = await analyzeCommunityPulse(propertyData);
-
-      const updatedCustom = {
-        ...(customAnalysis || {}),
-        community_pulse: pulseRes.data
-      } as CustomAIAnalysisResult;
-
-      setCustomAnalysis(updatedCustom);
-
-      // Update comprehensive analysis by re-running it to refresh the narrative
-      const compRes = await analyzeComprehensive(propertyData, updatedCustom);
-      setComprehensiveAnalysis(compRes.data);
-
-      if (propertyData.zpid) {
-        await saveVisualAnalysisToCloud(propertyData.zpid, updatedCustom);
-        await saveComprehensiveAnalysisToCloud(propertyData.zpid, compRes.data);
-
-        // Save to city-level cache too
-        const city = propertyData?.city || propertyData?.address?.split(',')[1]?.trim();
-        const state = propertyData?.state || propertyData?.address?.split(',')[2]?.split(' ')[1]?.trim();
-        const cityStateKey = generateCityStateKey(city, state);
-        if (cityStateKey) {
-          await saveCommunityPulseToCloud(cityStateKey, pulseRes.data);
-        }
-      }
-      addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
-    } catch (err: any) {
-      addLog('Gemini AI', { type: 'error' }, err.message || err);
-    }
-  };
 
   const handleSignOut = async () => {
     if (auth) {
@@ -845,75 +661,8 @@ const App: React.FC = () => {
   };
 
   const handleRefreshEnvironment = async () => {
-    if (!propertyData?.coordinates || loading) return;
-    setEnvRefreshing(true);
-    setLoadingSublabel('Refreshing environment data...');
-    try {
-      const lat = propertyData.coordinates.latitude;
-      const lng = propertyData.coordinates.longitude;
-      const zpid = propertyData.zpid ? String(propertyData.zpid) : undefined;
-      const addr = propertyData.address || undefined;
-
-      // Dynamically import only the environment fetchers
-      const { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore } = await import('./services/api/environmental');
-      const { fetchHistoricalDisasters } = await import('./services/api/disasters');
-      const { fetchBroadbandData } = await import('./services/api/broadband');
-      const { fetchDroughtData } = await import('./services/api/drought');
-      const { analyzePollen } = await import('./services/geminiService');
-      const { auth: fbAuth } = await import('./services/firebase/config');
-
-      setLoadingSublabel('Fetching environment data...');
-
-      const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought] = await Promise.all([
-        fetchSolarData(lat, lng, zpid, addr),
-        fetchAirQuality(lat, lng, zpid, addr),
-        fetchPollenData(lat, lng, zpid, addr),
-        fetchNoiseScore(lat, lng, zpid, addr),
-        fetchHistoricalDisasters(lat, lng, propertyData.state, propertyData.city, zpid, addr),
-        fetchBroadbandData(lat, lng, zpid, addr),
-        fetchDroughtData(lat, lng, zpid, addr),
-      ]);
-
-      // Merge fresh environment data onto existing property data (keep everything else)
-      const updated = { ...propertyData };
-
-      if (freshSolar) updated.solarData = freshSolar;
-      if (freshAirQual) updated.airQuality = freshAirQual;
-      if (freshNoise) {
-        updated.noiseScore = freshNoise.score;
-        updated.noiseScoreDesc = freshNoise.description ?? undefined;
-        updated.noiseTrafficScore = freshNoise.trafficScore;
-        updated.noiseTrafficDesc = freshNoise.trafficDesc ?? undefined;
-        updated.noiseLocalScore = freshNoise.localScore;
-        updated.noiseLocalDesc = freshNoise.localDesc ?? undefined;
-        updated.noiseAirportScore = freshNoise.airportScore;
-        updated.noiseAirportDesc = freshNoise.airportDesc ?? undefined;
-      }
-      if (freshDisasters) updated.historical_disasters = freshDisasters;
-      if (freshBroadband) updated.broadband = freshBroadband;
-      if (freshDrought) updated.drought = freshDrought;
-
-      // Pollen: run Gemini analysis if raw data is available
-      if (freshPollenRaw) {
-        try {
-          const userId = fbAuth?.currentUser?.uid || 'unknown';
-          const pollenAnalysis = await analyzePollen(freshPollenRaw, updated, userId);
-          updated.pollen = { ...freshPollenRaw, analysis: pollenAnalysis.data };
-        } catch (e) {
-          console.warn('Pollen analysis failed, using raw data only:', e);
-          updated.pollen = freshPollenRaw;
-        }
-      }
-
-      setPropertyData(updated);
-      addLog('Zyphe Data Layer', { type: 'env-refresh' }, { target: addr, result: 'success' });
-    } catch (err: any) {
-      console.error('Environment refresh failed:', err);
-      addLog('Zyphe Data Layer', { type: 'env-refresh' }, { target: address, result: 'failed', error: err.message });
-    } finally {
-      setEnvRefreshing(false);
-      setLoadingSublabel('');
-    }
+    if (!propertyData) return;
+    return handleRefreshEnvironmentBase(setLoadingSublabel);
   };
 
   const handleToggleFavorite = async () => {

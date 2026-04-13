@@ -7,7 +7,7 @@ import {
 } from "./config";
 import { requireTenantId } from "./tenantContext";
 import { TransactionParty } from "../../types";
-import { generateMockTransactionParties } from "../mockData";
+import { generateMockTransactionParties } from "../../tests/mocks/mockData";
 
 export const getTransactionParties = async (transactionId: string, realtorId?: string) => {
     if (!db || !transactionId) return [];

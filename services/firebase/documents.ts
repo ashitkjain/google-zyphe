@@ -8,8 +8,8 @@ import {
 } from "./config";
 import { requireTenantId } from "./tenantContext";
 import { Document, DocumentVersion, FileMetadata } from "../../types";
-import { generateMockTransactionDocuments } from "../mockData";
-import { generateMockTransactionDocuments } from "../mockData";
+import { generateMockTransactionDocuments } from "../../tests/mocks/mockData";
+import { generateMockTransactionDocuments } from "../../tests/mocks/mockData";
 
 // Helper to get a secure download URL
 export const getDocumentDownloadUrl = async (storagePath: string): Promise<string | null> => {

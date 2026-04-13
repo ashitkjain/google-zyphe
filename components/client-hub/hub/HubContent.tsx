@@ -23,10 +23,9 @@ import StorageScannerTab from '../StorageScannerTab';
 import IndustryResearchTab from '../IndustryResearchTab';
 import ProductMarketFitTab from '../ProductMarketFitTab';
 import PostCloseIntelligenceTab from '../PostCloseIntelligenceTab';
-import TechnicalPapersTab from '../TechnicalPapersTab';
+import TechnicalHubTab from '../TechnicalHubTab';
 import CaseStudiesTab from '../CaseStudiesTab';
 import VideoUploadTab from '../VideoUploadTab';
-import TechnicalMediaTab from '../TechnicalMediaTab';
 import ExecutiveSummaryTab from '../ExecutiveSummaryTab';
 import UnitEconomicsTab from '../UnitEconomicsTab';
 import PremiumMLSTab from '../PremiumMLSTab';
@@ -227,19 +226,17 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {activeTab === 'premium_mls' && <PremiumMLSTab />}
 
-            {(activeTab === 'technical_papers' || activeTab === 'technical_papers_recommender' || activeTab === 'technical_papers_context_graph') && (
-                <TechnicalPapersTab
+            {(activeTab === 'technical_papers' || activeTab === 'technical_papers_recommender' || activeTab === 'technical_papers_context_graph' || activeTab === 'technical_media') && (
+                <TechnicalHubTab
                     setActiveTab={setActiveTab}
                     onNavigate={onNavigate}
-                    initialPaper={
+                    initialTab={
                         activeTab === 'technical_papers_context_graph'
                             ? 'context_graph'
-                            : 'recommender_system'
+                            : (activeTab === 'technical_media' ? 'media' : 'recommender_system')
                     }
                 />
             )}
-
-            {activeTab === 'technical_media' && <TechnicalMediaTab />}
 
             {activeTab === 'video_upload' && <VideoUploadTab />}
 

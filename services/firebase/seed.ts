@@ -9,7 +9,7 @@ import {
 import { requireTenantId } from "./tenantContext";
 import { Lead, CRMTask, CommTemplate, Transaction } from "../../types";
 import { getInitialCategories } from "../transactionService";
-import { generateMockTransactionParties, generateMockTransactionDocuments } from "../mockData";
+import { generateMockTransactionParties, generateMockTransactionDocuments } from "../../tests/mocks/mockData";
 import { seedPartiesForTransaction } from "./parties";
 import { seedDocumentsForTransaction, addTransactionDocument } from "./documents";
 import { seedTasksForTransaction } from "./transactions";
