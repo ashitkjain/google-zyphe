@@ -426,244 +426,207 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                             <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-tight">
                                 {propertyData.city || 'City'} Overview
                             </h3>
-                            <p className="text-[10px] text-slate-400 mt-0 font-medium tracking-tight">Market dynamics, neighborhood sentiment, and investment metrics</p>
+                            <p className="text-[10px] text-slate-400 mt-0 font-medium tracking-tight">Market dynamics, neighborhood sentiment, and community insights</p>
                         </div>
                     </div>
-                    {/* Top row: Community Pulse · Market Insights · Long Term Rental */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+
+                    {/* Top row: Community Pulse · Market Dynamics · Market Pulse */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Community Pulse */}
                         {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && (
-                            <>
-                                <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                        <div className="p-3">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                                                        <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[11px]"></i>
-                                                    </div>
-                                                    <span className="text-[15px] font-black text-slate-900 tracking-tight">Community Pulse</span>
+                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm h-full">
+                                    <div className="p-4">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                                                    <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[12px]"></i>
                                                 </div>
-                                                {userRole === 'admin' && onRefreshCommunityPulse && (
-                                                    <button
-                                                        onClick={async () => {
-                                                            setIsRefreshingPulse(true);
-                                                            await onRefreshCommunityPulse();
-                                                            setIsRefreshingPulse(false);
-                                                        }}
-                                                        disabled={isRefreshingPulse}
-                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
-                                                        title="Refresh Community Pulse"
-                                                    >
-                                                        <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
-                                                    </button>
-                                                )}
+                                                <span className="text-[17px] font-black text-slate-900 tracking-tight">Community Pulse</span>
                                             </div>
-                                            {/* Structured green/red points from raw community_pulse */}
-                                            {(() => {
-                                                const cp = customAnalysis?.community_pulse as any;
-                                                if (!cp) {
-                                                    if (lifestyleLoading) {
-                                                        return (
-                                                            <div className="space-y-3">
-                                                                <div className="h-4 w-full bg-slate-50 rounded animate-pulse" />
-                                                                <div className="h-4 w-5/6 bg-slate-50 rounded animate-pulse" />
-                                                            </div>
-                                                        );
-                                                    }
-                                                    // Fallback: show comprehensive analysis paragraph
-                                                    return analysis?.detailed_analysis?.community_pulse ? (
-                                                        <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                            {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                                j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                            ))}
-                                                        </p>
-                                                    ) : null;
-                                                }
-                                                const positives = cp.what_residents_like?.points || [];
-                                                const negatives = [
-                                                    ...(cp.common_complaints?.points || []),
-                                                    ...(cp.safety_and_concerns?.points || []).filter((p: string) => {
-                                                        const lower = p.toLowerCase();
-                                                        return lower.includes('concern') || lower.includes('crime') || lower.includes('complaint') || lower.includes('issue') || lower.includes('risk') || lower.includes('noise') || lower.includes('traffic');
-                                                    }),
-                                                ];
-                                                const PULSE_LIMIT = 3;
-                                                const showPos = pulseExpanded ? positives : positives.slice(0, PULSE_LIMIT);
-                                                const showNeg = pulseExpanded ? negatives : negatives.slice(0, PULSE_LIMIT);
-                                                const hasMore = positives.length > PULSE_LIMIT || negatives.length > PULSE_LIMIT;
-                                                return (
-                                                    <div>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                            {positives.length > 0 && (
-                                                                <div className="space-y-1.5">
-                                                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">What Residents Love</div>
-                                                                    {showPos.map((item: string, i: number) => (
-                                                                        <div key={i} className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-[12px] text-emerald-800 flex items-start gap-2">
-                                                                            <i className="fa-solid fa-circle-check text-emerald-400 text-[10px] mt-0.5 flex-shrink-0"></i>
-                                                                            {item}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            {negatives.length > 0 && (
-                                                                <div className="space-y-1.5">
-                                                                    <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Common Complaints</div>
-                                                                    {showNeg.map((item: string, i: number) => (
-                                                                        <div key={i} className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-[12px] text-red-800 flex items-start gap-2">
-                                                                            <i className="fa-solid fa-circle-exclamation text-red-400 text-[10px] mt-0.5 flex-shrink-0"></i>
-                                                                            {item}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                            {userRole === 'admin' && onRefreshCommunityPulse && (
+                                                <button
+                                                    onClick={async () => {
+                                                        setIsRefreshingPulse(true);
+                                                        await onRefreshCommunityPulse();
+                                                        setIsRefreshingPulse(false);
+                                                    }}
+                                                    disabled={isRefreshingPulse}
+                                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
+                                                    title="Refresh Community Pulse"
+                                                >
+                                                    <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Content logic */}
+                                        {(() => {
+                                            const cp = customAnalysis?.community_pulse as any;
+                                            if (!cp) {
+                                                if (lifestyleLoading) {
+                                                    return (
+                                                        <div className="space-y-3">
+                                                            <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+                                                            <div className="h-4 w-5/6 bg-slate-100 rounded animate-pulse" />
                                                         </div>
-                                                        {hasMore && (
-                                                            <button
-                                                                onClick={() => setPulseExpanded(!pulseExpanded)}
-                                                                className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
-                                                            >
-                                                                <i className={`fa-solid ${pulseExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[8px]`}></i>
-                                                                {pulseExpanded ? 'Show less' : 'Show more'}
-                                                            </button>
+                                                    );
+                                                }
+                                                return analysis?.detailed_analysis?.community_pulse ? (
+                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                                        {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
+                                                        ))}
+                                                    </p>
+                                                ) : null;
+                                            }
+
+                                            const positives = cp.what_residents_like?.points || [];
+                                            const negatives = [
+                                                ...(cp.common_complaints?.points || []),
+                                                ...(cp.safety_and_concerns?.points || [])
+                                            ];
+                                            const PULSE_LIMIT = 2;
+                                            const showPos = pulseExpanded ? positives : positives.slice(0, PULSE_LIMIT);
+                                            const showNeg = pulseExpanded ? negatives : negatives.slice(0, PULSE_LIMIT);
+                                            const hasMore = positives.length > PULSE_LIMIT || negatives.length > PULSE_LIMIT;
+
+                                            return (
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="flex flex-col gap-4">
+                                                        {positives.length > 0 && (
+                                                            <div className="space-y-2">
+                                                                <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                                                    <i className="fa-solid fa-heart text-[9px]" /> Resident Loves
+                                                                </div>
+                                                                {showPos.map((item: string, i: number) => (
+                                                                    <div key={i} className="bg-emerald-50/50 border border-emerald-100/50 rounded-lg px-3 py-2 text-[12px] text-emerald-800 font-medium leading-snug flex items-start gap-2">
+                                                                        <i className="fa-solid fa-check text-emerald-400 text-[10px] mt-1 flex-shrink-0" />
+                                                                        {item}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {negatives.length > 0 && (
+                                                            <div className="space-y-2">
+                                                                <div className="text-[11px] font-black text-rose-500 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                                                    <i className="fa-solid fa-circle-exclamation text-[9px]" /> Local Concerns
+                                                                </div>
+                                                                {showNeg.map((item: string, i: number) => (
+                                                                    <div key={i} className="bg-rose-50/50 border border-rose-100/50 rounded-lg px-3 py-2 text-[12px] text-rose-800 font-medium leading-snug flex items-start gap-2">
+                                                                        <i className="fa-solid fa-triangle-exclamation text-rose-300 text-[10px] mt-1 flex-shrink-0" />
+                                                                        {item}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         )}
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
+                                                    {hasMore && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setPulseExpanded(!pulseExpanded);
+                                                            }}
+                                                            className="mt-1 text-[11px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-2 transition-colors border-t border-slate-100 pt-3 w-full justify-center uppercase tracking-widest"
+                                                        >
+                                                            <span>{pulseExpanded ? 'Condense' : 'Show All Insights'}</span>
+                                                            <i className={`fa-solid ${pulseExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[8px]`} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
-                            </>
+                            </div>
                         )}
 
                         {/* Market Insights */}
                         {(keyInsights || lifestyleLoading) && (
-                            <>
-                                <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                        <div className="p-3">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-600 transition-colors">
-                                                    <i className="fa-solid fa-microscope text-violet-600 group-hover:text-white text-[11px]"></i>
-                                                </div>
-                                                <span className="text-[15px] font-black text-slate-900 tracking-tight">Market Insights</span>
+                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm h-full">
+                                    <div className="p-4">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
+                                                <i className="fa-solid fa-chart-line text-indigo-600 group-hover:text-white text-[12px]"></i>
                                             </div>
+                                            <span className="text-[17px] font-black text-slate-900 tracking-tight">Market Dynamics</span>
+                                        </div>
+                                        {(!keyInsights && lifestyleLoading) ? (
+                                            <div className="h-4 w-3/4 bg-slate-100 rounded animate-pulse mb-3" />
+                                        ) : keyInsights?.executive_summary && keyInsights.executive_summary !== 'N/A' && (
+                                            <p className="text-[12px] text-slate-600 leading-relaxed mb-4 font-medium italic">&ldquo;{keyInsights.executive_summary.length > 120 ? keyInsights.executive_summary.substring(0, 117) + '...' : keyInsights.executive_summary}&rdquo;</p>
+                                        )}
+                                        <div className="grid grid-cols-2 gap-2.5">
                                             {(!keyInsights && lifestyleLoading) ? (
-                                                <div className="h-4 w-3/4 bg-slate-50 rounded animate-pulse mb-3" />
-                                            ) : keyInsights?.executive_summary && keyInsights.executive_summary !== 'N/A' && (
-                                                <p className="text-[13px] text-slate-600 leading-relaxed mb-3 italic">{keyInsights.executive_summary}</p>
-                                            )}
-                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                                                {(!keyInsights && lifestyleLoading) ? (
-                                                    Array.from({ length: 4 }).map((_, i) => (
-                                                        <div key={i} className="h-12 w-full bg-slate-50 rounded-lg animate-pulse border border-slate-100" />
-                                                    ))
-                                                ) : (
-                                                    [
-                                                        { label: 'Median', value: keyInsights?.median_price_range },
-                                                        { label: 'PPSF', value: keyInsights?.ppsf_benchmark },
-                                                        { label: 'Supply', value: keyInsights?.months_of_supply },
-                                                        { label: 'DOM', value: keyInsights?.dom_range },
-                                                    ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
-                                                        <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                            <div className="min-w-0">
-                                                                <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">{m.label}</div>
-                                                                <div className="text-[13px] font-normal text-slate-800 leading-snug">{m.value}</div>
-                                                            </div>
+                                                Array.from({ length: 4 }).map((_, i) => (
+                                                    <div key={i} className="h-14 w-full bg-slate-100 rounded-xl animate-pulse border border-slate-100" />
+                                                ))
+                                            ) : (
+                                                [
+                                                    { label: 'Median Price', value: keyInsights?.median_price_range, icon: 'fa-tag' },
+                                                    { label: '$/sqft', value: keyInsights?.ppsf_benchmark, icon: 'fa-ruler' },
+                                                    { label: 'Inventory', value: keyInsights?.months_of_supply, icon: 'fa-warehouse' },
+                                                    { label: 'Avg DOM', value: keyInsights?.dom_range, icon: 'fa-calendar' },
+                                                ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
+                                                    <div key={i} className="flex flex-col p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                                        <div className="flex items-center gap-1.5 mb-1">
+                                                            <i className={`fa-solid ${m.icon} text-[10px] text-indigo-300`} />
+                                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">{m.label}</span>
                                                         </div>
-                                                    ))
-                                                )}
-                                            </div>
-                                            {keyInsights?.risk_tags && keyInsights.risk_tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5 mt-3">
-                                                    {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
-                                                        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold text-rose-600">
-                                                            <i className="fa-solid fa-triangle-exclamation text-[9px] opacity-50"></i>
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                                        <div className="text-[13px] font-black text-slate-800 leading-tight truncate">{m.value}</div>
+                                                    </div>
+                                                ))
                                             )}
                                         </div>
+                                        {keyInsights?.risk_tags && keyInsights.risk_tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mt-4">
+                                                {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
+                                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[10px] font-bold text-rose-600">
+                                                        <div className="w-1 h-1 rounded-full bg-rose-400" />
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                            </>
+                            </div>
                         )}
 
-                        {/* Long Term Rental + Affordability + Census — all in the 3rd column */}
-                        {(ltrAnalysis || lifestyleLoading || propertyData || (propertyData?.census_demographics || census)) && (
-                            <div className="flex flex-col gap-2">
-                                {/* LTR card */}
-                                {(ltrAnalysis || lifestyleLoading) && (
-                                    <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
-                                            <div className="p-3">
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
-                                                        <i className="fa-solid fa-house-circle-check text-emerald-600 group-hover:text-white text-[11px]"></i>
-                                                    </div>
-                                                    <span className="text-[15px] font-black text-slate-900 tracking-tight">Long Term Rental</span>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {(!ltrAnalysis && lifestyleLoading) ? (
-                                                        Array.from({ length: 2 }).map((_, i) => (
-                                                            <div key={i} className="h-12 w-full bg-slate-50 rounded-lg animate-pulse border border-slate-100" />
-                                                        ))
-                                                    ) : (
-                                                        <>
-                                                            {ltrAnalysis?.monthly_rent && (
-                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                    <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-400"></i>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Monthly Rent</div>
-                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.monthly_rent}</div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                            {ltrAnalysis?.vacancy_rate && (
-                                                                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                                                                    <i className="fa-solid fa-chart-pie text-[10px] text-slate-300"></i>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Vacancy Rate</div>
-                                                                        <div className="text-[13px] font-normal text-slate-800 leading-snug">{ltrAnalysis.vacancy_rate}</div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
+                        {/* Market Pulse (Affordability + Census) */}
+                        <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm h-full">
+                                <div className="p-4 flex flex-col gap-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
+                                            <i className="fa-solid fa-gauge-high text-emerald-600 group-hover:text-white text-[12px]"></i>
                                         </div>
+                                        <span className="text-[17px] font-black text-slate-900 tracking-tight">Market Pulse</span>
                                     </div>
-                                )}
-
-                                {/* Affordability + Census — side by side below LTR */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    {propertyData && (
-                                        <AffordabilityCard
-                                            state={propertyData.state}
-                                            city={propertyData.city}
-                                            county={propertyData.county}
-                                            countyFips={
-                                                (propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips)
-                                                    ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
-                                                    : (census?.stateFips && census?.countyFips)
-                                                        ? `${census.stateFips}${census.countyFips}`
-                                                        : undefined
-                                            }
-                                            userId={(propertyData as any)._userId}
-                                            compact
-                                        />
-                                    )}
-                                    {(propertyData?.census_demographics || census) && (
-                                        <CensusDemographicsCard
-                                            data={(propertyData.census_demographics || census) as unknown as CensusDemographics}
-                                            compact
+                                    <AffordabilityCard 
+                                        state={propertyData.state}
+                                        city={propertyData.city}
+                                        county={propertyData.county}
+                                        countyFips={
+                                            (propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips)
+                                                ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
+                                                : (census?.stateFips && census?.countyFips)
+                                                    ? `${census.stateFips}${census.countyFips}`
+                                                    : undefined
+                                        }
+                                        userId={userRole}
+                                        compact
+                                    />
+                                    {census && (
+                                        <CensusDemographicsCard 
+                                            data={census as any} 
+                                            compact 
                                         />
                                     )}
                                 </div>
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
             )}

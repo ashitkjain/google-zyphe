@@ -14,6 +14,9 @@ import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
 import PropertyImages from './PropertyImages';
 import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
 import { NeighborhoodAnalysis } from '../../types/ai';
+import { AffordabilityCard } from '../analysis/custom-ai/components/AffordabilityCard';
+import { CensusDemographicsCard } from '../analysis/custom-ai/components/CensusDemographicsCard';
+import { CensusDemographics } from '../../services/api/environmental';
 
 interface Props {
     propertyData: PropertyData;
@@ -21,11 +24,12 @@ interface Props {
     customAnalysis?: CustomAIAnalysisResult | null;
     micro?: { insight: string; fetchedAt: number } | null;
     schoolsIntelligence?: any;
-    census?: any;
+    census?: CensusDemographics | null;
     cityNhEntryOverview?: any;
     visualPoi?: NeighborhoodAnalysis['visual_poi'];
     mapLabels?: string[];
     neighborhoodOverview: string | null;
+    ltrAnalysis?: { monthly_rent?: string; vacancy_rate?: string; comparison_summary?: string } | null;
     onRunAnalysis?: () => void;
 }
 
@@ -54,26 +58,27 @@ const SectionCard: React.FC<{
     badge?: React.ReactNode;
     children: React.ReactNode;
     className?: string;
-}> = ({ id, title, icon, iconBg = 'bg-slate-50', iconColor = 'text-slate-400', subtitle, badge, children, className = '' }) => (
+    noPadding?: boolean;
+}> = ({ id, title, icon, iconBg = 'bg-slate-50/50', iconColor = 'text-slate-400', subtitle, badge, children, className = '', noPadding = false }) => (
     <div
         id={id}
-        className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 ${className}`}
+        className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 transition-all hover:shadow-md/5 ${className}`}
     >
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
+        <div className="px-5 py-4 border-b border-slate-100/80 flex items-center justify-between">
+            <div className="flex items-center gap-3">
                 {icon && (
-                    <div className={`w-7 h-7 rounded-lg ${iconBg} flex items-center justify-center`}>
-                        <i className={`fa-solid ${icon} ${iconColor} text-[12px]`} />
+                    <div className={`w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center border border-slate-100/50`}>
+                        <i className={`fa-solid ${icon} ${iconColor} text-[13px]`} />
                     </div>
                 )}
                 <div>
-                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">{title}</h3>
-                    {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-tight">{title}</h3>
+                    {subtitle && <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{subtitle}</p>}
                 </div>
             </div>
             {badge}
         </div>
-        <div className="p-4">{children}</div>
+        <div className={noPadding ? '' : 'p-5'}>{children}</div>
     </div>
 );
 
@@ -81,13 +86,13 @@ const MetricTile: React.FC<{
     icon: string; iconBg: string; iconColor: string;
     label: string; value: string; sublabel?: string; valueColor?: string;
 }> = ({ icon, iconBg, iconColor, label, value, sublabel, valueColor = 'text-slate-900' }) => (
-    <div className="flex flex-col items-center p-3 bg-slate-50 rounded-xl border border-slate-100 text-center">
-        <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center mb-2`}>
-            <i className={`fa-solid ${icon} ${iconColor} text-[13px]`} />
+    <div className="flex flex-col items-center p-4 bg-slate-50/50 rounded-2xl border border-slate-100/80 text-center transition-all hover:bg-slate-50">
+        <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center mb-2.5 shadow-sm border border-slate-100/50`}>
+            <i className={`fa-solid ${icon} ${iconColor} text-[14px]`} />
         </div>
-        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</div>
-        <div className={`text-[17px] font-black tracking-tight leading-none ${valueColor}`}>{value}</div>
-        {sublabel && <div className="text-[9px] text-slate-400 font-medium mt-0.5">{sublabel}</div>}
+        <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] leading-none mb-1.5">{label}</div>
+        <div className={`text-[18px] font-black tracking-tight leading-none ${valueColor}`}>{value}</div>
+        {sublabel && <div className="text-[11px] text-slate-500 font-bold mt-1.5 opacity-80">{sublabel}</div>}
     </div>
 );
 
@@ -111,21 +116,24 @@ const parseList = (val: any): string[] => {
     return [String(val)];
 };
 const MLSRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="flex gap-2 py-0.5 border-b border-slate-50 last:border-0">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wide w-24 flex-shrink-0 pt-1">{label}</span>
-        <span className="text-[13px] text-slate-700 font-medium leading-relaxed">{value}</span>
+    <div className="flex gap-3 py-1.5 border-b border-slate-50/50 last:border-0 group">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] w-24 flex-shrink-0 pt-0.5 transition-colors group-hover:text-slate-500">{label}</span>
+        <span className="text-[13px] text-slate-700 font-semibold leading-relaxed line-clamp-2 transition-colors group-hover:text-slate-900">{value}</span>
     </div>
 );
+
 const MLSGroup: React.FC<{ icon: string; title: string; rows: { label: string; value: string | null }[] }> = ({ icon, title, rows }) => {
     const valid = rows.filter(r => r.value);
     if (!valid.length) return null;
     return (
-        <div className="bg-slate-50/50 rounded-xl border border-slate-100 p-3">
-            <div className="flex items-center gap-1.5 mb-1.5">
-                <i className={`fa-solid ${icon} text-[9px] text-indigo-400`} />
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{title}</span>
+        <div className="bg-slate-50/30 rounded-2xl border border-slate-100/60 p-4 transition-all hover:bg-slate-50/50">
+            <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-5 h-5 rounded-md bg-white border border-slate-100 flex items-center justify-center shadow-sm">
+                    <i className={`fa-solid ${icon} text-[9px] text-indigo-500`} />
+                </div>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">{title}</span>
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-0">
                 {valid.map(r => <MLSRow key={r.label} label={r.label} value={r.value!} />)}
             </div>
         </div>
@@ -144,6 +152,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
     visualPoi,
     mapLabels,
     neighborhoodOverview,
+    ltrAnalysis,
     onRunAnalysis,
 }) => {
     const price = data.listPrice ?? data.price;
@@ -213,50 +222,50 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                     {/* Property title */}
                     <div id="ov-property" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden scroll-mt-24">
-                        <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                <i className="fa-solid fa-table-cells-large text-indigo-500 text-[12px]" />
+                        <div className="px-5 py-4 border-b border-slate-100/80 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center border border-slate-100/50">
+                                <i className="fa-solid fa-table-cells-large text-indigo-500 text-[13px]" />
                             </div>
-                            <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-tight">
+                            <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-none">
                                 MLS Property Data
                             </h3>
                         </div>
-                        <div className="px-5 py-4">
+                        <div className="px-5 py-5">
                             <h1 className="text-[22px] font-black text-slate-900 tracking-tight leading-tight">
                                 {data.address?.split(',')[0] || 'Property Overview'}
                             </h1>
-                            <p className="text-[13px] text-slate-500 mt-0.5 font-medium">
+                            <p className="text-[12px] text-slate-500 mt-1 font-semibold uppercase tracking-wider">
                                 {data.address?.split(',').slice(1).join(',').trim()}
                             </p>
-                            <div className="flex flex-wrap gap-1.5 mt-3">
+                            <div className="flex flex-wrap gap-2 mt-4">
                                 {data.homeType && (
-                                    <span className="px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-[10px] font-black text-indigo-700 uppercase tracking-wide">
+                                    <span className="px-3 py-1.5 bg-indigo-50 border border-indigo-100/50 rounded-lg text-[10px] font-black text-indigo-700 uppercase tracking-[0.1em]">
                                         {data.homeType.replace(/_/g, ' ')}
                                     </span>
                                 )}
                                 {data.bedrooms != null && (
-                                    <span className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-black text-slate-600">
-                                        <i className="fa-solid fa-bed mr-1 text-[8px] text-slate-400" />{data.bedrooms} bed
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                        <i className="fa-solid fa-bed mr-2 text-[10px] text-slate-400" />{data.bedrooms} Bed
                                     </span>
                                 )}
                                 {data.bathrooms != null && (
-                                    <span className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-black text-slate-600">
-                                        <i className="fa-solid fa-bath mr-1 text-[8px] text-slate-400" />{data.bathrooms} bath
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                        <i className="fa-solid fa-bath mr-2 text-[10px] text-slate-400" />{data.bathrooms} Bath
                                     </span>
                                 )}
                                 {data.livingAreaValue && (
-                                    <span className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-black text-slate-600">
-                                        <i className="fa-solid fa-maximize mr-1 text-[8px] text-slate-400" />{data.livingAreaValue.toLocaleString()} sf
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                        <i className="fa-solid fa-maximize mr-2 text-[10px] text-slate-400" />{data.livingAreaValue.toLocaleString()} SF
                                     </span>
                                 )}
                                 {data.yearBuilt && (
-                                    <span className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-black text-slate-600">
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
                                         Built {data.yearBuilt}
                                     </span>
                                 )}
                                 {price && data.livingAreaValue && (
-                                    <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-full text-[10px] font-black text-emerald-700">
-                                        ${Math.round(price / data.livingAreaValue).toLocaleString()}/sf
+                                    <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-100/50 rounded-lg text-[10px] font-black text-emerald-700 uppercase tracking-[0.1em]">
+                                        ${Math.round(price / data.livingAreaValue).toLocaleString()}/SF
                                     </span>
                                 )}
                             </div>
@@ -267,23 +276,23 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                             <div className="border-t border-slate-100">
                                 <button
                                     onClick={() => setMlsOpen(v => !v)}
-                                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group"
+                                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50/50 transition-colors group"
                                 >
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-4">
                                         {/* Small thumbnail preview in collapsed state */}
                                         {!mlsOpen && data.imgSrc && (
-                                            <div className="w-12 h-9 rounded-md overflow-hidden border border-slate-200 shadow-sm shrink-0">
+                                            <div className="w-14 h-10 rounded-lg overflow-hidden border border-slate-200 shadow-sm shrink-0">
                                                 <img src={data.imgSrc} className="w-full h-full object-cover" alt="MLS Preview" />
                                             </div>
                                         )}
-                                        <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                                            <i className="fa-solid fa-list text-slate-400 group-hover:text-indigo-500 text-[8px] transition-colors" />
+                                        <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center group-hover:bg-indigo-100 transition-colors shadow-sm">
+                                            <i className="fa-solid fa-list text-slate-400 group-hover:text-indigo-500 text-[10px] transition-colors" />
                                         </div>
-                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-700 transition-colors">
-                                            MLS Details
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.15em] group-hover:text-slate-700 transition-colors">
+                                            Detailed Specifications
                                         </span>
                                     </div>
-                                    <i className={`fa-solid fa-chevron-${mlsOpen ? 'up' : 'down'} text-[9px] text-slate-400 transition-transform duration-200`} />
+                                    <i className={`fa-solid fa-chevron-${mlsOpen ? 'up' : 'down'} text-[10px] text-slate-400 transition-transform duration-200 mr-2`} />
                                 </button>
 
                                 {mlsOpen && (
@@ -394,29 +403,29 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                     {/* Environment section */}
                     {(hasEnv || hasCoords) && (
-                        <div id="ov-environment" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 mt-4">
-                            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                        <i className="fa-solid fa-leaf text-emerald-500 text-[12px]" />
-                                    </div>
-                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Environment</h3>
-                                </div>
-                            </div>
+                        <SectionCard
+                            id="ov-environment"
+                            title="Environment"
+                            icon="fa-leaf"
+                            iconBg="bg-emerald-50"
+                            iconColor="text-emerald-500"
+                            className="mt-4"
+                            noPadding
+                        >
 
                             <div className="p-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
                                 {/* ── COLUMN 1: Noise ── */}
                                 <div className="lg:col-span-1 space-y-6">
                                     {/* Noise Card */}
                                     {hasNoise && (
-                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow h-full">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className="flex items-center gap-2">
+                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+                                            <div className="flex items-center justify-between mb-5">
+                                                <div className="flex items-center gap-2.5">
                                                     <i className="fa-solid fa-volume-xmark text-purple-500 text-[14px]" />
-                                                    <span className="text-[14px] font-black text-slate-800 uppercase tracking-widest">Noise Report</span>
+                                                    <span className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Noise Report</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Score</div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Score</div>
                                                     <div className="text-[20px] font-black text-slate-900 leading-none">{data.noiseScore}/100</div>
                                                 </div>
                                             </div>
@@ -427,16 +436,16 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                                     { label: 'AIRPORT', score: (data as any).noiseAirportScore || 5, status: ' Calm' }
                                                 ].map((n, i) => (
                                                     <div key={i}>
-                                                        <div className="flex justify-between text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                                                        <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
                                                             <span>{n.label}</span>
-                                                            <span className="text-slate-600 font-bold">{n.status}</span>
+                                                            <span className="text-slate-600 font-extrabold">{n.status}</span>
                                                         </div>
-                                                        <div className="h-2 bg-slate-200/50 rounded-full overflow-hidden shadow-inner">
+                                                        <div className="h-1.5 bg-slate-200/50 rounded-full overflow-hidden shadow-inner">
                                                             <div className="h-full bg-purple-500 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.4)]" style={{ width: `${n.score}%` }} />
                                                         </div>
                                                     </div>
                                                 ))}
-                                                <div className="text-[10px] text-slate-300 font-black uppercase text-right tracking-widest mt-2">HowLoud Data Engine</div>
+                                                <div className="text-[9px] text-slate-300 font-black uppercase text-right tracking-[0.2em] mt-2">HowLoud Data Engine</div>
                                             </div>
                                         </div>
                                     )}
@@ -480,7 +489,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                                     ))}
                                                 </div>
                                             )}
-                                            <div className="text-[10px] text-slate-300 font-bold uppercase text-right tracking-widest mt-auto pt-4">Google Air Quality API</div>
+                                            <div className="text-[9px] text-slate-300 font-bold uppercase text-right tracking-[0.2em] mt-auto pt-4">Google Air Quality API</div>
                                         </div>
                                     )}
                                 </div>
@@ -488,94 +497,93 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 {/* ── COLUMN 3: Pollen ── */}
                                 <div className="lg:col-span-1">
                                     {hasPollen && (
-                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow h-full">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className="flex items-center gap-2">
+                                        <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+                                            <div className="flex items-center justify-between mb-5">
+                                                <div className="flex items-center gap-2.5">
                                                     <i className="fa-solid fa-seedling text-amber-600 text-[14px]" />
-                                                    <span className="text-[14px] font-black text-slate-800 uppercase tracking-widest">Pollen Report</span>
+                                                    <span className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Pollen Report</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Level</div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Level</div>
                                                     <div className="text-[20px] font-black text-amber-600 leading-none">{data.pollen?.category || 'Low'}</div>
                                                 </div>
                                             </div>
                                             <div className="space-y-4">
-                                                <div className="p-3 bg-white border border-slate-100 rounded-xl relative shadow-sm">
-                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Dominant Type</div>
+                                                <div className="p-4 bg-white border border-slate-100/80 rounded-2xl relative shadow-sm">
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1.5">Dominant Type</div>
                                                     <div className="text-[16px] font-black text-slate-800">{data.pollen?.dominantPollenType || 'Grasses'}</div>
                                                 </div>
-                                                <p className="text-[14px] text-slate-500 font-medium leading-relaxed italic">
+                                                <p className="text-[13px] text-slate-500 font-semibold leading-relaxed italic">
                                                     {data.pollen?.description || 'Pollen levels are currently within a comfortable range for most sensitive groups.'}
                                                 </p>
                                             </div>
-                                            <div className="text-[10px] text-slate-300 font-bold uppercase text-right tracking-widest mt-4">Google Pollen API</div>
+                                            <div className="text-[9px] text-slate-300 font-bold uppercase text-right tracking-[0.2em] mt-4">Google Pollen API</div>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                        </div>
+                        </SectionCard>
                     )}
 
                     {/* Resilience section */}
                     {(hasEnv || hasCoords) && (
-                        <div id="ov-resilience" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 mt-4">
-                            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center">
-                                        <i className="fa-solid fa-shield-halved text-orange-500 text-[12px]" />
-                                    </div>
-                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Resilience & Hazards</h3>
-                                </div>
-                            </div>
-
+                        <SectionCard
+                            id="ov-resilience"
+                            title="Resilience & Hazards"
+                            icon="fa-shield-halved"
+                            iconBg="bg-orange-50"
+                            iconColor="text-orange-500"
+                            className="mt-4"
+                            noPadding
+                        >
                             <div className="p-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
                                 {/* ── Resilience Columns ── */}
                                 <div className="lg:col-span-2">
                                      {/* Climate Risk Card */}
-                                     <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className="flex items-center gap-2">
-                                                <i className="fa-solid fa-triangle-exclamation text-orange-500 text-[14px]" />
-                                                <span className="text-[14px] font-black text-slate-800 uppercase tracking-widest">Climate Risk Factors</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Forecasted Insurance</div>
-                                                <div className="text-[24px] font-black text-slate-900 leading-none">${(data.annualHomeownersInsurance || 6544).toLocaleString()}/yr</div>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {[
-                                                { label: 'WIND', score: data.windRiskScore || 1, max: 10, color: 'text-emerald-500', icon: 'fa-wind' },
-                                                { label: 'FLOOD', score: data.floodRiskScore || 1, max: 10, color: 'text-blue-500', icon: 'fa-water' },
-                                                { label: 'FIRE', score: data.fireRiskScore || 6, max: 10, color: 'text-orange-500', icon: 'fa-fire' },
-                                                { label: 'HEAT', score: data.heatRiskScore || 5, max: 10, color: 'text-rose-500', icon: 'fa-temperature-high' }
-                                            ].map((r, i) => (
-                                                <div key={i} className={`p-4 rounded-xl border border-slate-100 transition-all shadow-sm ${r.score && r.score > 5 ? 'bg-orange-50 border-orange-100 shadow-orange-100/50' : 'bg-white'}`}>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <i className={`fa-solid ${r.icon} text-slate-400 text-[13px]`} />
-                                                            <span className="text-[13px] font-black text-slate-400 uppercase tracking-widest">{r.label}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className={`text-[20px] font-black ${r.score ? r.color : 'text-slate-300'}`}>
-                                                        {r.score ? `${r.score}/${r.max}` : 'N/A'}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="text-[10px] text-slate-300 font-black uppercase text-right tracking-widest mt-6">Risk Factor · First Street</div>
-                                    </div>
+                                      <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+                                         <div className="flex items-center justify-between mb-6">
+                                             <div className="flex items-center gap-2.5">
+                                                 <i className="fa-solid fa-triangle-exclamation text-orange-500 text-[14px]" />
+                                                 <span className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Climate Risk Factors</span>
+                                             </div>
+                                             <div className="text-right">
+                                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Forecasted Insurance</div>
+                                                 <div className="text-[20px] font-black text-slate-900 leading-none">${(data.annualHomeownersInsurance || 6544).toLocaleString()}/yr</div>
+                                             </div>
+                                         </div>
+                                         <div className="grid grid-cols-2 gap-3">
+                                             {[
+                                                 { label: 'WIND', score: data.windRiskScore || 1, max: 10, color: 'text-emerald-500', icon: 'fa-wind' },
+                                                 { label: 'FLOOD', score: data.floodRiskScore || 1, max: 10, color: 'text-blue-500', icon: 'fa-water' },
+                                                 { label: 'FIRE', score: data.fireRiskScore || 6, max: 10, color: 'text-orange-500', icon: 'fa-fire' },
+                                                 { label: 'HEAT', score: data.heatRiskScore || 5, max: 10, color: 'text-rose-500', icon: 'fa-temperature-high' }
+                                             ].map((r, i) => (
+                                                 <div key={i} className={`p-4 rounded-xl border border-slate-100 transition-all shadow-sm ${r.score && r.score > 5 ? 'bg-orange-50/50 border-orange-100/50 shadow-orange-100/20' : 'bg-white'}`}>
+                                                     <div className="flex items-center justify-between mb-2">
+                                                         <div className="flex items-center gap-1.5">
+                                                             <i className={`fa-solid ${r.icon} text-slate-400 text-[12px]`} />
+                                                             <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{r.label}</span>
+                                                         </div>
+                                                     </div>
+                                                     <div className={`text-[18px] font-black ${r.score ? r.color : 'text-slate-300'}`}>
+                                                         {r.score ? `${r.score}/${r.max}` : 'N/A'}
+                                                     </div>
+                                                 </div>
+                                             ))}
+                                         </div>
+                                         <div className="text-[9px] text-slate-300 font-black uppercase text-right tracking-[0.2em] mt-6">Risk Factor · First Street</div>
+                                     </div>
                                 </div>
 
                                 <div className="lg:col-span-2">
                                     {/* Hazard Zones Card */}
-                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className="flex items-center gap-2">
-                                                <i className="fa-solid fa-map-location-dot text-rose-500 text-[14px]" />
-                                                <span className="text-[14px] font-black text-slate-800 uppercase tracking-widest">Hazard Zones</span>
-                                            </div>
-                                        </div>
+                                     <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
+                                         <div className="flex items-center justify-between mb-6">
+                                             <div className="flex items-center gap-2.5">
+                                                 <i className="fa-solid fa-map-location-dot text-rose-500 text-[14px]" />
+                                                 <span className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Hazard Zones</span>
+                                             </div>
+                                         </div>
                                         <div className="space-y-6">
                                             <div className="flex items-start gap-4">
                                                 <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0 shadow-sm">
@@ -627,10 +635,10 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                                 {/* ── COLUMN 3: Sun Pathing ── */}
                                 <div id="ov-sun" className="lg:col-span-4 scroll-mt-24 mt-4">
-                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex items-center gap-2 mb-4">
+                                    <div className="bg-slate-50/50 rounded-2xl border border-slate-100/60 p-5 shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="flex items-center gap-2.5 mb-5">
                                             <i className="fa-solid fa-sun text-amber-500 text-[14px]" />
-                                            <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Solar Insights</h3>
+                                            <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">Solar Insights</h3>
                                         </div>
                                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                                             {/* Column 1: Sun Map (5/12) */}
@@ -752,20 +760,20 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </SectionCard>
                     )}
 
                     {/* Daily Living & Commute — Bento grid overhaul */}
                     {(hasWalk || hasBroadband || hasSolar || hasEV) && (
-                        <div id="ov-living" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 mt-4">
-                            {/* Card header — more compact */}
-                            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                    <i className="fa-solid fa-briefcase text-emerald-500 text-[12px]" />
-                                </div>
-                                <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Daily Living &amp; Commute</h3>
-                            </div>
-
+                        <SectionCard
+                            id="ov-living"
+                            title="Daily Living & Commute"
+                            icon="fa-briefcase"
+                            iconBg="bg-emerald-50"
+                            iconColor="text-emerald-500"
+                            className="mt-4"
+                            noPadding
+                        >
                             <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
                                 {/* ── Col 1: Mobility & Commute ── */}
                                 <div className="lg:col-span-4 space-y-4">
@@ -936,7 +944,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </SectionCard>
                     )}
 
                 </div>
@@ -949,13 +957,13 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                     {/* Schools */}
                     {hasSchools && (
-                        <div id="ov-schools" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24">
-                            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                                    <i className="fa-solid fa-graduation-cap text-blue-500 text-[13px]" />
-                                </div>
-                                <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Schools</h3>
-                            </div>
+                        <SectionCard
+                            id="ov-schools"
+                            title="Schools"
+                            icon="fa-graduation-cap"
+                            iconBg="bg-blue-50"
+                            iconColor="text-blue-500"
+                        >
                             
                             <div className="p-4 space-y-2">
                                 {schoolsIntelligence.schools.slice(0, 3).map((school: any, i: number) => {
@@ -1012,7 +1020,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                 View full details 
                                 <i className="fa-solid fa-arrow-up-right-from-square text-[10px]" />
                             </button>
-                        </div>
+                        </SectionCard>
                     )}
 
                     {/* Schools Detail Modal */}
@@ -1175,13 +1183,13 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                     {data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && (data as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                         const sat = (data as any).orientation_ai;
                         return (
-                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
-                                        <i className="fa-solid fa-compass text-amber-500 text-[12px]" />
-                                    </div>
-                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Front Orientation</h3>
-                                </div>
+                            <SectionCard
+                                id="ov-orientation"
+                                title="Front Orientation"
+                                icon="fa-compass"
+                                iconBg="bg-amber-50"
+                                iconColor="text-amber-500"
+                            >
                                 <div className="p-4 space-y-3">
                                     {sat.orientation_highlights && (
                                         <p className="text-[12px] text-slate-600 leading-relaxed">
@@ -1223,30 +1231,28 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                         )}
                                     </div>
                                 </div>
-                            </div>
+                            </SectionCard>
                         );
                     })()}
 
-                    {/* Neighborhood Card */}
+                    {/* 1. Neighborhood Insights (Relocated gemini analysis) */}
                     {data?.neighborhood_identity?.resolved_name && (() => {
                         const nid = data.neighborhood_identity;
                         const gem = cityNhEntryOverview || nid.gemini;
+                        const tier = nid?.tier;
                         const tierColors: Record<string, string> = {
-                            'Entry-Level': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                            'Mid-Range': 'bg-blue-100 text-blue-700 border-blue-200',
-                            'Upper Mid-Range': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-                            'Premium': 'bg-amber-100 text-amber-700 border-amber-200',
-                            'Ultra-Luxury': 'bg-purple-100 text-purple-700 border-purple-200',
+                            'Elite': 'bg-indigo-50 text-indigo-700 border-indigo-100',
+                            'Premium': 'bg-blue-50 text-blue-700 border-blue-100',
+                            'Standard': 'bg-slate-50 text-slate-700 border-slate-200',
                         };
-                        const tier = gem?.price_context?.tier || gem?.market_tier;
                         return (
-                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
-                                        <i className="fa-solid fa-map-location-dot text-violet-500 text-[12px]" />
-                                    </div>
-                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">Neighborhood: {nid.resolved_name}</h3>
-                                </div>
+                            <SectionCard
+                                id="ov-neighborhood"
+                                title={`Neighborhood: ${nid.resolved_name}`}
+                                icon="fa-map-location-dot"
+                                iconBg="bg-violet-50"
+                                iconColor="text-violet-500"
+                            >
                                 <div className="p-4 space-y-4">
                                     {gem?.character?.description && (
                                         <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
@@ -1290,7 +1296,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                     </div>
 
                                     {/* Standout Features */}
-                                    {gem?.unique_features?.length > 0 && (
+                                    {gem?.unique_features && gem.unique_features.length > 0 && (
                                         <div className="space-y-2">
                                             <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Stand Out Features</div>
                                             <div className="flex flex-wrap gap-2">
@@ -1311,24 +1317,110 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            </SectionCard>
                         );
                     })()}
 
+                    {/* Rental Analysis */}
+                    {ltrAnalysis && (
+                        <SectionCard
+                            id="ov-rental"
+                            title="Rental Analysis"
+                            icon="fa-house-chimney-window"
+                            iconBg="bg-emerald-50"
+                            iconColor="text-emerald-500"
+                        >
+                            <div className="p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Long Term Rental (LTR) */}
+                                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Long Term (LTR)</div>
+                                            <div className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-black uppercase tracking-wider">Stable</div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-1">Est. Monthly Rent</div>
+                                                <div className="text-[20px] font-black text-slate-800">
+                                                    {(() => {
+                                                        const rent = ltrAnalysis.monthly_rent || "";
+                                                        // Extract range like "$7,500 to $9,000" or "$7,500 - $9,000"
+                                                        const match = rent.match(/\$[\d,]+(?:\s*(?:to|-)\s*\$[\d,]+)?/);
+                                                        return match ? match[0] : (rent.length > 20 ? "--" : rent || "--");
+                                                    })()}
+                                                </div>
+                                            </div>
+                                            {ltrAnalysis.vacancy_rate && (
+                                                <div className="flex items-center justify-between pt-2 border-t border-emerald-100/50">
+                                                    <span className="text-[11px] text-slate-500 font-medium">Est. Vacancy</span>
+                                                    <span className="text-[11px] text-emerald-700 font-black">
+                                                        {(() => {
+                                                            const v = ltrAnalysis.vacancy_rate || "";
+                                                            // Extract range like "2-4%" or "5%"
+                                                            const match = v.match(/(\d+(?:-\d+)?%)/);
+                                                            return match ? match[1] : (v.length > 10 ? "--" : v || "--");
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Short Term Rental (STR) */}
+                                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Short Term (STR)</div>
+                                            <div className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[9px] font-black uppercase tracking-wider">High Yield</div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-1">Est. Annual Revenue</div>
+                                                <div className="text-[20px] font-black text-slate-800">
+                                                    {(() => {
+                                                        const str = customAnalysis?.property_investment?.str_performance?.annual_revenue_projection || "";
+                                                        const summary = ltrAnalysis.comparison_summary || "";
+                                                        
+                                                        // Try to extract from str object first, then summary
+                                                        const combined = str + " " + summary;
+                                                        const match = combined.match(/\$[\d,]{4,}/); // Look for significant dollar amount
+                                                        return match ? match[0] : "--";
+                                                    })()}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between pt-2 border-t border-indigo-100/50">
+                                                <span className="text-[11px] text-slate-500 font-medium">Est. Occupancy</span>
+                                                <span className="text-[11px] text-indigo-700 font-black">
+                                                    {(() => {
+                                                        const str = customAnalysis?.property_investment?.str_performance?.occupancy_rate || "";
+                                                        const summary = ltrAnalysis.comparison_summary || "";
+                                                        
+                                                        const combined = str + " " + summary;
+                                                        const match = combined.match(/(\d+(?:-\d+)?%)/);
+                                                        return match ? match[1] : "--";
+                                                    })()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </SectionCard>
+                    )}
+
                     {/* Nearby Amenities */}
                     {(data.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) && (
-                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div id="ov-nearby" className="bg-white rounded-[1.5rem] border border-slate-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow scroll-mt-24">
                             <button 
                                 onClick={() => setIsNearbyCollapsed(!isNearbyCollapsed)}
-                                className="w-full px-5 py-4 border-b border-slate-100 flex items-center justify-between hover:bg-slate-50 transition-colors group"
+                                className="w-full px-5 py-4 border-b border-slate-50 flex items-center justify-between hover:bg-slate-50 transition-colors group"
                             >
-                                <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                                        <i className="fa-solid fa-map-location-dot text-indigo-500 text-[12px]" />
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors border border-slate-100/50">
+                                        <i className="fa-solid fa-map-location-dot text-indigo-500 text-[13px]" />
                                     </div>
-                                    <h3 className="text-[15px] font-black text-slate-900 tracking-tight">What's Nearby?</h3>
+                                    <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-[0.1em]">What's Nearby?</h3>
                                 </div>
-                                <i className={`fa-solid ${isNearbyCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[10px] text-slate-400 group-hover:text-indigo-500 transition-all`} />
+                                <i className={`fa-solid ${isNearbyCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[10px] text-slate-400 group-hover:text-indigo-500 transition-all mr-2`} />
                             </button>
 
                             <div className={`${isNearbyCollapsed ? 'hidden' : 'block'}`}>
@@ -1348,21 +1440,21 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
 
                     {/* AI Summary */}
                     {customAnalysis?.executiveSummary && (
-                        <div className="bg-slate-900 rounded-2xl p-4">
-                            <div className="flex items-start gap-3">
-                                <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <i className="fa-solid fa-wand-magic-sparkles text-white text-[10px]" />
+                        <div className="bg-slate-900 rounded-3xl p-6 shadow-2xl shadow-indigo-900/20 border border-indigo-500/10">
+                            <div className="flex items-start gap-4">
+                                <div className="w-9 h-9 rounded-2xl bg-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-lg shadow-indigo-500/40">
+                                    <i className="fa-solid fa-wand-magic-sparkles text-white text-[12px]" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">Analyst AI Summary</div>
-                                    <p className="text-[11px] text-slate-300 leading-relaxed italic line-clamp-3">
+                                    <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2">Analyst AI Summary</div>
+                                    <p className="text-[12px] text-slate-300 leading-relaxed italic font-medium opacity-90">
                                         &ldquo;{customAnalysis.executiveSummary}&rdquo;
                                     </p>
                                 </div>
                             </div>
                             {onRunAnalysis && (
-                                <button onClick={onRunAnalysis} className="mt-3 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors">
-                                    Full AI Audit
+                                <button onClick={onRunAnalysis} className="mt-5 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-indigo-500/25">
+                                    Run Full AI Audit
                                 </button>
                             )}
                         </div>

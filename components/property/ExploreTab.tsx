@@ -441,6 +441,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             visualPoi={visualPoi}
                                             mapLabels={mapLabels}
                                             neighborhoodOverview={neighborhoodOverview}
+                                            ltrAnalysis={ltrAnalysis}
                                             onRunAnalysis={() => onRunCustomAnalysis(false)}
                                         />
 
@@ -480,6 +481,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     lifestyleLoading={lifestyleLoading}
                                                     lifestyleFitTab={lifestyleFitTab}
                                                     setLifestyleFitTab={setLifestyleFitTab}
+                                                    lifestyleInterestTab={lifestyleInterestTab}
+                                                    setLifestyleInterestTab={setLifestyleInterestTab}
                                                     handleGenerateLifestyle={handleGenerateLifestyle}
                                                     pulseExpanded={pulseExpanded}
                                                     setPulseExpanded={setPulseExpanded}
