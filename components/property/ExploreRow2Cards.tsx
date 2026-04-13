@@ -594,38 +594,28 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                             </div>
                         )}
 
-                        {/* Market Pulse (Affordability + Census) */}
-                        <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm h-full">
-                                <div className="p-4 flex flex-col gap-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
-                                            <i className="fa-solid fa-gauge-high text-emerald-600 group-hover:text-white text-[12px]"></i>
-                                        </div>
-                                        <span className="text-[17px] font-black text-slate-900 tracking-tight">Market Pulse</span>
-                                    </div>
-                                    <AffordabilityCard 
-                                        state={propertyData.state}
-                                        city={propertyData.city}
-                                        county={propertyData.county}
-                                        countyFips={
-                                            (propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips)
-                                                ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
-                                                : (census?.stateFips && census?.countyFips)
-                                                    ? `${census.stateFips}${census.countyFips}`
-                                                    : undefined
-                                        }
-                                        userId={userRole}
-                                        compact
-                                    />
-                                    {census && (
-                                        <CensusDemographicsCard 
-                                            data={census as any} 
-                                            compact 
-                                        />
-                                    )}
-                                </div>
-                            </div>
+                        {/* Affordability & Demographics (Directly in grid) */}
+                        <div className="flex flex-col gap-3 px-2">
+                             <AffordabilityCard 
+                                state={propertyData.state}
+                                city={propertyData.city}
+                                county={propertyData.county}
+                                countyFips={
+                                    (propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips)
+                                        ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
+                                        : (census?.stateFips && census?.countyFips)
+                                            ? `${census.stateFips}${census.countyFips}`
+                                            : undefined
+                                }
+                                userId={userRole}
+                                compact
+                            />
+                            {census && (
+                                <CensusDemographicsCard 
+                                    data={census as any} 
+                                    compact 
+                                />
+                            )}
                         </div>
                     </div>
                 </div>

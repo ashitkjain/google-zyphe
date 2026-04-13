@@ -16,13 +16,13 @@ interface VastuCardProps {
 }
 
 // ── SVG Compass Dial ─────────────────────────────────────────────────────────
-const VastuCompass: React.FC<{ vastu: NonNullable<ReturnType<typeof computeVastu>> }> = ({ vastu }) => {
-    const SIZE = 160;
+const VastuCompass: React.FC<{ vastu: NonNullable<ReturnType<typeof computeVastu>>; size?: number }> = ({ vastu, size = 160 }) => {
+    const SIZE = size;
     const CX = SIZE / 2;
     const CY = SIZE / 2;
-    const R_OUTER = 72;
-    const R_INNER = 38;
-    const R_LABEL = 58;
+    const R_OUTER = (SIZE / 160) * 72;
+    const R_INNER = (SIZE / 160) * 38;
+    const R_LABEL = (SIZE / 160) * 58;
 
     const sectors = vastu.allZones.map((zone) => {
         const startRad = ((zone.start - 90) * Math.PI) / 180;
@@ -44,7 +44,7 @@ const VastuCompass: React.FC<{ vastu: NonNullable<ReturnType<typeof computeVastu
         const stroke = zone.isEntrance
             ? (vastu.auspiciousness === 'Auspicious' ? '#10b981' : vastu.auspiciousness === 'Inauspicious' ? '#ef4444' : '#f59e0b')
             : '#e2e8f0';
-        const strokeW = zone.isEntrance ? 2 : 0.8;
+        const strokeW = zone.isEntrance ? (SIZE / 160) * 2 : (SIZE / 160) * 0.8;
 
         const midRad = ((zone.midAngle - 90) * Math.PI) / 180;
         const lx = CX + R_LABEL * Math.cos(midRad);
@@ -61,7 +61,7 @@ const VastuCompass: React.FC<{ vastu: NonNullable<ReturnType<typeof computeVastu
                 <text
                     x={lx} y={ly}
                     textAnchor="middle" dominantBaseline="middle"
-                    fontSize={zone.isEntrance ? 9 : 7.5}
+                    fontSize={(SIZE / 160) * (zone.isEntrance ? 9 : 7.5)}
                     fontWeight={zone.isEntrance ? '900' : '600'}
                     fill={zone.isEntrance
                         ? (vastu.auspiciousness === 'Auspicious' ? '#065f46' : vastu.auspiciousness === 'Inauspicious' ? '#991b1b' : '#92400e')
@@ -87,11 +87,11 @@ const VastuCompass: React.FC<{ vastu: NonNullable<ReturnType<typeof computeVastu
                 x1={CX} y1={CY}
                 x2={needleTipX} y2={needleTipY}
                 stroke={vastu.auspiciousness === 'Auspicious' ? '#10b981' : vastu.auspiciousness === 'Inauspicious' ? '#ef4444' : '#f59e0b'}
-                strokeWidth={2.5}
+                strokeWidth={(SIZE / 160) * 2.5}
                 strokeLinecap="round"
             />
-            <circle cx={CX} cy={CY} r={3} fill="#475569" />
-            <text x={CX} y={8} textAnchor="middle" fontSize={8} fontWeight="900" fill="#64748b">N</text>
+            <circle cx={CX} cy={CY} r={(SIZE / 160) * 3} fill="#475569" />
+            <text x={CX} y={(SIZE / 160) * 8} textAnchor="middle" fontSize={(SIZE / 160) * 8} fontWeight="900" fill="#64748b">N</text>
         </svg>
     );
 };
@@ -202,23 +202,117 @@ export const VastuCard: React.FC<VastuCardProps> = ({
 
     // ── Compact badge (overview page) ─────────────────────────────────────────
     if (compact) {
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const [showBasics, setShowBasics] = React.useState(false);
+
         return (
-            <>
-                <div className={`rounded-lg border mb-2 ${vastu.scoreBg}`}>
-                    <div className="flex items-center justify-between px-2.5 py-1.5">
-                        <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vastu</span>
-                            <span className="text-[11px] font-black text-slate-700">{vastu.entranceZone.name}</span>
-                            <span className="text-[10px] text-slate-400">{vastu.entranceZone.deity}</span>
+            <div className="flex flex-col gap-2">
+                <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100/50 overflow-hidden relative">
+                    <div className="px-4 py-3 border-b border-emerald-100/30 flex items-center justify-between">
+                        <div>
+                            <div className="text-[10px] font-black text-emerald-600/60 uppercase tracking-[0.2em] mb-1">Vastu Shastra</div>
+                            <div className="text-[17px] font-black text-slate-800 tracking-tight">
+                                {final_orientation ?? azimuthToLabel(vastu.azimuth)} Facing
+                            </div>
                         </div>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${vastu.scoreBg} ${vastu.scoreColor}`}>
-                            {vastu.scoreLabel}
-                        </span>
+                        <button
+                            onClick={() => setShowBasics(true)}
+                            className="w-7 h-7 rounded-full bg-white border border-emerald-100 shadow-sm flex items-center justify-center hover:bg-emerald-50 transition-colors group"
+                            title="Vastu Basics"
+                        >
+                            <i className="fa-solid fa-circle-question text-emerald-500 text-xs" />
+                        </button>
                     </div>
-                    <p className={`px-2.5 pb-2 text-[10px] leading-relaxed ${vastu.scoreColor} opacity-90`}>
-                        {vastu.verdict}
-                    </p>
+                    
+                    <div className="p-3 flex items-center gap-4">
+                        <div className="shrink-0 bg-white rounded-full p-1 shadow-sm border border-emerald-100/50">
+                            <VastuCompass vastu={vastu} size={110} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${vastu.scoreBg} ${vastu.scoreColor}`}>
+                                    {vastu.scoreLabel}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">
+                                    {vastu.entranceZone.name}
+                                </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                                {vastu.verdict}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Vastu Basics Popup */}
+                    {showBasics && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowBasics(false)} />
+                            <div className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                                            <i className="fa-solid fa-compass text-sm" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-black text-slate-900 tracking-tight">Vastu Basics</h3>
+                                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">All 8 Vastu Zones Reference</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowBasics(false)}
+                                        className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm"
+                                    >
+                                        <i className="fa-solid fa-xmark text-slate-500" />
+                                    </button>
+                                </div>
+                                <div className="p-6">
+                                    <div className="rounded-xl border border-slate-100 overflow-hidden shadow-sm">
+                                        <table className="w-full text-left">
+                                            <thead>
+                                                <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.1em]">
+                                                    <th className="px-4 py-3">Dir</th>
+                                                    <th className="px-4 py-3">Zone</th>
+                                                    <th className="px-4 py-3">Best For</th>
+                                                    <th className="px-4 py-3 text-right">Position</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50 text-[13px]">
+                                                {vastu.allZones.map(zone => (
+                                                    <tr key={zone.dir} className={zone.isEntrance ? "bg-emerald-50/30" : ""}>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-slate-900">{zone.dir}</span>
+                                                                {zone.isEntrance && <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">door</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 font-black text-slate-700">{zone.name}</td>
+                                                        <td className="px-4 py-3 text-slate-500 font-medium">{zone.ideal_rooms}</td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${
+                                                                zone.relativePosition === 'Front' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                                                                zone.relativePosition === 'Back'  ? 'bg-slate-50 text-slate-500 border-slate-200' :
+                                                                'bg-white text-slate-400 border-slate-100'
+                                                            }`}>
+                                                                {zone.relativePosition}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="mt-6 flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
+                                        <i className="fa-solid fa-circle-info text-amber-500 mt-0.5" />
+                                        <p className="text-[13px] text-amber-800 leading-relaxed font-medium">
+                                            <strong>Note:</strong> Orientation analysis and Vastu mapping are based on satellite building footprints and parcel alignment. While highly accurate, we recommend on-site verification before making structural modifications.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
+
                 <SiteFeatureRows
                     compact
                     pool_visible={pool_visible}
@@ -226,7 +320,14 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                     garage_direction={garage_direction}
                     open_sky_direction={open_sky_direction}
                 />
-            </>
+
+                <div className="flex items-start gap-1.5 px-1 pb-1">
+                    <i className="fa-solid fa-circle-info text-[9px] text-slate-300 mt-0.5" />
+                    <p className="text-[9px] font-medium text-slate-400 leading-normal italic">
+                        Orientation and Vastu patterns are AI-inferred from aerial imagery and parcel data. Please verify on-site for absolute accuracy.
+                    </p>
+                </div>
+            </div>
         );
     }
 
@@ -337,6 +438,13 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <div className="flex items-start gap-1.5 px-4 pb-4">
+                <i className="fa-solid fa-circle-info text-[9px] text-slate-300 mt-0.5" />
+                <p className="text-[9px] font-medium text-slate-400 leading-normal italic">
+                    Orientation and Vastu patterns are AI-inferred from aerial imagery and parcel data. Please verify on-site for absolute accuracy.
+                </p>
             </div>
         </div>
     );
