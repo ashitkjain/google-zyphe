@@ -43,13 +43,13 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
         <>
                                                 {/* Row 1: Property & Neighborhood Context */}
                                                 <div id="ov-ai-analysis" className="mx-2 mb-4 rounded-2xl border-2 border-slate-100 overflow-hidden bg-white shadow-sm scroll-mt-20">
-                                                    <div className="px-5 py-3 flex items-center gap-2.5">
+                                                    <div className="px-5 pt-4 pb-0 flex items-center gap-2.5">
                                                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
                                                             <i className="fa-solid fa-brain text-indigo-500 text-[12px]" />
                                                         </div>
                                                         <h3 className="text-[15px] font-black text-slate-900 tracking-tight">AI Property Analysis</h3>
                                                     </div>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-2">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-2 pb-2 pt-2">
 
                                                         {/* Interiors */}
                                                         {currentInteriorSummary && (

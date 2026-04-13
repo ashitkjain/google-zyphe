@@ -416,9 +416,9 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
 
             {/* Row 2: Investment Insights (Dublin Overview) */}
             {section !== 'lifestyle' && (keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || lifestyleLoading || propertyData) && (
-                <div id="ov-community" className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 scroll-mt-24">
+                <div id="ov-community" className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white scroll-mt-24">
                     {/* Section Heading */}
-                    <div className="px-5 py-3 flex items-center gap-2.5 mb-4">
+                    <div className="px-5 pt-5 pb-0 flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
                             <i className="fa-solid fa-city text-indigo-500 text-[12px]" />
                         </div>
@@ -431,7 +431,7 @@ export const ExploreRow2Cards: React.FC<ExploreRow2CardsProps> = ({
                     </div>
 
                     {/* Top row: Community Pulse · Market Dynamics · Market Pulse */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="px-5 pb-5 pt-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Community Pulse */}
                         {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && (
                             <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">

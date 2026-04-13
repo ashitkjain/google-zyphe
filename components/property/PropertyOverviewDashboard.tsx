@@ -64,7 +64,7 @@ const SectionCard: React.FC<{
         id={id}
         className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-24 transition-all hover:shadow-md/5 ${className}`}
     >
-        <div className="px-5 py-4 flex items-center justify-between">
+        <div className="px-5 pt-5 pb-0 flex items-center justify-between">
             <div className="flex items-center gap-3">
                 {icon && (
                     <div className={`w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center border border-slate-100/50`}>
@@ -78,7 +78,7 @@ const SectionCard: React.FC<{
             </div>
             {badge}
         </div>
-        <div className={noPadding ? '' : 'p-5'}>{children}</div>
+        <div className={noPadding ? '' : 'px-5 pb-5 pt-3'}>{children}</div>
     </div>
 );
 

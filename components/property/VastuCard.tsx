@@ -208,7 +208,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
         return (
             <div className="flex flex-col gap-2">
                 <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100/50 overflow-hidden relative">
-                    <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="px-4 pt-4 pb-0 flex items-center justify-between">
                         <div>
                             <div className="text-[10px] font-black text-emerald-600/60 uppercase tracking-[0.2em] mb-1">Vastu Shastra</div>
                             <div className="text-[17px] font-black text-slate-800 tracking-tight">
@@ -224,7 +224,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                         </button>
                     </div>
                     
-                    <div className="p-3 flex items-center gap-4">
+                    <div className="px-4 pb-4 pt-2 flex items-center gap-4">
                         <div className="shrink-0 bg-white rounded-full p-1 shadow-sm border border-emerald-100/50">
                             <VastuCompass vastu={vastu} size={110} />
                         </div>
