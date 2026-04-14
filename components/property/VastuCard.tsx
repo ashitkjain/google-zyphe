@@ -210,7 +210,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                     <div className="px-4 pt-4 pb-0 flex items-center justify-between">
                         <div>
                             <div className="text-[10px] font-black text-emerald-600/60 uppercase tracking-[0.2em] mb-1">Vastu Shastra</div>
-                            <div className="text-[17px] font-black text-slate-800 tracking-tight">
+                            <div className="text-[16px] font-black text-slate-800 tracking-tight">
                                 {final_orientation ?? azimuthToLabel(vastu.azimuth)} Facing
                             </div>
                         </div>
@@ -331,7 +331,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
 
     // ── Full card (Exterior tab) ──────────────────────────────────────────────
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
             {/* Header */}
             <div className={`flex items-center justify-between px-4 py-3 ${vastu.auspiciousness === 'Auspicious' ? 'bg-emerald-50 border-emerald-100' :
                     vastu.auspiciousness === 'Inauspicious' ? 'bg-red-50 border-red-100' :

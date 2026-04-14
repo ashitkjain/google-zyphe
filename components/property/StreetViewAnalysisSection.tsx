@@ -97,8 +97,8 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
                     <i className="fa-solid fa-eye text-indigo-500 text-[12px]" />
                 </div>
-                <h3 className="text-[15px] font-black text-slate-900 tracking-tight leading-tight">
-                    Street View Analysis
+                <h3 className="text-[18px] font-black text-slate-900 tracking-tight leading-tight">
+                    Eyes on the Street
                 </h3>
             </div>
 
@@ -128,22 +128,23 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                     </div>
                 )}
 
-                {/* Interactive Street View Modal remain same... */}
                 {showStreetView && coords && (
                     <div
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-500"
+                        className="fixed inset-0 z-[9999] flex items-center justify-center p-6 md:p-10 animate-in fade-in duration-300"
                         onClick={() => setShowStreetView(false)}
                     >
-                        <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-xl"></div>
+                        {/* Backdrop — pointer-events-none prevents mouse-leave flicker */}
+                        <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl pointer-events-none" />
                         <div
-                            className="relative w-full h-full max-w-[90vw] max-h-[80vh] bg-white rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col"
+                            className="relative w-full max-w-5xl bg-white rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
+                            style={{ aspectRatio: '16/9', maxHeight: '85vh' }}
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
                                 onClick={() => setShowStreetView(false)}
-                                className="absolute top-4 right-4 z-20 w-12 h-12 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
+                                className="absolute top-4 right-4 z-20 w-10 h-10 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all border border-slate-100 active:scale-95"
                             >
-                                <i className="fa-solid fa-xmark text-xl"></i>
+                                <i className="fa-solid fa-xmark text-lg"></i>
                             </button>
 
                             <div className="flex-1 overflow-hidden">
@@ -151,17 +152,17 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                                     src={`https://www.google.com/maps/embed/v1/streetview?key=${MAPS_API_KEY}&location=${coords!.latitude},${coords!.longitude}&heading=${svHeading ?? 0}&pitch=0&fov=90&source=outdoor`}
                                     width="100%"
                                     height="100%"
-                                    style={{ border: 0, minHeight: '100%' }}
+                                    style={{ border: 0, display: 'block' }}
                                     allowFullScreen
                                     loading="lazy"
                                     referrerPolicy="no-referrer-when-downgrade"
                                 />
                             </div>
 
-                            <div className="bg-white px-6 py-4 border-t border-slate-100 flex justify-between items-center flex-shrink-0">
+                            <div className="bg-white px-5 py-3 border-t border-slate-100 flex justify-between items-center flex-shrink-0">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
-                                        <i className="fa-solid fa-street-view text-indigo-600 text-lg"></i>
+                                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+                                        <i className="fa-solid fa-street-view text-indigo-600 text-sm"></i>
                                     </div>
                                     <div>
                                         <div className="text-slate-900 font-black text-sm tracking-tight">Interactive Street View</div>
@@ -170,7 +171,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                                 </div>
                                 <button
                                     onClick={() => setShowStreetView(false)}
-                                    className="px-8 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95"
+                                    className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95"
                                 >
                                     Close
                                 </button>
@@ -188,43 +189,43 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                             {analysis.privacyRating && (
                                 <div className="flex items-start gap-2">
                                     <i className="fa-solid fa-shield-halved text-[11px] text-indigo-500 mt-1"></i>
-                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Privacy:</strong> {analysis.privacyRating}</div>
+                                    <div className="text-[13px] font-medium leading-relaxed"><strong className="text-slate-900">Privacy:</strong> <span className="text-slate-600">{analysis.privacyRating}</span></div>
                                 </div>
                             )}
                             {analysis.parkingLogistics && (
                                 <div className="flex items-start gap-2">
                                     <i className="fa-solid fa-car-side text-[11px] text-blue-500 mt-1"></i>
-                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Parking:</strong> {analysis.parkingLogistics}</div>
+                                    <div className="text-[13px] font-medium leading-relaxed"><strong className="text-slate-900">Parking:</strong> <span className="text-slate-600">{analysis.parkingLogistics}</span></div>
                                 </div>
                             )}
                             {analysis.utilityAesthetic && (
                                 <div className="flex items-start gap-2">
                                     <i className="fa-solid fa-plug-circle-bolt text-[11px] text-amber-500 mt-1"></i>
-                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Utilities:</strong> {analysis.utilityAesthetic}</div>
+                                    <div className="text-[13px] font-medium leading-relaxed"><strong className="text-slate-900">Utilities:</strong> <span className="text-slate-600">{analysis.utilityAesthetic}</span></div>
                                 </div>
                             )}
                             {analysis.neighborhoodVibe && (
                                 <div className="flex items-start gap-2">
                                     <i className="fa-solid fa-tree-city text-[11px] text-slate-500 mt-1"></i>
-                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Vibe:</strong> {analysis.neighborhoodVibe}</div>
+                                    <div className="text-[13px] font-medium leading-relaxed"><strong className="text-slate-900">Vibe:</strong> <span className="text-slate-600">{analysis.neighborhoodVibe}</span></div>
                                 </div>
                             )}
                             {analysis.familySafety && (
                                 <div className="flex items-start gap-2">
                                     <i className="fa-solid fa-children text-[11px] text-emerald-500 mt-1"></i>
-                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Safety:</strong> {analysis.familySafety}</div>
+                                    <div className="text-[13px] font-medium leading-relaxed"><strong className="text-slate-900">Safety:</strong> <span className="text-slate-600">{analysis.familySafety}</span></div>
                                 </div>
                             )}
                             {analysis.solarObstructions && (
                                 <div className="flex items-start gap-2">
                                     <i className="fa-solid fa-cloud-sun text-[11px] text-orange-500 mt-1"></i>
-                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Solar:</strong> {analysis.solarObstructions}</div>
+                                    <div className="text-[13px] font-medium leading-relaxed"><strong className="text-slate-900">Solar:</strong> <span className="text-slate-600">{analysis.solarObstructions}</span></div>
                                 </div>
                             )}
                             {analysis.neighborCondition && (
                                 <div className="flex items-start gap-2">
                                     <i className="fa-solid fa-house-chimney-window text-[11px] text-sky-500 mt-1"></i>
-                                    <div className="text-[13px] text-slate-900 font-medium leading-relaxed"><strong>Streetscape:</strong> {analysis.neighborCondition}</div>
+                                    <div className="text-[13px] font-medium leading-relaxed"><strong className="text-slate-900">Streetscape:</strong> <span className="text-slate-600">{analysis.neighborCondition}</span></div>
                                 </div>
                             )}
 

@@ -138,7 +138,7 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                             <i className="fa-solid fa-map-location-dot text-indigo-500 text-sm"></i>
                         </div>
                         <div className="pt-0.5">
-                            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-2">What's Nearby?</h2>
+                            <h2 className="text-[18px] font-black text-slate-900 tracking-tight leading-none mb-2">What's Nearby?</h2>
                             {mapZoomOut && (
                                 <button
                                     onClick={() => setExpandedMap(mapZoomOut)}
@@ -208,10 +208,10 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                                 <button
                                     key={cat.key}
                                     onClick={() => setActiveCategory(cat.key)}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 ${
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all duration-300 ${
                                         isActive 
-                                            ? `${cat.activeBg} ${cat.activeText} border-transparent shadow-lg shadow-${cat.key}-500/10` 
-                                            : `bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50/80`
+                                            ? `${cat.activeBg} ${cat.activeText} border-current shadow-lg shadow-${cat.key}-500/10` 
+                                            : `bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50/80`
                                     }`}
                                 >
                                     <i className={`fa-solid ${cat.icon} text-[11px] ${!isActive ? cat.color : ''}`}></i>

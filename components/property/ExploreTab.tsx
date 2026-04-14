@@ -29,7 +29,8 @@ import { trackViewModeChanged } from '../../services/analytics/idxTracking';
 import { BrowseHomeSection } from './BrowseByCitySection';
 import { useExploreTabData } from './hooks/useExploreTabData';
 import { ExploreRow1Cards } from './ExploreRow1Cards';
-import { ExploreRow2Cards } from './ExploreRow2Cards';
+import { PropertyLifestylePanel } from './PropertyLifestylePanel';
+import { PropertyInsightsPanel } from './PropertyInsightsPanel';
 import PropertyOverviewDashboard from './PropertyOverviewDashboard';
 import PropertySidebar, { NavItem } from './PropertySidebar';
 
@@ -126,26 +127,42 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         { id: 'ov-lifestyle',   label: 'Lifestyle & Interests',    icon: 'fa-people-roof',       visible: !!(lifestyleFit || lifestyleInsights) },
         { id: 'ov-property',    label: 'MLS Property Data',        icon: 'fa-table-cells-large', visible: true },
         { id: 'ov-environment', label: 'Environment',             icon: 'fa-leaf',              visible: hasEnvData },
-        { id: 'ov-resilience',  label: 'Resilience',              icon: 'fa-shield-halved',     visible: hasEnvData },
+        { id: 'ov-resilience',  label: 'Resilience & Hazards',    icon: 'fa-shield-halved',     visible: hasEnvData },
         { id: 'ov-sun',         label: 'Solar Insights',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
-        { id: 'ov-living',      label: 'Daily Living',            icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
-        { id: 'ov-schools',     label: 'Education',                icon: 'fa-graduation-cap',    visible: hasSchoolsData },
+        { id: 'ov-living',      label: 'Daily Living & Commute',  icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
+        { id: 'ov-schools',     label: 'Schools',                  icon: 'fa-graduation-cap',    visible: hasSchoolsData },
         { id: 'ov-orientation', label: 'Orientation and Vastu',       icon: 'fa-compass',           visible: !!(propertyData as any)?.orientation_ai },
         { id: 'ov-neighborhood',label: 'Neighborhood',            icon: 'fa-mountain-sun',      visible: !!propertyData?.neighborhood_identity },
-        { id: 'ov-rental',      label: 'Rental Analysis',         icon: 'fa-sack-dollar',       visible: !!ltrAnalysis },
-        { id: 'ov-nearby',      label: "What's Nearby",            icon: 'fa-map-location-dot',  visible: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) },
-        { id: 'ov-ai-analysis', label: 'AI Property Analysis',     icon: 'fa-brain',             visible: !!(designStyle || keyInsights || ltrAnalysis || (propertyData as any)?.orientation_ai || neighborhoodOverview || analysis) },
-        { id: 'ov-streetview',  label: 'Street View Analysis',     icon: 'fa-street-view',       visible: !!propertyData?.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false },
-        { id: 'ov-community',   label: 'Community Overview',       icon: 'fa-city',              visible: true },
+        { id: 'ov-rental',      label: 'Rent Estimates',           icon: 'fa-sack-dollar',       visible: !!ltrAnalysis },
+        { id: 'ov-nearby',      label: "What's Nearby?",           icon: 'fa-map-location-dot',  visible: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) },
+        { id: 'ov-ai-analysis', label: 'Property AI',              icon: 'fa-brain',             visible: !!(designStyle || keyInsights || ltrAnalysis || (propertyData as any)?.orientation_ai || neighborhoodOverview || analysis) },
+        { id: 'ov-streetview',  label: 'Eyes on the Street',       icon: 'fa-street-view',       visible: !!propertyData?.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false },
+        { id: 'ov-community',   label: `${propertyData?.city || 'Community'} Overview`, icon: 'fa-city',              visible: true },
     ];
 
     const [sidebarActiveId, setSidebarActiveId] = React.useState('ov-property');
+    // Suppress IntersectionObserver updates while the user has manually clicked a nav item.
+    // Without this, smooth-scroll triggers observer events that immediately override the click.
+    const manualScrollRef = React.useRef(false);
+    const manualScrollTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleNavClick = React.useCallback((id: string) => {
+        // Immediately highlight the clicked item
+        setSidebarActiveId(id);
+        // Block observer for 1s (covers smooth-scroll duration)
+        manualScrollRef.current = true;
+        if (manualScrollTimer.current) clearTimeout(manualScrollTimer.current);
+        manualScrollTimer.current = setTimeout(() => {
+            manualScrollRef.current = false;
+        }, 1000);
+    }, []);
 
     React.useEffect(() => {
         if (!propertyData) return;
         const ids = sidebarItems.filter(i => i.visible).map(i => i.id);
         const observers: IntersectionObserver[] = [];
         const handleIntersect = (entries: IntersectionObserverEntry[]) => {
+            if (manualScrollRef.current) return; // ignore during manual scroll
             const visible = entries
                 .filter(e => e.isIntersecting)
                 .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -155,7 +172,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             const el = document.getElementById(id);
             if (!el) return;
             const obs = new IntersectionObserver(handleIntersect, {
-                rootMargin: '-10% 0px -60% 0px',
+                rootMargin: '-20px 0px -60% 0px',
                 threshold: 0,
             });
             obs.observe(el);
@@ -393,22 +410,13 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 {activeTab === 'property-data' && (
                                     <div className="flex gap-0 min-h-screen">
                                         {/* Full-height Sidebar */}
-                                        <PropertySidebar items={sidebarItems} activeId={sidebarActiveId} />
+                                        <PropertySidebar items={sidebarItems} activeId={sidebarActiveId} onItemClick={handleNavClick} />
 
                                         {/* Scrollable content area */}
                                         <div className="flex-1 min-w-0 flex flex-col gap-2.5 p-4">
 
-                                        {/* Lifestyle Fit — rendered ABOVE Environment & Resilience */}
-                                        <ExploreRow2Cards
-                                            propertyData={propertyData}
-                                            analysis={analysis}
-                                            customAnalysis={customAnalysis}
-                                            keyInsights={keyInsights}
-                                            ltrAnalysis={ltrAnalysis}
-                                            census={census}
-                                            visualPoi={visualPoi}
-                                            mapLabels={mapLabels}
-                                            neighborhoodOverview={neighborhoodOverview}
+                                        {/* Lifestyle Fit — rendered ABOVE the main Dashboard */}
+                                        <PropertyLifestylePanel
                                             lifestyleFit={lifestyleFit}
                                             lifestyleInsights={lifestyleInsights}
                                             lifestyleLoading={lifestyleLoading}
@@ -417,19 +425,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             lifestyleInterestTab={lifestyleInterestTab}
                                             setLifestyleInterestTab={setLifestyleInterestTab}
                                             handleGenerateLifestyle={handleGenerateLifestyle}
-                                            pulseExpanded={pulseExpanded}
-                                            setPulseExpanded={setPulseExpanded}
-                                            isRefreshingPulse={isRefreshingPulse}
-                                            setIsRefreshingPulse={setIsRefreshingPulse}
-                                            groundTruthMapTab={groundTruthMapTab}
-                                            setGroundTruthMapTab={setGroundTruthMapTab}
-                                            isSatelliteExpanded={isSatelliteExpanded}
-                                            setIsSatelliteExpanded={setIsSatelliteExpanded}
-                                            onRefreshEnvironment={onRefreshEnvironment}
-                                            environmentRefreshing={environmentRefreshing}
-                                            userRole={userRole}
-                                            onRefreshCommunityPulse={onRefreshCommunityPulse}
-                                            section="lifestyle"
                                         />
 
                                         {/* ── New Dashboard Overview ── */}
@@ -452,12 +447,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
 
 
-                                        {/* Horizontal Insight Strip */}
-
                                         {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview || analysis) && (
                                             <div className="flex flex-col gap-2">
-                                                {/* Executive Summary hidden per user request */}
-
                                                 <ExploreRow1Cards
                                                     propertyData={propertyData}
                                                     analysis={analysis}
@@ -469,24 +460,15 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     currentInteriorSummary={currentInteriorSummary}
                                                 />
 
-                                                <ExploreRow2Cards
+                                                <PropertyInsightsPanel
                                                     propertyData={propertyData}
                                                     analysis={analysis}
                                                     customAnalysis={customAnalysis}
                                                     keyInsights={keyInsights}
                                                     ltrAnalysis={ltrAnalysis}
                                                     census={census}
-                                                    visualPoi={visualPoi}
-                                                    mapLabels={mapLabels}
                                                     neighborhoodOverview={neighborhoodOverview}
-                                                    lifestyleFit={lifestyleFit}
-                                                    lifestyleInsights={lifestyleInsights}
                                                     lifestyleLoading={lifestyleLoading}
-                                                    lifestyleFitTab={lifestyleFitTab}
-                                                    setLifestyleFitTab={setLifestyleFitTab}
-                                                    lifestyleInterestTab={lifestyleInterestTab}
-                                                    setLifestyleInterestTab={setLifestyleInterestTab}
-                                                    handleGenerateLifestyle={handleGenerateLifestyle}
                                                     pulseExpanded={pulseExpanded}
                                                     setPulseExpanded={setPulseExpanded}
                                                     isRefreshingPulse={isRefreshingPulse}
@@ -499,10 +481,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                     environmentRefreshing={environmentRefreshing}
                                                     userRole={userRole}
                                                     onRefreshCommunityPulse={onRefreshCommunityPulse}
-                                                    section="insights"
                                                 />
-
-
                                             </div>
                                         )}
 

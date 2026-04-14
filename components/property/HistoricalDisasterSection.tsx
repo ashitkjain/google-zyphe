@@ -263,7 +263,7 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
                         <div className="w-7 h-7 rounded-lg bg-rose-100 flex items-center justify-center">
                             <i className="fa-solid fa-shield-halved text-rose-600 text-[11px]"></i>
                         </div>
-                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Hazard Zones</span>
+                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Hazards</span>
                         <InfoTooltip title="Data Sources" items={[
                             { label: 'Seismic Zone', desc: 'USGS Design Maps (ASCE 7-22)' },
                             { label: 'Flood Zone', desc: 'FEMA National Flood Hazard Layer' },

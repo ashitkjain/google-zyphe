@@ -104,7 +104,7 @@ export const AffordabilityCard: React.FC<AffordabilityCardProps> = ({
                                 <i className="fa-solid fa-scale-balanced text-indigo-600 text-[11px]"></i>
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-[16px] font-black text-slate-700 tracking-tight leading-none">Affordability</span>
+                                <span className="text-[14px] font-bold text-slate-800 tracking-tight leading-none">Affordability</span>
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
                                     {data.location_name || metroName || resolvedCounty}
                                 </span>

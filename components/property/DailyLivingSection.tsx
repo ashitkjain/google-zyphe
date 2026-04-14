@@ -72,10 +72,9 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                 
 
 
-                {/* Mobility & Commute */}
                 <div className="flex flex-col gap-3 lg:col-span-2 h-full">
-                    <div className="flex flex-col gap-3 hover:shadow-xl transition-all duration-300 h-full">
-                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                    <div className="flex flex-col gap-3 h-full">
+                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
                         <div className="p-4">
                             <div className="flex items-center gap-2 mb-3">
                                 <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center">
@@ -116,7 +115,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
 
                                         {/* Commute Calculator */}
                     {data.coordinates && (
-                    <div className="flex flex-col gap-3 hover:shadow-xl transition-all duration-300 h-full">
+                    <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
                         <CommuteCalculator originLat={data.coordinates.latitude} originLng={data.coordinates.longitude} propertyAddress={data.address} />
                     </div>
                     )}
@@ -125,8 +124,8 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
 
                 {/* Connectivity */}
                     {data.broadband && (
-                    <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
-                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                    <div className="flex flex-col gap-3 h-full">
+                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
                             <div className="p-3">
                                 <div className="flex items-center gap-2 mb-2.5">
                                     <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -230,11 +229,11 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                 
         
                 {/* Solar */}
-                <div className="flex flex-col gap-3 col-span-1 lg:col-span-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <div className="flex flex-col gap-3 col-span-1 lg:col-span-2">
                 
                     {solar && (
 
-                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden flex flex-col shadow-sm">
+                        <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden flex flex-col shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
                             <div className="p-4">
                                 {/* Header */}
                                 <div className="flex items-center justify-between gap-3 mb-1">
@@ -487,7 +486,7 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
 
                                 <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-2 mb-3">
                                     <i className="fa-solid fa-wand-magic-sparkles text-indigo-400 text-[10px]" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">AI Estimated Analysis</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">AI Estimated</span>
                                 </div>
                                 <div className="text-[8px] text-slate-700 mt-2 text-right">Google Solar API</div>
                             </div>
@@ -498,14 +497,14 @@ const DailyLivingSection: React.FC<Props> = ({ data, onRefresh, refreshing }) =>
                 </div>
 
                 {/* EV Charging */}
-                <div className="flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <div className="flex flex-col gap-3">
                 
                     {(() => {
                         const ev = (data as any).evChargers;
                         const evData = liveEv || ev;
 
                         return (
-                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                            <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
                                 <div className="p-4">
                                     {/* Header */}
                                     <div className="flex items-center justify-between gap-3 mb-2">

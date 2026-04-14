@@ -47,7 +47,7 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
                                                             <i className="fa-solid fa-brain text-indigo-500 text-[12px]" />
                                                         </div>
-                                                        <h3 className="text-[15px] font-black text-slate-900 tracking-tight">AI Property Analysis</h3>
+                                                        <h3 className="text-[18px] font-black text-slate-900 tracking-tight">Property AI</h3>
                                                     </div>
                                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-2 pb-2 pt-1.5">
 
@@ -60,7 +60,7 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                                             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                                                                 <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 group-hover:text-white text-[11px]"></i>
                                                                             </div>
-                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Interiors</span>
+                                                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Interiors</span>
                                                                         </div>
                                                                         <div className="space-y-4">
                                                                             <div>
@@ -92,7 +92,7 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                                             <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                                                                                 <i className="fa-solid fa-tree text-emerald-600 group-hover:text-white text-[11px]"></i>
                                                                             </div>
-                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Outdoors</span>
+                                                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Outdoors</span>
                                                                         </div>
                                                                         <p className="text-[13px] text-slate-600 leading-relaxed">
                                                                             {analysis.detailed_analysis.outdoors_view_quality && (
@@ -149,7 +149,7 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                                             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                                                                 <i className="fa-solid fa-archway text-indigo-600 group-hover:text-white text-[11px]"></i>
                                                                             </div>
-                                                                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Architecture Appeal</span>
+                                                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Architecture Appeal</span>
                                                                         </div>
                                                                         {designStyle?.style && (
                                                                             <span className="inline-block bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2.5 py-1 rounded-full mb-2">{designStyle.style}</span>

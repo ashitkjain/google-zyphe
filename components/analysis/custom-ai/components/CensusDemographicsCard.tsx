@@ -42,7 +42,7 @@ export const CensusDemographicsCard: React.FC<CensusDemographicsCardProps> = ({ 
                             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
                                 <i className="fa-solid fa-users text-indigo-600 text-[11px]"></i>
                             </div>
-                            <span className="text-[16px] font-black text-slate-700 tracking-tight">Census Demographics</span>
+                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Census Demographics</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 mb-3">

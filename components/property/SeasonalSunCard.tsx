@@ -121,7 +121,7 @@ const SeasonalSunCard: React.FC<Props> = ({ lat, lng, orientation }) => {
                 {/* Header */}
                 <div className="flex items-center gap-2 mb-3 px-1">
                     <i className="fa-solid fa-sun text-amber-500 text-[13px]" />
-                    <span className="text-[12px] font-black text-slate-800 uppercase tracking-widest">Seasonal Sun Path</span>
+                    <span className="text-[14px] font-bold text-slate-800 tracking-tight">Seasonal Sun Path</span>
                 </div>
 
                 {/* Season selector pills */}

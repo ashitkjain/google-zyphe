@@ -17,9 +17,10 @@ export interface NavItem {
 interface PropertySidebarProps {
     items: NavItem[];
     activeId: string;
+    onItemClick?: (id: string) => void;
 }
 
-const PropertySidebar: React.FC<PropertySidebarProps> = ({ items, activeId }) => {
+const PropertySidebar: React.FC<PropertySidebarProps> = ({ items, activeId, onItemClick }) => {
     const visible = items.filter(i => i.visible);
     if (visible.length < 2) return null;
 
@@ -60,6 +61,7 @@ const PropertySidebar: React.FC<PropertySidebarProps> = ({ items, activeId }) =>
                             href={`#${item.id}`}
                             onClick={e => {
                                 e.preventDefault();
+                                onItemClick?.(item.id);
                                 document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                             }}
                             className={`flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all duration-200 group

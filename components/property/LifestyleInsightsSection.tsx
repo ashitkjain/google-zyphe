@@ -43,10 +43,10 @@ const LifestyleInsightsSection: React.FC<Props> = ({ insights, loading, onGenera
                             isActive
                                 ? `${t.bg} border-current ${t.text} shadow-sm`
                                 : opts.interactive && hasContent
-                                    ? 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 cursor-pointer'
+                                    ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
                                     : opts.interactive
-                                        ? 'bg-slate-50/30 border-slate-100 opacity-40 cursor-not-allowed'
-                                        : 'bg-slate-50/50 border-slate-100'
+                                        ? 'bg-slate-50/30 border-slate-200 opacity-40 cursor-not-allowed'
+                                        : 'bg-slate-50/50 border-slate-200'
                         }`}
                     >
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -180,7 +180,7 @@ const LifestyleInsightsSection: React.FC<Props> = ({ insights, loading, onGenera
                                         </div>
                                         <span className="text-[16px] font-black text-slate-700 tracking-tight">{activeTopic.label}</span>
                                     </div>
-                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
+                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left font-sans font-medium">
                                         {String(activeText).split(/\*\*(.*?)\*\*/g).map((chunk: string, j: number) => (
                                             j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
                                         ))}
