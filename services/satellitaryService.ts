@@ -1284,8 +1284,6 @@ export async function runSatellitaryAnalysis(
         }
     }
 
-    }
-
     // ── Post-processing: Townhouse with front door not clearly visible ─────────
     // If Gemini cannot clearly identify the front door of this specific unit,
     // the result is unreliable regardless of confidence or image mode.
