@@ -152,8 +152,8 @@ Step 3: Cross-check with Image B (street view). GPS camera heading = ${streetVie
       → street_view_shows_front = TRUE
    RULE B — Image B shows ONLY a blank wall, fence, or side with no openings:
       → street_view_shows_front = FALSE
-   NOTE: The final azimuth is computed by the system from heading + your TRUE/FALSE. Do NOT compute it yourself. Do NOT override heading math based on your Step 2 aerial guess.
-Step 4: Finalize. Output final_orientation, azimuth_degrees, confidence, and property_layout_type.
+
+Step 4: Finalize.
 
 ADDITIONAL ANALYSIS:
 - Privacy: Assess neighboring sightlines into the backyard/pool.
