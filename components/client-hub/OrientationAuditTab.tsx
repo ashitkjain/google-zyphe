@@ -698,9 +698,17 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
-        for (let i = 0; i < targets.length; i++) {
-            await forceRefreshForRow(targets[i].zpid, true);
-            setBatchProgress({ done: i + 1, total: targets.length });
+        const CONCURRENCY = 20;
+        let done = 0;
+        for (let i = 0; i < targets.length; i += CONCURRENCY) {
+            const wave = targets.slice(i, i + CONCURRENCY);
+            await Promise.allSettled(
+                wave.map(async t => {
+                    await forceRefreshForRow(t.zpid, true);
+                    done++;
+                    setBatchProgress({ done, total: targets.length });
+                })
+            );
         }
         setBatchRunning(false);
         setBatchProgress(null);
@@ -730,9 +738,17 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
-        for (let i = 0; i < targets.length; i++) {
-            await forceRefreshForRow(targets[i].zpid, true);
-            setBatchProgress({ done: i + 1, total: targets.length });
+        const CONCURRENCY = 20;
+        let done = 0;
+        for (let i = 0; i < targets.length; i += CONCURRENCY) {
+            const wave = targets.slice(i, i + CONCURRENCY);
+            await Promise.allSettled(
+                wave.map(async t => {
+                    await forceRefreshForRow(t.zpid, true);
+                    done++;
+                    setBatchProgress({ done, total: targets.length });
+                })
+            );
         }
         setBatchRunning(false);
         setBatchProgress(null);

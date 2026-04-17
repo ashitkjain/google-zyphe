@@ -18,7 +18,7 @@ import { urlToBase64, executeGeminiRequest, FLASH_MODEL } from './geminiService'
 
 // Use a stronger model for orientation — spatial reasoning is the hardest task in the pipeline.
 // Swapping independently of FLASH_MODEL so other services are unaffected.
-const ORIENTATION_MODEL = 'gemini-2.0-flash';
+const ORIENTATION_MODEL = 'gemini-2.5-flash-preview-04-17';
 
 
 
