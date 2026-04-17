@@ -309,6 +309,15 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         finalAzimuth     = null;
     }
 
+    // Townhouse post-gate: internal-road complex (standard_street_layout=false) → UNCLEAR
+    // The address street name hint misleads Gemini into confidently aligning with
+    // an internal access road (e.g. "Regional Cmn" inside a townhouse complex).
+    if (isMultiUnit && data.standard_street_layout === false) {
+        console.log(`[Batch] Override ${zpid}: shared-wall + standard_street_layout=false → UNCLEAR`);
+        finalOrientation = 'UNCLEAR';
+        finalAzimuth     = null;
+    }
+
     // 8. Write orientation result to Firestore via Admin SDK
     const orientationAI = {
         final_orientation:       finalOrientation,

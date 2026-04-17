@@ -1307,6 +1307,24 @@ export async function runSatellitaryAnalysis(
         }
     }
 
+    // ── Post-processing: Townhouse with non-standard street layout ────────────
+    // Townhouses/condos on internal-access roads (parking lots, shared driveways,
+    // looping courts inside complexes) are flagged by Gemini as
+    // standard_street_layout=false. In these cases the GPS address-street hint
+    // is misleading — "Regional Cmn" is an internal road that Gemini treats as
+    // the primary street, producing confident but wrong orientations.
+    // Policy: shared-wall property + standard_street_layout=false → UNCLEAR.
+    if (result && isSharedWallProperty(homeType, address) && result.standard_street_layout === false) {
+        console.log(`[Satellitary] Post-Gemini override: shared-wall (${homeType}) + standard_street_layout=false → UNCLEAR`);
+        result = {
+            ...result,
+            final_orientation:      'UNCLEAR',
+            azimuth_degrees:        null,
+            visual_azimuth_estimate: null,
+            confidence:             'low',
+            explanation: `Townhouse orientation marked unclear: Gemini reported standard_street_layout=false, indicating this unit's entrance faces an internal access road or private parking area rather than a named public street. The address street name hint is unreliable for these complexes and may produce confidently wrong results.`,
+        };
+    }
 
     // ── 5. Cache results to Firestore (fire-and-forget) ───────────────────────
     if (zpid && result) {
