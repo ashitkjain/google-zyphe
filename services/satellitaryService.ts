@@ -1285,19 +1285,19 @@ export async function runSatellitaryAnalysis(
     }
 
     // ── Post-processing: Townhouse → UNCLEAR when result is unreliable ─────────
-    // For shared-wall properties (townhouse/condo), force UNCLEAR if:
-    //   (a) front_door_clearly_visible = false  — Gemini couldn't see the unit door
-    //   (b) complex lot layout (cul-de-sac, corner lot)  — shared wall + ambiguous
-    //       frontage = compound ambiguity even with street view
-    // Single-family homes on cul-de-sac/corner lot with street view are still trusted.
+    // Force UNCLEAR for shared-wall properties if any of:
+    //   (a) front_door_clearly_visible = false  — couldn't identify this unit's door
+    //   (b) cul_de_sac or corner_lot            — ambiguous frontage even with SV
+    //   (c) standard_street_layout = false      — internal access road, not public street
     if (result && isSharedWallProperty(homeType, address)) {
-        const layoutType       = result.property_layout_type;
-        const frontDoorMissing = (result as any).front_door_clearly_visible === false;
-        const complexLayout    = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
-        if (frontDoorMissing || complexLayout) {
-            const reason = frontDoorMissing
-                ? 'front door not clearly visible'
-                : `complex lot layout (${layoutType})`;
+        const layoutType        = result.property_layout_type;
+        const frontDoorMissing  = (result as any).front_door_clearly_visible === false;
+        const complexLayout     = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
+        const nonStandardStreet = (result as any).standard_street_layout === false;
+        if (frontDoorMissing || complexLayout || nonStandardStreet) {
+            const reason = frontDoorMissing   ? 'front door not clearly visible'
+                         : nonStandardStreet  ? 'non-standard street layout (internal access road)'
+                         : `complex lot layout (${layoutType})`;
             console.log(`[Satellitary] Post-Gemini override: townhouse + ${reason} → UNCLEAR`);
             result = {
                 ...result,
@@ -1305,7 +1305,7 @@ export async function runSatellitaryAnalysis(
                 azimuth_degrees:         null,
                 visual_azimuth_estimate: null,
                 confidence:              'low',
-                explanation:             `Townhouse orientation unclear: ${reason}. Shared-wall units on complex lot layouts are too ambiguous to determine orientation reliably.`,
+                explanation:             `Townhouse orientation unclear: ${reason}.`,
             };
         }
     }
