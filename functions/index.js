@@ -1083,3 +1083,6 @@ exports.savedSearchAlerts = functions.pubsub
         console.log(`[SavedSearchAlerts] Run complete — ${totalAlertsSent} alert(s) sent`);
         return null;
     });
+
+// ─── Orientation Batch (tab-independent, Firestore-triggered) ───────────────
+Object.assign(exports, require('./orientationBatch'));

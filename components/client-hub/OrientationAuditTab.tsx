@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, orderBy, getDocs, collectionGroup, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, collectionGroup, doc, getDoc, setDoc, serverTimestamp, addDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
 import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl, backfillStreetViewHeadingDeg, extractOrientationFromDescription } from '../../services/satellitaryService';
 import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
@@ -698,23 +698,38 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
-        const CONCURRENCY = 20;
-        let done = 0;
-        for (let i = 0; i < targets.length; i += CONCURRENCY) {
-            const wave = targets.slice(i, i + CONCURRENCY);
-            await Promise.allSettled(
-                wave.map(async t => {
-                    await forceRefreshForRow(t.zpid, true);
-                    done++;
-                    setBatchProgress({ done, total: targets.length });
-                })
-            );
+
+        // Create a batch job document — the Cloud Function picks it up and runs server-side.
+        // Tab-independent: the browser can be closed and the CF continues processing.
+        try {
+            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
+                zpids:     targets.map(t => t.zpid),
+                status:    'queued',
+                total:     targets.length,
+                done:      0,
+                failed:    0,
+                userId:    auth?.currentUser?.uid ?? 'unknown',
+                createdAt: serverTimestamp(),
+            });
+
+            // Subscribe to real-time progress from the Cloud Function.
+            const unsubscribe = onSnapshot(jobRef, (snap) => {
+                const d = snap.data();
+                if (!d) return;
+                setBatchProgress({ done: d.done ?? 0, total: targets.length });
+                if (d.status === 'completed' || d.status === 'failed') {
+                    unsubscribe();
+                    setBatchRunning(false);
+                    setBatchProgress(null);
+                    // Re-sync UI with Firestore results written by the Cloud Function.
+                    setTimeout(() => fetchData(), 1500);
+                }
+            });
+        } catch (err) {
+            console.error('[Batch] Failed to create batch job:', err);
+            setBatchRunning(false);
+            setBatchProgress(null);
         }
-        setBatchRunning(false);
-        setBatchProgress(null);
-        // Re-sync with Firestore after all awaited writes complete.
-        // Small delay ensures any pending Firestore propagation has settled.
-        setTimeout(() => fetchData(), 2000);
     };
 
     const handleRecalculateMismatches = async () => {
@@ -738,25 +753,38 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
-        const CONCURRENCY = 20;
-        let done = 0;
-        for (let i = 0; i < targets.length; i += CONCURRENCY) {
-            const wave = targets.slice(i, i + CONCURRENCY);
-            await Promise.allSettled(
-                wave.map(async t => {
-                    await forceRefreshForRow(t.zpid, true);
-                    done++;
-                    setBatchProgress({ done, total: targets.length });
-                })
-            );
+
+        // Create a batch job document — the Cloud Function picks it up and runs server-side.
+        // Tab-independent: the browser can be closed and the CF continues processing.
+        try {
+            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
+                zpids:     targets.map(t => t.zpid),
+                status:    'queued',
+                total:     targets.length,
+                done:      0,
+                failed:    0,
+                userId:    auth?.currentUser?.uid ?? 'unknown',
+                createdAt: serverTimestamp(),
+            });
+
+            // Subscribe to real-time progress from the Cloud Function.
+            const unsubscribe = onSnapshot(jobRef, (snap) => {
+                const d = snap.data();
+                if (!d) return;
+                setBatchProgress({ done: d.done ?? 0, total: targets.length });
+                if (d.status === 'completed' || d.status === 'failed') {
+                    unsubscribe();
+                    setBatchRunning(false);
+                    setBatchProgress(null);
+                    // Re-sync UI with Firestore results written by the Cloud Function.
+                    setTimeout(() => fetchData(), 1500);
+                }
+            });
+        } catch (err) {
+            console.error('[Batch] Failed to create batch job:', err);
+            setBatchRunning(false);
+            setBatchProgress(null);
         }
-        setBatchRunning(false);
-        setBatchProgress(null);
-        // Re-sync with Firestore after all awaited writes complete.
-        // savePropertyOrientationToCloud is awaited inside each call, so by the time
-        // the loop ends all writes have landed. fetchData() confirms Firestore state
-        // matches local state — if any write failed silently, this rolls it back honestly.
-        setTimeout(() => fetchData(), 2000);
     };
 
     const handleRedownloadSatellites = async () => {

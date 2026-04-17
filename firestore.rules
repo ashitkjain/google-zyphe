@@ -509,5 +509,14 @@ service cloud.firestore {
       // Write only via Firebase Console or Admin SDK — never from client
       allow write: if false;
     }
+    // 10. ORIENTATION BATCH JOBS — created by client, processed by Cloud Function
+    match /orientation_batch_jobs/{jobId} {
+      // Any authenticated user can create a batch job they own
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Users can read their own job documents for progress polling
+      allow read:   if request.auth != null && resource.data.userId == request.auth.uid;
+      // Updates (progress) are written by the Cloud Function via Admin SDK — never from client
+      allow update, delete: if false;
+    }
   }
 }
