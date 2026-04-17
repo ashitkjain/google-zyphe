@@ -120,7 +120,16 @@ Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layou
    OPTION D — FLAG lot: Long driveway/easement leads to a setback lot hidden behind another property.
 
 Step 2: Aerial Front-Wall Identification.
+Step 2: Aerial Front-Wall Identification.
    Using the layout you identified in Step 1, identify which compass direction the front wall faces. Confirm with: (a) pedestrian walkway, (b) driveway direction, (c) lot orientation.
+
+   FACING CONVENTION (CRITICAL — read carefully):
+   The front wall faces TOWARD the street — its azimuth points FROM the house IN THE DIRECTION OF the street.
+      → Street is to the SOUTH of the house = front faces SOUTH (~180°). NOT north.
+      → Street is to the NORTH of the house = front faces NORTH (~0°).   NOT south.
+      → Street is to the EAST  of the house = front faces EAST  (~90°).  NOT west.
+   Never invert this. If Calistoga Ln connects to the south side, the front faces SOUTH, not north.
+
    DIRECTION PRECISION (applies to ALL lot types, not just cul-de-sacs):
    When identifying the driveway or walkway direction, trace it from the house toward the street and read BOTH axes:
      • Upper-left  = NORTHWEST — do NOT call this “west” or “southwest”
@@ -128,7 +137,6 @@ Step 2: Aerial Front-Wall Identification.
      • Lower-left  = SOUTHWEST — do NOT call this “south” or “west”
      • Lower-right = SOUTHEAST — do NOT call this “south” or “east”
    If the driveway runs diagonally (both horizontal AND vertical movement), use the intercardinal direction. Only use N/E/S/W when the movement is almost entirely in ONE axis.
-
 Step 3: Apply Heading Math (MANDATORY — do NOT skip or override).
    Camera heading = ${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'} (GPS-measured, exact).
    RULE A — Image B shows a front door, porch, covered entry, or steps:
@@ -474,7 +482,7 @@ export function getDualPromptFinalInstructions(streetViewHeading?: number | null
     return `
 FINAL REMINDER:
 1. WALKWAY RULE: The side where the path from the street leads to a door is the FRONT.
-2. DIRECTION: Output the direction the FRONT WALL points (away from the house).
+2. FACING DIRECTION: The azimuth is the direction from the house TOWARD the street (front wall faces the street, not away from it). Street to the south → azimuth ≈ 180° (South). Street to the north → azimuth ≈ 0° (North). Do NOT invert.
 3. AMBIGUITY: If Image B shows the front door, use the heading ${streetViewHeading != null ? `${streetViewHeading}°` : 'provided'} to derive the exact azimuth. If Image B shows a garage but the front door is elsewhere, street_view_shows_front must be FALSE.
 4. CONFIDENCE: Be low/medium if the image is soft or cues are conflicting.
 `.trim();
