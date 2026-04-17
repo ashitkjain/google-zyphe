@@ -125,19 +125,24 @@ Step 2: Aerial Front-Wall Identification.
 
    FACING CONVENTION (CRITICAL — read carefully):
    The front wall faces TOWARD the street — its azimuth points FROM the house IN THE DIRECTION OF the street.
-      → Street is to the SOUTH of the house = front faces SOUTH (~180°). NOT north.
-      → Street is to the NORTH of the house = front faces NORTH (~0°).   NOT south.
-      → Street is to the EAST  of the house = front faces EAST  (~90°).  NOT west.
-   Never invert this. If Calistoga Ln connects to the south side, the front faces SOUTH, not north.
+   This applies to ALL 8 compass directions:
+      → Street to the SOUTH           → front faces SOUTH  (~180°)
+      → Street to the NORTH           → front faces NORTH  (~0°)
+      → Street to the EAST            → front faces EAST   (~90°)
+      → Street to the WEST            → front faces WEST   (~270°)
+      → Street to the SOUTHEAST       → front faces SE     (~135°)  — use SE, not "south" or "east"
+      → Street to the SOUTHWEST       → front faces SW     (~225°)  — use SW, not "south" or "west"
+      → Street to the NORTHEAST       → front faces NE     (~45°)   — use NE, not "north" or "east"
+      → Street to the NORTHWEST       → front faces NW     (~315°)  — use NW, not "north" or "west"
+   NEVER collapse a diagonal to a cardinal just because south/north is the dominant axis.
+   NEVER invert (if street is south → face south, NOT north).
 
-   DIRECTION PRECISION (applies to ALL lot types, not just cul-de-sacs):
-   When identifying the driveway or walkway direction, trace it from the house toward the street and read BOTH axes:
+   DIRECTION PRECISION — trace the driveway from the house TOWARD the street:
      • Upper-left  = NORTHWEST — do NOT call this “west” or “southwest”
      • Upper-right = NORTHEAST — do NOT call this “north” or “east”
      • Lower-left  = SOUTHWEST — do NOT call this “south” or “west”
      • Lower-right = SOUTHEAST — do NOT call this “south” or “east”
-   If the driveway runs diagonally (both horizontal AND vertical movement), use the intercardinal direction. Only use N/E/S/W when the movement is almost entirely in ONE axis.
-Step 3: Apply Heading Math (MANDATORY — do NOT skip or override).
+   If the driveway moves diagonally (has BOTH horizontal AND vertical components), use the intercardinal. Only use N/E/S/W when movement is almost entirely in ONE axis.
    Camera heading = ${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'} (GPS-measured, exact).
    RULE A — Image B shows a front door, porch, covered entry, or steps:
       → street_view_shows_front = TRUE → azimuth = (${streetViewHeading ?? 'heading'} + 180) % 360
@@ -482,7 +487,7 @@ export function getDualPromptFinalInstructions(streetViewHeading?: number | null
     return `
 FINAL REMINDER:
 1. WALKWAY RULE: The side where the path from the street leads to a door is the FRONT.
-2. FACING DIRECTION: The azimuth is the direction from the house TOWARD the street (front wall faces the street, not away from it). Street to the south → azimuth ≈ 180° (South). Street to the north → azimuth ≈ 0° (North). Do NOT invert.
+2. FACING DIRECTION: The azimuth is the direction from the house TOWARD the street (never away from it). All 8 directions are valid — do NOT collapse diagonals to cardinals. Examples: street to south→S(180°), to SE→SE(135°), to NW→NW(315°). Do NOT invert (street south = face south, not north).
 3. AMBIGUITY: If Image B shows the front door, use the heading ${streetViewHeading != null ? `${streetViewHeading}°` : 'provided'} to derive the exact azimuth. If Image B shows a garage but the front door is elsewhere, street_view_shows_front must be FALSE.
 4. CONFIDENCE: Be low/medium if the image is soft or cues are conflicting.
 `.trim();
