@@ -638,6 +638,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 streetView: result.freshStreetViewUrl || r.streetView,
                 // Update the displayed orientation immediately — do NOT leave it stale
                 finalOrientation: result.final_orientation,
+                calculatedAt: new Date(),   // mark as freshly analyzed so missedProperties doesn't re-queue it
                 orientationAI: {
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
@@ -703,7 +704,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
         setBatchRunning(false);
         setBatchProgress(null);
-        // No fetchData() — each forceRefreshForRow already updated its row inline via setRows.
+        // Re-sync with Firestore after all awaited writes complete.
+        // Small delay ensures any pending Firestore propagation has settled.
+        setTimeout(() => fetchData(), 2000);
     };
 
     const handleRecalculateMismatches = async () => {
@@ -733,9 +736,11 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
         setBatchRunning(false);
         setBatchProgress(null);
-        // No fetchData() here — each forceRefreshForRow already updated its row
-        // inline via setRows. A final fetchData would re-read potentially stale
-        // Firestore data and revert the rows back to old values.
+        // Re-sync with Firestore after all awaited writes complete.
+        // savePropertyOrientationToCloud is awaited inside each call, so by the time
+        // the loop ends all writes have landed. fetchData() confirms Firestore state
+        // matches local state — if any write failed silently, this rolls it back honestly.
+        setTimeout(() => fetchData(), 2000);
     };
 
     const handleRedownloadSatellites = async () => {
