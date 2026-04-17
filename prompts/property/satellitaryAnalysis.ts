@@ -68,15 +68,17 @@ Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
      → Skip Step 3 entirely — do NOT apply heading math
      → Rely SOLELY on Step 2 aerial analysis (driveway apron + walkway) for azimuth
      → Set confidence = 'medium' at most (downgrade to 'low' if driveway is also ambiguous)
-   - Only proceed to Step 3 heading math if Image B clearly shows architectural features (front door, porch, garage door, windows, entry steps) that let you confirm whether the camera faces the FRONT or BACK.
+   - Only proceed to Step 3 heading math if Image B clearly shows the front door, porch, or entry steps that let you confirm whether the camera faces the FRONT or BACK. A garage door or windows alone are NOT sufficient — they do not confirm which side is the architectural front.
 
    TOWNHOUSE / ROW-HOUSE EXTRA GATE (apply if the building is a townhouse, row house, or attached unit):
    Townhouses share party walls and often have side alleys, shared lobbies, parking bays, or rear gates visible in street view. These are NOT the primary front door.
    For a townhouse, set front_door_clearly_visible = true ONLY if ALL of the following are true:
-     a) You can see a clearly distinct residential front door belonging to this specific unit (not a shared lobby entrance or multi-unit mailbox area).
-     b) The door has a direct pedestrian path from the public sidewalk (steps, porch, or stoop).
-     c) You are confident this door — not a side or rear gate — is the PRIMARY entrance.
-   If ANY of these conditions is uncertain or unmet:
+     a) You can see a clearly distinct residential front door belonging to this specific unit (not a shared lobby entrance, not a multi-unit mailbox area).
+     b) The door has a direct pedestrian path from the public sidewalk (steps, porch, or stoop leading to THAT door).
+     c) You are confident this door — not a side gate, rear gate, or garage — is the PRIMARY entrance.
+   GARAGE-ONLY TRAP: If the street view shows only garage doors (even multiple units' garage doors in a row) with NO visible front door or pedestrian entry above or beside them — this is the GARAGE FACE of the building. For many townhouses on circular courts (Cir, Ct, Loop, Way) or alleys, the garage faces the driving lane while the FRONT DOOR faces an interior courtyard, walkway, or opposite street.
+     → In this case: front_door_clearly_visible = false. Do not use heading math.
+   If ANY condition is uncertain or unmet:
      → Set front_door_clearly_visible = false
      → Do NOT apply heading math from Image B
      → Rely on aerial analysis only
