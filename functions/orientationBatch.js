@@ -303,11 +303,19 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     let finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : 'UNCLEAR';
 
-    // Post-processing: Townhouse with front door not clearly visible → UNCLEAR
-    if (isMultiUnit && data.front_door_clearly_visible === false) {
-        console.log(`[Batch] Override ${zpid}: townhouse + front_door_clearly_visible=false → UNCLEAR`);
-        finalOrientation = 'UNCLEAR';
-        finalAzimuth     = null;
+    // Post-processing: Townhouse → UNCLEAR when result is unreliable
+    // (a) front_door_clearly_visible = false  — Gemini couldn't see the unit door
+    // (b) cul_de_sac or corner_lot — shared wall + ambiguous frontage = too risky
+    if (isMultiUnit) {
+        const layoutType       = data.property_layout_type;
+        const frontDoorMissing = data.front_door_clearly_visible === false;
+        const complexLayout    = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
+        if (frontDoorMissing || complexLayout) {
+            const reason = frontDoorMissing ? 'front_door_clearly_visible=false' : `layout=${layoutType}`;
+            console.log(`[Batch] Override ${zpid}: townhouse + ${reason} → UNCLEAR`);
+            finalOrientation = 'UNCLEAR';
+            finalAzimuth     = null;
+        }
     }
 
     // 8. Write orientation result to Firestore via Admin SDK

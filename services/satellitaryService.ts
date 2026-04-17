@@ -1284,19 +1284,30 @@ export async function runSatellitaryAnalysis(
         }
     }
 
-    // ── Post-processing: Townhouse with front door not clearly visible ─────────
-    // If Gemini cannot clearly identify the front door of this specific unit,
-    // the result is unreliable regardless of confidence or image mode.
-    if (result && isSharedWallProperty(homeType, address) && (result as any).front_door_clearly_visible === false) {
-        console.log(`[Satellitary] Post-Gemini override: townhouse + front_door_clearly_visible=false → UNCLEAR`);
-        result = {
-            ...result,
-            final_orientation:      'UNCLEAR',
-            azimuth_degrees:        null,
-            visual_azimuth_estimate: null,
-            confidence:             'low',
-            explanation:            `Townhouse orientation unclear: Gemini could not clearly identify the primary front door of this specific unit.`,
-        };
+    // ── Post-processing: Townhouse → UNCLEAR when result is unreliable ─────────
+    // For shared-wall properties (townhouse/condo), force UNCLEAR if:
+    //   (a) front_door_clearly_visible = false  — Gemini couldn't see the unit door
+    //   (b) complex lot layout (cul-de-sac, corner lot)  — shared wall + ambiguous
+    //       frontage = compound ambiguity even with street view
+    // Single-family homes on cul-de-sac/corner lot with street view are still trusted.
+    if (result && isSharedWallProperty(homeType, address)) {
+        const layoutType       = result.property_layout_type;
+        const frontDoorMissing = (result as any).front_door_clearly_visible === false;
+        const complexLayout    = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
+        if (frontDoorMissing || complexLayout) {
+            const reason = frontDoorMissing
+                ? 'front door not clearly visible'
+                : `complex lot layout (${layoutType})`;
+            console.log(`[Satellitary] Post-Gemini override: townhouse + ${reason} → UNCLEAR`);
+            result = {
+                ...result,
+                final_orientation:       'UNCLEAR',
+                azimuth_degrees:         null,
+                visual_azimuth_estimate: null,
+                confidence:              'low',
+                explanation:             `Townhouse orientation unclear: ${reason}. Shared-wall units on complex lot layouts are too ambiguous to determine orientation reliably.`,
+            };
+        }
     }
 
     // ── 5. Cache results to Firestore (fire-and-forget) ───────────────────────
