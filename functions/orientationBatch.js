@@ -303,17 +303,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     let finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : 'UNCLEAR';
 
-    // Townhouse post-gate: dual-image but front door not clearly visible → UNCLEAR
-    if (isMultiUnit && usesDualImage && data.front_door_clearly_visible === false) {
-        finalOrientation = 'UNCLEAR';
-        finalAzimuth     = null;
-    }
-
-    // Townhouse post-gate: internal-road complex (standard_street_layout=false) → UNCLEAR
-    // The address street name hint misleads Gemini into confidently aligning with
-    // an internal access road (e.g. "Regional Cmn" inside a townhouse complex).
-    if (isMultiUnit && data.standard_street_layout === false) {
-        console.log(`[Batch] Override ${zpid}: shared-wall + standard_street_layout=false → UNCLEAR`);
+    // Post-processing: Townhouse with front door not clearly visible → UNCLEAR
+    if (isMultiUnit && data.front_door_clearly_visible === false) {
+        console.log(`[Batch] Override ${zpid}: townhouse + front_door_clearly_visible=false → UNCLEAR`);
         finalOrientation = 'UNCLEAR';
         finalAzimuth     = null;
     }

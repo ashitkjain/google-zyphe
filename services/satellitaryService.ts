@@ -1284,45 +1284,20 @@ export async function runSatellitaryAnalysis(
         }
     }
 
-    // ── Post-processing: Townhouse with unclear street view ───────────────────
-    // Townhouses with street view can still return wrong results if:
-    //   - The SV shows a side/alley entrance, not the primary front door
-    //   - It's a corner townhouse with two facades visible
-    //   - The SV is partially blurred or shot from an angle
-    // Policy: only trust the result if Gemini explicitly confirmed the front door
-    // was clearly visible (front_door_clearly_visible === true).
-    // Confidence is NOT used here — Gemini over-reports high confidence.
-    if (result && isSharedWallProperty(homeType, address) && !result.aerial_only_mode) {
-        const frontDoorVisible = (result as any).front_door_clearly_visible;
-        if (frontDoorVisible !== true) {
-            console.log(`[Satellitary] Post-Gemini override: shared-wall (${homeType}) + street_view + front_door_clearly_visible=${frontDoorVisible} → UNCLEAR`);
-            result = {
-                ...result,
-                final_orientation: 'UNCLEAR',
-                azimuth_degrees: null,
-                visual_azimuth_estimate: null,
-                confidence: 'low',
-                explanation: `Townhouse orientation marked unclear: the street view image was available but Gemini could not clearly identify the primary front door of this specific unit (front_door_clearly_visible=${frontDoorVisible}). Townhouses often have shared lobbies, side alleys, or parking bays visible in street view that are not the true front entrance.`,
-            };
-        }
     }
 
-    // ── Post-processing: Townhouse with non-standard street layout ────────────
-    // Townhouses/condos on internal-access roads (parking lots, shared driveways,
-    // looping courts inside complexes) are flagged by Gemini as
-    // standard_street_layout=false. In these cases the GPS address-street hint
-    // is misleading — "Regional Cmn" is an internal road that Gemini treats as
-    // the primary street, producing confident but wrong orientations.
-    // Policy: shared-wall property + standard_street_layout=false → UNCLEAR.
-    if (result && isSharedWallProperty(homeType, address) && result.standard_street_layout === false) {
-        console.log(`[Satellitary] Post-Gemini override: shared-wall (${homeType}) + standard_street_layout=false → UNCLEAR`);
+    // ── Post-processing: Townhouse with front door not clearly visible ─────────
+    // If Gemini cannot clearly identify the front door of this specific unit,
+    // the result is unreliable regardless of confidence or image mode.
+    if (result && isSharedWallProperty(homeType, address) && (result as any).front_door_clearly_visible === false) {
+        console.log(`[Satellitary] Post-Gemini override: townhouse + front_door_clearly_visible=false → UNCLEAR`);
         result = {
             ...result,
             final_orientation:      'UNCLEAR',
             azimuth_degrees:        null,
             visual_azimuth_estimate: null,
             confidence:             'low',
-            explanation: `Townhouse orientation marked unclear: Gemini reported standard_street_layout=false, indicating this unit's entrance faces an internal access road or private parking area rather than a named public street. The address street name hint is unreliable for these complexes and may produce confidently wrong results.`,
+            explanation:            `Townhouse orientation unclear: Gemini could not clearly identify the primary front door of this specific unit.`,
         };
     }
 
