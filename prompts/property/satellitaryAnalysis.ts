@@ -97,6 +97,18 @@ Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layou
       → If YES (both must be true): Set property_layout_type = "cul_de_sac".
          The FRONT WALL of the house FACES OUTWARD toward the center of that circular open area.
          (Think of it as: the front door and garage open onto the circular paved court — cars drive from the circle to the garage.)
+         CUL-DE-SAC DIRECTION METHOD — compute the direction from property to cul-de-sac center precisely:
+           • Locate the center of the cul-de-sac bulb (point C).
+           • Locate the center of the subject property (point P, marked by the pin).
+           • Draw a vector P → C and read its compass direction using BOTH axes:
+               Upper-left of P  = NORTHWEST (~315°) — NOT west, NOT southwest
+               Upper-right of P = NORTHEAST (~45°)  — NOT north, NOT east
+               Lower-left of P  = SOUTHWEST (~225°) — NOT south, NOT west
+               Lower-right of P = SOUTHEAST (~135°) — NOT south, NOT east
+               Directly above P = NORTH (0°)   |  Directly right = EAST (90°)
+               Directly below P = SOUTH (180°) |  Directly left  = WEST (270°)
+           • If the cul-de-sac is diagonally placed (both horizontal AND vertical offset), you MUST use the diagonal compass direction (NW/NE/SW/SE). Do NOT reduce it to a cardinal direction (N/E/S/W) unless the offset is almost entirely in one axis.
+           • The front wall azimuth = the angle from P toward C (the direction the front wall FACES).
          IMPORTANT for Step 3: The Street View camera is almost always positioned INSIDE the circular court area looking at the FRONT of the house. If Image B shows a garage door or front door visible, set street_view_shows_front = TRUE. Only set FALSE if you see a clearly featureless back wall with no openings.
    OPTION B — STANDARD lot: Straight or gently curved street, no dead-end bulb visible. Use the walkway rule.
    OPTION C — CORNER lot: Two distinct street frontages visible. Use pedestrian walkway to determine primary front.
