@@ -146,6 +146,70 @@ export async function setGroundTruthFromDescription(data: {
 }
 
 /**
+ * Writes (or overwrites) a manual GT orientation chosen by the user from the audit UI.
+ * Sets gt_source = 'manual' so the UI can distinguish it from description-sourced GT.
+ */
+export async function saveManualGroundTruth(data: {
+    zpid: string;
+    city: string;
+    zip: string;
+    address?: string | null;
+    orientation: string;   // e.g. "South" or "UNCLEAR"
+}) {
+    const azimuth = (await import('../orientation_ground_truth_data'))
+        .AZIMUTH_FOR_ORIENTATION[data.orientation] ?? null;
+    try {
+        const gtRef = firestore.doc(db, 'orientation_ground_truth', data.zpid);
+        const snap  = await firestore.getDoc(gtRef);
+        const payload: Record<string, any> = {
+            expected_orientation: data.orientation,
+            expected_azimuth_deg: azimuth,
+            gt_source: 'manual',
+            gt_updated_at: firestore.serverTimestamp(),
+        };
+        if (snap.exists()) {
+            await firestore.updateDoc(gtRef, payload);
+        } else {
+            await firestore.setDoc(gtRef, {
+                zpid:  data.zpid,
+                city:  (data.city || 'Unknown').trim(),
+                zip:   (data.zip  || 'Unknown').trim(),
+                address: data.address ?? null,
+                ...payload,
+                test_results: [],
+            });
+        }
+        console.log(`[saveManualGroundTruth] GT set to "${data.orientation}" for ${data.zpid}`);
+    } catch (e) {
+        console.error('[saveManualGroundTruth] Error:', e);
+        throw e;
+    }
+}
+
+/**
+ * Reads expected_orientation and gt_source from all orientation_ground_truth docs.
+ * Used by the audit tab to overlay Firestore-based GT over the static local dataset.
+ */
+export async function fetchFirestoreGroundTruths(): Promise<Record<string, { expected_orientation: string; gt_source: string }>> {
+    const results: Record<string, { expected_orientation: string; gt_source: string }> = {};
+    try {
+        const snap = await firestore.getDocs(firestore.collection(db, 'orientation_ground_truth'));
+        snap.docs.forEach(d => {
+            const data = d.data();
+            if (data.expected_orientation) {
+                results[d.id] = {
+                    expected_orientation: data.expected_orientation,
+                    gt_source: data.gt_source ?? 'unknown',
+                };
+            }
+        });
+    } catch (e) {
+        console.error('[fetchFirestoreGroundTruths] Error:', e);
+    }
+    return results;
+}
+
+/**
  * Reads orientation history from orientation_ground_truth collection.
  * Reconstructs the same OrientationHistorySnapshot shape used by OrientationAuditTab —
  * latest, previous, and first are derived from automated test_results sorted by date.

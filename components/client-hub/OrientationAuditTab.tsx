@@ -3,7 +3,7 @@ import { collection, query, orderBy, getDocs, collectionGroup, doc, getDoc, setD
 import { db, auth } from '../../services/firebaseService';
 import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl, backfillStreetViewHeadingDeg, extractOrientationFromDescription } from '../../services/satellitaryService';
 import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
-import { getLatestOrientationVersions } from '../../services/firebase/orientation_history';
+import { getLatestOrientationVersions, saveManualGroundTruth, fetchFirestoreGroundTruths } from '../../services/firebase/orientation_history';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
 import { normalizePropertyFields } from '../../services/firebase/properties';
 import { ALL_GROUND_TRUTH, AZIMUTH_FOR_ORIENTATION } from '../../services/orientation_ground_truth_data';
@@ -131,16 +131,21 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
     const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear'>('all');
     const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null } | null>(null);
+    const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
+    const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
+    const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
 
     // ── Fetch all properties + visual analyses ────────────────────────────────
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [propSnap, visualSnap, assessmentSnap] = await Promise.all([
+            const [propSnap, visualSnap, assessmentSnap, firestoreGts] = await Promise.all([
                 getDocs(query(collection(db, 'properties'), orderBy('address', 'asc'))),
                 getDocs(collection(db, 'property_analyses_visual')),
                 getDocs(collection(db, 'ai_assessment')),
+                fetchFirestoreGroundTruths(),
             ]);
+            setFirestoreGtByZpid(firestoreGts);
 
             const visualOrientationMap: Record<string, string> = {};
             visualSnap.docs.forEach(d => {
@@ -399,20 +404,27 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
     // Build address-normalised ground truth lookup: zpid → GroundTruthRow
     // Must be declared before filteredRows which references it.
+    // Firestore manual overrides (firestoreGtByZpid) take precedence over local static data.
     const groundTruthByZpid = useMemo(() => {
         const norm = (s: string) => s.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
         const addrMap = new Map<string, { expected_orientation: string | null; remark: string; tester_notes: string }>();
         Object.values(ALL_GROUND_TRUTH).forEach(dataset =>
             dataset.forEach(r => addrMap.set(norm(r.address), r))
         );
-        const result = new Map<string, { expected_orientation: string | null; remark: string; tester_notes: string }>();
+        const result = new Map<string, { expected_orientation: string | null; remark: string; tester_notes: string; gt_source?: string }>();
         rows.forEach(r => {
             if (!r.zpid) return;
+            // Firestore manual GT takes priority over static local data
+            const fsGt = firestoreGtByZpid[r.zpid];
+            if (fsGt?.expected_orientation) {
+                result.set(r.zpid, { expected_orientation: fsGt.expected_orientation, remark: 'Good', tester_notes: '', gt_source: fsGt.gt_source });
+                return;
+            }
             const gt = addrMap.get(norm(r.address ?? ''));
             if (gt) result.set(r.zpid, gt);
         });
         return result;
-    }, [rows]);
+    }, [rows, firestoreGtByZpid]);
 
     const filteredRows = useMemo(() => {
         // Enforce targeting: only show properties that are targets for analysis
@@ -1386,36 +1398,82 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             <td className="p-5">
                                                 {(() => {
                                                     const gt = groundTruthByZpid.get(row.zpid);
-                                                    if (!gt || !gt.expected_orientation) {
-                                                        return <span className="text-[10px] text-slate-200 font-bold">—</span>;
-                                                    }
                                                     const aiOrientation = row.orientationAI?.final_orientation ?? '';
-                                                    // final_orientation is stored as "North (~0°)" — strip azimuth suffix before comparing
                                                     const extractDir = (s: string) => s.split(/[\s(]/)[0].toLowerCase().trim();
                                                     const aiDir = extractDir(aiOrientation);
                                                     const fromDescription = !!extractOrientationFromDescription(row.description);
                                                     const isUnclear = !fromDescription && (aiDir === 'unclear' || !!row.orientationAI?.is_under_construction);
-                                                    const matches = fromDescription || (!isUnclear && aiDir === extractDir(gt.expected_orientation));
-                                                    const isGood = gt.remark === 'Good';
-                                                    return (
-                                                        <div className="space-y-1">
-                                                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-black ${
-                                                                isGood
-                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                    : 'bg-rose-50 text-rose-600 border-rose-200'
-                                                            }`}>
-                                                                <i className={`fa-solid ${isGood ? 'fa-circle-check' : 'fa-circle-xmark'} text-[8px]`} />
-                                                                {gt.expected_orientation}
+                                                    const matches = gt?.expected_orientation ? (fromDescription || (!isUnclear && aiDir === extractDir(gt.expected_orientation))) : false;
+                                                    const isGood = gt?.remark === 'Good';
+                                                    const isManual = gt?.gt_source === 'manual';
+                                                    const isEditing = editingGtZpid === row.zpid;
+                                                    const isSaving = savingGtZpid === row.zpid;
+                                                    const DIRECTIONS = ['North','Northeast','East','Southeast','South','Southwest','West','Northwest','UNCLEAR'];
+
+                                                    const handleSaveGt = async (newDir: string) => {
+                                                        setSavingGtZpid(row.zpid);
+                                                        setEditingGtZpid(null);
+                                                        try {
+                                                            await saveManualGroundTruth({
+                                                                zpid: row.zpid,
+                                                                city: row.city,
+                                                                zip: row.zip ?? '',
+                                                                address: row.address,
+                                                                orientation: newDir,
+                                                            });
+                                                            setFirestoreGtByZpid(prev => ({ ...prev, [row.zpid]: { expected_orientation: newDir, gt_source: 'manual' } }));
+                                                        } catch { /* error logged in service */ }
+                                                        finally { setSavingGtZpid(null); }
+                                                    };
+
+                                                    if (isEditing) {
+                                                        return (
+                                                            <div className="flex flex-col gap-1">
+                                                                <select
+                                                                    autoFocus
+                                                                    className="text-[10px] font-bold border border-indigo-300 rounded-lg px-1.5 py-1 bg-white text-slate-700 cursor-pointer"
+                                                                    defaultValue={gt?.expected_orientation ?? ''}
+                                                                    onChange={e => { if (e.target.value) handleSaveGt(e.target.value); }}
+                                                                    onBlur={() => setEditingGtZpid(null)}
+                                                                >
+                                                                    <option value="">— pick direction —</option>
+                                                                    {DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                                                                </select>
                                                             </div>
-                                                            {row.orientationAI && (
-                                                                <div className={`text-[9px] font-black ${
-                                                                    isUnclear
-                                                                        ? 'text-amber-500'
-                                                                        : matches ? 'text-emerald-600' : 'text-rose-500'
-                                                                }`}>
-                                                                    {isUnclear ? '? unclear' : matches ? '✓ match' : '✗ mismatch'}
-                                                                </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div className="space-y-1 group">
+                                                            {gt?.expected_orientation ? (
+                                                                <>
+                                                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-black ${
+                                                                        isGood ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'
+                                                                    }`}>
+                                                                        <i className={`fa-solid ${isGood ? 'fa-circle-check' : 'fa-circle-xmark'} text-[8px]`} />
+                                                                        {gt.expected_orientation}
+                                                                        {isManual && <i className="fa-solid fa-pen-to-square text-[7px] opacity-50" title="manually set" />}
+                                                                    </div>
+                                                                    {row.orientationAI && (
+                                                                        <div className={`text-[9px] font-black ${
+                                                                            isUnclear ? 'text-amber-500' : matches ? 'text-emerald-600' : 'text-rose-500'
+                                                                        }`}>
+                                                                            {isUnclear ? '? unclear' : matches ? '✓ match' : '✗ mismatch'}
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-[10px] text-slate-300 font-bold">—</span>
                                                             )}
+                                                            <button
+                                                                onClick={() => setEditingGtZpid(row.zpid)}
+                                                                disabled={isSaving}
+                                                                className="hidden group-hover:flex items-center gap-1 text-[9px] text-indigo-500 font-bold hover:text-indigo-700 transition-colors"
+                                                                title="Edit expected orientation"
+                                                            >
+                                                                {isSaving ? <i className="fa-solid fa-spinner fa-spin text-[8px]" /> : <i className="fa-solid fa-pencil text-[8px]" />}
+                                                                {isSaving ? 'saving…' : 'edit GT'}
+                                                            </button>
                                                         </div>
                                                     );
                                                 })()}
