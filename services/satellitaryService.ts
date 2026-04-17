@@ -330,12 +330,36 @@ export async function forceRefreshAllImagesAndAnalyze(
 
 /**
  * Converts a degree azimuth (0-360) to a human-readable compass label.
+ * Within 5° of any sector boundary the intercardinal (corner) direction is
+ * preferred. e.g. 20° → "Northeast (~20°)" rather than "North (~20°)".
+ * Rationale: boundary cases visually appear as corners; snapping to the
+ * corner direction avoids false GT mismatches and matches Vastu intuition.
  */
 function azimuthToCompassLabel(azimuth: number | null): string {
     if (azimuth == null) return 'Unknown';
-    const directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
-    const index = Math.round(azimuth / 45) % 8;
-    return `${directions[index]} (~${Math.round(azimuth)}°)`;
+    const az = ((azimuth % 360) + 360) % 360;
+
+    // Each entry: [boundary°, preferred intercardinal label]
+    // Boundaries lie between cardinal ↔ intercardinal sectors.
+    // Within 5° of any boundary → snap to the intercardinal (NE/SE/SW/NW).
+    const SNAP: [number, string][] = [
+        [22.5,  'Northeast'], // N  ↔ NE
+        [67.5,  'Northeast'], // NE ↔ E
+        [112.5, 'Southeast'], // E  ↔ SE
+        [157.5, 'Southeast'], // SE ↔ S
+        [202.5, 'Southwest'], // S  ↔ SW
+        [247.5, 'Southwest'], // SW ↔ W
+        [292.5, 'Northwest'], // W  ↔ NW
+        [337.5, 'Northwest'], // NW ↔ N
+    ];
+    for (const [boundary, label] of SNAP) {
+        // Angular distance handles the 0°/360° wrap correctly
+        const diff = Math.abs(((az - boundary + 540) % 360) - 180);
+        if (diff <= 5) return `${label} (~${Math.round(az)}°)`;
+    }
+
+    const dirs = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
+    return `${dirs[Math.round(az / 45) % 8]} (~${Math.round(az)}°)`;
 }
 
 
