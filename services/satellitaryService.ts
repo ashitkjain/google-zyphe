@@ -1122,6 +1122,38 @@ export async function runSatellitaryAnalysis(
         });
 
 
+        // ── Cross-validate: azimuth_degrees vs explanation text ───────────────
+        // Gemini's structured output can produce inconsistent values — the JSON
+        // field (azimuth_degrees) may disagree with the prose reasoning.
+        // e.g. explanation says "The final orientation is Southeast" but
+        //      azimuth_degrees = 345 (North). When they disagree by >90°,
+        //      the explanation is the deliberate chain-of-thought; trust it.
+        {
+            const DIRECTION_AZIMUTH: Record<string, number> = {
+                north: 0, northeast: 45, east: 90, southeast: 135,
+                south: 180, southwest: 225, west: 270, northwest: 315,
+            };
+            const angDiff = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+            const explanation = (data as any).explanation ?? '';
+            // Match "The final orientation is Southeast" or "front faces Southeast" etc.
+            const dirMatch = explanation.match(
+                /(?:final orientation is|front (?:of the house )?faces?)\s+([A-Z][a-z]+(?:east|west)?)/i
+            );
+            if (dirMatch) {
+                const explainDir = dirMatch[1].toLowerCase();
+                const explainAz = DIRECTION_AZIMUTH[explainDir];
+                const schemaAz = data.azimuth_degrees ?? null;
+                if (explainAz !== undefined && schemaAz !== null && angDiff(schemaAz, explainAz) > 90) {
+                    console.warn(
+                        `[Satellitary] Azimuth/explanation mismatch: schema=${schemaAz}° (${azimuthToCompassLabel(schemaAz)})` +
+                        ` but explanation says "${explainDir}" (~${explainAz}°). Trusting explanation.`
+                    );
+                    data.azimuth_degrees = explainAz;
+                    (data as any).final_orientation = explainDir.charAt(0).toUpperCase() + explainDir.slice(1);
+                }
+            }
+        }
+
         const resultAzimuth = computeAccurateAzimuth(
             data.azimuth_degrees ?? null,
             usesDualImage ? streetViewHeading : null,
