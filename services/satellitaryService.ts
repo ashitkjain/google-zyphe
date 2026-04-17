@@ -1227,7 +1227,7 @@ export async function runSatellitaryAnalysis(
             open_sky_direction: (data as any).open_sky_direction ?? null,
             aerial_url: aerialUrl,
             street_view_url: streetViewUrl ?? '',
-            aerial_only_mode: !usesDualImage,
+            aerial_only_mode: !usesDualImage || (data as any).street_view_shows_front === null,
             _debug: {
                 streetViewHeading,
                 streetBearing: streetBearingForAzimuth,

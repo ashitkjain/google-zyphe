@@ -67,13 +67,18 @@ Step 0: Quality & Construction Check.
    - If the site is under active construction, set is_under_construction=true, final_orientation="UNDER_CONSTRUCTION", and stop.
 
 Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
-   - Examine Image B. If the majority of the image is covered by a privacy blur (foggy/milky white overlay), solid fence/wall with no architectural features, or is otherwise uninformative about WHICH SIDE of the house is visible:
-     → Mark street_view_shows_front = null (unknown)
-     → Set front_door_clearly_visible = false
-     → Skip Step 3 entirely — do NOT apply heading math
-     → Rely SOLELY on Step 2 aerial analysis (driveway apron + walkway) for azimuth
-     → Set confidence = 'medium' at most (downgrade to 'low' if driveway is also ambiguous)
-   - Only proceed to Step 3 heading math if Image B clearly shows the front door, porch, or entry steps that let you confirm whether the camera faces the FRONT or BACK. A garage door or windows alone are NOT sufficient — they do not confirm which side is the architectural front.
+   - Examine Image B. If ANY of the following apply, the street view is UNINFORMATIVE:
+       • Privacy blur (foggy/milky white overlay) covering the majority of the image
+       • Solid fence, wall, or gate with no architectural features visible
+       • The house is too far away or obstructed by trees/vegetation/parked vehicles to identify architectural details
+       • The image shows a generic street scene with no clear view of this property's facade
+     If uninformative:
+       → Mark street_view_shows_front = null (unknown)
+       → Set front_door_clearly_visible = false
+       → Skip Step 3 entirely — do NOT apply heading math
+       → Rely SOLELY on Step 2 aerial analysis (driveway apron + walkway) for azimuth
+       → Set confidence = 'medium' at most (downgrade to 'low' if driveway is also ambiguous)
+   - Only proceed to Step 3 heading math if Image B clearly shows the front door, porch, or entry steps confirming FRONT vs BACK. A garage door or windows alone are NOT sufficient.
 
    TOWNHOUSE / CONDO / UNIT EXTRA GATE (apply if the building is a townhouse, row house, condo, or any address containing "Unit", "Apt", or "#"):
    Multi-unit buildings often have side alleys, shared lobbies, parking bays, or rear gates visible in street view. These are NOT the primary front door.
@@ -116,6 +121,13 @@ Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layou
 
 Step 2: Aerial Front-Wall Identification.
    Using the layout you identified in Step 1, identify which compass direction the front wall faces. Confirm with: (a) pedestrian walkway, (b) driveway direction, (c) lot orientation.
+   DIRECTION PRECISION (applies to ALL lot types, not just cul-de-sacs):
+   When identifying the driveway or walkway direction, trace it from the house toward the street and read BOTH axes:
+     • Upper-left  = NORTHWEST — do NOT call this “west” or “southwest”
+     • Upper-right = NORTHEAST — do NOT call this “north” or “east”
+     • Lower-left  = SOUTHWEST — do NOT call this “south” or “west”
+     • Lower-right = SOUTHEAST — do NOT call this “south” or “east”
+   If the driveway runs diagonally (both horizontal AND vertical movement), use the intercardinal direction. Only use N/E/S/W when the movement is almost entirely in ONE axis.
 
 Step 3: Apply Heading Math (MANDATORY — do NOT skip or override).
    Camera heading = ${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'} (GPS-measured, exact).
