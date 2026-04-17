@@ -674,15 +674,42 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             return isTargetForOrientationAnalysis(r).target;
         });
         if (targets.length === 0) return;
+        if (!confirm(`Run orientation analysis for ${targets.length} propert${targets.length === 1 ? 'y' : 'ies'} via Cloud Function?`)) return;
+
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
-        for (let i = 0; i < targets.length; i++) {
-            await forceRefreshForRow(targets[i].zpid, true);
-            setBatchProgress({ done: i + 1, total: targets.length });
+
+        // Create a batch job document — the Cloud Function picks it up and runs server-side.
+        // Tab-independent: the browser can be closed and the CF continues processing.
+        try {
+            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
+                zpids:     targets.map(t => t.zpid),
+                status:    'queued',
+                total:     targets.length,
+                done:      0,
+                failed:    0,
+                userId:    auth?.currentUser?.uid ?? 'unknown',
+                createdAt: serverTimestamp(),
+            });
+
+            // Subscribe to real-time progress from the Cloud Function.
+            const unsubscribe = onSnapshot(jobRef, (snap) => {
+                const d = snap.data();
+                if (!d) return;
+                setBatchProgress({ done: d.done ?? 0, total: targets.length });
+                if (d.status === 'completed' || d.status === 'failed') {
+                    unsubscribe();
+                    setBatchRunning(false);
+                    setBatchProgress(null);
+                    // Re-sync UI with Firestore results written by the Cloud Function.
+                    setTimeout(() => fetchData(), 1500);
+                }
+            });
+        } catch (err) {
+            console.error('[Batch] Failed to create batch job:', err);
+            setBatchRunning(false);
+            setBatchProgress(null);
         }
-        setBatchRunning(false);
-        setBatchProgress(null);
-        // No fetchData() — each forceRefreshForRow already updated its row inline via setRows.
     };
 
     const handleCalculateMissed = async () => {
