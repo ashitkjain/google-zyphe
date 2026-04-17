@@ -408,12 +408,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                                 {/* ══ Tab Content ══ */}
                                 {activeTab === 'property-data' && (
-                                    <div className="flex gap-0 min-h-screen">
+                                    <div className="flex gap-0 min-h-screen bg-slate-50/50">
                                         {/* Full-height Sidebar */}
                                         <PropertySidebar items={sidebarItems} activeId={sidebarActiveId} onItemClick={handleNavClick} />
 
                                         {/* Scrollable content area */}
-                                        <div className="flex-1 min-w-0 flex flex-col gap-2.5 p-4">
+                                        <div className="flex-1 min-w-0 flex flex-col gap-10 p-4 lg:p-8">
 
                                         {/* Lifestyle Fit — rendered ABOVE the main Dashboard */}
                                         <PropertyLifestylePanel

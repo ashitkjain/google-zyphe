@@ -67,58 +67,81 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                     iconColor="text-blue-500"
                     className="hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
                 >
-                    <div className="p-4 space-y-2">
+                    <div className="px-4 py-2 space-y-3">
                         {schoolsIntelligence.schools.slice(0, 3).map((school: any, i: number) => {
                             const isSelected = selectedSchool === i;
                             return (
-                                <button
+                                <div
                                     key={i}
-                                    onClick={() => setSelectedSchool(i)}
-                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected
-                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                                        : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200'
+                                    className={`overflow-hidden rounded-2xl border transition-all duration-300 ${isSelected
+                                        ? 'bg-white border-indigo-200 shadow-lg shadow-indigo-100/50'
+                                        : 'bg-slate-50/50 border-slate-100 hover:border-slate-200'
                                         }`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <i className={`fa-solid fa-building-columns text-[13px] ${isSelected ? 'text-white/70' : 'text-slate-300'}`} />
-                                        <span className="text-[13px] font-black truncate max-w-[150px]">{school.name}</span>
+                                    {/* Accordion Header */}
+                                    <button
+                                        onClick={() => setSelectedSchool(i)}
+                                        className="w-full flex items-center justify-between p-4 text-left"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 shadow-sm border border-slate-100'
+                                                }`}>
+                                                <i className="fa-solid fa-building-columns text-[13px]" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h4 className={`text-[15px] font-black leading-tight transition-colors ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
+                                                    {school.name}
+                                                </h4>
+                                                {!isSelected && (
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{school.type}</span>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                                        <span className="text-[11px] font-bold text-emerald-600">{school.rating || '8'}/10</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {!isSelected && (
+                                            <i className="fa-solid fa-chevron-down text-[10px] text-slate-300 transition-transform duration-300" />
+                                        )}
+                                    </button>
+
+                                    {/* Accordion Content */}
+                                    <div className={`overflow-hidden transition-all duration-300 ${isSelected ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                        <div className="px-4 pb-4 space-y-3">
+                                            <div className="p-3.5 bg-indigo-50/30 rounded-xl border border-indigo-100/50">
+                                                <p className="text-[14px] text-slate-600 leading-relaxed font-sans font-medium">
+                                                    {school.description ||
+                                                        `${school.name} is a highly-rated ${school.type?.toLowerCase() || 'public'} school in ${data.city || 'Dublin'}, CA, known for its strong academic performance and diverse student body.`
+                                                    }
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
+                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Rating</div>
+                                                    <div className="text-[15px] font-black text-emerald-600">{school.rating || '8'}/10 <span className="text-slate-400 text-[11px] font-medium ml-1">GreatSchools</span></div>
+                                                </div>
+                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
+                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Distance</div>
+                                                    <div className="text-[15px] font-black text-slate-700">{school.distanceMiles?.toFixed(1) || '0.4'} mi</div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setIsSchoolModalOpen(true);
+                                                }}
+                                                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-indigo-100"
+                                            >
+                                                School Details
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className={`px-2 py-0.5 rounded-md text-[11px] font-black ${isSelected ? 'bg-emerald-400 text-slate-900' : 'bg-emerald-50 text-emerald-600'}`}>
-                                        {school.rating || '8'}/10
-                                    </div>
-                                </button>
+                                </div>
                             );
                         })}
-
-                        {schoolsIntelligence.schools[selectedSchool] && (
-                            <div className="mt-2 space-y-3">
-                                <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-top-1 duration-300">
-                                    <p className="text-[13px] text-slate-600 leading-relaxed font-sans font-medium">
-                                        {schoolsIntelligence.schools[selectedSchool].description ||
-                                            `${schoolsIntelligence.schools[selectedSchool].name} is a highly-rated ${schoolsIntelligence.schools[selectedSchool].type?.toLowerCase() || 'public'} school in ${data.city || 'Dublin'}, CA, known for its strong academic performance and diverse student body.`
-                                        }
-                                    </p>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <div className="p-3 bg-white border border-slate-100 rounded-xl">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Distance</div>
-                                        <div className="text-[14px] font-black text-slate-700">{schoolsIntelligence.schools[selectedSchool].distanceMiles?.toFixed(1) || '0.4'} mi</div>
-                                    </div>
-                                    <div className="p-3 bg-white border border-slate-100 rounded-xl">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Type</div>
-                                        <div className="text-[14px] font-black text-slate-700">{schoolsIntelligence.schools[selectedSchool].type || 'Public'}</div>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={() => setIsSchoolModalOpen(true)}
-                                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-indigo-200"
-                                >
-                                    View Full School Report
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </SectionCard>
             )}
@@ -338,7 +361,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                         <i className="fa-solid fa-shield-halved mr-1" />{gem.character.community_type}
                                     </span>
                                 )}
-                                {gem?.hoa?.has_hoa !== undefined && (
+                                {gem?.hoa?.has_hoa !== undefined && !(gem.hoa.has_hoa && gem?.character?.community_type?.toLowerCase().includes('hoa')) && (
                                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${gem.hoa.has_hoa ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                                         <i className={`fa-solid ${gem.hoa.has_hoa ? 'fa-building-shield' : 'fa-check'} mr-1`} />
                                         {gem.hoa.has_hoa ? 'HOA' : 'No HOA'}
@@ -395,13 +418,13 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                             {/* Long Term Rental */}
                             <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Long Term (LTR)</div>
+                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Long Term</div>
                                     <div className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-black uppercase tracking-wider">Stable</div>
                                 </div>
                                 <div className="space-y-3">
                                     <div>
-                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Monthly Rent</div>
-                                        <div className="text-[16px] font-bold text-slate-800">
+                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Monthly Rent</div>
+                                        <div className="text-[18px] font-black text-slate-800">
                                             {(() => {
                                                 const rent = ltrAnalysis.monthly_rent || "";
                                                 const match = rent.match(/\$[\d,]+(?:\s*(?:to|-)\s*\$[\d,]+)?/);
@@ -410,9 +433,9 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                         </div>
                                     </div>
                                     {ltrAnalysis.vacancy_rate && (
-                                        <div className="flex items-center justify-between pt-2 border-t border-emerald-100/50">
-                                            <span className="text-[11px] text-slate-500 font-sans font-medium">Vacancy</span>
-                                            <span className="text-[11px] text-emerald-700 font-black">
+                                        <div className="flex items-center justify-between pt-2.5 border-t border-emerald-100/50">
+                                            <span className="text-[13px] text-slate-500 font-sans font-medium">Vacancy</span>
+                                            <span className="text-[13px] text-emerald-700 font-black">
                                                 {(() => {
                                                     const v = ltrAnalysis.vacancy_rate || "";
                                                     const match = v.match(/(\d+(?:-\d+)?%)/);
@@ -427,13 +450,13 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                             {/* Short Term Rental */}
                             <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Short Term (STR)</div>
+                                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Short Term</div>
                                     <div className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[9px] font-black uppercase tracking-wider">High Yield</div>
                                 </div>
                                 <div className="space-y-3">
                                     <div>
-                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Annual Revenue</div>
-                                        <div className="text-[16px] font-bold text-slate-800">
+                                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Annual Revenue</div>
+                                        <div className="text-[18px] font-black text-slate-800">
                                             {(() => {
                                                 const str = customAnalysis?.property_investment?.str_performance?.annual_revenue_projection || "";
                                                 const summary = ltrAnalysis.comparison_summary || "";
@@ -443,9 +466,9 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                             })()}
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between pt-2 border-t border-indigo-100/50">
-                                        <span className="text-[11px] text-slate-500 font-sans font-medium">Occupancy</span>
-                                        <span className="text-[11px] text-indigo-700 font-black">
+                                    <div className="flex items-center justify-between pt-2.5 border-t border-indigo-100/50">
+                                        <span className="text-[13px] text-slate-500 font-sans font-medium">Occupancy</span>
+                                        <span className="text-[13px] text-indigo-700 font-black">
                                             {(() => {
                                                 const str = customAnalysis?.property_investment?.str_performance?.occupancy_rate || "";
                                                 const summary = ltrAnalysis.comparison_summary || "";

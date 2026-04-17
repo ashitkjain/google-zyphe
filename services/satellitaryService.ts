@@ -15,9 +15,16 @@
 
 import { APP_CONFIG } from '../config';
 import { urlToBase64, executeGeminiRequest, FLASH_MODEL } from './geminiService';
+
+// Use a stronger model for orientation — spatial reasoning is the hardest task in the pipeline.
+// Swapping independently of FLASH_MODEL so other services are unaffected.
+const ORIENTATION_MODEL = 'gemini-2.0-flash';
+
+
+
 import { buildOrientationPromptDual, buildOrientationPromptAerialOnly, satellitarySchema, getDualPromptFinalInstructions } from '../prompts/property/satellitaryAnalysis';
 import { savePropertyOrientationToCloud } from './firebase/properties';
-import { logOrientationVersion } from './firebase/orientation_history';
+import { logOrientationVersion, setGroundTruthFromDescription } from './firebase/orientation_history';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 
@@ -26,20 +33,19 @@ import { isTargetForOrientationAnalysis } from '../utils/propertyPolicies';
 const getMapsApiKey = () => APP_CONFIG.maps.key;
 
 /**
- * Removes orientation-related data from a property document and deletes its history.
- * Accepts optional city + zip so it can navigate straight to the known subcollection path
- * (orientation_versions/{city}/zips/{zip}/zpids/{zpid}/history) without needing a
- * collectionGroup index. Falls back to collectionGroup only when city/zip are absent.
+ * Removes orientation-related data from a property document and clears its AI run history
+ * from orientation_ground_truth/{zpid}.test_results (automated entries only).
+ * Manual tester entries are preserved.
  */
 export async function deleteOrientationVersionsForProperty(
     zpid: string,
     city?: string | null,
     zip?: string | null,
 ): Promise<{ deleted: boolean }> {
-    const { collection, getDocs, writeBatch, deleteField } = await import('firebase/firestore');
+    const { deleteField, getDoc: firestoreGetDoc } = await import('firebase/firestore');
 
     try {
-        // 1. Clear orientation fields on property document (exact Firestore snake_case names)
+        // 1. Clear orientation fields on property document
         const propRef = doc(db, 'properties', zpid);
         await updateDoc(propRef, {
             orientation_ai: deleteField(),
@@ -48,31 +54,18 @@ export async function deleteOrientationVersionsForProperty(
             satelliteImageUrl: deleteField(),
         });
 
-        // 2. Delete history subcollection docs
-        // Use the known direct path when city+zip are provided (no index required).
-        // Fall back to collectionGroup only as a last resort.
-        let historySnap: any;
-        if (city && zip) {
-            const historyColRef = collection(
-                db,
-                'orientation_versions', city.trim(),
-                'zips', zip.trim(),
-                'zpids', zpid,
-                'history'
-            );
-            historySnap = await getDocs(historyColRef);
-        } else {
-            // Fallback: collectionGroup (requires Firestore index on zpid)
-            const { collectionGroup, query, where } = await import('firebase/firestore');
-            const q = query(collectionGroup(db, 'history'), where('zpid', '==', zpid));
-            historySnap = await getDocs(q);
-        }
-
-        if (!historySnap.empty) {
-            const batch = writeBatch(db);
-            historySnap.docs.forEach((d: any) => batch.delete(d.ref));
-            await batch.commit();
-            console.log(`[Satellitary] Deleted ${historySnap.size} orientation history records for ${zpid}`);
+        // 2. Strip automated test_results from orientation_ground_truth (keep manual entries)
+        const { doc: fsDoc, getDoc: fsGetDoc, updateDoc: fsUpdateDoc } = await import('firebase/firestore');
+        const gtRef = fsDoc(db, 'orientation_ground_truth', zpid);
+        const gtSnap = await fsGetDoc(gtRef);
+        if (gtSnap.exists()) {
+            const existing = gtSnap.data()?.test_results ?? [];
+            const manualOnly = existing.filter((r: any) => r.tester !== 'automated');
+            await fsUpdateDoc(gtRef, { test_results: manualOnly });
+            const removed = existing.length - manualOnly.length;
+            if (removed > 0) {
+                console.log(`[Satellitary] Cleared ${removed} automated orientation entries for ${zpid} from ground truth`);
+            }
         }
 
         return { deleted: true };
@@ -115,6 +108,9 @@ export interface SatellitaryResult {
  * Zoom 20 gives per-lot resolution; maptype=satellite for imagery.
  */
 function buildAerialUrl(lat: number, lng: number): string {
+    // At zoom=20, the image covers ~75m N-S. Offset +0.00027° places the
+    // "N" indicator ~30m north of center — top quarter of the frame.
+    const northLat = Math.round((lat + 0.00027) * 1e7) / 1e7;
     return (
         `https://maps.googleapis.com/maps/api/staticmap` +
         `?center=${lat},${lng}` +
@@ -122,7 +118,8 @@ function buildAerialUrl(lat: number, lng: number): string {
         `&size=640x640` +
         `&scale=2` +
         `&maptype=satellite` +
-        `&markers=color:red%7Csize:mid%7C${lat},${lng}` +
+        `&markers=color:red%7Csize:tiny%7C${lat},${lng}` +
+        `&markers=color:blue%7Csize:tiny%7Clabel:N%7C${northLat},${lng}` +
         `&key=${getMapsApiKey()}`
     );
 }
@@ -249,12 +246,39 @@ export async function forceRefreshStreetViewUrl(
     const freshUrl = await uploadRemoteImageToStorage(streetViewUrl, storagePath);
 
     if (freshUrl.includes('firebasestorage')) {
-        // Persist the new URL back to the property doc under the same field the app reads
-        savePropertyToCloud(zpid, { streetView: freshUrl } as any)
+        // Persist the new URL AND heading back to the property doc.
+        // Storing the heading lets the wrong-road fallback in runSatellitaryAnalysis
+        // recover correct dual-direct analysis even when the metadata API later lands
+        // on an adjacent road (streetViewHeadingDeg will be used instead of re-deriving).
+        savePropertyToCloud(zpid, {
+            streetView: freshUrl,
+            streetViewHeadingDeg: headingResult.heading,
+        } as any)
             .catch(e => console.warn('[Satellitary] Failed to persist street view URL:', e));
     }
 
     return freshUrl;
+}
+
+/**
+ * Lightweight backfill: calls the Street View Metadata API for a single property
+ * and stores the camera heading in Firestore as `streetViewHeadingDeg`.
+ * Does NOT re-download or re-upload any images — metadata call only (~free).
+ * Used by the Orientation Audit "Backfill Headings" button to populate the
+ * heading for all cached-URL properties so the wrong-road fallback can activate.
+ *
+ * Returns the heading written (degrees), or null if no Street View coverage.
+ */
+export async function backfillStreetViewHeadingDeg(
+    zpid: string,
+    lat: number,
+    lng: number
+): Promise<number | null> {
+    const { savePropertyToCloud } = await import('./firebase/properties');
+    const headingResult = await fetchStreetViewHeading(lat, lng);
+    if (!headingResult?.heading) return null;
+    await savePropertyToCloud(zpid, { streetViewHeadingDeg: headingResult.heading } as any);
+    return headingResult.heading;
 }
 
 /**
@@ -272,7 +296,8 @@ export async function forceRefreshAllImagesAndAnalyze(
     lng: number,
     userId: string = 'unknown',
     address?: string,
-    description?: string | null
+    description?: string | null,
+    homeType?: string | null,
 ): Promise<SatellitaryResult & { freshAerialUrl: string; freshStreetViewUrl: string }> {
 
 
@@ -293,7 +318,8 @@ export async function forceRefreshAllImagesAndAnalyze(
         userId,
         zpid,
         address,
-        description
+        description,
+        homeType,
     );
 
     return { ...result, freshAerialUrl, freshStreetViewUrl };
@@ -359,6 +385,85 @@ function computeBearing(lat1: number, lng1: number, lat2: number, lng2: number):
 }
 
 /**
+ * Computes the bearing of the address street by geocoding a 2nd point ~200 house
+ * numbers away. Validates both points are on the same road before trusting result.
+ */
+async function getStreetBearing(address: string): Promise<{ bearing: number | null; streetSide: 'N' | 'S' | 'E' | 'W' | null } | null> {
+    const apiKey = getMapsApiKey();
+    const match = address.match(/^(\d+)/);
+    if (!match) return null;
+    const houseNum = parseInt(match[1], 10);
+
+    // Try smaller offsets first to stay on the same curved road segment.
+    // Larger offsets can span curves and give a misleading average bearing.
+    const offsets = [50, 100];
+    const STABILITY_THRESHOLD_DEG = 30; // if two offsets disagree by more than this, road is curved/ambiguous
+    try {
+        const geocodeWithRoad = async (addr: string): Promise<{ lat: number; lng: number; road: string } | null> => {
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${apiKey}`;
+            const res = await fetch(url).then(r => r.json()) as any;
+            const result = res.results?.[0];
+            if (!result) return null;
+            const loc = result.geometry?.location;
+            const road = (result.address_components?.find((c: any) => c.types.includes('route'))?.long_name ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            return loc ? { lat: loc.lat as number, lng: loc.lng as number, road } : null;
+        };
+
+        const p1 = await geocodeWithRoad(address);
+        if (!p1) return null;
+
+        const bearings: { offset: number; bearing: number; dist: number; p2lat: number; p2lng: number }[] = [];
+        for (const offset of offsets) {
+            const neighborAddress = address.replace(/^\d+/, String(houseNum + offset));
+            const p2 = await geocodeWithRoad(neighborAddress);
+            if (!p2) continue;
+            if (p1.road && p2.road && p1.road !== p2.road) {
+                console.log(`[Satellitary] getStreetBearing: offset +${offset} road mismatch "${p1.road}" vs "${p2.road}" — skipping`);
+                continue;
+            }
+            const dlat = (p2.lat - p1.lat) * 111320;
+            const dlng = (p2.lng - p1.lng) * 111320 * Math.cos(p1.lat * Math.PI / 180);
+            const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+            if (dist < 20) {
+                console.log(`[Satellitary] getStreetBearing: offset +${offset} too close (${Math.round(dist)}m) — skipping`);
+                continue;
+            }
+            const bearing = computeBearing(p1.lat, p1.lng, p2.lat, p2.lng);
+            bearings.push({ offset, bearing, dist, p2lat: p2.lat, p2lng: p2.lng });
+            console.log(`[Satellitary] getStreetBearing: offset +${offset} → ${Math.round(bearing)}° (dist=${Math.round(dist)}m), p2=[${p2.lat.toFixed(5)},${p2.lng.toFixed(5)}]`);
+        }
+
+        if (bearings.length === 0) return null;
+
+        // Derive rough cardinal street side from aggregate p2 positions
+        // (reliable even when bearing is unstable because the road curves).
+        const avgDlat = bearings.reduce((s, b) => s + (b.p2lat - p1.lat), 0) / bearings.length;
+        const avgDlng = bearings.reduce((s, b) => s + (b.p2lng - p1.lng), 0) / bearings.length;
+        const streetSide: 'N' | 'S' | 'E' | 'W' = Math.abs(avgDlat) >= Math.abs(avgDlng * Math.cos(p1.lat * Math.PI / 180))
+            ? (avgDlat > 0 ? 'N' : 'S')
+            : (avgDlng > 0 ? 'E' : 'W');
+        console.log(`[Satellitary] getStreetBearing: street extends to the ${streetSide} of the property (avgDlat=${avgDlat.toFixed(5)}, avgDlng=${avgDlng.toFixed(5)})`);
+
+        // Stability check: if we have two bearings, verify they agree within threshold.
+        // Disagreement means the address numbers span different road segments (curve, loop, etc).
+        if (bearings.length >= 2) {
+            const angDist = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+            const diff = angDist(bearings[0].bearing, bearings[1].bearing);
+            if (diff > STABILITY_THRESHOLD_DEG) {
+                console.log(`[Satellitary] getStreetBearing: bearings disagree by ${Math.round(diff)}° — bearing suppressed, but streetSide=${streetSide} still usable`);
+                return { bearing: null, streetSide };
+            }
+        }
+
+        // Use the closest-offset bearing as the most local estimate
+        const best = bearings[0];
+        console.log(`[Satellitary] getStreetBearing: using offset +${best.offset}, bearing=${Math.round(best.bearing)}°, streetSide=${streetSide}`);
+        return { bearing: best.bearing, streetSide };
+    } catch { return null; }
+}
+
+
+/**
  * Fetches a Street View pano for the property and derives the camera heading.
  *
  * Simple principle: "house is on the left/right of a named street → front faces that street."
@@ -376,7 +481,7 @@ async function fetchStreetViewHeading(
     propertyLat: number,
     propertyLng: number,
     address?: string | null
-): Promise<{ heading: number | null; status: string; panoCoords?: { lat: number; lng: number } } | null> {
+): Promise<{ heading: number | null; status: string; panoCoords?: { lat: number; lng: number }; candidatePanos?: Array<{ lat: number; lng: number; heading: number; dir: 'N' | 'S' | 'E' | 'W' }> } | null> {
 
     const apiKey = getMapsApiKey();
 
@@ -405,6 +510,8 @@ async function fetchStreetViewHeading(
     };
 
     try {
+        let wrongRoadPrimary = false;
+
         // ── Step 1: nearest pano ──────────────────────────────────────────────────
         const primaryMeta = await fetchPanoAt(propertyLat, propertyLng);
         if (!primaryMeta || primaryMeta.status !== 'OK') return null;
@@ -426,52 +533,83 @@ async function fetchStreetViewHeading(
                 const onFrontStreet = primaryNorm.includes(targetNorm.substring(0, 4));
 
                 if (!onFrontStreet) {
-                    // Primary pano is on the wrong road (e.g. back alley).
-                    // Try 4 offsets ~80m in each cardinal direction to find the front street.
-                    const OFFSET = 0.00075; // ≈ 80 m
-                    const offsets = [
-                        [propertyLat + OFFSET, propertyLng],          // N
-                        [propertyLat - OFFSET, propertyLng],          // S
-                        [propertyLat, propertyLng + OFFSET],  // E
-                        [propertyLat, propertyLng - OFFSET],  // W
-                    ];
-                    for (const [oLat, oLng] of offsets) {
-                        const altMeta = await fetchPanoAt(oLat, oLng, 80);
-                        const altPano = altMeta?.location as { lat: number; lng: number } | undefined;
-                        if (altMeta?.status !== 'OK' || !altPano?.lat) continue;
-
-                        const altRoad = await getRoadName(altPano.lat, altPano.lng);
-                        const altNorm = (altRoad || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                        // targetNorm and targetStreet should be available in the scope
-                        if (altNorm.includes(targetStreet.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 4))) {
-                            // Found a pano on the correct (front) street → use it.
-                            // IMPORTANT: also return panoCoords so the caller builds the
-                            // Street View *image* URL from this pano, not from the property
-                            // centroid (which would revert to the nearest/wrong pano).
-                            console.log(`[Satellitary] Switched to front-street pano: ${altRoad} (was ${primaryRoad})`);
+                    // Primary pano landed on the wrong road. Before jumping to multi-pano,
+                    // try a wider radius (150m) — some properties have Street View on their
+                    // own street that's just slightly further than 100m.
+                    const widerMeta = await fetchPanoAt(propertyLat, propertyLng, 150);
+                    const widerPano = widerMeta?.location as { lat: number; lng: number } | undefined;
+                    let recoveredOnFrontStreet = false;
+                    if (widerMeta?.status === 'OK' && widerPano?.lat != null) {
+                        const widerRoad = await getRoadName(widerPano.lat, widerPano.lng);
+                        const widerNorm = normalize(widerRoad);
+                        recoveredOnFrontStreet = widerNorm.includes(targetNorm.substring(0, 4));
+                        if (recoveredOnFrontStreet) {
+                            console.log(`[Satellitary] Wider-radius pano on "${widerRoad}" — recovered to front street.`);
+                            // Return heading from the wider pano directly
                             return {
-                                heading: computeBearing(altPano.lat, altPano.lng, propertyLat, propertyLng),
-                                status: altMeta.status,
-                                panoCoords: { lat: altPano.lat, lng: altPano.lng },
+                                heading: computeBearing(widerPano.lat, widerPano.lng, propertyLat, propertyLng),
+                                status: widerMeta.status,
+                                panoCoords: { lat: widerPano.lat, lng: widerPano.lng },
                             };
                         }
                     }
-                    // None of the offsets found the named street — fall through to primary pano
-                    console.warn(`[Satellitary] Could not find pano on "${targetStreet}"; using nearest (${primaryRoad})`);
+                    // Still on wrong road after wider retry — fall through to multi-pano.
+                    console.log(`[Satellitary] Primary pano on "${primaryRoad}" (not "${targetStreet}"). Using multi-pano fallback.`);
+                    wrongRoadPrimary = true;
                 }
             }
         }
 
-        // ── Step 3: use primary pano ──────────────────────────────────────────────
-        if (primaryPano?.lat != null && primaryPano?.lng != null) {
-            return {
-                heading: computeBearing(primaryPano.lat, primaryPano.lng, propertyLat, propertyLng),
-                status: primaryMeta.status,
-                panoCoords: { lat: primaryPano.lat, lng: primaryPano.lng },
-            };
+        // ── Step 3: return heading from primary pano ──────────────────────────────
+        // Skip if the primary pano is on the wrong road (wrongRoadPrimary=true) OR
+        // if it is too close to the property centroid (< 15m = inside a cul-de-sac).
+        if (!wrongRoadPrimary && primaryPano?.lat != null && primaryPano?.lng != null) {
+            const dLat = (primaryPano.lat - propertyLat) * 111320;
+            const dLng = (primaryPano.lng - propertyLng) * 111320 * Math.cos(propertyLat * Math.PI / 180);
+            const proximityDist = Math.sqrt(dLat * dLat + dLng * dLng);
+            if (proximityDist < 15) {
+                console.log(`[Satellitary] Primary pano too close (${Math.round(proximityDist)}m) — triggering multi-pano fallback.`);
+                // Fall through to multi-pano path below
+            } else {
+                return {
+                    heading: computeBearing(primaryPano.lat, primaryPano.lng, propertyLat, propertyLng),
+                    status: primaryMeta.status,
+                    panoCoords: { lat: primaryPano.lat, lng: primaryPano.lng },
+                };
+            }
         }
 
-        return { heading: null, status: primaryMeta.status };
+        // ── Step 4: multi-pano fallback — no named-street pano found ─────────────
+        // Fetch all 4 cardinal offset panos and return them as candidatePanos.
+        {
+            const OFFSET = 0.00075; // ~80m
+            const dirs: Array<{ dir: 'N' | 'S' | 'E' | 'W'; dlat: number; dlng: number }> = [
+                { dir: 'N', dlat: +OFFSET, dlng: 0 },
+                { dir: 'S', dlat: -OFFSET, dlng: 0 },
+                { dir: 'E', dlat: 0, dlng: +OFFSET },
+                { dir: 'W', dlat: 0, dlng: -OFFSET },
+            ];
+            const candidatePanos: Array<{ lat: number; lng: number; heading: number; dir: 'N' | 'S' | 'E' | 'W' }> = [];
+            for (const { dir, dlat, dlng } of dirs) {
+                const oLat = propertyLat + dlat;
+                const oLng = propertyLng + dlng;
+                const meta = await fetchPanoAt(oLat, oLng, 100);
+                const pano = meta?.location as { lat: number; lng: number } | undefined;
+                if (meta?.status === 'OK' && pano?.lat != null) {
+                    candidatePanos.push({
+                        lat: pano.lat, lng: pano.lng,
+                        heading: computeBearing(pano.lat, pano.lng, propertyLat, propertyLng),
+                        dir,
+                    });
+                }
+            }
+            if (candidatePanos.length >= 2) {
+                console.log(`[Satellitary] Multi-pano fallback: ${candidatePanos.length} panos (${candidatePanos.map(p => p.dir).join(',')})`);
+                return { heading: null, status: 'NO_NAMED_STREET', candidatePanos };
+            }
+        }
+
+        return { heading: null, status: primaryMeta?.status ?? 'UNKNOWN' };
 
     } catch (e) {
         console.warn('[Satellitary] Failed to fetch street view heading:', e);
@@ -505,7 +643,8 @@ async function fetchStreetViewHeading(
 function computeAccurateAzimuth(
     geminiAzimuth: number | null,
     heading: number | null,
-    streetViewShowsFront: boolean | null | undefined
+    streetViewShowsFront: boolean | null | undefined,
+    streetBearing?: number | null
 ): number | null {
     // No heading → can't GPS-correct; trust Gemini's aerial estimate
     if (heading == null) return geminiAzimuth;
@@ -518,16 +657,37 @@ function computeAccurateAzimuth(
     const candidateFront = (heading + 180) % 360;  // face VISIBLE to camera
     const candidateBack = heading;                  // face AWAY from camera (toward camera's street)
 
-    // Gemini definitively identified the FRONT DOOR → snap to the visible face
-    if (streetViewShowsFront === true) {
+    // Coerce string values from schema mis-fires (guard against "TRUE"/"false" strings)
+    const showsFront: boolean | null | undefined =
+        typeof streetViewShowsFront === 'string'
+            ? (streetViewShowsFront.toLowerCase() === 'true' || streetViewShowsFront === '1')
+            : streetViewShowsFront;
+
+    // Gemini definitively identified the FRONT DOOR → snap to the visible face.
+    // But if the camera is on a perpendicular street, candidateFront may not match the
+    // aerial azimuth at all. Bail out to geminiAzimuth if both candidates are >70° away.
+    if (showsFront === true) {
+        if (geminiAzimuth != null) {
+            const dFront = angularDist(geminiAzimuth, candidateFront);
+            const dBack = angularDist(geminiAzimuth, candidateBack);
+            if (dFront > 89 && dBack > 89) return Math.round(geminiAzimuth); // perp-street bailout
+        }
         return Math.round(candidateFront);
     }
 
-    // Otherwise (false or null): we can't definitively force candidateFront (visible face),
-    // but we can snap to whichever of candidateFront/candidateBack is closer to 
-    // Gemini's high-level aerial reasoning. This provides the precision of GPS-based 
-    // street alignment while preventing erroneous 180° flips when the camera sees
-    // a garage or side facade on the front street.
+    // Gemini identified the BACK/SIDE → front faces toward the camera's street (candidateBack).
+    // Same perpendicular-street bailout: if candidateBack disagrees much with the aerial, trust aerial.
+    if (showsFront === false) {
+        if (geminiAzimuth != null) {
+            const dFront = angularDist(geminiAzimuth, candidateFront);
+            const dBack = angularDist(geminiAzimuth, candidateBack);
+            if (dFront > 89 && dBack > 89) return Math.round(geminiAzimuth); // perp-street bailout
+        }
+        return Math.round(candidateBack);
+    }
+
+    // showsFront=null/undefined → proximity-vote: snap to whichever GPS candidate is closer
+    // to Gemini's aerial reasoning. Provides GPS-precision while preventing 180° flips.
     if (geminiAzimuth != null) {
         const dFront = angularDist(geminiAzimuth, candidateFront);
         const dBack = angularDist(geminiAzimuth, candidateBack);
@@ -632,7 +792,8 @@ export async function runSatellitaryAnalysis(
     userId: string = 'unknown',
     zpid?: string,
     address?: string,
-    description?: string | null
+    description?: string | null,
+    homeType?: string | null,
 ): Promise<SatellitaryResult> {
     let result: SatellitaryResult | null = null;
     let usesDualImage = false;
@@ -671,6 +832,23 @@ export async function runSatellitaryAnalysis(
             street_view_url: '',
             aerial_only_mode: false,
         };
+
+        // Auto-set GT expected_orientation from description (fire-and-forget).
+        // Descriptions are treated as authoritative — more reliable than human tester notes.
+        if (zpid) {
+            // Read city/zip from properties doc for the GT record
+            getDoc(doc(db, 'properties', zpid)).then(propSnap => {
+                const pd = propSnap.data() as any;
+                setGroundTruthFromDescription({
+                    zpid,
+                    city:        pd?.city || 'Unknown',
+                    zip:         pd?.zipCode || pd?.zip || 'Unknown',
+                    address:     address ?? null,
+                    orientation: descMatch.direction,
+                    azimuth:     descMatch.azimuth,
+                });
+            }).catch(e => console.error('[Satellitary] GT description write failed:', e));
+        }
     }
 
     if (!result) {
@@ -682,14 +860,38 @@ export async function runSatellitaryAnalysis(
             aerialUrl = buildAerialUrl(lat, lng);
         }
 
+        // Compute street bearing once — used by both multi-pano pair selection AND
+        // the dual-direct heading inference in computeAccurateAzimuth.
+        const streetBearingResult = address ? await getStreetBearing(address) : null;
+        const streetBearingForAzimuth = streetBearingResult?.bearing ?? null;
+        const streetSide = streetBearingResult?.streetSide ?? null;
+
         // Always fetch the GPS heading from metadata (free call) to ensure heading-locked URL
+        let candidatePanos: Array<{ lat: number; lng: number; heading: number; dir: 'N' | 'S' | 'E' | 'W' }> | undefined;
         try {
             const headingResult = await fetchStreetViewHeading(lat, lng, address);
-            if (headingResult) {
+            if (headingResult && headingResult.heading !== null) {
                 streetViewHeading = headingResult.heading;
                 const svLat = headingResult.panoCoords?.lat ?? lat;
                 const svLng = headingResult.panoCoords?.lng ?? lng;
                 streetViewUrl = buildStreetViewUrl(svLat, svLng, streetViewHeading);
+            } else if (headingResult && headingResult.heading === null && headingResult.candidatePanos?.length) {
+                // No named-street pano. Check if we have a Firebase cached URL WITH a heading param.
+                // The heading is stored by forceRefreshStreetViewUrl and appended by the test setup.
+                // Only use cache if heading is recoverable — without it, computeAccurateAzimuth
+                // produces incorrect null-coercion results (candidateFront defaults to 180°).
+                const headingMatch = cachedStreetViewUrl?.includes('firebasestorage')
+                    ? cachedStreetViewUrl.match(/[?&]heading=([0-9.]+)/)
+                    : null;
+                if (headingMatch) {
+                    streetViewHeading = parseFloat(headingMatch[1]);
+                    streetViewUrl = cachedStreetViewUrl!;
+                    console.log(`[Satellitary] Wrong-road pano; using Firebase cache with heading=${Math.round(streetViewHeading)}°`);
+                } else {
+                    // No cached heading — fall through to multi-pano
+                    candidatePanos = headingResult.candidatePanos;
+                    streetViewUrl = null;
+                }
             } else if (!headingResult && !cachedStreetViewUrl) {
                 streetViewUrl = null;
             } else if (!headingResult && cachedStreetViewUrl?.includes('firebasestorage')) {
@@ -702,7 +904,147 @@ export async function runSatellitaryAnalysis(
             }
         }
 
-        // ── 2. Fetch base64 images in parallel ─────────────────────────────────────
+        // ── 1b. Aerial-only + Townhouse → UNCLEAR ────────────────────────────────
+        // Townhouses share party walls and look identical from above — without a
+        // street view there is no reliable way to determine which face is the front.
+        if (!streetViewUrl && homeType === 'TOWNHOUSE') {
+            console.log(`[Satellitary] Aerial-only TOWNHOUSE detected — returning UNCLEAR (homeType=${homeType})`);
+            aerialUrl = aerialUrl ?? buildAerialUrl(lat, lng);
+            return {
+                final_orientation: 'UNCLEAR',
+                azimuth_degrees: null,
+                visual_azimuth_estimate: null,
+                confidence: 'low',
+                property_layout_type: 'standard',
+                image_quality: 'clear',
+                explanation: 'Aerial-only analysis is unreliable for townhouses: shared party walls make it impossible to determine which face is the front without a street view image.',
+                feng_shui_vastu: null,
+                privacy_insight: 'Not assessed.',
+                lot_coverage_hardscape: null,
+                lot_coverage_pervious: null,
+                buyer_pro: '',
+                buyer_con: '',
+                orientation_highlights: '',
+                pool_visible: null,
+                pool_direction: null,
+                garage_direction: null,
+                open_sky_direction: null,
+                aerial_url: aerialUrl,
+                street_view_url: '',
+                aerial_only_mode: true,
+            };
+        }
+
+        if (candidatePanos && candidatePanos.length >= 2) {
+            const angDistFn = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+            const byDir = Object.fromEntries(candidatePanos.map(p => [p.dir, p]));
+            let panoB = byDir['S'] ?? byDir['E'];
+            let panoC = byDir['N'] ?? byDir['W'];
+            let streetPrior: string | undefined;
+
+            // Street-bearing prior: geocode to get street direction, pick best pano pair
+            const streetBearing = streetBearingForAzimuth;  // reuse the already-computed value
+            if (streetBearing != null) {
+                const perp1 = (streetBearing + 90) % 360;
+                const perp2 = (streetBearing - 90 + 360) % 360;
+                const score = (p: typeof candidatePanos[0]) => {
+                    const cf = (p.heading + 180) % 360;
+                    return Math.min(angDistFn(cf, perp1), angDistFn(cf, perp2));
+                };
+                const sorted = [...candidatePanos].sort((a, b) => score(a) - score(b));
+                const bestPano = sorted[0];
+
+                // Court addresses: skip smart pair swap (properties face inward)
+                const streetWordsLocal = (address?.split(',')[0] ?? '')
+                    .replace(/^\d+[A-Za-z]?\s+/, '').toUpperCase().split(/\s+/);
+                const COURT_TYPES = new Set(['CT', 'CIR', 'LOOP', 'PL', 'WAY', 'CORTE', 'CV', 'CLOSE', 'COURT', 'PLACE']);
+                const isCourtStreet = streetWordsLocal.some(w => COURT_TYPES.has(w));
+
+                if (!isCourtStreet && score(bestPano) < 20) {
+                    panoB = bestPano;
+                    panoC = sorted.slice(1).sort((a, b) => {
+                        const cfB = (panoB.heading + 180) % 360;
+                        return angDistFn((b.heading + 180) % 360, cfB) - angDistFn((a.heading + 180) % 360, cfB);
+                    })[0] ?? sorted[1];
+                    console.log(`[Satellitary] Smart pair (score=${Math.round(score(bestPano))}deg) panoB=${panoB.dir} panoC=${panoC.dir}`);
+                } else {
+                    console.log(`[Satellitary] Default S+N pair (court=${isCourtStreet}, score=${Math.round(score(bestPano))}deg)`);
+                }
+                const perp1Label = azimuthToCompassLabel(perp1);
+                const perp2Label = azimuthToCompassLabel(perp2);
+                streetPrior = `GPS STREET DIRECTION PRIOR: The address street runs at approx ${Math.round(streetBearing)} deg. The front most likely faces ${perp1Label} (~${Math.round(perp1)} deg) or ${perp2Label} (~${Math.round(perp2)} deg). Set azimuth_degrees as close to one of these as the aerial evidence allows.`;
+            }
+
+            if (panoB && panoC) {
+                const dirLabel = (dir: string) => ({ N: 'north', S: 'south', E: 'east', W: 'west' }[dir] ?? dir);
+                console.log(`[Satellitary] Multi-pano B=${panoB.dir}(${panoB.heading}deg) C=${panoC.dir}(${panoC.heading}deg)`);
+
+                const svUrlB = buildStreetViewUrl(panoB.lat, panoB.lng, panoB.heading);
+                const svUrlC = buildStreetViewUrl(panoC.lat, panoC.lng, panoC.heading);
+
+                const [aerialB64, bB64, cB64] = await Promise.all([
+                    urlToBase64(aerialUrl),
+                    urlToBase64(svUrlB),
+                    urlToBase64(svUrlC),
+                ]);
+
+                const { buildOrientationPromptMultiPano } = await import('../prompts/property/satellitaryAnalysis');
+                const mpPrompt = buildOrientationPromptMultiPano(
+                    panoB.heading, dirLabel(panoB.dir),
+                    panoC.heading, dirLabel(panoC.dir),
+                    address, description,
+                    undefined, undefined, undefined, undefined,
+                    streetPrior,
+                );
+
+                const { data: mpData } = await executeGeminiRequest<Omit<SatellitaryResult, 'aerial_url' | 'street_view_url' | 'aerial_only_mode'>>({
+                    model: ORIENTATION_MODEL,
+
+                    contents: {
+                        parts: [
+                            { text: mpPrompt },
+                            { inlineData: { data: aerialB64.data, mimeType: aerialB64.mimeType } },
+                            { inlineData: { data: bB64.data, mimeType: bB64.mimeType } },
+                            { inlineData: { data: cB64.data, mimeType: cB64.mimeType } },
+                        ]
+                    },
+                    config: { temperature: 0 },  // deterministic — orientation is a factual spatial task
+
+                    userId, zpid, address,
+                    promptFilename: 'satellitaryAnalysis.ts',
+                    extractResultJson: true,
+                    schema: satellitarySchema,
+                    imageUrls: [aerialUrl, svUrlB, svUrlC],
+                });
+
+                const mpAzimuth: number | null = mpData.azimuth_degrees ?? null;
+                result = {
+                    ...mpData,
+                    image_quality: mpData.image_quality ?? 'acceptable',
+                    confidence: mpData.confidence ?? 'medium',
+                    visual_azimuth_estimate: mpData.azimuth_degrees ?? null,
+                    azimuth_degrees: mpAzimuth,
+                    final_orientation: azimuthToCompassLabel(mpAzimuth),
+                    feng_shui_vastu: mpData.feng_shui_vastu ?? null,
+                    privacy_insight: mpData.privacy_insight ?? '',
+                    lot_coverage_hardscape: mpData.lot_coverage_hardscape ?? null,
+                    lot_coverage_pervious: mpData.lot_coverage_pervious ?? null,
+                    buyer_pro: mpData.buyer_pro ?? '',
+                    buyer_con: mpData.buyer_con ?? '',
+                    orientation_highlights: mpData.orientation_highlights ?? '',
+                    pool_visible: (mpData as any).pool_visible ?? null,
+                    pool_direction: (mpData as any).pool_direction ?? null,
+                    garage_direction: (mpData as any).garage_direction ?? null,
+                    open_sky_direction: (mpData as any).open_sky_direction ?? null,
+                    aerial_url: aerialUrl,
+                    street_view_url: svUrlB,
+                    aerial_only_mode: false,
+                    _debug: { multiPano: true, panoBDir: panoB.dir, panoCDir: panoC.dir, streetBearing } as any,
+                };
+            }
+        }
+
+        // ── 3. Fetch base64 images in parallel (standard dual/aerial path) ──────
         const aerialB64Promise = urlToBase64(aerialUrl);
         const streetB64Promise = streetViewUrl ? urlToBase64(streetViewUrl) : Promise.resolve(null);
 
@@ -714,11 +1056,11 @@ export async function runSatellitaryAnalysis(
         usesDualImage = !!streetB64;
         const basePrompt = usesDualImage
             ? buildOrientationPromptDual(streetViewHeading, address, description)
-            : buildOrientationPromptAerialOnly(address, description);
+            : buildOrientationPromptAerialOnly(address, description, streetBearingForAzimuth, streetSide);
 
         const prompt = basePrompt + "\n\n" + getDualPromptFinalInstructions(streetViewHeading);
 
-        // ── 3. Call Gemini ────────────────────────────────────────────────────────
+        // ── 4. Call Gemini ────────────────────────────────────────────────────────
         const parts: any[] = [
             { text: prompt },
             { inlineData: { data: aerialB64.data, mimeType: aerialB64.mimeType } },
@@ -728,9 +1070,11 @@ export async function runSatellitaryAnalysis(
         }
 
         const { data } = await executeGeminiRequest<Omit<SatellitaryResult, 'aerial_url' | 'street_view_url' | 'aerial_only_mode'>>({
-            model: FLASH_MODEL,
+            model: ORIENTATION_MODEL,
+
             contents: { parts },
-            config: { temperature: 0.2 },
+            config: { temperature: 0 },  // deterministic — orientation is a factual spatial task
+
             userId,
             zpid,
             address,
@@ -740,18 +1084,67 @@ export async function runSatellitaryAnalysis(
             imageUrls: streetViewUrl ? [aerialUrl, streetViewUrl] : [aerialUrl]
         });
 
+
         const resultAzimuth = computeAccurateAzimuth(
             data.azimuth_degrees ?? null,
             usesDualImage ? streetViewHeading : null,
-            usesDualImage ? (data as any).street_view_shows_front ?? null : null
+            usesDualImage ? (data as any).street_view_shows_front ?? null : null,
+            usesDualImage ? streetBearingForAzimuth : null
         );
+
+        // ── Aerial-only confidence gate ────────────────────────────────────────
+        // Policy: "accurate or nothing". Aerial-only analysis is unreliable when
+        // confidence is anything less than high — the model frequently misidentifies
+        // driveway aprons on ambiguous satellite images. Only trust high-confidence
+        // aerial-only results; emit UNCLEAR for medium/low/unknown.
+        // Corner lots are always failed regardless of confidence: two street frontages
+        // make it impossible to choose the primary front from aerial alone.
+        const isCornerLotAerialOnly = !usesDualImage && data.property_layout_type === 'corner_lot';
+        const aerialConfidenceFailed = !usesDualImage && (
+            data.confidence !== 'high' ||
+            resultAzimuth == null ||
+            isCornerLotAerialOnly    // corner lot aerial-only → always UNCLEAR
+        );
+
+        // ── Street-bearing fallback for standard lots ──────────────────────────
+        // If aerial-only confidence failed BUT Gemini classified the lot as a simple
+        // standard layout (rectangular lot, straight street, no corner/flag/curved
+        // complexity), we can derive orientation from the address street bearing.
+        // The front is perpendicular to the street: bearing+90° or bearing-90°.
+        // We pick whichever perpendicular is closest to Gemini's weak aerial azimuth.
+        let streetBearingFallbackAzimuth: number | null = null;
+        if (aerialConfidenceFailed && (data as any).standard_street_layout === true && streetBearingForAzimuth != null) {
+            const angDistFn = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+            const perp1 = (streetBearingForAzimuth + 90) % 360;
+            const perp2 = (streetBearingForAzimuth - 90 + 360) % 360;
+            const weakAzimuth = data.azimuth_degrees ?? null;
+            if (weakAzimuth != null) {
+                streetBearingFallbackAzimuth = angDistFn(weakAzimuth, perp1) <= angDistFn(weakAzimuth, perp2) ? perp1 : perp2;
+            } else {
+                // No azimuth hint — default to perp1 (arbitrary but consistent)
+                streetBearingFallbackAzimuth = perp1;
+            }
+            console.log(`[Satellitary] Street-bearing fallback: bearing=${Math.round(streetBearingForAzimuth)}° → azimuth=${Math.round(streetBearingFallbackAzimuth)}° (${azimuthToCompassLabel(streetBearingFallbackAzimuth)})`);
+        }
+
+
+        const finalAzimuth = aerialConfidenceFailed
+            ? (streetBearingFallbackAzimuth ?? null)
+            : resultAzimuth;
+        const finalOrientation = aerialConfidenceFailed
+            ? (streetBearingFallbackAzimuth != null ? azimuthToCompassLabel(streetBearingFallbackAzimuth) : 'UNCLEAR')
+            : azimuthToCompassLabel(resultAzimuth);
+        const finalConfidence = aerialConfidenceFailed
+            ? (streetBearingFallbackAzimuth != null ? 'low' : 'low')
+            : (data.confidence ?? 'medium');
 
         result = {
             ...data,
             image_quality: data.image_quality ?? 'acceptable',
             visual_azimuth_estimate: data.azimuth_degrees ?? null,
-            azimuth_degrees: resultAzimuth,
-            final_orientation: azimuthToCompassLabel(resultAzimuth),
+            azimuth_degrees: finalAzimuth,
+            final_orientation: finalOrientation,
+            confidence: finalConfidence,
             feng_shui_vastu: data.feng_shui_vastu ?? null,
             privacy_insight: data.privacy_insight ?? '',
             lot_coverage_hardscape: data.lot_coverage_hardscape ?? null,
@@ -768,13 +1161,62 @@ export async function runSatellitaryAnalysis(
             aerial_only_mode: !usesDualImage,
             _debug: {
                 streetViewHeading,
+                streetBearing: streetBearingForAzimuth,
                 geminiAzimuth: data.azimuth_degrees ?? null,
-                streetViewShowsFront: (data as any).street_view_shows_front ?? null
+                streetViewShowsFront: (data as any).street_view_shows_front ?? null,
+                aerialConfidenceFailed,
             } as any
         };
     }
 
-    // ── 4. Cache results to Firestore (fire-and-forget) ───────────────────────
+    // ── Post-processing: Aerial-only overrides ────────────────────────────────
+    // Use Gemini's own aerial_only_mode flag (set when SV is null OR blurred)
+    // to catch both explicit aerial-only runs AND blurred street view cases.
+    if (result && result.aerial_only_mode) {
+
+        // Townhouse: shared party walls → cannot determine primary front face from aerial
+        if (homeType === 'TOWNHOUSE') {
+            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + TOWNHOUSE → UNCLEAR`);
+            result = {
+                ...result,
+                final_orientation: 'UNCLEAR',
+                azimuth_degrees: null,
+                visual_azimuth_estimate: null,
+                confidence: 'low',
+                explanation: 'Aerial-only analysis is unreliable for townhouses: shared party walls make it impossible to determine which face is the front without a usable street view image.',
+            };
+        }
+
+        // Cul-de-sac: house faces outward toward the circular court, but without a
+        // street view from inside the circle we cannot confirm the outward direction.
+        else if (result.property_layout_type === 'cul_de_sac') {
+            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + cul_de_sac → UNCLEAR`);
+            result = {
+                ...result,
+                final_orientation: 'UNCLEAR',
+                azimuth_degrees: null,
+                visual_azimuth_estimate: null,
+                confidence: 'low',
+                explanation: 'Aerial-only analysis is unreliable for cul-de-sac properties: without a street view from inside the circular court, the outward-facing direction cannot be confirmed.',
+            };
+        }
+
+        // Corner lot: two street frontages → unclear which is primary from aerial alone
+        else if (result.property_layout_type === 'corner_lot') {
+            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + corner_lot → UNCLEAR`);
+            result = {
+                ...result,
+                final_orientation: 'UNCLEAR',
+                azimuth_degrees: null,
+                visual_azimuth_estimate: null,
+                confidence: 'low',
+                explanation: 'Aerial-only analysis is unreliable for corner lots: two street frontages exist and without a usable street view it is impossible to determine which street the front door faces.',
+            };
+        }
+    }
+
+
+    // ── 5. Cache results to Firestore (fire-and-forget) ───────────────────────
     if (zpid && result) {
         // Log orientation version for history
         const docRef = doc(db, 'properties', zpid);
@@ -790,8 +1232,9 @@ export async function runSatellitaryAnalysis(
             property_layout_type: result.property_layout_type
         });
 
-        // Main persistence
-        savePropertyOrientationToCloud(
+        // Main persistence — awaited so Firestore write lands before the caller's
+        // fetchData() timer fires (prevents UI snapping back to stale value)
+        await savePropertyOrientationToCloud(
             zpid,
             {
                 final_orientation: result.final_orientation,

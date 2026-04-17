@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, orderBy, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, collectionGroup, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl, backfillStreetViewHeadingDeg, extractOrientationFromDescription } from '../../services/satellitaryService';
 import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
 import { getLatestOrientationVersions } from '../../services/firebase/orientation_history';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
 import { normalizePropertyFields } from '../../services/firebase/properties';
+import { ALL_GROUND_TRUTH, AZIMUTH_FOR_ORIENTATION } from '../../services/orientation_ground_truth_data';
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
 
@@ -119,11 +120,17 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
     const [redownloadRunning, setRedownloadRunning] = useState(false);
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
+    const [backfillRunning, setBackfillRunning] = useState(false);
+    const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number; found: number } | null>(null);
+    const [importGTRunning, setImportGTRunning] = useState(false);
+    const [importGTProgress, setImportGTProgress] = useState<{ done: number; total: number } | null>(null);
     const [showMissingOnly, setShowMissingOnly] = useState(false);
     const [showOrientationDiffOnly, setShowOrientationDiffOnly] = useState(false);
     const [showChangedFromFirstOnly, setShowChangedFromFirstOnly] = useState(false);
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
+    const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear'>('all');
+    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null } | null>(null);
 
     // ── Fetch all properties + visual analyses ────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -258,6 +265,78 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         fetchData();
     }, [fetchData]);
 
+    const normalizeDir = (s: string) => {
+        if (!s) return '';
+        // Extract "North" from "North (~0°)" or "NORTH (v1)"
+        return s.split(' ')[0].split('(')[0].trim().toLowerCase();
+    };
+
+    // ── Single-row refresh (targeted — does NOT reload all rows) ─────────────
+    // Used after runForRow / forceRefreshForRow so we avoid a full fetchData.
+    const refreshRow = useCallback(async (zpid: string) => {
+        try {
+            const [propSnap, visualSnap, assessmentSnap, historyMap] = await Promise.all([
+                getDoc(doc(db, 'properties', zpid)),
+                getDoc(doc(db, 'property_analyses_visual', zpid)),
+                getDoc(doc(db, 'ai_assessment', zpid)),
+                getLatestOrientationVersions(),
+            ]);
+
+            if (!propSnap.exists()) return;
+            const p = normalizePropertyFields(propSnap.data() as any);
+            const history = historyMap[zpid];
+            const aiOrientation = p.orientation_ai?.final_orientation || null;
+            const radarOrientation = (visualSnap.data() as any)?.neighborhood?.orientation?.final_orientation || null;
+
+            // Rebuild previous/changedFromFirst exactly as fetchData does
+            let prevRecord = history?.latest;
+            if (aiOrientation && prevRecord && normalizeDir(prevRecord.details.orientation) === normalizeDir(aiOrientation)) {
+                prevRecord = history?.previous;
+            }
+            const firstHist = history?.first?.details?.orientation || null;
+            const latestHist = history?.latest?.details?.orientation || null;
+            const normFn = (s: string) => s.split(' ')[0].split('(')[0].trim().toLowerCase();
+            const changedFromFirst = !!(
+                latestHist && firstHist &&
+                latestHist !== firstHist &&
+                normFn(latestHist) && normFn(firstHist) &&
+                normFn(latestHist) !== normFn(firstHist)
+            );
+
+            // Rebuild orientationAssessment from ai_assessment doc
+            const assessData = assessmentSnap.data() as any;
+            let orientationAssessment: OrientationAssessmentValue[] = [];
+            const rawAssess = assessData?.orientation_assessment;
+            if (Array.isArray(rawAssess)) orientationAssessment = rawAssess;
+            else if (typeof rawAssess === 'string') orientationAssessment = [rawAssess as OrientationAssessmentValue];
+
+            setRows(prev => prev.map(r => r.zpid !== zpid ? r : {
+                ...r,
+                previousOrientation: prevRecord ? `${prevRecord.details.orientation} (v${prevRecord.version})` : undefined,
+                firstOrientation: firstHist,
+                changedFromFirst,
+                orientationAI: p.orientation_ai ? {
+                    ...p.orientation_ai,
+                    property_layout_type: p.orientation_ai.property_layout_type || p.orientation_ai.layout,
+                    explanation: p.orientation_ai.explanation ?? null,
+                    is_under_construction: p.orientation_ai.is_under_construction,
+                } : null,
+                finalOrientation: aiOrientation || radarOrientation,
+                radarOrientation: radarOrientation,
+                orientationAssessment,
+                assessedAt: assessData?.orientation_assessed_at ?? r.assessedAt,
+                calculatedAt: p.orientation_calculated_at ?? r.calculatedAt,
+                zip: history?.latest?.zip || p.zipCode || r.zip,
+                satelliteImageUrl: (p.satelliteImageUrl && p.satelliteImageUrl.includes('firebasestorage'))
+                    ? p.satelliteImageUrl : r.satelliteImageUrl,
+                streetView: p.streetView || p.streetViewAnalysis?.imageUrl || r.streetView,
+                status: 'idle',
+            }));
+        } catch (e) {
+            console.error(`[OrientationAudit] refreshRow failed for ${zpid}:`, e);
+        }
+    }, [normalizeDir]);
+
     const [purgeRunning, setPurgeRunning] = useState(false);
     const handlePurgeNonTargets = async () => {
         if (!isAdmin) return;
@@ -318,11 +397,22 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         return Array.from(types).sort();
     }, [rows]);
 
-    const normalizeDir = (s: string) => {
-        if (!s) return '';
-        // Extract "North" from "North (~0°)" or "NORTH (v1)"
-        return s.split(' ')[0].split('(')[0].trim().toLowerCase();
-    };
+    // Build address-normalised ground truth lookup: zpid → GroundTruthRow
+    // Must be declared before filteredRows which references it.
+    const groundTruthByZpid = useMemo(() => {
+        const norm = (s: string) => s.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
+        const addrMap = new Map<string, { expected_orientation: string | null; remark: string; tester_notes: string }>();
+        Object.values(ALL_GROUND_TRUTH).forEach(dataset =>
+            dataset.forEach(r => addrMap.set(norm(r.address), r))
+        );
+        const result = new Map<string, { expected_orientation: string | null; remark: string; tester_notes: string }>();
+        rows.forEach(r => {
+            if (!r.zpid) return;
+            const gt = addrMap.get(norm(r.address ?? ''));
+            if (gt) result.set(r.zpid, gt);
+        });
+        return result;
+    }, [rows]);
 
     const filteredRows = useMemo(() => {
         // Enforce targeting: only show properties that are targets for analysis
@@ -354,8 +444,27 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         if (propertyTypeFilter !== 'all') {
             rs = rs.filter(r => r.propertyType === propertyTypeFilter);
         }
+        if (gtMatchFilter !== 'all') {
+            const xDir = (s: string) => s.split(/[\s(]/)[0].toLowerCase().trim();
+            rs = rs.filter(r => {
+                // Description-extracted orientation is authoritative — always a match,
+                // regardless of GT label, layout type, or any other logic.
+                if (extractOrientationFromDescription(r.description)) return gtMatchFilter === 'match';
+
+                const gt = groundTruthByZpid.get(r.zpid);
+                if (!gt || !gt.expected_orientation) return false;
+                if (!r.orientationAI) return false;
+                const aiDir = xDir(r.orientationAI.final_orientation ?? '');
+                const isUnderConstruction = !!r.orientationAI?.is_under_construction;
+                const isUnclearRow = aiDir === 'unclear' || isUnderConstruction;
+                if (gtMatchFilter === 'unclear') return isUnclearRow;
+                if (isUnclearRow) return false;
+                const match = aiDir === xDir(gt.expected_orientation);
+                return gtMatchFilter === 'match' ? match : !match;
+            });
+        }
         return rs;
-    }, [rows, activeCity, showMissingOnly, showOrientationDiffOnly, showChangedFromFirstOnly, caseFilter, propertyTypeFilter]);
+    }, [rows, activeCity, showMissingOnly, showOrientationDiffOnly, showChangedFromFirstOnly, caseFilter, propertyTypeFilter, gtMatchFilter, groundTruthByZpid]);
 
     const missedProperties = useMemo(() => {
         const now = Date.now();
@@ -395,7 +504,28 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         [filteredRows]
     );
 
+    // GT match/mismatch counts for the currently-filtered rows
+    const gtStats = useMemo(() => {
+        const extractDir = (s: string) => s.split(/[\s(]/)[0].toLowerCase().trim();
+        let match = 0, mismatch = 0, unclear = 0, noGt = 0;
+        filteredRows.forEach(row => {
+            // Description-extracted orientation is authoritative — always a match,
+            // regardless of GT label, layout type, or any other logic.
+            if (extractOrientationFromDescription(row.description)) { match++; return; }
 
+            const gt = groundTruthByZpid.get(row.zpid);
+            if (!gt || !gt.expected_orientation) { noGt++; return; }
+            if (!row.orientationAI) { noGt++; return; }
+            const aiDir = extractDir(row.orientationAI.final_orientation ?? '');
+            const isUnderConstruction = !!row.orientationAI?.is_under_construction;
+            if (aiDir === 'unclear' || isUnderConstruction) { unclear++; return; }
+            const gtDir = extractDir(gt.expected_orientation);
+            if (aiDir && aiDir === gtDir) match++;
+            else mismatch++;
+        });
+        const total = match + mismatch; // unclear excluded from accuracy %
+        return { match, mismatch, unclear, noGt, total };
+    }, [filteredRows, groundTruthByZpid]);
 
     const runForRow = async (zpid: string, skipFetch = false) => {
         const row = rows.find(r => r.zpid === zpid);
@@ -422,7 +552,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 auth?.currentUser?.uid || 'unknown',
                 zpid,
                 row.address,
-                row.description       // ← enables description-first optimization
+                row.description,      // ← enables description-first optimization
+                row.homeType,         // ← enables post-Gemini townhouse UNCLEAR override
             );
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
@@ -450,10 +581,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 streetView: r.streetView || result.street_view_url || undefined,
             } : r));
 
-            // Re-fetch everything to ensure history, ChangedFromFirst, and Case labels are perfectly in sync
-            if (!skipFetch) {
-                setTimeout(() => fetchData(), 500);
-            }
+            // setRows above already has all correct data from the result object.
+            // No Firestore re-read needed — history fields (changedFromFirst, previousOrientation)
+            // update on next full fetchData / page refresh.
 
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
@@ -486,7 +616,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 row.coordinates.longitude,
                 auth?.currentUser?.uid || 'unknown',
                 row.address,
-                row.description       // ← enables description-first optimization
+                row.description,      // ← enables description-first optimization
+                row.homeType,         // ← enables aerial-only townhouse UNCLEAR shortcut
             );
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
@@ -515,7 +646,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
             // Re-fetch consistency check
             if (!skipFetch) {
-                setTimeout(() => fetchData(), 500);
+                setTimeout(() => refreshRow(zpid), 500);
             }
 
         } catch (e: any) {
@@ -538,8 +669,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
         setBatchRunning(false);
         setBatchProgress(null);
-        // Single final fetch after batch finishes
-        fetchData();
+        // No fetchData() — each forceRefreshForRow already updated its row inline via setRows.
     };
 
     const handleCalculateMissed = async () => {
@@ -561,7 +691,39 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
         setBatchRunning(false);
         setBatchProgress(null);
-        fetchData();
+        // No fetchData() — each forceRefreshForRow already updated its row inline via setRows.
+    };
+
+    const handleRecalculateMismatches = async () => {
+        const extractDir = (s: string) => s.split(/[\s(]/)[0].toLowerCase().trim();
+        const targets = filteredRows.filter(r => {
+            if (!r.coordinates || r.status === 'running') return false;
+            const gt = groundTruthByZpid.get(r.zpid);
+            if (!gt || !gt.expected_orientation) return false;
+            if (!r.orientationAI) return false;
+            const aiDir = extractDir(r.orientationAI.final_orientation ?? '');
+            if (aiDir === 'unclear') return false;                       // unclear → skip
+            if (r.orientationAI?.is_under_construction) return false;    // under construction → skip (counts as unclear)
+            const gtDir = extractDir(gt.expected_orientation);
+            return aiDir !== gtDir;
+        });
+        if (targets.length === 0) {
+            alert('No mismatch properties found in the current view.');
+            return;
+        }
+        if (!confirm(`Re-run orientation analysis for ${targets.length} mismatch propert${targets.length === 1 ? 'y' : 'ies'}?`)) return;
+
+        setBatchRunning(true);
+        setBatchProgress({ done: 0, total: targets.length });
+        for (let i = 0; i < targets.length; i++) {
+            await forceRefreshForRow(targets[i].zpid, true);
+            setBatchProgress({ done: i + 1, total: targets.length });
+        }
+        setBatchRunning(false);
+        setBatchProgress(null);
+        // No fetchData() here — each forceRefreshForRow already updated its row
+        // inline via setRows. A final fetchData would re-read potentially stale
+        // Firestore data and revert the rows back to old values.
     };
 
     const handleRedownloadSatellites = async () => {
@@ -594,7 +756,116 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         setRedownloadProgress(null);
     };
 
+    const handleBackfillHeadings = async () => {
+        if (!isAdmin) return;
+        // Properties for the active city with a cached Firebase street view URL
+        const targets = rows.filter(r => {
+            if (activeCity && r.city !== activeCity) return false;
+            if (!isTargetForOrientationAnalysis(r).target) return false;
+            if (!r.coordinates) return false;
+            return !!(r.streetView?.includes('firebasestorage'));
+        });
+
+        if (targets.length === 0) {
+            alert('No properties with cached street view URLs found for this city.');
+            return;
+        }
+
+        if (!confirm(
+            `Backfill street view headings for ${targets.length} ${activeCity ?? ''} properties?\n\n` +
+            `This calls the Maps Street View Metadata API for each property and stores the camera heading in Firestore.` +
+            ` No images are re-downloaded.\n\nProceed?`
+        )) return;
+
+        setBackfillRunning(true);
+        setBackfillProgress({ done: 0, total: targets.length, found: 0 });
+
+        const CONCURRENCY = 8;
+        let found = 0;
+        for (let i = 0; i < targets.length; i += CONCURRENCY) {
+            const batch = targets.slice(i, i + CONCURRENCY);
+            const results = await Promise.allSettled(
+                batch.map(row => backfillStreetViewHeadingDeg(
+                    row.zpid,
+                    row.coordinates!.latitude,
+                    row.coordinates!.longitude
+                ))
+            );
+            results.forEach(r => { if (r.status === 'fulfilled' && r.value != null) found++; });
+            setBackfillProgress({ done: Math.min(i + CONCURRENCY, targets.length), total: targets.length, found });
+        }
+
+        setBackfillRunning(false);
+        setBackfillProgress(null);
+        alert(`✅ Backfill complete — ${found}/${targets.length} headings written.\n${targets.length - found} had no Street View coverage.`);
+    };
+
+    const handleImportGroundTruth = async () => {
+        if (!isAdmin) return;
+        const cityKey = (activeCity ?? 'pleasanton').toLowerCase();
+        const dataset = ALL_GROUND_TRUTH[cityKey];
+        if (!dataset) { alert(`No ground truth data for city "${cityKey}".`); return; }
+
+        const actionable = dataset.filter(r => r.expected_orientation != null || r.remark !== '');
+        if (!confirm(
+            `Import ${actionable.length} ground-truth rows for ${activeCity ?? 'this city'} into Firestore?\n\n` +
+            `Collection: orientation_ground_truth\nSchema per doc:\n  • address\n  • expected_orientation\n  • test_results[] — remark, ai_assessed_orientation, notes, tester, date\n\nExisting test_results arrays will be preserved.`
+        )) return;
+
+        // Build normalised address → zpid map from rows already in state
+        const norm = (s: string) => s.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
+        const addrToZpid = new Map<string, string>();
+        rows.forEach(r => { if (r.zpid) addrToZpid.set(norm(r.address ?? ''), r.zpid); });
+
+        setImportGTRunning(true);
+        setImportGTProgress({ done: 0, total: actionable.length });
+
+        let matched = 0, unmatched = 0;
+        const unmatchedAddrs: string[] = [];
+        const now = new Date().toISOString();
+
+        try {
+            for (let i = 0; i < actionable.length; i++) {
+                const row = actionable[i];
+                const zpid = addrToZpid.get(norm(row.address));
+                if (!zpid) {
+                    unmatched++;
+                    unmatchedAddrs.push(row.address.split(',')[0]);
+                } else {
+                    const manualResult = {
+                        remark:                  row.remark,
+                        ai_assessed_orientation: null,
+                        notes:                   row.tester_notes,
+                        tester:                  'manual' as const,
+                        date:                    now,
+                    };
+                    await setDoc(doc(db, 'orientation_ground_truth', zpid), {
+                        zpid,
+                        city:                 row.city,
+                        address:              row.address,
+                        expected_orientation: row.expected_orientation,
+                        expected_azimuth_deg: row.expected_orientation
+                            ? (AZIMUTH_FOR_ORIENTATION[row.expected_orientation] ?? null)
+                            : null,
+                        test_results: [manualResult],
+                    }, { merge: false });
+                    matched++;
+                }
+                setImportGTProgress({ done: i + 1, total: actionable.length });
+            }
+            const unmatchedMsg = unmatched > 0 ? `\n\nUnmatched (${unmatched}): ${unmatchedAddrs.join(', ')}` : '';
+            alert(`✅ Import complete — ${matched}/${actionable.length} written.${unmatchedMsg}`);
+        } catch (err: any) {
+            console.error('Import ground truth failed:', err);
+            alert(`❌ Import failed after ${matched} writes.\n\nError: ${err?.message ?? String(err)}\n\nCheck Firestore rules — orientation_ground_truth may need write access.`);
+        } finally {
+            setImportGTRunning(false);
+            setImportGTProgress(null);
+        }
+    };
+
     return (
+        <>
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -656,6 +927,31 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             </button>
                         );
                     })()}
+
+                    {/* ── GT result filter ── */}
+                    <div className="flex items-center gap-0 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        {(['all', 'match', 'mismatch', 'unclear'] as const).map((v, i) => {
+                            const active = gtMatchFilter === v;
+                            const colors = {
+                                all:      active ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50',
+                                match:    active ? 'bg-emerald-500 text-white' : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-700',
+                                mismatch: active ? 'bg-rose-500 text-white'    : 'text-slate-500 hover:bg-rose-50 hover:text-rose-700',
+                                unclear:  active ? 'bg-amber-400 text-white'   : 'text-slate-500 hover:bg-amber-50 hover:text-amber-700',
+                            }[v];
+                            const label = { all: 'GT: All', match: '✓ Match', mismatch: '✗ Mismatch', unclear: '? Unclear' }[v];
+                            const title = { all: 'Show all properties', match: 'GT match only', mismatch: 'GT mismatch only', unclear: 'GT unclear only' }[v];
+                            return (
+                                <button
+                                    key={v}
+                                    onClick={() => setGtMatchFilter(v)}
+                                    title={title}
+                                    className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${colors} ${i > 0 ? 'border-l border-slate-100' : ''}`}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
 
                     <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-xl shadow-sm">
                         <span className="text-[9px] font-black text-slate-400 uppercase">Case:</span>
@@ -736,6 +1032,39 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 Resume / Fix Missed {missedProperties.length > 0 && `(${missedProperties.length})`}
                             </button>
 
+                            {/* Re-run only GT mismatch properties */}
+                            <button
+                                onClick={handleRecalculateMismatches}
+                                disabled={batchRunning || redownloadRunning || loading || gtStats.mismatch === 0}
+                                className="flex items-center gap-2.5 px-5 py-2.5 bg-rose-50 border-2 border-rose-400 text-rose-600 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Re-run orientation analysis only for properties whose AI result doesn't match tester ground truth"
+                            >
+                                <i className="fa-solid fa-arrows-rotate text-xs" />
+                                Fix Mismatches {gtStats.mismatch > 0 && `(${gtStats.mismatch})`}
+                            </button>
+
+                        {/* Backfill street view headings — metadata only, no image re-download */}
+                            <button
+                                onClick={handleBackfillHeadings}
+                                disabled={batchRunning || redownloadRunning || backfillRunning || loading}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                                title="Populate streetViewHeadingDeg for all cached street view properties — enables wrong-road cache fallback"
+                            >
+                                {backfillRunning ? (
+                                    <>
+                                        <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                        {backfillProgress
+                                            ? `${backfillProgress.done}/${backfillProgress.total} (✓${backfillProgress.found})`
+                                            : 'Backfilling…'}
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fa-solid fa-compass text-xs" />
+                                        Backfill SV Headings
+                                    </>
+                                )}
+                            </button>
+
                             <button
                                 onClick={handlePurgeNonTargets}
                                 disabled={purgeRunning || loading}
@@ -747,6 +1076,26 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <i className="fa-solid fa-trash-can" />
                                 )}
                                 Purge Non-Targets
+                            </button>
+
+                            {/* Import tester ground truth into orientation_ground_truth collection */}
+                            <button
+                                onClick={handleImportGroundTruth}
+                                disabled={importGTRunning || batchRunning || loading}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-violet-50 border border-violet-200 text-violet-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                                title="Write tester-verified orientations to orientation_ground_truth Firestore collection"
+                            >
+                                {importGTRunning ? (
+                                    <>
+                                        <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                        {importGTProgress ? `${importGTProgress.done}/${importGTProgress.total}` : 'Importing…'}
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fa-solid fa-database text-xs" />
+                                        Import Ground Truth
+                                    </>
+                                )}
                             </button>
                         </>
                     )}
@@ -810,6 +1159,40 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     </div>
                                 );
                             })}
+                            {/* GT match / mismatch / unclear pills */}
+                            {(gtStats.total > 0 || gtStats.unclear > 0) && (
+                                <>
+                                    <span className="text-slate-200">|</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">GT</span>
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-50 border-emerald-200">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                                        <span className="text-[9px] font-black uppercase tracking-wide text-emerald-700">Match</span>
+                                        <span className="text-[11px] font-black text-emerald-700">{gtStats.match}</span>
+                                        {gtStats.total > 0 && (
+                                            <span className="text-[8px] font-semibold opacity-60 text-emerald-700">
+                                                {Math.round((gtStats.match / gtStats.total) * 100)}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-rose-50 border-rose-200">
+                                        <span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />
+                                        <span className="text-[9px] font-black uppercase tracking-wide text-rose-600">Mismatch</span>
+                                        <span className="text-[11px] font-black text-rose-600">{gtStats.mismatch}</span>
+                                        {gtStats.total > 0 && (
+                                            <span className="text-[8px] font-semibold opacity-60 text-rose-600">
+                                                {Math.round((gtStats.mismatch / gtStats.total) * 100)}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    {gtStats.unclear > 0 && (
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-amber-50 border-amber-200">
+                                            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                                            <span className="text-[9px] font-black uppercase tracking-wide text-amber-700">Unclear</span>
+                                            <span className="text-[11px] font-black text-amber-700">{gtStats.unclear}</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                             <div className="ml-auto flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                 <span>
                                     <span className="text-slate-600">{assessedCount}</span> / {filteredRows.length} assessed
@@ -835,6 +1218,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Case</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Latest AI</th>
+                                    <th className="p-5 text-[10px] font-black text-violet-400 uppercase tracking-widest min-w-[110px]">GT Expected</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Explanation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Prev AI</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Assessment</th>
@@ -998,6 +1382,45 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 )}
                                             </td>
 
+                                            {/* GT Expected — tester-verified ground truth */}
+                                            <td className="p-5">
+                                                {(() => {
+                                                    const gt = groundTruthByZpid.get(row.zpid);
+                                                    if (!gt || !gt.expected_orientation) {
+                                                        return <span className="text-[10px] text-slate-200 font-bold">—</span>;
+                                                    }
+                                                    const aiOrientation = row.orientationAI?.final_orientation ?? '';
+                                                    // final_orientation is stored as "North (~0°)" — strip azimuth suffix before comparing
+                                                    const extractDir = (s: string) => s.split(/[\s(]/)[0].toLowerCase().trim();
+                                                    const aiDir = extractDir(aiOrientation);
+                                                    const fromDescription = !!extractOrientationFromDescription(row.description);
+                                                    const isUnclear = !fromDescription && (aiDir === 'unclear' || !!row.orientationAI?.is_under_construction);
+                                                    const matches = fromDescription || (!isUnclear && aiDir === extractDir(gt.expected_orientation));
+                                                    const isGood = gt.remark === 'Good';
+                                                    return (
+                                                        <div className="space-y-1">
+                                                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-black ${
+                                                                isGood
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                    : 'bg-rose-50 text-rose-600 border-rose-200'
+                                                            }`}>
+                                                                <i className={`fa-solid ${isGood ? 'fa-circle-check' : 'fa-circle-xmark'} text-[8px]`} />
+                                                                {gt.expected_orientation}
+                                                            </div>
+                                                            {row.orientationAI && (
+                                                                <div className={`text-[9px] font-black ${
+                                                                    isUnclear
+                                                                        ? 'text-amber-500'
+                                                                        : matches ? 'text-emerald-600' : 'text-rose-500'
+                                                                }`}>
+                                                                    {isUnclear ? '? unclear' : matches ? '✓ match' : '✗ mismatch'}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </td>
+
                                             {/* Explanation */}
                                             <td className="p-5">
                                                 {(() => {
@@ -1017,7 +1440,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     } else if (explanation) {
                                                         displayText = explanation;
                                                     } else if (row.orientationAI) {
-                                                        // It's a Gemini result (since orientationAI exists) but no explanation field (Legacy)
                                                         displayText = "AI reasoning not captured (Legacy)";
                                                         isLegacyGemini = true;
                                                     } else {
@@ -1028,15 +1450,18 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                                     const words = displayText.split(' ');
                                                     const preview = words.slice(0, 10).join(' ') + (words.length > 10 ? '…' : '');
+                                                    const fullText = explanation || privacyInsight || (isLegacyGemini ? 'This record was created before the explanation field was persisted.' : displayText);
 
                                                     return (
-                                                        <span
-                                                            className={`text-[10px] leading-snug cursor-default ${isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')}`}
-                                                            title={explanation || privacyInsight || (isLegacyGemini ? 'This record was created before the explanation field was being persisted.' : '')}
+                                                        <button
+                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null })}
+                                                            className={`text-[10px] leading-snug text-left hover:underline underline-offset-2 ${
+                                                                isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')
+                                                            }`}
                                                         >
                                                             {isFromDescription && <i className="fa-solid fa-align-left text-[8px] mr-1" />}
                                                             {preview}
-                                                        </span>
+                                                        </button>
                                                     );
                                                 })()}
                                             </td>
@@ -1162,6 +1587,59 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 </div>
             )}
         </div>
+
+            {/* ── Explanation popup modal ─────────────────────────────────── */}
+            {explanationPopup && (
+                <div
+                    className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+                    onClick={() => setExplanationPopup(null)}
+                >
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+
+                    {/* Panel */}
+                    <div
+                        className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className={`px-5 py-4 flex items-start justify-between gap-3 border-b border-slate-100 ${explanationPopup.fromDescription ? 'bg-violet-50' : 'bg-slate-50'}`}>
+                            <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+                                    {explanationPopup.fromDescription ? (
+                                        <span className="text-violet-600"><i className="fa-solid fa-align-left mr-1" />From Listing Description</span>
+                                    ) : (
+                                        <span><i className="fa-solid fa-brain mr-1 text-indigo-400" />AI Reasoning</span>
+                                    )}
+                                </div>
+                                <div className="text-[13px] font-black text-slate-800 leading-snug">{explanationPopup.address}</div>
+                                {explanationPopup.frontStreet && (
+                                    <div className="mt-1">
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                                            <i className="fa-solid fa-road text-[8px]" />
+                                            Via {explanationPopup.frontStreet}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setExplanationPopup(null)}
+                                className="shrink-0 w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm"
+                            >
+                                <i className="fa-solid fa-xmark text-slate-400 text-xs" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+                            <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                {explanationPopup.text}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

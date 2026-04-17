@@ -211,7 +211,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                         <div>
                             <div className="text-[10px] font-black text-emerald-600/60 uppercase tracking-[0.2em] mb-1">Vastu Shastra</div>
                             <div className="text-[16px] font-black text-slate-800 tracking-tight">
-                                {final_orientation ?? azimuthToLabel(vastu.azimuth)} Facing
+                                {(final_orientation ?? azimuthToLabel(vastu.azimuth)).replace(/\s*\(~?\d+°\)/g, '').trim()} Facing
                             </div>
                         </div>
                         <button
@@ -340,7 +340,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                 <div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Vastu Shastra</div>
                     <div className="text-base font-black text-slate-800">
-                        {final_orientation ?? azimuthToLabel(vastu.azimuth)} Facing
+                        {(final_orientation ?? azimuthToLabel(vastu.azimuth)).replace(/\s*\(~?\d+°\)/g, '').trim()} Facing
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -373,11 +373,6 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                             <span className="font-black text-slate-400 uppercase tracking-widest text-[9px] mr-1">Zone</span>
                             <span className="font-black text-slate-700">{vastu.entranceZone.name}</span>
                             <span className="text-slate-400 ml-1">{vastu.entranceZone.deity}</span>
-                        </div>
-                        <div>
-                            <span className="font-black text-slate-400 uppercase tracking-widest text-[9px] mr-1">Az</span>
-                            <span className="font-black text-slate-700">{Math.round(vastu.azimuth)}°</span>
-                            <span className="text-slate-400 ml-1">{azimuthToLabel(vastu.azimuth)}</span>
                         </div>
                     </div>
                     {/* Back / sides compact row */}

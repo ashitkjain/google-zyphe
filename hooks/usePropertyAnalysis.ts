@@ -32,6 +32,7 @@ import {
   generateCityStateKey,
   trackUserPropertyView
 } from '../services/firebaseService';
+import { runSatellitaryAnalysis, deleteOrientationVersionsForProperty } from '../services/satellitaryService';
 import { APP_CONFIG } from '../config';
 
 interface UsePropertyAnalysisProps {
@@ -391,6 +392,70 @@ export function usePropertyAnalysis({
     }
   };
 
+  const handleRefreshOrientation = async () => {
+    if (!propertyData?.coordinates || loading) return;
+    const lat = propertyData.coordinates.latitude;
+    const lng = propertyData.coordinates.longitude;
+    const zpid = propertyData.zpid ? String(propertyData.zpid) : undefined;
+    const addr = propertyData.address || undefined;
+    const description = (propertyData as any).description ?? null;
+    const { auth: fbAuth } = await import('../services/firebase/config');
+    const userId = fbAuth?.currentUser?.uid || 'unknown';
+
+    setEnvRefreshing(true);
+    try {
+      // 1. Clear existing Firestore cache so runSatellitaryAnalysis runs fresh
+      if (zpid && propertyData.city) {
+        const zip = (propertyData as any).zipCode || (propertyData as any).zip || '';
+        await deleteOrientationVersionsForProperty(zpid, propertyData.city, zip);
+        console.log('[Orientation] Cleared cached orientation for', zpid);
+      }
+
+      // 2. Re-run Gemini orientation analysis
+      const result = await runSatellitaryAnalysis(
+        lat, lng,
+        null,   // force fresh street view lookup
+        userId,
+        zpid,
+        addr,
+        description
+      );
+
+      // 3. Merge fresh orientation fields into propertyData
+      setPropertyData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          orientation_ai: {
+            ...(prev as any).orientation_ai,
+            final_orientation: result.final_orientation,
+            azimuth_degrees: result.azimuth_degrees,
+            confidence: result.confidence,
+            explanation: result.explanation,
+            aerial_only_mode: result.aerial_only_mode,
+            aerial_url: result.aerial_url,
+            street_view_url: result.street_view_url,
+            pool_visible: result.pool_visible,
+            pool_direction: result.pool_direction,
+            garage_direction: result.garage_direction,
+            open_sky_direction: result.open_sky_direction,
+            privacy_insight: result.privacy_insight,
+            orientation_highlights: result.orientation_highlights,
+            buyer_pro: result.buyer_pro,
+            buyer_con: result.buyer_con,
+          },
+        };
+      });
+
+      addLog('Satellitary', { type: 'orientation-refresh' }, { address: addr, result: result.final_orientation });
+    } catch (err: any) {
+      console.error('[Orientation] Refresh failed:', err);
+      addLog('Satellitary', { type: 'error' }, { address: addr, error: err.message });
+    } finally {
+      setEnvRefreshing(false);
+    }
+  };
+
   return {
     propertyData, setPropertyData,
     loading, setLoading,
@@ -409,6 +474,7 @@ export function usePropertyAnalysis({
     handleRunCustomAnalysis,
     handleRunComprehensive,
     handleRefreshCommunityPulse,
-    handleRefreshEnvironment
+    handleRefreshEnvironment,
+    handleRefreshOrientation
   };
 }

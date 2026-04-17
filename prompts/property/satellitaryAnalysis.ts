@@ -12,6 +12,14 @@
 
 import { Type } from '@google/genai';
 
+/** Inline azimuth→compass label for use in prompt builders (avoids circular import). */
+function azimuthToCompassLabel(az: number | null): string {
+    if (az == null) return 'UNCLEAR';
+    const dirs = ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'];
+    return dirs[Math.round(((az % 360) + 360) % 360 / 45) % 8];
+}
+
+
 /** Builds a listing description hint block for orientation prompts. */
 function buildDescriptionHint(description?: string | null): string {
     if (!description) return '';
@@ -30,41 +38,68 @@ function buildDescriptionHint(description?: string | null): string {
  */
 export function buildOrientationPromptDual(streetViewHeading?: number | null, address?: string, description?: string | null): string {
     const headingContext = streetViewHeading != null
-        ? `\n\nCAMERA HEADING: ${streetViewHeading}° (0°=North, 90°=East, 180°=South, 270°=West)
-The camera was pointing in direction ${streetViewHeading}° when it captured Image B.
-⚠️ HEADING AMBIGUITY: This is the looking direction. If the camera looks at the FRONT, the home faces back toward the camera at ${(streetViewHeading + 180) % 360}°. If it looks at the BACK, the home faces ${streetViewHeading}°. Resolve this using the aerial walkway.`
+        ? `\n\nCAMERA HEADING: ${streetViewHeading}° (0°=North, 90°=East, 180°=South, 270°=West)\nThe camera was pointing in direction ${streetViewHeading}° when it captured Image B.`
         : '';
 
-    const addressClue = address ? `\n\nPROPERTY ADDRESS: "${address}"\nNote: The front door may face an internal lane or side street, not necessarily the address street.` : '';
+    const addressClue = address ? `\n\nPROPERTY ADDRESS: "${address}"` : '';
     const descriptionOverride = buildDescriptionHint(description);
+
+
 
     return `
 You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up) and a Street View image (Image B) of a property.
 ${headingContext}${addressClue}${descriptionOverride}
 
 GUIDING PRINCIPLES:
-1. IMAGE A (AERIAL) IS THE ANCHOR: North is strictly at the top. Use this to identify the building footprint and architectural features.
-2. THE WALKWAY RULE (MANDATORY): Trace the walkway from the public sidewalk. The edge it leads to is the architectural FRONT, even if a garage faces a different side or has a house number (e.g., 3016).
-3. CORNER LOTS & COMPLEXES: Do not default to the garage. Garages often face secondary streets or rear alleys. The primary entrance is defined by the porch, large glazing, or walkway porch.
+1. IMAGE A (AERIAL) IS THE ANCHOR: North is strictly at the top. Use it to identify the building footprint, street layout, and architectural features.
+2. THE WALKWAY RULE: Trace the pedestrian walkway from the public sidewalk to the main door. The wall it leads to is the architectural FRONT.
+3. DRIVEWAY & GARAGE (supporting): In typical single-family homes, the garage and front door are on the SAME wall. The driveway runs from the public street to the garage — the side where the driveway meets the street is generally the front.
+4. CORNER LOTS: Garages sometimes face secondary streets or rear alleys. Always verify with the pedestrian walkway or porch, not just the garage.
 
 TASK SEQUENCE:
-Step 0: Quality & Construction Check. 
-   - If Image A is too blurry to see building edges, set image_quality="blurry", final_orientation="UNCLEAR_IMAGE", and stop.
-   - If the site is a dirt lot, shows only a foundation, or is a framed structure without a finished roof/walls (Under Construction), set is_under_construction=true, final_orientation="UNDER_CONSTRUCTION", and stop.
-Step 1: Aerial Analysis. Identify the FRONT wall using the Walkway Rule. Determine its compass orientation from the North-up frame.
-Step 2: Street View Verification. Identify what Image B shows (Front Door, Garage, or Side). Check if this matches your Step 1 conclusion.
-Step 3: Resolve Ambiguity. If the camera heading (${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'}) points at the wall you identified as the front, then street_view_shows_front is TRUE and the orientation is opposite to the heading.
-Step 4: Finalize Result. Set final_orientation, azimuth_degrees, and property_layout_type.
-⚠️ CUL-DE-SAC CUE: Check the AERIAL lot shape. If it is pie-shaped (narrow at street, wide at back) on a rounded dead-end, it is a cul_de_sac. Even if the Street View looks like a straight street (which might be a back/side road), the aerial lot shape is ground truth for layout.
+Step 0: Quality & Construction Check.
+   - If Image A is too blurry, set image_quality="blurry", final_orientation="UNCLEAR_IMAGE", and stop.
+   - If the site is under active construction, set is_under_construction=true, final_orientation="UNDER_CONSTRUCTION", and stop.
+
+Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
+   - Examine Image B. If the majority of the image is covered by a privacy blur (foggy/milky white overlay), solid fence/wall with no architectural features, or is otherwise uninformative about WHICH SIDE of the house is visible:
+     → Mark street_view_shows_front = null (unknown)
+     → Skip Step 3 entirely — do NOT apply heading math
+     → Rely SOLELY on Step 2 aerial analysis (driveway apron + walkway) for azimuth
+     → Set confidence = 'medium' at most (downgrade to 'low' if driveway is also ambiguous)
+   - Only proceed to Step 3 heading math if Image B clearly shows architectural features (front door, porch, garage door, windows, entry steps) that let you confirm whether the camera faces the FRONT or BACK.
+
+Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layout:
+   OPTION A — CUL-DE-SAC / COURT: Is there a clearly visible rounded bulb/teardrop dead-end terminus in the street AND the subject lot abuts this circular area directly?
+      → If YES (both must be true): Set property_layout_type = "cul_de_sac".
+         The FRONT WALL of the house FACES OUTWARD toward the center of that circular open area.
+         (Think of it as: the front door and garage open onto the circular paved court — cars drive from the circle to the garage.)
+         IMPORTANT for Step 3: The Street View camera is almost always positioned INSIDE the circular court area looking at the FRONT of the house. If Image B shows a garage door or front door visible, set street_view_shows_front = TRUE. Only set FALSE if you see a clearly featureless back wall with no openings.
+   OPTION B — STANDARD lot: Straight or gently curved street, no dead-end bulb visible. Use the walkway rule.
+   OPTION C — CORNER lot: Two distinct street frontages visible. Use pedestrian walkway to determine primary front.
+   OPTION D — FLAG lot: Long driveway/easement leads to a setback lot hidden behind another property.
+
+Step 2: Aerial Front-Wall Identification.
+   Using the layout you identified in Step 1, identify which compass direction the front wall faces. Confirm with: (a) pedestrian walkway, (b) driveway direction, (c) lot orientation.
+
+Step 3: Apply Heading Math (MANDATORY — do NOT skip or override).
+   Camera heading = ${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'} (GPS-measured, exact).
+   RULE A — Image B shows a front door, porch, covered entry, or steps:
+      → street_view_shows_front = TRUE → azimuth = (${streetViewHeading ?? 'heading'} + 180) % 360
+   RULE B — Image B shows ONLY a blank wall, fence, or side with no openings:
+      → street_view_shows_front = FALSE → azimuth = ${streetViewHeading ?? 'heading'}°
+   RULE C — If Step 1 aerial result strongly contradicts the heading math (> 90° difference), prefer the aerial result and note the discrepancy.
+
+Step 4: Finalize. Output final_orientation, azimuth_degrees, confidence, and property_layout_type.
 
 ADDITIONAL ANALYSIS:
-- Privacy: Assess neighboring sightlines into the backyard/pool (e.g., second-story windows).
+- Privacy: Assess neighboring sightlines into the backyard/pool.
 - Coverage: Estimate % Lot Coverage (Hardscape vs. Pervious).
-- Site Features (Vastu/Feng Shui): Identify location of Pool, Garage, and Open Yard relative to the house (N, NE, E, SE, S, SW, W, NW).
-- Buyer Pro/Con: One punchy sentence for each based on the above.
+- Site Features: Identify Pool, Garage, and Open Yard directions (N/NE/E/SE/S/SW/W/NW).
+- Buyer Pro/Con: One punchy sentence each.
 
 EXPLANATION FORMAT:
-Briefly state: (1) Aerial observations (Walkway/Entrance), (2) Street View verification vs. Heading, (3) Final Azimuth & Rationale.
+(1) Layout type identified from Image A and visual evidence, (2) front wall azimuth from aerial + driveway, (3) what Image B confirmed or contradicted, (4) final azimuth.
 `.trim();
 }
 
@@ -73,29 +108,73 @@ Briefly state: (1) Aerial observations (Walkway/Entrance), (2) Street View verif
 /**
  * Prompt used when ONLY the aerial satellite image is available.
  */
-export function buildOrientationPromptAerialOnly(address?: string, description?: string | null): string {
-    const addressClue = address ? `\nPROPERTY ADDRESS: "${address}"\nAddress street may border the side or rear. Look for internal lanes in complexes.` : '';
+export function buildOrientationPromptAerialOnly(address?: string, description?: string | null, streetBearing?: number | null, streetSide?: 'N' | 'S' | 'E' | 'W' | null): string {
+    const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
+    const sideLabel = streetSide === 'N' ? 'NORTH' : streetSide === 'S' ? 'SOUTH' : streetSide === 'E' ? 'EAST' : streetSide === 'W' ? 'WEST' : null;
+    const sideFact = sideLabel ? ` GPS confirms "${streetName || address}" is to the ${sideLabel} of this property — the front faces ${sideLabel}.` : '';
+    const addressClue = address
+        ? `\nPROPERTY ADDRESS: "${address}"\nThe front entrance MUST face "${streetName || address}" — this is the authoritative front street.${sideFact} Rules:\n• FREEWAYS & HIGHWAYS are NEVER valid front streets regardless of visual proximity. If a freeway or divided highway is visible, it is never the front. The address street is always the front.\n• Do NOT default to the largest or most prominent visible road. The address street may be smaller.\n• Override ONLY if BOTH a visible pedestrian walkway AND a driveway clearly connect to a different residential street (not a freeway). One cue alone is not enough to override.`
+        : '';
     const descriptionOverride = buildDescriptionHint(description);
+    const bearingHint = streetBearing != null ? (() => {
+        const perp1 = (streetBearing + 90) % 360;
+        const perp2 = (streetBearing - 90 + 360) % 360;
+        const label = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
+        return `\nGPS STREET BEARING PRIOR: GPS data confirms the address street runs at ~${Math.round(streetBearing)}°. For a standard lot the front most likely faces ${label(perp1)} (~${Math.round(perp1)}°) or ${label(perp2)} (~${Math.round(perp2)}°). When multiple roads are visible, use the driveway apron to confirm which of the two perpendicular directions is correct — do NOT default to the larger or more prominent road if the driveway leads elsewhere.`;
+    })() : '';
 
     return `
-You are a spatial analysis expert. I am providing one high-resolution Aerial Satellite image (North-up).
-${addressClue}${descriptionOverride}
+You are a spatial analysis expert. I am providing one high-resolution aerial satellite image (North-up, blue "N" dot marks North).
+${addressClue}${bearingHint}${descriptionOverride}
 
 GUIDING PRINCIPLES:
 1. NORTH IS UP: Use the strict top-of-frame as 0° North.
-2. WALKWAY RULE: The architectural front is where the pedestrian path from the street leads.
-3. CONTEXT CUES: For townhomes/complexes, fronts typically face internal courtyards or private drives, not busy arterial roads.
+2. WALKWAY RULE (MANDATORY): The architectural front is where the pedestrian path from the PUBLIC SIDEWALK leads to the main door — NOT the driveway or garage.
+3. GARAGE NOTE: Supporting evidence only. On corner lots, the garage may face a side street while the main entrance faces the address street.
+4. ADDRESS STREET PRIORITY: When multiple streets are visible, give strong priority to the address street as the front street.
+
+LAYOUT CLASSIFICATION (do this FIRST, before orientation):
+Classify the property as standard_street_layout = FALSE if ANY of the following apply:
+  • CORNER LOT: The lot abuts two or more streets on different sides. Two or more road edges are visible in the aerial.
+  • SIDE-LOADING ENTRY: The main door is tucked into a courtyard or on a side face perpendicular to the street — not directly facing the road.
+  • FLAG LOT: The house is set far back behind another home, accessed only by a long narrow private driveway. No direct street frontage.
+  • RURAL/ACREAGE: Large lot with significant distance from any public road. The house may face a view (lake, valley, hills) rather than the road.
+  • CURVED OR LOOPING STREET: The address street visibly curves or loops so a single perpendicular direction is ambiguous. Addresses with CT, CIR, LOOP, WAY, or COURT in the street name are likely this type.
+If NONE of the above apply → standard_street_layout = TRUE (simple rectangular lot on a straight road).
+
+CONFIDENCE GATE (MANDATORY — read before answering):
+If you CANNOT clearly identify the driveway apron OR pedestrian walkway with HIGH confidence — because the image is ambiguous, the driveway is not clearly visible, or features are obscured — you MUST:
+  → Set confidence = 'low'
+  → Set final_orientation = 'UNCLEAR'
+  → Set azimuth_degrees = null
+An UNCLEAR result is far better than a confidently wrong one.
 
 TASK:
-1. Identify the architectural FRONT entrance using the Walkway Rule. If no path is visible, use the facade with the primary porch/landscaping.
-2. Determine the compass direction the FRONT wall points toward.
-3. Assess Privacy (neighbor sightlines), Lot Coverage (Hardscape %), and Site Features (Pool/Garage/Yard directions).
-4. Provide a brief Feng Shui/Vastu tip if the orientation is auspicious (e.g., North/East).
+Step 1 — LAYOUT DETECTION: Identify lot type (cul-de-sac, corner, standard, flag) from the aerial.
+Step 2 — DRIVEWAY APRON (primary signal):
+   A driveway is ONLY valid if it satisfies ALL of the following:
+   a) It is a paved strip that STARTS at the garage and ENDS with a CURB CUT — where the private pavement meets the public road surface at a lowered or flush curb. The transition from private to public road must be continuous with no gap.
+   b) DEAD-END PAVING TRAP: Paved areas along the side or rear of a house that terminate before reaching the road (stopping at a fence, landscaping, another lot, or a strip of grass between the paving and the road) are NOT driveway aprons — they are internal pathways or court areas. Do NOT treat them as the front.
+   c) When two roads are visible north and south of the property, trace EACH candidate driveway all the way to the road to verify which road it actually connects to. Do not assume the north-side paving connects to the north road without tracing the connection.
+   The side where a verified driveway apron meets the public street is where the front faces.
+Step 3 — FRONT WALK (confirmation): Look for a narrower concrete/brick path leading to a porch or front door.
+Step 4 — State the compass direction the FRONT WALL faces outward (0°=North, 90°=East, 180°=South, 270°=West).
+Step 5 — Assess Privacy, Lot Coverage (Hardscape %), and Site Features (Pool/Garage/Yard directions).
+Step 6 — GPS SELF-CHECK (only if a GPS STREET BEARING PRIOR appears above):
+   a) The prior already told you the two valid perpendicular directions for this lot.
+   b) Compare your Step 4 azimuth against those two options.
+   c) If your azimuth is within 45° of one of the GPS perpendiculars AND the image does NOT show a clear physical reason the front faces elsewhere (e.g. no driveway, a solid wall, or a fence on that side), then CORRECT your final_orientation and azimuth_degrees to that exact perpendicular.
+   d) If your azimuth is already within 15° of a perpendicular, no correction needed — you're already aligned.
+   e) If correcting, note it explicitly: "GPS self-check: adjusted from [original] to [corrected]."
 
 EXPLANATION FORMAT:
-State which side was chosen as the front (and why) and the resulting azimuth.
+State: (1) whether standard_street_layout is true/false and why, (2) the NAME of the road the driveway curb cut connects to and which edge (e.g. "driveway connects to Atlas Peak Dr on the south edge"), (3) which side of the building faces that direction, (4) confidence level and why, (5) the resulting azimuth or UNCLEAR, (6) GPS self-check outcome — whether a correction was applied and why or why not.
+Also set front_street_name to the road name identified in step 2.
 `.trim();
 }
+
+
+
 
 // ─── Response Schema ──────────────────────────────────────────────────────────
 
@@ -137,9 +216,19 @@ export const satellitarySchema = {
             type: Type.BOOLEAN,
             description: 'Set to true if the property appears to be a dirt lot, foundation, or framed structure under active construction. If true, set orientation to UNDER_CONSTRUCTION.'
         },
+        standard_street_layout: {
+            type: Type.BOOLEAN,
+            description: 'MANDATORY for aerial-only analysis. Set to TRUE only if ALL of the following hold: (1) the lot is rectangular or near-rectangular on a straight non-looping street, (2) no second road edge is visible on an adjacent side (not a corner lot), (3) the house is NOT set far back behind another property via a long narrow access driveway (not a flag lot), (4) the entry does not appear to be a courtyard or side-tucked arrangement (not side-loading), (5) the lot is not a large rural/acreage property where the house may face a view rather than the road, and (6) the street is not curved or looping. Set to FALSE for: corner lots, flag lots, curved/loop streets (CT, CIR, LOOP in address), side-loading entries, rural acreage properties.',
+            nullable: true
+        },
         explanation: {
             type: Type.STRING,
             description: 'Full step-by-step reasoning as described in the prompt.'
+        },
+        front_street_name: {
+            type: Type.STRING,
+            description: 'The name of the road the front of the house faces (e.g. "Atlas Peak Dr", "Main St"). This is the street the driveway/walkway connects to — not a highway or back alley. Omit if unknown.',
+            nullable: true
         },
         feng_shui_vastu: {
             type: Type.STRING,
@@ -174,7 +263,13 @@ export const satellitarySchema = {
         },
         street_view_shows_front: {
             type: Type.BOOLEAN,
-            description: 'REQUIRED when street view is available. Set to true if Image B is the FRONT (main entrance). Set to false if it is side/back. Base this on your aerial/walkway analysis.',
+            description: 'REQUIRED when a single street view is available. Set to true if Image B shows the FRONT (main entrance / front door visible). Set to false if it shows the side or back. Base this on your aerial/walkway analysis.',
+            nullable: true
+        },
+        front_image_letter: {
+            type: Type.STRING,
+            enum: ['B', 'C', 'D', 'E'],
+            description: 'REQUIRED in multi-pano mode. Set to the letter of the image that shows the FRONT entrance: B=south wall, C=north wall, D=east wall (if provided), E=west wall (if provided).',
             nullable: true
         },
         pool_visible: {
@@ -204,7 +299,111 @@ export const satellitarySchema = {
     required: ['property_layout_type', 'image_quality', 'final_orientation', 'confidence', 'explanation', 'privacy_insight', 'buyer_pro', 'buyer_con', 'orientation_highlights']
 };
 
-// ─── Legacy Aliases ───────────────────────────────────────────────────────────
+// ─── Multi-Pano Prompt (No Named-Street Coverage) ───────────────────────────
+
+/**
+ * Prompt for properties where the named address street has no Street View coverage.
+ * Provides TWO street-view images from opposite sides (e.g. south + north, or east + west)
+ * and asks Gemini to identify which one shows the architectural front.
+ *
+ * @param imageBHeading  Camera heading for Image B (degrees, 0=North)
+ * @param imageBDir      Human label for Image B direction (e.g. 'south')
+ * @param imageCHeading  Camera heading for Image C (degrees)
+ * @param imageCDir      Human label for Image C direction (e.g. 'north')
+ */
+/**
+ * Prompt for properties where the named address street has no Street View coverage.
+ * Provides FOUR street-view images from all cardinal sides (S, N, E, W)
+ * and asks Gemini to identify which one shows the architectural front.
+ *
+ * @param panos  Array of { heading, dir, label } for each cardinal image (B through E)
+ */
+export function buildOrientationPromptMultiPano(
+    imageBHeading: number,
+    imageBDir: string,
+    imageCHeading: number,
+    imageCDir: string,
+    address?: string,
+    description?: string | null,
+    imageDHeading?: number,
+    imageDDir?: string,
+    imageEHeading?: number,
+    imageEDir?: string,
+    streetPrior?: string,
+): string {
+    const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
+    const addressClue = address
+        ? `\nPROPERTY ADDRESS: "${address}" (front typically faces ${streetName || 'address street'}).`
+        : '';
+    const descriptionOverride = description ? `\n\n🏷️  LISTING DESCRIPTION:\n"${Array.isArray(description) ? description.join(' ') : description}"` : '';
+
+    const oppDir = (d: string) =>
+        d === 'south' ? 'north' : d === 'north' ? 'south' : d === 'east' ? 'west' : 'east';
+
+    const hasDE = imageDDir && imageDHeading != null && imageEDir && imageEHeading != null;
+    const totalImages = hasDE ? 'FIVE' : 'THREE';
+    const imageList = hasDE
+        ? `- Image A: Aerial satellite (North-up — north is the TOP of this image)
+- Image B: Street view from the ${imageBDir.toUpperCase()} side → camera points ${oppDir(imageBDir)} → shows the ${imageBDir}-facing wall
+- Image C: Street view from the ${imageCDir.toUpperCase()} side → camera points ${oppDir(imageCDir)} → shows the ${imageCDir}-facing wall
+- Image D: Street view from the ${imageDDir!.toUpperCase()} side → camera points ${oppDir(imageDDir!)} → shows the ${imageDDir}-facing wall
+- Image E: Street view from the ${imageEDir!.toUpperCase()} side → camera points ${oppDir(imageEDir!)} → shows the ${imageEDir}-facing wall`
+        : `- Image A: Aerial satellite (North-up — north is the TOP of this image)
+- Image B: Street view from the ${imageBDir.toUpperCase()} side → camera points ${oppDir(imageBDir)} → shows the ${imageBDir}-facing wall
+- Image C: Street view from the ${imageCDir.toUpperCase()} side → camera points ${oppDir(imageCDir)} → shows the ${imageCDir}-facing wall`;
+
+    const frontLetterInstruction = hasDE
+        ? `Set front_image_letter to the letter (B/C/D/E) of the image whose wall is the FRONT (has the main entrance/walkway/porch).
+   B = ${imageBDir}-facing wall, C = ${imageCDir}-facing wall, D = ${imageDDir}-facing wall, E = ${imageEDir}-facing wall.`
+        : `Set front_image_letter to "B" if the ${imageBDir}-facing wall is the FRONT, or "C" if the ${imageCDir}-facing wall is the FRONT.`;
+
+    const garageImages = hasDE
+        ? `Images B, C, D, and E (each shows one cardinal wall):
+         B=${imageBDir}, C=${imageCDir}, D=${imageDDir}, E=${imageEDir}.
+         Set garage_direction to the direction of whichever image shows visible garage doors.`
+        : `Images B and C — B shows the ${imageBDir} wall, C shows the ${imageCDir} wall.`;
+
+    const explainFormat = hasDE
+        ? `State (1) which wall the walkway leads to in Image A, (2) which image (B/C/D/E) confirms that wall with the front door, (3) the azimuth, (4) garage_direction.`
+        : `State (1) which wall the walkway leads to in Image A, (2) which street view (B or C) shows that wall and any garage doors, (3) the azimuth, (4) the garage_direction.`;
+
+    return `
+You are a spatial analysis expert. I am providing ${totalImages} images:
+${imageList}
+${addressClue}${descriptionOverride}
+${streetPrior ? `\n${streetPrior}\n` : ''}
+IMPORTANT CONTEXT: The address street (${streetName || 'front street'}) has no direct Street View coverage.
+The images are from nearby streets on each side of the property. Use them together with the aerial to determine the front.
+
+GUIDING PRINCIPLES:
+1. NORTH IS UP on Image A. The top of Image A = North. Left = West. Bottom = South. Right = East.
+2. WALKWAY RULE: The front is the side where a pedestrian path from a public street leads to the main door.
+3. GARAGE: Garages are supporting evidence only. Confirm with porch/front door.
+4. ADDRESS STREET: The front typically faces ${streetName || 'the address street'}.
+
+TASK:
+Step 1: Using Image A, find the WALKWAY — a paved/concrete path from a public road leading to the main door. Which compass direction does it face? (The front wall faces outward in the same direction as the walkway.)
+Step 2: Set azimuth_degrees to the direction the FRONT WALL faces outward (0=North, 90=East, 180=South, 270=West).
+         ⚠️  AZIMUTH-LETTER CONSISTENCY CHECK: These must match exactly:
+         • If front_image_letter = "B" → azimuth_degrees ≈ ${Math.round((imageBHeading + 180) % 360)} (the ${imageBDir}-facing wall)
+         • If front_image_letter = "C" → azimuth_degrees ≈ ${Math.round((imageCHeading + 180) % 360)} (the ${imageCDir}-facing wall)
+         Re-check: does the azimuth you set match the image letter you chose?
+Step 3: Set final_orientation to the compass label (e.g. "South", "Southeast").
+Step 4: ${frontLetterInstruction}
+Step 5: Determine additional fields:
+  - garage_direction: Priority order:
+      1. STREET VIEW: Look for visible garage doors in ${garageImages}
+      2. DEFAULT: If street views are unclear, assume garage faces same direction as the front entrance.
+         Override only if Image A aerial shows a driveway connecting from a clearly different direction.
+  - pool_visible: true/false — use Image A aerial.
+  - pool_direction: Which side the pool is on, using Image A cardinal axes.
+  - open_sky_direction: Direction with most open space/sky, using Image A.
+  - All other fields (privacy, lot coverage, buyer_pro/con, feng_shui_vastu, etc.).
+
+EXPLANATION FORMAT: ${explainFormat}
+`.trim();
+}
+
 
 export const ORIENTATION_PROMPT_DUAL = buildOrientationPromptDual();
 export const ORIENTATION_PROMPT_AERIAL_ONLY = buildOrientationPromptAerialOnly();

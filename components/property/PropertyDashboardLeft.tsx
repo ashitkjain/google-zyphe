@@ -31,8 +31,8 @@ const parseList = (val: any): string[] => {
 };
 const MLSRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     <div className="flex gap-3 py-1.5 border-b border-slate-50/50 last:border-0 group">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] w-24 flex-shrink-0 pt-0.5 transition-colors group-hover:text-slate-500">{label}</span>
-        <span className="text-[13px] text-slate-700 font-sans font-medium leading-relaxed line-clamp-2 transition-colors group-hover:text-slate-900">{value}</span>
+        <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.1em] w-24 flex-shrink-0 pt-0.5 transition-colors group-hover:text-slate-500">{label}</span>
+        <span className="text-[14px] text-slate-700 font-sans font-medium leading-relaxed line-clamp-2 transition-colors group-hover:text-slate-900">{value}</span>
     </div>
 );
 const MLSGroup: React.FC<{ icon: string; title: string; rows: { label: string; value: string | null }[] }> = ({ icon, title, rows }) => {
@@ -177,11 +177,11 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                             <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
-                                        <i className="fa-solid fa-align-left text-indigo-600 text-[10px]" />
+                                        <i className="fa-solid fa-align-left text-indigo-600 text-[11px]" />
                                     </div>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Listing Remarks</span>
+                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Listing Remarks</span>
                                 </div>
-                                <p className="text-[12px] text-slate-600 leading-relaxed font-sans font-medium line-clamp-4 hover:line-clamp-none transition-all duration-300">
+                                <p className="text-[14px] text-slate-600 leading-relaxed font-sans font-medium line-clamp-4 hover:line-clamp-none transition-all duration-300">
                                     {data.description}
                                 </p>
                             </div>
@@ -304,11 +304,11 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 shadow-sm h-full p-4 flex flex-col">
                                         <div className="flex items-center gap-2 mb-4">
                                             <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-600 transition-colors">
-                                                <i className="fa-solid fa-volume-xmark text-purple-600 group-hover:text-white text-[12px]" />
+                                                <i className="fa-solid fa-volume-xmark text-purple-600 group-hover:text-white text-[13px]" />
                                             </div>
-                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Noise</span>
-                                            <span className="ml-auto text-[9px] font-black text-slate-400 uppercase tracking-widest">Score</span>
-                                            <span className="text-[14px] font-bold text-slate-900 leading-none">{data.noiseScore}/100</span>
+                                            <span className="text-[15px] font-bold text-slate-800 tracking-tight">Noise</span>
+                                            <span className="ml-auto text-[11px] font-black text-slate-400 uppercase tracking-widest">Score</span>
+                                            <span className="text-[16px] font-bold text-slate-900 leading-none">{data.noiseScore}/100</span>
                                         </div>
                                         <div className="space-y-3 flex-1">
                                             {[
@@ -318,8 +318,8 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                             ].map((n, i) => (
                                                 <div key={i} className="flex flex-col p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm">
                                                     <div className="flex items-center justify-between mb-1.5">
-                                                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">{n.label}</span>
-                                                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{n.desc ?? '—'}</span>
+                                                        <span className="text-[11px] font-black uppercase text-slate-400 tracking-widest leading-none">{n.label}</span>
+                                                        <span className="text-[11px] font-black uppercase text-slate-400 tracking-widest">{n.desc ?? '—'}</span>
                                                     </div>
                                                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                                         <div className="h-full bg-purple-400 rounded-full" style={{ width: n.score != null ? `${n.score}%` : '0%' }} />
@@ -340,18 +340,18 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 shadow-sm h-full p-4 flex flex-col">
                                         <div className="flex items-center gap-2 mb-4">
                                             <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
-                                                <i className="fa-solid fa-wind text-emerald-600 group-hover:text-white text-[12px]" />
+                                                <i className="fa-solid fa-wind text-emerald-600 group-hover:text-white text-[13px]" />
                                             </div>
-                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Air Quality</span>
-                                            <span className="ml-auto text-[9px] font-black text-slate-400 uppercase tracking-widest">US AQI</span>
-                                            <span className={`text-[14px] font-bold leading-none ${getAQIColor(data.airQuality.aqi)}`}>{data.airQuality.aqi}</span>
+                                            <span className="text-[15px] font-bold text-slate-800 tracking-tight">Air Quality</span>
+                                            <span className="ml-auto text-[11px] font-black text-slate-400 uppercase tracking-widest">US AQI</span>
+                                            <span className={`text-[16px] font-bold leading-none ${getAQIColor(data.airQuality.aqi)}`}>{data.airQuality.aqi}</span>
                                         </div>
                                         <div className="flex-1 space-y-3">
                                             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                                <span className="text-[11px] font-black text-emerald-700">{getAQILabel(data.airQuality.aqi)}</span>
+                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                <span className="text-[13px] font-black text-emerald-700">{getAQILabel(data.airQuality.aqi)}</span>
                                             </div>
-                                            <p className="text-[12px] text-slate-600 font-sans font-medium leading-relaxed">
+                                            <p className="text-[14px] text-slate-600 font-sans font-medium leading-relaxed">
                                                 "With this level of air quality, you have no limitations. Enjoy the outdoors!"
                                             </p>
                                             <button
@@ -388,21 +388,21 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                     <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 shadow-sm h-full p-4 flex flex-col">
                                         <div className="flex items-center gap-2 mb-4">
                                             <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-600 transition-colors">
-                                                <i className="fa-solid fa-seedling text-amber-600 group-hover:text-white text-[12px]" />
+                                                <i className="fa-solid fa-seedling text-amber-600 group-hover:text-white text-[13px]" />
                                             </div>
-                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Pollen Watch</span>
-                                            <span className="ml-auto text-[9px] font-black text-slate-400 uppercase tracking-widest">Level</span>
-                                            <span className="text-[14px] font-bold text-amber-600 leading-none">{data.pollen?.category || 'Low'}</span>
+                                            <span className="text-[15px] font-bold text-slate-800 tracking-tight">Pollen Watch</span>
+                                            <span className="ml-auto text-[11px] font-black text-slate-400 uppercase tracking-widest">Level</span>
+                                            <span className="text-[16px] font-bold text-amber-600 leading-none">{data.pollen?.category || 'Low'}</span>
                                         </div>
                                         <div className="space-y-3 flex-1">
                                             <div className="flex flex-col p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm">
                                                 <div className="flex items-center gap-1.5 mb-1">
-                                                    <i className="fa-solid fa-leaf text-[10px] text-amber-300" />
-                                                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">Dominant Type</span>
+                                                    <i className="fa-solid fa-leaf text-[11px] text-amber-300" />
+                                                    <span className="text-[11px] font-black uppercase text-slate-400 tracking-widest leading-none">Dominant Type</span>
                                                 </div>
-                                                <div className="text-[13px] font-black text-slate-800 leading-tight">{data.pollen?.dominantPollenType || 'Grasses'}</div>
+                                                <div className="text-[15px] font-black text-slate-800 leading-tight">{data.pollen?.dominantPollenType || 'Grasses'}</div>
                                             </div>
-                                            <p className="text-[12px] text-slate-600 font-sans font-medium leading-relaxed">
+                                            <p className="text-[14px] text-slate-600 font-sans font-medium leading-relaxed">
                                                 {data.pollen?.description || 'Pollen levels are currently within a comfortable range for most sensitive groups.'}
                                             </p>
                                         </div>
@@ -660,20 +660,20 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                         </div>
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-3 mb-1.5">
-                                                <span className="text-[12px] font-black text-slate-700 uppercase tracking-tight">Seismic Hazard</span>
-                                                <span className="px-2 py-0.5 bg-rose-500 text-white rounded-md text-[10px] font-black shadow-lg shadow-rose-200">Zone {data.seismicHazardZone || 'E'}</span>
+                                                <span className="text-[14px] font-black text-slate-700 uppercase tracking-tight">Seismic Hazard</span>
+                                                <span className="px-2 py-0.5 bg-rose-500 text-white rounded-md text-[11px] font-black shadow-lg shadow-rose-200">Zone {data.seismicHazardZone || 'E'}</span>
                                             </div>
-                                            <p className="text-[12px] text-slate-500 font-sans font-medium leading-relaxed">
+                                            <p className="text-[14px] text-slate-500 font-sans font-medium leading-relaxed">
                                                 Located in a high-risk seismic zone. Structural reinforcement and specialized insurance are recommended.
                                             </p>
                                             <div className="flex gap-6 mt-3">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Historic Quakes</span>
-                                                    <span className="text-[11px] text-slate-600 font-black">10 <span className="text-slate-300 font-normal ml-0.5">nearby</span></span>
+                                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Historic Quakes</span>
+                                                    <span className="text-[13px] text-slate-600 font-black">10 <span className="text-slate-300 font-normal ml-0.5">nearby</span></span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FEMA Disasters</span>
-                                                    <span className="text-[11px] text-slate-600 font-black">0 <span className="text-slate-300 font-normal ml-0.5">recorded</span></span>
+                                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">FEMA Disasters</span>
+                                                    <span className="text-[13px] text-slate-600 font-black">0 <span className="text-slate-300 font-normal ml-0.5">recorded</span></span>
                                                 </div>
                                             </div>
                                         </div>

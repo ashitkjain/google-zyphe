@@ -193,10 +193,9 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                                 <CompassRose azimuth={azimuthToAngle(result.azimuth_degrees, result.final_orientation)} />
                                 <div className="text-center">
                                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Front Faces</div>
-                                    <div className="text-3xl font-black text-indigo-600">{result.final_orientation}</div>
-                                    {result.azimuth_degrees != null && (
-                                        <div className="text-[12px] text-slate-500 font-semibold">{result.azimuth_degrees}°</div>
-                                    )}
+                                    <div className="text-3xl font-black text-indigo-600">
+                                        {result.final_orientation.replace(/\s*\(~?\d+°\)/g, '').trim()}
+                                    </div>
                                 </div>
                                 <div className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${CONFIDENCE_COLOR[result.confidence]}`}>
                                     {result.confidence} confidence

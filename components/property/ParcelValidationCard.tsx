@@ -470,81 +470,64 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                         <li><span className="font-bold text-slate-800">Lot Accuracy:</span> Listed vs GIS lot size (&gt;5% triggers warning)</li>
                         <li><span className="font-bold text-slate-800">Slope Reality:</span> "Flat/level" listing claims vs measured terrain grade</li>
                         <li><span className="font-bold text-slate-800">Solar/Orientation:</span> Roof direction &amp; solar energy potential</li>
-                        <li><span className="font-bold text-slate-800">Permit Integrity:</span> Listing sqft vs tax record (&gt;10% triggers warning)</li>
+                        <li><span className="font-bold text-slate-800">Permit Integrity:</span> Listing sqft vs tax records (&gt;10% triggers warning)</li>
                     </ul>
                     <div className="border-t border-slate-100 my-2.5"></div>
                     <div className="text-[10px] text-slate-400 leading-relaxed">Lots narrower than ~50ft are excluded from slope analysis — the Google Elevation API grid (~33ft) is too coarse for reliable intra-lot readings at that scale.</div>
                 </div>
             )}
 
-            <div className={`rounded-2xl border bg-gradient-to-br ${summaryColor} overflow-hidden shadow-sm`}>
-                {/* Header */}
-                <div className="px-4 py-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${alertCount > 0 ? 'bg-red-100' : warnCount > 0 ? 'bg-amber-100' : 'bg-emerald-100'
-                                }`}>
-                                <i className={`fa-solid fa-shield-halved text-sm ${alertCount > 0 ? 'text-red-600' : warnCount > 0 ? 'text-amber-600' : 'text-emerald-700'
-                                    }`} />
-                            </div>
-                            <div>
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Lot Intelligence
-                                </div>
-                                {apn && <div className="text-[10px] text-slate-400 font-mono mt-0.5">APN: {apn}</div>}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                            {/* Refresh button */}
-                            <button
-                                onClick={handleRefresh}
-                                disabled={loading || refreshing}
-                                title="Re-fetch elevation &amp; validation data"
-                                className="w-8 h-8 rounded-full bg-white/40 hover:bg-white/80 border border-black/5 flex items-center justify-center transition-all group disabled:opacity-40"
-                            >
-                                <i className={`fa-solid fa-rotate-right text-slate-400 group-hover:text-indigo-600 text-xs ${refreshing || loading ? 'animate-spin' : ''}`} />
-                            </button>
-                            {/* Help tooltip trigger */}
-                            <button
-                                onMouseEnter={handleHelpEnter}
-                                onMouseLeave={handleHelpLeave}
-                                className="w-8 h-8 rounded-full bg-white/40 hover:bg-white/80 border border-black/5 flex items-center justify-center transition-all group"
-                            >
-                                <i className="fa-solid fa-circle-question text-slate-400 group-hover:text-indigo-600 text-sm"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
             {/* Parcel Data — polygon, slope, area, tax sqft */}
             <div className="px-4 pb-2">
                 <div className="grid grid-cols-1 gap-2">
-                    {/* Polygon info */}
-                    {(arcgisArea || polygonVertices) && (
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                            <i className="fa-solid fa-draw-polygon text-indigo-400 text-xs" />
-                            <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Parcel Polygon (ArcGIS)</div>
-                                <div className="text-[12px] font-black text-slate-700 mt-0.5 flex items-center gap-3">
-                                    {arcgisArea && (
-                                        <span>
-                                            {arcgisArea.toLocaleString()} sf
-                                            <span className="text-[10px] font-bold text-slate-400 ml-1">
-                                                ({(arcgisArea / 43560).toFixed(2)} ac)
+                    {/* Size & Area Row — Two columns */}
+                    <div className="grid grid-cols-2 gap-2">
+                        {/* Polygon info */}
+                        {(arcgisArea || polygonVertices) && (
+                            <div className="flex items-center gap-3 px-3 py-2">
+                                <i className="fa-solid fa-draw-polygon text-indigo-400 text-xs" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Parcel Polygon</div>
+                                    <div className="text-[11px] font-black text-slate-700 mt-0.5 truncate">
+                                        {arcgisArea && (
+                                            <span>
+                                                {arcgisArea.toLocaleString()} sf
+                                                <span className="text-[9px] font-bold text-slate-400 ml-1">
+                                                    ({(arcgisArea / 43560).toFixed(2)} ac)
+                                                </span>
                                             </span>
-                                        </span>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Tax sqft */}
+                        {taxSqft ? (
+                            <div className="flex items-center gap-3 px-3 py-2">
+                                <i className="fa-solid fa-ruler-combined text-indigo-400 text-xs" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area (Tax Records)</div>
+                                    <div className="text-[11px] font-black text-slate-700 mt-0.5">
+                                        {taxSqft.toLocaleString()} sf
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50">
+                                <i className="fa-solid fa-ruler-combined text-slate-300 text-xs" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area</div>
+                                    <div className="text-[10px] font-medium text-slate-400 mt-0.5">Not found</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
 
                     {/* Driveway + Backyard grades — PRIMARY lot-level display */}
                     {(drivewayDisplay || backyardDisplay) && (
-                        <div className="flex items-start gap-3 px-3 py-3 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                        <div className="flex items-start gap-3 px-3 py-2 border-t border-slate-100/80">
                             <i className="fa-solid fa-ruler-vertical text-indigo-400 text-xs mt-0.5" />
                             <div className="flex-1 min-w-0">
 
@@ -646,36 +629,6 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
                     )}
 
 
-                    {/* Tax sqft */}
-                    {taxSqft ? (
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50">
-                            <i className="fa-solid fa-ruler-combined text-indigo-400 text-xs" />
-                            <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area (Tax Record)</div>
-                                <div className="text-[12px] font-black text-slate-700 mt-0.5">
-                                    {taxSqft.toLocaleString()} sf
-                                </div>
-                                {taxSqftSource && (
-                                    <div className="text-[9px] text-slate-400 font-medium mt-0.5 truncate" title={taxSqftSource}>
-                                        {taxSqftSource
-                                            .replace(/redfin public facts/i, 'Public Records')
-                                            .replace(/redfin/i, 'Public Records')
-                                        }
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50">
-                            <i className="fa-solid fa-ruler-combined text-slate-300 text-xs" />
-                            <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Living Area (Tax Record)</div>
-                                <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-                                    Run comp analysis to fetch tax records
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -750,9 +703,9 @@ const ParcelValidationCard: React.FC<ParcelValidationCardProps> = ({ propertyDat
 
 
             {/* Footer */}
-            <div className="px-4 pb-3 pt-0">
-                <div className="text-[9px] text-slate-400 flex items-center gap-3">
-                    <span className="ml-auto">Source: {countyName || 'County'} ArcGIS + Google Elevation API</span>
+            <div className="px-4 pb-3 pt-0 mt-3 border-t border-slate-100/60 pt-3">
+                <div className="text-[10px] text-slate-400 leading-relaxed font-sans font-medium italic">
+                    Measures terrain grade, driveway usability, backyard slope, and view potential using Google Elevation data, verified against {countyName || 'County'} ArcGIS &amp; Tax Records.
                 </div>
             </div>
         </div>

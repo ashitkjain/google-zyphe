@@ -27,7 +27,8 @@ service cloud.firestore {
         'address_index',
         'cities',
         'schools_intelligence',
-        'orientation_versions'
+        'orientation_versions',
+        'orientation_ground_truth'
       ];
       allow write: if request.auth != null && collectionName in [
         'properties', 
@@ -50,7 +51,8 @@ service cloud.firestore {
         'address_index',
         'cities',
         'schools_intelligence',
-        'orientation_versions'
+        'orientation_versions',
+        'orientation_ground_truth'
       ];
     }
 

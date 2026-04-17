@@ -40,6 +40,8 @@ interface PropertyInsightsPanelProps {
     // Refresh callbacks
     onRefreshEnvironment?: () => void;
     environmentRefreshing?: boolean;
+    onRefreshOrientation?: () => void;
+    orientationRefreshing?: boolean;
     userRole?: string;
     onRefreshCommunityPulse?: () => Promise<void>;
     // Lifestyle loading state (used for skeleton guards in Community/Market)
@@ -64,24 +66,27 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
     setIsSatelliteExpanded,
     onRefreshEnvironment,
     environmentRefreshing,
+    onRefreshOrientation,
+    orientationRefreshing,
     userRole,
     onRefreshCommunityPulse,
     lifestyleLoading,
 }) => {
+    const [isPulseModalOpen, setIsPulseModalOpen] = React.useState(false);
     return (
         <>
             {/* Street View + Ground Truth Engine — side by side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
                     <div id="ov-streetview" className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
                         <StreetViewAnalysisSection
                             data={propertyData}
-                            onRefresh={onRefreshEnvironment}
-                            refreshing={environmentRefreshing}
+                            onRefresh={onRefreshOrientation}
+                            refreshing={orientationRefreshing}
                         />
                     </div>
                 )}
-                <div id="ov-lot" className="rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
+                <div id="ov-lot" className="rounded-2xl overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
                     {/* Ground Truth Engine intro */}
                     <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
@@ -89,41 +94,48 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                         </div>
                         <div className="min-w-0">
                             <h3 className="text-[18px] font-black text-slate-900 tracking-tight leading-tight">Lot Intelligence</h3>
-                            <p className="text-[10px] text-slate-400 leading-relaxed font-sans font-medium mt-1 italic">
-                                Measures how steep your lot is, whether the driveway is easy to use, how flat and usable the backyard is, whether the property has good views — using Google Elevation data, and lot and living area sq ft from county records.
-                            </p>
                         </div>
                     </div>
                     {/* Parcel Map + Validation */}
-                    <div className="flex flex-col gap-4 flex-1">
-                        <div className="w-full aspect-[4/3] flex flex-col overflow-hidden rounded-xl border border-slate-100">
-                            {/* Tabs — only show if satellite image exists */}
-                            {propertyData.satelliteImageUrl && (
-                                <div className="flex items-center gap-1 mb-2">
-                                    <button
-                                        onClick={() => setGroundTruthMapTab('parcel')}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'parcel'
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                            }`}
-                                    >
-                                        <i className="fa-solid fa-map text-[9px]"></i>
-                                        Parcel
-                                    </button>
-                                    <button
-                                        onClick={() => setGroundTruthMapTab('satellite')}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'satellite'
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                            }`}
-                                    >
-                                        <i className="fa-solid fa-satellite text-[9px]"></i>
-                                        Satellite
-                                    </button>
-                                </div>
-                            )}
-                            {/* Map content */}
-                            <div className="flex-1 min-h-0 relative">
+                    <div className="flex flex-col gap-8 flex-1">
+                        <div className="w-4/5 mx-auto flex flex-col gap-4">
+                            <div className="flex items-center justify-between mb-1">
+                                {/* Tabs — only show if satellite image exists */}
+                                {propertyData.satelliteImageUrl ? (
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => setGroundTruthMapTab('parcel')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'parcel'
+                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                }`}
+                                        >
+                                            <i className="fa-solid fa-map text-[9px]"></i>
+                                            Parcel
+                                        </button>
+                                        <button
+                                            onClick={() => setGroundTruthMapTab('satellite')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${groundTruthMapTab === 'satellite'
+                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                }`}
+                                        >
+                                            <i className="fa-solid fa-satellite text-[9px]"></i>
+                                            Satellite
+                                        </button>
+                                    </div>
+                                ) : <div />}
+
+                                {/* APN display relocated from child */}
+                                {propertyData.parcelApn && (
+                                    <div className="text-[10px] text-slate-400 font-mono uppercase tracking-widest">
+                                        APN: {propertyData.parcelApn}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Map content — fixed height to match street view */}
+                            <div className="h-[375px] w-full relative overflow-hidden rounded-xl border border-slate-100 shadow-inner flex flex-col">
                                 {groundTruthMapTab === 'parcel' ? (
                                     <StaticParcelMap data={propertyData} parcelPolygon={
                                         propertyData.parcelPolygon && propertyData.parcelPolygon.length > 3
@@ -196,7 +208,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
 
             {/* City Overview — Community Pulse · Market Dynamics · Affordability · Census */}
             {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || lifestyleLoading || propertyData) && (
-                <div id="ov-community" className="w-full px-2 rounded-2xl border-2 border-indigo-200 overflow-hidden bg-white scroll-mt-24">
+                <div id="ov-community" className="w-full px-2 rounded-2xl border border-slate-200 overflow-hidden bg-white scroll-mt-24 shadow-sm">
                     {/* Section Heading — L1 */}
                     <div className="px-5 pt-5 pb-0 flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
@@ -210,12 +222,12 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                         </div>
                     </div>
 
-                    {/* Three-col grid: Community Pulse · Market Dynamics · Affordability+Census */}
-                    <div className="px-5 pb-5 pt-1.5 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Community Pulse (2-col) + right stack (Market Dynamics, Affordability, Census) */}
+                    <div className="px-5 pb-5 pt-1.5 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                         {/* Community Pulse — L2 title */}
                         {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && (
-                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                            <div className="lg:col-span-2 flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                 <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm h-full">
                                     <div className="p-4">
                                         <div className="flex items-center justify-between mb-4">
@@ -223,96 +235,108 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
                                                     <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[12px]"></i>
                                                 </div>
-                                                <span className="text-[14px] font-bold text-slate-800 tracking-tight">Community Pulse</span>
+                                                <span className="text-[16px] font-bold text-slate-800 tracking-tight">Community Pulse</span>
                                             </div>
-                                            {userRole === 'admin' && onRefreshCommunityPulse && (
+                                            <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={async () => {
-                                                        setIsRefreshingPulse(true);
-                                                        await onRefreshCommunityPulse();
-                                                        setIsRefreshingPulse(false);
-                                                    }}
-                                                    disabled={isRefreshingPulse}
-                                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
-                                                    title="Refresh Community Pulse"
+                                                    onClick={() => setIsPulseModalOpen(true)}
+                                                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
                                                 >
-                                                    <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
+                                                    Details
                                                 </button>
-                                            )}
+                                                {userRole === 'admin' && onRefreshCommunityPulse && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            setIsRefreshingPulse(true);
+                                                            await onRefreshCommunityPulse();
+                                                            setIsRefreshingPulse(false);
+                                                        }}
+                                                        disabled={isRefreshingPulse}
+                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
+                                                        title="Refresh Community Pulse"
+                                                    >
+                                                        <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {(() => {
                                             const cp = customAnalysis?.community_pulse as any;
-                                            if (!cp) {
-                                                if (lifestyleLoading) {
-                                                    return (
-                                                        <div className="space-y-3">
-                                                            <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
-                                                            <div className="h-4 w-5/6 bg-slate-100 rounded animate-pulse" />
-                                                        </div>
-                                                    );
-                                                }
-                                                return analysis?.detailed_analysis?.community_pulse ? (
-                                                    <p className="text-[13px] text-slate-600 leading-relaxed text-left">
-                                                        {analysis.detailed_analysis.community_pulse.replace(/\n/g, ' ').split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
-                                                            j % 2 === 1 ? <strong key={j} className="font-black text-slate-900 drop-shadow-sm">{chunk}</strong> : chunk
-                                                        ))}
-                                                    </p>
-                                                ) : null;
+                                            const fallbackText = analysis?.detailed_analysis?.community_pulse;
+
+                                            if (lifestyleLoading) {
+                                                return (
+                                                    <div className="space-y-3">
+                                                        <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+                                                        <div className="h-4 w-5/6 bg-slate-100 rounded animate-pulse" />
+                                                    </div>
+                                                );
                                             }
 
-                                            const positives = cp.what_residents_like?.points || [];
-                                            const negatives = [
-                                                ...(cp.common_complaints?.points || []),
-                                                ...(cp.safety_and_concerns?.points || [])
-                                            ];
-                                            const PULSE_LIMIT = 2;
-                                            const showPos = pulseExpanded ? positives : positives.slice(0, PULSE_LIMIT);
-                                            const showNeg = pulseExpanded ? negatives : negatives.slice(0, PULSE_LIMIT);
-                                            const hasMore = positives.length > PULSE_LIMIT || negatives.length > PULSE_LIMIT;
+                                            if (!cp && !fallbackText) return null;
+
+                                            const positives: string[] = cp?.what_residents_like?.points || (fallbackText ? [fallbackText] : []);
+                                            const complaints: string[] = cp?.common_complaints?.points || [];
+                                            const safety: string[] = cp?.safety_and_concerns?.points || [];
+                                            const summary: string | null = cp?.summary || cp?.overview || null;
 
                                             return (
-                                                <div className="flex flex-col gap-4">
-                                                    <div className="flex flex-col gap-4">
+                                                <div className="flex flex-col gap-6">
+                                                    {/* Full-width summary */}
+                                                    {summary && (
+                                                        <p className="text-[15px] text-slate-600 leading-relaxed font-medium border-b border-slate-100 pb-5">
+                                                            {summary}
+                                                        </p>
+                                                    )}
+
+                                                    {/* 3-column breakdown */}
+                                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                                        {/* What Residents Like — emerald */}
                                                         {positives.length > 0 && (
                                                             <div className="space-y-2">
-                                                                <div className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                                                    <i className="fa-solid fa-heart text-[9px]" /> Resident Loves
+                                                                <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                                                    <i className="fa-solid fa-heart text-[10px]" /> Resident Loves
                                                                 </div>
-                                                                {showPos.map((item: string, i: number) => (
-                                                                    <div key={i} className="bg-emerald-50/50 border border-emerald-100/50 rounded-lg px-3 py-2 text-[12px] text-emerald-800 font-medium leading-snug flex items-start gap-2">
+                                                                {positives.map((item: string, i: number) => (
+                                                                    <div key={i} className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2.5 text-[13px] text-emerald-900 font-medium leading-snug flex items-start gap-2">
                                                                         <i className="fa-solid fa-check text-emerald-400 text-[10px] mt-1 flex-shrink-0" />
                                                                         {item}
                                                                     </div>
                                                                 ))}
                                                             </div>
                                                         )}
-                                                        {negatives.length > 0 && (
+
+                                                        {/* Common Complaints — pink/red only */}
+                                                        {complaints.length > 0 && (
                                                             <div className="space-y-2">
-                                                                <div className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                                                    <i className="fa-solid fa-circle-exclamation text-[9px]" /> Local Concerns
+                                                                <div className="text-[11px] font-black text-rose-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                                                    <i className="fa-solid fa-flag text-[10px]" /> Common Complaints
                                                                 </div>
-                                                                {showNeg.map((item: string, i: number) => (
-                                                                    <div key={i} className="bg-rose-50/50 border border-rose-100/50 rounded-lg px-3 py-2 text-[12px] text-rose-800 font-medium leading-snug flex items-start gap-2">
-                                                                        <i className="fa-solid fa-triangle-exclamation text-rose-300 text-[10px] mt-1 flex-shrink-0" />
+                                                                {complaints.map((item: string, i: number) => (
+                                                                    <div key={i} className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2.5 text-[13px] text-rose-900 font-medium leading-snug flex items-start gap-2">
+                                                                        <i className="fa-solid fa-flag text-rose-400 text-[10px] mt-1 flex-shrink-0" />
+                                                                        {item}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Safety & Concerns — neutral slate */}
+                                                        {safety.length > 0 && (
+                                                            <div className="space-y-2">
+                                                                <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                                                    <i className="fa-solid fa-shield-halved text-[10px]" /> Safety &amp; Concerns
+                                                                </div>
+                                                                {safety.map((item: string, i: number) => (
+                                                                    <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] text-slate-700 font-medium leading-snug flex items-start gap-2">
+                                                                        <i className="fa-solid fa-shield-halved text-slate-400 text-[10px] mt-1 flex-shrink-0" />
                                                                         {item}
                                                                     </div>
                                                                 ))}
                                                             </div>
                                                         )}
                                                     </div>
-                                                    {hasMore && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setPulseExpanded(!pulseExpanded);
-                                                            }}
-                                                            className="mt-1 text-[9px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-2 transition-colors border-t border-slate-100 pt-3 w-full justify-center uppercase tracking-widest"
-                                                        >
-                                                            <span>{pulseExpanded ? 'Condense' : 'Show All Insights'}</span>
-                                                            <i className={`fa-solid ${pulseExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[8px]`} />
-                                                        </button>
-                                                    )}
                                                 </div>
                                             );
                                         })()}
@@ -321,17 +345,20 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                             </div>
                         )}
 
-                        {/* Market Dynamics — L2 title */}
-                        {(keyInsights || lifestyleLoading) && (
-                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm h-full">
-                                    <div className="p-4">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
-                                                <i className="fa-solid fa-chart-line text-indigo-600 group-hover:text-white text-[12px]"></i>
+                        {/* Right column — Market Dynamics stacked above Affordability + Census */}
+                        <div className="flex flex-col gap-6">
+
+                            {/* Market Dynamics */}
+                            {(keyInsights || lifestyleLoading) && (
+                                <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                    <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
+                                        <div className="p-4">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
+                                                    <i className="fa-solid fa-chart-line text-indigo-600 group-hover:text-white text-[12px]"></i>
+                                                </div>
+                                                <span className="text-[14px] font-bold text-slate-800 tracking-tight">Market Dynamics</span>
                                             </div>
-                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Market Dynamics</span>
-                                        </div>
                                         {(!keyInsights && lifestyleLoading) ? (
                                             <div className="h-4 w-3/4 bg-slate-100 rounded animate-pulse mb-3" />
                                         ) : keyInsights?.executive_summary && keyInsights.executive_summary !== 'N/A' && (
@@ -362,40 +389,41 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                         {keyInsights?.risk_tags && keyInsights.risk_tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1.5 mt-4">
                                                 {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
-                                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[10px] font-bold text-rose-600">
+                                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-bold text-rose-600">
                                                         <div className="w-1 h-1 rounded-full bg-rose-400" />
                                                         {tag}
                                                     </span>
                                                 ))}
                                             </div>
                                         )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* Affordability + Census Demographics — L2 title (handled inside AffordabilityCard) */}
-                        <div className="flex flex-col gap-3 px-2">
-                            <AffordabilityCard
-                                state={propertyData.state}
-                                city={propertyData.city}
-                                county={propertyData.county}
-                                countyFips={
-                                    (propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips)
-                                        ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
-                                        : (census?.stateFips && census?.countyFips)
-                                            ? `${census.stateFips}${census.countyFips}`
-                                            : undefined
-                                }
-                                userId={userRole}
-                                compact
-                            />
-                            {census && (
-                                <CensusDemographicsCard
-                                    data={census as any}
+                            {/* Affordability + Census Demographics */}
+                            <div className="flex flex-col gap-3 px-2">
+                                <AffordabilityCard
+                                    state={propertyData.state}
+                                    city={propertyData.city}
+                                    county={propertyData.county}
+                                    countyFips={
+                                        (propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips)
+                                            ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
+                                            : (census?.stateFips && census?.countyFips)
+                                                ? `${census.stateFips}${census.countyFips}`
+                                                : undefined
+                                    }
+                                    userId={userRole}
                                     compact
                                 />
-                            )}
+                                {census && (
+                                    <CensusDemographicsCard
+                                        data={census as any}
+                                        compact
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -403,10 +431,91 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
 
             {/* Property Facts */}
             {propertyData.resoFacts && (
-                <div className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
+                <div className="rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24 bg-white shadow-sm">
                     <PropertyFacts facts={propertyData.resoFacts} />
                 </div>
             )}
+
+            <PulseModal
+                isOpen={isPulseModalOpen}
+                onClose={() => setIsPulseModalOpen(false)}
+                analysis={analysis}
+                city={propertyData.city || 'Dublin'}
+            />
         </>
+    );
+};
+
+interface PulseModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    analysis: ComprehensiveAnalysisResult | null;
+    city: string;
+}
+
+const PulseModal: React.FC<PulseModalProps> = ({ isOpen, onClose, analysis, city }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300"
+            onClick={onClose}
+        >
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"></div>
+            <div
+                className="relative max-w-2xl w-full bg-white rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
+                style={{ maxHeight: '85vh' }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Modal Header */}
+                <div className="px-8 pt-8 pb-4 border-b border-slate-100 relative shrink-0">
+                    <button
+                        onClick={onClose}
+                        className="absolute top-6 right-6 w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-all"
+                    >
+                        <i className="fa-solid fa-xmark text-sm" />
+                    </button>
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                            <i className="fa-solid fa-users text-blue-600 text-[14px]" />
+                        </div>
+                        <div>
+                            <h2 className="text-[20px] font-black text-slate-800 tracking-tight">Community Pulse</h2>
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{city} · Full Resident Sentiment Report</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-8 overflow-y-auto bg-slate-50/30">
+                    <div className="space-y-6">
+                        {analysis?.detailed_analysis?.community_pulse ? (
+                            <div className="space-y-4">
+                                <div className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
+                                    <i className="fa-solid fa-file-lines" /> Full Analysis Overview
+                                </div>
+                                <p className="text-[14px] text-slate-600 leading-relaxed font-medium">
+                                    {analysis.detailed_analysis.community_pulse.split(/\*\*(.*?)\*\*/g).map((chunk: any, j: number) => (
+                                        j % 2 === 1 ? <strong key={j} className="font-black text-slate-900">{chunk}</strong> : chunk
+                                    ))}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                <i className="fa-solid fa-inbox text-2xl mb-2 opacity-20" />
+                                <div className="text-sm font-medium">No detailed overview available yet.</div>
+                            </div>
+                        )}
+
+                        <div className="pt-6 border-t border-slate-200/60 flex items-center justify-between text-[9px] text-slate-400">
+                            <div className="flex items-center gap-2 uppercase font-black tracking-widest">
+                                <i className="fa-solid fa-shield-halved text-blue-400" /> Zyphe Ground Truth Unit
+                            </div>
+                            <div className="font-sans font-bold">2026 EDITION</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };

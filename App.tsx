@@ -120,7 +120,8 @@ const App: React.FC = () => {
     handleRunCustomAnalysis,
     handleRunComprehensive,
     handleRefreshCommunityPulse,
-    handleRefreshEnvironment: handleRefreshEnvironmentBase
+    handleRefreshEnvironment: handleRefreshEnvironmentBase,
+    handleRefreshOrientation: handleRefreshOrientationBase
   } = usePropertyAnalysis({
     currentUser,
     transitionToView: (view, addr) => transitionToView(view as ViewMode, addr),
@@ -665,6 +666,11 @@ const App: React.FC = () => {
     return handleRefreshEnvironmentBase(setLoadingSublabel);
   };
 
+  const handleRefreshOrientation = async () => {
+    if (!propertyData) return;
+    return handleRefreshOrientationBase();
+  };
+
   const handleToggleFavorite = async () => {
     if (!currentUser || !propertyData || !propertyData.zpid) return;
 
@@ -944,6 +950,8 @@ const App: React.FC = () => {
       address={address}
       onRefreshEnvironment={handleRefreshEnvironment}
       environmentRefreshing={envRefreshing}
+      onRefreshOrientation={handleRefreshOrientation}
+      orientationRefreshing={envRefreshing}
       onRefreshCommunityPulse={handleRefreshCommunityPulse}
     />
   );
