@@ -64,10 +64,23 @@ Step 0: Quality & Construction Check.
 Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
    - Examine Image B. If the majority of the image is covered by a privacy blur (foggy/milky white overlay), solid fence/wall with no architectural features, or is otherwise uninformative about WHICH SIDE of the house is visible:
      → Mark street_view_shows_front = null (unknown)
+     → Set front_door_clearly_visible = false
      → Skip Step 3 entirely — do NOT apply heading math
      → Rely SOLELY on Step 2 aerial analysis (driveway apron + walkway) for azimuth
      → Set confidence = 'medium' at most (downgrade to 'low' if driveway is also ambiguous)
    - Only proceed to Step 3 heading math if Image B clearly shows architectural features (front door, porch, garage door, windows, entry steps) that let you confirm whether the camera faces the FRONT or BACK.
+
+   TOWNHOUSE / ROW-HOUSE EXTRA GATE (apply if the building is a townhouse, row house, or attached unit):
+   Townhouses share party walls and often have side alleys, shared lobbies, parking bays, or rear gates visible in street view. These are NOT the primary front door.
+   For a townhouse, set front_door_clearly_visible = true ONLY if ALL of the following are true:
+     a) You can see a clearly distinct residential front door belonging to this specific unit (not a shared lobby entrance or multi-unit mailbox area).
+     b) The door has a direct pedestrian path from the public sidewalk (steps, porch, or stoop).
+     c) You are confident this door — not a side or rear gate — is the PRIMARY entrance.
+   If ANY of these conditions is uncertain or unmet:
+     → Set front_door_clearly_visible = false
+     → Do NOT apply heading math from Image B
+     → Rely on aerial analysis only
+     → Set confidence = 'low'
 
 Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layout:
    OPTION A — CUL-DE-SAC / COURT: Is there a clearly visible rounded bulb/teardrop dead-end terminus in the street AND the subject lot abuts this circular area directly?
@@ -224,6 +237,11 @@ export const satellitarySchema = {
         explanation: {
             type: Type.STRING,
             description: 'Full step-by-step reasoning as described in the prompt.'
+        },
+        front_door_clearly_visible: {
+            type: Type.BOOLEAN,
+            description: 'Set to true ONLY if the street view image shows the front door of this specific unit clearly and unambiguously with a direct pedestrian path from the public sidewalk. For townhouses, requires a distinct unit door — not a shared lobby or side gate. Set to false if the front door is not visible, obstructed, or uncertain.',
+            nullable: true
         },
         front_street_name: {
             type: Type.STRING,

@@ -1215,6 +1215,29 @@ export async function runSatellitaryAnalysis(
         }
     }
 
+    // ── Post-processing: Townhouse with unclear street view ───────────────────
+    // Townhouses with street view can still return wrong results if:
+    //   - The SV shows a side/alley entrance, not the primary front door
+    //   - It's a corner townhouse with two facades visible
+    //   - The SV is partially blurred or shot from an angle
+    // Policy: only trust the result if Gemini explicitly confirmed the front door
+    // was clearly visible (front_door_clearly_visible === true).
+    // Confidence is NOT used here — Gemini over-reports high confidence.
+    if (result && homeType === 'TOWNHOUSE' && !result.aerial_only_mode) {
+        const frontDoorVisible = (result as any).front_door_clearly_visible;
+        if (frontDoorVisible !== true) {
+            console.log(`[Satellitary] Post-Gemini override: TOWNHOUSE + street_view + front_door_clearly_visible=${frontDoorVisible} → UNCLEAR`);
+            result = {
+                ...result,
+                final_orientation: 'UNCLEAR',
+                azimuth_degrees: null,
+                visual_azimuth_estimate: null,
+                confidence: 'low',
+                explanation: `Townhouse orientation marked unclear: the street view image was available but Gemini could not clearly identify the primary front door of this specific unit (front_door_clearly_visible=${frontDoorVisible}). Townhouses often have shared lobbies, side alleys, or parking bays visible in street view that are not the true front entrance.`,
+            };
+        }
+    }
+
 
     // ── 5. Cache results to Firestore (fire-and-forget) ───────────────────────
     if (zpid && result) {
