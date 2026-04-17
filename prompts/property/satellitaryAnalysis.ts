@@ -70,8 +70,8 @@ Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
      → Set confidence = 'medium' at most (downgrade to 'low' if driveway is also ambiguous)
    - Only proceed to Step 3 heading math if Image B clearly shows the front door, porch, or entry steps that let you confirm whether the camera faces the FRONT or BACK. A garage door or windows alone are NOT sufficient — they do not confirm which side is the architectural front.
 
-   TOWNHOUSE / ROW-HOUSE EXTRA GATE (apply if the building is a townhouse, row house, or attached unit):
-   Townhouses share party walls and often have side alleys, shared lobbies, parking bays, or rear gates visible in street view. These are NOT the primary front door.
+   TOWNHOUSE / CONDO / UNIT EXTRA GATE (apply if the building is a townhouse, row house, condo, or any address containing "Unit", "Apt", or "#"):
+   Multi-unit buildings often have side alleys, shared lobbies, parking bays, or rear gates visible in street view. These are NOT the primary front door.
    For a townhouse, set front_door_clearly_visible = true ONLY if ALL of the following are true:
      a) You can see a clearly distinct residential front door belonging to this specific unit (not a shared lobby entrance, not a multi-unit mailbox area).
      b) The door has a direct pedestrian path from the public sidewalk (steps, porch, or stoop leading to THAT door).

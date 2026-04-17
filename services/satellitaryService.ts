@@ -785,6 +785,19 @@ export function extractOrientationFromDescription(
     return null;
 }
 
+/**
+ * Returns true for property types where a garage door in street view should NOT
+ * be trusted as the front — townhouses, condos, and any unit-addressed property.
+ * All three share the same structural problem: the garage may face a driving lane
+ * while the actual front door faces a lobby, courtyard, or separate walkway.
+ */
+function isSharedWallProperty(homeType?: string | null, address?: string): boolean {
+    if (homeType === 'TOWNHOUSE' || homeType === 'CONDO') return true;
+    // Catch any address with a unit suffix (Unit 202, Apt 3B, #101, etc.)
+    if (address && /\b(unit|apt|apartment|#)\s*\w+/i.test(address)) return true;
+    return false;
+}
+
 export async function runSatellitaryAnalysis(
     lat: number,
     lng: number,
@@ -904,11 +917,11 @@ export async function runSatellitaryAnalysis(
             }
         }
 
-        // ── 1b. Aerial-only + Townhouse → UNCLEAR ────────────────────────────────
-        // Townhouses share party walls and look identical from above — without a
-        // street view there is no reliable way to determine which face is the front.
-        if (!streetViewUrl && homeType === 'TOWNHOUSE') {
-            console.log(`[Satellitary] Aerial-only TOWNHOUSE detected — returning UNCLEAR (homeType=${homeType})`);
+        // ── 1b. Aerial-only + Shared-wall property → UNCLEAR ─────────────────────
+        // Townhouses and condos share party walls and look identical from above.
+        // Without a street view there is no reliable way to determine which face is front.
+        if (!streetViewUrl && isSharedWallProperty(homeType, address)) {
+            console.log(`[Satellitary] Aerial-only shared-wall property detected — returning UNCLEAR (homeType=${homeType}, address=${address})`);
             aerialUrl = aerialUrl ?? buildAerialUrl(lat, lng);
             return {
                 final_orientation: 'UNCLEAR',
@@ -917,7 +930,7 @@ export async function runSatellitaryAnalysis(
                 confidence: 'low',
                 property_layout_type: 'standard',
                 image_quality: 'clear',
-                explanation: 'Aerial-only analysis is unreliable for townhouses: shared party walls make it impossible to determine which face is the front without a street view image.',
+                explanation: 'Aerial-only analysis is unreliable for townhouses and condos: shared party walls make it impossible to determine which face is the front without a street view image.',
                 feng_shui_vastu: null,
                 privacy_insight: 'Not assessed.',
                 lot_coverage_hardscape: null,
@@ -1174,16 +1187,16 @@ export async function runSatellitaryAnalysis(
     // to catch both explicit aerial-only runs AND blurred street view cases.
     if (result && result.aerial_only_mode) {
 
-        // Townhouse: shared party walls → cannot determine primary front face from aerial
-        if (homeType === 'TOWNHOUSE') {
-            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + TOWNHOUSE → UNCLEAR`);
+        // Townhouse/condo: shared party walls → cannot determine primary front face from aerial
+        if (isSharedWallProperty(homeType, address)) {
+            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + shared-wall (${homeType}) → UNCLEAR`);
             result = {
                 ...result,
                 final_orientation: 'UNCLEAR',
                 azimuth_degrees: null,
                 visual_azimuth_estimate: null,
                 confidence: 'low',
-                explanation: 'Aerial-only analysis is unreliable for townhouses: shared party walls make it impossible to determine which face is the front without a usable street view image.',
+                explanation: 'Aerial-only analysis is unreliable for townhouses and condos: shared party walls make it impossible to determine which face is the front without a usable street view image.',
             };
         }
 
@@ -1223,10 +1236,10 @@ export async function runSatellitaryAnalysis(
     // Policy: only trust the result if Gemini explicitly confirmed the front door
     // was clearly visible (front_door_clearly_visible === true).
     // Confidence is NOT used here — Gemini over-reports high confidence.
-    if (result && homeType === 'TOWNHOUSE' && !result.aerial_only_mode) {
+    if (result && isSharedWallProperty(homeType, address) && !result.aerial_only_mode) {
         const frontDoorVisible = (result as any).front_door_clearly_visible;
         if (frontDoorVisible !== true) {
-            console.log(`[Satellitary] Post-Gemini override: TOWNHOUSE + street_view + front_door_clearly_visible=${frontDoorVisible} → UNCLEAR`);
+            console.log(`[Satellitary] Post-Gemini override: shared-wall (${homeType}) + street_view + front_door_clearly_visible=${frontDoorVisible} → UNCLEAR`);
             result = {
                 ...result,
                 final_orientation: 'UNCLEAR',
