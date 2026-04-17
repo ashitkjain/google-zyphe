@@ -185,7 +185,7 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
             `\nTASK:`,
             `Step 0: Quality/Construction check. Blurry → image_quality="blurry", UNCLEAR_IMAGE. Under construction → is_under_construction=true, UNDER_CONSTRUCTION.`,
             `Step 0b: Street View Usability. If Image B is blurry/wall/uninformative → street_view_shows_front=null, rely on aerial only.`,
-            `  TOWNHOUSE/CONDO EXTRA GATE: set front_door_clearly_visible=true ONLY if you see a clearly distinct unit front door with direct pedestrian path from sidewalk. NOT a shared lobby, NOT just garage doors.`,
+            `  TOWNHOUSE/CONDO EXTRA GATE: set front_door_clearly_visible=true ONLY if: (a) clearly distinct unit front door visible, (b) direct pedestrian path from sidewalk to THAT door, (c) not shared lobby/rear gate/garage, (d) door is close and distinct enough to identify as THIS unit — not one of many identical doors far in the distance. DISTANCE/AMBIGUITY TRAP: if doors are far away behind a fence or parking lot, or multiple identical unit doors visible with no way to tell which is this address → front_door_clearly_visible=false.`,
             `Step 1: Layout detection — classify as standard, cul_de_sac, corner_lot, flag_lot, or other.`,
             `Step 2: Aerial front-wall identification — which compass direction does the front wall face?`,
             `Step 3: Cross-check with Image B — street_view_shows_front = true/false/null.`,

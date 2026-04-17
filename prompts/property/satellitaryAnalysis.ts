@@ -81,8 +81,11 @@ Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
      a) You can see a clearly distinct residential front door belonging to this specific unit (not a shared lobby entrance, not a multi-unit mailbox area).
      b) The door has a direct pedestrian path from the public sidewalk (steps, porch, or stoop leading to THAT door).
      c) You are confident this door — not a side gate, rear gate, or garage — is the PRIMARY entrance.
-   GARAGE-ONLY TRAP: If the street view shows only garage doors (even multiple units' garage doors in a row) with NO visible front door or pedestrian entry above or beside them — this is the GARAGE FACE of the building. For many townhouses on circular courts (Cir, Ct, Loop, Way) or alleys, the garage faces the driving lane while the FRONT DOOR faces an interior courtyard, walkway, or opposite street.
-     → In this case: front_door_clearly_visible = false. Do not use heading math.
+     d) The door is close and distinct enough to identify as THIS unit specifically — not one of many identical-looking doors visible far in the distance.
+   GARAGE-ONLY TRAP: If the street view shows only garage doors (even multiple units' garage doors in a row) with NO visible front door or pedestrian entry above or beside them:
+     → front_door_clearly_visible = false. Do not use heading math.
+   DISTANCE / AMBIGUITY TRAP: If the building complex is visible but the front doors are far away (behind a fence, across a parking lot) OR multiple identical-looking unit doors are visible with no way to identify which belongs to THIS specific address:
+     → front_door_clearly_visible = false. You are seeing the building from outside — not this unit's door.
    If ANY condition is uncertain or unmet:
      → Set front_door_clearly_visible = false
      → Do NOT apply heading math from Image B
