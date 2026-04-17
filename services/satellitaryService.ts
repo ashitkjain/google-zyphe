@@ -1240,11 +1240,26 @@ export async function runSatellitaryAnalysis(
 
     // ── Post-processing: Aerial-only overrides ────────────────────────────────
     // Use Gemini's own aerial_only_mode flag (set when SV is null OR blurred)
-    // to catch both explicit aerial-only runs AND blurred street view cases.
+    // to catch both explicit aerial-only runs AND blurred/obstructed street view cases.
     if (result && result.aerial_only_mode) {
 
+        // ── ALL property types: non-standard layout + aerial-only → UNCLEAR ──
+        // Curved roads, cul-de-sacs, corner lots, flag lots, etc. all have
+        // ambiguous frontage that aerial alone cannot resolve reliably.
+        if ((result as any).standard_street_layout === false) {
+            console.log(`[Satellitary] Post-Gemini override: non-standard layout + aerial_only_mode → UNCLEAR`);
+            result = {
+                ...result,
+                final_orientation: 'UNCLEAR',
+                azimuth_degrees: null,
+                visual_azimuth_estimate: null,
+                confidence: 'low',
+                explanation: 'Non-standard street layout (curved road, cul-de-sac, corner lot, or similar) with no usable street view — aerial analysis alone cannot reliably determine which face is the front.',
+            };
+        }
+
         // Townhouse/condo: shared party walls → cannot determine primary front face from aerial
-        if (isSharedWallProperty(homeType, address)) {
+        else if (isSharedWallProperty(homeType, address)) {
             console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + shared-wall (${homeType}) → UNCLEAR`);
             result = {
                 ...result,

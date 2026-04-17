@@ -303,11 +303,21 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     let finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : 'UNCLEAR';
 
-    // Post-processing: Townhouse → UNCLEAR when result is unreliable
+    // Post-processing gate 1: ALL property types — non-standard layout + aerial-only → UNCLEAR
+    // Curved roads, cul-de-sacs, corner lots, flag lots, etc. cannot be reliably oriented
+    // from aerial alone. Requires a usable street view to resolve ambiguous frontage.
+    const aerialOnlyMode = !usesDualImage || data.street_view_shows_front === null;
+    if (aerialOnlyMode && data.standard_street_layout === false) {
+        console.log(`[Batch] Override ${zpid}: non-standard layout + aerial_only_mode → UNCLEAR`);
+        finalOrientation = 'UNCLEAR';
+        finalAzimuth     = null;
+    }
+
+    // Post-processing gate 2: Townhouse → UNCLEAR when result is unreliable
     // (a) front_door_clearly_visible = false  — Gemini couldn't see the unit door
     // (b) cul_de_sac or corner_lot — shared wall + ambiguous frontage
     // (c) standard_street_layout = false — internal access road, not a public street
-    if (isMultiUnit) {
+    if (isMultiUnit && finalOrientation !== 'UNCLEAR') {
         const layoutType            = data.property_layout_type;
         const frontDoorMissing      = data.front_door_clearly_visible === false;
         const complexLayout         = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
@@ -328,7 +338,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         azimuth_degrees:         finalAzimuth,
         visual_azimuth_estimate: data.azimuth_degrees ?? null,
         confidence:              data.confidence ?? 'low',
-        aerial_only_mode:        !usesDualImage,
+        aerial_only_mode:        aerialOnlyMode,
         image_quality:           data.image_quality ?? 'acceptable',
         feng_shui_vastu:         data.feng_shui_vastu ?? null,
         privacy_insight:         data.privacy_insight ?? '',
