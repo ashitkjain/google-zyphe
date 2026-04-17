@@ -688,14 +688,27 @@ function computeAccurateAzimuth(
             : streetViewShowsFront;
 
     // Gemini definitively identified the FRONT DOOR → snap to the visible face.
-    // GPS heading math is authoritative — do NOT let Gemini's aerial azimuth override it.
+    // GPS heading math is authoritative — EXCEPT when the camera is on a perpendicular/side
+    // street (common for corner lots). Detection: if BOTH raw GPS candidates (front AND back)
+    // are ≥90° from Gemini's aerial azimuth, the camera could not have been on the address
+    // street — fall back to the aerial estimate which came from the satellite image.
     if (showsFront === true) {
+        if (geminiAzimuth != null) {
+            const dFront = angularDist(geminiAzimuth, candidateFront);
+            const dBack  = angularDist(geminiAzimuth, candidateBack);
+            // Both candidates ≥90° from aerial = camera was on a side/perpendicular street
+            if (dFront >= 90 && dBack >= 90) return Math.round(geminiAzimuth);
+        }
         return Math.round(candidateFront);
     }
 
     // Gemini identified the BACK/SIDE → front faces the camera's street direction.
-    // GPS heading math is authoritative — do NOT let Gemini's aerial azimuth override it.
     if (showsFront === false) {
+        if (geminiAzimuth != null) {
+            const dFront = angularDist(geminiAzimuth, candidateFront);
+            const dBack  = angularDist(geminiAzimuth, candidateBack);
+            if (dFront >= 90 && dBack >= 90) return Math.round(geminiAzimuth);
+        }
         return Math.round(candidateBack);
     }
 
