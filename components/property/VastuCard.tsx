@@ -211,7 +211,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                         <div>
                             <div className="text-[10px] font-black text-emerald-600/60 uppercase tracking-[0.2em] mb-1">Vastu Shastra</div>
                             <div className="text-[16px] font-black text-slate-800 tracking-tight">
-                                {(final_orientation ?? azimuthToLabel(vastu.azimuth)).replace(/\s*\(~?\d+°\)/g, '').trim()} Facing
+                                {(final_orientation ?? dirLabel(vastu.entranceZone.dir)).replace(/\s*\(~?\d+°\)/g, '').trim()} Facing
                             </div>
                         </div>
                         <button
@@ -340,7 +340,7 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                 <div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Vastu Shastra</div>
                     <div className="text-base font-black text-slate-800">
-                        {(final_orientation ?? azimuthToLabel(vastu.azimuth)).replace(/\s*\(~?\d+°\)/g, '').trim()} Facing
+                        {(final_orientation ?? dirLabel(vastu.entranceZone.dir)).replace(/\s*\(~?\d+°\)/g, '').trim()} Facing
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
