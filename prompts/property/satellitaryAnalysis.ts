@@ -36,7 +36,7 @@ function buildDescriptionHint(description?: string | null): string {
  * Builds the dual-image orientation prompt.
  * Consolidates spatial reasoning rules and task steps to avoid redundancy.
  */
-export function buildOrientationPromptDual(streetViewHeading?: number | null, address?: string, description?: string | null): string {
+export function buildOrientationPromptDual(streetViewHeading?: number | null, address?: string, description?: string | null, streetBearing?: number | null): string {
     const headingContext = streetViewHeading != null
         ? `\n\nCAMERA HEADING: ${streetViewHeading}° (0°=North, 90°=East, 180°=South, 270°=West)\nThe camera was pointing in direction ${streetViewHeading}° when it captured Image B.`
         : '';
@@ -44,11 +44,16 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
     const addressClue = address ? `\n\nPROPERTY ADDRESS: "${address}"` : '';
     const descriptionOverride = buildDescriptionHint(description);
 
-
+    const compassLabel = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
+    const bearingHintDual = streetBearing != null ? (() => {
+        const perp1 = (streetBearing + 90) % 360;
+        const perp2 = (streetBearing - 90 + 360) % 360;
+        return `\n\nGPS STREET BEARING PRIOR: GPS data confirms the address street runs at ~${Math.round(streetBearing)}°. For a standard lot the front most likely faces ${compassLabel(perp1)} (~${Math.round(perp1)}°) or ${compassLabel(perp2)} (~${Math.round(perp2)}°). Use the driveway apron (Image A) and the visible door/walkway (Image B) to decide which perpendicular direction is correct.`;
+    })() : '';
 
     return `
 You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up) and a Street View image (Image B) of a property.
-${headingContext}${addressClue}${descriptionOverride}
+${headingContext}${addressClue}${descriptionOverride}${bearingHintDual}
 
 GUIDING PRINCIPLES:
 1. IMAGE A (AERIAL) IS THE ANCHOR: North is strictly at the top. Use it to identify the building footprint, street layout, and architectural features.
@@ -126,7 +131,14 @@ EXPLANATION FORMAT:
 export function buildOrientationPromptAerialOnly(address?: string, description?: string | null, streetBearing?: number | null, streetSide?: 'N' | 'S' | 'E' | 'W' | null): string {
     const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
     const sideLabel = streetSide === 'N' ? 'NORTH' : streetSide === 'S' ? 'SOUTH' : streetSide === 'E' ? 'EAST' : streetSide === 'W' ? 'WEST' : null;
-    const sideFact = sideLabel ? ` GPS confirms "${streetName || address}" is to the ${sideLabel} of this property — the front faces ${sideLabel}.` : '';
+    const compassLabel = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
+    // sideFact fires ONLY when bearing is suppressed (null) — i.e. the road is curved/looping
+    // so bearingHint can't run. When bearing IS available, bearingHint below provides the
+    // correct perpendicular directions and sideFact should stay silent to avoid confusion.
+    // For stable N-S/E-W roads, "front faces NORTH" would be wrong (front faces perpendicular).
+    const sideFact = (streetBearing == null && sideLabel)
+        ? ` GPS geocoding confirms "${streetName || address}" is to the ${sideLabel} of this property — the front likely faces ${sideLabel}.`
+        : '';
     const addressClue = address
         ? `\nPROPERTY ADDRESS: "${address}"\nThe front entrance MUST face "${streetName || address}" — this is the authoritative front street.${sideFact} Rules:\n• FREEWAYS & HIGHWAYS are NEVER valid front streets regardless of visual proximity. If a freeway or divided highway is visible, it is never the front. The address street is always the front.\n• Do NOT default to the largest or most prominent visible road. The address street may be smaller.\n• Override ONLY if BOTH a visible pedestrian walkway AND a driveway clearly connect to a different residential street (not a freeway). One cue alone is not enough to override.`
         : '';

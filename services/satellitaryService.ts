@@ -1068,7 +1068,7 @@ export async function runSatellitaryAnalysis(
 
         usesDualImage = !!streetB64;
         const basePrompt = usesDualImage
-            ? buildOrientationPromptDual(streetViewHeading, address, description)
+            ? buildOrientationPromptDual(streetViewHeading, address, description, streetBearingForAzimuth)
             : buildOrientationPromptAerialOnly(address, description, streetBearingForAzimuth, streetSide);
 
         const prompt = basePrompt + "\n\n" + getDualPromptFinalInstructions(streetViewHeading);
