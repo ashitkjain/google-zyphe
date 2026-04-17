@@ -143,13 +143,16 @@ Step 2: Aerial Front-Wall Identification.
      • Lower-left  = SOUTHWEST — do NOT call this “south” or “west”
      • Lower-right = SOUTHEAST — do NOT call this “south” or “east”
    If the driveway moves diagonally (has BOTH horizontal AND vertical components), use the intercardinal. Only use N/E/S/W when movement is almost entirely in ONE axis.
-   Camera heading = ${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'} (GPS-measured, exact).
-   RULE A — Image B shows a front door, porch, covered entry, or steps:
-      → street_view_shows_front = TRUE → azimuth = (${streetViewHeading ?? 'heading'} + 180) % 360
-   RULE B — Image B shows ONLY a blank wall, fence, or side with no openings:
-      → street_view_shows_front = FALSE → azimuth = ${streetViewHeading ?? 'heading'}°
-   RULE C — If Step 1 aerial result strongly contradicts the heading math (> 90° difference), prefer the aerial result and note the discrepancy.
+   If the driveway moves diagonally (has BOTH horizontal AND vertical components), use the intercardinal. Only use N/E/S/W when movement is almost entirely in ONE axis.
 
+Step 3: Cross-check with Image B (street view). GPS camera heading = ${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'} (exact, GPS-measured).
+   Your ONLY job in Step 3: look at Image B and judge whether it shows the front or back of the house.
+   Judge from IMAGE B ALONE — do NOT set this to match your Step 2 aerial conclusion.
+   RULE A — Image B shows front door, porch, covered entry, or steps:
+      → street_view_shows_front = TRUE
+   RULE B — Image B shows ONLY a blank wall, fence, or side with no openings:
+      → street_view_shows_front = FALSE
+   NOTE: The final azimuth is computed by the system from heading + your TRUE/FALSE. Do NOT compute it yourself. Do NOT override heading math based on your Step 2 aerial guess.
 Step 4: Finalize. Output final_orientation, azimuth_degrees, confidence, and property_layout_type.
 
 ADDITIONAL ANALYSIS:
