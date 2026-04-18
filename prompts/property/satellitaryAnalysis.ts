@@ -83,12 +83,21 @@ Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
    TOWNHOUSE / CONDO / UNIT EXTRA GATE (apply if the building is a townhouse, row house, condo, or any address containing "Unit", "Apt", or "#"):
    Multi-unit buildings often have side alleys, shared lobbies, parking bays, or rear gates visible in street view. These are NOT the primary front door.
    For a townhouse, set front_door_clearly_visible = true ONLY if ALL of the following are true:
-     a) You can see a clearly distinct residential front door belonging to this specific unit (not a shared lobby entrance, not a multi-unit mailbox area).
-     b) The door has a direct pedestrian path from the public sidewalk (steps, porch, or stoop leading to THAT door).
-     c) You are confident this door — not a side gate, rear gate, or garage — is the PRIMARY entrance.
-     d) The door is close and distinct enough to identify as THIS unit specifically — not one of many identical-looking doors visible far in the distance.
-   GARAGE-ONLY TRAP: If the street view shows only garage doors (even multiple units' garage doors in a row) with NO visible front door or pedestrian entry above or beside them:
-     → front_door_clearly_visible = false. Do not use heading math.
+     a) You can see a clearly distinct residential PEDESTRIAN front door — a walk-through door with a handle/knocker — belonging to this specific unit.
+        A GARAGE DOOR (a vehicle roller or sectional door that opens for a car) is NEVER a front door, even if it faces the main road.
+     b) The pedestrian door has a direct path from the public sidewalk (steps, porch, or stoop leading to THAT door).
+     c) You are confident this pedestrian door — not a garage roller door, side gate, or rear gate — is the PRIMARY residential entrance.
+     d) The door is close and distinct enough to identify as THIS unit specifically — not one of many identical-looking doors far in the distance.
+
+   GARAGE-ONLY TRAP (most common failure mode for modern townhouses):
+   Modern townhouses frequently have their GARAGE FACE on the road side — two or more identical grey/brown roller doors fill the ground floor facade.
+   This view shows the VEHICLE ACCESS SIDE, NOT the primary residential front.
+   If Image B shows:
+     • Only garage/roller doors (vehicle bays) — even just one, even if it faces the main street
+     • No walk-through pedestrian door with a handle anywhere on the visible facade
+     • No steps, porch, or stoop leading to a residential entry
+   THEN → front_door_clearly_visible = false IMMEDIATELY. Do not look for workarounds.
+
    DISTANCE / AMBIGUITY TRAP: If the building complex is visible but the front doors are far away (behind a fence, across a parking lot) OR multiple identical-looking unit doors are visible with no way to identify which belongs to THIS specific address:
      → front_door_clearly_visible = false. You are seeing the building from outside — not this unit's door.
    If ANY condition is uncertain or unmet:
