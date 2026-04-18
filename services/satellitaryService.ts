@@ -944,20 +944,15 @@ export async function runSatellitaryAnalysis(
                     streetViewUrl = buildStreetViewUrl(svLat, svLng, streetViewHeading);
                 }
             } else if (headingResult && headingResult.heading === null && headingResult.candidatePanos?.length) {
-                // No named-street pano. Check if we have a Firebase cached URL WITH a heading param.
-                // The heading is stored by forceRefreshStreetViewUrl and appended by the test setup.
-                // Only use cache if heading is recoverable — without it, computeAccurateAzimuth
-                // produces incorrect null-coercion results (candidateFront defaults to 180°).
-                const cachedH = extractCachedHeading(cachedStreetViewUrl);
-                if (cachedH != null) {
-                    streetViewHeading = cachedH;
-                    streetViewUrl = cachedStreetViewUrl!;
-                    console.log(`[Satellitary] Wrong-road pano with candidate panos; using Firebase cache with heading=${Math.round(streetViewHeading)}°`);
-                } else {
-                    // No cached heading — fall through to multi-pano
-                    candidatePanos = headingResult.candidatePanos;
-                    streetViewUrl = null;
-                }
+                // Road name mismatch: GSV returns a pano but from a different road.
+                // ALWAYS use multi-pano analysis (N/S/E/W physical panos around the property)
+                // rather than a cached heading, because the cache may have been captured from
+                // any side of the house (e.g. cached heading=276° W when front faces N).
+                // The multi-pano analysis explicitly compares 4 directions and asks Gemini
+                // which one shows the front — this is always more reliable than trusting cache.
+                candidatePanos = headingResult.candidatePanos;
+                streetViewUrl = null;
+                console.log(`[Satellitary] Road name mismatch: multi-pano fallback (${candidatePanos.length} candidate panos). Cached heading ignored to prevent wrong-side capture artifacts.`);
             } else if (headingResult && headingResult.heading === null) {
                 // ── MISSING CASE (fixed): headingResult truthy, heading null, NO candidatePanos ──
                 // This happens for cul-de-sac dead-ends: GSV metadata returns a pano object
