@@ -909,36 +909,84 @@ export async function runSatellitaryAnalysis(
         let candidatePanos: Array<{ lat: number; lng: number; heading: number; dir: 'N' | 'S' | 'E' | 'W' }> | undefined;
         try {
             const headingResult = await fetchStreetViewHeading(lat, lng, address);
+
+            // Helper: extract &heading=N from a Firebase Storage URL (appended by backfillStreetViewHeadingDeg)
+            const extractCachedHeading = (url: string | null | undefined): number | null => {
+                if (!url?.includes('firebasestorage')) return null;
+                const m = url.match(/[?&]heading=([0-9.]+)/);
+                return m ? parseFloat(m[1]) : null;
+            };
+
             if (headingResult && headingResult.heading !== null) {
-                streetViewHeading = headingResult.heading;
-                const svLat = headingResult.panoCoords?.lat ?? lat;
-                const svLng = headingResult.panoCoords?.lng ?? lng;
-                streetViewUrl = buildStreetViewUrl(svLat, svLng, streetViewHeading);
+                // Live API returned a valid named-street pano → use it.
+                // But if we also have a cached heading, prefer it when the two disagree
+                // by ≥45° (the live API can latch onto a perpendicular street for corner/cul-de-sac lots).
+                const cachedH = extractCachedHeading(cachedStreetViewUrl);
+                if (cachedH != null) {
+                    const diff = Math.abs(headingResult.heading - cachedH) % 360;
+                    const angDiff = diff > 180 ? 360 - diff : diff;
+                    if (angDiff >= 45) {
+                        // Significant disagreement — prefer the cached heading that was carefully
+                        // computed from the property's address street (avoids perpendicular-street errors).
+                        streetViewHeading = cachedH;
+                        streetViewUrl = cachedStreetViewUrl!;
+                        console.log(`[Satellitary] Live heading ${Math.round(headingResult.heading)}° disagrees with cached ${Math.round(cachedH)}° by ${Math.round(angDiff)}° — using cached heading.`);
+                    } else {
+                        streetViewHeading = headingResult.heading;
+                        const svLat = headingResult.panoCoords?.lat ?? lat;
+                        const svLng = headingResult.panoCoords?.lng ?? lng;
+                        streetViewUrl = buildStreetViewUrl(svLat, svLng, streetViewHeading);
+                    }
+                } else {
+                    streetViewHeading = headingResult.heading;
+                    const svLat = headingResult.panoCoords?.lat ?? lat;
+                    const svLng = headingResult.panoCoords?.lng ?? lng;
+                    streetViewUrl = buildStreetViewUrl(svLat, svLng, streetViewHeading);
+                }
             } else if (headingResult && headingResult.heading === null && headingResult.candidatePanos?.length) {
                 // No named-street pano. Check if we have a Firebase cached URL WITH a heading param.
                 // The heading is stored by forceRefreshStreetViewUrl and appended by the test setup.
                 // Only use cache if heading is recoverable — without it, computeAccurateAzimuth
                 // produces incorrect null-coercion results (candidateFront defaults to 180°).
-                const headingMatch = cachedStreetViewUrl?.includes('firebasestorage')
-                    ? cachedStreetViewUrl.match(/[?&]heading=([0-9.]+)/)
-                    : null;
-                if (headingMatch) {
-                    streetViewHeading = parseFloat(headingMatch[1]);
+                const cachedH = extractCachedHeading(cachedStreetViewUrl);
+                if (cachedH != null) {
+                    streetViewHeading = cachedH;
                     streetViewUrl = cachedStreetViewUrl!;
-                    console.log(`[Satellitary] Wrong-road pano; using Firebase cache with heading=${Math.round(streetViewHeading)}°`);
+                    console.log(`[Satellitary] Wrong-road pano with candidate panos; using Firebase cache with heading=${Math.round(streetViewHeading)}°`);
                 } else {
                     // No cached heading — fall through to multi-pano
                     candidatePanos = headingResult.candidatePanos;
                     streetViewUrl = null;
                 }
+            } else if (headingResult && headingResult.heading === null) {
+                // ── MISSING CASE (fixed): headingResult truthy, heading null, NO candidatePanos ──
+                // This happens for cul-de-sac dead-ends: GSV metadata returns a pano object
+                // but can't provide a named-road heading (the road terminates in a circle).
+                // Use the stored Firebase-cached URL + heading if available.
+                const cachedH = extractCachedHeading(cachedStreetViewUrl);
+                if (cachedH != null) {
+                    streetViewHeading = cachedH;
+                    streetViewUrl = cachedStreetViewUrl!;
+                    console.log(`[Satellitary] Dead-end road (cul-de-sac?): live heading=null, no candidate panos; using cached heading=${Math.round(cachedH)}°`);
+                } else {
+                    // No cached heading at all — aerial-only
+                    streetViewUrl = null;
+                    console.log(`[Satellitary] Dead-end road: no heading available → aerial-only`);
+                }
             } else if (!headingResult && !cachedStreetViewUrl) {
                 streetViewUrl = null;
             } else if (!headingResult && cachedStreetViewUrl?.includes('firebasestorage')) {
+                // API call failed entirely — fall back to cached URL.
+                // Extract heading from URL so GPS math still works.
+                const cachedH = extractCachedHeading(cachedStreetViewUrl);
+                if (cachedH != null) streetViewHeading = cachedH;
                 streetViewUrl = cachedStreetViewUrl;
             }
         } catch (e) {
             console.warn('[Satellitary] Street View metadata check failed; running aerial-only.', e);
             if (cachedStreetViewUrl?.includes('firebasestorage')) {
+                const m = cachedStreetViewUrl.match(/[?&]heading=([0-9.]+)/);
+                if (m) streetViewHeading = parseFloat(m[1]);
                 streetViewUrl = cachedStreetViewUrl;
             }
         }
