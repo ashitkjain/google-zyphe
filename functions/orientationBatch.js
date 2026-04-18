@@ -155,7 +155,7 @@ async function _downloadImageBase64(url) {
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 
-function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide) {
+function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide, svHeading) {
     const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
     const sideLabel  = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST' }[streetSide] || null;
     const sideFact   = (streetBearing == null && sideLabel)
@@ -177,6 +177,7 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
     if (usesDualImage) {
         return [
             `You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up) and a Street View image (Image B) of a property.`,
+            svHeading != null ? `\n\nCAMERA HEADING: ${Math.round(svHeading)}\u00b0 (0\u00b0=North, 90\u00b0=East, 180\u00b0=South, 270\u00b0=West)\nThe camera was pointing in direction ${Math.round(svHeading)}\u00b0 when it captured Image B.` : '',
             addressClue, descHint, bearingHint,
             `\nGUIDING PRINCIPLES:`,
             `1. IMAGE A IS THE ANCHOR: North is strictly at the top. Identify the building footprint, street, and driveway.`,
@@ -253,8 +254,18 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const isMultiUnit   = ['TOWNHOUSE', 'CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
     const usesDualImage = svImg !== null && !isMultiUnit;
 
+    // 4b. Resolve street-view camera heading BEFORE building the prompt.
+    // Priority: (1) streetViewHeadingDeg Firestore field (set by backfillStreetViewHeadingDeg),
+    //           (2) &heading= embedded in the SV URL (set by test infrastructure).
+    // This MUST come before step 5 so the heading can be injected into the Gemini prompt.
+    const svHeadingFromField = typeof prop.streetViewHeadingDeg === 'number' ? prop.streetViewHeadingDeg : null;
+    const svHeadingUrlMatch  = (svUrl ?? '').match(/[&?]heading=([\d.]+)/);
+    const svHeading          = svHeadingFromField ?? (svHeadingUrlMatch ? parseFloat(svHeadingUrlMatch[1]) : null);
+    if (svHeading != null) console.log(`[Batch] SV heading for ${zpid}: ${Math.round(svHeading)}\u00b0 (source: ${svHeadingFromField != null ? 'Firestore.streetViewHeadingDeg' : 'URL param'})`);
+    else if (usesDualImage) console.warn(`[Batch] No SV heading for ${zpid} \u2014 Gemini will not receive camera heading context; GPS math will be skipped.`);
+
     // 5. Build prompt and call Gemini 2.5 Flash
-    const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide);
+    const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
     const parts  = [
         { text: prompt },
         { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
@@ -274,12 +285,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         throw new Error(`Gemini parse error for ${zpid}: ${geminiResult.response.text().slice(0, 200)}`);
     }
 
-    // 6. GPS Heading Math — primary azimuth source when street view is available
-    // Extract the camera heading embedded in the street view URL (heading= query param).
-    // Same GPS bearing the browser service gets from the Maps API.
-    const svHeadingMatch = (svUrl ?? '').match(/[&?]heading=([\d.]+)/);
-    const svHeading = svHeadingMatch ? parseFloat(svHeadingMatch[1]) : null;
-
+    // 6. GPS Heading Math.
     const showsFront = data.street_view_shows_front;  // true | false | null from Gemini
     let headingAzimuth = null;
     if (usesDualImage && svHeading !== null && showsFront !== null && showsFront !== undefined) {
