@@ -191,7 +191,7 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
             `Step 3: Image B judgment ONLY. Look at Image B — does it show the FRONT (door, porch, entry) or BACK (blank wall, fence)? Judge from the image alone, NOT from your Step 2 aerial conclusion. Set street_view_shows_front = true (front visible) or false (back/side visible) or null (obstructed/blurred/too far). The system computes the final azimuth from GPS heading + your answer. Do NOT compute azimuth yourself or adjust this field to match your Step 2 guess.`,
             `Step 4: Finalize — output final_orientation, azimuth_degrees, confidence, property_layout_type.`,
             `ADDITIONAL: Assess privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.`,
-            `EXPLANATION FORMAT: (1) layout type, (2) front wall direction from aerial+driveway, (3) what Image B confirmed or contradicted, (4) final azimuth.`,
+            `EXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: layout type and one visual reason.\n(2) STREET CONTEXT: name the address street, which edge it runs along, and its approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows, which road edge it connects to, and the raw aerial azimuth estimate.\n(4) IMAGE B EVIDENCE: state the camera heading in degrees, what Image B shows (front/back/uninformative), and how street_view_shows_front was set.\n(5) FINAL: final azimuth in degrees and compass label, confidence.`,
         ].join('\n').trim();
     }
 
@@ -214,7 +214,7 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
         `Step 4 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W).`,
         `Step 5 — Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage/yard directions, buyer pro/con.`,
         `Step 6 — GPS Self-Check (only if bearing prior given): verify azimuth is within 45° of a perpendicular. Correct if ≥45° off; note if corrected.`,
-        `\nEXPLANATION FORMAT: (1) standard_street_layout and why, (2) road name the driveway connects to, (3) confidence and why, (4) final azimuth or UNCLEAR, (5) GPS self-check outcome.`,
+        `\nEXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: standard_street_layout=true/false and one specific visual reason.\n(2) STREET CONTEXT: name the address street, which edge it runs along, and the approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows and which road edge it connects to; include the raw aerial azimuth estimate.\n(4) GPS SELF-CHECK: whether a correction was applied; if yes: "GPS self-check: adjusted from X° to Y°"; if no: "No correction needed".\n(5) FINAL: final orientation and confidence.`,
     ].join('\n').trim();
 }
 

@@ -161,8 +161,12 @@ ADDITIONAL ANALYSIS:
 - Site Features: Identify Pool, Garage, and Open Yard directions (N/NE/E/SE/S/SW/W/NW).
 - Buyer Pro/Con: One punchy sentence each.
 
-EXPLANATION FORMAT:
-(1) Layout type identified from Image A and visual evidence, (2) front wall azimuth from aerial + driveway, (3) what Image B confirmed or contradicted, (4) final azimuth.
+EXPLANATION FORMAT — use this EXACT structure, one numbered sentence per step:
+(1) LAYOUT: State the layout type (standard / cul-de-sac / corner / flag) and one visual reason why (e.g. "Standard lot — straight road, single street frontage visible in Image A").
+(2) STREET CONTEXT: Name the address street and state which edge of the lot it runs along and at what bearing (e.g. "Chalk Hill Way runs East-West along the NORTH edge, bearing ≈ 270°").
+(3) AERIAL EVIDENCE: State what the driveway / walkway in Image A shows (e.g. "Driveway exits the garage on the NORTH side, connecting to Chalk Hill Way → front faces NORTH"). Include the raw azimuth you read from Image A (e.g. "aerial azimuth estimate: ~0°").
+(4) IMAGE B EVIDENCE: State the camera heading in degrees and what Image B shows (e.g. "Camera heading 269° (pointing West). Image B shows front door on the North-facing wall → street_view_shows_front = TRUE → GPS: (269+180)%360 = 89° but the perpendicular-street bailout fires because both GPS candidates are >90° from aerial estimate, so aerial azimuth ~0° is used"). If Image B was uninformative, state that explicitly.
+(5) FINAL: State the final azimuth in degrees and the compass label (e.g. "Final orientation: North (~0°), confidence = high").
 `.trim();
 }
 
@@ -174,7 +178,6 @@ EXPLANATION FORMAT:
 export function buildOrientationPromptAerialOnly(address?: string, description?: string | null, streetBearing?: number | null, streetSide?: 'N' | 'S' | 'E' | 'W' | null): string {
     const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
     const sideLabel = streetSide === 'N' ? 'NORTH' : streetSide === 'S' ? 'SOUTH' : streetSide === 'E' ? 'EAST' : streetSide === 'W' ? 'WEST' : null;
-    const compassLabel = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
     // sideFact fires ONLY when bearing is suppressed (null) — i.e. the road is curved/looping
     // so bearingHint can't run. When bearing IS available, bearingHint below provides the
     // correct perpendicular directions and sideFact should stay silent to avoid confusion.
@@ -186,6 +189,7 @@ export function buildOrientationPromptAerialOnly(address?: string, description?:
         ? `\nPROPERTY ADDRESS: "${address}"\nThe front entrance MUST face "${streetName || address}" — this is the authoritative front street.${sideFact} Rules:\n• FREEWAYS & HIGHWAYS are NEVER valid front streets regardless of visual proximity. If a freeway or divided highway is visible, it is never the front. The address street is always the front.\n• Do NOT default to the largest or most prominent visible road. The address street may be smaller.\n• Override ONLY if BOTH a visible pedestrian walkway AND a driveway clearly connect to a different residential street (not a freeway). One cue alone is not enough to override.`
         : '';
     const descriptionOverride = buildDescriptionHint(description);
+    const compassLabel = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
     const bearingHint = streetBearing != null ? (() => {
         const perp1 = (streetBearing + 90) % 360;
         const perp2 = (streetBearing - 90 + 360) % 360;
@@ -237,8 +241,12 @@ Step 6 — GPS SELF-CHECK (only if a GPS STREET BEARING PRIOR appears above):
    d) If your azimuth is already within 15° of a perpendicular, no correction needed — you're already aligned.
    e) If correcting, note it explicitly: "GPS self-check: adjusted from [original] to [corrected]."
 
-EXPLANATION FORMAT:
-State: (1) whether standard_street_layout is true/false and why, (2) the NAME of the road the driveway curb cut connects to and which edge (e.g. "driveway connects to Atlas Peak Dr on the south edge"), (3) which side of the building faces that direction, (4) confidence level and why, (5) the resulting azimuth or UNCLEAR, (6) GPS self-check outcome — whether a correction was applied and why or why not.
+EXPLANATION FORMAT — use this EXACT structure, one numbered sentence per step:
+(1) LAYOUT: State standard_street_layout=true/false and one specific visual reason (e.g. "Corner lot — two distinct road frontages visible in Image A").
+(2) STREET CONTEXT: Name the address street, which edge of the lot it runs along, and the approximate bearing (e.g. "Chalk Hill Way runs East-West (~269°) along the NORTH edge of the lot").
+(3) AERIAL EVIDENCE: State what the driveway / walkway shows and which road edge it connects to (e.g. "Driveway curb cut connects to Chalk Hill Way on the north edge → front faces North"). Include your raw aerial azimuth estimate before any GPS self-check.
+(4) GPS SELF-CHECK: State whether a GPS correction was applied. If yes: "GPS self-check: adjusted from [original]° to [corrected]°." If no: "GPS self-check: no correction needed — aerial estimate already within 15° of perpendicular."
+(5) FINAL: State the resulting orientation and confidence (e.g. "Final orientation: North (~0°), confidence = high").
 Also set front_street_name to the road name identified in step 2.
 `.trim();
 }
