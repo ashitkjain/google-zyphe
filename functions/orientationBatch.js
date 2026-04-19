@@ -425,21 +425,36 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const layoutType     = data.property_layout_type;
     const isCornerOrCulDeSac = layoutType === 'corner_lot' || layoutType === 'cul_de_sac';
 
-    // For complex lot types (corner/cul-de-sac), only trust street view when it
-    // definitively shows the front door (shows_front = true).
-    // shows_front = false (camera on side/back) or null (blurred) → UNCLEAR.
-    const complexLayoutSVFailed = usesDualImage && isCornerOrCulDeSac && data.street_view_shows_front !== true;
+    // For complex lot types: split policy by type.
+    //
+    // CORNER LOT → always UNCLEAR.
+    //   Even when shows_front=true the GPS heading confirms *which face* the camera sees
+    //   but NOT *which street* that face belongs to. The two frontages on a corner make
+    //   the primary-street question unanswerable from aerial + one street-view pano alone.
+    //   Safe default: UNCLEAR (buyer/agent knows to verify on-site).
+    //
+    // CUL-DE-SAC → UNCLEAR only when shows_front ≠ true.
+    //   Architectural rule: on a cul-de-sac property the front ALWAYS faces the circular
+    //   dead-end. When shows_front=true, the GPS candidateFront reliably points toward
+    //   that circle and the result is trustworthy. shows_front=false/null → UNCLEAR.
+    const isCornerLot = layoutType === 'corner_lot';
+    const isCulDeSac  = layoutType === 'cul_de_sac';
+    const cornerlotUnclear    = isCornerLot;
+    const culdesacSVFailed    = isCulDeSac && usesDualImage && data.street_view_shows_front !== true;
+    const complexLayoutSVFailed = cornerlotUnclear || culdesacSVFailed ||
+        // legacy alias — catches remaining isCornerOrCulDeSac + shows_front !== true path
+        (usesDualImage && isCornerOrCulDeSac && data.street_view_shows_front !== true);
 
     if ((aerialOnlyMode && (data.standard_street_layout === false || isCornerOrCulDeSac)) || complexLayoutSVFailed) {
-        const reason = complexLayoutSVFailed
-            ? `${layoutType} + street_view_shows_front=${data.street_view_shows_front} (not definitive)`
-            : data.standard_street_layout === false ? 'non-standard layout'
-            : layoutType === 'corner_lot'           ? 'corner_lot'
-            :                                         'cul_de_sac';
+        const reason = isCornerLot                      ? 'corner_lot (always UNCLEAR — two frontages ambiguous)'
+            : culdesacSVFailed                          ? `cul_de_sac + street_view_shows_front=${data.street_view_shows_front} (not definitive)`
+            : data.standard_street_layout === false     ? 'non-standard layout'
+            :                                             'cul_de_sac (aerial-only)';
         console.log(`[Batch] Override ${zpid}: ${reason} → UNCLEAR`);
         finalOrientation = 'UNCLEAR';
         finalAzimuth     = null;
     }
+
 
     // Post-processing gate 2: Townhouse → UNCLEAR
     // Policy:
