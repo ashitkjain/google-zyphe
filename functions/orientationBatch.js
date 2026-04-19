@@ -213,9 +213,9 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
         `Step 1 — Layout: classify lot type.`,
         `Step 2 — Driveway Apron: verify curb cut (driveway connects to public road with no gap or fence interruption).`,
         `Step 3 — Front Walk: look for pedestrian path to main door.`,
-        `Step 4 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W).`,
+        `Step 4 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W). PERPENDICULAR RULE (MANDATORY): azimuth must be ~perpendicular (±45°) to the road — never parallel to it. If road runs at ~315°, valid azimuths are ~45° or ~225°, NOT 315°. If road runs at ~90°, valid azimuths are ~0° or ~180°, NOT 90°. If your azimuth is within 15° of the road bearing you have made an error — correct to the nearest perpendicular.`,
         `Step 5 — Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage/yard directions, buyer pro/con.`,
-        `Step 6 — GPS Self-Check (only if bearing prior given): verify azimuth is within 45° of a perpendicular. Correct if ≥45° off; note if corrected.`,
+        `Step 6 — GPS Self-Check (only if bearing prior given): verify azimuth is within 45° of a perpendicular. Correct if ≥45° off; note if corrected. PARALLEL CHECK (always run): if your azimuth is within 15° of the road bearing itself (not the perpendicular), you have made the most common error — correct to nearest perpendicular or set UNCLEAR.`,
         `\nEXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: standard_street_layout=true/false and one specific visual reason.\n(2) STREET CONTEXT: name the address street, which edge it runs along, and the approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows and which road edge it connects to; include the raw aerial azimuth estimate.\n(4) GPS SELF-CHECK: whether a correction was applied; if yes: "GPS self-check: adjusted from X° to Y°"; if no: "No correction needed".\n(5) FINAL: final orientation and confidence.`,
     ].join('\n').trim();
 }
