@@ -349,11 +349,23 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
             // while the combination of "camera sees front door" + GPS heading is unambiguous.
             headingAzimuth = Math.round(candidateFront);
         } else {
-            // shows_front=false → camera confirmed it is NOT on the front street.
-            // Front faces TOWARD the camera position (candidateBack = heading direction).
-            headingAzimuth = Math.round(candidateBack);
+            // shows_front=false: camera did NOT confirm the front.
+            //
+            // The old candidateBack formula (headingAzimuth = svHeading) was only correct
+            // when the camera was on the WRONG ROAD — but that case is already handled by
+            // the 4c heading validation: wrong-road headings get discarded (svHeading=null),
+            // and Pattern A then fires → UNCLEAR.
+            //
+            // When 4c KEEPS the heading (camera IS on the address street), candidateBack points
+            // AWAY from the street — the exact opposite of correct (e.g. 11418 Betlen Dr: camera
+            // on south-side street, candidateBack=345° North when front faces South).
+            //
+            // Safe approach: leave headingAzimuth=null, fall through to aerial.
+            // Gemini's garage-side correction prompt already re-derives azimuth from the walkway.
+            headingAzimuth = null;
+            console.log(`[Batch] GPS heading math ${zpid}: shows_front=false → skipping GPS candidateBack, using aerial`);
         }
-        console.log(`[Batch] GPS heading math ${zpid}: heading=${Math.round(svHeading)}°, showsFront=${showsFront} → azimuth=${headingAzimuth}°`);
+        if (headingAzimuth != null) console.log(`[Batch] GPS heading math ${zpid}: final headingAz=${headingAzimuth}°`);
     }
 
     // 7. Confidence gate + street-bearing fallback (mirrors browser pipeline)
