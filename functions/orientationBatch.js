@@ -380,11 +380,19 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const aerialOnlyMode = !usesDualImage || data.street_view_shows_front === null;
     const layoutType     = data.property_layout_type;
     const isCornerOrCulDeSac = layoutType === 'corner_lot' || layoutType === 'cul_de_sac';
-    if (aerialOnlyMode && (data.standard_street_layout === false || isCornerOrCulDeSac)) {
-        const reason = data.standard_street_layout === false ? 'non-standard layout'
-                     : layoutType === 'corner_lot'           ? 'corner_lot'
-                     :                                         'cul_de_sac';
-        console.log(`[Batch] Override ${zpid}: aerial_only_mode + ${reason} → UNCLEAR`);
+
+    // For complex lot types (corner/cul-de-sac), only trust street view when it
+    // definitively shows the front door (shows_front = true).
+    // shows_front = false (camera on side/back) or null (blurred) → UNCLEAR.
+    const complexLayoutSVFailed = usesDualImage && isCornerOrCulDeSac && data.street_view_shows_front !== true;
+
+    if ((aerialOnlyMode && (data.standard_street_layout === false || isCornerOrCulDeSac)) || complexLayoutSVFailed) {
+        const reason = complexLayoutSVFailed
+            ? `${layoutType} + street_view_shows_front=${data.street_view_shows_front} (not definitive)`
+            : data.standard_street_layout === false ? 'non-standard layout'
+            : layoutType === 'corner_lot'           ? 'corner_lot'
+            :                                         'cul_de_sac';
+        console.log(`[Batch] Override ${zpid}: ${reason} → UNCLEAR`);
         finalOrientation = 'UNCLEAR';
         finalAzimuth     = null;
     }

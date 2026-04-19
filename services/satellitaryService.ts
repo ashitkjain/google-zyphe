@@ -1214,11 +1214,23 @@ export async function runSatellitaryAnalysis(
         // Corner lots are always failed regardless of confidence: two street frontages
         // make it impossible to choose the primary front from aerial alone.
         const isCornerLotAerialOnly = !usesDualImage && data.property_layout_type === 'corner_lot';
-        const aerialConfidenceFailed = !usesDualImage && (
+        const aerialOnlyFailed = !usesDualImage && (
             data.confidence !== 'high' ||
             resultAzimuth == null ||
             isCornerLotAerialOnly    // corner lot aerial-only → always UNCLEAR
         );
+
+        // ── Dual-image complex lot gate ────────────────────────────────────────────────
+        // Policy: corner lots and cul-de-sacs are too ambiguous to trust without
+        // street view DEFINITIVELY confirming the front door (shows_front = true).
+        // If shows_front is false (camera sees back/side) or null (blurred/uninformative),
+        // we cannot reliably determine the primary front → UNCLEAR.
+        const svShowsFrontDual = usesDualImage ? ((data as any).street_view_shows_front ?? null) : null;
+        const complexLayoutSVFailed = usesDualImage &&
+            (data.property_layout_type === 'corner_lot' || data.property_layout_type === 'cul_de_sac') &&
+            svShowsFrontDual !== true;
+
+        const aerialConfidenceFailed = aerialOnlyFailed || complexLayoutSVFailed;
 
         // ── Street-bearing fallback for standard lots ──────────────────────────
         // If aerial-only confidence failed BUT Gemini classified the lot as a simple
