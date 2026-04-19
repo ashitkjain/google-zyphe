@@ -1324,62 +1324,30 @@ export async function runSatellitaryAnalysis(
     }
 
     // ── Post-processing: Aerial-only overrides ────────────────────────────────
-    // Use Gemini's own aerial_only_mode flag (set when SV is null OR blurred)
-    // to catch both explicit aerial-only runs AND blurred/obstructed street view cases.
+    // Gate fires when there is no usable street view AND the layout is ambiguous.
+    // Three cases all produce UNCLEAR:
+    //   (a) non-standard layout (curved road, flag lot, etc.)
+    //   (b) corner lot — two frontages; cannot determine primary without SV
+    //   (c) cul-de-sac — faces outward toward the court; direction unconfirmable from aerial
     if (result && result.aerial_only_mode) {
+        const layoutType = result.property_layout_type;
+        const isAmbiguousLayout =
+            (result as any).standard_street_layout === false ||
+            layoutType === 'corner_lot' ||
+            layoutType === 'cul_de_sac';
 
-        // ── ALL property types: non-standard layout + aerial-only → UNCLEAR ──
-        // Curved roads, cul-de-sacs, corner lots, flag lots, etc. all have
-        // ambiguous frontage that aerial alone cannot resolve reliably.
-        if ((result as any).standard_street_layout === false) {
-            console.log(`[Satellitary] Post-Gemini override: non-standard layout + aerial_only_mode → UNCLEAR`);
+        if (isAmbiguousLayout) {
+            const reason = (result as any).standard_street_layout === false ? 'non-standard street layout'
+                         : layoutType === 'corner_lot'                       ? 'corner lot (two frontages)'
+                         :                                                      'cul-de-sac';
+            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + ${reason} → UNCLEAR`);
             result = {
                 ...result,
-                final_orientation: 'UNCLEAR',
-                azimuth_degrees: null,
+                final_orientation:       'UNCLEAR',
+                azimuth_degrees:         null,
                 visual_azimuth_estimate: null,
-                confidence: 'low',
-                explanation: 'Non-standard street layout (curved road, cul-de-sac, corner lot, or similar) with no usable street view — aerial analysis alone cannot reliably determine which face is the front.',
-            };
-        }
-
-        // Townhouse/condo: shared party walls → cannot determine primary front face from aerial
-        else if (isSharedWallProperty(homeType, address)) {
-            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + shared-wall (${homeType}) → UNCLEAR`);
-            result = {
-                ...result,
-                final_orientation: 'UNCLEAR',
-                azimuth_degrees: null,
-                visual_azimuth_estimate: null,
-                confidence: 'low',
-                explanation: 'Aerial-only analysis is unreliable for townhouses and condos: shared party walls make it impossible to determine which face is the front without a usable street view image.',
-            };
-        }
-
-        // Cul-de-sac: house faces outward toward the circular court, but without a
-        // street view from inside the circle we cannot confirm the outward direction.
-        else if (result.property_layout_type === 'cul_de_sac') {
-            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + cul_de_sac → UNCLEAR`);
-            result = {
-                ...result,
-                final_orientation: 'UNCLEAR',
-                azimuth_degrees: null,
-                visual_azimuth_estimate: null,
-                confidence: 'low',
-                explanation: 'Aerial-only analysis is unreliable for cul-de-sac properties: without a street view from inside the circular court, the outward-facing direction cannot be confirmed.',
-            };
-        }
-
-        // Corner lot: two street frontages → unclear which is primary from aerial alone
-        else if (result.property_layout_type === 'corner_lot') {
-            console.log(`[Satellitary] Post-Gemini override: aerial_only_mode + corner_lot → UNCLEAR`);
-            result = {
-                ...result,
-                final_orientation: 'UNCLEAR',
-                azimuth_degrees: null,
-                visual_azimuth_estimate: null,
-                confidence: 'low',
-                explanation: 'Aerial-only analysis is unreliable for corner lots: two street frontages exist and without a usable street view it is impossible to determine which street the front door faces.',
+                confidence:              'low',
+                explanation:             `Aerial-only analysis is unreliable for this property: ${reason} — a usable street view is required to confirm which face is the front.`,
             };
         }
     }

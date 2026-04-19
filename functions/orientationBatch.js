@@ -368,12 +368,18 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     let finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : 'UNCLEAR';
 
-    // Post-processing gate 1: ALL property types — non-standard layout + aerial-only → UNCLEAR
-    // Curved roads, cul-de-sacs, corner lots, flag lots, etc. cannot be reliably oriented
-    // from aerial alone. Requires a usable street view to resolve ambiguous frontage.
+    // Post-processing gate 1: ALL property types — aerial-only with ambiguous layout → UNCLEAR
+    // (a) non-standard layout (curved road, flag lot, etc.)
+    // (b) corner lot — two frontages, cannot pick primary without street view
+    // (c) cul-de-sac — faces outward toward the court; cannot confirm without street view
     const aerialOnlyMode = !usesDualImage || data.street_view_shows_front === null;
-    if (aerialOnlyMode && data.standard_street_layout === false) {
-        console.log(`[Batch] Override ${zpid}: non-standard layout + aerial_only_mode → UNCLEAR`);
+    const layoutType     = data.property_layout_type;
+    const isCornerOrCulDeSac = layoutType === 'corner_lot' || layoutType === 'cul_de_sac';
+    if (aerialOnlyMode && (data.standard_street_layout === false || isCornerOrCulDeSac)) {
+        const reason = data.standard_street_layout === false ? 'non-standard layout'
+                     : layoutType === 'corner_lot'           ? 'corner_lot'
+                     :                                         'cul_de_sac';
+        console.log(`[Batch] Override ${zpid}: aerial_only_mode + ${reason} → UNCLEAR`);
         finalOrientation = 'UNCLEAR';
         finalAzimuth     = null;
     }
