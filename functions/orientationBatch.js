@@ -326,9 +326,44 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     if (aerialConfidenceFail && data.standard_street_layout === true && streetBearing != null) {
         const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
-        finalAzimuth = resultAzimuth != null
+        // Pick the perp closest to Gemini's weak azimuth, then cross-check against streetSide.
+        let chosen = resultAzimuth != null
             ? (_angDiff(resultAzimuth, p1) <= _angDiff(resultAzimuth, p2) ? p1 : p2)
             : p1;
+        // If chosen perp faces >90° away from the road, the weak azimuth was inverted too — flip it.
+        if (streetSide != null) {
+            const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270 };
+            const sz = SIDE_AZ[streetSide];
+            if (sz !== undefined && _angDiff(chosen, sz) > 90) {
+                const flipped = chosen === p1 ? p2 : p1;
+                console.log(`[Batch] Fallback streetSide cross-check ${zpid}: perp ${Math.round(chosen)}° faces away from road (${streetSide}=${sz}°, ${Math.round(_angDiff(chosen, sz))}° off) — flipping to ${Math.round(flipped)}°.`);
+                chosen = flipped;
+            }
+        }
+        finalAzimuth = chosen;
+    }
+
+    // 7b. StreetSide cross-check for inverted high-confidence aerial results.
+    // If the aerial azimuth points >90° away from the road (streetSide direction),
+    // Gemini analyzed the wrong building face. Correct it by picking the perpendicular
+    // that faces TOWARD the road. Guard: streetBearing must be non-null (reliable road).
+    // Mirrors the browser-side check in satellitaryService.ts.
+    if (!aerialConfidenceFail && !usesDualImage &&
+        data.standard_street_layout === true &&
+        streetBearing != null && streetSide != null &&
+        finalAzimuth != null) {
+        const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270 };
+        const sideAz  = SIDE_AZ[streetSide];
+        if (sideAz !== undefined) {
+            const distFromRoad = _angDiff(finalAzimuth, sideAz);
+            if (distFromRoad > 90) {
+                const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
+                const corrected = _angDiff(p1, sideAz) <= _angDiff(p2, sideAz) ? p1 : p2;
+                console.log(`[Batch] StreetSide cross-check ${zpid}: aerial ${Math.round(finalAzimuth)}° is ${Math.round(distFromRoad)}° from streetSide=${streetSide} (${sideAz}°). Correcting to ${Math.round(corrected)}° (${_azimuthToCompassLabel(corrected)}).`);
+                finalAzimuth   = corrected;
+                data.confidence = 'medium';
+            }
+        }
     }
 
     let finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : 'UNCLEAR';

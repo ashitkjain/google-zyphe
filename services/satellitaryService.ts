@@ -1232,25 +1232,65 @@ export async function runSatellitaryAnalysis(
             const perp1 = (streetBearingForAzimuth + 90) % 360;
             const perp2 = (streetBearingForAzimuth - 90 + 360) % 360;
             const weakAzimuth = data.azimuth_degrees ?? null;
-            if (weakAzimuth != null) {
-                streetBearingFallbackAzimuth = angDistFn(weakAzimuth, perp1) <= angDistFn(weakAzimuth, perp2) ? perp1 : perp2;
-            } else {
-                // No azimuth hint — default to perp1 (arbitrary but consistent)
-                streetBearingFallbackAzimuth = perp1;
+            // Initially pick the perp closest to Gemini's weak azimuth hint.
+            let chosenPerp = weakAzimuth != null
+                ? (angDistFn(weakAzimuth, perp1) <= angDistFn(weakAzimuth, perp2) ? perp1 : perp2)
+                : perp1;
+            // StreetSide cross-check inside fallback: if the chosen perp faces AWAY from
+            // the road by >90°, Gemini's weak azimuth was also inverted. Flip to other perp.
+            if (streetSide != null) {
+                const SIDE_AZ_MAP: Record<string, number> = { N: 0, S: 180, E: 90, W: 270 };
+                const sz = SIDE_AZ_MAP[streetSide];
+                if (sz !== undefined && angDistFn(chosenPerp, sz) > 90) {
+                    const flipped = chosenPerp === perp1 ? perp2 : perp1;
+                    console.log(`[Satellitary] Street-bearing fallback streetSide cross-check: chosen perp ${Math.round(chosenPerp)}° faces away from road (streetSide=${streetSide}, ${Math.round(angDistFn(chosenPerp, sz))}° off) — flipping to ${Math.round(flipped)}°.`);
+                    chosenPerp = flipped;
+                }
             }
+            streetBearingFallbackAzimuth = chosenPerp;
             console.log(`[Satellitary] Street-bearing fallback: bearing=${Math.round(streetBearingForAzimuth)}° → azimuth=${Math.round(streetBearingFallbackAzimuth)}° (${azimuthToCompassLabel(streetBearingFallbackAzimuth)})`);
         }
 
 
+        // ── StreetSide cross-check for inverted high-confidence aerial results ─────
+        // If Gemini returned a high-confidence aerial azimuth pointing AWAY from the
+        // road by >90°, it analyzed the wrong building face. Correct it by picking the
+        // street-bearing perpendicular that faces TOWARD the road.
+        // Guard: streetBearingForAzimuth must be non-null (reliable, non-curved road).
+        //        Only applies to standard lots in aerial-only mode.
+        let streetSideCorrectedAzimuth: number | null = resultAzimuth;
+        let streetSideCorrectedConfidence: string | null = null;
+        if (!aerialConfidenceFailed && !usesDualImage &&
+            (data as any).standard_street_layout === true &&
+            streetBearingForAzimuth != null && streetSide != null &&
+            resultAzimuth != null) {
+            const SIDE_AZ: Record<string, number> = { N: 0, S: 180, E: 90, W: 270 };
+            const sideAz = SIDE_AZ[streetSide];
+            if (sideAz !== undefined) {
+                const angDistFn = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+                const distFromRoad = angDistFn(resultAzimuth, sideAz);
+                if (distFromRoad > 90) {
+                    const perp1 = (streetBearingForAzimuth + 90) % 360;
+                    const perp2 = (streetBearingForAzimuth - 90 + 360) % 360;
+                    streetSideCorrectedAzimuth = angDistFn(perp1, sideAz) <= angDistFn(perp2, sideAz) ? perp1 : perp2;
+                    streetSideCorrectedConfidence = 'medium';
+                    console.log(
+                        `[Satellitary] StreetSide cross-check: aerial ${Math.round(resultAzimuth)}° is ${Math.round(distFromRoad)}° from streetSide=${streetSide} (${sideAz}°). ` +
+                        `Correcting to ${Math.round(streetSideCorrectedAzimuth!)}° (${azimuthToCompassLabel(streetSideCorrectedAzimuth!)}).`
+                    );
+                }
+            }
+        }
+
         const finalAzimuth = aerialConfidenceFailed
             ? (streetBearingFallbackAzimuth ?? null)
-            : resultAzimuth;
+            : streetSideCorrectedAzimuth;
         const finalOrientation = aerialConfidenceFailed
             ? (streetBearingFallbackAzimuth != null ? azimuthToCompassLabel(streetBearingFallbackAzimuth) : 'UNCLEAR')
-            : azimuthToCompassLabel(resultAzimuth);
+            : azimuthToCompassLabel(streetSideCorrectedAzimuth);
         const finalConfidence = aerialConfidenceFailed
             ? (streetBearingFallbackAzimuth != null ? 'low' : 'low')
-            : (data.confidence ?? 'medium');
+            : (streetSideCorrectedConfidence ?? data.confidence ?? 'medium');
 
         result = {
             ...data,
