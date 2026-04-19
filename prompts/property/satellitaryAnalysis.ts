@@ -49,7 +49,10 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
         const perp1 = (streetBearing + 90) % 360;
         const perp2 = (streetBearing - 90 + 360) % 360;
         const par2  = (streetBearing + 180) % 360;
-        return `\n\nGPS STREET BEARING PRIOR: GPS data confirms the address street runs at ~${Math.round(streetBearing)}°. For a standard lot the front MUST face ${compassLabel(perp1)} (~${Math.round(perp1)}°) or ${compassLabel(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road. Use the driveway apron (Image A) and the visible door/walkway (Image B) to decide which is correct.\n⛔ FORBIDDEN azimuths: ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions and are ALWAYS WRONG for a standard lot. Your azimuth_degrees MUST NOT be within 15° of ${Math.round(streetBearing)}° or ${Math.round(par2)}°.`;
+        return `\n\nGPS STREET BEARING ADVISORY: GPS data estimates the address street runs at ~${Math.round(streetBearing)}°.
+⚠ VISUAL OVERRIDE — Before using this hint, look at Image A: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this GPS hint entirely and determine orientation from the aerial image visually.
+If the road IS straight and the lot IS standard: the front most likely faces ${compassLabel(perp1)} (~${Math.round(perp1)}°) or ${compassLabel(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road. Use the driveway apron (Image A) and the visible door/walkway (Image B) to decide which is correct.
+⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions. Do NOT output these unless you have overridden the hint due to a curved or complex layout.`;
     })() : '';
 
     return `
@@ -221,7 +224,7 @@ export function buildOrientationPromptAerialOnly(address?: string, description?:
         const perp2 = (streetBearing - 90 + 360) % 360;
         const par2  = (streetBearing + 180) % 360;
         const label = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
-        return `\nGPS STREET BEARING PRIOR: GPS data confirms the address street runs at ~${Math.round(streetBearing)}°. For a standard lot the front MUST face ${label(perp1)} (~${Math.round(perp1)}°) or ${label(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road. Use the driveway apron to confirm which of the two is correct.\n⛔ FORBIDDEN azimuths: ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions and are ALWAYS WRONG for a standard lot. Your azimuth_degrees MUST NOT be within 15° of ${Math.round(streetBearing)}° or ${Math.round(par2)}°. If you find yourself wanting to output one of these, stop, re-examine the driveway, and use the perpendicular instead.`;
+        return `\nGPS STREET BEARING ADVISORY: GPS data estimates the address street runs at ~${Math.round(streetBearing)}°.\n⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this GPS hint entirely and determine orientation from the aerial image visually.\nIf the road IS straight and the lot IS standard: the front most likely faces ${label(perp1)} (~${Math.round(perp1)}°) or ${label(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road.\n⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions. Do NOT output these unless the visual override applies.`;
     })() : '';
 
     return `

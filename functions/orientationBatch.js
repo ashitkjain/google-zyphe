@@ -192,11 +192,11 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
     const bearingHint = streetBearing != null ? (() => {
         const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
         const p3 = (streetBearing + 180) % 360;
-        return `\nGPS STREET BEARING PRIOR: Street runs at ~${Math.round(streetBearing)}°. Front MUST face `
-             + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°) — perpendicular to road. `
-             + `Use driveway apron to confirm which is correct.\n`
-             + `⛔ FORBIDDEN azimuths: ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel and ALWAYS WRONG for a standard lot. `
-             + `Your azimuth_degrees MUST NOT be within 15° of ${Math.round(streetBearing)}° or ${Math.round(p3)}°.`;
+        return `\nGPS STREET BEARING ADVISORY: Street runs at ~${Math.round(streetBearing)}°.\n`
+             + `⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this hint entirely and determine orientation from the aerial visually.\n`
+             + `If the road IS straight and the lot IS standard: front most likely faces `
+             + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°) — perpendicular to road.\n`
+             + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel. Do NOT output these unless the visual override applies.`;
     })() : '';
 
     if (usesDualImage) {
@@ -261,20 +261,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     if (!aerialUrl) throw new Error(`No cached aerial image for ${zpid}`);
 
     // 2. Street bearing via Maps Geocoding API
-    // EXCEPTION: curvilinear/looping street types (CT, CIR, LOOP, COURT, CIRCLE, PL)
-    // have unreliable geocoding bearings — the +50 neighbour is around a bend.
-    // Suppress the hint; Gemini will judge the street direction from the aerial.
     let streetBearing = null, streetSide = null;
-    const isCurvilinearStreet = /\b(CT|CIR|LOOP|COURT|CIRCLE|PL|PLACE)\b/i.test(address ?? '');
-    if (!isCurvilinearStreet) {
-        try {
-            const br  = await _getStreetBearing(address, mapsKey);
-            streetBearing = br?.bearing ?? null;
-            streetSide    = br?.streetSide ?? null;
-        } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
-    } else {
-        console.log(`[Batch] ${zpid}: curvilinear street (${address}) — bearing hint suppressed`);
-    }
+    try {
+        const br  = await _getStreetBearing(address, mapsKey);
+        streetBearing = br?.bearing ?? null;
+        streetSide    = br?.streetSide ?? null;
+    } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
 
     // 3. Download images to base64 (Firebase Storage URLs with tokens are publicly accessible)
     const aerialImg = await _downloadImageBase64(aerialUrl);
