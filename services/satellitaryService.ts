@@ -710,6 +710,17 @@ function computeAccurateAzimuth(
             ? (streetViewShowsFront.toLowerCase() === 'true' || streetViewShowsFront === '1')
             : streetViewShowsFront;
 
+    // Helper: snap an azimuth to the nearest perpendicular of the street bearing.
+    // The heading math rarely gives exactly the right degree (camera isn't perfectly
+    // perpendicular to the facade), but it reliably tells us WHICH face. Once we
+    // know the face, snap to the exact perpendicular for a clean compass label.
+    const snapToPerp = (az: number): number => {
+        if (streetBearing == null) return az;
+        const perp1 = (streetBearing + 90) % 360;
+        const perp2 = (streetBearing - 90 + 360) % 360;
+        return angularDist(az, perp1) <= angularDist(az, perp2) ? perp1 : perp2;
+    };
+
     // Gemini definitively identified the FRONT DOOR → snap to the visible face.
     // GPS heading gives more precise azimuth than aerial-only — UNLESS candidateFront
     // contradicts Gemini by >90° (camera on side street, cul-de-sac curve, intersection).
@@ -719,7 +730,7 @@ function computeAccurateAzimuth(
             const dFront = angularDist(geminiAzimuth, candidateFront);
             if (dFront > 90) return Math.round(geminiAzimuth);
         }
-        return Math.round(candidateFront);
+        return Math.round(snapToPerp(candidateFront));
     }
 
     // Gemini identified the BACK/SIDE → front faces the camera's street direction.
@@ -729,7 +740,7 @@ function computeAccurateAzimuth(
             const dBack  = angularDist(geminiAzimuth, candidateBack);
             if (dFront >= 90 && dBack >= 90) return Math.round(geminiAzimuth);
         }
-        return Math.round(candidateBack);
+        return Math.round(snapToPerp(candidateBack));
     }
 
     // showsFront=null/undefined → proximity-vote: snap to whichever GPS candidate is closer
@@ -737,7 +748,7 @@ function computeAccurateAzimuth(
     if (geminiAzimuth != null) {
         const dFront = angularDist(geminiAzimuth, candidateFront);
         const dBack = angularDist(geminiAzimuth, candidateBack);
-        return Math.round(dFront <= dBack ? candidateFront : candidateBack);
+        return Math.round(snapToPerp(dFront <= dBack ? candidateFront : candidateBack));
     }
 
     return geminiAzimuth;
