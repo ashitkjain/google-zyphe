@@ -183,6 +183,18 @@ Step 3: Cross-check with Image B (street view). GPS camera heading = ${streetVie
       → street_view_shows_front = FALSE
 
 Step 4: Finalize.
+   IF street_view_shows_front = FALSE (set in Step 3):
+      ⚠️  GARAGE-SIDE CORRECTION — The camera is on the NON-FRONT side of the house.
+      This means the driveway you traced in Step 2 connects to the GARAGE, not the front entrance.
+      The Step 2 azimuth is the GARAGE direction, NOT the front orientation.
+      You must now look at Image A for the REAL front:
+        a) Identify the faces of the house that are NOT connected to the Step 2 driveway.
+        b) Look for a pedestrian walkway (narrower paved path from public sidewalk to a door) on any other face.
+        c) If a clear pedestrian walkway is visible on another face → that face is the architectural front.
+           Revise azimuth_degrees and final_orientation to reflect that face.
+        d) If no other face shows a clear pedestrian entry path → set final_orientation = 'UNCLEAR',
+           azimuth_degrees = null, confidence = 'low'.
+           Do NOT use the garage-facing direction as the final answer.
 
 ADDITIONAL ANALYSIS:
 - Privacy: Assess neighboring sightlines into the backyard/pool.

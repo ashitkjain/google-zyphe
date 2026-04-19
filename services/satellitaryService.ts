@@ -25,7 +25,7 @@ const ORIENTATION_MODEL = 'gemini-2.0-flash';
 import { buildOrientationPromptDual, buildOrientationPromptAerialOnly, satellitarySchema, getDualPromptFinalInstructions } from '../prompts/property/satellitaryAnalysis';
 import { savePropertyOrientationToCloud } from './firebase/properties';
 import { logOrientationVersion, setGroundTruthFromDescription } from './firebase/orientation_history';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, addDoc, collection, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 import { isTargetForOrientationAnalysis } from '../utils/propertyPolicies';
@@ -1396,6 +1396,55 @@ export async function runSatellitaryAnalysis(
         }
     }
 
+    // ── Post-processing: Unresolvable orientation → UNCLEAR ───────────────────
+    // Two targeted patterns that produce high-confidence wrong answers in practice.
+    // Narrower than a blanket shows_front=null rule to avoid regressing the many
+    // standard-lot properties where the proximity vote currently works correctly.
+    if (result && result.final_orientation !== 'UNCLEAR') {
+        const debugInfo      = (result._debug as any) ?? {};
+        const svShowsFront   = debugInfo.streetViewShowsFront ?? undefined;  // true | false | null | undefined
+        const headingAvail   = debugInfo.streetViewHeading != null;
+        const imageQuality   = result.image_quality;
+
+        // Pattern A: camera confirmed it is NOT on the front street (shows_front=false)
+        // AND no GPS heading is available to recover the correct front azimuth.
+        // The aerial is our sole signal and it's likely wrong (it sees the garage/back).
+        if (svShowsFront === false && !headingAvail) {
+            console.log('[Satellitary] Post-Gemini override: shows_front=false + no GPS heading → UNCLEAR');
+            result = {
+                ...result,
+                final_orientation:       'UNCLEAR',
+                azimuth_degrees:         null,
+                visual_azimuth_estimate: result.visual_azimuth_estimate,  // keep for debugging
+                confidence:              'low',
+                explanation:             'Orientation unclear: the street view confirmed the camera was not facing the front of the property, and no GPS heading was available to recover the correct facing direction. Aerial analysis alone cannot resolve this.',
+            };
+        }
+
+        // Pattern B: a street view image was sent to Gemini (headingAvail confirms this)
+        // but Gemini could not determine shows_front from it — set to null because the
+        // image was blurry, obstructed by trees/fences, or showed only a generic street scene.
+        // aerial_only_mode=true is automatically set in this case (line: !usesDualImage || shows_front===null).
+        //
+        // The proximity vote still ran but was steered purely by the aerial estimate.
+        // If that aerial estimate is wrong, the result is wrong with no way to detect it
+        // at runtime. UNCLEAR is more honest than a high-confidence wrong answer.
+        //
+        // Note: this is intentionally narrower than "all shows_front=null" — we require
+        // headingAvail to confirm a real SV was fetched (not the aerial-only-no-SV case).
+        else if (svShowsFront === null && headingAvail && result.aerial_only_mode) {
+            console.log('[Satellitary] Post-Gemini override: shows_front=null (SV uninformative) + aerial_only_mode → UNCLEAR');
+            result = {
+                ...result,
+                final_orientation:       'UNCLEAR',
+                azimuth_degrees:         null,
+                visual_azimuth_estimate: result.visual_azimuth_estimate,  // keep for debugging
+                confidence:              'low',
+                explanation:             'Orientation unclear: the street view image did not provide enough information to identify the front of the property (blurry, obstructed, or no clear entry visible), and the aerial estimate alone cannot be confirmed. A clearer street view is needed to determine orientation reliably.',
+            };
+        }
+    }
+
     // ── Post-processing: Townhouse → UNCLEAR ─────────────────────────────────────
     // Policy:
     //   aerial-only + shared-wall property → ALWAYS UNCLEAR.
@@ -1487,4 +1536,78 @@ export async function runSatellitaryAnalysis(
     }
 
     return result;
+}
+
+/**
+ * Production entry point for orientation re-analysis.
+ *
+ * Routes through the Cloud Function (`runOrientationBatchOnCreate`) rather than
+ * calling Gemini directly in the browser. This keeps all analysis logic in one
+ * place (`functions/orientationBatch.js`) and avoids the browser/CF divergence
+ * that caused the 1448 Freeman Ln and 282 Del Valle Ct failures.
+ *
+ * Flow:
+ *   1. Clear `orientation_ai` from the property doc so the poll can detect the new result.
+ *   2. Create an `orientation_batch_jobs` document → triggers the Cloud Function.
+ *   3. Listen to `properties/{zpid}` until `orientation_ai` reappears (CF writes it).
+ *   4. Return the fresh result.
+ *
+ * @param zpid       Firestore property ID (required — batch CF needs it to load images).
+ * @param timeoutMs  Max wait for CF to return. Default 90s (covers cold starts).
+ */
+export async function runOrientationViaBatch(
+    zpid: string,
+    timeoutMs = 90_000,
+): Promise<SatellitaryResult | null> {
+    if (!zpid) {
+        console.warn('[Satellitary] runOrientationViaBatch: zpid is required');
+        return null;
+    }
+
+    // 1. Clear the cached orientation so we can detect when the CF result arrives.
+    const propRef = doc(db, 'properties', zpid);
+    await updateDoc(propRef, { orientation_ai: null, orientation_calculated_at: null })
+        .catch(e => console.warn('[Satellitary] Could not clear orientation_ai before batch trigger:', e));
+
+    // 2. Enqueue the Cloud Function job.
+    // The Firestore rule requires userId == request.auth.uid, so we must use the real UID.
+    const { auth: fbAuth } = await import('./firebase/config');
+    const userId = fbAuth?.currentUser?.uid ?? 'unknown';
+
+    await addDoc(collection(db, 'orientation_batch_jobs'), {
+        zpids:     [zpid],
+        status:    'queued',
+        total:     1,
+        done:      0,
+        failed:    0,
+        userId,
+        createdAt: serverTimestamp(),
+    });
+
+    console.log(`[Satellitary] runOrientationViaBatch: batch job queued for ${zpid}`);
+
+    // 3. Poll Firestore until the CF writes orientation_ai back.
+    return new Promise<SatellitaryResult | null>((resolve) => {
+        const deadline = setTimeout(() => {
+            unsubscribe();
+            console.warn(`[Satellitary] runOrientationViaBatch: timed out waiting for ${zpid}`);
+            resolve(null);
+        }, timeoutMs);
+
+        const unsubscribe = onSnapshot(propRef, (snap) => {
+            if (!snap.exists()) return;
+            const ai = snap.data()?.orientation_ai;
+            // The CF writes final_orientation (including 'UNCLEAR') — any non-null value is ready.
+            if (ai != null && ai.final_orientation != null) {
+                clearTimeout(deadline);
+                unsubscribe();
+                console.log(`[Satellitary] runOrientationViaBatch: result received for ${zpid} → ${ai.final_orientation}`);
+                resolve(ai as SatellitaryResult);
+            }
+        }, (err) => {
+            clearTimeout(deadline);
+            console.error('[Satellitary] runOrientationViaBatch: Firestore listener error', err);
+            resolve(null);
+        });
+    });
 }

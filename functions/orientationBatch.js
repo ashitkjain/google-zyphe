@@ -215,7 +215,7 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
             `Step 1: Layout detection — classify as standard, cul_de_sac, corner_lot, flag_lot, or other. CUL-DE-SAC DIRECTION: draw a vector from property center (P) → cul-de-sac center (C). Use BOTH axes: upper-left=NW, upper-right=NE, lower-left=SW, lower-right=SE. Do NOT collapse a diagonal to a cardinal (e.g. upper-left is NW ~315°, NOT west 270° or southwest 225°).`,
             `Step 2: Aerial front-wall identification. FACING CONVENTION (CRITICAL — all 8 directions valid): front faces TOWARD the street. South=180°, SE=135°, SW=225°, N=0°, NE=45°, NW=315°, E=90°, W=270°. NEVER collapse diagonal to cardinal (if street is lower-right=SE, face SE not south). NEVER invert (street south=face south, not north). DIRECTION PRECISION: trace driveway toward street using BOTH axes — upper-left=NW, upper-right=NE, lower-left=SW, lower-right=SE. Only use N/E/S/W when movement is almost entirely one-axis. DRIVEWAY CONNECTION RULE: only count a road as the front street if a driveway physically connects to it — a road blocked by a green belt, tree row, or barrier with no driveway crossing is NOT the front street.`,
             `Step 3: Image B judgment ONLY. Look at Image B — does it show the FRONT (door, porch, entry) or BACK (blank wall, fence)? Judge from the image alone, NOT from your Step 2 aerial conclusion. Set street_view_shows_front = true (front visible) or false (back/side visible) or null (obstructed/blurred/too far). The system computes the final azimuth from GPS heading + your answer. Do NOT compute azimuth yourself or adjust this field to match your Step 2 guess.`,
-            `Step 4: Finalize — output final_orientation, azimuth_degrees, confidence, property_layout_type.`,
+            `Step 4: Finalize — output final_orientation, azimuth_degrees, confidence, property_layout_type.\n   IF street_view_shows_front = FALSE (set in Step 3): ⚠️ GARAGE-SIDE CORRECTION. The camera confirmed it was NOT seeing the front. This means the driveway you traced in Step 2 connects to the GARAGE, NOT the front entrance. The Step 2 azimuth is the GARAGE direction — do NOT use it as the final answer. Re-examine Image A: (a) look for a pedestrian walkway on any OTHER face of the house. (b) If a clear pedestrian path is visible on another face, set azimuth_degrees to THAT face. (c) If no other face shows a clear walkway, set final_orientation='UNCLEAR', azimuth_degrees=null, confidence='low'.`,
             `ADDITIONAL: Assess privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.`,
             `EXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: layout type and one visual reason.\n(2) STREET CONTEXT: name the address street, which edge it runs along, and its approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows, which road edge it connects to, and the raw aerial azimuth estimate.\n(4) IMAGE B EVIDENCE: state the camera heading in degrees, what Image B shows (front/back/uninformative), and how street_view_shows_front was set.\n(5) FINAL: final azimuth in degrees and compass label, confidence.`,
         ].join('\n').trim();
@@ -304,8 +304,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         if (sideAz !== undefined) {
             const candidateFront = (svHeading + 180) % 360;
             const candidateBack  = svHeading;
-            const frontAligned   = _angDiff(candidateFront, sideAz) <= 67;
-            const backAligned    = _angDiff(candidateBack,  sideAz) <= 67;
+            const frontAligned   = _angDiff(candidateFront, sideAz) <= 75;
+            const backAligned    = _angDiff(candidateBack,  sideAz) <= 75;
             if (!frontAligned && !backAligned) {
                 console.warn(`[Batch] ${zpid}: cached heading ${Math.round(svHeading)}\u00b0 is inconsistent with streetSide=${streetSide} (road is to the ${streetSide}). candidateFront=${Math.round(candidateFront)}\u00b0 is ${Math.round(_angDiff(candidateFront, sideAz))}\u00b0 away \u2014 heading discarded. Gemini will judge from image only.`);
                 svHeading = null;
@@ -339,10 +339,21 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const showsFront = data.street_view_shows_front;  // true | false | null from Gemini
     let headingAzimuth = null;
     if (usesDualImage && svHeading !== null && showsFront !== null && showsFront !== undefined) {
-        headingAzimuth = showsFront === true
-            ? Math.round((svHeading + 180) % 360)   // front VISIBLE → faces opposite of camera heading
-            : Math.round(svHeading);                  // back visible → front faces camera direction
-        console.log(`[Batch] GPS heading math ${zpid}: heading=${svHeading}°, showsFront=${showsFront} → azimuth=${headingAzimuth}°`);
+        const candidateFront = (svHeading + 180) % 360;  // face opposite camera = face camera sees
+        const candidateBack  = svHeading % 360;           // face toward camera = face camera can't see
+        if (showsFront === true) {
+            // When Gemini VISUALLY confirmed the camera is on the front side (shows_front=true),
+            // the GPS candidateFront is the most direct and reliable signal.
+            // We trust it outright — the aerial analysis is secondary and can be wrong
+            // (e.g. confused by garage aprons, shadow patterns, or misread driveway direction)
+            // while the combination of "camera sees front door" + GPS heading is unambiguous.
+            headingAzimuth = Math.round(candidateFront);
+        } else {
+            // shows_front=false → camera confirmed it is NOT on the front street.
+            // Front faces TOWARD the camera position (candidateBack = heading direction).
+            headingAzimuth = Math.round(candidateBack);
+        }
+        console.log(`[Batch] GPS heading math ${zpid}: heading=${Math.round(svHeading)}°, showsFront=${showsFront} → azimuth=${headingAzimuth}°`);
     }
 
     // 7. Confidence gate + street-bearing fallback (mirrors browser pipeline)
@@ -443,6 +454,29 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
                 finalAzimuth     = null;
             }
         }
+    }
+
+    // Post-processing gate 3: Unresolvable orientation → UNCLEAR
+    // Two targeted patterns that produce high-confidence wrong answers in practice.
+    // These mirror the Pattern A/B overrides in satellitaryService.ts.
+
+    // Pattern A: camera confirmed it is NOT on the front street (shows_front=false)
+    // AND no GPS heading is available to compute candidateBack.
+    // Aerial is our sole signal and it likely shows the GARAGE side as "front" — unreliable.
+    if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === false && svHeading === null) {
+        console.log(`[Batch] Override ${zpid}: shows_front=false + no GPS heading → UNCLEAR`);
+        finalOrientation = 'UNCLEAR';
+        finalAzimuth     = null;
+    }
+
+    // Pattern B: street view was sent (svHeading proves this) but Gemini could not
+    // determine shows_front from it (null = blurry/obstructed/uninformative).
+    // aerial_only_mode=true in this case. The aerial estimate is unverified and if
+    // wrong, we have no runtime way to detect it. UNCLEAR is more honest.
+    if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === null && svHeading !== null) {
+        console.log(`[Batch] Override ${zpid}: shows_front=null (SV uninformative) + aerial_only_mode → UNCLEAR`);
+        finalOrientation = 'UNCLEAR';
+        finalAzimuth     = null;
     }
 
     // 8. Write orientation result to Firestore via Admin SDK

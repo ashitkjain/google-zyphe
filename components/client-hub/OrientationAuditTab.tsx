@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, orderBy, getDocs, collectionGroup, doc, getDoc, setDoc, serverTimestamp, addDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl, backfillStreetViewHeadingDeg, extractOrientationFromDescription } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, runOrientationViaBatch, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl, backfillStreetViewHeadingDeg, extractOrientationFromDescription } from '../../services/satellitaryService';
 import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
 import { getLatestOrientationVersions, saveManualGroundTruth, fetchFirestoreGroundTruths } from '../../services/firebase/orientation_history';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
@@ -557,21 +557,14 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
         setRows(prev => prev.map(r => r.zpid === zpid ? { ...r, status: 'running', error: undefined } : r));
         try {
-            const result = await runSatellitaryAnalysis(
-                row.coordinates.latitude,
-                row.coordinates.longitude,
-                row.streetView,
-                auth?.currentUser?.uid || 'unknown',
-                zpid,
-                row.address,
-                row.description,      // ← enables description-first optimization
-                row.homeType,         // ← enables post-Gemini townhouse UNCLEAR override
-            );
+            // Route through the Cloud Function — single source of truth for all analysis logic.
+            const result = await runOrientationViaBatch(zpid);
+            if (!result) throw new Error('Batch analysis timed out or failed');
+
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
                 status: 'done',
                 calculatedAt: new Date(),
-                // Update the displayed orientation immediately — do NOT leave it stale
                 finalOrientation: result.final_orientation,
                 orientationAI: {
                     final_orientation: result.final_orientation,
@@ -589,13 +582,10 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     explanation: result.explanation ?? null,
                     is_under_construction: result.is_under_construction,
                 },
-                mapZoomIn: r.mapZoomIn || result.aerial_url,
-                streetView: r.streetView || result.street_view_url || undefined,
+                // Keep existing aerial/sv URLs — CF doesn't return them, they come from property doc
+                mapZoomIn: r.mapZoomIn,
+                streetView: r.streetView,
             } : r));
-
-            // setRows above already has all correct data from the result object.
-            // No Firestore re-read needed — history fields (changedFromFirst, previousOrientation)
-            // update on next full fetchData / page refresh.
 
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
