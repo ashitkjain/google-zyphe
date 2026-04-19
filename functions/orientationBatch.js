@@ -170,9 +170,12 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
     })();
     const bearingHint = streetBearing != null ? (() => {
         const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
-        return `\nGPS STREET BEARING PRIOR: Street runs at ~${Math.round(streetBearing)}°. Front most likely faces `
-             + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°). `
-             + `Use the driveway apron to confirm which of the two perpendicular directions is correct.`;
+        const p3 = (streetBearing + 180) % 360;
+        return `\nGPS STREET BEARING PRIOR: Street runs at ~${Math.round(streetBearing)}°. Front MUST face `
+             + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°) — perpendicular to road. `
+             + `Use driveway apron to confirm which is correct.\n`
+             + `⛔ FORBIDDEN azimuths: ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel and ALWAYS WRONG for a standard lot. `
+             + `Your azimuth_degrees MUST NOT be within 15° of ${Math.round(streetBearing)}° or ${Math.round(p3)}°.`;
     })() : '';
 
     if (usesDualImage) {
