@@ -116,7 +116,10 @@ async function resolveCachedSV(
     city: string,
     address: string
 ): Promise<{ zpid: string | null; svUrl: string | null; heading: number | null }> {
-    const norm = (s: string) => s.toLowerCase().replace(/[,\s]+/g, ' ').trim();
+    const norm = (s: string) => s.toLowerCase()
+        .replace(/,?\s*\bus\b\s*$/, '')   // strip trailing ", US" or " US"
+        .replace(/[,\s]+/g, ' ')           // collapse commas+spaces
+        .trim();
     const indexData = await firestoreGet(`address_index/${city}`);
     const entries: Array<{ a: string; z: string }> = indexData?.entries || [];
     const entry = entries.find(e => norm(e.a) === norm(address));
