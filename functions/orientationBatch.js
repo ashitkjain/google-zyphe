@@ -378,22 +378,30 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         finalAzimuth     = null;
     }
 
-    // Post-processing gate 2: Townhouse → UNCLEAR when result is unreliable
-    // (a) front_door_clearly_visible = false  — Gemini couldn't see the unit door
-    // (b) cul_de_sac or corner_lot — shared wall + ambiguous frontage
-    // (c) standard_street_layout = false — internal access road, not a public street
+    // Post-processing gate 2: Townhouse → UNCLEAR
+    // Policy:
+    //   aerial-only + shared-wall → ALWAYS UNCLEAR (aerial alone is too unreliable
+    //   to distinguish a unit's front from shared party walls or walkways).
+    //   dual-image + shared-wall → UNCLEAR if front door missing / complex layout /
+    //   non-standard street.
     if (isMultiUnit && finalOrientation !== 'UNCLEAR') {
-        const layoutType            = data.property_layout_type;
-        const frontDoorMissing      = data.front_door_clearly_visible === false;
-        const complexLayout         = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
-        const nonStandardStreet     = data.standard_street_layout === false;
-        if (frontDoorMissing || complexLayout || nonStandardStreet) {
-            const reason = frontDoorMissing    ? 'front_door_clearly_visible=false'
-                         : nonStandardStreet   ? 'standard_street_layout=false'
-                         : `layout=${layoutType}`;
-            console.log(`[Batch] Override ${zpid}: townhouse + ${reason} → UNCLEAR`);
+        if (aerialOnlyMode) {
+            console.log(`[Batch] Override ${zpid}: townhouse + aerial_only_mode → UNCLEAR (always)`);
             finalOrientation = 'UNCLEAR';
             finalAzimuth     = null;
+        } else {
+            const layoutType        = data.property_layout_type;
+            const frontDoorMissing  = data.front_door_clearly_visible === false;
+            const complexLayout     = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
+            const nonStandardStreet = data.standard_street_layout === false;
+            if (frontDoorMissing || complexLayout || nonStandardStreet) {
+                const reason = frontDoorMissing  ? 'front_door_clearly_visible=false'
+                             : nonStandardStreet ? 'standard_street_layout=false'
+                             : `layout=${layoutType}`;
+                console.log(`[Batch] Override ${zpid}: townhouse + ${reason} → UNCLEAR`);
+                finalOrientation = 'UNCLEAR';
+                finalAzimuth     = null;
+            }
         }
     }
 

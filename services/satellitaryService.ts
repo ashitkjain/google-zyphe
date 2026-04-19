@@ -1384,29 +1384,46 @@ export async function runSatellitaryAnalysis(
         }
     }
 
-    // ── Post-processing: Townhouse → UNCLEAR when result is unreliable ─────────
-    // Force UNCLEAR for shared-wall properties if any of:
-    //   (a) front_door_clearly_visible = false  — couldn't identify this unit's door
-    //   (b) cul_de_sac or corner_lot            — ambiguous frontage even with SV
-    //   (c) standard_street_layout = false      — internal access road, not public street
+    // ── Post-processing: Townhouse → UNCLEAR ─────────────────────────────────────
+    // Policy:
+    //   aerial-only + shared-wall property → ALWAYS UNCLEAR.
+    //     Without a usable front-facing street view we cannot distinguish which
+    //     unit face is the front, which walkway leads to this unit's door, or
+    //     which shared party wall is primary. Aerial alone is too unreliable.
+    //   dual-image + shared-wall property → UNCLEAR if any of:
+    //     (a) front_door_clearly_visible = false — couldn't see this unit's door
+    //     (b) cul_de_sac or corner_lot            — ambiguous frontage
+    //     (c) standard_street_layout = false      — internal access road
     if (result && isSharedWallProperty(homeType, address)) {
-        const layoutType        = result.property_layout_type;
-        const frontDoorMissing  = (result as any).front_door_clearly_visible === false;
-        const complexLayout     = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
-        const nonStandardStreet = (result as any).standard_street_layout === false;
-        if (frontDoorMissing || complexLayout || nonStandardStreet) {
-            const reason = frontDoorMissing   ? 'front door not clearly visible'
-                         : nonStandardStreet  ? 'non-standard street layout (internal access road)'
-                         : `complex lot layout (${layoutType})`;
-            console.log(`[Satellitary] Post-Gemini override: townhouse + ${reason} → UNCLEAR`);
+        if (result.aerial_only_mode) {
+            console.log(`[Satellitary] Post-Gemini override: townhouse + aerial_only_mode → UNCLEAR (always)`);
             result = {
                 ...result,
                 final_orientation:       'UNCLEAR',
                 azimuth_degrees:         null,
                 visual_azimuth_estimate: null,
                 confidence:              'low',
-                explanation:             `Townhouse orientation unclear: ${reason}.`,
+                explanation:             'Townhouse/condo orientation unclear: no usable street view — aerial analysis alone cannot reliably determine which face is the front for a shared-wall property.',
             };
+        } else {
+            const layoutType        = result.property_layout_type;
+            const frontDoorMissing  = (result as any).front_door_clearly_visible === false;
+            const complexLayout     = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
+            const nonStandardStreet = (result as any).standard_street_layout === false;
+            if (frontDoorMissing || complexLayout || nonStandardStreet) {
+                const reason = frontDoorMissing   ? 'front door not clearly visible'
+                             : nonStandardStreet  ? 'non-standard street layout (internal access road)'
+                             : `complex lot layout (${layoutType})`;
+                console.log(`[Satellitary] Post-Gemini override: townhouse + ${reason} → UNCLEAR`);
+                result = {
+                    ...result,
+                    final_orientation:       'UNCLEAR',
+                    azimuth_degrees:         null,
+                    visual_azimuth_estimate: null,
+                    confidence:              'low',
+                    explanation:             `Townhouse orientation unclear: ${reason}.`,
+                };
+            }
         }
     }
 
