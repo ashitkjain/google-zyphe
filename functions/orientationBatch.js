@@ -348,7 +348,22 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
             // (e.g. confused by garage aprons, shadow patterns, or misread driveway direction)
             // while the combination of "camera sees front door" + GPS heading is unambiguous.
             headingAzimuth = Math.round(candidateFront);
+
+            // CUL-DE-SAC EXCEPTION: the front MUST face the cul-de-sac circle (architectural rule).
+            // The aerial driveway trace (Gemini's azimuth_degrees) reliably shows which direction
+            // the house opens toward the cul-de-sac. GPS is NOT reliable here:
+            //   • The Street View camera is often on the APPROACH ROAD, not on the cul-de-sac circle.
+            //   • A camera on the approach road sees the side/northeast face of the house and
+            //     calls it "front", but candidateFront then points at the approach road direction
+            //     (e.g. 354° North), not at the cul-de-sac circle (e.g. 135° SE).
+            // Safe fix: skip GPS for cul-de-sac, fall back to aerial.
+            // shows_front is still preserved for the culdesacSVFailed UNCLEAR gate.
+            if (data.property_layout_type === 'cul_de_sac') {
+                console.log(`[Batch] GPS heading math ${zpid}: cul-de-sac → skipping GPS candidateFront (${Math.round(candidateFront)}°), using aerial driveway trace instead.`);
+                headingAzimuth = null;
+            }
         } else {
+
             // shows_front=false: camera did NOT confirm the front.
             //
             // The old candidateBack formula (headingAzimuth = svHeading) was only correct
