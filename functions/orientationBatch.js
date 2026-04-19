@@ -141,7 +141,28 @@ async function _getStreetBearing(address, mapsKey) {
         if (bearings.length >= 2 && _angDiff(bearings[0].bearing, bearings[1].bearing) > 30) {
             return { bearing: null, streetSide };
         }
-        return { bearing: bearings[0].bearing, streetSide };
+
+        const best = bearings[0];
+
+        // Bidirectional cross-validation: bearing(-50) must be ~180° opposite to bearing(+50).
+        // Two forward offsets (+50,+100) can both be wrong on a curved/diagonal road.
+        if (houseNum > 50) {
+            try {
+                const pMinus = await geocode(address.replace(/^\d+/, String(houseNum - 50)));
+                if (pMinus && (!p1.road || !pMinus.road || p1.road === pMinus.road)) {
+                    const bearingMinus = _computeBearing(p1.lat, p1.lng, pMinus.lat, pMinus.lng);
+                    const expectedMinus = (best.bearing + 180) % 360;
+                    const bidirDiff = _angDiff(bearingMinus, expectedMinus);
+                    console.log(`[Batch] _getStreetBearing: bidir check — +50=${Math.round(best.bearing)}°, -50=${Math.round(bearingMinus)}° (expected ${Math.round(expectedMinus)}°), diff=${Math.round(bidirDiff)}°`);
+                    if (bidirDiff > 25) {
+                        console.log(`[Batch] _getStreetBearing: bidir FAILED — bearing suppressed, streetSide=${streetSide} kept`);
+                        return { bearing: null, streetSide };
+                    }
+                }
+            } catch { /* non-fatal */ }
+        }
+
+        return { bearing: best.bearing, streetSide };
     } catch (e) { return null; }
 }
 

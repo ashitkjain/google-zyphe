@@ -482,6 +482,29 @@ async function getStreetBearing(address: string): Promise<{ bearing: number | nu
         // Use the closest-offset bearing as the most local estimate
         const best = bearings[0];
         console.log(`[Satellitary] getStreetBearing: using offset +${best.offset}, bearing=${Math.round(best.bearing)}°, streetSide=${streetSide}`);
+
+        // ── Bidirectional cross-validation ─────────────────────────────────────────
+        // Geocode the house at -50 and check bearing(−50) is ~180° opposite to bearing(+50).
+        // Two forward offsets (+50, +100) both being wrong is possible on a curved road;
+        // the negative offset must give the opposite direction — catches bad geocoding.
+        if (houseNum > 50) {
+            const angDist = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+            try {
+                const minusAddr = address.replace(/^\d+/, String(houseNum - 50));
+                const pMinus = await geocodeWithRoad(minusAddr);
+                if (pMinus && (!p1.road || !pMinus.road || p1.road === pMinus.road)) {
+                    const bearingMinus = computeBearing(p1.lat, p1.lng, pMinus.lat, pMinus.lng);
+                    const expectedMinus = (best.bearing + 180) % 360;
+                    const bidirDiff = angDist(bearingMinus, expectedMinus);
+                    console.log(`[Satellitary] getStreetBearing: bidirectional check — bearing(+50)=${Math.round(best.bearing)}°, expected bearing(-50)=${Math.round(expectedMinus)}°, actual=${Math.round(bearingMinus)}°, diff=${Math.round(bidirDiff)}°`);
+                    if (bidirDiff > 25) {
+                        console.log(`[Satellitary] getStreetBearing: bidirectional check FAILED (diff=${Math.round(bidirDiff)}°) — bearing suppressed, streetSide=${streetSide} kept`);
+                        return { bearing: null, streetSide };
+                    }
+                }
+            } catch { /* non-fatal — skip validation if -50 geocoding fails */ }
+        }
+
         return { bearing: best.bearing, streetSide };
     } catch { return null; }
 }
@@ -1322,6 +1345,7 @@ export async function runSatellitaryAnalysis(
             aerial_url: aerialUrl,
             street_view_url: streetViewUrl ?? '',
             aerial_only_mode: !usesDualImage || (data as any).street_view_shows_front === null,
+            street_bearing_deg: streetBearingForAzimuth,
             _debug: {
                 streetViewHeading,
                 streetBearing: streetBearingForAzimuth,

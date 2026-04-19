@@ -130,7 +130,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
     const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear'>('all');
-    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null } | null>(null);
+    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null } | null>(null);
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
@@ -1570,7 +1570,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                                     return (
                                                         <button
-                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null })}
+                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null })}
                                                             className={`text-[10px] leading-snug text-left hover:underline underline-offset-2 ${
                                                                 isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')
                                                             }`}
@@ -1714,7 +1714,24 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                         <span><i className="fa-solid fa-brain mr-1 text-indigo-400" />AI Reasoning</span>
                                     )}
                                 </div>
-                                <div className="text-[13px] font-black text-slate-800 leading-snug">{explanationPopup.address}</div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="text-[13px] font-black text-slate-800 leading-snug">{explanationPopup.address}</div>
+                                    {explanationPopup.orientation && explanationPopup.orientation !== 'UNCLEAR' && (
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-wide shadow-sm">
+                                            <i className="fa-solid fa-compass text-[9px]" />
+                                            {explanationPopup.orientation}
+                                            {explanationPopup.azimuth != null && (
+                                                <span className="opacity-70 font-semibold text-[10px]">~{Math.round(explanationPopup.azimuth)}°</span>
+                                            )}
+                                        </div>
+                                    )}
+                                    {explanationPopup.orientation === 'UNCLEAR' && (
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-100 text-amber-700 border border-amber-200 text-[11px] font-black uppercase tracking-wide">
+                                            <i className="fa-solid fa-circle-question text-[9px]" />
+                                            UNCLEAR
+                                        </div>
+                                    )}
+                                </div>
                                 {explanationPopup.frontStreet && (
                                     <div className="mt-1">
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
@@ -1768,6 +1785,26 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                         {/* Body */}
                         <div className="px-5 py-4 max-h-[40vh] overflow-y-auto">
+                            {explanationPopup.streetBearing != null && (
+                                <div className="mb-3 flex items-center gap-2 flex-wrap">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">GPS Bearing Hint</span>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
+                                        <i className="fa-solid fa-location-arrow text-[8px]" />
+                                        ~{Math.round(explanationPopup.streetBearing)}° street axis
+                                    </span>
+                                    <span className="text-[9px] text-slate-400">
+                                        → told Gemini front faces ~{Math.round((explanationPopup.streetBearing + 90) % 360)}° or ~{Math.round((explanationPopup.streetBearing + 270) % 360)}°
+                                    </span>
+                                </div>
+                            )}
+                            {explanationPopup.streetBearing == null && !explanationPopup.fromDescription && (
+                                <div className="mb-3">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold border border-amber-200">
+                                        <i className="fa-solid fa-triangle-exclamation text-[8px]" />
+                                        No GPS bearing hint — Gemini used aerial only
+                                    </span>
+                                </div>
+                            )}
                             <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap">
                                 {explanationPopup.text}
                             </p>
