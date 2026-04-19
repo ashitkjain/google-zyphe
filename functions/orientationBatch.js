@@ -207,6 +207,7 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
         `1. NORTH IS UP: Use the top of the frame as 0° North.`,
         `2. WALKWAY RULE (MANDATORY): Front of property = where the pedestrian path from the public sidewalk leads to the main door.`,
         `3. ADDRESS STREET PRIORITY: When multiple streets are visible, give strong priority to the address street.`,
+        `4. TOWARD RULE (most common error): The front faces TOWARD the road — in the direction FROM the lot center TO the road. The direction the road TRAVELS is irrelevant. Road on the NE edge → front faces NE (~45°), NOT NW or SE. Road on N edge → front faces N (~0°). TRAP: "road runs NW/SE along NE edge" → front faces NE, never NW or SE.`,
         `\nLAYOUT CLASSIFICATION (do FIRST):`,
         `Set standard_street_layout = FALSE if: corner lot, flag lot, curved/loop street (CT, CIR, LOOP, COURT in name), side-loading entry, or rural acreage.`,
         `Set standard_street_layout = TRUE only for simple rectangular lots on straight non-looping streets.`,

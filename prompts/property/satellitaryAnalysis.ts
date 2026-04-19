@@ -61,6 +61,10 @@ GUIDING PRINCIPLES:
 2. THE WALKWAY RULE: Trace the pedestrian walkway from the public sidewalk to the main door. The wall it leads to is the architectural FRONT.
 3. DRIVEWAY & GARAGE (supporting): In typical single-family homes, the garage and front door are on the SAME wall. The driveway runs from the public street to the garage — the side where the driveway meets the street is generally the front.
 4. CORNER LOTS: Garages sometimes face secondary streets or rear alleys. Always verify with the pedestrian walkway or porch, not just the garage.
+5. TOWARD RULE (most common error): The front faces TOWARD the road — in the direction FROM the lot center TO the road. The direction the road TRAVELS is irrelevant.
+   → Road on the NORTHEAST edge → front faces NORTHEAST (~45°). NOT NW or SE (those are the road's travel directions).
+   → Road on the NORTH edge → front faces NORTH (~0°). NOT east or west.
+   TRAP: "The road runs NW/SE along the NE edge" → front faces NE — never NW or SE.
 
 TASK SEQUENCE:
 Step 0: Quality & Construction Check.
@@ -229,6 +233,11 @@ GUIDING PRINCIPLES:
 2. WALKWAY RULE (MANDATORY): The architectural front is where the pedestrian path from the PUBLIC SIDEWALK leads to the main door — NOT the driveway or garage.
 3. GARAGE NOTE: Supporting evidence only. On corner lots, the garage may face a side street while the main entrance faces the address street.
 4. ADDRESS STREET PRIORITY: When multiple streets are visible, give strong priority to the address street as the front street.
+5. TOWARD RULE (most common error): The front faces TOWARD the road — in the direction FROM the lot center TO the road. The direction the road TRAVELS is irrelevant.
+   → Road on the NORTHEAST edge → front faces NORTHEAST (~45°). NOT NW or SE (those are the road's travel directions).
+   → Road on the NORTH edge → front faces NORTH (~0°). NOT east or west (road travel).
+   → Road on the SOUTHWEST edge → front faces SOUTHWEST (~225°).
+   TRAP: "The road runs NW/SE along the NE edge" → front faces NE — never NW or SE.
 
 LAYOUT CLASSIFICATION (do this FIRST, before orientation):
 Classify the property as standard_street_layout = FALSE if ANY of the following apply:

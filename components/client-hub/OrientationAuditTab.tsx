@@ -130,7 +130,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
     const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear'>('all');
-    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null } | null>(null);
+    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null } | null>(null);
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
@@ -1301,7 +1301,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[140px]">Property</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Type</th>
 
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Close-up Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Case</th>
@@ -1309,7 +1308,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-violet-400 uppercase tracking-widest min-w-[110px]">GT Expected</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Explanation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Prev AI</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Assessment</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Calculated</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Audited</th>
                                     {isAdmin && <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>}
@@ -1318,7 +1316,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             <tbody>
                                 {filteredRows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={14} className="py-24 text-center">
+                                        <td colSpan={12} className="py-24 text-center">
                                             <i className="fa-solid fa-folder-open text-4xl text-slate-100 mb-3 block" />
                                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties in this city</p>
                                         </td>
@@ -1363,22 +1361,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             </td>
 
 
-                                            {/* Close-up map */}
-                                            <td className="p-5 text-center">
-                                                <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={{
-                                                    ...row,
-                                                    selectedAssessment: row.orientationAssessment,
-                                                    onSelectAssessment: (v) => {
-                                                        const next = row.orientationAssessment.includes(v)
-                                                            ? row.orientationAssessment.filter(x => x !== v)
-                                                            : [...row.orientationAssessment, v];
-                                                        setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
-                                                        saveOrientationAssessment(row.zpid, next).catch(console.error);
-                                                    },
-                                                }} onRefreshUrl={(newUrl) => {
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, mapZoomIn: newUrl } : r));
-                                                }} />
-                                            </td>
 
                                             {/* Satellite */}
                                             <td className="p-5 text-center">
@@ -1588,7 +1570,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                                     return (
                                                         <button
-                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null })}
+                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null })}
                                                             className={`text-[10px] leading-snug text-left hover:underline underline-offset-2 ${
                                                                 isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')
                                                             }`}
@@ -1624,20 +1606,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             </td>
 
 
-                                            {/* Orientation Assessment */}
-                                            <td className="p-5">
-                                                <AssessmentDropdown
-                                                    value={row.orientationAssessment}
-                                                    onChange={(next) => {
-                                                        const now = new Date();
-                                                        setRows(prev => prev.map(r =>
-                                                            r.zpid === row.zpid ? { ...r, orientationAssessment: next, assessedAt: now } : r
-                                                        ));
-                                                        saveOrientationAssessment(row.zpid, next)
-                                                            .catch(e => console.error('[OrientationAudit] Failed to save assessment:', e));
-                                                    }}
-                                                />
-                                            </td>
 
                                             {/* Calculated At */}
                                             <td className="p-5">
@@ -1733,7 +1701,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                     {/* Panel */}
                     <div
-                        className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+                        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden"
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Header */}
@@ -1764,8 +1732,42 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                             </button>
                         </div>
 
+                        {/* Images */}
+                        {(explanationPopup.satelliteUrl || explanationPopup.streetViewUrl) && (
+                            <div className="grid grid-cols-2 gap-0 border-b border-slate-100">
+                                {explanationPopup.satelliteUrl ? (
+                                    <div className="relative">
+                                        <img
+                                            src={explanationPopup.satelliteUrl}
+                                            alt="Satellite"
+                                            className="w-full h-44 object-cover"
+                                        />
+                                        <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-slate-900/70 text-white text-[9px] font-black uppercase tracking-widest rounded-md">Satellite</span>
+                                    </div>
+                                ) : (
+                                    <div className="h-44 bg-slate-50 flex items-center justify-center">
+                                        <span className="text-[9px] text-slate-300 font-bold">No satellite</span>
+                                    </div>
+                                )}
+                                {explanationPopup.streetViewUrl ? (
+                                    <div className="relative border-l border-slate-100">
+                                        <img
+                                            src={explanationPopup.streetViewUrl}
+                                            alt="Street View"
+                                            className="w-full h-44 object-cover"
+                                        />
+                                        <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-slate-900/70 text-white text-[9px] font-black uppercase tracking-widest rounded-md">Street View</span>
+                                    </div>
+                                ) : (
+                                    <div className="h-44 bg-slate-50 flex items-center justify-center border-l border-slate-100">
+                                        <span className="text-[9px] text-slate-300 font-bold">No street view</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Body */}
-                        <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+                        <div className="px-5 py-4 max-h-[40vh] overflow-y-auto">
                             <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap">
                                 {explanationPopup.text}
                             </p>
