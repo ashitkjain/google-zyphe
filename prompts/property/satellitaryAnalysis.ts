@@ -254,6 +254,11 @@ Step 2 — DRIVEWAY APRON (primary signal):
    The side where a verified driveway apron meets the public street is where the front faces.
 Step 3 — FRONT WALK (confirmation): Look for a narrower concrete/brick path leading to a porch or front door.
 Step 4 — State the compass direction the FRONT WALL faces outward (0°=North, 90°=East, 180°=South, 270°=West).
+   PERPENDICULAR RULE (MANDATORY): Your azimuth_degrees MUST be roughly perpendicular (±45°) to the road bearing.
+   The front wall faces TOWARD or AWAY from the road — NEVER along it.
+   → If the road runs at ~315° (NW↔SE), valid azimuths are ~45°(NE) or ~225°(SW). NOT 315° or 135°.
+   → If the road runs at ~90° (E↔W), valid azimuths are ~0°(N) or ~180°(S). NOT 90° or 270°.
+   If your azimuth is within 15° of the road bearing, you have made an error — CORRECT IT to the nearest perpendicular.
 Step 5 — Assess Privacy, Lot Coverage (Hardscape %), and Site Features (Pool/Garage/Yard directions).
 Step 6 — GPS SELF-CHECK (only if a GPS STREET BEARING PRIOR appears above):
    a) The prior already told you the two valid perpendicular directions for this lot.
@@ -261,6 +266,7 @@ Step 6 — GPS SELF-CHECK (only if a GPS STREET BEARING PRIOR appears above):
    c) If your azimuth is within 45° of one of the GPS perpendiculars AND the image does NOT show a clear physical reason the front faces elsewhere (e.g. no driveway, a solid wall, or a fence on that side), then CORRECT your final_orientation and azimuth_degrees to that exact perpendicular.
    d) If your azimuth is already within 15° of a perpendicular, no correction needed — you're already aligned.
    e) If correcting, note it explicitly: "GPS self-check: adjusted from [original] to [corrected]."
+   PARALLEL CHECK (always run): If your azimuth is within 15° of the road bearing itself (NOT the perpendicular), you have made the most common error — outputting the road direction instead of the facing direction. CORRECT to the nearest perpendicular, or set UNCLEAR if uncertain.
 
 EXPLANATION FORMAT — use this EXACT structure, one numbered sentence per step:
 (1) LAYOUT: State standard_street_layout=true/false and one specific visual reason (e.g. "Corner lot — two distinct road frontages visible in Image A").
