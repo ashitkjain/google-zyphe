@@ -260,9 +260,33 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // This MUST come before step 5 so the heading can be injected into the Gemini prompt.
     const svHeadingFromField = typeof prop.streetViewHeadingDeg === 'number' ? prop.streetViewHeadingDeg : null;
     const svHeadingUrlMatch  = (svUrl ?? '').match(/[&?]heading=([\d.]+)/);
-    const svHeading          = svHeadingFromField ?? (svHeadingUrlMatch ? parseFloat(svHeadingUrlMatch[1]) : null);
+    let   svHeading          = svHeadingFromField ?? (svHeadingUrlMatch ? parseFloat(svHeadingUrlMatch[1]) : null);
     if (svHeading != null) console.log(`[Batch] SV heading for ${zpid}: ${Math.round(svHeading)}\u00b0 (source: ${svHeadingFromField != null ? 'Firestore.streetViewHeadingDeg' : 'URL param'})`);
     else if (usesDualImage) console.warn(`[Batch] No SV heading for ${zpid} \u2014 Gemini will not receive camera heading context; GPS math will be skipped.`);
+
+    // 4c. Validate cached heading against streetSide (CF equivalent of multi-pano priority fix).
+    // The browser resolves this by running a live N/S/E/W multi-pano analysis when the
+    // primary pano is on the wrong road. The CF doesn't have that live fetch, so we use
+    // the streetSide result from _getStreetBearing as a proxy:
+    //   If candidateFront (heading+180°) doesn't point generally TOWARD the road, the
+    //   heading was captured from the wrong side of the house → discard it.
+    //   The SV image is still sent to Gemini for visual judgment, but without a misleading
+    //   CAMERA HEADING directive, so GPS math is skipped and Gemini uses the image visually.
+    if (svHeading != null && streetSide != null) {
+        const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270 };
+        const sideAz  = SIDE_AZ[streetSide];
+        if (sideAz !== undefined) {
+            const candidateFront = (svHeading + 180) % 360;
+            const candidateBack  = svHeading;
+            const frontAligned   = _angDiff(candidateFront, sideAz) <= 67;
+            const backAligned    = _angDiff(candidateBack,  sideAz) <= 67;
+            if (!frontAligned && !backAligned) {
+                console.warn(`[Batch] ${zpid}: cached heading ${Math.round(svHeading)}\u00b0 is inconsistent with streetSide=${streetSide} (road is to the ${streetSide}). candidateFront=${Math.round(candidateFront)}\u00b0 is ${Math.round(_angDiff(candidateFront, sideAz))}\u00b0 away \u2014 heading discarded. Gemini will judge from image only.`);
+                svHeading = null;
+            }
+        }
+    }
+
 
     // 5. Build prompt and call Gemini 2.5 Flash
     const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
