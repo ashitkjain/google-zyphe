@@ -131,12 +131,14 @@ Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layou
    OPTION C — CORNER lot: Two distinct street frontages visible. Use pedestrian walkway to determine primary front.
    OPTION D — FLAG lot: Long driveway/easement leads to a setback lot hidden behind another property.
 
-   HIGHWAY / FREEWAY RULE (applies to ALL layout types):
-   If a divided highway, freeway, or expressway (4+ lanes, raised or depressed roadbed, center median, no residential driveways) is visible adjacent to the property:
-     • It is NEVER the front street, regardless of how prominent it looks in the aerial.
-     • The front always faces the residential street where driveways and walkways connect.
-     • Do NOT output a direction toward the freeway side, even if the freeway appears closer.
-     • If you cannot determine which residential street is the front with confidence, set confidence='low' and final_orientation='UNCLEAR'.
+   DRIVEWAY CONNECTION RULE (applies to ALL layout types — check this before deciding the front street):
+   A road is only a valid front street if there is a DIRECT VISIBLE CONNECTION from the property to that road:
+     • A driveway or apron leading from the garage/parking to the road, OR
+     • A pedestrian walkway from the front door to the sidewalk on that road.
+   If a road is separated from the property by a green belt, tree row, park strip, retaining wall, or any physical barrier with NO driveway or path crossing it:
+     → That road is NOT the front street, regardless of how prominent or close it appears.
+     → Do NOT default to the largest or nearest road — look for where the driveway actually exits.
+   If you cannot find a clear driveway connection to any road, set confidence='low' and final_orientation='UNCLEAR'.
 
 Step 2: Aerial Front-Wall Identification.
 Step 2: Aerial Front-Wall Identification.
@@ -205,7 +207,7 @@ export function buildOrientationPromptAerialOnly(address?: string, description?:
         ? ` GPS geocoding confirms "${streetName || address}" is to the ${sideLabel} of this property — the front likely faces ${sideLabel}.`
         : '';
     const addressClue = address
-        ? `\nPROPERTY ADDRESS: "${address}"\nThe front entrance MUST face "${streetName || address}" — this is the authoritative front street.${sideFact} Rules:\n• FREEWAYS & HIGHWAYS are NEVER valid front streets regardless of visual proximity. If a freeway or divided highway is visible, it is never the front. The address street is always the front.\n• Do NOT default to the largest or most prominent visible road. The address street may be smaller.\n• Override ONLY if BOTH a visible pedestrian walkway AND a driveway clearly connect to a different residential street (not a freeway). One cue alone is not enough to override.`
+        ? `\nPROPERTY ADDRESS: "${address}"\nThe front entrance MUST face "${streetName || address}" — this is the authoritative front street.${sideFact} Rules:\n• DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or pedestrian walkway directly connects the property to it with no barrier in between.\n• If a road is separated from the property by a green belt, tree row, park strip, or any physical barrier with NO driveway crossing it — that road is NOT the front street.\n• Do NOT default to the largest or most prominent visible road. Look for where the driveway actually exits.\n• Override the address street ONLY if BOTH a visible driveway AND pedestrian walkway clearly connect to a different street. One cue alone is not enough to override.`
         : '';
     const descriptionOverride = buildDescriptionHint(description);
     const compassLabel = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
