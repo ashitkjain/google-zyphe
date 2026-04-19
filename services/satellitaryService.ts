@@ -688,21 +688,13 @@ function computeAccurateAzimuth(
             : streetViewShowsFront;
 
     // Gemini definitively identified the FRONT DOOR → snap to the visible face.
-    // GPS heading math is authoritative — EXCEPT:
-    //  (a) camera on a perpendicular/side street: BOTH candidates ≥90° from aerial → use aerial.
-    //  (b) camera at an angle on the front street (cul-de-sac, looping road):
-    //      candidateFront is far from aerial but candidateBack is close. The heading formula
-    //      assumes the camera is perpendicular to the front face; when it's not, candidateFront
-    //      flips to the wrong face. Guard: dFront > 90° AND dFront > dBack + 45° → use aerial.
-    //  Example: heading=163°, front=180° → candidateFront=343° (wrong), dFront=163°, dBack=17°.
+    // GPS heading gives more precise azimuth than aerial-only — UNLESS candidateFront
+    // contradicts Gemini by >90° (camera on side street, cul-de-sac curve, intersection).
+    // In that case, Gemini's aerial is more reliable than a heading that points the wrong way.
     if (showsFront === true) {
         if (geminiAzimuth != null) {
             const dFront = angularDist(geminiAzimuth, candidateFront);
-            const dBack  = angularDist(geminiAzimuth, candidateBack);
-            // (a) Side/perpendicular street: both far from aerial
-            if (dFront >= 90 && dBack >= 90) return Math.round(geminiAzimuth);
-            // (b) Angled camera: candidateFront is much farther than candidateBack from aerial
-            if (dFront > 90 && dFront > dBack + 45) return Math.round(geminiAzimuth);
+            if (dFront > 90) return Math.round(geminiAzimuth);
         }
         return Math.round(candidateFront);
     }
