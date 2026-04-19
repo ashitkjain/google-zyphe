@@ -921,9 +921,16 @@ export async function runSatellitaryAnalysis(
 
         // Compute street bearing once — used by both multi-pano pair selection AND
         // the dual-direct heading inference in computeAccurateAzimuth.
-        const streetBearingResult = address ? await getStreetBearing(address) : null;
-        const streetBearingForAzimuth = streetBearingResult?.bearing ?? null;
+        // EXCEPTION: curvilinear street types (CT, CIR, LOOP, COURT, CIRCLE, PL) have
+        // unreliable geocoding bearings — the +50 neighbour is around a bend, so any
+        // single-offset bearing is wrong. Suppress the hint and let Gemini judge visually.
+        const isCurvilinearStreet = address
+            ? /\b(CT|CIR|LOOP|COURT|CIRCLE|PL|PLACE)\b/i.test(address)
+            : false;
+        const streetBearingResult = (address && !isCurvilinearStreet) ? await getStreetBearing(address) : null;
+        const streetBearingForAzimuth = isCurvilinearStreet ? null : (streetBearingResult?.bearing ?? null);
         const streetSide = streetBearingResult?.streetSide ?? null;
+        if (isCurvilinearStreet) console.log(`[Satellitary] Curvilinear street detected — bearing hint suppressed, Gemini judges visually`);
 
         // Always fetch the GPS heading from metadata (free call) to ensure heading-locked URL
         let candidatePanos: Array<{ lat: number; lng: number; heading: number; dir: 'N' | 'S' | 'E' | 'W' }> | undefined;

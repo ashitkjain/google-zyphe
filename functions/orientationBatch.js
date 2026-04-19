@@ -261,12 +261,20 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     if (!aerialUrl) throw new Error(`No cached aerial image for ${zpid}`);
 
     // 2. Street bearing via Maps Geocoding API
+    // EXCEPTION: curvilinear/looping street types (CT, CIR, LOOP, COURT, CIRCLE, PL)
+    // have unreliable geocoding bearings — the +50 neighbour is around a bend.
+    // Suppress the hint; Gemini will judge the street direction from the aerial.
     let streetBearing = null, streetSide = null;
-    try {
-        const br  = await _getStreetBearing(address, mapsKey);
-        streetBearing = br?.bearing ?? null;
-        streetSide    = br?.streetSide ?? null;
-    } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
+    const isCurvilinearStreet = /\b(CT|CIR|LOOP|COURT|CIRCLE|PL|PLACE)\b/i.test(address ?? '');
+    if (!isCurvilinearStreet) {
+        try {
+            const br  = await _getStreetBearing(address, mapsKey);
+            streetBearing = br?.bearing ?? null;
+            streetSide    = br?.streetSide ?? null;
+        } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
+    } else {
+        console.log(`[Batch] ${zpid}: curvilinear street (${address}) — bearing hint suppressed`);
+    }
 
     // 3. Download images to base64 (Firebase Storage URLs with tokens are publicly accessible)
     const aerialImg = await _downloadImageBase64(aerialUrl);
