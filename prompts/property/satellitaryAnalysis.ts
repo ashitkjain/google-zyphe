@@ -123,7 +123,10 @@ Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layou
                Directly below P = SOUTH (180°) |  Directly left  = WEST (270°)
            • If the cul-de-sac is diagonally placed (both horizontal AND vertical offset), you MUST use the diagonal compass direction (NW/NE/SW/SE). Do NOT reduce it to a cardinal direction (N/E/S/W) unless the offset is almost entirely in one axis.
            • The front wall azimuth = the angle from P toward C (the direction the front wall FACES).
-         IMPORTANT for Step 3: The Street View camera is almost always positioned INSIDE the circular court area looking at the FRONT of the house. If Image B shows a garage door or front door visible, set street_view_shows_front = TRUE. Only set FALSE if you see a clearly featureless back wall with no openings.
+          CUL-DE-SAC EXTRA GATE FOR Step 3: The Street View camera may be positioned ANYWHERE on the curved road — it is NOT guaranteed to be looking at the front.
+          Set street_view_shows_front = TRUE ONLY if the face of the house visible in Image B faces the SAME direction as the cul-de-sac center (the direction computed in your P→C vector above).
+          If the camera heading puts it looking at a SIDE or BACK wall (i.e., the visible face runs parallel to or away from the P→C vector), set street_view_shows_front = FALSE.
+          Do NOT set sv_front = TRUE just because a wall, fence, or garage door is visible in Image B — it must be the face that OPENS toward the cul-de-sac circle.
    OPTION B — STANDARD lot: Straight or gently curved street, no dead-end bulb visible. Use the walkway rule.
    OPTION C — CORNER lot: Two distinct street frontages visible. Use pedestrian walkway to determine primary front.
    OPTION D — FLAG lot: Long driveway/easement leads to a setback lot hidden behind another property.
