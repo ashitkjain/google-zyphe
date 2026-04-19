@@ -123,7 +123,8 @@ async function _getStreetBearing(address, mapsKey) {
             if (p1.road && p2.road && p1.road !== p2.road) continue; // different road → skip
             const dlat = (p2.lat - p1.lat) * 111320;
             const dlng = (p2.lng - p1.lng) * 111320 * Math.cos(p1.lat * Math.PI / 180);
-            if (Math.sqrt(dlat * dlat + dlng * dlng) < 20) continue; // too close → skip
+            const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+            if (dist < 20) continue; // too close → geocoding artifact
             bearings.push({ bearing: _computeBearing(p1.lat, p1.lng, p2.lat, p2.lng), p2lat: p2.lat, p2lng: p2.lng });
         }
 

@@ -131,6 +131,13 @@ Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layou
    OPTION C — CORNER lot: Two distinct street frontages visible. Use pedestrian walkway to determine primary front.
    OPTION D — FLAG lot: Long driveway/easement leads to a setback lot hidden behind another property.
 
+   HIGHWAY / FREEWAY RULE (applies to ALL layout types):
+   If a divided highway, freeway, or expressway (4+ lanes, raised or depressed roadbed, center median, no residential driveways) is visible adjacent to the property:
+     • It is NEVER the front street, regardless of how prominent it looks in the aerial.
+     • The front always faces the residential street where driveways and walkways connect.
+     • Do NOT output a direction toward the freeway side, even if the freeway appears closer.
+     • If you cannot determine which residential street is the front with confidence, set confidence='low' and final_orientation='UNCLEAR'.
+
 Step 2: Aerial Front-Wall Identification.
 Step 2: Aerial Front-Wall Identification.
    Using the layout you identified in Step 1, identify which compass direction the front wall faces. Confirm with: (a) pedestrian walkway, (b) driveway direction, (c) lot orientation.
