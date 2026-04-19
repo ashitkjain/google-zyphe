@@ -212,7 +212,7 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
             `Step 0: Quality/Construction check. Blurry → image_quality="blurry", UNCLEAR_IMAGE. Under construction → is_under_construction=true, UNDER_CONSTRUCTION.`,
             `Step 0b: Street View Usability. Mark street_view_shows_front=null (rely on aerial only) if Image B is: privacy blurred, solid wall/fence, OR house is too far away / obstructed by trees/vegetation. Do NOT apply heading math when street_view_shows_front=null.`,
             `  TOWNHOUSE/CONDO EXTRA GATE: set front_door_clearly_visible=true ONLY if ALL are true: (a) clearly distinct residential PEDESTRIAN door visible — a walk-through door with a handle. A GARAGE DOOR (vehicle roller/sectional door) is NEVER a front door even if it faces the main road. (b) direct pedestrian path from sidewalk to THAT door. (c) not a garage roller door, shared lobby, or rear gate. (d) close enough to identify as THIS unit.\n  GARAGE-ONLY TRAP (most common failure for modern townhouses): If Image B shows only garage/roller doors filling the ground floor with NO walk-through pedestrian door visible — even if the garage faces the main road — set front_door_clearly_visible=false IMMEDIATELY. Do not look for workarounds.\n  DISTANCE/AMBIGUITY TRAP: if doors are far or multiple identical unit doors visible with no way to tell which is this address → front_door_clearly_visible=false.`,
-            `Step 1: Layout detection — classify as standard, cul_de_sac, corner_lot, flag_lot, or other.\n   CORNER LOT (look carefully — this is the most commonly mis-classified type):\n     A property is a corner lot when TWO named public streets form its boundary at an intersection.\n     Visual signals in the aerial: (a) two perpendicular or angled curb lines meeting at the lot corner, (b) sidewalks along both edges, (c) through-traffic lanes of consistent width on BOTH sides.\n     NOT a corner lot: a property that shares a boundary with a private internal road, parking aisle, alley behind a garage, or a shared courtyard — even if those surfaces look road-like from above.\n     KEY TEST: can you see a named public street touching TWO different sides of this lot? If yes → corner_lot.\n   CUL-DE-SAC DIRECTION: draw a vector from property center (P) → cul-de-sac center (C). Use BOTH axes: upper-left=NW, upper-right=NE, lower-left=SW, lower-right=SE. Do NOT collapse a diagonal to a cardinal (e.g. upper-left is NW ~315°, NOT west 270° or southwest 225°).`,
+            `Step 1: Layout detection — classify as standard, cul_de_sac, corner_lot, flag_lot, or other.\n   CORNER LOT (look carefully — this is the most commonly mis-classified type):\n     A property is a corner lot when TWO named public streets form its boundary at an intersection.\n     Visual signals in the aerial: (a) two perpendicular or angled curb lines meeting at the lot corner, (b) sidewalks along both edges, (c) through-traffic lanes of consistent width on BOTH sides.\n     NOT a corner lot: a property that shares a boundary with a private internal road, parking aisle, alley behind a garage, or a shared courtyard — even if those surfaces look road-like from above.\n     KEY TEST: can you see a named public street touching TWO different sides of this lot? If yes → corner_lot.\n     CUL-DE-SAC PRECEDENCE: if one of the two streets terminates as a circular dead-end (cul-de-sac circle) AND the property driveway directly connects to that circle, classify as cul_de_sac — NOT corner_lot. The cul-de-sac identity takes priority.\n   CUL-DE-SAC DIRECTION: draw a vector from property center (P) → cul-de-sac center (C). Use BOTH axes: upper-left=NW, upper-right=NE, lower-left=SW, lower-right=SE. Do NOT collapse a diagonal to a cardinal (e.g. upper-left is NW ~315°, NOT west 270° or southwest 225°).`,
             `Step 2: Aerial front-wall identification. FACING CONVENTION (CRITICAL — all 8 directions valid): front faces TOWARD the street. South=180°, SE=135°, SW=225°, N=0°, NE=45°, NW=315°, E=90°, W=270°. NEVER collapse diagonal to cardinal (if street is lower-right=SE, face SE not south). NEVER invert (street south=face south, not north). DIRECTION PRECISION: trace driveway toward street using BOTH axes — upper-left=NW, upper-right=NE, lower-left=SW, lower-right=SE. Only use N/E/S/W when movement is almost entirely one-axis. DRIVEWAY CONNECTION RULE: only count a road as the front street if a driveway physically connects to it — a road blocked by a green belt, tree row, or barrier with no driveway crossing is NOT the front street.`,
             `Step 3: Image B judgment ONLY. Look at Image B — does it show the FRONT (door, porch, entry) or BACK (blank wall, fence)? Judge from the image alone, NOT from your Step 2 aerial conclusion. Set street_view_shows_front = true (front visible) or false (back/side visible) or null (obstructed/blurred/too far). The system computes the final azimuth from GPS heading + your answer. Do NOT compute azimuth yourself or adjust this field to match your Step 2 guess.`,
             `Step 4: Finalize — output final_orientation, azimuth_degrees, confidence, property_layout_type.\n   IF street_view_shows_front = FALSE (set in Step 3): ⚠️ GARAGE-SIDE CORRECTION. The camera confirmed it was NOT seeing the front. This means the driveway you traced in Step 2 connects to the GARAGE, NOT the front entrance. The Step 2 azimuth is the GARAGE direction — do NOT use it as the final answer. Re-examine Image A: (a) look for a pedestrian walkway on any OTHER face of the house. (b) If a clear pedestrian path is visible on another face, set azimuth_degrees to THAT face. (c) If no other face shows a clear walkway, set final_orientation='UNCLEAR', azimuth_degrees=null, confidence='low'.`,
@@ -443,31 +443,36 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // For complex lot types: split policy by type.
     //
     // CORNER LOT → always UNCLEAR.
-    //   Even when shows_front=true the GPS heading confirms *which face* the camera sees
-    //   but NOT *which street* that face belongs to. The two frontages on a corner make
-    //   the primary-street question unanswerable from aerial + one street-view pano alone.
-    //   Safe default: UNCLEAR (buyer/agent knows to verify on-site).
+    //   Two frontages make the primary-street question unanswerable.
     //
-    // CUL-DE-SAC → UNCLEAR only when shows_front ≠ true.
-    //   Architectural rule: on a cul-de-sac property the front ALWAYS faces the circular
-    //   dead-end. When shows_front=true, the GPS candidateFront reliably points toward
-    //   that circle and the result is trustworthy. shows_front=false/null → UNCLEAR.
+    // CUL-DE-SAC → TRUST the aerial driveway azimuth (never UNCLEAR purely because of layout).
+    //   Architectural rule: front ALWAYS faces the cul-de-sac circle.
+    //   GPS is already skipped for cul-de-sac (skipped above in GPS math block).
+    //   The aerial driveway trace IS the authoritative direction — show it.
+    //   Only fall back to UNCLEAR if Gemini returned no azimuth at all (finalAzimuth==null)
+    //   or the property is aerial-only with genuinely no usable direction.
     const isCornerLot = layoutType === 'corner_lot';
     const isCulDeSac  = layoutType === 'cul_de_sac';
-    const cornerlotUnclear    = isCornerLot;
-    const culdesacSVFailed    = isCulDeSac && usesDualImage && data.street_view_shows_front !== true;
-    const complexLayoutSVFailed = cornerlotUnclear || culdesacSVFailed ||
-        // legacy alias — catches remaining isCornerOrCulDeSac + shows_front !== true path
-        (usesDualImage && isCornerOrCulDeSac && data.street_view_shows_front !== true);
+    const cornerlotUnclear = isCornerLot;
+    // No culdesacSVFailed gate — cul-de-sac rule: front faces the circle, aerial tells us which way.
+    const complexLayoutSVFailed = cornerlotUnclear ||
+        // legacy: non-cul-de-sac complex layouts when SV is uninformative
+        (usesDualImage && isCornerOrCulDeSac && !isCulDeSac && data.street_view_shows_front !== true);
 
     if ((aerialOnlyMode && (data.standard_street_layout === false || isCornerOrCulDeSac)) || complexLayoutSVFailed) {
+        // For cul-de-sac in aerial-only mode: only mark UNCLEAR if we have NO azimuth.
+        // If there IS an azimuth, the cul-de-sac rule applies and we show the direction.
+        if (isCulDeSac && finalAzimuth != null) {
+            console.log(`[Batch] ${zpid}: cul-de-sac aerial azimuth ${finalAzimuth}° — trusting architectural rule (front faces cul-de-sac circle).`);
+            // Do not override — let finalAzimuth / finalOrientation stand.
+        } else {
         const reason = isCornerLot                      ? 'corner_lot (always UNCLEAR — two frontages ambiguous)'
-            : culdesacSVFailed                          ? `cul_de_sac + street_view_shows_front=${data.street_view_shows_front} (not definitive)`
             : data.standard_street_layout === false     ? 'non-standard layout'
-            :                                             'cul_de_sac (aerial-only)';
+            :                                             'cul_de_sac (no azimuth from aerial)';
         console.log(`[Batch] Override ${zpid}: ${reason} → UNCLEAR`);
         finalOrientation = 'UNCLEAR';
         finalAzimuth     = null;
+        }
     }
 
 
