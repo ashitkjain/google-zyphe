@@ -364,9 +364,10 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                                 </div>
                                                 <div className="text-[20px] font-black text-slate-800">
                                                     {(() => {
-                                                        const adr = customAnalysis?.property_investment?.str_performance?.target_adr || "";
+                                                        const adrData = customAnalysis?.property_investment?.str_performance;
+                                                        const adr = adrData?.adr || (adrData as any)?.target_adr || "";
                                                         const match = adr.match(/\$[\d,]+(?:\s*(?:to|-)\s*\$[\d,]+)?/);
-                                                        return match ? match[0] : (adr.length > 15 ? "--" : adr || "--");
+                                                        return match ? match[0] : (adr.length > 20 ? adr.substring(0, 17) + "..." : adr || "--");
                                                     })()}
                                                 </div>
                                                 <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Daily Rate</div>
