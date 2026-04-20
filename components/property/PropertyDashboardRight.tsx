@@ -8,7 +8,7 @@ import React from 'react';
 import { PropertyData, CustomAIAnalysisResult } from '../../types';
 import VastuCard from './VastuCard';
 import NeighborhoodPlacesSection from './NeighborhoodPlacesSection';
-import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
+import { isTargetForOrientationAnalysis, isOrientationClear } from '../../utils/propertyPolicies';
 import { NeighborhoodAnalysis } from '../../types/ai';
 import { SectionCard } from './PropertyDashboardShared';
 
@@ -290,7 +290,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
             )}
 
             {/* Orientation & Vastu */}
-            {data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && (data as any).orientation_ai.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+            {data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && isOrientationClear((data as any).orientation_ai) && (() => {
                 const sat = (data as any).orientation_ai;
                 return (
                     <SectionCard

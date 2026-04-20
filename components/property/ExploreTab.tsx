@@ -28,6 +28,7 @@ import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 import { trackViewModeChanged } from '../../services/analytics/idxTracking';
 import { BrowseHomeSection } from './BrowseByCitySection';
 import { useExploreTabData } from './hooks/useExploreTabData';
+import { isOrientationClear } from '../../utils/propertyPolicies';
 import { ExploreRow1Cards } from './ExploreRow1Cards';
 import { PropertyLifestylePanel } from './PropertyLifestylePanel';
 import { PropertyInsightsPanel } from './PropertyInsightsPanel';
@@ -131,11 +132,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         { id: 'ov-sun',         label: 'Solar Insights',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
         { id: 'ov-living',      label: 'Daily Living & Commute',  icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
         { id: 'ov-schools',     label: 'Schools',                  icon: 'fa-graduation-cap',    visible: hasSchoolsData },
-        { id: 'ov-orientation', label: 'Orientation and Vastu',       icon: 'fa-compass',           visible: !!(propertyData as any)?.orientation_ai },
+        { id: 'ov-orientation', label: 'Orientation and Vastu',       icon: 'fa-compass',           visible: !!(propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai) },
         { id: 'ov-neighborhood',label: 'Neighborhood',            icon: 'fa-mountain-sun',      visible: !!propertyData?.neighborhood_identity },
         { id: 'ov-rental',      label: 'Rent Estimates',           icon: 'fa-sack-dollar',       visible: !!ltrAnalysis },
         { id: 'ov-nearby',      label: "What's Nearby?",           icon: 'fa-map-location-dot',  visible: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) },
-        { id: 'ov-ai-analysis', label: 'Property AI',              icon: 'fa-brain',             visible: !!(designStyle || keyInsights || ltrAnalysis || (propertyData as any)?.orientation_ai || neighborhoodOverview || analysis) },
+        { id: 'ov-ai-analysis', label: 'Property AI',              icon: 'fa-brain',             visible: !!(designStyle || keyInsights || ltrAnalysis || ((propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai)) || neighborhoodOverview || analysis) },
         { id: 'ov-streetview',  label: 'Eyes on the Street',       icon: 'fa-street-view',       visible: !!propertyData?.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false },
         { id: 'ov-community',   label: `${propertyData?.city || 'Community'} Overview`, icon: 'fa-city',              visible: true },
     ];
@@ -447,7 +448,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
 
 
-                                        {(designStyle || keyInsights || ltrAnalysis || (propertyData as any).orientation_ai || neighborhoodOverview || analysis) && (
+                                        {(designStyle || keyInsights || ltrAnalysis || ((propertyData as any).orientation_ai && isOrientationClear((propertyData as any).orientation_ai)) || neighborhoodOverview || analysis) && (
                                             <div className="flex flex-col gap-2">
                                                 <ExploreRow1Cards
                                                     propertyData={propertyData}

@@ -2078,11 +2078,11 @@ function MapThumb({ url, label, orientations, onRefreshUrl }: {
                                                             </div>
                                                             <div className="flex gap-2 mt-0.5">
                                                                 <span className="text-[10px] font-black text-white/80">
-                                                                    {orientations.orientationAI.lot_coverage_hardscape}% Hardscape
+                                                                    {Math.round((orientations.orientationAI.lot_coverage_hardscape > 0 && orientations.orientationAI.lot_coverage_hardscape <= 1) ? orientations.orientationAI.lot_coverage_hardscape * 100 : (orientations.orientationAI.lot_coverage_hardscape ?? 0))}% Hardscape
                                                                 </span>
                                                                 <span className="text-[10px] text-white/30">/</span>
                                                                 <span className="text-[10px] font-black text-emerald-300">
-                                                                    {orientations.orientationAI.lot_coverage_pervious}% Pervious
+                                                                    {Math.round((orientations.orientationAI.lot_coverage_pervious > 0 && orientations.orientationAI.lot_coverage_pervious <= 1) ? orientations.orientationAI.lot_coverage_pervious * 100 : (orientations.orientationAI.lot_coverage_pervious ?? (100 - ((orientations.orientationAI.lot_coverage_hardscape > 0 && orientations.orientationAI.lot_coverage_hardscape <= 1) ? orientations.orientationAI.lot_coverage_hardscape * 100 : (orientations.orientationAI.lot_coverage_hardscape ?? 0)))))}% Pervious
                                                                 </span>
                                                             </div>
                                                         </div>

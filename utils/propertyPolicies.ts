@@ -55,6 +55,15 @@ export const isTargetForOrientationAnalysis = (prop: {
 };
 
 /**
+ * Checks if the Orientation analysis result is clear/conclusive.
+ */
+export const isOrientationClear = (orientationAi: any): boolean => {
+    if (!orientationAi || !orientationAi.final_orientation) return false;
+    const final = orientationAi.final_orientation;
+    return final !== 'UNCLEAR' && final !== 'UNCLEAR_IMAGE';
+};
+
+/**
  * Checks if a property is a "ghost" or placeholder listing.
  */
 export const isGhostListing = (item: { address?: string | null }): boolean => {

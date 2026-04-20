@@ -106,17 +106,24 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                                         {/* Lot Coverage + buyer signal — moved from Front Orientation card */}
                                                                         {(propertyData as any).orientation_ai && (() => {
                                                                             const sat2 = (propertyData as any).orientation_ai;
+                                                                            const hVal = sat2.lot_coverage_hardscape;
+                                                                            const pVal = sat2.lot_coverage_pervious;
+                                                                            const h = (hVal != null && hVal > 0 && hVal <= 1) ? hVal * 100 : (hVal ?? 0);
+                                                                            const p = (pVal != null && pVal > 0 && pVal <= 1) ? pVal * 100 : (pVal ?? (100 - h));
+                                                                            const hard = Math.round(h);
+                                                                            const green = Math.round(p);
+
                                                                             return (
                                                                                 <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-                                                                                    {sat2.lot_coverage_hardscape != null && (
+                                                                                    {hVal != null && (
                                                                                         <div className="p-2 bg-white rounded-lg border border-slate-100">
                                                                                             <div className="text-[11px] font-black uppercase text-slate-400 tracking-wider mb-1">Lot Coverage</div>
                                                                                             <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                                                                                <div className="h-full bg-slate-400 rounded-full" style={{ width: `${sat2.lot_coverage_hardscape}%` }} />
+                                                                                                <div className="h-full bg-slate-400 rounded-full" style={{ width: `${hard}%` }} />
                                                                                             </div>
                                                                                             <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-0.5">
-                                                                                                <span>{sat2.lot_coverage_hardscape}% hard</span>
-                                                                                                <span className="text-emerald-600">{sat2.lot_coverage_pervious ?? (100 - sat2.lot_coverage_hardscape)}% green</span>
+                                                                                                <span>{hard}% hard</span>
+                                                                                                <span className="text-emerald-600">{green}% green</span>
                                                                                             </div>
                                                                                         </div>
                                                                                     )}

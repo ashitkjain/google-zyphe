@@ -373,14 +373,14 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                                     </div>
                                     <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Lot Coverage</h4>
                                     <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
-                                        <div className="h-full bg-gray-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
+                                        <div className="h-full bg-gray-400 rounded-full" style={{ width: `${Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}%` }} />
                                     </div>
                                     <div className="flex justify-between text-[11px] font-black text-gray-500 mb-3">
-                                        <span>{sat.lot_coverage_hardscape}% hardscape</span>
-                                        <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
+                                        <span>{Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}% hardscape</span>
+                                        <span className="text-emerald-600">{Math.round((sat.lot_coverage_pervious > 0 && sat.lot_coverage_pervious <= 1) ? sat.lot_coverage_pervious * 100 : (sat.lot_coverage_pervious ?? (100 - ((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0)))))}% green</span>
                                     </div>
                                     <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">
-                                        ~{sat.lot_coverage_hardscape}% of the lot is hardscape (roof, driveway, patio) and ~{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% is pervious green space.
+                                        ~{Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}% of the lot is hardscape (roof, driveway, patio) and ~{Math.round((sat.lot_coverage_pervious > 0 && sat.lot_coverage_pervious <= 1) ? sat.lot_coverage_pervious * 100 : (sat.lot_coverage_pervious ?? (100 - ((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0)))))}% is pervious green space.
                                     </p>
                                 </div>
                             )}

@@ -377,12 +377,12 @@ export const satellitarySchema = {
         },
         lot_coverage_hardscape: {
             type: Type.NUMBER,
-            description: 'Approximate percentage (0-100) of the lot covered by hardscape: roof, driveway, patio, concrete.',
+            description: 'Approximate percentage as a WHOLE NUMBER (0-100) of the lot covered by hardscape: roof, driveway, patio, concrete.',
             nullable: true
         },
         lot_coverage_pervious: {
             type: Type.NUMBER,
-            description: 'Approximate percentage (0-100) of the lot covered by pervious green space: lawn, trees, garden, soil.',
+            description: 'Approximate percentage as a WHOLE NUMBER (0-100) of the lot covered by pervious green space: lawn, trees, garden, soil.',
             nullable: true
         },
         buyer_pro: {
