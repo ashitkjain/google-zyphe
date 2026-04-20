@@ -52,6 +52,8 @@ interface OrientationRow {
     firstOrientation?: string;
     /** True when the current AI orientation direction differs from the first-ever recorded version. */
     changedFromFirst: boolean;
+    firstAnalyzedAt?: any;    // dateMined of the very first orientation run (proxy for first download)
+    isNewProperty?: boolean;  // true when first analyzed ≤5 days ago AND has only one history version
     status: 'idle' | 'running' | 'refreshing' | 'done' | 'error';
     error?: string;
 }
@@ -246,6 +248,15 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     orientationAssessment: orientationAssessmentMap[d.id] ?? [],
                     assessedAt: assessedAtMap[d.id] ?? null,
                     calculatedAt: p.orientation_calculated_at ?? null,
+                    firstAnalyzedAt: history?.first?.dateMined ?? null,
+                    isNewProperty: (() => {
+                        const first = history?.first?.dateMined;
+                        if (!first) return false;
+                        const hasMultipleVersions = !!history?.previous;
+                        if (hasMultipleVersions) return false;
+                        const d = new Date(first);
+                        return (Date.now() - d.getTime()) / 86400000 <= 5;
+                    })(),
                     zip: history?.latest?.zip || p.zipCode,
                     status: 'idle' as const,
                 };
@@ -475,8 +486,22 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 return gtMatchFilter === 'match' ? match : !match;
             });
         }
-        return rs;
+        // Always float NEW properties to the top, sorted newest-first within that group.
+        // Remaining rows stay in their natural (address-alphabetical) order.
+        return rs.slice().sort((a, b) => {
+            const aNew = a.isNewProperty ? 1 : 0;
+            const bNew = b.isNewProperty ? 1 : 0;
+            if (aNew !== bNew) return bNew - aNew; // NEW first
+            if (aNew && bNew) {
+                // Within the NEW group: most recently analyzed first
+                const aTime = a.firstAnalyzedAt ? new Date(a.firstAnalyzedAt?.toDate?.() ?? a.firstAnalyzedAt).getTime() : 0;
+                const bTime = b.firstAnalyzedAt ? new Date(b.firstAnalyzedAt?.toDate?.() ?? b.firstAnalyzedAt).getTime() : 0;
+                return bTime - aTime;
+            }
+            return 0; // preserve existing address order for non-new rows
+        });
     }, [rows, activeCity, showMissingOnly, showOrientationDiffOnly, showChangedFromFirstOnly, caseFilter, propertyTypeFilter, gtMatchFilter, groundTruthByZpid]);
+
 
     const missedProperties = useMemo(() => {
         const now = Date.now();
@@ -1238,7 +1263,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 );
                             })}
                             {/* GT match / mismatch / unclear pills */}
-                            {(gtStats.total > 0 || gtStats.unclear > 0) && (
+                            {(gtStats.total > 0 || gtStats.unclear > 0 || gtStats.noGt > 0) && (
                                 <>
                                     <span className="text-slate-200">|</span>
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">GT</span>
@@ -1269,8 +1294,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             <span className="text-[11px] font-black text-amber-700">{gtStats.unclear}</span>
                                         </div>
                                     )}
+                                    {gtStats.noGt > 0 && (
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-indigo-50 border-indigo-200">
+                                            <span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
+                                            <span className="text-[9px] font-black uppercase tracking-wide text-indigo-700">New</span>
+                                            <span className="text-[11px] font-black text-indigo-700">{gtStats.noGt}</span>
+                                        </div>
+                                    )}
                                 </>
                             )}
+
                             <div className="ml-auto flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                 <span>
                                     <span className="text-slate-600">{assessedCount}</span> / {filteredRows.length} assessed
@@ -1344,6 +1377,23 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 {row.status === 'refreshing' && (
                                                     <div className="text-[9px] text-indigo-500 font-black mt-1">↻ Refreshing…</div>
                                                 )}
+                                                {row.isNewProperty && (() => {
+                                                    const lu = row.firstAnalyzedAt;
+                                                    if (!lu) return null;
+                                                    const d = lu?.toDate?.() ?? (lu instanceof Date ? lu : new Date(lu));
+                                                    const daysAgo = (Date.now() - d.getTime()) / 86400000;
+                                                    const label = daysAgo < 1
+                                                        ? `${Math.floor(daysAgo * 24)}h ago`
+                                                        : `${Math.floor(daysAgo)}d ago`;
+                                                    return (
+                                                        <span
+                                                            title={`First analyzed ${label}`}
+                                                            className="inline-flex items-center gap-0.5 mt-1.5 px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest"
+                                                        >
+                                                            ✦ NEW
+                                                        </span>
+                                                    );
+                                                })()}
                                             </td>
 
                                             <td className="p-5">
