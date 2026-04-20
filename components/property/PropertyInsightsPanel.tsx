@@ -337,33 +337,47 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                             <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-wider">High Yield</div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div className="p-4 bg-white rounded-xl border border-indigo-100/50 shadow-sm">
                                                 <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                                                     <i className="fa-solid fa-sack-dollar text-indigo-300" /> Revenue
                                                 </div>
-                                                <div className="text-[24px] font-black text-slate-800">
+                                                <div className="text-[20px] font-black text-slate-800">
                                                     {(() => {
                                                         const rev = customAnalysis?.property_investment?.str_performance?.annual_revenue_projection || "";
                                                         const match = rev.match(/\$[\d,]{4,}/);
                                                         return match ? match[0] : "--";
                                                     })()}
                                                 </div>
-                                                <div className="text-[11px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Annual Est.</div>
+                                                <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Annual Est.</div>
                                             </div>
 
                                             <div className="p-4 bg-white rounded-xl border border-indigo-100/50 shadow-sm">
                                                 <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                                                     <i className="fa-solid fa-percent text-indigo-300" /> Occupancy
                                                 </div>
-                                                <div className="text-[24px] font-black text-indigo-600">
+                                                <div className="text-[20px] font-black text-indigo-600">
                                                     {(() => {
                                                         const occ = customAnalysis?.property_investment?.str_performance?.occupancy_rate || "";
                                                         const match = occ.match(/(\d+(?:-\d+)?%)/);
                                                         return match ? match[1] : "--";
                                                     })()}
                                                 </div>
-                                                <div className="text-[11px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Estimated</div>
+                                                <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Estimated</div>
+                                            </div>
+
+                                            <div className="p-4 bg-white rounded-xl border border-indigo-100/50 shadow-sm">
+                                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-tag text-indigo-300" /> Target ADR
+                                                </div>
+                                                <div className="text-[20px] font-black text-slate-800">
+                                                    {(() => {
+                                                        const adr = customAnalysis?.property_investment?.str_performance?.target_adr || "";
+                                                        const match = adr.match(/\$[\d,]+(?:\s*(?:to|-)\s*\$[\d,]+)?/);
+                                                        return match ? match[0] : (adr.length > 15 ? "--" : adr || "--");
+                                                    })()}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Daily Rate</div>
                                             </div>
                                         </div>
 
