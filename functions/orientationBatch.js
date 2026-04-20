@@ -96,7 +96,7 @@ const _dir8 = (az) => ['North','Northeast','East','Southeast','South','Southwest
  * Geocodes address + neighbour 50/100 numbers away to compute the street's bearing.
  * Returns { bearing, streetSide } or null.
  */
-async function _getStreetBearing(address, mapsKey) {
+async function _getStreetBearing(address, mapsKey, propLat = null, propLng = null) {
     const match = address.match(/^(\d+)/);
     if (!match || !mapsKey) return null;
     const houseNum = parseInt(match[1], 10);
@@ -130,19 +130,34 @@ async function _getStreetBearing(address, mapsKey) {
 
         if (bearings.length === 0) return null;
 
-        // Derive rough cardinal street side from aggregate neighbour position.
-        const avgDlat = bearings.reduce((s, b) => s + (b.p2lat - p1.lat), 0) / bearings.length;
-        const avgDlng = bearings.reduce((s, b) => s + (b.p2lng - p1.lng), 0) / bearings.length;
-        const streetSide = Math.abs(avgDlat) >= Math.abs(avgDlng * Math.cos(p1.lat * Math.PI / 180))
-            ? (avgDlat > 0 ? 'N' : 'S')
-            : (avgDlng > 0 ? 'E' : 'W');
-
-        // Stability check: if two bearings disagree by >30°, road is curved — suppress bearing.
-        if (bearings.length >= 2 && _angDiff(bearings[0].bearing, bearings[1].bearing) > 30) {
-            return { bearing: null, streetSide };
-        }
-
+        // Compute streetSide using signed perpendicular: cross-product of road direction × property offset.
+        // This correctly identifies which side of the road the property is on for diagonal streets.
+        // For a 315° road (NW-SE), the old 'which way is my neighbour' approach gives N or W (along road),
+        // not SW or NE (perpendicular to road). The cross-product gives the correct perp direction.
         const best = bearings[0];
+        let streetSide;
+        if (propLat != null && propLng != null) {
+            // v = road direction unit vector (p1 → p2), w = property centroid relative to p1
+            const vDlat = (bearings[0].p2lat - p1.lat);
+            const vDlng = (bearings[0].p2lng - p1.lng) * Math.cos(p1.lat * Math.PI / 180); // equalize for lon compression
+            const wDlat = (propLat - p1.lat);
+            const wDlng = (propLng - p1.lng) * Math.cos(p1.lat * Math.PI / 180);
+            // 2D cross product (z-component): positive = w is to the LEFT of v (CCW), negative = RIGHT (CW)
+            const cross = vDlng * wDlat - vDlat * wDlng;
+            // Direction from PROPERTY toward ROAD = perpendicular that points from property to road
+            // If property is to RIGHT of road (cross<0): road is to the LEFT of property → perpTowardStreet = roadBearing - 90
+            // If property is to LEFT of road (cross>0): road is to the RIGHT of property → perpTowardStreet = roadBearing + 90
+            const perpTowardStreet = ((best.bearing + (cross < 0 ? -90 : 90)) % 360 + 360) % 360;
+            const DIR8 = ['N','NE','E','SE','S','SW','W','NW'];
+            streetSide = DIR8[Math.round(((perpTowardStreet % 360) + 360) % 360 / 45) % 8];
+            console.log(`[Batch] _getStreetBearing: cross=${cross.toFixed(4)}, roadBearing=${Math.round(best.bearing)}°, perpTowardStreet=${Math.round(perpTowardStreet)}° → streetSide=${streetSide}`);
+        } else {
+            // Fallback: neighbour direction (less accurate for diagonal roads)
+            const avgDlat = bearings.reduce((s,b)=>s+(b.p2lat-p1.lat),0)/bearings.length;
+            const avgDlng = bearings.reduce((s,b)=>s+(b.p2lng-p1.lng),0)/bearings.length;
+            streetSide = Math.abs(avgDlat)>=Math.abs(avgDlng*Math.cos(p1.lat*Math.PI/180))?(avgDlat>0?'N':'S'):(avgDlng>0?'E':'W');
+            console.log(`[Batch] _getStreetBearing: no propLat/Lng → neighbour fallback streetSide=${streetSide}`);
+        }
 
         // Bidirectional cross-validation: bearing(-50) must be ~180° opposite to bearing(+50).
         // Two forward offsets (+50,+100) can both be wrong on a curved/diagonal road.
@@ -179,7 +194,7 @@ async function _downloadImageBase64(url) {
 
 function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide, svHeading) {
     const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
-    const sideLabel  = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST' }[streetSide] || null;
+    const sideLabel  = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
     const sideFact   = (streetBearing == null && sideLabel)
         ? ` GPS confirms "${streetName || address}" is to the ${sideLabel} — the front likely faces ${sideLabel}.` : '';
     const addressClue = address
@@ -265,12 +280,23 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     if (!aerialUrl) throw new Error(`No cached aerial image for ${zpid}`);
 
     // 2. Street bearing via Maps Geocoding API
+    // Extract property centroid from satelliteImageUrl (center=lat,lng param) or Firestore fields.
+    // Used by _getStreetBearing for cross-product streetSide computation on diagonal roads.
+    let propLat = prop.latitude ?? prop.location?.latitude ?? null;
+    let propLng = prop.longitude ?? prop.location?.longitude ?? null;
+    if ((propLat == null || propLng == null) && aerialUrl) {
+        const m = aerialUrl.match(/[?&]center=([-\d.]+),([-\d.]+)/);
+        if (m) { propLat = parseFloat(m[1]); propLng = parseFloat(m[2]); }
+    }
+    if (propLat != null) console.log(`[Batch] Property centroid ${zpid}: ${propLat.toFixed(5)},${propLng.toFixed(5)}`);
+
     let streetBearing = null, streetSide = null;
     try {
-        const br  = await _getStreetBearing(address, mapsKey);
+        const br  = await _getStreetBearing(address, mapsKey, propLat, propLng);
         streetBearing = br?.bearing ?? null;
         streetSide    = br?.streetSide ?? null;
     } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
+
 
     // 3. Download images to base64 (Firebase Storage URLs with tokens are publicly accessible)
     const aerialImg = await _downloadImageBase64(aerialUrl);
@@ -303,7 +329,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     //   The SV image is still sent to Gemini for visual judgment, but without a misleading
     //   CAMERA HEADING directive, so GPS math is skipped and Gemini uses the image visually.
     if (svHeading != null && streetSide != null) {
-        const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270 };
+        const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270, NE: 45, SE: 135, SW: 225, NW: 315 };
         const sideAz  = SIDE_AZ[streetSide];
         if (sideAz !== undefined) {
             const candidateFront = (svHeading + 180) % 360;
@@ -400,7 +426,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
             : p1;
         // If chosen perp faces >90° away from the road, the weak azimuth was inverted too — flip it.
         if (streetSide != null) {
-            const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270 };
+            const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270, NE: 45, SE: 135, SW: 225, NW: 315 };
             const sz = SIDE_AZ[streetSide];
             if (sz !== undefined && _angDiff(chosen, sz) > 90) {
                 const flipped = chosen === p1 ? p2 : p1;
@@ -421,7 +447,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     if (!aerialConfidenceFail && !usesDualImage &&
         data.standard_street_layout === true &&
         streetSide != null && finalAzimuth != null) {
-        const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270 };
+        const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270, NE: 45, SE: 135, SW: 225, NW: 315 };
         const sideAz  = SIDE_AZ[streetSide];
         if (sideAz !== undefined) {
             const distFromRoad = _angDiff(finalAzimuth, sideAz);
@@ -443,6 +469,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         }
 
     }
+
 
     let finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : 'UNCLEAR';
 
