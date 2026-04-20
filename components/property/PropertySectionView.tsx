@@ -415,12 +415,6 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     neighborhoodOverview={null}
                     showOnly={['rental']}
                 />
-                {/* Property Economics AI tab */}
-                {customAnalysis && (
-                    <div className="mt-2">
-                        <CustomAIAnalysis {...aiProps} activeSubTab="investment" />
-                    </div>
-                )}
             </div>
         );
 
