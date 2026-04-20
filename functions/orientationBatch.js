@@ -507,11 +507,14 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // Two targeted patterns that produce high-confidence wrong answers in practice.
     // These mirror the Pattern A/B overrides in satellitaryService.ts.
 
-    // Pattern A: camera confirmed it is NOT on the front street (shows_front=false)
-    // AND no GPS heading is available to compute candidateBack.
-    // Aerial is our sole signal and it likely shows the GARAGE side as "front" — unreliable.
-    if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === false && svHeading === null) {
-        console.log(`[Batch] Override ${zpid}: shows_front=false + no GPS heading → UNCLEAR`);
+    // Pattern A: Gemini confirmed shows_front=false (garage/side visible) AND GPS wasn't used
+    // to recover the correct direction (headingAzimuth===null, i.e. the result falls through
+    // to aerial alone). The garage-side correction prompt may have Gemini "find" a walkway on
+    // the aerial, but this is speculative — on standard lots the front door is often on the
+    // SAME wall as the garage (beside it, not visible from the garage-side camera angle).
+    // The aerial walkway identification is insufficiently reliable to override to UNCLEAR.
+    if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === false && headingAzimuth === null) {
+        console.log(`[Batch] Override ${zpid}: shows_front=false + no GPS heading used → UNCLEAR (aerial walkway redirect unreliable)`);
         finalOrientation = 'UNCLEAR';
         finalAzimuth     = null;
     }
@@ -526,12 +529,23 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         finalAzimuth     = null;
     }
 
+    // Confidence cap: aerial-only analysis cannot be HIGH confidence.
+    // When headingAzimuth===null (no GPS-confirmed heading was used), the result comes
+    // entirely from Gemini's aerial image interpretation. Driveway/walkway tracing from
+    // a satellite image, without street-view visual confirmation, is inherently medium
+    // confidence at best — even if Gemini says high. Cap it.
+    let finalConfidence = data.confidence ?? 'low';
+    if (finalOrientation !== 'UNCLEAR' && headingAzimuth === null && finalConfidence === 'high') {
+        finalConfidence = 'medium';
+        console.log(`[Batch] Confidence cap ${zpid}: aerial-only result (no GPS) downgraded high → medium`);
+    }
+
     // 8. Write orientation result to Firestore via Admin SDK
     const orientationAI = {
         final_orientation:       finalOrientation,
         azimuth_degrees:         finalAzimuth,
         visual_azimuth_estimate: data.azimuth_degrees ?? null,
-        confidence:              data.confidence ?? 'low',
+        confidence:              finalConfidence,
         aerial_only_mode:        aerialOnlyMode,
         image_quality:           data.image_quality ?? 'acceptable',
         feng_shui_vastu:         data.feng_shui_vastu ?? null,
