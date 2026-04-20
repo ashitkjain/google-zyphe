@@ -235,13 +235,19 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
         `\nCONFIDENCE GATE (MANDATORY): If you cannot clearly identify driveway apron OR pedestrian walkway with HIGH confidence:`,
         `→ confidence='low', final_orientation='UNCLEAR', azimuth_degrees=null.`,
         `\nTASK:`,
-        `Step 1 — Layout: classify lot type.`,
-        `Step 2 — Driveway Apron: verify curb cut (driveway connects to public road with no gap or fence interruption).`,
-        `Step 3 — Front Walk: look for pedestrian path to main door.`,
-        `Step 4 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W). PERPENDICULAR RULE (MANDATORY): azimuth must be ~perpendicular (±45°) to the road — never parallel to it. If road runs at ~315°, valid azimuths are ~45° or ~225°, NOT 315°. If road runs at ~90°, valid azimuths are ~0° or ~180°, NOT 90°. If your azimuth is within 15° of the road bearing you have made an error — correct to the nearest perpendicular.`,
-        `Step 5 — Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage/yard directions, buyer pro/con.`,
-        `Step 6 — GPS Self-Check (only if bearing prior given): verify azimuth is within 45° of a perpendicular. Correct if ≥45° off; note if corrected. PARALLEL CHECK (always run): if your azimuth is within 15° of the road bearing itself (not the perpendicular), you have made the most common error — correct to nearest perpendicular or set UNCLEAR.`,
-        `\nEXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: standard_street_layout=true/false and one specific visual reason.\n(2) STREET CONTEXT: name the address street, which edge it runs along, and the approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows and which road edge it connects to; include the raw aerial azimuth estimate.\n(4) GPS SELF-CHECK: whether a correction was applied; if yes: "GPS self-check: adjusted from X° to Y°"; if no: "No correction needed".\n(5) FINAL: final orientation and confidence.`,
+        `Step 2 — Street edge identification (DO THIS FIRST before any compass labeling):
+   Look at the aerial image and identify the physical edge of the image that the address street touches.
+   Use ONLY: top-edge, bottom-edge, left-edge, right-edge (or two edges for diagonal).
+   Then convert: top-edge=North, bottom-edge=South, left-edge=West, right-edge=East.
+   ⚠️ COMMON ERROR: If the road is visible at the BOTTOM of the image, the street is on the SOUTH side → front faces SOUTH (~180°), NOT north.
+   State this explicitly: "Road is at [edge] → [compass direction] → front faces [compass direction] (~[degrees]°)".`,
+        `Step 3 — Driveway Apron: verify curb cut (driveway connects to public road with no gap or fence interruption).`,
+        `Step 4 — Front Walk: look for pedestrian path to main door.`,
+        `Step 5 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W). PERPENDICULAR RULE (MANDATORY): azimuth must be ~perpendicular (±45°) to the road — never parallel to it. If road runs at ~315°, valid azimuths are ~45° or ~225°, NOT 315°. If road runs at ~90°, valid azimuths are ~0° or ~180°, NOT 90°. If your azimuth is within 15° of the road bearing you have made an error — correct to the nearest perpendicular.`,
+        `Step 6 — Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage/yard directions, buyer pro/con.`,
+        `Step 7 — GPS Self-Check (only if bearing prior given): verify azimuth is within 45° of a perpendicular. Correct if ≥45° off; note if corrected. PARALLEL CHECK (always run): if your azimuth is within 15° of the road bearing itself (not the perpendicular), you have made the most common error — correct to nearest perpendicular or set UNCLEAR.`,
+        `\nEXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: standard_street_layout=true/false and one specific visual reason.\n(2) STREET CONTEXT: name the address street, which image edge it touches (top/bottom/left/right), convert to compass direction, and the approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows and which road edge it connects to; include the raw aerial azimuth estimate.\n(4) GPS SELF-CHECK: whether a correction was applied; if yes: "GPS self-check: adjusted from X° to Y°"; if no: "No correction needed".\n(5) FINAL: final orientation and confidence.`,
+
     ].join('\n').trim();
 }
 
@@ -407,27 +413,37 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         finalAzimuth = chosen;
     }
 
-    // 7b. StreetSide cross-check for inverted high-confidence aerial results.
+    // 7b. StreetSide cross-check for inverted aerial results.
     // If the aerial azimuth points >90° away from the road (streetSide direction),
-    // Gemini analyzed the wrong building face. Correct it by picking the perpendicular
-    // that faces TOWARD the road. Guard: streetBearing must be non-null (reliable road).
-    // Mirrors the browser-side check in satellitaryService.ts.
+    // Gemini analyzed the wrong building face. Correct it.
+    // Works in two modes:
+    //   (a) streetBearing available → perp-snap to the road perpendicular facing the street (precise)
+    //   (b) streetSide only (no bearing) → snap to sideAz cardinal (catches clear 0↔180 / 90↔270 inversions)
+    // Guard: no usesDualImage (aerial-only), standard layout, streetSide known, azimuth available.
     if (!aerialConfidenceFail && !usesDualImage &&
         data.standard_street_layout === true &&
-        streetBearing != null && streetSide != null &&
-        finalAzimuth != null) {
+        streetSide != null && finalAzimuth != null) {
         const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270 };
         const sideAz  = SIDE_AZ[streetSide];
         if (sideAz !== undefined) {
             const distFromRoad = _angDiff(finalAzimuth, sideAz);
             if (distFromRoad > 90) {
-                const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
-                const corrected = _angDiff(p1, sideAz) <= _angDiff(p2, sideAz) ? p1 : p2;
-                console.log(`[Batch] StreetSide cross-check ${zpid}: aerial ${Math.round(finalAzimuth)}° is ${Math.round(distFromRoad)}° from streetSide=${streetSide} (${sideAz}°). Correcting to ${Math.round(corrected)}° (${_azimuthToCompassLabel(corrected)}).`);
-                finalAzimuth   = corrected;
+                let corrected;
+                if (streetBearing != null) {
+                    // Precise: pick the road perpendicular closest to the street side.
+                    const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
+                    corrected = _angDiff(p1, sideAz) <= _angDiff(p2, sideAz) ? p1 : p2;
+                } else {
+                    // Fallback: snap to the street-side cardinal direction.
+                    // Less precise but always fixes clear inversions (e.g. N=0° when road is south → 180°).
+                    corrected = sideAz;
+                }
+                console.log(`[Batch] StreetSide cross-check ${zpid}: aerial ${Math.round(finalAzimuth)}° is ${Math.round(distFromRoad)}° from streetSide=${streetSide} (${sideAz}°). Correcting to ${Math.round(corrected)}° (${_azimuthToCompassLabel(corrected)}).${streetBearing == null ? ' [no bearing, cardinal snap]' : ''}`);
+                finalAzimuth    = corrected;
                 data.confidence = 'medium';
             }
         }
+
     }
 
     let finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : 'UNCLEAR';
