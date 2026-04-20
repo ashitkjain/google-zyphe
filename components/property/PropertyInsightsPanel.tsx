@@ -315,14 +315,6 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                             </div>
                                         </div>
                                         
-                                        {ltrAnalysis?.comparison_summary && (
-                                            <div className="mt-6 p-4 bg-indigo-50/30 rounded-xl border border-indigo-100/50">
-                                                <p className="text-[13.5px] text-indigo-700 leading-relaxed font-sans font-medium">
-                                                    <i className="fa-solid fa-lightbulb mr-2 opacity-60" />
-                                                    {ltrAnalysis.comparison_summary}
-                                                </p>
-                                            </div>
-                                        )}
                                     </div>
 
                                     {/* Short Term (STR) Performance */}
