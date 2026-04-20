@@ -1,0 +1,172 @@
+/**
+ * RoomsSectionPage
+ *
+ * Displays room-by-room details parsed from MLS resoFacts:
+ *   - Bedroom / bathroom summary strip
+ *   - Room list (rooms, roomTypes parsed into cards)
+ *   - Interior features
+ *   - Room-level features (roomFeatures)
+ *   - AI rooms summary from currentInteriorSummary
+ */
+import React from 'react';
+import { PropertyData } from '../../../types';
+
+interface Props {
+    data: PropertyData;
+    currentInteriorSummary?: any;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Parse comma/semicolon-separated strings OR string arrays into a trimmed array */
+const parseList = (raw?: string | string[] | null): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map(s => String(s).trim()).filter(Boolean);
+    if (typeof raw !== 'string') return [];
+    return raw.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+};
+
+/** Icon mapping for common room names */
+const roomIcon = (name: string): string => {
+    const n = name.toLowerCase();
+    if (n.includes('bedroom') || n.includes('master') || n.includes('primary')) return 'fa-bed';
+    if (n.includes('bathroom') || n.includes('bath') || n.includes('toilet')) return 'fa-bath';
+    if (n.includes('kitchen'))       return 'fa-utensils';
+    if (n.includes('living') || n.includes('family') || n.includes('great room')) return 'fa-couch';
+    if (n.includes('dining'))        return 'fa-champagne-glasses';
+    if (n.includes('garage'))        return 'fa-car';
+    if (n.includes('laundry'))       return 'fa-shirt';
+    if (n.includes('office') || n.includes('study') || n.includes('den')) return 'fa-briefcase';
+    if (n.includes('bonus') || n.includes('loft') || n.includes('flex')) return 'fa-layer-group';
+    if (n.includes('entry') || n.includes('foyer')) return 'fa-door-open';
+    if (n.includes('closet') || n.includes('walk-in')) return 'fa-box';
+    if (n.includes('basement'))      return 'fa-stairs';
+    if (n.includes('attic'))         return 'fa-house-chimney';
+    if (n.includes('patio') || n.includes('deck') || n.includes('balcony')) return 'fa-sun';
+    return 'fa-square';
+};
+
+const roomColor = (name: string): string => {
+    const n = name.toLowerCase();
+    if (n.includes('bedroom') || n.includes('master') || n.includes('primary')) return 'bg-indigo-50 text-indigo-600';
+    if (n.includes('bathroom') || n.includes('bath')) return 'bg-sky-50 text-sky-600';
+    if (n.includes('kitchen'))     return 'bg-amber-50 text-amber-600';
+    if (n.includes('living') || n.includes('family')) return 'bg-violet-50 text-violet-600';
+    if (n.includes('dining'))      return 'bg-rose-50 text-rose-600';
+    if (n.includes('garage'))      return 'bg-slate-100 text-slate-600';
+    if (n.includes('laundry'))     return 'bg-teal-50 text-teal-600';
+    if (n.includes('office') || n.includes('study')) return 'bg-emerald-50 text-emerald-600';
+    return 'bg-slate-50 text-slate-500';
+};
+
+// ─── Type scale ───────────────────────────────────────────────────────────────
+const T = {
+    label:  'text-[10px] font-black text-slate-400 uppercase tracking-widest',
+    body:   'text-[13px] font-medium text-slate-500 leading-relaxed',
+    title:  'text-[14px] font-black text-slate-800',
+    cardH:  'text-[16px] font-black text-slate-900 tracking-tight',
+    attr:   'text-[9px] font-bold text-slate-300 uppercase tracking-widest',
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export const RoomsSectionPage: React.FC<Props> = ({ data, currentInteriorSummary }) => {
+    const reso = data.resoFacts;
+
+    const roomList    = parseList(reso?.rooms);
+    const roomTypes   = parseList(reso?.roomTypes);
+    const roomFeats   = parseList(reso?.roomFeatures);
+    const interiorFts = reso?.interiorFeatures ?? [];
+    const flooring    = parseList(reso?.flooring);
+    const appliances  = parseList(reso?.appliances);
+    const laundry     = parseList(reso?.laundryFeatures);
+    const windowFts   = parseList(reso?.windowFeatures);
+    const fireplaces  = parseList(reso?.fireplaceFeatures);
+    const security    = parseList(reso?.securityFeatures);
+
+    // Combine rooms + roomTypes, deduplicate
+    const allRooms = Array.from(new Set([...roomList, ...roomTypes]));
+
+    const hasRooms       = allRooms.length > 0;
+    const hasFeatures    = interiorFts.length > 0 || roomFeats.length > 0;
+    const hasApplianceEtc = flooring.length > 0 || appliances.length > 0 || laundry.length > 0 || windowFts.length > 0 || fireplaces.length > 0 || security.length > 0;
+
+    return (
+        <div className="space-y-5">
+
+                {/* ── Hero strip: beds / baths / stories / sqft ─────────── */}
+                <div className="bg-white rounded-3xl border border-slate-200/60 p-8 shadow-sm">
+                    <div className="flex items-start justify-between gap-6">
+                        <div className="flex-1 min-w-0">
+                            <div className={`${T.label} mb-2`}>Property Rooms</div>
+                            <h1 className="text-[36px] font-black text-slate-900 leading-none tracking-tight mb-3">
+                                Room<br /><span className="text-indigo-600">Details</span>
+                            </h1>
+                            <p className={T.body}>
+                                Full room-by-room breakdown for{' '}
+                                <strong className="text-slate-700 font-black">{data.address || 'this property'}</strong>.
+                            </p>
+                        </div>
+
+                        {/* Key stats */}
+                        <div className="shrink-0 grid grid-cols-2 gap-3">
+                            {[
+                                data.bedrooms  != null && { label: 'Bedrooms',  value: `${data.bedrooms}`,  icon: 'fa-bed',   color: 'text-indigo-600' },
+                                data.bathrooms != null && { label: 'Bathrooms', value: `${data.bathrooms}`, icon: 'fa-bath',  color: 'text-sky-600' },
+                                reso?.stories  != null && { label: 'Stories',   value: `${reso.stories}`,   icon: 'fa-stairs', color: 'text-violet-600' },
+                                data.sqft      != null && { label: 'Sq Ft',     value: Number(data.sqft).toLocaleString(), icon: 'fa-ruler-combined', color: 'text-amber-600' },
+                            ].filter(Boolean).map((m: any, i) => (
+                                <div key={i} className="bg-slate-50 rounded-2xl border border-slate-100 px-4 py-3 text-center">
+                                    <i className={`fa-solid ${m.icon} ${m.color} text-[12px] mb-1`} />
+                                    <div className="text-[20px] font-black text-slate-900 leading-none">{m.value}</div>
+                                    <div className={`${T.label} mt-0.5`}>{m.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── AI Summary ─────────────────────────────────────────── */}
+                {currentInteriorSummary && (
+                    <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                                <i className="fa-solid fa-wand-magic-sparkles text-indigo-500 text-[13px]" />
+                            </div>
+                            <h2 className={T.cardH}>Summary</h2>
+                        </div>
+                        <div className="space-y-4">
+                            {currentInteriorSummary.interior_summary && (
+                                <div>
+                                    <div className={`${T.label} mb-1.5`}>Interior Summary</div>
+                                    <p className={T.body}>{currentInteriorSummary.interior_summary}</p>
+                                </div>
+                            )}
+                            {currentInteriorSummary.rooms_summary && (
+                                <div className="pt-3 border-t border-slate-100">
+                                    <div className={`${T.label} mb-1.5`}>
+                                        <i className="fa-solid fa-door-open mr-1.5 text-indigo-400" />
+                                        Spaces Breakdown
+                                    </div>
+                                    <p className={T.body}>{currentInteriorSummary.rooms_summary}</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className={`${T.attr} text-right mt-4`}>Zyphe AI · Visual Analysis</div>
+                    </div>
+                )}
+
+                {/* ── Empty state (no AI data at all) ──────────────────── */}
+                {!currentInteriorSummary && (
+                    <div className="bg-white rounded-3xl border border-slate-200/60 p-12 shadow-sm text-center">
+                        <i className="fa-solid fa-door-open text-slate-200 text-[40px] mb-4" />
+                        <div className={`${T.cardH} text-slate-400 mb-2`}>No Room Data</div>
+                        <p className={`${T.body} max-w-xs mx-auto`}>
+                            Room details are sourced from AI visual analysis. Run an analysis to see per-room breakdowns.
+                        </p>
+                    </div>
+                )}
+
+        </div>
+    );
+};

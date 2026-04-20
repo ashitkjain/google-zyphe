@@ -43,7 +43,6 @@ export const AffordabilityCard: React.FC<AffordabilityCardProps> = ({
     const [data, setData] = useState<MitLivingWageResult | null>(dataProp ?? null);
     const [loading, setLoading] = useState(!dataProp);
     const [error, setError] = useState<string | null>(null);
-    const [detailsOpen, setDetailsOpen] = useState(false);
 
     const locationLabel = [city, state].filter(Boolean).join(', ') || 'this area';
     const resolvedCounty = county || city || 'this county';
@@ -101,11 +100,11 @@ export const AffordabilityCard: React.FC<AffordabilityCardProps> = ({
                     <div className="p-4">
                         <div className="flex items-center gap-2 mb-3">
                             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                <i className="fa-solid fa-scale-balanced text-indigo-600 text-[11px]"></i>
+                                <i className="fa-solid fa-scale-balanced text-indigo-600 text-[12px]"></i>
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-[14px] font-bold text-slate-800 tracking-tight leading-none">Affordability</span>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+                                <span className="text-[16px] font-bold text-slate-800 tracking-tight leading-none">Affordability</span>
+                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
                                     {data.location_name || metroName || resolvedCounty}
                                 </span>
                             </div>
@@ -113,61 +112,49 @@ export const AffordabilityCard: React.FC<AffordabilityCardProps> = ({
                         
                         <div className="grid grid-cols-2 gap-2 mb-3">
                             <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 whitespace-nowrap">Monthly Exp</div>
-                                <div className="text-[14px] font-black text-indigo-600 leading-none">{fmt(mo(total))}</div>
+                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-0.5 whitespace-nowrap">Monthly Exp</div>
+                                <div className="text-[16px] font-black text-indigo-600 leading-none">{fmt(mo(total))}</div>
                             </div>
                             <div className="p-2 bg-white rounded-lg border border-slate-100 text-center">
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 whitespace-nowrap">Req. Income</div>
-                                <div className="text-[14px] font-black text-emerald-600 leading-none">{fmt(reqIncome)}</div>
+                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-0.5 whitespace-nowrap">Req. Income</div>
+                                <div className="text-[16px] font-black text-emerald-600 leading-none">{fmt(reqIncome)}</div>
                             </div>
                         </div>
 
-                        {/* Collapsible details toggle */}
-                        <button
-                            onClick={() => setDetailsOpen(o => !o)}
-                            className="w-full flex items-center justify-center gap-1 py-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                            <span>{detailsOpen ? 'Hide Details' : 'Show Details'}</span>
-                            <i className={`fa-solid fa-chevron-${detailsOpen ? 'up' : 'down'} text-[8px]`} />
-                        </button>
-
-                        {detailsOpen && (
-                            <>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-1">
-                                     {ROWS.map(({ key, label, icon, color }) => {
-                                         const annual = (data.expenses as any)[key] as number;
-                                         if (!annual && annual !== 0) return null;
-                                         return (
-                                             <div key={key} className="flex items-center justify-between gap-2">
-                                                 <div className="flex items-center gap-1.5 min-w-0">
-                                                     <div className="w-3.5 flex justify-center flex-shrink-0">
-                                                        <i className={`fa-solid ${icon} text-[9px] ${color} shrink-0`} />
-                                                     </div>
-                                                     <span className="text-[10px] text-slate-500 font-medium truncate">{label}</span>
-                                                 </div>
-                                                 <span className={`text-[10px] font-black ${color} shrink-0`}>{fmt(mo(annual))}</span>
+                        {/* Breakdown details — always visible */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-1">
+                             {ROWS.map(({ key, label, icon, color }) => {
+                                 const annual = (data.expenses as any)[key] as number;
+                                 if (!annual && annual !== 0) return null;
+                                 return (
+                                     <div key={key} className="flex items-center justify-between gap-2">
+                                         <div className="flex items-center gap-1.5 min-w-0">
+                                             <div className="w-3.5 flex justify-center flex-shrink-0">
+                                                <i className={`fa-solid ${icon} text-[11px] ${color} shrink-0`} />
                                              </div>
-                                         );
-                                     })}
-                                </div>
+                                             <span className="text-[12.5px] text-slate-500 font-medium truncate">{label}</span>
+                                         </div>
+                                         <span className={`text-[12.5px] font-black ${color} shrink-0`}>{fmt(mo(annual))}</span>
+                                     </div>
+                                 );
+                             })}
+                        </div>
 
-                                <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between">
-                                    <div className="text-[9px] text-slate-400 font-bold italic uppercase tracking-wider">
-                                        2 Adults, 2 Kids · Working
-                                    </div>
-                                    {data.source_url && (
-                                        <a 
-                                            href={data.source_url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
-                                            className="text-[9px] text-indigo-400 hover:text-indigo-600 font-black uppercase tracking-widest flex items-center gap-1"
-                                        >
-                                            Source: MIT survey <i className="fa-solid fa-arrow-up-right-from-square text-[7px]" />
-                                        </a>
-                                    )}
-                                </div>
-                            </>
-                        )}
+                        <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between">
+                            <div className="text-[11px] text-slate-400 font-bold italic uppercase tracking-wider">
+                                2 Adults, 2 Kids · Working
+                            </div>
+                            {data.source_url && (
+                                <a 
+                                    href={data.source_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="text-[11px] text-indigo-400 hover:text-indigo-600 font-black uppercase tracking-widest flex items-center gap-1"
+                                >
+                                    Source: MIT survey <i className="fa-solid fa-arrow-up-right-from-square text-[9px]" />
+                                </a>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

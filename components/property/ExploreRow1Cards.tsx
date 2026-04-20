@@ -20,10 +20,10 @@ interface ExploreRow1CardsProps {
     lifestyleFit: any;
     lifestyleInsights: any;
     userRole?: string;
-    // Additional derived data
     designStyle?: { style?: string; reasoning?: string } | null;
     currentInteriorSummary?: any;
-
+    /** If provided, only renders matching section keys: 'interior' | 'outdoor' | 'exterior' */
+    showOnly?: string[];
 }
 
 
@@ -36,7 +36,9 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
     userRole,
     designStyle,
     currentInteriorSummary,
+    showOnly,
 }) => {
+    const show = (key: string) => !showOnly || showOnly.includes(key);
 
 
     return (

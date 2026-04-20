@@ -15,6 +15,7 @@ import {
     getVisualAnalysisFromCloud,
     getPropertyInvestmentFromCloud,
     getDeepInvestmentResearchFromCloud,
+    getCommunityPulseFromCloud,
     getInteriorSummaryFromCloud,
     getLifestyleInsightsFromCloud,
     getLifestyleFitFromCloud,
@@ -201,6 +202,7 @@ export function useExploreTabData({
     const [cachedMapLabels, setCachedMapLabels] = useState<string[] | null>(null);
     const [cachedComprehensiveAnalysis, setCachedComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
     const [cachedVisualAnalysis, setCachedVisualAnalysis] = useState<CustomAIAnalysisResult | null>(null);
+    const [cachedCommunityPulse, setCachedCommunityPulse] = useState<any | null>(null);
     const [interiorSummary, setInteriorSummary] = useState<any | null>(null);
 
     // Guard: track which zpids have already had a Gemini backfill attempted
@@ -220,10 +222,11 @@ export function useExploreTabData({
                 const cityStateKey = generateCityStateKey(propertyData.city, propertyData.state);
                 console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read start`);
 
-                const [visualCache, investmentCache, deepResearchCache, interiorCache] = await Promise.all([
+                const [visualCache, investmentCache, deepResearchCache, communityPulseCache, interiorCache] = await Promise.all([
                     getVisualAnalysisFromCloud(String(propertyData.zpid)),
                     getPropertyInvestmentFromCloud(String(propertyData.zpid)),
                     cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
+                    cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
                     getInteriorSummaryFromCloud(String(propertyData.zpid)),
                 ]);
                 console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read done`);
@@ -239,6 +242,7 @@ export function useExploreTabData({
                 if (visualCache?.neighborhood?.map_labels) setCachedMapLabels(visualCache.neighborhood.map_labels);
                 if (deepResearchCache?.structured_report?.market_dynamics) setCachedMarketDynamics(deepResearchCache.structured_report.market_dynamics);
                 if ((deepResearchCache as any)?.key_insights) setCachedKeyInsights((deepResearchCache as any).key_insights);
+                if (communityPulseCache) setCachedCommunityPulse(communityPulseCache);
                 if (investmentCache?.ltr_analysis) setCachedLtrAnalysis(investmentCache.ltr_analysis);
                 if (interiorCache) setInteriorSummary(interiorCache);
 
@@ -297,6 +301,7 @@ export function useExploreTabData({
     const ltrAnalysis = customAnalysis?.property_investment?.ltr_analysis || cachedLtrAnalysis || null;
     const keyInsights = cachedKeyInsights || null;
     const neighborhoodOverview = customAnalysis?.neighborhood?.overview || cachedNeighborhoodOverview || null;
+    const communityPulse = customAnalysis?.community_pulse || cachedCommunityPulse || null;
     const visualPoi = customAnalysis?.neighborhood?.visual_poi || cachedVisualPoi || undefined;
     const mapLabels = customAnalysis?.neighborhood?.map_labels || cachedMapLabels || undefined;
     const currentInteriorSummary = interiorSummary || comprehensiveAnalysis?.interior_summary || cachedComprehensiveAnalysis?.interior_summary;
@@ -330,7 +335,7 @@ export function useExploreTabData({
         cachedVisualAnalysis,
         // Derived
         designStyle, marketDynamics, ltrAnalysis, keyInsights,
-        neighborhoodOverview, visualPoi, mapLabels,
+        neighborhoodOverview, communityPulse, visualPoi, mapLabels,
         currentInteriorSummary, analysis,
         // Actions
         handleFullRefresh,

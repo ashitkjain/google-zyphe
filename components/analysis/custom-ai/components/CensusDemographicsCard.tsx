@@ -40,26 +40,26 @@ export const CensusDemographicsCard: React.FC<CensusDemographicsCardProps> = ({ 
                     <div className="p-4">
                         <div className="flex items-center gap-2 mb-3">
                             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                <i className="fa-solid fa-users text-indigo-600 text-[11px]"></i>
+                                <i className="fa-solid fa-users text-indigo-600 text-[12px]"></i>
                             </div>
-                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Census Demographics</span>
+                            <span className="text-[16px] font-bold text-slate-800 tracking-tight">Census Demographics</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 mb-3">
                              {METRICS.slice(0, 4).map((m, i) => (
                                  <div key={i} className="bg-white p-2 rounded-lg border border-slate-100 text-center">
-                                     <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{m.label.replace('Median ', '')}</div>
-                                     <div className={`text-[14px] font-black ${m.color}`}>{m.value}</div>
-                                 </div>
+                                      <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{m.label.replace('Median ', '')}</div>
+                                      <div className={`text-[16px] font-black ${m.color}`}>{m.value}</div>
+                                  </div>
                              ))}
                         </div>
 
                         {data.ownerPct != null && data.renterPct != null && (
                             <div className="mt-2">
-                                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1">
-                                    <span className="text-blue-600">Owner {data.ownerPct}%</span>
-                                    <span className="text-amber-600">Renter {data.renterPct}%</span>
-                                </div>
+                                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest mb-1.5">
+                                     <span className="text-blue-600">Owner {data.ownerPct}%</span>
+                                     <span className="text-amber-600">Renter {data.renterPct}%</span>
+                                 </div>
                                 <div className="h-1.5 rounded-full bg-amber-100 overflow-hidden">
                                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${data.ownerPct}%` }}></div>
                                 </div>

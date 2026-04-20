@@ -22,6 +22,7 @@ interface PropertyInsightsPanelProps {
     propertyData: PropertyData;
     analysis: ComprehensiveAnalysisResult | null;
     customAnalysis: CustomAIAnalysisResult | null;
+    communityPulse: any | null;
     keyInsights: DeepResearchInsights | null;
     ltrAnalysis: { monthly_rent?: string; vacancy_rate?: string; comparison_summary?: string } | null;
     census: CensusDemographics | null;
@@ -46,12 +47,15 @@ interface PropertyInsightsPanelProps {
     onRefreshCommunityPulse?: () => Promise<void>;
     // Lifestyle loading state (used for skeleton guards in Community/Market)
     lifestyleLoading: boolean;
+    /** If provided, only renders matching section keys: 'pulse' | 'rental' | 'ai-analysis' */
+    showOnly?: string[];
 }
 
 export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
     propertyData,
     analysis,
     customAnalysis,
+    communityPulse,
     keyInsights,
     ltrAnalysis,
     census,
@@ -71,13 +75,17 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
     userRole,
     onRefreshCommunityPulse,
     lifestyleLoading,
+    showOnly,
 }) => {
+    const show = (key: string) => !showOnly || showOnly.includes(key);
     const [isPulseModalOpen, setIsPulseModalOpen] = React.useState(false);
     return (
         <>
-            {/* Street View + Ground Truth Engine — side by side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
+            {/* Street View + Ground Truth Engine */}
+            {(show('streetview') || show('lot')) && (
+            <div className={`grid gap-8 ${(show('streetview') && show('lot')) ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* Street View card */}
+                {show('streetview') && propertyData.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false && (
                     <div id="ov-streetview" className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
                         <StreetViewAnalysisSection
                             data={propertyData}
@@ -86,6 +94,9 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                         />
                     </div>
                 )}
+
+                {/* Lot Intelligence card */}
+                {show('lot') && (
                 <div id="ov-lot" className="rounded-2xl overflow-hidden bg-white p-4 flex flex-col gap-3 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
                     {/* Ground Truth Engine intro */}
                     <div className="flex items-center gap-3 bg-slate-50/50 rounded-xl border border-slate-100/80 px-4 py-2.5">
@@ -93,7 +104,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                             <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
                         </div>
                         <div className="min-w-0">
-                            <h3 className="text-[18px] font-black text-slate-900 tracking-tight leading-tight">Lot Intelligence</h3>
+                            <h3 className="text-[20px] font-black text-slate-900 tracking-tight leading-tight">Lot Intelligence</h3>
                         </div>
                     </div>
                     {/* Parcel Map + Validation */}
@@ -110,7 +121,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                                 }`}
                                         >
-                                            <i className="fa-solid fa-map text-[9px]"></i>
+                                            <i className="fa-solid fa-map text-[10px]"></i>
                                             Parcel
                                         </button>
                                         <button
@@ -126,15 +137,15 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                     </div>
                                 ) : <div />}
 
-                                {/* APN display relocated from child */}
+                                {/* APN display */}
                                 {propertyData.parcelApn && (
-                                    <div className="text-[10px] text-slate-400 font-mono uppercase tracking-widest">
+                                    <div className="text-[11.5px] text-slate-400 font-mono uppercase tracking-widest">
                                         APN: {propertyData.parcelApn}
                                     </div>
                                 )}
                             </div>
 
-                            {/* Map content — fixed height to match street view */}
+                            {/* Map content */}
                             <div className="h-[375px] w-full relative overflow-hidden rounded-xl border border-slate-100 shadow-inner flex flex-col">
                                 {groundTruthMapTab === 'parcel' ? (
                                     <StaticParcelMap data={propertyData} parcelPolygon={
@@ -204,10 +215,41 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                         </div>
                     </div>
                 </div>
+                )}{/* end lot */}
             </div>
+            )}{/* end streetview+lot */}
+
+
+            {/* Affordability + Census only — no outer city overview wrapper */}
+            {!show('pulse') && !show('rental') && !show('ai-analysis') && (show('affordability') || show('census')) && (
+                <div className="flex flex-col gap-3">
+                    {show('affordability') && (
+                        <AffordabilityCard
+                            state={propertyData.state}
+                            city={propertyData.city}
+                            county={propertyData.county}
+                            countyFips={
+                                (propertyData.census_demographics?.stateFips && propertyData.census_demographics?.countyFips)
+                                    ? `${propertyData.census_demographics.stateFips}${propertyData.census_demographics.countyFips}`
+                                    : (census?.stateFips && census?.countyFips)
+                                        ? `${census.stateFips}${census.countyFips}`
+                                        : undefined
+                            }
+                            userId={userRole}
+                            compact
+                        />
+                    )}
+                    {show('census') && census && (
+                        <CensusDemographicsCard
+                            data={census as any}
+                            compact
+                        />
+                    )}
+                </div>
+            )}
 
             {/* City Overview — Community Pulse · Market Dynamics · Affordability · Census */}
-            {(keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || lifestyleLoading || propertyData) && (
+            {(show('pulse') || show('rental') || show('ai-analysis')) && (show('pulse') || show('rental') || show('ai-analysis') || show('affordability') || show('census')) && (keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || communityPulse || lifestyleLoading || propertyData) && (
                 <div id="ov-community" className="w-full px-2 rounded-2xl border border-slate-200 overflow-hidden bg-white scroll-mt-24 shadow-sm">
                     {/* Section Heading — L1 */}
                     <div className="px-5 pt-5 pb-0 flex items-center gap-2.5">
@@ -215,27 +257,133 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                             <i className="fa-solid fa-city text-indigo-500 text-[12px]" />
                         </div>
                         <div>
-                            <h3 className="text-[22px] font-black text-slate-900 tracking-tight leading-tight">
-                                {propertyData.city || 'City'} Overview
+                            <h3 className="text-[26px] font-black text-slate-900 tracking-tight leading-tight">
+                                {show('rental') && !show('pulse') ? 'Property Economics' : `${propertyData.city || 'City'} Overview`}
                             </h3>
-                            <p className="text-[10px] text-slate-400 mt-0 font-medium tracking-tight">Market dynamics, neighborhood sentiment, and community insights</p>
+                            <p className="text-[12px] text-slate-400 mt-1 font-medium tracking-tight">
+                                {show('rental') && !show('pulse') ? 'Rental yield · Market rent · ROI estimates' : 'Market dynamics, neighborhood sentiment, and community insights'}
+                            </p>
                         </div>
                     </div>
 
                     {/* Community Pulse (2-col) + right stack (Market Dynamics, Affordability, Census) */}
                     <div className="px-5 pb-5 pt-1.5 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                        {/* Community Pulse — L2 title */}
-                        {(customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && (
+                        {/* Community Pulse or Rental Intelligence — L2 title */}
+                        {show('rental') && !show('pulse') ? (
+                            <div className="lg:col-span-3 flex flex-col gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Long Term Rental Card */}
+                                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-6 hover:shadow-lg transition-all group">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                                    <i className="fa-solid fa-house-chimney-window text-[16px]" />
+                                                </div>
+                                                <div className="text-[14px] font-black text-emerald-600 uppercase tracking-widest">Long Term Rental</div>
+                                            </div>
+                                            <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-wider">Stable Yield</div>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 bg-white rounded-xl border border-emerald-100/50 shadow-sm">
+                                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-tag text-emerald-300" /> Est. Rent
+                                                </div>
+                                                <div className="text-[24px] font-black text-slate-800">
+                                                    {(() => {
+                                                        const rent = ltrAnalysis?.monthly_rent || "";
+                                                        const match = rent.match(/\$[\d,]+(?:\s*(?:to|-)\s*\$[\d,]+)?/);
+                                                        return match ? match[0] : (rent.length > 20 ? "--" : rent || "--");
+                                                    })()}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Per Month</div>
+                                            </div>
+                                            
+                                            <div className="p-4 bg-white rounded-xl border border-emerald-100/50 shadow-sm">
+                                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-chart-pie text-emerald-300" /> Vacancy
+                                                </div>
+                                                <div className="text-[24px] font-black text-emerald-600">
+                                                    {(() => {
+                                                        const v = ltrAnalysis?.vacancy_rate || "";
+                                                        const match = v.match(/(\d+(?:-\d+)?%)/);
+                                                        return match ? match[1] : (v.length > 10 ? "--" : v || "--");
+                                                    })()}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Dublin Avg</div>
+                                            </div>
+                                        </div>
+                                        
+                                        {ltrAnalysis?.comparison_summary && (
+                                            <div className="mt-6 p-4 bg-indigo-50/30 rounded-xl border border-indigo-100/50">
+                                                <p className="text-[13.5px] text-indigo-700 leading-relaxed font-sans font-medium">
+                                                    <i className="fa-solid fa-lightbulb mr-2 opacity-60" />
+                                                    {ltrAnalysis.comparison_summary}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Short Term (STR) Performance */}
+                                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 hover:shadow-lg transition-all group">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                                    <i className="fa-solid fa-calendar-check text-[16px]" />
+                                                </div>
+                                                <div className="text-[14px] font-black text-indigo-600 uppercase tracking-widest">Short Term (STR)</div>
+                                            </div>
+                                            <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-wider">High Yield</div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 bg-white rounded-xl border border-indigo-100/50 shadow-sm">
+                                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-sack-dollar text-indigo-300" /> Revenue
+                                                </div>
+                                                <div className="text-[24px] font-black text-slate-800">
+                                                    {(() => {
+                                                        const rev = customAnalysis?.property_investment?.str_performance?.annual_revenue_projection || "";
+                                                        const match = rev.match(/\$[\d,]{4,}/);
+                                                        return match ? match[0] : "--";
+                                                    })()}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Annual Est.</div>
+                                            </div>
+
+                                            <div className="p-4 bg-white rounded-xl border border-indigo-100/50 shadow-sm">
+                                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-percent text-indigo-300" /> Occupancy
+                                                </div>
+                                                <div className="text-[24px] font-black text-indigo-600">
+                                                    {(() => {
+                                                        const occ = customAnalysis?.property_investment?.str_performance?.occupancy_rate || "";
+                                                        const match = occ.match(/(\d+(?:-\d+)?%)/);
+                                                        return match ? match[1] : "--";
+                                                    })()}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Estimated</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-6 flex items-center justify-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Live Zyphe Market Intelligence</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (communityPulse || customAnalysis?.community_pulse || analysis?.detailed_analysis?.community_pulse || lifestyleLoading) && show('pulse') && (
                             <div className="lg:col-span-2 flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                 <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm h-full">
                                     <div className="p-4">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                                                    <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[12px]"></i>
+                                                    <i className="fa-solid fa-users text-blue-600 group-hover:text-white text-[13px]"></i>
                                                 </div>
-                                                <span className="text-[16px] font-bold text-slate-800 tracking-tight">Community Pulse</span>
+                                                <span className="text-[18px] font-bold text-slate-800 tracking-tight">Community Pulse</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <button
@@ -262,7 +410,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                         </div>
 
                                         {(() => {
-                                            const cp = customAnalysis?.community_pulse as any;
+                                            const cp = communityPulse || (customAnalysis?.community_pulse as any);
                                             const fallbackText = analysis?.detailed_analysis?.community_pulse;
 
                                             if (lifestyleLoading) {
@@ -276,16 +424,16 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
 
                                             if (!cp && !fallbackText) return null;
 
-                                            const positives: string[] = cp?.what_residents_like?.points || (fallbackText ? [fallbackText] : []);
+                                            const positives: string[] = cp?.what_residents_like?.points || [];
                                             const complaints: string[] = cp?.common_complaints?.points || [];
                                             const safety: string[] = cp?.safety_and_concerns?.points || [];
-                                            const summary: string | null = cp?.summary || cp?.overview || null;
+                                            const summary: string | null = cp?.summary || cp?.overview || (cp ? null : fallbackText) || null;
 
                                             return (
                                                 <div className="flex flex-col gap-6">
                                                     {/* Full-width summary */}
                                                     {summary && (
-                                                        <p className="text-[15px] text-slate-600 leading-relaxed font-medium border-b border-slate-100 pb-5">
+                                                        <p className="text-[16px] text-slate-600 leading-relaxed font-sans font-medium border-b border-slate-100 pb-5">
                                                             {summary}
                                                         </p>
                                                     )}
@@ -295,11 +443,11 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                                         {/* What Residents Like — emerald */}
                                                         {positives.length > 0 && (
                                                             <div className="space-y-2">
-                                                                <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                                                <div className="text-[12px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5">
                                                                     <i className="fa-solid fa-heart text-[10px]" /> Resident Loves
                                                                 </div>
                                                                 {positives.map((item: string, i: number) => (
-                                                                    <div key={i} className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2.5 text-[13px] text-emerald-900 font-medium leading-snug flex items-start gap-2">
+                                                                    <div key={i} className="border rounded-lg px-3 py-2.5 text-[14.5px] font-medium leading-snug flex items-start gap-2">
                                                                         <i className="fa-solid fa-check text-emerald-400 text-[10px] mt-1 flex-shrink-0" />
                                                                         {item}
                                                                     </div>
@@ -325,11 +473,11 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                                         {/* Safety & Concerns — neutral slate */}
                                                         {safety.length > 0 && (
                                                             <div className="space-y-2">
-                                                                <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                                                    <i className="fa-solid fa-shield-halved text-[10px]" /> Safety &amp; Concerns
+                                                                <div className="text-[12px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                                                    <i className="fa-solid fa-shield-halved text-[11px]" /> Safety &amp; Concerns
                                                                 </div>
                                                                 {safety.map((item: string, i: number) => (
-                                                                    <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] text-slate-700 font-medium leading-snug flex items-start gap-2">
+                                                                    <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-[14.5px] text-slate-700 font-medium leading-snug flex items-start gap-2">
                                                                         <i className="fa-solid fa-shield-halved text-slate-400 text-[10px] mt-1 flex-shrink-0" />
                                                                         {item}
                                                                     </div>
@@ -355,14 +503,14 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                         <div className="p-4">
                                             <div className="flex items-center gap-2 mb-4">
                                                 <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
-                                                    <i className="fa-solid fa-chart-line text-indigo-600 group-hover:text-white text-[12px]"></i>
+                                                    <i className="fa-solid fa-chart-line text-indigo-600 group-hover:text-white text-[13px]"></i>
                                                 </div>
-                                                <span className="text-[14px] font-bold text-slate-800 tracking-tight">Market Dynamics</span>
+                                                <span className="text-[16px] font-bold text-slate-800 tracking-tight">Market Dynamics</span>
                                             </div>
                                         {(!keyInsights && lifestyleLoading) ? (
                                             <div className="h-4 w-3/4 bg-slate-100 rounded animate-pulse mb-3" />
                                         ) : keyInsights?.executive_summary && keyInsights.executive_summary !== 'N/A' && (
-                                            <p className="text-[12px] text-slate-600 leading-relaxed mb-4 font-medium italic">&ldquo;{keyInsights.executive_summary.length > 120 ? keyInsights.executive_summary.substring(0, 117) + '...' : keyInsights.executive_summary}&rdquo;</p>
+                                            <p className="text-[16px] text-slate-600 leading-relaxed mb-4 font-medium italic">&ldquo;{keyInsights.executive_summary.length > 120 ? keyInsights.executive_summary.substring(0, 117) + '...' : keyInsights.executive_summary}&rdquo;</p>
                                         )}
                                         <div className="grid grid-cols-2 gap-2.5">
                                             {(!keyInsights && lifestyleLoading) ? (
@@ -378,10 +526,10 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                                 ].filter(m => m.value && m.value !== 'N/A').map((m, i) => (
                                                     <div key={i} className="flex flex-col p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm">
                                                         <div className="flex items-center gap-1.5 mb-1">
-                                                            <i className={`fa-solid ${m.icon} text-[10px] text-indigo-300`} />
-                                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">{m.label}</span>
+                                                            <i className={`fa-solid ${m.icon} text-[11px] text-indigo-300`} />
+                                                            <span className="text-[11px] font-black uppercase text-slate-400 tracking-widest leading-none">{m.label}</span>
                                                         </div>
-                                                        <div className="text-[13px] font-black text-slate-800 leading-snug">{m.value}</div>
+                                                        <div className="text-[15px] font-black text-slate-800 leading-snug">{m.value}</div>
                                                     </div>
                                                 ))
                                             )}
@@ -389,7 +537,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                         {keyInsights?.risk_tags && keyInsights.risk_tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1.5 mt-4">
                                                 {keyInsights.risk_tags.slice(0, 3).map((tag, i) => (
-                                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-bold text-rose-600">
+                                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-lg text-[12px] font-bold text-rose-600">
                                                         <div className="w-1 h-1 rounded-full bg-rose-400" />
                                                         {tag}
                                                     </span>
@@ -403,6 +551,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
 
                             {/* Affordability + Census Demographics */}
                             <div className="flex flex-col gap-3 px-2">
+                                {show('affordability') && (
                                 <AffordabilityCard
                                     state={propertyData.state}
                                     city={propertyData.city}
@@ -416,8 +565,8 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                     }
                                     userId={userRole}
                                     compact
-                                />
-                                {census && (
+                                />)}
+                                {show('census') && census && (
                                     <CensusDemographicsCard
                                         data={census as any}
                                         compact

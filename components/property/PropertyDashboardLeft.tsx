@@ -94,6 +94,8 @@ interface PropertyDashboardLeftProps {
     setMlsOpen: React.Dispatch<React.SetStateAction<boolean>>;
     envOpen: Record<string, boolean>;
     toggleEnv: (key: string) => void;
+    /** If provided, only renders the listed section keys: 'mls' | 'environment' | 'resilience' | 'solar' | 'commute' | 'walk' | 'broadband' */
+    showOnly?: string[];
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -113,12 +115,15 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
     setMlsOpen,
     envOpen,
     toggleEnv,
+    showOnly,
 }) => {
     const price = data.listPrice ?? data.price;
+    const show = (key: string) => !showOnly || showOnly.includes(key);
 
     return (
         <>
             {/* Property title / MLS */}
+            {show('mls') && (
             <div id="ov-property" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden scroll-mt-24">
                 <div className="px-5 py-4 flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center border border-slate-100/50">
@@ -284,9 +289,10 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                     </div>
                 )}
             </div>
+            )}{/* end mls */}
 
             {/* Environment */}
-            {(hasEnv || hasCoords) && (
+            {show('environment') && (hasEnv || hasCoords) && (
                 <SectionCard
                     id="ov-environment"
                     title="Environment"
@@ -413,10 +419,10 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                         </div>
                     </div>
                 </SectionCard>
-            )}
+            )}{/* end environment */}
 
             {/* Daily Living & Commute */}
-            {(hasWalk || hasBroadband || hasSolar || hasEV) && (
+            {(show('commute') || show('walk') || show('broadband')) && (hasWalk || hasBroadband || hasSolar || hasEV) && (
                 <SectionCard
                     id="ov-living"
                     title="Daily Living & Commute"
@@ -428,6 +434,7 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                 >
                     <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
                         {/* Col 1: Mobility & Commute */}
+                        {(show('commute') || show('walk')) && (
                         <div className="lg:col-span-4 space-y-4">
                             <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm">
                                 <div className="flex items-center gap-2 mb-4">
@@ -455,26 +462,11 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                 <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-4">Walk Score</div>
                             </div>
 
-                            <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <i className="fa-solid fa-clock text-blue-400 text-[14px]" />
-                                    <span className="text-[14px] font-bold text-slate-800 tracking-tight">Commute</span>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Enter work address..."
-                                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                    />
-                                    <div className="absolute right-2 top-2 p-1 bg-blue-500 rounded-md text-white">
-                                        <i className="fa-solid fa-magnifying-glass text-[11px]" />
-                                    </div>
-                                </div>
-                                <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-4">Google Maps</div>
-                            </div>
                         </div>
+                        )}{/* end commute/walk */}
 
                         {/* Col 2: Connectivity */}
+                        {show('broadband') && (
                         <div className="lg:col-span-4">
                             <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm h-full">
                                 <div className="flex items-center gap-2 mb-4">
@@ -528,8 +520,10 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                 <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-6">BroadbandMap</div>
                             </div>
                         </div>
+                        )}{/* end broadband */}
 
                         {/* Col 3: EV Charging */}
+                        {show('commute') && (
                         <div className="lg:col-span-4">
                             <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm h-full flex flex-col">
                                 <div className="flex items-center justify-between mb-4">
@@ -584,12 +578,13 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                 <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-auto pt-4">NREL AFDC API</div>
                             </div>
                         </div>
+                        )}{/* end ev */}
                     </div>
                 </SectionCard>
-            )}
+            )}{/* end commute/walk/broadband */}
 
             {/* Resilience & Hazards */}
-            {(hasEnv || hasCoords) && (
+            {show('resilience') && (hasEnv || hasCoords) && (
                 <SectionCard
                     id="ov-resilience"
                     title="Resilience & Hazards"
@@ -705,12 +700,12 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
 
                     </div>
                 </SectionCard>
-            )}
+            )}{/* end resilience */}
 
 
 
             {/* Solar Insights */}
-            {hasSolar && (
+            {show('solar') && hasSolar && (
                 <SectionCard
                     id="ov-sun"
                     title="Solar Insights"

@@ -33,6 +33,16 @@ interface PropertyDashboardRightProps {
     isNearbyCollapsed: boolean;
     setIsNearbyCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
     onRunAnalysis?: () => void;
+    /** Filter to only show specific sections */
+    showOnly?: string[];
+    /** Extra content rendered at the bottom of the Neighborhood SectionCard */
+    extraNeighborhoodContent?: React.ReactNode;
+    analysis?: ComprehensiveAnalysisResult | null;
+    hasOrientation?: boolean;
+    hasNeighborhood?: boolean;
+    hasNearby?: boolean;
+    schoolsExpanded?: Record<number, boolean>;
+    setSchoolsExpanded?: (v: Record<number, boolean>) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -54,11 +64,14 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
     isNearbyCollapsed,
     setIsNearbyCollapsed,
     onRunAnalysis,
+    showOnly,
+    extraNeighborhoodContent,
 }) => {
+    const show = (key: string) => !showOnly || showOnly.includes(key);
     return (
         <>
             {/* Schools */}
-            {hasSchools && (
+            {show('schools') && hasSchools && (
                 <SectionCard
                     id="ov-schools"
                     title="Schools"
@@ -290,7 +303,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
             )}
 
             {/* Orientation & Vastu */}
-            {data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && isOrientationClear((data as any).orientation_ai) && (() => {
+            {show('orientation') && data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && isOrientationClear((data as any).orientation_ai) && (() => {
                 const sat = (data as any).orientation_ai;
                 return (
                     <SectionCard
@@ -321,7 +334,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
             })()}
 
             {/* Neighborhood Identity */}
-            {data?.neighborhood_identity?.resolved_name && (() => {
+            {show('neighborhood') && data?.neighborhood_identity?.resolved_name && (() => {
                 const nid = data.neighborhood_identity;
                 const gem = cityNhEntryOverview || nid.gemini;
                 const tier = nid?.tier;
@@ -346,11 +359,22 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                 </p>
                             )}
                             <div className="flex flex-wrap gap-2">
-                                {tier && (
-                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${tierColors[tier] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                        <i className="fa-solid fa-tag mr-1" />{tier}
-                                    </span>
-                                )}
+                                {/* Tier badge */}
+                                {gem?.price_context?.tier && (() => {
+                                    const tierBadgeColors: Record<string, string> = {
+                                        'entry-level': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                        'mid-range': 'bg-blue-100 text-blue-700 border-blue-200',
+                                        'upper mid-range': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+                                        'premium': 'bg-purple-100 text-purple-700 border-purple-200',
+                                        'ultra-luxury': 'bg-amber-100 text-amber-700 border-amber-200',
+                                    };
+                                    const cls = tierBadgeColors[gem.price_context.tier.toLowerCase()] || 'bg-slate-100 text-slate-600 border-slate-200';
+                                    return (
+                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${cls}`}>
+                                            {gem.price_context.tier}
+                                        </span>
+                                    );
+                                })()}
                                 {gem?.price_context?.typical_range && (
                                     <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
                                         <i className="fa-solid fa-dollar-sign mr-1" />{gem.price_context.typical_range}
@@ -377,7 +401,36 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                         <i className="fa-solid fa-ruler-combined mr-1" />{gem.character.architectural_style}
                                     </span>
                                 )}
+                                {gem?.character?.typical_home_size && (
+                                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
+                                        <i className="fa-solid fa-ruler-combined mr-1" />{gem.character.typical_home_size}
+                                    </span>
+                                )}
                             </div>
+
+                            {/* Also Known As */}
+                            {gem?.alternative_names?.length > 0 && (
+                                <div>
+                                    <div className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Also Known As</div>
+                                    <p className="text-[12px] text-slate-600 font-sans font-medium">{gem.alternative_names.join(', ')}</p>
+                                </div>
+                            )}
+
+                            {/* Typical Lot Size */}
+                            {gem?.character?.typical_lot_size && (
+                                <div>
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Typical Lot Size</div>
+                                    <p className="text-[12px] text-slate-600 font-sans font-medium">{gem.character.typical_lot_size}</p>
+                                </div>
+                            )}
+
+                            {/* Market Position */}
+                            {gem?.price_context?.context && (
+                                <div>
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Market Position</div>
+                                    <p className="text-[12px] text-slate-600 font-sans font-medium">{gem.price_context.context}</p>
+                                </div>
+                            )}
 
                             {gem?.unique_features && gem.unique_features.length > 0 && (
                                 <div className="space-y-2">
@@ -398,13 +451,41 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                     <p className="text-[12px] text-slate-500 leading-relaxed font-sans font-medium">{gem.infrastructure_quality}</p>
                                 </div>
                             )}
+
+                            {/* Source + Social Platforms */}
+                            <div className="pt-3 border-t border-slate-100 space-y-2">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                                    Source: {gem?.source_type || 'Real Estate / Google Maps'}
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${gem?.nextdoor?.found ? 'bg-[#00b246]/10 border-[#00b246]/30 text-[#008c38]' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                                        <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3.5 3.5 0 110 7 3.5 3.5 0 010-7zm0 14.5a8.5 8.5 0 01-6.277-2.77C6.96 15.122 9.35 14 12 14s5.04 1.122 6.277 2.73A8.5 8.5 0 0112 19.5z"/></svg>
+                                        Nextdoor
+                                        {gem?.nextdoor?.found && <span className="w-1.5 h-1.5 rounded-full bg-[#00b246] inline-block ml-0.5" />}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border bg-orange-50/70 border-orange-200/50 text-orange-500">
+                                        <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+                                        Reddit
+                                    </span>
+                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border bg-blue-50/70 border-blue-200/50 text-blue-500">
+                                        <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                        Facebook
+                                    </span>
+                                </div>
+                            </div>
                         </div>
+
+                            {extraNeighborhoodContent && (
+                                <div className="mt-2">
+                                    {extraNeighborhoodContent}
+                                </div>
+                            )}
                     </SectionCard>
                 );
             })()}
 
             {/* Rental Analysis */}
-            {ltrAnalysis && (
+            {show('rental') && ltrAnalysis && (
                 <SectionCard
                     id="ov-rental"
                     title="Rent Estimates"
@@ -490,7 +571,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
             )}
 
             {/* What's Nearby? */}
-            {(data.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) && (
+            {show('nearby') && (data.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) && (
                 <div id="ov-nearby" className="bg-white rounded-[1.5rem] border border-slate-100 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
                     <button
                         onClick={() => setIsNearbyCollapsed(!isNearbyCollapsed)}
@@ -519,8 +600,8 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                 </div>
             )}
 
-            {/* AI Summary */}
-            {customAnalysis?.executiveSummary && (
+            {/* AI Summary — only in full overview or neighborhood context */}
+            {(show('neighborhood') || !showOnly) && customAnalysis?.executiveSummary && (
                 <div className="bg-slate-900 rounded-3xl p-6 shadow-2xl shadow-indigo-900/20 border border-indigo-500/10">
                     <div className="flex items-start gap-4">
                         <div className="w-9 h-9 rounded-2xl bg-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-lg shadow-indigo-500/40">

@@ -34,6 +34,8 @@ import { PropertyLifestylePanel } from './PropertyLifestylePanel';
 import { PropertyInsightsPanel } from './PropertyInsightsPanel';
 import PropertyOverviewDashboard from './PropertyOverviewDashboard';
 import PropertySidebar, { NavItem } from './PropertySidebar';
+import PropertyNav, { MobileNavBar } from './PropertyNav';
+import { PropertySectionView } from './PropertySectionView';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
@@ -112,12 +114,66 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         schoolsExpanded, setSchoolsExpanded,
         cachedVisualAnalysis,
         designStyle, marketDynamics, ltrAnalysis, keyInsights,
-        neighborhoodOverview, visualPoi, mapLabels,
+        neighborhoodOverview, communityPulse, visualPoi, mapLabels,
         currentInteriorSummary, analysis,
         handleFullRefresh,
     } = useExploreTabData({ propertyData, viewMode, customAnalysis, comprehensiveAnalysis, onRunCustomAnalysis });
 
-    // — Sidebar nav items —
+    // ── New 2-level nav state ───────────────────────────────
+    const [activeNavSection, setActiveNavSection] = React.useState('property');
+    const [activeNavSub, setActiveNavSub] = React.useState('mls-data');
+
+    const handleNavNavigate = React.useCallback((sectionId: string, subId: string) => {
+        setActiveNavSection(sectionId);
+        setActiveNavSub(subId);
+        // Map to the matching page section id for smooth-scroll
+        const subToSectionId: Record<string, string> = {
+            'lifestyle-vastu':   'ov-lifestyle',
+            'mls-data':          'ov-property',
+            'indoor':            'ov-ai-analysis',
+            'outdoor':           'ov-ai-analysis',
+            'exterior':          'ov-ai-analysis',
+            'hazards':           'ov-resilience',
+            'noise-air':         'ov-environment',
+            'solar':             'ov-sun',
+            'commute':           'ov-living',
+            'walk-scores':       'ov-living',
+            'internet':          'ov-living',
+            'neighborhood':      'ov-neighborhood',
+            'interests':         'ov-lifestyle',
+            'whats-nearby':      'ov-nearby',
+            'community-pulse':   'ov-community',
+            'economics':         'ov-rental',
+            'investment-research':'ov-ai-analysis',
+        };
+        const targetId = subToSectionId[subId];
+        if (targetId) {
+            setSidebarActiveId(targetId);
+            manualScrollRef.current = true;
+            if (manualScrollTimer.current) clearTimeout(manualScrollTimer.current);
+            manualScrollTimer.current = setTimeout(() => { manualScrollRef.current = false; }, 1000);
+            requestAnimationFrame(() => {
+                document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+    }, []);
+
+    const navVisibility = {
+        hasLifestyle:      !!(lifestyleFit || lifestyleInsights),
+        hasSchools:        !!(schoolsIntelligence?.schools?.length),
+        hasOrientation:    !!(propertyData as any)?.orientation_ai && isOrientationClear((propertyData  as any).orientation_ai),
+        hasEnvironment:    !!(propertyData?.windRiskScore || propertyData?.floodRiskScore || propertyData?.fireRiskScore || propertyData?.pollen || propertyData?.airQuality || (propertyData as any)?.historical_disasters),
+        hasSolar:          !!propertyData?.coordinates,
+        hasWalkData:       !!(propertyData?.walkScore || propertyData?.transitScore || propertyData?.bikeScore),
+        hasBroadband:      !!(propertyData as any)?.broadband,
+        hasNeighborhood:   !!propertyData?.neighborhood_identity,
+        hasNearby:         !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)),
+        hasCommunityPulse: !!(communityPulse || customAnalysis?.community_pulse),
+        hasLtrAnalysis:    !!ltrAnalysis,
+        hasDeepResearch:   !!keyInsights,
+    };
+
+    // — Legacy sidebar items (kept for IntersectionObserver scroll tracking) —
     const hasWalkData = !!(propertyData?.walkScore || propertyData?.transitScore || propertyData?.bikeScore);
     const hasBroadband = !!(propertyData as any)?.broadband;
     const hasSchoolsData = !!(schoolsIntelligence?.schools?.length);
@@ -410,85 +466,69 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 {/* ══ Tab Content ══ */}
                                 {activeTab === 'property-data' && (
                                     <div className="flex gap-0 min-h-screen bg-slate-50/50">
-                                        {/* Full-height Sidebar */}
-                                        <PropertySidebar items={sidebarItems} activeId={sidebarActiveId} onItemClick={handleNavClick} />
-
-                                        {/* Scrollable content area */}
-                                        <div className="flex-1 min-w-0 flex flex-col gap-10 p-4 lg:p-8">
-
-                                        {/* Lifestyle Fit — rendered ABOVE the main Dashboard */}
-                                        <PropertyLifestylePanel
-                                            lifestyleFit={lifestyleFit}
-                                            lifestyleInsights={lifestyleInsights}
-                                            lifestyleLoading={lifestyleLoading}
-                                            lifestyleFitTab={lifestyleFitTab}
-                                            setLifestyleFitTab={setLifestyleFitTab}
-                                            lifestyleInterestTab={lifestyleInterestTab}
-                                            setLifestyleInterestTab={setLifestyleInterestTab}
-                                            handleGenerateLifestyle={handleGenerateLifestyle}
+                                    {/* Full-height PropertyNav (xl+) */}
+                                        <PropertyNav
+                                            activeSectionId={activeNavSection}
+                                            activeSubId={activeNavSub}
+                                            onNavigate={handleNavNavigate}
+                                            visibility={navVisibility}
                                         />
-
-                                        {/* ── New Dashboard Overview ── */}
-                                        <PropertyOverviewDashboard
-                                            propertyData={propertyData}
-                                            analysis={comprehensiveAnalysis}
-                                            customAnalysis={customAnalysis}
-                                            micro={micro}
-                                            schoolsIntelligence={schoolsIntelligence}
-                                            census={census}
-                                            cityNhEntryOverview={cityNhEntryOverview}
-                                            visualPoi={visualPoi}
-                                            mapLabels={mapLabels}
-                                            neighborhoodOverview={neighborhoodOverview}
-                                            ltrAnalysis={ltrAnalysis}
-                                            onRunAnalysis={() => onRunCustomAnalysis(false)}
-                                        />
-
-
-
-
-
-                                        {(designStyle || keyInsights || ltrAnalysis || ((propertyData as any).orientation_ai && isOrientationClear((propertyData as any).orientation_ai)) || neighborhoodOverview || analysis) && (
-                                            <div className="flex flex-col gap-2">
-                                                <ExploreRow1Cards
-                                                    propertyData={propertyData}
-                                                    analysis={analysis}
-                                                    census={census}
-                                                    lifestyleFit={lifestyleFit}
-                                                    lifestyleInsights={lifestyleInsights}
-                                                    userRole={userRole}
-                                                    designStyle={designStyle}
-                                                    currentInteriorSummary={currentInteriorSummary}
-                                                />
-
-                                                <PropertyInsightsPanel
-                                                    propertyData={propertyData}
-                                                    analysis={analysis}
-                                                    customAnalysis={customAnalysis}
-                                                    keyInsights={keyInsights}
-                                                    ltrAnalysis={ltrAnalysis}
-                                                    census={census}
-                                                    neighborhoodOverview={neighborhoodOverview}
-                                                    lifestyleLoading={lifestyleLoading}
-                                                    pulseExpanded={pulseExpanded}
-                                                    setPulseExpanded={setPulseExpanded}
-                                                    isRefreshingPulse={isRefreshingPulse}
-                                                    setIsRefreshingPulse={setIsRefreshingPulse}
-                                                    groundTruthMapTab={groundTruthMapTab}
-                                                    setGroundTruthMapTab={setGroundTruthMapTab}
-                                                    isSatelliteExpanded={isSatelliteExpanded}
-                                                    setIsSatelliteExpanded={setIsSatelliteExpanded}
-                                                    onRefreshEnvironment={onRefreshEnvironment}
-                                                    environmentRefreshing={environmentRefreshing}
-                                                    userRole={userRole}
-                                                    onRefreshCommunityPulse={onRefreshCommunityPulse}
-                                                />
-                                            </div>
-                                        )}
-
+                                        {/* Scrollable content area — driven by PropertySectionView */}
+                                        <div className="flex-1 min-w-0 p-4 lg:p-8">
+                                            <PropertySectionView
+                                                sectionId={activeNavSection}
+                                                subId={activeNavSub}
+                                                propertyData={propertyData}
+                                                customAnalysis={customAnalysis}
+                                                comprehensiveAnalysis={comprehensiveAnalysis}
+                                                communityPulse={communityPulse}
+                                                ltrAnalysis={ltrAnalysis}
+                                                keyInsights={keyInsights}
+                                                neighborhoodOverview={neighborhoodOverview}
+                                                visualPoi={visualPoi}
+                                                mapLabels={mapLabels}
+                                                designStyle={designStyle}
+                                                currentInteriorSummary={currentInteriorSummary}
+                                                census={census}
+                                                micro={micro}
+                                                lifestyleFit={lifestyleFit}
+                                                lifestyleInsights={lifestyleInsights}
+                                                lifestyleLoading={lifestyleLoading}
+                                                lifestyleFitTab={lifestyleFitTab}
+                                                setLifestyleFitTab={setLifestyleFitTab}
+                                                lifestyleInterestTab={lifestyleInterestTab}
+                                                setLifestyleInterestTab={setLifestyleInterestTab}
+                                                handleGenerateLifestyle={handleGenerateLifestyle}
+                                                schoolsIntelligence={schoolsIntelligence}
+                                                cityNhEntryOverview={cityNhEntryOverview}
+                                                pulseExpanded={pulseExpanded}
+                                                setPulseExpanded={setPulseExpanded}
+                                                isRefreshingPulse={isRefreshingPulse}
+                                                setIsRefreshingPulse={setIsRefreshingPulse}
+                                                isSatelliteExpanded={isSatelliteExpanded}
+                                                setIsSatelliteExpanded={setIsSatelliteExpanded}
+                                                groundTruthMapTab={groundTruthMapTab}
+                                                setGroundTruthMapTab={setGroundTruthMapTab}
+                                                onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                                onRefreshAnalysis={() => onRunCustomAnalysis(true)}
+                                                onFullRefresh={handleFullRefresh}
+                                                onRunComprehensive={() => { onRunComprehensive(false); }}
+                                                onRefreshEnvironment={onRefreshEnvironment}
+                                                environmentRefreshing={environmentRefreshing}
+                                                onRefreshCommunityPulse={onRefreshCommunityPulse}
+                                                customAnalysisLoading={customAnalysisLoading}
+                                                onUpdateAnalysis={onUpdateAnalysis}
+                                                onUpdatePropertyData={onUpdatePropertyData}
+                                                addLog={addLog}
+                                                isFavorited={isFavorited}
+                                                onToggleFavorite={onToggleFavorite}
+                                                userRole={userRole}
+                                            />
                                         </div>{/* end scrollable content area */}
                                     </div>
                                 )}
+
+
 
 
 
