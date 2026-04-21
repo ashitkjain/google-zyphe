@@ -385,7 +385,6 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                                 <SeasonalSunCard
                                     lat={data.coordinates.latitude}
                                     lng={data.coordinates.longitude}
-                                    orientation={(data as any).orientation_ai?.final_orientation}
                                 />
                             </div>
                         </div>

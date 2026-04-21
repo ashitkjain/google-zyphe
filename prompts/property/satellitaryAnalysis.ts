@@ -177,9 +177,19 @@ Step 2: Aerial Front-Wall Identification.
 Step 3: Cross-check with Image B (street view). GPS camera heading = ${streetViewHeading != null ? `${streetViewHeading}°` : 'N/A'} (exact, GPS-measured).
    Your ONLY job in Step 3: look at Image B and judge whether it shows the front or back of the house.
    Judge from IMAGE B ALONE — do NOT set this to match your Step 2 aerial conclusion.
-   RULE A — Image B shows front door, porch, covered entry, or steps:
+   RULE A — Image B clearly shows a PEDESTRIAN front door (a walk-through door with a handle/knocker), porch, or front steps with a direct path from the public sidewalk:
       → street_view_shows_front = TRUE
-   RULE B — Image B shows ONLY a blank wall, fence, or side with no openings:
+      ⚠️  RULE A EXCLUSIONS — NONE of the following count as a "front door" for Rule A:
+         • A garage door, roller door, sectional door, or any vehicle bay opening — even if it faces the main road
+         • A carport (covered parking bay open on the sides) — this is VEHICLE ACCESS, not the residential front
+         • A covered breezeway leading to parking
+         • A gate, side alley, or shared building lobby
+         • Windows or balconies with no ground-level door
+      If Image B shows ONLY vehicle access structures (carports, garages, roller bays) with no clearly visible PEDESTRIAN door:
+         → front_door_clearly_visible = false
+         → street_view_shows_front = FALSE (even if the roof looks like it could have an entry beneath)
+   ⚠️  TOWNHOUSE / CONDO RE-CHECK: Before setting street_view_shows_front = TRUE for any townhouse, row house, or multi-unit building, re-apply the conditions from Step 0b. If front_door_clearly_visible is false (as set in Step 0b), you MUST set street_view_shows_front = FALSE here. These two fields must be consistent.
+   RULE B — Image B shows ONLY a blank wall, fence, carport, garage bay, or side with no pedestrian opening:
       → street_view_shows_front = FALSE
 
 Step 4: Finalize.
@@ -552,7 +562,7 @@ export function getDualPromptFinalInstructions(streetViewHeading?: number | null
 FINAL REMINDER:
 1. WALKWAY RULE: The side where the path from the street leads to a door is the FRONT.
 2. FACING DIRECTION: The azimuth is the direction from the house TOWARD the street (never away from it). All 8 directions are valid — do NOT collapse diagonals to cardinals. Examples: street to south→S(180°), to SE→SE(135°), to NW→NW(315°). Do NOT invert (street south = face south, not north).
-3. AMBIGUITY: If Image B shows the front door, use the heading ${streetViewHeading != null ? `${streetViewHeading}°` : 'provided'} to derive the exact azimuth. If Image B shows a garage but the front door is elsewhere, street_view_shows_front must be FALSE.
+3. AMBIGUITY: If Image B shows the front door, use the heading ${streetViewHeading != null ? `${streetViewHeading}°` : 'provided'} to derive the exact azimuth. If Image B shows a garage, carport, or vehicle bay — even facing the main road — street_view_shows_front must be FALSE. A carport or garage door is NEVER a front door.
 4. CONFIDENCE: Be low/medium if the image is soft or cues are conflicting.
 `.trim();
 }

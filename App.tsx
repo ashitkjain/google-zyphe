@@ -211,6 +211,10 @@ const App: React.FC = () => {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        // Load high-limit API keys from Firestore once authenticated
+        const { loadApiKeys } = await import('./services/apiKeyLoader');
+        await loadApiKeys();
+
         let profile = null;
         let attempts = 0;
         const maxAttempts = 3;

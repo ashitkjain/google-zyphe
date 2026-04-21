@@ -81,8 +81,13 @@ export async function loadApiKeys(): Promise<void> {
         console.log(`[ApiKeys] Loaded ${keyCount} keys from Firestore`);
 
         loaded = true;
-    } catch (e) {
-        console.warn('[ApiKeys] Failed to load from Firestore, using env vars:', (e as any).message);
-        loaded = true; // Don't retry on failure
+    } catch (e: any) {
+        const isPermissionError = e.code === 'permission-denied' || e.message?.includes('permission');
+        console.warn(`[ApiKeys] Failed to load from Firestore (Retryable: ${isPermissionError}), using env vars:`, e.message);
+        
+        // If it was a permission error, don't mark as 'loaded' so we can retry after login
+        if (!isPermissionError) {
+            loaded = true;
+        }
     }
 }

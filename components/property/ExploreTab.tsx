@@ -128,24 +128,24 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         setActiveNavSub(subId);
         // Map to the matching page section id for smooth-scroll
         const subToSectionId: Record<string, string> = {
-            'lifestyle-vastu':   'ov-lifestyle',
-            'mls-data':          'ov-property',
-            'indoor':            'ov-ai-analysis',
-            'outdoor':           'ov-ai-analysis',
-            'exterior':          'ov-ai-analysis',
-            'hazards':           'ov-resilience',
-            'noise-air':         'ov-environment',
-            'solar':             'ov-sun',
-            'commute':           'ov-living',
-            'walk-scores':       'ov-living',
-            'internet':          'ov-living',
-            'neighborhood':      'ov-neighborhood',
-            'interests':         'ov-lifestyle',
-            'whats-nearby':      'ov-nearby',
-            'community-pulse':   'ov-community',
-            'economics':         'ov-rental',
-            'investment-research':'ov-ai-analysis',
-            'graph':             'ov-ai-analysis',
+            'lifestyle-vastu': 'ov-lifestyle',
+            'mls-data': 'ov-property',
+            'indoor': 'ov-ai-analysis',
+            'outdoor': 'ov-ai-analysis',
+            'exterior': 'ov-ai-analysis',
+            'hazards': 'ov-resilience',
+            'noise-air': 'ov-environment',
+            'solar': 'ov-sun',
+            'commute': 'ov-living',
+            'walk-scores': 'ov-living',
+            'internet': 'ov-living',
+            'neighborhood': 'ov-neighborhood',
+            'interests': 'ov-lifestyle',
+            'whats-nearby': 'ov-nearby',
+            'community-pulse': 'ov-community',
+            'economics': 'ov-rental',
+            'investment-research': 'ov-ai-analysis',
+            'graph': 'ov-ai-analysis',
         };
         const targetId = subToSectionId[subId];
         if (targetId) {
@@ -160,18 +160,18 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     }, []);
 
     const navVisibility = {
-        hasLifestyle:      !!(lifestyleFit || lifestyleInsights),
-        hasSchools:        !!(schoolsIntelligence?.schools?.length),
-        hasOrientation:    !!(propertyData as any)?.orientation_ai && isOrientationClear((propertyData  as any).orientation_ai),
-        hasEnvironment:    !!(propertyData?.windRiskScore || propertyData?.floodRiskScore || propertyData?.fireRiskScore || propertyData?.pollen || propertyData?.airQuality || (propertyData as any)?.historical_disasters),
-        hasSolar:          !!propertyData?.coordinates,
-        hasWalkData:       !!(propertyData?.walkScore || propertyData?.transitScore || propertyData?.bikeScore),
-        hasBroadband:      !!(propertyData as any)?.broadband,
-        hasNeighborhood:   !!propertyData?.neighborhood_identity,
-        hasNearby:         !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)),
+        hasLifestyle: !!(lifestyleFit || lifestyleInsights),
+        hasSchools: !!(schoolsIntelligence?.schools?.length),
+        hasOrientation: !!(propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai),
+        hasEnvironment: !!(propertyData?.windRiskScore || propertyData?.floodRiskScore || propertyData?.fireRiskScore || propertyData?.pollen || propertyData?.airQuality || (propertyData as any)?.historical_disasters),
+        hasSolar: !!propertyData?.coordinates,
+        hasWalkData: !!(propertyData?.walkScore || propertyData?.transitScore || propertyData?.bikeScore),
+        hasBroadband: !!(propertyData as any)?.broadband,
+        hasNeighborhood: !!propertyData?.neighborhood_identity,
+        hasNearby: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)),
         hasCommunityPulse: !!(communityPulse || customAnalysis?.community_pulse),
-        hasLtrAnalysis:    !!ltrAnalysis,
-        hasDeepResearch:   !!keyInsights,
+        hasLtrAnalysis: !!ltrAnalysis,
+        hasDeepResearch: !!keyInsights,
     };
 
     // — Legacy sidebar items (kept for IntersectionObserver scroll tracking) —
@@ -182,20 +182,20 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         propertyData?.pollen || propertyData?.airQuality || (propertyData as any)?.historical_disasters);
 
     const sidebarItems: NavItem[] = [
-        { id: 'ov-lifestyle',   label: 'Lifestyle & Interests',    icon: 'fa-people-roof',       visible: !!(lifestyleFit || lifestyleInsights) },
-        { id: 'ov-property',    label: 'MLS Property Data',        icon: 'fa-table-cells-large', visible: true },
-        { id: 'ov-environment', label: 'Environment',             icon: 'fa-leaf',              visible: hasEnvData },
-        { id: 'ov-resilience',  label: 'Resilience & Hazards',    icon: 'fa-shield-halved',     visible: hasEnvData },
-        { id: 'ov-sun',         label: 'Solar Insights',              icon: 'fa-sun',               visible: !!propertyData?.coordinates },
-        { id: 'ov-living',      label: 'Daily Living & Commute',  icon: 'fa-network-wired',     visible: hasWalkData || hasBroadband },
-        { id: 'ov-schools',     label: 'Schools',                  icon: 'fa-graduation-cap',    visible: hasSchoolsData },
-        { id: 'ov-orientation', label: 'Orientation and Vastu',       icon: 'fa-compass',           visible: !!(propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai) },
-        { id: 'ov-neighborhood',label: 'Neighborhood',            icon: 'fa-mountain-sun',      visible: !!propertyData?.neighborhood_identity },
-        { id: 'ov-rental',      label: 'Rent Estimates',           icon: 'fa-sack-dollar',       visible: !!ltrAnalysis },
-        { id: 'ov-nearby',      label: "What's Nearby?",           icon: 'fa-map-location-dot',  visible: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) },
-        { id: 'ov-ai-analysis', label: 'Property AI',              icon: 'fa-brain',             visible: !!(designStyle || keyInsights || ltrAnalysis || ((propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai)) || neighborhoodOverview || analysis) },
-        { id: 'ov-streetview',  label: 'Eyes on the Street',       icon: 'fa-street-view',       visible: !!propertyData?.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false },
-        { id: 'ov-community',   label: `${propertyData?.city || 'Community'} Overview`, icon: 'fa-city',              visible: true },
+        { id: 'ov-lifestyle', label: 'Lifestyle & Interests', icon: 'fa-people-roof', visible: !!(lifestyleFit || lifestyleInsights) },
+        { id: 'ov-property', label: 'MLS Property Data', icon: 'fa-table-cells-large', visible: true },
+        { id: 'ov-environment', label: 'Environment', icon: 'fa-leaf', visible: hasEnvData },
+        { id: 'ov-resilience', label: 'Resilience & Hazards', icon: 'fa-shield-halved', visible: hasEnvData },
+        { id: 'ov-sun', label: 'Solar Insights', icon: 'fa-sun', visible: !!propertyData?.coordinates },
+        { id: 'ov-living', label: 'Daily Living & Commute', icon: 'fa-network-wired', visible: hasWalkData || hasBroadband },
+        { id: 'ov-schools', label: 'Schools', icon: 'fa-graduation-cap', visible: hasSchoolsData },
+        { id: 'ov-orientation', label: 'Orientation and Vastu', icon: 'fa-compass', visible: !!(propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai) },
+        { id: 'ov-neighborhood', label: 'Neighborhood', icon: 'fa-mountain-sun', visible: !!propertyData?.neighborhood_identity },
+        { id: 'ov-rental', label: 'Rent Estimates', icon: 'fa-sack-dollar', visible: !!ltrAnalysis },
+        { id: 'ov-nearby', label: "What's Nearby?", icon: 'fa-map-location-dot', visible: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)) },
+        { id: 'ov-ai-analysis', label: 'Property AI', icon: 'fa-brain', visible: !!(designStyle || keyInsights || ltrAnalysis || ((propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai)) || neighborhoodOverview || analysis) },
+        { id: 'ov-streetview', label: 'Eyes on the Street', icon: 'fa-street-view', visible: !!propertyData?.streetViewAnalysis && propertyData.streetViewAnalysis.isImageryAvailable !== false },
+        { id: 'ov-community', label: `${propertyData?.city || 'Community'} Overview`, icon: 'fa-city', visible: true },
     ];
 
     const [sidebarActiveId, setSidebarActiveId] = React.useState('ov-property');
@@ -237,7 +237,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             observers.push(obs);
         });
         return () => observers.forEach(o => o.disconnect());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sidebarItems.map(i => i.id + i.visible).join(','), propertyData?.zpid]);
 
     const isForSale = !propertyData || !propertyData.homeStatus ||
@@ -467,7 +467,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 {/* ══ Tab Content ══ */}
                                 {activeTab === 'property-data' && (
                                     <div className="flex gap-0 min-h-screen bg-slate-50/50">
-                                    {/* Full-height PropertyNav (xl+) */}
+                                        {/* Full-height PropertyNav (xl+) */}
                                         <PropertyNav
                                             activeSectionId={activeNavSection}
                                             activeSubId={activeNavSub}

@@ -17,7 +17,7 @@
         "@google-cloud/documentai": "^8.0.0",
         "@google/generative-ai": "^0.24.1",
         "firebase-admin": "^13.6.0",
-        "firebase-functions": "^7.0.5",
+        "firebase-functions": "^7.2.5",
         "markdown-it": "^14.1.0",
         "telnyx": "^5.17.0"
     },

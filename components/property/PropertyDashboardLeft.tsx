@@ -124,61 +124,62 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
         <>
             {/* Property title / MLS */}
             {show('mls') && (
-            <div id="ov-property" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden scroll-mt-24">
-                <div className="px-5 py-4 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center border border-slate-100/50">
-                        <i className="fa-solid fa-table-cells-large text-indigo-500 text-[13px]" />
+                <div id="ov-property" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden scroll-mt-24">
+                    <div className="px-5 py-4 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center border border-slate-100/50">
+                            <i className="fa-solid fa-table-cells-large text-indigo-500 text-[13px]" />
+                        </div>
+                        <h3 className="text-[18px] font-black text-slate-900 tracking-tight leading-none">
+                            MLS Property Data
+                        </h3>
                     </div>
-                    <h3 className="text-[18px] font-black text-slate-900 tracking-tight leading-none">
-                        MLS Property Data
-                    </h3>
-                </div>
-                <div className="px-5 py-5 flex flex-col gap-4">
-                    {/* Row 1: Address + badges */}
-                    <div className="min-w-0">
-                        <h1 className="text-[18px] font-black text-slate-900 tracking-tight leading-tight">
-                            {data.address?.split(',')[0] || 'Property Overview'}
-                        </h1>
-                        <p className="text-[12px] text-slate-500 mt-1 font-semibold uppercase tracking-wider">
-                            {data.address?.split(',').slice(1).join(',').trim()}
-                        </p>
-                        <div className="flex flex-wrap gap-2 mt-4">
-                            {data.homeType && (
-                                <span className="px-3 py-1.5 bg-indigo-50 border border-indigo-100/50 rounded-lg text-[10px] font-black text-indigo-700 uppercase tracking-[0.1em]">
-                                    {data.homeType.replace(/_/g, ' ')}
-                                </span>
-                            )}
-                            {data.bedrooms != null && (
-                                <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                    <i className="fa-solid fa-bed mr-2 text-[10px] text-slate-400" />{data.bedrooms} Bed
-                                </span>
-                            )}
-                            {data.bathrooms != null && (
-                                <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                    <i className="fa-solid fa-bath mr-2 text-[10px] text-slate-400" />{data.bathrooms} Bath
-                                </span>
-                            )}
-                            {data.livingAreaValue && (
-                                <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                    <i className="fa-solid fa-maximize mr-2 text-[10px] text-slate-400" />{data.livingAreaValue.toLocaleString()} SF
-                                </span>
-                            )}
-                            {data.yearBuilt && (
-                                <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                    Built {data.yearBuilt}
-                                </span>
-                            )}
-                            {price && data.livingAreaValue && (
-                                <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-100/50 rounded-lg text-[10px] font-black text-emerald-700 uppercase tracking-[0.1em]">
-                                    ${Math.round(price / data.livingAreaValue).toLocaleString()}/SF
-                                </span>
-                            )}
+                    <div className="px-5 py-5 flex flex-col gap-4">
+                        {/* Row 1: Address + badges */}
+                        <div className="min-w-0">
+                            <h1 className="text-[18px] font-black text-slate-900 tracking-tight leading-tight">
+                                {data.address?.split(',')[0] || 'Property Overview'}
+                            </h1>
+                            <p className="text-[12px] text-slate-500 mt-1 font-semibold uppercase tracking-wider">
+                                {data.address?.split(',').slice(1).join(',').trim()}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                                {data.homeType && (
+                                    <span className="px-3 py-1.5 bg-indigo-50 border border-indigo-100/50 rounded-lg text-[10px] font-black text-indigo-700 uppercase tracking-[0.1em]">
+                                        {data.homeType.replace(/_/g, ' ')}
+                                    </span>
+                                )}
+                                {data.bedrooms != null && (
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                        <i className="fa-solid fa-bed mr-2 text-[10px] text-slate-400" />{data.bedrooms} Bed
+                                    </span>
+                                )}
+                                {data.bathrooms != null && (
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                        <i className="fa-solid fa-bath mr-2 text-[10px] text-slate-400" />{data.bathrooms} Bath
+                                    </span>
+                                )}
+                                {data.livingAreaValue && (
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                        <i className="fa-solid fa-maximize mr-2 text-[10px] text-slate-400" />{data.livingAreaValue.toLocaleString()} SF
+                                    </span>
+                                )}
+                                {data.yearBuilt && (
+                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
+                                        Built {data.yearBuilt}
+                                    </span>
+                                )}
+                                {price && data.livingAreaValue && (
+                                    <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-100/50 rounded-lg text-[10px] font-black text-emerald-700 uppercase tracking-[0.1em]">
+                                        ${Math.round(price / data.livingAreaValue).toLocaleString()}/SF
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Row 2: Listing Remarks — full width below */}
+                    {/* Listing Remarks — full width above specifications */}
                     {data.description && (
-                        <div className="w-full">
+                        <div className="w-full px-5 py-5 border-t border-slate-100">
                             <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
@@ -186,29 +187,28 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                     </div>
                                     <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Listing Remarks</span>
                                 </div>
-                                <p className="text-[14px] text-slate-600 leading-relaxed font-sans font-medium line-clamp-4 hover:line-clamp-none transition-all duration-300">
+                                <p className="text-[14px] text-slate-600 leading-relaxed font-sans font-medium">
                                     {data.description}
                                 </p>
                             </div>
                         </div>
                     )}
-                </div>
 
-                {/* Detailed MLS Details (Always Expanded) */}
-                {data.resoFacts && (
-                    <div className="border-t border-slate-100">
-                        <div className="px-5 py-4 bg-slate-50/30 flex items-center justify-between border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100 shadow-sm">
-                                    <i className="fa-solid fa-list text-indigo-500 text-[10px]" />
+                    {/* Detailed MLS Specifications */}
+                    {data.resoFacts && (
+                        <div className="border-t border-slate-100">
+                            <div className="px-5 py-4 bg-slate-50/30 flex items-center justify-between border-b border-slate-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100 shadow-sm">
+                                        <i className="fa-solid fa-list text-indigo-500 text-[10px]" />
+                                    </div>
+                                    <span className="text-[11px] font-black text-slate-700 uppercase tracking-[0.15em]">
+                                        Detailed Specifications
+                                    </span>
                                 </div>
-                                <span className="text-[11px] font-black text-slate-700 uppercase tracking-[0.15em]">
-                                    Detailed Specifications
-                                </span>
                             </div>
-                        </div>
 
-                        <div className="px-5 py-6 flex flex-col lg:flex-row gap-6">
+                            <div className="px-5 py-6 flex flex-col lg:flex-row gap-6">
                                 {data.images && data.images.length > 0 && (
                                     <div className="w-full lg:w-1/2 shrink-0">
                                         <PropertyImages
@@ -275,9 +275,9 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                     </div>
                                 </div>
                             </div>
-                    </div>
-                )}
-            </div>
+                        </div>
+                    )}
+                </div>
             )}{/* end mls */}
 
             {/* Environment */}
@@ -308,8 +308,8 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                         <div className="space-y-3 flex-1">
                                             {[
                                                 { label: 'Traffic', score: data.noiseTrafficScore ?? null, desc: data.noiseTrafficDesc ?? null },
-                                                { label: 'Local',   score: data.noiseLocalScore   ?? null, desc: data.noiseLocalDesc   ?? null },
-                                                { label: 'Airport', score: data.noiseAirportScore  ?? null, desc: data.noiseAirportDesc  ?? null }
+                                                { label: 'Local', score: data.noiseLocalScore ?? null, desc: data.noiseLocalDesc ?? null },
+                                                { label: 'Airport', score: data.noiseAirportScore ?? null, desc: data.noiseAirportDesc ?? null }
                                             ].map((n, i) => (
                                                 <div key={i} className="flex flex-col p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm">
                                                     <div className="flex items-center justify-between mb-1.5">
@@ -424,149 +424,149 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                     <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
                         {/* Col 1: Mobility & Commute */}
                         {(show('commute') || show('walk')) && (
-                        <div className="lg:col-span-4 space-y-4">
-                            <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <i className="fa-solid fa-person-walking text-emerald-400 text-[14px]" />
-                                    <span className="text-[14px] font-bold text-slate-800 tracking-tight">Getting Around</span>
-                                </div>
-                                <div className="space-y-4">
-                                    {[
-                                        { label: 'WALK', score: data.walkScore, desc: data.walkScoreDesc, icon: 'fa-person-walking' },
-                                        { label: 'TRANSIT', score: data.transitScore, desc: data.transitScoreDesc || 'N/A', icon: 'fa-bus' },
-                                        { label: 'BIKE', score: data.bikeScore, desc: data.bikeScoreDesc, icon: 'fa-bicycle' },
-                                    ].map((m, i) => (
-                                        <div key={i} className="flex flex-col">
-                                            <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                                <i className={`fa-solid ${m.icon} text-[9px]`} />
-                                                <span>{m.label}</span>
+                            <div className="lg:col-span-4 space-y-4">
+                                <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <i className="fa-solid fa-person-walking text-emerald-400 text-[14px]" />
+                                        <span className="text-[14px] font-bold text-slate-800 tracking-tight">Getting Around</span>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {[
+                                            { label: 'WALK', score: data.walkScore, desc: data.walkScoreDesc, icon: 'fa-person-walking' },
+                                            { label: 'TRANSIT', score: data.transitScore, desc: data.transitScoreDesc || 'N/A', icon: 'fa-bus' },
+                                            { label: 'BIKE', score: data.bikeScore, desc: data.bikeScoreDesc, icon: 'fa-bicycle' },
+                                        ].map((m, i) => (
+                                            <div key={i} className="flex flex-col">
+                                                <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                                    <i className={`fa-solid ${m.icon} text-[9px]`} />
+                                                    <span>{m.label}</span>
+                                                </div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-[16px] font-black text-slate-700">{m.score != null ? `${m.score}/100` : 'N/A'}</span>
+                                                    <span className="text-[12px] text-slate-400 font-medium truncate">{m.desc}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-[16px] font-black text-slate-700">{m.score != null ? `${m.score}/100` : 'N/A'}</span>
-                                                <span className="text-[12px] text-slate-400 font-medium truncate">{m.desc}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
+                                    <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-4">Walk Score</div>
                                 </div>
-                                <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-4">Walk Score</div>
-                            </div>
 
-                        </div>
+                            </div>
                         )}{/* end commute/walk */}
 
                         {/* Col 2: Connectivity */}
                         {show('broadband') && (
-                        <div className="lg:col-span-4">
-                            <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm h-full">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <i className="fa-solid fa-wifi text-blue-400 text-[14px]" />
-                                    <span className="text-[14px] font-bold text-slate-800 tracking-tight">Connectivity</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 mb-4">
-                                    <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                                        FIBER <i className="fa-solid fa-check text-[8px]" />
-                                    </span>
-                                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-[9px] font-black uppercase tracking-wider">5G</span>
-                                </div>
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Internet Availability</div>
-                                <div>
-                                    {data.broadband?.internetProviders?.slice(0, 4).map((isp, i) => (
-                                        <div key={i} className={`grid grid-cols-[1fr_80px_56px] items-center py-2 ${i > 0 ? 'border-t border-slate-100' : ''}`}>
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <i className="fa-solid fa-signal text-indigo-400 text-[11px]" />
-                                                <span className="text-[12px] font-bold text-slate-900 truncate">{isp.name}</span>
-                                            </div>
-                                            <div className="flex justify-center">
-                                                <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-center ${isp.technology === 'Fiber' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                                    {isp.technology}
-                                                </span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-[13px] font-medium text-slate-900">{isp.maxDownloadMbps >= 1000 ? `${(isp.maxDownloadMbps / 1000).toFixed(0)}Gbps` : `${isp.maxDownloadMbps}Mbps`}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-6 mb-3">Cell Coverage</div>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {['AT&T', 'T-Mobile', 'Verizon'].map(net => {
-                                        const cov = data.broadband?.cellCoverage?.find(c => c.network === net);
-                                        return (
-                                            <div key={net} className="text-center">
-                                                <div className="text-[10px] font-black text-slate-400 mb-1">{net}</div>
-                                                <div className={`text-[12px] font-black ${cov?.signalLevel === 'Good' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                                    {cov?.signalLevel || 'Fair'}
-                                                    <div className="h-1.5 bg-slate-100 rounded-full mt-1.5 flex gap-1 px-1">
-                                                        <div className="w-1.5 h-full bg-emerald-500 rounded-full" />
-                                                        <div className="w-1.5 h-full bg-emerald-500 rounded-full" />
-                                                        <div className={`w-1.5 h-full ${cov?.signalLevel === 'Good' ? 'bg-emerald-500' : 'bg-slate-200'} rounded-full`} />
-                                                    </div>
+                            <div className="lg:col-span-4">
+                                <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-4 shadow-sm h-full">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <i className="fa-solid fa-wifi text-blue-400 text-[14px]" />
+                                        <span className="text-[14px] font-bold text-slate-800 tracking-tight">Connectivity</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 mb-4">
+                                        <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                                            FIBER <i className="fa-solid fa-check text-[8px]" />
+                                        </span>
+                                        <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-[9px] font-black uppercase tracking-wider">5G</span>
+                                    </div>
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Internet Availability</div>
+                                    <div>
+                                        {data.broadband?.internetProviders?.slice(0, 4).map((isp, i) => (
+                                            <div key={i} className={`grid grid-cols-[1fr_80px_56px] items-center py-2 ${i > 0 ? 'border-t border-slate-100' : ''}`}>
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <i className="fa-solid fa-signal text-indigo-400 text-[11px]" />
+                                                    <span className="text-[12px] font-bold text-slate-900 truncate">{isp.name}</span>
+                                                </div>
+                                                <div className="flex justify-center">
+                                                    <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-center ${isp.technology === 'Fiber' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                        {isp.technology}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-[13px] font-medium text-slate-900">{isp.maxDownloadMbps >= 1000 ? `${(isp.maxDownloadMbps / 1000).toFixed(0)}Gbps` : `${isp.maxDownloadMbps}Mbps`}</span>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                        ))}
+                                    </div>
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-6 mb-3">Cell Coverage</div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {['AT&T', 'T-Mobile', 'Verizon'].map(net => {
+                                            const cov = data.broadband?.cellCoverage?.find(c => c.network === net);
+                                            return (
+                                                <div key={net} className="text-center">
+                                                    <div className="text-[10px] font-black text-slate-400 mb-1">{net}</div>
+                                                    <div className={`text-[12px] font-black ${cov?.signalLevel === 'Good' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                                        {cov?.signalLevel || 'Fair'}
+                                                        <div className="h-1.5 bg-slate-100 rounded-full mt-1.5 flex gap-1 px-1">
+                                                            <div className="w-1.5 h-full bg-emerald-500 rounded-full" />
+                                                            <div className="w-1.5 h-full bg-emerald-500 rounded-full" />
+                                                            <div className={`w-1.5 h-full ${cov?.signalLevel === 'Good' ? 'bg-emerald-500' : 'bg-slate-200'} rounded-full`} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-6">BroadbandMap</div>
                                 </div>
-                                <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-6">BroadbandMap</div>
                             </div>
-                        </div>
                         )}{/* end broadband */}
 
                         {/* Col 3: EV Charging */}
                         {show('commute') && (
-                        <div className="lg:col-span-4">
-                            <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm h-full flex flex-col">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <i className="fa-solid fa-charging-station text-emerald-400 text-[14px]" />
-                                        <span className="text-[14px] font-bold text-slate-800 tracking-tight">EV Charging</span>
-                                    </div>
-                                    <i className="fa-solid fa-up-right-from-square text-slate-300 text-[11px]" />
-                                </div>
-                                {(() => {
-                                    const ev = (data as any).evChargers || { totalStations: 20, closestDistanceMi: 0.4, totalPorts: 129, dcFastPorts: 40, level2Ports: 89, networks: ['ChargePoint', 'Tesla', 'Loop', 'Noodoe', 'EVGo'] };
-                                    return (
-                                        <div className="flex-1 space-y-6">
-                                            <div className="grid grid-cols-3 gap-2 text-center">
-                                                <div>
-                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Stations</div>
-                                                    <div className="text-[20px] font-black text-slate-800">{ev.totalStations}</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Closest</div>
-                                                    <div className="text-[20px] font-black text-emerald-500">{(ev.closestDistanceMi || 0.4).toFixed(1)} <span className="text-[11px]">mi</span></div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Ports</div>
-                                                    <div className="text-[20px] font-black text-slate-800">{ev.totalPorts}</div>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                                        <i className="fa-solid fa-bolt-lightning text-amber-400 text-[11px]" />
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">DC Fast</span>
-                                                    </div>
-                                                    <div className="text-[14px] font-black text-orange-500">{ev.dcFastPorts || 40} ports</div>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                                        <i className="fa-solid fa-bolt text-blue-400 text-[11px]" />
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Level 2</span>
-                                                    </div>
-                                                    <div className="text-[14px] font-black text-blue-500">{ev.level2Ports || 89} ports</div>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {ev.networks?.map((n: string, i: number) => (
-                                                    <span key={i} className="px-3 py-1 bg-white border border-emerald-100 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">{n.toUpperCase()}</span>
-                                                ))}
-                                            </div>
+                            <div className="lg:col-span-4">
+                                <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 shadow-sm h-full flex flex-col">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <i className="fa-solid fa-charging-station text-emerald-400 text-[14px]" />
+                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">EV Charging</span>
                                         </div>
-                                    );
-                                })()}
-                                <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-auto pt-4">NREL AFDC API</div>
+                                        <i className="fa-solid fa-up-right-from-square text-slate-300 text-[11px]" />
+                                    </div>
+                                    {(() => {
+                                        const ev = (data as any).evChargers || { totalStations: 20, closestDistanceMi: 0.4, totalPorts: 129, dcFastPorts: 40, level2Ports: 89, networks: ['ChargePoint', 'Tesla', 'Loop', 'Noodoe', 'EVGo'] };
+                                        return (
+                                            <div className="flex-1 space-y-6">
+                                                <div className="grid grid-cols-3 gap-2 text-center">
+                                                    <div>
+                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Stations</div>
+                                                        <div className="text-[20px] font-black text-slate-800">{ev.totalStations}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Closest</div>
+                                                        <div className="text-[20px] font-black text-emerald-500">{(ev.closestDistanceMi || 0.4).toFixed(1)} <span className="text-[11px]">mi</span></div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Ports</div>
+                                                        <div className="text-[20px] font-black text-slate-800">{ev.totalPorts}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-4">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                                            <i className="fa-solid fa-bolt-lightning text-amber-400 text-[11px]" />
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">DC Fast</span>
+                                                        </div>
+                                                        <div className="text-[14px] font-black text-orange-500">{ev.dcFastPorts || 40} ports</div>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                                            <i className="fa-solid fa-bolt text-blue-400 text-[11px]" />
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Level 2</span>
+                                                        </div>
+                                                        <div className="text-[14px] font-black text-blue-500">{ev.level2Ports || 89} ports</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {ev.networks?.map((n: string, i: number) => (
+                                                        <span key={i} className="px-3 py-1 bg-white border border-emerald-100 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">{n.toUpperCase()}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-auto pt-4">NREL AFDC API</div>
+                                </div>
                             </div>
-                        </div>
                         )}{/* end ev */}
                     </div>
                 </SectionCard>
@@ -709,7 +709,10 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                             <SeasonalSunCard
                                 lat={data.coordinates!.latitude}
                                 lng={data.coordinates!.longitude}
-                                orientation={(data as any).orientation_ai?.final_orientation}
+                                orientation={(() => {
+                                    const fo = (data as any).orientation_ai?.final_orientation;
+                                    return fo && fo !== 'UNCLEAR' && fo !== 'UNCLEAR_IMAGE' ? fo : undefined;
+                                })()}
                             />
                         </div>
 
@@ -721,7 +724,7 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                         <div className="absolute top-0 right-0 p-2 opacity-5">
                                             <i className="fa-solid fa-temperature-half text-[32px] text-blue-500" />
                                         </div>
-                                    <div className="flex items-center gap-2 mb-5 relative z-10">
+                                        <div className="flex items-center gap-2 mb-5 relative z-10">
                                             <i className="fa-solid fa-temperature-half text-blue-500 text-[12px]" />
                                             <span className="text-[14px] font-bold text-slate-800 tracking-tight">Relative Microclimate</span>
                                         </div>

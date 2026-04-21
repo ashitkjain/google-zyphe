@@ -32,7 +32,7 @@ import {
   generateCityStateKey,
   trackUserPropertyView
 } from '../services/firebaseService';
-import { runSatellitaryAnalysis, runOrientationViaBatch, deleteOrientationVersionsForProperty } from '../services/satellitaryService';
+import { runSatellitaryAnalysis, deleteOrientationVersionsForProperty } from '../services/satellitaryService';
 import { APP_CONFIG } from '../config';
 
 interface UsePropertyAnalysisProps {
@@ -399,68 +399,51 @@ export function usePropertyAnalysis({
 
     setEnvRefreshing(true);
     try {
-      if (zpid) {
-        // ── Preferred path: delegate to Cloud Function ───────────────────────
-        // All analysis logic (prompt, GPS math, UNCLEAR overrides) lives in
-        // functions/orientationBatch.js — the single source of truth.
-        const result = await runOrientationViaBatch(zpid);
-        if (!result) throw new Error('Orientation batch job timed out or failed');
+      const lat = propertyData.coordinates.latitude;
+      const lng = propertyData.coordinates.longitude;
+      const description = (propertyData as any).description ?? null;
+      const homeType = propertyData.homeType ?? null;
+      const { auth: fbAuth } = await import('../services/firebase/config');
+      const userId = fbAuth?.currentUser?.uid || 'unknown';
 
-        setPropertyData(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            orientation_ai: {
-              ...(prev as any).orientation_ai,
-              ...result,
-            },
-          };
-        });
-        addLog('Satellitary', { type: 'orientation-refresh' }, { address: addr, result: result.final_orientation, source: 'cloud-function' });
+      // ── Browser-side analysis (single source of truth) ─────────────────────
+      // runSatellitaryAnalysis handles all logic + persists to Firestore internally.
+      const result = await runSatellitaryAnalysis(
+        lat, lng,
+        null,     // force fresh street view lookup
+        userId,
+        zpid,     // passed so it saves to Firestore and uses cached satellite URL
+        addr,
+        description,
+        homeType,
+      );
 
-      } else {
-        // ── Fallback: browser-side analysis (no zpid — rare edge case) ───────
-        const lat = propertyData.coordinates.latitude;
-        const lng = propertyData.coordinates.longitude;
-        const description = (propertyData as any).description ?? null;
-        const { auth: fbAuth } = await import('../services/firebase/config');
-        const userId = fbAuth?.currentUser?.uid || 'unknown';
+      setPropertyData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          orientation_ai: {
+            ...(prev as any).orientation_ai,
+            final_orientation: result.final_orientation,
+            azimuth_degrees: result.azimuth_degrees,
+            confidence: result.confidence,
+            explanation: result.explanation,
+            aerial_only_mode: result.aerial_only_mode,
+            aerial_url: result.aerial_url,
+            street_view_url: result.street_view_url,
+            pool_visible: result.pool_visible,
+            pool_direction: result.pool_direction,
+            garage_direction: result.garage_direction,
+            open_sky_direction: result.open_sky_direction,
+            privacy_insight: result.privacy_insight,
+            orientation_highlights: result.orientation_highlights,
+            buyer_pro: result.buyer_pro,
+            buyer_con: result.buyer_con,
+          },
+        };
+      });
+      addLog('Satellitary', { type: 'orientation-refresh' }, { address: addr, result: result.final_orientation, source: 'browser-direct' });
 
-        const result = await runSatellitaryAnalysis(
-          lat, lng,
-          null,   // force fresh street view lookup
-          userId,
-          undefined,
-          addr,
-          description
-        );
-
-        setPropertyData(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            orientation_ai: {
-              ...(prev as any).orientation_ai,
-              final_orientation: result.final_orientation,
-              azimuth_degrees: result.azimuth_degrees,
-              confidence: result.confidence,
-              explanation: result.explanation,
-              aerial_only_mode: result.aerial_only_mode,
-              aerial_url: result.aerial_url,
-              street_view_url: result.street_view_url,
-              pool_visible: result.pool_visible,
-              pool_direction: result.pool_direction,
-              garage_direction: result.garage_direction,
-              open_sky_direction: result.open_sky_direction,
-              privacy_insight: result.privacy_insight,
-              orientation_highlights: result.orientation_highlights,
-              buyer_pro: result.buyer_pro,
-              buyer_con: result.buyer_con,
-            },
-          };
-        });
-        addLog('Satellitary', { type: 'orientation-refresh' }, { address: addr, result: result.final_orientation, source: 'browser-direct' });
-      }
     } catch (err: any) {
       console.error('[Orientation] Refresh failed:', err);
       addLog('Satellitary', { type: 'error' }, { address: addr, error: err.message });
@@ -468,6 +451,7 @@ export function usePropertyAnalysis({
       setEnvRefreshing(false);
     }
   };
+
 
   return {
     propertyData, setPropertyData,

@@ -16,9 +16,8 @@
 import { APP_CONFIG } from '../config';
 import { urlToBase64, executeGeminiRequest, FLASH_MODEL } from './geminiService';
 
-// Use a stronger model for orientation — spatial reasoning is the hardest task in the pipeline.
-// Swapping independently of FLASH_MODEL so other services are unaffected.
-const ORIENTATION_MODEL = 'gemini-2.0-flash';
+// Orientation uses the same model as the rest of the app (set in config.ts → APP_CONFIG.models.flash).
+const ORIENTATION_MODEL = FLASH_MODEL;
 
 
 
@@ -1122,6 +1121,7 @@ export async function runSatellitaryAnalysis(
                         ]
                     },
                     config: { temperature: 0 },  // deterministic — orientation is a factual spatial task
+                    skipWatchdog: true,           // skip countTokens — images are always within limits
 
                     userId, zpid, address,
                     promptFilename: 'satellitaryAnalysis.ts',
@@ -1157,7 +1157,8 @@ export async function runSatellitaryAnalysis(
             }
         }
 
-        // ── 3. Fetch base64 images in parallel (standard dual/aerial path) ──────
+        if (!result) {
+            // ── 3. Fetch base64 images in parallel (standard dual/aerial path) ──────
         const aerialB64Promise = urlToBase64(aerialUrl);
         const streetB64Promise = streetViewUrl ? urlToBase64(streetViewUrl) : Promise.resolve(null);
 
@@ -1187,6 +1188,7 @@ export async function runSatellitaryAnalysis(
 
             contents: { parts },
             config: { temperature: 0 },  // deterministic — orientation is a factual spatial task
+            skipWatchdog: true,           // skip countTokens — images are always within limits
 
             userId,
             zpid,
@@ -1228,6 +1230,22 @@ export async function runSatellitaryAnalysis(
                     (data as any).final_orientation = explainDir.charAt(0).toUpperCase() + explainDir.slice(1);
                 }
             }
+        }
+
+        // ── Code-level consistency gate ────────────────────────────────────────
+        // If Gemini set street_view_shows_front = true but front_door_clearly_visible
+        // is NOT true, the model likely confused a carport, garage bay, or shared
+        // parking structure for the front door. This is the most common townhouse failure.
+        // Override: treat street_view_shows_front as null (uninformative) so the
+        // GPS heading math never fires on a vehicle access structure.
+        const rawSvShowsFront = usesDualImage ? ((data as any).street_view_shows_front ?? null) : null;
+        const frontDoorClearlyVisible = (data as any).front_door_clearly_visible ?? null;
+        if (rawSvShowsFront === true && frontDoorClearlyVisible !== true) {
+            console.warn(
+                `[Satellitary] Code-level gate: street_view_shows_front=true but front_door_clearly_visible=${frontDoorClearlyVisible} ` +
+                `— likely a carport/garage misidentified as front door. Nullifying street_view_shows_front.`
+            );
+            (data as any).street_view_shows_front = null;
         }
 
         const resultAzimuth = computeAccurateAzimuth(
@@ -1483,12 +1501,11 @@ export async function runSatellitaryAnalysis(
                     visual_azimuth_estimate: null,
                     confidence:              'low',
                     explanation:             `Townhouse orientation unclear: ${reason}.`,
-                };
+                } as any;
             }
         }
     }
 
-    // ── 5. Cache results to Firestore (fire-and-forget) ───────────────────────
     if (zpid && result) {
         // Log orientation version for history
         const docRef = doc(db, 'properties', zpid);
@@ -1534,8 +1551,9 @@ export async function runSatellitaryAnalysis(
             }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }
-
     return result;
+}
+
 }
 
 /**

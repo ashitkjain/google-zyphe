@@ -26,29 +26,29 @@ interface Props {
 
 // ─── Type Scale Constants ────────────────────────────────────────────────────
 const T = {
-    label:  'text-[10px] font-black text-slate-400 uppercase tracking-widest',
-    body:   'text-[13px] font-medium text-slate-500 leading-relaxed',
-    title:  'text-[14px] font-black text-slate-800',
-    cardH:  'text-[16px] font-black text-slate-900 tracking-tight',
+    label: 'text-[10px] font-black text-slate-400 uppercase tracking-widest',
+    body: 'text-[13px] font-medium text-slate-500 leading-relaxed',
+    title: 'text-[14px] font-black text-slate-800',
+    cardH: 'text-[16px] font-black text-slate-900 tracking-tight',
     metric: 'text-[24px] font-black text-slate-900 leading-none tracking-tight',
-    hero:   'text-[36px] font-black text-slate-900 leading-none tracking-tight',
-    attr:   'text-[10px] font-bold text-slate-300 uppercase tracking-widest',
+    hero: 'text-[36px] font-black text-slate-900 leading-none tracking-tight',
+    attr: 'text-[10px] font-bold text-slate-300 uppercase tracking-widest',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const riskOf = (score: number, max = 10) => {
     const p = score / max;
-    if (p <= 0.3) return { label: 'Minimal Risk',     color: 'text-emerald-600', pill: 'bg-emerald-50 text-emerald-700 border-emerald-100', bar: 'bg-emerald-400' };
-    if (p <= 0.6) return { label: 'Moderate',         color: 'text-amber-600',   pill: 'bg-amber-50 text-amber-700 border-amber-100',      bar: 'bg-amber-400' };
-    return              { label: 'High Risk',          color: 'text-rose-600',    pill: 'bg-rose-50 text-rose-700 border-rose-100',         bar: 'bg-rose-500' };
+    if (p <= 0.3) return { label: 'Minimal Risk', color: 'text-emerald-600', pill: 'bg-emerald-50 text-emerald-700 border-emerald-100', bar: 'bg-emerald-400' };
+    if (p <= 0.6) return { label: 'Moderate', color: 'text-amber-600', pill: 'bg-amber-50 text-amber-700 border-amber-100', bar: 'bg-amber-400' };
+    return { label: 'High Risk', color: 'text-rose-600', pill: 'bg-rose-50 text-rose-700 border-rose-100', bar: 'bg-rose-500' };
 };
 
 const aqiOf = (aqi: number) => {
-    if (aqi <= 50)  return { label: 'Good',         pill: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
-    if (aqi <= 100) return { label: 'Moderate',     pill: 'bg-amber-50 text-amber-700 border-amber-100' };
-    if (aqi <= 150) return { label: 'Sensitive',    pill: 'bg-orange-50 text-orange-700 border-orange-100' };
-    return                 { label: 'Unhealthy',    pill: 'bg-rose-50 text-rose-700 border-rose-100' };
+    if (aqi <= 50) return { label: 'Good', pill: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
+    if (aqi <= 100) return { label: 'Moderate', pill: 'bg-amber-50 text-amber-700 border-amber-100' };
+    if (aqi <= 150) return { label: 'Sensitive', pill: 'bg-orange-50 text-orange-700 border-orange-100' };
+    return { label: 'Unhealthy', pill: 'bg-rose-50 text-rose-700 border-rose-100' };
 };
 
 const Bar: React.FC<{ pct: number; color: string }> = ({ pct, color }) => (
@@ -114,25 +114,25 @@ const InfoTip: React.FC<{ tip: string }> = ({ tip }) => (
 export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }) => {
 
     // ── Risk scores (First Street Foundation) ────────────────────────────────
-    const windScore  = data.windRiskScore  ?? null;
+    const windScore = data.windRiskScore ?? null;
     const floodScore = data.floodRiskScore ?? null;
-    const fireScore  = data.fireRiskScore  ?? null;
-    const heatScore  = data.heatRiskScore  ?? null;
-    const available  = [windScore, floodScore, fireScore, heatScore].filter((s): s is number => s != null);
+    const fireScore = data.fireRiskScore ?? null;
+    const heatScore = data.heatRiskScore ?? null;
+    const available = [windScore, floodScore, fireScore, heatScore].filter((s): s is number => s != null);
 
     // ── Historical disasters ──────────────────────────────────────────────────
-    const seismic      = data.historical_disasters?.seismicZone ?? null;
-    const floodZoneData = data.historical_disasters?.floodZone  ?? null;
+    const seismic = data.historical_disasters?.seismicZone ?? null;
+    const floodZoneData = data.historical_disasters?.floodZone ?? null;
     const recentQuakes = data.historical_disasters?.earthquakes ?? [];
-    const femaEvents   = data.historical_disasters?.femaDeclarations?.slice(0, 3)   ?? [];
-    const hasHazards   = !!data.historical_disasters || !!data.drought?.drought_level;
+    const femaEvents = data.historical_disasters?.femaDeclarations?.slice(0, 3) ?? [];
+    const hasHazards = !!data.historical_disasters || !!data.drought?.drought_level;
 
     // ── Actions ───────────────────────────────────────────────────────────────
     const actions = [
-        fireScore  != null && fireScore  > 5 && { icon: 'fa-fire-extinguisher', title: 'Fire Mitigation',  desc: 'Install ember-resistant vents and maintain a defensible space perimeter to reduce wildfire exposure.' },
-        windScore  != null && windScore  > 5 && { icon: 'fa-house-chimney',     title: 'Roof Tie-Downs',   desc: 'Secondary water resistance and hurricane clips could reduce annual insurance premiums significantly.' },
-        floodScore != null && floodScore > 5 && { icon: 'fa-droplet',           title: 'Smart Leak Sensors', desc: 'IoT sensors in mechanical rooms can mitigate internal flooding and reduce water damage claims.' },
-        heatScore  != null && heatScore  > 5 && { icon: 'fa-temperature-high',  title: 'Heat Mitigation',  desc: 'Consider cool roofing and improved insulation to reduce cooling load during extreme heat events.' },
+        fireScore != null && fireScore > 5 && { icon: 'fa-fire-extinguisher', title: 'Fire Mitigation', desc: 'Install ember-resistant vents and maintain a defensible space perimeter to reduce wildfire exposure.' },
+        windScore != null && windScore > 5 && { icon: 'fa-house-chimney', title: 'Roof Tie-Downs', desc: 'Secondary water resistance and hurricane clips could reduce annual insurance premiums significantly.' },
+        floodScore != null && floodScore > 5 && { icon: 'fa-droplet', title: 'Smart Leak Sensors', desc: 'IoT sensors in mechanical rooms can mitigate internal flooding and reduce water damage claims.' },
+        heatScore != null && heatScore > 5 && { icon: 'fa-temperature-high', title: 'Heat Mitigation', desc: 'Consider cool roofing and improved insulation to reduce cooling load during extreme heat events.' },
     ].filter(Boolean) as { icon: string; title: string; desc: string }[];
 
     // ── Collapse state ────────────────────────────────────────────────────────
@@ -172,10 +172,10 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                 {/* ── 4 Climate Risk Cards ────────────────────────────────── */}
                 {available.length > 0 && (
                     <div className={`grid grid-cols-2 gap-4 ${available.length >= 4 ? 'lg:grid-cols-4' : available.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-                        {windScore  != null && <MetricCard icon="fa-wind"             label="Wind"  value={`${windScore}`}  unit="/ 10" score={windScore} />}
-                        {floodScore != null && <MetricCard icon="fa-water"            label="Flood" value={floodZoneData ? `Zone ${floodZoneData.zone}` : `${floodScore}`} unit={floodZoneData ? '' : '/ 10'} score={floodScore} />}
-                        {fireScore  != null && <MetricCard icon="fa-fire"             label="Fire"  value={`${fireScore}`}  unit="/ 10" score={fireScore} />}
-                        {heatScore  != null && <MetricCard icon="fa-temperature-high" label="Heat"  value={`${heatScore}`}  unit="/ 10" score={heatScore} />}
+                        {windScore != null && <MetricCard icon="fa-wind" label="Wind" value={`${windScore}`} unit="/ 10" score={windScore} />}
+                        {floodScore != null && <MetricCard icon="fa-water" label="Flood" value={floodZoneData ? `Zone ${floodZoneData.zone}` : `${floodScore}`} unit={floodZoneData ? '' : '/ 10'} score={floodScore} />}
+                        {fireScore != null && <MetricCard icon="fa-fire" label="Fire" value={`${fireScore}`} unit="/ 10" score={fireScore} />}
+                        {heatScore != null && <MetricCard icon="fa-temperature-high" label="Heat" value={`${heatScore}`} unit="/ 10" score={heatScore} />}
                     </div>
                 )}
 
@@ -204,7 +204,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                     <div className="space-y-2 pt-1 border-t border-slate-100">
                                         {[
                                             { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
-                                            { label: 'Local',   score: data.noiseLocalScore,   desc: data.noiseLocalDesc },
+                                            { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
                                             { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
                                         ].filter(n => n.score != null).map((n, i) => (
                                             <div key={i}>
@@ -298,9 +298,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                         <span className={T.title}>Seismic Design Zone</span>
                                         <Pill label={`Category ${seismic.designCategory}`} cls={
                                             seismic.riskLevel === 'very_high' ? 'bg-rose-500 text-white border-rose-500'
-                                            : seismic.riskLevel === 'high'    ? 'bg-orange-500 text-white border-orange-500'
-                                            : seismic.riskLevel === 'moderate'? 'bg-amber-50 text-amber-700 border-amber-100'
-                                            : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                : seismic.riskLevel === 'high' ? 'bg-orange-500 text-white border-orange-500'
+                                                    : seismic.riskLevel === 'moderate' ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                         } />
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 mb-2">
@@ -361,9 +361,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                         <div className="flex items-center gap-2.5 mb-1 flex-wrap">
                                             <span className={T.title}>Flood Zone</span>
                                             <Pill label={`Zone ${floodZoneData.zone}`} cls={
-                                                floodZoneData.riskLevel === 'high'     ? 'bg-rose-500 text-white border-rose-500'
-                                                : floodZoneData.riskLevel === 'moderate'? 'bg-amber-50 text-amber-700 border-amber-100'
-                                                : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                floodZoneData.riskLevel === 'high' ? 'bg-rose-500 text-white border-rose-500'
+                                                    : floodZoneData.riskLevel === 'moderate' ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                             } />
                                             {floodZoneData.insuranceRequired && (
                                                 <Pill label="Insurance Required" cls="bg-rose-50 text-rose-700 border-rose-100" />
@@ -540,9 +540,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                 {(data.solarData?.maxArrayPanelsCount != null || data.solarData?.panelCapacityWatts != null) && (
                                     <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4">
                                         {[
-                                            data.solarData?.maxArrayPanelsCount != null && { label: 'Max Panels',     value: `${data.solarData.maxArrayPanelsCount}`, unit: 'units' },
-                                            data.solarData?.panelCapacityWatts   != null && { label: 'Panel Capacity', value: `${data.solarData.panelCapacityWatts}`,   unit: 'W' },
-                                            data.solarData?.maxArrayAreaMeters2  != null && { label: 'Array Area',     value: `${Math.round(data.solarData.maxArrayAreaMeters2)}`, unit: 'm²' },
+                                            data.solarData?.maxArrayPanelsCount != null && { label: 'Max Panels', value: `${data.solarData.maxArrayPanelsCount}`, unit: 'units' },
+                                            data.solarData?.panelCapacityWatts != null && { label: 'Panel Capacity', value: `${data.solarData.panelCapacityWatts}`, unit: 'W' },
+                                            data.solarData?.maxArrayAreaMeters2 != null && { label: 'Array Area', value: `${Math.round(data.solarData.maxArrayAreaMeters2)}`, unit: 'm²' },
                                             data.solarData?.financialAnalysis?.cashPurchase?.savings?.savingsYear1 != null && {
                                                 label: 'Year 1 Savings',
                                                 value: `$${data.solarData.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}`,

@@ -7,6 +7,7 @@ import { getLatestOrientationVersions, saveManualGroundTruth, fetchFirestoreGrou
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
 import { normalizePropertyFields } from '../../services/firebase/properties';
 import { ALL_GROUND_TRUTH, AZIMUTH_FOR_ORIENTATION } from '../../services/orientation_ground_truth_data';
+import { APP_CONFIG } from '../../config';
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
 
@@ -141,13 +142,30 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [propSnap, visualSnap, assessmentSnap, firestoreGts] = await Promise.all([
+            const [propSnap, visualSnap, assessmentSnap, firestoreGts, assetsSnap] = await Promise.all([
                 getDocs(query(collection(db, 'properties'), orderBy('address', 'asc'))),
                 getDocs(collection(db, 'property_analyses_visual')),
                 getDocs(collection(db, 'ai_assessment')),
                 fetchFirestoreGroundTruths(),
+                // Fetch assets subcollection docs (written by securePropertyAssets during preload).
+                // No where() clause — avoids needing a Firestore composite index.
+                // We filter to d.id === 'assets' in JS below.
+                getDocs(collectionGroup(db, 'analysis')),
             ]);
             setFirestoreGtByZpid(firestoreGts);
+
+            // Build a map of zpid → Firebase Storage street view URL from the assets subcollection.
+            // Only process documents whose Firestore ID is 'assets' — skip visual/comprehensive/etc.
+            const assetsSVMap: Record<string, string> = {};
+            assetsSnap.docs.forEach(d => {
+                if (d.id !== 'assets') return; // skip non-asset analysis docs
+                const data = d.data() as any;
+                const sv = data?.streetView;
+                const zpid = data?.zpid || d.ref.parent?.parent?.id;
+                if (zpid && sv && typeof sv === 'string' && sv.includes('firebasestorage')) {
+                    assetsSVMap[zpid] = sv;
+                }
+            });
 
             const visualOrientationMap: Record<string, string> = {};
             visualSnap.docs.forEach(d => {
@@ -234,7 +252,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     mapZoomOut: p.mapZoomOut,
                     satelliteImageUrl: (p.satelliteImageUrl && p.satelliteImageUrl.includes('firebasestorage'))
                         ? p.satelliteImageUrl : undefined,
-                    streetView: p.streetView || p.streetViewAnalysis?.imageUrl,
+                    streetView: p.streetView || p.streetViewAnalysis?.imageUrl || assetsSVMap[d.id],
                     description: p.description,
                     orientationAI: p.orientation_ai ? {
                         ...p.orientation_ai,
@@ -582,9 +600,19 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
         setRows(prev => prev.map(r => r.zpid === zpid ? { ...r, status: 'running', error: undefined } : r));
         try {
-            // Route through the Cloud Function — single source of truth for all analysis logic.
-            const result = await runOrientationViaBatch(zpid);
-            if (!result) throw new Error('Batch analysis timed out or failed');
+            // ── Browser-side analysis — same logic as the retired Cloud Function ─
+            const userId = auth?.currentUser?.uid || 'unknown';
+            const result = await runSatellitaryAnalysis(
+                row.coordinates.latitude,
+                row.coordinates.longitude,
+                row.streetView ?? null,   // use cached street view if available
+                userId,
+                zpid,                     // persists result to Firestore internally
+                row.address,
+                row.description ?? null,
+                row.homeType ?? null,
+            );
+            if (!result) throw new Error('Browser analysis returned no result');
 
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
@@ -607,9 +635,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     explanation: result.explanation ?? null,
                     is_under_construction: result.is_under_construction,
                 },
-                // Keep existing aerial/sv URLs — CF doesn't return them, they come from property doc
                 mapZoomIn: r.mapZoomIn,
-                streetView: r.streetView,
+                streetView: result.street_view_url || r.streetView,
             } : r));
 
         } catch (e: any) {
@@ -617,6 +644,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 ? { ...r, status: 'error', error: e.message || 'Unknown error' } : r));
         }
     };
+
 
     const forceRefreshForRow = async (zpid: string, skipFetch = false) => {
         const row = rows.find(r => r.zpid === zpid);
@@ -689,88 +717,39 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             return isTargetForOrientationAnalysis(r).target;
         });
         if (targets.length === 0) return;
-        if (!confirm(`Run orientation analysis for ${targets.length} propert${targets.length === 1 ? 'y' : 'ies'} via Cloud Function?`)) return;
+        
+        const confirmMsg = `Run browser-side throttled analysis for ${targets.length} propert${targets.length === 1 ? 'y' : 'ies'}? \n\n(Cloud Function is disabled. This will run in this tab.)`;
+        if (!confirm(confirmMsg)) return;
 
-        setBatchRunning(true);
-        setBatchProgress({ done: 0, total: targets.length });
-
-        // Create a batch job document — the Cloud Function picks it up and runs server-side.
-        // Tab-independent: the browser can be closed and the CF continues processing.
-        try {
-            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
-                zpids:     targets.map(t => t.zpid),
-                status:    'queued',
-                total:     targets.length,
-                done:      0,
-                failed:    0,
-                userId:    auth?.currentUser?.uid ?? 'unknown',
-                createdAt: serverTimestamp(),
-            });
-
-            // Subscribe to real-time progress from the Cloud Function.
-            const unsubscribe = onSnapshot(jobRef, (snap) => {
-                const d = snap.data();
-                if (!d) return;
-                setBatchProgress({ done: d.done ?? 0, total: targets.length });
-                if (d.status === 'completed' || d.status === 'failed') {
-                    unsubscribe();
-                    setBatchRunning(false);
-                    setBatchProgress(null);
-                    // Re-sync UI with Firestore results written by the Cloud Function.
-                    setTimeout(() => fetchData(), 1500);
-                }
-            });
-        } catch (err) {
-            console.error('[Batch] Failed to create batch job:', err);
-            setBatchRunning(false);
-            setBatchProgress(null);
-        }
+        // Redirect to the browser-side throttled calculation logic
+        handleCalculateMissed();
     };
 
     const handleCalculateMissed = async () => {
-        const now = Date.now();
-        const twoHoursAgo = now - (2 * 60 * 60 * 1000);
-
         const targets = missedProperties.filter(r => r.status !== 'running');
 
         if (targets.length === 0) {
-            alert('No missed properties found in the last 2 hours.');
+            alert('No missed properties found.');
             return;
         }
 
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
 
-        // Create a batch job document — the Cloud Function picks it up and runs server-side.
-        // Tab-independent: the browser can be closed and the CF continues processing.
+        // Browser-side throttled loop — concurrency=1 to stay within flash-lite rate limits.
+        const CONCURRENCY = 1;
+        let done = 0;
         try {
-            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
-                zpids:     targets.map(t => t.zpid),
-                status:    'queued',
-                total:     targets.length,
-                done:      0,
-                failed:    0,
-                userId:    auth?.currentUser?.uid ?? 'unknown',
-                createdAt: serverTimestamp(),
-            });
-
-            // Subscribe to real-time progress from the Cloud Function.
-            const unsubscribe = onSnapshot(jobRef, (snap) => {
-                const d = snap.data();
-                if (!d) return;
-                setBatchProgress({ done: d.done ?? 0, total: targets.length });
-                if (d.status === 'completed' || d.status === 'failed') {
-                    unsubscribe();
-                    setBatchRunning(false);
-                    setBatchProgress(null);
-                    // Re-sync UI with Firestore results written by the Cloud Function.
-                    setTimeout(() => fetchData(), 1500);
-                }
-            });
-        } catch (err) {
-            console.error('[Batch] Failed to create batch job:', err);
+            for (let i = 0; i < targets.length; i += CONCURRENCY) {
+                const chunk = targets.slice(i, i + CONCURRENCY);
+                await Promise.allSettled(chunk.map(r => runForRow(r.zpid, true)));
+                done += chunk.length;
+                setBatchProgress({ done, total: targets.length });
+            }
+        } finally {
             setBatchRunning(false);
             setBatchProgress(null);
+            setTimeout(() => fetchData(), 1500);
         }
     };
 
@@ -782,8 +761,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             if (!gt || !gt.expected_orientation) return false;
             if (!r.orientationAI) return false;
             const aiDir = extractDir(r.orientationAI.final_orientation ?? '');
-            if (aiDir === 'unclear') return false;                       // unclear → skip
-            if (r.orientationAI?.is_under_construction) return false;    // under construction → skip (counts as unclear)
+            if (aiDir === 'unclear') return false;
+            if (r.orientationAI?.is_under_construction) return false;
             const gtDir = extractDir(gt.expected_orientation);
             return aiDir !== gtDir;
         });
@@ -796,36 +775,20 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
 
-        // Create a batch job document — the Cloud Function picks it up and runs server-side.
-        // Tab-independent: the browser can be closed and the CF continues processing.
+        // Browser-side throttled loop — concurrency=3 to stay within Gemini rate limits.
+        const CONCURRENCY = 3;
+        let done = 0;
         try {
-            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
-                zpids:     targets.map(t => t.zpid),
-                status:    'queued',
-                total:     targets.length,
-                done:      0,
-                failed:    0,
-                userId:    auth?.currentUser?.uid ?? 'unknown',
-                createdAt: serverTimestamp(),
-            });
-
-            // Subscribe to real-time progress from the Cloud Function.
-            const unsubscribe = onSnapshot(jobRef, (snap) => {
-                const d = snap.data();
-                if (!d) return;
-                setBatchProgress({ done: d.done ?? 0, total: targets.length });
-                if (d.status === 'completed' || d.status === 'failed') {
-                    unsubscribe();
-                    setBatchRunning(false);
-                    setBatchProgress(null);
-                    // Re-sync UI with Firestore results written by the Cloud Function.
-                    setTimeout(() => fetchData(), 1500);
-                }
-            });
-        } catch (err) {
-            console.error('[Batch] Failed to create batch job:', err);
+            for (let i = 0; i < targets.length; i += CONCURRENCY) {
+                const chunk = targets.slice(i, i + CONCURRENCY);
+                await Promise.allSettled(chunk.map(r => runForRow(r.zpid, true)));
+                done += chunk.length;
+                setBatchProgress({ done, total: targets.length });
+            }
+        } finally {
             setBatchRunning(false);
             setBatchProgress(null);
+            setTimeout(() => fetchData(), 1500);
         }
     };
 
@@ -1421,7 +1384,17 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                             {/* Street view */}
                                             <td className="p-5 text-center">
-                                                <MapThumb url={row.streetView} label="Street View" orientations={{
+                                                {/* If no cached Firebase street view, generate a live fallback thumbnail from coordinates */}
+                                                {(() => {
+                                                    const svUrl = row.streetView || (
+                                                        row.coordinates?.latitude && row.coordinates?.longitude && APP_CONFIG.maps.key
+                                                            ? `https://maps.googleapis.com/maps/api/streetview?size=128x96&location=${row.coordinates.latitude},${row.coordinates.longitude}&fov=90&pitch=0&key=${APP_CONFIG.maps.key}`
+                                                            : undefined
+                                                    );
+                                                    const isLive = !row.streetView && !!svUrl;
+                                                    return (
+                                                        <div className="relative inline-block">
+                                                            <MapThumb url={svUrl} label="Street View" orientations={{
                                                     ...row,
                                                     selectedAssessment: row.orientationAssessment,
                                                     onSelectAssessment: (v) => {
@@ -1434,6 +1407,12 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 }} onRefreshUrl={(newUrl) => {
                                                     setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, streetView: newUrl } : r));
                                                 }} />
+                                                {isLive && (
+                                                    <span className="absolute -bottom-1 -right-1 bg-amber-400 text-[7px] font-black text-white px-1 rounded-full leading-tight" title="Live fallback — not cached in Firestore">LIVE</span>
+                                                )}
+                                            </div>
+                                        );
+                                        })()}
                                             </td>
 
                                             {/* Orientation Case */}

@@ -25,8 +25,11 @@ export const APP_CONFIG = {
         investment_research: true,
     },
     models: {
-        flash: 'gemini-2.0-flash',
-        flashLite: 'gemini-2.0-flash-lite',
+        // Switched to gemini-2.5-flash: gemini-2.0-flash and gemini-2.0-flash-lite both
+        // returning 429s. 2.5 Flash is GA with higher rate limits.
+        // To revert: change both lines below back to 'gemini-2.0-flash-lite'.
+        flash: 'gemini-2.5-flash',
+        flashLite: 'gemini-2.5-flash',
     },
     roleTabs: {
         buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'city_neighborhoods', 'image_analysis', 'investment', 'deep_research', 'context_graph'],
@@ -69,10 +72,10 @@ export const APP_CONFIG = {
         key: (import.meta as any).env?.VITE_RADAR_KEY || process.env.VITE_RADAR_KEY || ''
     },
     gemini: {
-        get key() { return (import.meta as any).env?.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ""; }
+        key: (import.meta as any).env?.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ""
     },
     maps: {
-        get key() { return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ""; }
+        key: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ""
     },
     groq: {
         key: (import.meta as any).env?.VITE_GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || ''

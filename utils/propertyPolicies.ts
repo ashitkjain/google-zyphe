@@ -28,29 +28,29 @@ export const isTownhome = (item: { homeType?: string | null }): boolean =>
  * 1. Must be a Single Family home or a Townhouse.
  * 2. Must have a valid street address.
  */
-export const isTargetForOrientationAnalysis = (prop: { 
+export const isTargetForOrientationAnalysis = (prop: {
     homeType?: string | null;
-    address?: string | null; 
+    address?: string | null;
 }): { target: boolean; reason?: string } => {
     const isSFD = isSingleFamily(prop);
     const isTH = isTownhome(prop);
     const isGhost = isGhostListing(prop);
-    
+
     if (isGhost) {
         return { target: false, reason: 'Property is a placeholder/ghost listing' };
     }
-    
+
     if (!isSFD && !isTH) {
         return { target: false, reason: 'Property type must be Single Family or Townhome' };
     }
-    
+
     const addr = (prop.address || '').trim();
     const hasStreetNumber = /^\d/.test(addr);
-    
+
     if (!addr || !hasStreetNumber) {
         return { target: false, reason: 'Property is missing a specific street address (number required)' };
     }
-    
+
     return { target: true };
 };
 
@@ -74,7 +74,7 @@ export const isGhostListing = (item: { address?: string | null }): boolean => {
 /**
  * Essential data completeness policy for full analysis.
  */
-export const hasEssentialData = (item: { 
+export const hasEssentialData = (item: {
     address?: string | null;
     price?: number | null;
     bedrooms?: number | null;

@@ -14,11 +14,11 @@
  */
 
 const functions = require('firebase-functions/v1');
-const admin     = require('firebase-admin');
+const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const BATCH_CONCURRENCY   = 20;
-const ORIENTATION_MODEL_CF = 'gemini-2.0-flash';
+const BATCH_CONCURRENCY = 5;
+const ORIENTATION_MODEL_CF = 'gemini-1.5-flash'; // Using 1.5 Flash for better price/performance in batch
 
 // ─── Gemini response schema ───────────────────────────────────────────────────
 // Uses plain string type names (compatible with all @google/generative-ai versions).
@@ -26,27 +26,27 @@ const ORIENTATION_MODEL_CF = 'gemini-2.0-flash';
 const ORIENTATION_SCHEMA = {
     type: 'object',
     properties: {
-        image_quality:              { type: 'string', enum: ['clear', 'acceptable', 'blurry'] },
-        final_orientation:          { type: 'string' },
-        azimuth_degrees:            { type: 'number', nullable: true },
-        property_layout_type:       { type: 'string', enum: ['corner_lot', 'cul_de_sac', 'flag_lot', 'irregular_lot', 'standard', 'other'] },
-        confidence:                 { type: 'string', enum: ['high', 'medium', 'low'] },
-        is_under_construction:      { type: 'boolean' },
-        standard_street_layout:     { type: 'boolean', nullable: true },
-        explanation:                { type: 'string' },
+        image_quality: { type: 'string', enum: ['clear', 'acceptable', 'blurry'] },
+        final_orientation: { type: 'string' },
+        azimuth_degrees: { type: 'number', nullable: true },
+        property_layout_type: { type: 'string', enum: ['corner_lot', 'cul_de_sac', 'flag_lot', 'irregular_lot', 'standard', 'other'] },
+        confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+        is_under_construction: { type: 'boolean' },
+        standard_street_layout: { type: 'boolean', nullable: true },
+        explanation: { type: 'string' },
         front_door_clearly_visible: { type: 'boolean', nullable: true },
-        feng_shui_vastu:            { type: 'string', nullable: true },
-        privacy_insight:            { type: 'string' },
-        lot_coverage_hardscape:     { type: 'number', nullable: true },
-        lot_coverage_pervious:      { type: 'number', nullable: true },
-        buyer_pro:                  { type: 'string' },
-        buyer_con:                  { type: 'string' },
-        orientation_highlights:     { type: 'string' },
-        street_view_shows_front:    { type: 'boolean', nullable: true },
-        pool_visible:               { type: 'boolean', nullable: true },
-        pool_direction:             { type: 'string', nullable: true },
-        garage_direction:           { type: 'string', nullable: true },
-        open_sky_direction:         { type: 'string', nullable: true },
+        feng_shui_vastu: { type: 'string', nullable: true },
+        privacy_insight: { type: 'string' },
+        lot_coverage_hardscape: { type: 'number', nullable: true },
+        lot_coverage_pervious: { type: 'number', nullable: true },
+        buyer_pro: { type: 'string' },
+        buyer_con: { type: 'string' },
+        orientation_highlights: { type: 'string' },
+        street_view_shows_front: { type: 'boolean', nullable: true },
+        pool_visible: { type: 'boolean', nullable: true },
+        pool_direction: { type: 'string', nullable: true },
+        garage_direction: { type: 'string', nullable: true },
+        open_sky_direction: { type: 'string', nullable: true },
     },
     required: [
         'property_layout_type', 'image_quality', 'final_orientation', 'confidence',
@@ -58,9 +58,9 @@ const ORIENTATION_SCHEMA = {
 
 function _computeBearing(lat1, lng1, lat2, lng2) {
     const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
-    const dl   = (lng2 - lng1) * Math.PI / 180;
-    const y    = Math.sin(dl) * Math.cos(phi2);
-    const x    = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dl);
+    const dl = (lng2 - lng1) * Math.PI / 180;
+    const y = Math.sin(dl) * Math.cos(phi2);
+    const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dl);
     return Math.round(((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360);
 }
 
@@ -72,7 +72,7 @@ function _azimuthToCompassLabel(azimuth) {
     const az = ((azimuth % 360) + 360) % 360;
     // Within 5° of a cardinal↔intercardinal boundary → snap to intercardinal corner.
     const SNAP = [
-        [22.5, 'Northeast'], [67.5,  'Northeast'],
+        [22.5, 'Northeast'], [67.5, 'Northeast'],
         [112.5, 'Southeast'], [157.5, 'Southeast'],
         [202.5, 'Southwest'], [247.5, 'Southwest'],
         [292.5, 'Northwest'], [337.5, 'Northwest'],
@@ -85,7 +85,7 @@ function _azimuthToCompassLabel(azimuth) {
 }
 
 /** Simple 8-direction label for use inside prompt text (no degree suffix). */
-const _dir8 = (az) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][
+const _dir8 = (az) => ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'][
     Math.round(((az % 360) + 360) % 360 / 45) % 8
 ];
 
@@ -106,7 +106,7 @@ async function _getStreetBearing(address, mapsKey, propLat = null, propLng = nul
         const res = await fetch(url).then(r => r.json());
         const result = res.results?.[0];
         if (!result) return null;
-        const loc  = result.geometry?.location;
+        const loc = result.geometry?.location;
         const road = (result.address_components?.find(c => c.types.includes('route'))?.long_name ?? '')
             .toLowerCase().replace(/[^a-z0-9]/g, '');
         return loc ? { lat: loc.lat, lng: loc.lng, road } : null;
@@ -148,14 +148,14 @@ async function _getStreetBearing(address, mapsKey, propLat = null, propLng = nul
             // If property is to RIGHT of road (cross<0): road is to the LEFT of property → perpTowardStreet = roadBearing - 90
             // If property is to LEFT of road (cross>0): road is to the RIGHT of property → perpTowardStreet = roadBearing + 90
             const perpTowardStreet = ((best.bearing + (cross < 0 ? -90 : 90)) % 360 + 360) % 360;
-            const DIR8 = ['N','NE','E','SE','S','SW','W','NW'];
+            const DIR8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
             streetSide = DIR8[Math.round(((perpTowardStreet % 360) + 360) % 360 / 45) % 8];
             console.log(`[Batch] _getStreetBearing: cross=${cross.toFixed(4)}, roadBearing=${Math.round(best.bearing)}°, perpTowardStreet=${Math.round(perpTowardStreet)}° → streetSide=${streetSide}`);
         } else {
             // Fallback: neighbour direction (less accurate for diagonal roads)
-            const avgDlat = bearings.reduce((s,b)=>s+(b.p2lat-p1.lat),0)/bearings.length;
-            const avgDlng = bearings.reduce((s,b)=>s+(b.p2lng-p1.lng),0)/bearings.length;
-            streetSide = Math.abs(avgDlat)>=Math.abs(avgDlng*Math.cos(p1.lat*Math.PI/180))?(avgDlat>0?'N':'S'):(avgDlng>0?'E':'W');
+            const avgDlat = bearings.reduce((s, b) => s + (b.p2lat - p1.lat), 0) / bearings.length;
+            const avgDlng = bearings.reduce((s, b) => s + (b.p2lng - p1.lng), 0) / bearings.length;
+            streetSide = Math.abs(avgDlat) >= Math.abs(avgDlng * Math.cos(p1.lat * Math.PI / 180)) ? (avgDlat > 0 ? 'N' : 'S') : (avgDlng > 0 ? 'E' : 'W');
             console.log(`[Batch] _getStreetBearing: no propLat/Lng → neighbour fallback streetSide=${streetSide}`);
         }
 
@@ -194,8 +194,8 @@ async function _downloadImageBase64(url) {
 
 function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide, svHeading) {
     const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
-    const sideLabel  = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
-    const sideFact   = (streetBearing == null && sideLabel)
+    const sideLabel = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
+    const sideFact = (streetBearing == null && sideLabel)
         ? ` GPS confirms "${streetName || address}" is to the ${sideLabel} — the front likely faces ${sideLabel}.` : '';
     const addressClue = address
         ? `\nPROPERTY ADDRESS: "${address}"\nFront entrance MUST face "${streetName || address}".${sideFact}\n• DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier. If a road is separated by a green belt, tree row, or park strip with NO driveway crossing, it is NOT the front street.\n• Do NOT default to the largest or nearest road — look for where the driveway actually exits.` : '';
@@ -208,10 +208,10 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
         const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
         const p3 = (streetBearing + 180) % 360;
         return `\nGPS STREET BEARING ADVISORY: Street runs at ~${Math.round(streetBearing)}°.\n`
-             + `⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this hint entirely and determine orientation from the aerial visually.\n`
-             + `If the road IS straight and the lot IS standard: front most likely faces `
-             + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°) — perpendicular to road.\n`
-             + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel. Do NOT output these unless the visual override applies.`;
+            + `⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this hint entirely and determine orientation from the aerial visually.\n`
+            + `If the road IS straight and the lot IS standard: front most likely faces `
+            + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°) — perpendicular to road.\n`
+            + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel. Do NOT output these unless the visual override applies.`;
     })() : '';
 
     if (usesDualImage) {
@@ -272,10 +272,10 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     if (!propSnap.exists) throw new Error(`Property ${zpid} not found`);
     const prop = propSnap.data();
 
-    const address  = prop.address || '';
+    const address = prop.address || '';
     const homeType = (prop.homeType || '').toUpperCase();
     const aerialUrl = prop.satelliteImageUrl || null;
-    const svUrl     = prop.streetView || prop.streetViewAnalysis?.imageUrl || null;
+    const svUrl = prop.streetView || prop.streetViewAnalysis?.imageUrl || null;
 
     if (!aerialUrl) throw new Error(`No cached aerial image for ${zpid}`);
 
@@ -292,9 +292,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     let streetBearing = null, streetSide = null;
     try {
-        const br  = await _getStreetBearing(address, mapsKey, propLat, propLng);
+        const br = await _getStreetBearing(address, mapsKey, propLat, propLng);
         streetBearing = br?.bearing ?? null;
-        streetSide    = br?.streetSide ?? null;
+        streetSide = br?.streetSide ?? null;
     } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
 
 
@@ -307,7 +307,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     }
 
     // 4. Townhouse/condo gate: force aerial-only for shared-wall properties
-    const isMultiUnit   = ['TOWNHOUSE', 'CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
+    const isMultiUnit = ['TOWNHOUSE', 'CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
     const usesDualImage = svImg !== null && !isMultiUnit;
 
     // 4b. Resolve street-view camera heading BEFORE building the prompt.
@@ -315,8 +315,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     //           (2) &heading= embedded in the SV URL (set by test infrastructure).
     // This MUST come before step 5 so the heading can be injected into the Gemini prompt.
     const svHeadingFromField = typeof prop.streetViewHeadingDeg === 'number' ? prop.streetViewHeadingDeg : null;
-    const svHeadingUrlMatch  = (svUrl ?? '').match(/[&?]heading=([\d.]+)/);
-    let   svHeading          = svHeadingFromField ?? (svHeadingUrlMatch ? parseFloat(svHeadingUrlMatch[1]) : null);
+    const svHeadingUrlMatch = (svUrl ?? '').match(/[&?]heading=([\d.]+)/);
+    let svHeading = svHeadingFromField ?? (svHeadingUrlMatch ? parseFloat(svHeadingUrlMatch[1]) : null);
     if (svHeading != null) console.log(`[Batch] SV heading for ${zpid}: ${Math.round(svHeading)}\u00b0 (source: ${svHeadingFromField != null ? 'Firestore.streetViewHeadingDeg' : 'URL param'})`);
     else if (usesDualImage) console.warn(`[Batch] No SV heading for ${zpid} \u2014 Gemini will not receive camera heading context; GPS math will be skipped.`);
 
@@ -330,12 +330,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     //   CAMERA HEADING directive, so GPS math is skipped and Gemini uses the image visually.
     if (svHeading != null && streetSide != null) {
         const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270, NE: 45, SE: 135, SW: 225, NW: 315 };
-        const sideAz  = SIDE_AZ[streetSide];
+        const sideAz = SIDE_AZ[streetSide];
         if (sideAz !== undefined) {
             const candidateFront = (svHeading + 180) % 360;
-            const candidateBack  = svHeading;
-            const frontAligned   = _angDiff(candidateFront, sideAz) <= 75;
-            const backAligned    = _angDiff(candidateBack,  sideAz) <= 75;
+            const candidateBack = svHeading;
+            const frontAligned = _angDiff(candidateFront, sideAz) <= 75;
+            const backAligned = _angDiff(candidateBack, sideAz) <= 75;
             if (!frontAligned && !backAligned) {
                 console.warn(`[Batch] ${zpid}: cached heading ${Math.round(svHeading)}\u00b0 is inconsistent with streetSide=${streetSide} (road is to the ${streetSide}). candidateFront=${Math.round(candidateFront)}\u00b0 is ${Math.round(_angDiff(candidateFront, sideAz))}\u00b0 away \u2014 heading discarded. Gemini will judge from image only.`);
                 svHeading = null;
@@ -346,7 +346,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     // 5. Build prompt and call Gemini 2.5 Flash
     const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
-    const parts  = [
+    const parts = [
         { text: prompt },
         { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
         ...(usesDualImage ? [{ inlineData: { mimeType: svImg.mimeType, data: svImg.data } }] : []),
@@ -370,7 +370,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     let headingAzimuth = null;
     if (usesDualImage && svHeading !== null && showsFront !== null && showsFront !== undefined) {
         const candidateFront = (svHeading + 180) % 360;  // face opposite camera = face camera sees
-        const candidateBack  = svHeading % 360;           // face toward camera = face camera can't see
+        const candidateBack = svHeading % 360;           // face toward camera = face camera can't see
         if (showsFront === true) {
             // When Gemini VISUALLY confirmed the camera is on the front side (shows_front=true),
             // the GPS candidateFront is the most direct and reliable signal.
@@ -414,27 +414,14 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     }
 
     // 7. Confidence gate + street-bearing fallback (mirrors browser pipeline)
-    const resultAzimuth        = headingAzimuth ?? (data.azimuth_degrees ?? null);
+    const resultAzimuth = headingAzimuth ?? (data.azimuth_degrees ?? null);
     const aerialConfidenceFail = !usesDualImage && (data.confidence !== 'high' || resultAzimuth == null);
-    let   finalAzimuth         = aerialConfidenceFail ? null : resultAzimuth;
+    let finalAzimuth = aerialConfidenceFail ? null : resultAzimuth;
 
-    if (aerialConfidenceFail && data.standard_street_layout === true && streetBearing != null) {
-        const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
-        // Pick the perp closest to Gemini's weak azimuth, then cross-check against streetSide.
-        let chosen = resultAzimuth != null
-            ? (_angDiff(resultAzimuth, p1) <= _angDiff(resultAzimuth, p2) ? p1 : p2)
-            : p1;
-        // If chosen perp faces >90° away from the road, the weak azimuth was inverted too — flip it.
-        if (streetSide != null) {
-            const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270, NE: 45, SE: 135, SW: 225, NW: 315 };
-            const sz = SIDE_AZ[streetSide];
-            if (sz !== undefined && _angDiff(chosen, sz) > 90) {
-                const flipped = chosen === p1 ? p2 : p1;
-                console.log(`[Batch] Fallback streetSide cross-check ${zpid}: perp ${Math.round(chosen)}° faces away from road (${streetSide}=${sz}°, ${Math.round(_angDiff(chosen, sz))}° off) — flipping to ${Math.round(flipped)}°.`);
-                chosen = flipped;
-            }
-        }
-        finalAzimuth = chosen;
+    // Policy: if imagery was inconclusive, always emit UNCLEAR — never guess from street
+    // bearing alone. The street-bearing fallback azimuth is discarded.
+    if (aerialConfidenceFail) {
+        finalAzimuth = null;
     }
 
     // 7b. StreetSide cross-check for inverted aerial results.
@@ -448,7 +435,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         data.standard_street_layout === true &&
         streetSide != null && finalAzimuth != null) {
         const SIDE_AZ = { N: 0, S: 180, E: 90, W: 270, NE: 45, SE: 135, SW: 225, NW: 315 };
-        const sideAz  = SIDE_AZ[streetSide];
+        const sideAz = SIDE_AZ[streetSide];
         if (sideAz !== undefined) {
             const distFromRoad = _angDiff(finalAzimuth, sideAz);
             if (distFromRoad > 90) {
@@ -463,7 +450,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
                     corrected = sideAz;
                 }
                 console.log(`[Batch] StreetSide cross-check ${zpid}: aerial ${Math.round(finalAzimuth)}° is ${Math.round(distFromRoad)}° from streetSide=${streetSide} (${sideAz}°). Correcting to ${Math.round(corrected)}° (${_azimuthToCompassLabel(corrected)}).${streetBearing == null ? ' [no bearing, cardinal snap]' : ''}`);
-                finalAzimuth    = corrected;
+                finalAzimuth = corrected;
                 data.confidence = 'medium';
             }
         }
@@ -478,7 +465,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // (b) corner lot — two frontages, cannot pick primary without street view
     // (c) cul-de-sac — faces outward toward the court; cannot confirm without street view
     const aerialOnlyMode = !usesDualImage || data.street_view_shows_front === null;
-    const layoutType     = data.property_layout_type;
+    const layoutType = data.property_layout_type;
     const isCornerOrCulDeSac = layoutType === 'corner_lot' || layoutType === 'cul_de_sac';
 
     // For complex lot types: split policy by type.
@@ -493,7 +480,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     //   Only fall back to UNCLEAR if Gemini returned no azimuth at all (finalAzimuth==null)
     //   or the property is aerial-only with genuinely no usable direction.
     const isCornerLot = layoutType === 'corner_lot';
-    const isCulDeSac  = layoutType === 'cul_de_sac';
+    const isCulDeSac = layoutType === 'cul_de_sac';
     const cornerlotUnclear = isCornerLot;
     // No culdesacSVFailed gate — cul-de-sac rule: front faces the circle, aerial tells us which way.
     const complexLayoutSVFailed = cornerlotUnclear ||
@@ -507,12 +494,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
             console.log(`[Batch] ${zpid}: cul-de-sac aerial azimuth ${finalAzimuth}° — trusting architectural rule (front faces cul-de-sac circle).`);
             // Do not override — let finalAzimuth / finalOrientation stand.
         } else {
-        const reason = isCornerLot                      ? 'corner_lot (always UNCLEAR — two frontages ambiguous)'
-            : data.standard_street_layout === false     ? 'non-standard layout'
-            :                                             'cul_de_sac (no azimuth from aerial)';
-        console.log(`[Batch] Override ${zpid}: ${reason} → UNCLEAR`);
-        finalOrientation = 'UNCLEAR';
-        finalAzimuth     = null;
+            const reason = isCornerLot ? 'corner_lot (always UNCLEAR — two frontages ambiguous)'
+                : data.standard_street_layout === false ? 'non-standard layout'
+                    : 'cul_de_sac (no azimuth from aerial)';
+            console.log(`[Batch] Override ${zpid}: ${reason} → UNCLEAR`);
+            finalOrientation = 'UNCLEAR';
+            finalAzimuth = null;
         }
     }
 
@@ -527,19 +514,19 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         if (aerialOnlyMode) {
             console.log(`[Batch] Override ${zpid}: townhouse + aerial_only_mode → UNCLEAR (always)`);
             finalOrientation = 'UNCLEAR';
-            finalAzimuth     = null;
+            finalAzimuth = null;
         } else {
-            const layoutType        = data.property_layout_type;
-            const frontDoorMissing  = data.front_door_clearly_visible === false;
-            const complexLayout     = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
+            const layoutType = data.property_layout_type;
+            const frontDoorMissing = data.front_door_clearly_visible === false;
+            const complexLayout = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
             const nonStandardStreet = data.standard_street_layout === false;
             if (frontDoorMissing || complexLayout || nonStandardStreet) {
-                const reason = frontDoorMissing  ? 'front_door_clearly_visible=false'
-                             : nonStandardStreet ? 'standard_street_layout=false'
-                             : `layout=${layoutType}`;
+                const reason = frontDoorMissing ? 'front_door_clearly_visible=false'
+                    : nonStandardStreet ? 'standard_street_layout=false'
+                        : `layout=${layoutType}`;
                 console.log(`[Batch] Override ${zpid}: townhouse + ${reason} → UNCLEAR`);
                 finalOrientation = 'UNCLEAR';
-                finalAzimuth     = null;
+                finalAzimuth = null;
             }
         }
     }
@@ -557,7 +544,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === false && headingAzimuth === null) {
         console.log(`[Batch] Override ${zpid}: shows_front=false + no GPS heading used → UNCLEAR (aerial walkway redirect unreliable)`);
         finalOrientation = 'UNCLEAR';
-        finalAzimuth     = null;
+        finalAzimuth = null;
     }
 
     // Pattern B: street view was sent (svHeading proves this) but Gemini could not
@@ -567,7 +554,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === null && svHeading !== null) {
         console.log(`[Batch] Override ${zpid}: shows_front=null (SV uninformative) + aerial_only_mode → UNCLEAR`);
         finalOrientation = 'UNCLEAR';
-        finalAzimuth     = null;
+        finalAzimuth = null;
     }
 
     // Confidence cap: aerial-only analysis cannot be HIGH confidence.
@@ -583,26 +570,26 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     // 8. Write orientation result to Firestore via Admin SDK
     const orientationAI = {
-        final_orientation:       finalOrientation,
-        azimuth_degrees:         finalAzimuth,
+        final_orientation: finalOrientation,
+        azimuth_degrees: finalAzimuth,
         visual_azimuth_estimate: data.azimuth_degrees ?? null,
-        confidence:              finalConfidence,
-        aerial_only_mode:        aerialOnlyMode,
-        image_quality:           data.image_quality ?? 'acceptable',
-        feng_shui_vastu:         data.feng_shui_vastu ?? null,
-        privacy_insight:         data.privacy_insight ?? '',
-        lot_coverage_hardscape:  (data.lot_coverage_hardscape != null && data.lot_coverage_hardscape > 0 && data.lot_coverage_hardscape <= 1) ? Math.round(data.lot_coverage_hardscape * 100) : (data.lot_coverage_hardscape ?? null),
-        lot_coverage_pervious:   (data.lot_coverage_pervious != null && data.lot_coverage_pervious > 0 && data.lot_coverage_pervious <= 1) ? Math.round(data.lot_coverage_pervious * 100) : (data.lot_coverage_pervious ?? null),
-        buyer_pro:               data.buyer_pro ?? '',
-        buyer_con:               data.buyer_con ?? '',
-        orientation_highlights:  data.orientation_highlights ?? '',
-        pool_visible:            data.pool_visible ?? null,
-        pool_direction:          data.pool_direction ?? null,
-        garage_direction:        data.garage_direction ?? null,
-        open_sky_direction:      data.open_sky_direction ?? null,
-        property_layout_type:    data.property_layout_type ?? null,
-        explanation:             data.explanation ?? null,
-        is_under_construction:   data.is_under_construction ?? false,
+        confidence: finalConfidence,
+        aerial_only_mode: aerialOnlyMode,
+        image_quality: data.image_quality ?? 'acceptable',
+        feng_shui_vastu: data.feng_shui_vastu ?? null,
+        privacy_insight: data.privacy_insight ?? '',
+        lot_coverage_hardscape: (data.lot_coverage_hardscape != null && data.lot_coverage_hardscape > 0 && data.lot_coverage_hardscape <= 1) ? Math.round(data.lot_coverage_hardscape * 100) : (data.lot_coverage_hardscape ?? null),
+        lot_coverage_pervious: (data.lot_coverage_pervious != null && data.lot_coverage_pervious > 0 && data.lot_coverage_pervious <= 1) ? Math.round(data.lot_coverage_pervious * 100) : (data.lot_coverage_pervious ?? null),
+        buyer_pro: data.buyer_pro ?? '',
+        buyer_con: data.buyer_con ?? '',
+        orientation_highlights: data.orientation_highlights ?? '',
+        pool_visible: data.pool_visible ?? null,
+        pool_direction: data.pool_direction ?? null,
+        garage_direction: data.garage_direction ?? null,
+        open_sky_direction: data.open_sky_direction ?? null,
+        property_layout_type: data.property_layout_type ?? null,
+        explanation: data.explanation ?? null,
+        is_under_construction: data.is_under_construction ?? false,
     };
 
     await db.collection('properties').doc(zpid).set(
@@ -611,9 +598,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     );
 
     // 9. Log orientation version (port of browser-side logOrientationVersion)
-    const city   = (prop.city || 'Unknown').trim();
-    const zip    = (prop.zipCode || prop.zip || 'Unknown').trim();
-    const gtRef  = db.collection('orientation_ground_truth').doc(zpid);
+    const city = (prop.city || 'Unknown').trim();
+    const zip = (prop.zipCode || prop.zip || 'Unknown').trim();
+    const gtRef = db.collection('orientation_ground_truth').doc(zpid);
     const gtSnap = await gtRef.get();
     const existing = gtSnap.exists ? gtSnap.data() : {};
     const prevAuto = (existing?.test_results ?? []).filter(r => r.tester === 'automated');
@@ -665,11 +652,11 @@ exports.runOrientationBatchOnCreate = functions
         // Mark as running so the UI shows the spinner immediately
         await snap.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
-        const db        = admin.firestore();
-        const keysSnap  = await db.collection('app_config').doc('api_keys').get();
-        const keys      = keysSnap.exists ? keysSnap.data() : {};
+        const db = admin.firestore();
+        const keysSnap = await db.collection('app_config').doc('api_keys').get();
+        const keys = keysSnap.exists ? keysSnap.data() : {};
         const geminiKey = keys.gemini_key || process.env.GEMINI_API_KEY || '';
-        const mapsKey   = keys.maps_key   || process.env.MAPS_API_KEY   || '';
+        const mapsKey = keys.maps_key || process.env.MAPS_API_KEY || '';
 
         let done = 0, failed = 0;
 

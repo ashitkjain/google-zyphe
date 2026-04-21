@@ -85,32 +85,42 @@ export class AiResponseError extends Error {
 
 // Lazy initialization of the Gemini API client
 let aiInstance: GoogleGenAI | null = null;
+let lastUsedKey: string | null = null;
 
 export const getAi = async () => {
-    if (!aiInstance) {
-        // Load all API keys from Firestore (once per session)
-        const { loadApiKeys } = await import('./apiKeyLoader');
-        await loadApiKeys();
+    const currentKey = APP_CONFIG.gemini.key;
+    
+    // If first time or key has been updated (e.g. patched by loader)
+    if (!aiInstance || currentKey !== lastUsedKey) {
+        // Load all API keys from Firestore if we don't have a key yet
+        if (!currentKey) {
+            const { loadApiKeys } = await import('./apiKeyLoader');
+            await loadApiKeys();
+        }
 
-        // Final safety check for CLI/Standalone environments
         let apiKey = APP_CONFIG.gemini.key;
         if (!apiKey) {
             apiKey = process.env.VITE_GEMINI_API_KEY || '';
-            // If we found it here but not in APP_CONFIG, patch it
             if (apiKey) (APP_CONFIG as any).gemini.key = apiKey;
         }
 
-        if (!apiKey) throw new Error('Gemini API Key missing. Set it in Firestore (app_config/api_keys → gemini_key) or VITE_GEMINI_API_KEY env var.');
+        if (!apiKey) {
+            console.warn('[Gemini] API Key missing. Service will likely fail.');
+        }
 
-    // Explicitly hit Google directly to avoid routing/proxy issues on various hosts
-    aiInstance = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        baseUrl: "https://generativelanguage.googleapis.com"
-      }
-    });
-  }
-  return aiInstance;
+        // Explicitly hit Google directly to avoid routing/proxy issues
+        aiInstance = new GoogleGenAI({
+            apiKey: apiKey || '',
+            httpOptions: {
+                baseUrl: "https://generativelanguage.googleapis.com"
+            }
+        });
+        lastUsedKey = apiKey;
+        if (apiKey) {
+            console.log(`[Gemini] AI client initialized with key ending in ...${apiKey.slice(-4)}`);
+        }
+    }
+    return aiInstance;
 };
 
 /**
@@ -214,6 +224,30 @@ function extractJson<T>(text: string | undefined): T {
   throw new AiResponseError("Could not parse AI response as JSON", text);
 }
 
+// Global concurrency semaphore to manage rate limits across parallel tasks
+let currentActiveRequests = 0;
+const MAX_CONCURRENT_REQUESTS = 2; // Strict limit to protect Free/Low tier quotas
+const requestQueue: (() => void)[] = [];
+
+const throttleRequest = async () => {
+  if (currentActiveRequests < MAX_CONCURRENT_REQUESTS) {
+    currentActiveRequests++;
+    return;
+  }
+  return new Promise<void>((resolve) => {
+    requestQueue.push(resolve);
+  });
+};
+
+const releaseRequest = () => {
+  currentActiveRequests--;
+  if (requestQueue.length > 0) {
+    currentActiveRequests++;
+    const next = requestQueue.shift();
+    if (next) next();
+  }
+};
+
 export const executeGeminiRequest = async <T>(
   params: {
     model: string;
@@ -249,141 +283,149 @@ export const executeGeminiRequest = async <T>(
     request_sent_at: serverTimestamp()
   });
 
-  // Helper: sleep with jitter
-  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-  const isRateLimitError = (e: any) =>
-    e?.status === 429 ||
-    e?.code === 429 ||
-    String(e?.message || '').includes('429') ||
-    String(e?.message || '').toLowerCase().includes('resource_exhausted') ||
-    String(e?.message || '').toLowerCase().includes('resource exhausted');
+  // Apply concurrency throttling
+  await throttleRequest();
 
-  const MAX_RETRIES = 3;
-  let attempt = 0;
+  try {
+    // Helper: sleep with jitter
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+    const isRateLimitError = (e: any) =>
+      e?.status === 429 ||
+      e?.code === 429 ||
+      String(e?.message || '').includes('429') ||
+      String(e?.message || '').toLowerCase().includes('resource_exhausted') ||
+      String(e?.message || '').toLowerCase().includes('resource exhausted');
 
-  while (true) {
-    try {
-      // 1. WATCHDOG: Token Limit Enforcement (skip for parallel batch calls)
-      const formattedContents = Array.isArray(contents)
-        ? contents
-        : (contents && typeof contents === 'object' && 'parts' in contents)
-          ? [contents]
-          : [{ parts: [{ text: String(contents) }] }];
+    const MAX_RETRIES = 6;
+    let attempt = 0;
 
-      let finalConfig: any;
-      if (skipWatchdog) {
-        // Fast path: skip token counting
-        finalConfig = { ...config };
-      } else {
-        const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
-        const tokenCountResponse = await (ai.models as any).countTokens({
-          model,
-          contents: formattedContents,
-          systemInstruction: instructionPart
-        });
-
-        const inputTokens = tokenCountResponse.totalTokens;
-        const MAX_TOTAL_TOKENS = 150000;
-
-        if (inputTokens > MAX_TOTAL_TOKENS) {
-          throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
-        }
-
-        // Adjust maxOutputTokens to ensure input + output <= limit
-        const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
-        finalConfig = {
-          ...config,
-          maxOutputTokens: Math.min(config?.maxOutputTokens || 16384, remainingTokens)
-        };
-      }
-
-      const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
-      const isGemini3 = model.startsWith('gemini-3');
-
-      if (schema && (!hasSearchTool || isGemini3)) {
-        finalConfig.responseMimeType = "application/json";
-        // Gemini 3 uses responseJsonSchema when combining with tools
-        if (isGemini3 && hasSearchTool) {
-          finalConfig.responseJsonSchema = schema;
-        } else {
-          finalConfig.responseSchema = schema;
-        }
-      }
-
-      // 3. Perform Generation
-      console.log(`[Gemini] Calling generateContent for ${promptFilename}...`);
-      const result = await (ai.models as any).generateContent({
-        model,
-        contents: formattedContents,
-        config: finalConfig,
-      });
-
-      console.log(`[Gemini] Response received for ${promptFilename}`);
-      const responseText = typeof result.text === 'function' ? result.text() : result.text;
-      const usage = calculateUsage(result, model);
-
-      // Diagnostic: log when response is empty or truncated
-      const finishReason = result.candidates?.[0]?.finishReason;
-      if (!responseText) {
-        console.error(`[Gemini] Empty response for ${promptFilename}. finishReason=${finishReason}, candidates=${result.candidates?.length || 0}`);
-      } else if (finishReason && finishReason !== 'STOP' && finishReason !== 'END_TURN') {
-        console.warn(`[Gemini] Non-standard finishReason for ${promptFilename}: ${finishReason}. Response length: ${responseText.length} chars.`);
-      }
-
-      // 4. Extract data first to catch parsing errors before marking as 'completed'
-      let data: T;
-      try {
-        data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
-      } catch (parseErr: any) {
-        console.error(`[Gemini] JSON parse failed for ${promptFilename}. finishReason=${finishReason}, responseLength=${responseText?.length || 0}, first500chars=${responseText?.substring(0, 500)}`);
-        throw parseErr;
-      }
-
-      const metadata = extractMetadata(result);
-
-      // 5. Update Log with success (NOW AWAITED)
-      if (logId) {
-        await updateLLMCall(logId, {
-          raw_response: responseText,
-          status: 'completed',
-          response_received_at: serverTimestamp(),
-          usage_metadata: (result.usageMetadata as any),
-          estimated_cost: usage.cost,
-          ...metadata
-        });
-      }
-
-      return {
-        data,
-        usage,
-        sources: metadata.sources,
-        rawResponse: result
-      };
-    } catch (error: any) {
-      // Retry on 429 with exponential backoff + jitter
-      if (isRateLimitError(error) && attempt < MAX_RETRIES) {
-        attempt++;
-        const baseDelay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        const jitter = Math.random() * 1000;            // 0–1s extra jitter
-        const delay = baseDelay + jitter;
-        console.warn(`[Gemini] 429 rate limit hit (${promptFilename}), retrying in ${Math.round(delay / 1000)}s... (attempt ${attempt}/${MAX_RETRIES})`);
-        await sleep(delay);
-        continue; // retry
-      }
-
-      // Non-retryable error or out of retries
-      if (logId) {
-        await updateLLMCall(logId, {
-          raw_response: error.message,
-          status: 'failed',
-          error: error.stack || (typeof error === 'string' ? error : JSON.stringify(error)),
-          response_received_at: serverTimestamp()
-        });
-      }
-
-      if (error instanceof AiResponseError) throw error;
-      throw new AiResponseError(error.message || "AI Execution Error", "ERROR", contents);
+    // spread out parallel batch calls to avoid immediate synchronized 429s
+    if (skipWatchdog) {
+      await sleep(Math.random() * 3000);
     }
+
+    while (true) {
+      try {
+        // 1. WATCHDOG: Token Limit Enforcement (skip for parallel batch calls)
+        const formattedContents = Array.isArray(contents)
+          ? contents
+          : (contents && typeof contents === 'object' && 'parts' in contents)
+            ? [contents]
+            : [{ parts: [{ text: String(contents) }] }];
+
+        let finalConfig: any;
+        if (skipWatchdog) {
+          finalConfig = { ...config };
+        } else {
+          const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
+          const tokenCountResponse = await (ai.models as any).countTokens({
+            model,
+            contents: formattedContents,
+            systemInstruction: instructionPart
+          });
+
+          const inputTokens = tokenCountResponse.totalTokens;
+          const MAX_TOTAL_TOKENS = 150000;
+
+          if (inputTokens > MAX_TOTAL_TOKENS) {
+            throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
+          }
+
+          const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
+          finalConfig = {
+            ...config,
+            maxOutputTokens: Math.min(config?.maxOutputTokens || 16384, remainingTokens)
+          };
+        }
+
+        const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
+        const isGemini3 = model.startsWith('gemini-3');
+
+        if (schema && (!hasSearchTool || isGemini3)) {
+          finalConfig.responseMimeType = "application/json";
+          if (isGemini3 && hasSearchTool) {
+            finalConfig.responseJsonSchema = schema;
+          } else {
+            finalConfig.responseSchema = schema;
+          }
+        }
+
+        // 3. Perform Generation
+        console.log(`[Gemini] Calling generateContent for ${promptFilename}...`);
+        const result = await (ai.models as any).generateContent({
+          model: model,
+          contents: formattedContents,
+          config: finalConfig,
+        });
+
+        console.log(`[Gemini] Response received for ${promptFilename}`);
+        const responseText = typeof result.text === 'function' ? result.text() : result.text;
+        const usage = calculateUsage(result, model);
+
+        const finishReason = result.candidates?.[0]?.finishReason;
+        if (!responseText) {
+          console.error(`[Gemini] Empty response for ${promptFilename}. finishReason=${finishReason}`);
+        }
+
+        // 4. Extract data
+        let data: T;
+        try {
+          data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
+        } catch (parseErr: any) {
+          console.error(`[Gemini] JSON parse failed for ${promptFilename}`);
+          throw parseErr;
+        }
+
+        const metadata = extractMetadata(result);
+
+        // 5. Update Log
+        if (logId) {
+          await updateLLMCall(logId, {
+            raw_response: responseText,
+            status: 'completed',
+            response_received_at: serverTimestamp(),
+            usage_metadata: (result.usageMetadata as any),
+            estimated_cost: usage.cost,
+            ...metadata
+          });
+        }
+
+        return {
+          data,
+          usage,
+          sources: metadata.sources,
+          rawResponse: result
+        };
+      } catch (error: any) {
+        if (isRateLimitError(error) && attempt < MAX_RETRIES) {
+          attempt++;
+          const baseDelay = Math.pow(2, attempt) * 2000;
+          const jitter = Math.random() * 2000;
+          const delay = baseDelay + jitter;
+          console.warn(`[Gemini] 429 rate limit hit (${promptFilename}), releasing slot and retrying in ${Math.round(delay / 1000)}s...`);
+
+          // CRITICAL: Release the semaphore slot while we sleep so we don't block other requests
+          releaseRequest();
+          await sleep(delay);
+          await throttleRequest();
+          continue;
+        }
+
+        if (logId) {
+          await updateLLMCall(logId, {
+            raw_response: error.message,
+            status: 'failed',
+            error: error.stack || String(error),
+            response_received_at: serverTimestamp()
+          });
+        }
+
+        if (error instanceof AiResponseError) throw error;
+        throw new AiResponseError(error.message || "AI Execution Error", "ERROR", contents);
+      }
+    }
+  } finally {
+    releaseRequest();
   }
 };
 
@@ -677,7 +719,7 @@ export const extractContextGraphFactors = async (
 ): Promise<AIResponseWithUsage<ContextGraphExtractionResult>> => {
   // 1. Pre-compute the 35 pure-data factors client-side (no AI tokens)
   const precomputed = precomputeDataFactors(property, visual, comprehensive);
-  
+
   // 2. Determine which factors were ACTUALLY successful (not blank) to skip in AI prompt
   const successfulSkipIds = Array.from(precomputed.entries())
     .filter(([, f]) => (f.tags && f.tags.length > 0) || (f.value && f.value.trim().length > 0))
@@ -1202,7 +1244,7 @@ export const mineCityNeighborhoods = async (
   });
 
   const discovered = discoveryResult.data?.neighborhoods || [];
-  
+
   // Ensure "known" neighborhoods are definitely in the list, even if Gemini missed them in Pass 1
   knownFromProperties.forEach(name => {
     const alreadyPresent = discovered.find(d => d.name.toLowerCase() === name.toLowerCase());
@@ -1642,70 +1684,70 @@ function dehydratePayload(payload: any): any {
  * @param userId  - Firebase UID for logging
  */
 export const fetchMitLivingWage = async (
-    params: MitLivingWageParams,
-    userId: string = 'unknown'
+  params: MitLivingWageParams,
+  userId: string = 'unknown'
 ): Promise<{ data: MitLivingWageResult; sources?: { url: string; title: string }[] | null; fromCache: boolean }> => {
-    const { saveLivingWageToCloud, getLivingWageFromCloud } = await import('./firebase/properties');
+  const { saveLivingWageToCloud, getLivingWageFromCloud } = await import('./firebase/properties');
 
-    // Quality gate: cached docs must have living_wage_hourly + expenses to be usable
-    const isLivingWageComplete = (cached: any): boolean =>
-        !!(cached?.living_wage_hourly && cached?.expenses && typeof cached.expenses === 'object');
+  // Quality gate: cached docs must have living_wage_hourly + expenses to be usable
+  const isLivingWageComplete = (cached: any): boolean =>
+    !!(cached?.living_wage_hourly && cached?.expenses && typeof cached.expenses === 'object');
 
-    // ── 1. Cache check (metro preferred, county fallback) ────────────────────
-    if (params.metroCode) {
-        const cached = await getLivingWageFromCloud(params.metroCode, 'metro');
-        if (cached) {
-            if (isLivingWageComplete(cached)) {
-                console.log(`[MIT Living Wage] ✓ Cache hit (metro ${params.metroCode})`);
-                return { data: cached as MitLivingWageResult, fromCache: true };
-            }
-            console.warn(`[MIT Living Wage] Cached metro doc is incomplete (missing expenses) — re-fetching for ${params.metroCode}`);
-        }
+  // ── 1. Cache check (metro preferred, county fallback) ────────────────────
+  if (params.metroCode) {
+    const cached = await getLivingWageFromCloud(params.metroCode, 'metro');
+    if (cached) {
+      if (isLivingWageComplete(cached)) {
+        console.log(`[MIT Living Wage] ✓ Cache hit (metro ${params.metroCode})`);
+        return { data: cached as MitLivingWageResult, fromCache: true };
+      }
+      console.warn(`[MIT Living Wage] Cached metro doc is incomplete (missing expenses) — re-fetching for ${params.metroCode}`);
     }
-    if (params.countyFips) {
-        const cached = await getLivingWageFromCloud(params.countyFips, 'county');
-        if (cached) {
-            if (isLivingWageComplete(cached)) {
-                console.log(`[MIT Living Wage] ✓ Cache hit (county FIPS ${params.countyFips})`);
-                return { data: cached as MitLivingWageResult, fromCache: true };
-            }
-            console.warn(`[MIT Living Wage] Cached county doc is incomplete (missing expenses) — re-fetching for ${params.countyFips}`);
-        }
+  }
+  if (params.countyFips) {
+    const cached = await getLivingWageFromCloud(params.countyFips, 'county');
+    if (cached) {
+      if (isLivingWageComplete(cached)) {
+        console.log(`[MIT Living Wage] ✓ Cache hit (county FIPS ${params.countyFips})`);
+        return { data: cached as MitLivingWageResult, fromCache: true };
+      }
+      console.warn(`[MIT Living Wage] Cached county doc is incomplete (missing expenses) — re-fetching for ${params.countyFips}`);
     }
+  }
 
-    // ── 2. Gemini + Search grounding ─────────────────────────────────────────
-    const prompt = getMitLivingWagePrompt(params);
-    const locationTag = params.metroName
-        ? `metro: ${params.metroName}`
-        : `${params.county || params.city} County, ${params.state} (FIPS: ${params.countyFips || 'unknown'})`;
-    console.log(`[MIT Living Wage] Cache miss — fetching for ${locationTag}...`);
+  // ── 2. Gemini + Search grounding ─────────────────────────────────────────
+  const prompt = getMitLivingWagePrompt(params);
+  const locationTag = params.metroName
+    ? `metro: ${params.metroName}`
+    : `${params.county || params.city} County, ${params.state} (FIPS: ${params.countyFips || 'unknown'})`;
+  console.log(`[MIT Living Wage] Cache miss — fetching for ${locationTag}...`);
 
-    const result = await executeGeminiRequest<MitLivingWageResult>({
-        model: 'gemini-3-flash-preview',  // supports both schema + grounding simultaneously
-        contents: prompt,
-        config: { tools: [groundingTool], temperature: 0.1 },
-        userId,
-        promptFilename: 'mitLivingWage.ts',
-        extractResultJson: true,
-        schema: mitLivingWageSchema,
-    });
+  const result = await executeGeminiRequest<MitLivingWageResult>({
+    model: 'gemini-3-flash-preview',  // supports both schema + grounding simultaneously
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.1 },
+    userId,
+    promptFilename: 'mitLivingWage.ts',
+    extractResultJson: true,
+    schema: mitLivingWageSchema,
+  });
 
-    // ── 3. Save to Firestore ──────────────────────────────────────────────────
-    if (result.data) {
-        const geoLevel = result.data.geographic_level ?? (params.metroCode ? 'metro' : 'county');
-        const cacheKey = geoLevel === 'metro'
-            ? (params.metroCode || params.countyFips || '')
-            : (params.countyFips || params.metroCode || '');
+  // ── 3. Save to Firestore ──────────────────────────────────────────────────
+  if (result.data) {
+    const geoLevel = result.data.geographic_level ?? (params.metroCode ? 'metro' : 'county');
+    const cacheKey = geoLevel === 'metro'
+      ? (params.metroCode || params.countyFips || '')
+      : (params.countyFips || params.metroCode || '');
 
-        if (cacheKey) {
-            saveLivingWageToCloud(cacheKey, geoLevel, result.data)
-                .then(r => {
-                    if (r.success) console.log(`[MIT Living Wage] Saved to Firestore (${geoLevel} ${cacheKey})`);
-                    else console.warn(`[MIT Living Wage] Save failed: ${r.error}`);
-                })
-                .catch(e => console.warn('[MIT Living Wage] Save error:', e));
-        }
+    if (cacheKey) {
+      saveLivingWageToCloud(cacheKey, geoLevel, result.data)
+        .then(r => {
+          if (r.success) console.log(`[MIT Living Wage] Saved to Firestore (${geoLevel} ${cacheKey})`);
+          else console.warn(`[MIT Living Wage] Save failed: ${r.error}`);
+        })
+        .catch(e => console.warn('[MIT Living Wage] Save error:', e));
     }
+  }
 
-    return { data: result.data, sources: result.sources, fromCache: false };
+  return { data: result.data, sources: result.sources, fromCache: false };
 };
