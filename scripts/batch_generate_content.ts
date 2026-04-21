@@ -18,7 +18,7 @@ async function generateWithRetry(category: string, title: string, retries = 3): 
             console.log(`Generating: ${title} (Attempt ${i + 1})...`);
             const prompt = getGuideGenerationPrompt(category, title);
             const result = await ai.models.generateContent({
-                model: "gemini-2.0-flash",
+                model: "gemini-2.5-flash",
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",

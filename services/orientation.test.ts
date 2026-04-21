@@ -23,7 +23,7 @@ describe('Property Orientation Analysis - 1039 Hopkins Way', () => {
         await loadApiKeys();
         
         // Ensure we are using the primary models for testing
-        (APP_CONFIG as any).models.flash = 'gemini-2.0-flash';
+        (APP_CONFIG as any).models.flash = 'gemini-2.5-flash';
     });
 
     it('should correctly identify the orientation as North and detect no pool', async () => {

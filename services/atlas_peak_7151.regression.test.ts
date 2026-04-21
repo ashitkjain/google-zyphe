@@ -57,7 +57,7 @@ beforeAll(async () => {
         if (keys.VITE_GOOGLE_MAPS_API_KEY) (APP_CONFIG as any).maps.key   = keys.VITE_GOOGLE_MAPS_API_KEY;
     } catch { /* fall through to env */ }
 
-    (APP_CONFIG as any).models.flash = 'gemini-2.0-flash';
+    (APP_CONFIG as any).models.flash = 'gemini-2.5-flash';
     if (!APP_CONFIG.gemini.key && process.env.VITE_GEMINI_API_KEY)
         (APP_CONFIG as any).gemini.key = process.env.VITE_GEMINI_API_KEY;
     if (!APP_CONFIG.maps.key && process.env.VITE_GOOGLE_MAPS_API_KEY)

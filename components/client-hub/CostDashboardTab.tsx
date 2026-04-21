@@ -7,6 +7,7 @@ import { LLMCallEvent } from '../../types/ai';
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
     'gemini-1.5-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
     'gemini-2.0-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
+    'gemini-2.5-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
     'gemini-2.0-pro-exp':     { input: 1.25 / 1e6, output: 5.00 / 1e6 },
     'gemini-1.5-pro':         { input: 1.25 / 1e6, output: 5.00 / 1e6 },
     'gemini-3-flash-preview': { input: 0.10 / 1e6, output: 0.40 / 1e6 }
@@ -57,7 +58,7 @@ const CostDashboardTab: React.FC = () => {
 
     const geminiService = stats.services.find((s: any) => s.service === 'Gemini AI');
     const estimatedCost = geminiService?.geminiDetails?.totalTokens 
-        ? getEstimatedCost(geminiService.geminiDetails.totalTokens, 'gemini-2.0-flash').toFixed(4)
+        ? getEstimatedCost(geminiService.geminiDetails.totalTokens, 'gemini-2.5-flash').toFixed(4)
         : "0.0000";
 
     return (

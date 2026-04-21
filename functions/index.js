@@ -1086,3 +1086,5 @@ exports.savedSearchAlerts = functions.pubsub
 
 // ─── Orientation Batch (tab-independent, Firestore-triggered) ───────────────
 Object.assign(exports, require('./orientationBatch'));
+Object.assign(exports, require('./propertyBatch'));
+Object.assign(exports, require('./intelBatch'));

@@ -17,8 +17,8 @@ const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const BATCH_CONCURRENCY = 5;
-const ORIENTATION_MODEL_CF = 'gemini-1.5-flash'; // Using 1.5 Flash for better price/performance in batch
+const BATCH_CONCURRENCY = 20;
+const ORIENTATION_MODEL_CF = 'gemini-2.5-flash';
 
 // ─── Gemini response schema ───────────────────────────────────────────────────
 // Uses plain string type names (compatible with all @google/generative-ai versions).

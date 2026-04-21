@@ -416,7 +416,7 @@ export const useAnalysisActions = (
             }
 
             // 3. Extract via Gemini
-            addLog('Gemini AI', { type: 'request' }, { task: 'context_graph_extraction', zpid, model: 'gemini-2.0-flash' });
+            addLog('Gemini AI', { type: 'request' }, { task: 'context_graph_extraction', zpid, model: 'gemini-2.5-flash' });
             
             // 3.0 Pre-extraction check: Ensure city context graph exists, auto-extract if missing
             // If the city data (pulse/research) was just loaded, we might need to fill those factors

@@ -123,10 +123,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
     const [redownloadRunning, setRedownloadRunning] = useState(false);
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
-    const [backfillRunning, setBackfillRunning] = useState(false);
-    const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number; found: number } | null>(null);
     const [importGTRunning, setImportGTRunning] = useState(false);
-    const [importGTProgress, setImportGTProgress] = useState<{ done: number; total: number } | null>(null);
     const [showMissingOnly, setShowMissingOnly] = useState(false);
     const [showOrientationDiffOnly, setShowOrientationDiffOnly] = useState(false);
     const [showChangedFromFirstOnly, setShowChangedFromFirstOnly] = useState(false);
@@ -137,6 +134,22 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
+    const [selectedZpids, setSelectedZpids] = useState<Set<string>>(new Set());
+
+    const toggleSelect = (zpid: string) => {
+        const next = new Set(selectedZpids);
+        if (next.has(zpid)) next.delete(zpid);
+        else next.add(zpid);
+        setSelectedZpids(next);
+    };
+
+    const toggleSelectAll = (visibleRows: OrientationRow[]) => {
+        if (selectedZpids.size > 0) {
+            setSelectedZpids(new Set());
+        } else {
+            setSelectedZpids(new Set(visibleRows.map(r => r.zpid)));
+        }
+    };
 
     // ── Fetch all properties + visual analyses ────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -371,32 +384,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         }
     }, [normalizeDir]);
 
-    const [purgeRunning, setPurgeRunning] = useState(false);
-    const handlePurgeNonTargets = async () => {
-        if (!isAdmin) return;
-        const nonTargets = rows.filter(r => !isTargetForOrientationAnalysis(r).target && (r.orientationAI || r.finalOrientation));
-        if (nonTargets.length === 0) {
-            alert('No properties to purge.');
-            return;
-        }
-        if (!confirm(`${nonTargets.length} ${nonTargets.length === 1 ? 'property' : 'properties'} will have no orientation data after this purge.\n\nProceed?`)) return;
 
-        setPurgeRunning(true);
-        try {
-            let deleted = 0;
-            let failed = 0;
-            for (const row of nonTargets) {
-                const result = await deleteOrientationVersionsForProperty(row.zpid, row.city, row.zip);
-                if (result.deleted) deleted++;
-                else failed++;
-            }
-            await fetchData();
-            const failNote = failed > 0 ? ` (${failed} failed)` : '';
-            alert(`Purge complete — ${deleted} of ${nonTargets.length} properties cleared.${failNote}`);
-        } finally {
-            setPurgeRunning(false);
-        }
-    };
 
     const cities = useMemo(() => {
         const m: Record<string, number> = {};
@@ -582,214 +570,76 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         return { match, mismatch, unclear, noGt, total };
     }, [filteredRows, groundTruthByZpid]);
 
-    const runForRow = async (zpid: string, skipFetch = false) => {
-        const row = rows.find(r => r.zpid === zpid);
-        if (!row) return;
-
-        const { target, reason } = isTargetForOrientationAnalysis(row);
-        if (!target) {
-            setRows(prev => prev.map(r => r.zpid === zpid
-                ? { ...r, status: 'error', error: reason } : r));
+    const queueCloudBatch = async (zpids: string[], label: string) => {
+        if (zpids.length === 0) {
+            alert(`No properties found for ${label}.`);
             return;
         }
+        const confirmMsg = `Queue CLOUD analysis (Server-side) for ${zpids.length} ${label}? \n\n(This will process in the background via Gemini 2.5 Flash)`;
+        if (!confirm(confirmMsg)) return;
 
-        if (!row.coordinates) {
-            setRows(prev => prev.map(r => r.zpid === zpid
-                ? { ...r, status: 'error', error: 'No coordinates' } : r));
-            return;
-        }
-        setRows(prev => prev.map(r => r.zpid === zpid ? { ...r, status: 'running', error: undefined } : r));
         try {
-            // ── Browser-side analysis — same logic as the retired Cloud Function ─
-            const userId = auth?.currentUser?.uid || 'unknown';
-            const result = await runSatellitaryAnalysis(
-                row.coordinates.latitude,
-                row.coordinates.longitude,
-                row.streetView ?? null,   // use cached street view if available
-                userId,
-                zpid,                     // persists result to Firestore internally
-                row.address,
-                row.description ?? null,
-                row.homeType ?? null,
-            );
-            if (!result) throw new Error('Browser analysis returned no result');
-
-            setRows(prev => prev.map(r => r.zpid === zpid ? {
-                ...r,
-                status: 'done',
-                calculatedAt: new Date(),
-                finalOrientation: result.final_orientation,
-                orientationAI: {
-                    final_orientation: result.final_orientation,
-                    azimuth_degrees: result.azimuth_degrees,
-                    confidence: result.confidence,
-                    property_layout_type: result.property_layout_type,
-                    image_quality: result.image_quality,
-                    aerial_only_mode: result.aerial_only_mode,
-                    feng_shui_vastu: result.feng_shui_vastu,
-                    privacy_insight: result.privacy_insight,
-                    lot_coverage_hardscape: result.lot_coverage_hardscape,
-                    lot_coverage_pervious: result.lot_coverage_pervious,
-                    buyer_pro: result.buyer_pro,
-                    buyer_con: result.buyer_con,
-                    explanation: result.explanation ?? null,
-                    is_under_construction: result.is_under_construction,
-                },
-                mapZoomIn: r.mapZoomIn,
-                streetView: result.street_view_url || r.streetView,
-            } : r));
-
+            setBatchRunning(true);
+            await addDoc(collection(db, 'orientation_batch_jobs'), {
+                zpids,
+                status: 'queued',
+                total: zpids.length,
+                done: 0,
+                failed: 0,
+                userId: auth.currentUser?.uid || 'anonymous',
+                createdAt: serverTimestamp()
+            });
+            alert(`Cloud batch job queued for ${zpids.length} properties!`);
+            setSelectedZpids(new Set());
         } catch (e: any) {
-            setRows(prev => prev.map(r => r.zpid === zpid
-                ? { ...r, status: 'error', error: e.message || 'Unknown error' } : r));
+            console.error('Cloud batch error:', e);
+            alert('Failed to queue batch: ' + e.message);
+        } finally {
+            setBatchRunning(false);
         }
     };
 
 
-    const forceRefreshForRow = async (zpid: string, skipFetch = false) => {
-        const row = rows.find(r => r.zpid === zpid);
-        if (!row) return;
 
-        const { target, reason } = isTargetForOrientationAnalysis(row);
-        if (!target) {
-            setRows(prev => prev.map(r => r.zpid === zpid
-                ? { ...r, status: 'error', error: reason } : r));
-            return;
-        }
 
-        if (!row.coordinates) {
-            setRows(prev => prev.map(r => r.zpid === zpid
-                ? { ...r, status: 'error', error: 'No coordinates' } : r));
-            return;
-        }
-        setRows(prev => prev.map(r => r.zpid === zpid
-            ? { ...r, status: 'refreshing', error: undefined } : r));
-        try {
-            const result = await forceRefreshAllImagesAndAnalyze(
-                zpid,
-                row.coordinates.latitude,
-                row.coordinates.longitude,
-                auth?.currentUser?.uid || 'unknown',
-                row.address,
-                row.description,      // ← enables description-first optimization
-                row.homeType,         // ← enables aerial-only townhouse UNCLEAR shortcut
-            );
-            setRows(prev => prev.map(r => r.zpid === zpid ? {
-                ...r,
-                status: 'done',
-                satelliteImageUrl: result.freshAerialUrl || r.satelliteImageUrl,
-                streetView: result.freshStreetViewUrl || r.streetView,
-                // Update the displayed orientation immediately — do NOT leave it stale
-                finalOrientation: result.final_orientation,
-                calculatedAt: new Date(),   // mark as freshly analyzed so missedProperties doesn't re-queue it
-                orientationAI: {
-                    final_orientation: result.final_orientation,
-                    azimuth_degrees: result.azimuth_degrees,
-                    confidence: result.confidence,
-                    property_layout_type: result.property_layout_type,
-                    image_quality: result.image_quality,
-                    aerial_only_mode: result.aerial_only_mode,
-                    feng_shui_vastu: result.feng_shui_vastu,
-                    privacy_insight: result.privacy_insight,
-                    lot_coverage_hardscape: result.lot_coverage_hardscape,
-                    lot_coverage_pervious: result.lot_coverage_pervious,
-                    buyer_pro: result.buyer_pro,
-                    buyer_con: result.buyer_con,
-                    explanation: result.explanation ?? null,
-                    is_under_construction: result.is_under_construction,
-                },
-            } : r));
-
-            // Re-fetch consistency check
-            if (!skipFetch) {
-                setTimeout(() => refreshRow(zpid), 500);
-            }
-
-        } catch (e: any) {
-            setRows(prev => prev.map(r => r.zpid === zpid
-                ? { ...r, status: 'error', error: e.message || 'Refresh failed' } : r));
-        }
+    const forceRefreshForRow = async (zpid: string) => {
+        await queueCloudBatch([zpid], 'single property refresh');
     };
 
-    const handleBatchRun = async () => {
+    const handleCloudBatchRun = async () => {
         const targets = filteredRows.filter(r => {
             if (!r.coordinates || r.status === 'running') return false;
             return isTargetForOrientationAnalysis(r).target;
         });
-        if (targets.length === 0) return;
-        
-        const confirmMsg = `Run browser-side throttled analysis for ${targets.length} propert${targets.length === 1 ? 'y' : 'ies'}? \n\n(Cloud Function is disabled. This will run in this tab.)`;
-        if (!confirm(confirmMsg)) return;
+        if (targets.length === 0) {
+            alert('No targets found.');
+            return;
+        }
 
-        // Redirect to the browser-side throttled calculation logic
-        handleCalculateMissed();
+        const confirmMsg = `Queue CLOUD analysis (Server-side) for ${targets.length} properties?\n\n- Runs in the background (even if you close this tab).\n- Faster (20x concurrency).\n- Uses gemini-2.5-flash.`;
+        if (!confirm(confirmMsg)) return;
+        const zpids = targets.map(r => r.zpid);
+        await queueCloudBatch(zpids, 'properties in view');
+    };
+
+    const handleBulkUpdate = async () => {
+        await queueCloudBatch(Array.from(selectedZpids), 'SELECTED properties');
     };
 
     const handleCalculateMissed = async () => {
-        const targets = missedProperties.filter(r => r.status !== 'running');
-
-        if (targets.length === 0) {
-            alert('No missed properties found.');
-            return;
-        }
-
-        setBatchRunning(true);
-        setBatchProgress({ done: 0, total: targets.length });
-
-        // Browser-side throttled loop — concurrency=1 to stay within flash-lite rate limits.
-        const CONCURRENCY = 1;
-        let done = 0;
-        try {
-            for (let i = 0; i < targets.length; i += CONCURRENCY) {
-                const chunk = targets.slice(i, i + CONCURRENCY);
-                await Promise.allSettled(chunk.map(r => runForRow(r.zpid, true)));
-                done += chunk.length;
-                setBatchProgress({ done, total: targets.length });
-            }
-        } finally {
-            setBatchRunning(false);
-            setBatchProgress(null);
-            setTimeout(() => fetchData(), 1500);
-        }
+        const zpids = missedProperties.map(r => r.zpid);
+        await queueCloudBatch(zpids, 'missed properties');
     };
 
     const handleRecalculateMismatches = async () => {
-        const extractDir = (s: string) => s.split(/[\s(]/)[0].toLowerCase().trim();
-        const targets = filteredRows.filter(r => {
-            if (!r.coordinates || r.status === 'running') return false;
+        const zpids = filteredRows.filter(r => {
             const gt = groundTruthByZpid.get(r.zpid);
-            if (!gt || !gt.expected_orientation) return false;
-            if (!r.orientationAI) return false;
-            const aiDir = extractDir(r.orientationAI.final_orientation ?? '');
-            if (aiDir === 'unclear') return false;
-            if (r.orientationAI?.is_under_construction) return false;
-            const gtDir = extractDir(gt.expected_orientation);
+            if (!gt || !gt.expected_orientation || !r.orientationAI) return false;
+            const aiDir = r.orientationAI.final_orientation.split(' ')[0].toLowerCase();
+            const gtDir = gt.expected_orientation.split(' ')[0].toLowerCase();
             return aiDir !== gtDir;
-        });
-        if (targets.length === 0) {
-            alert('No mismatch properties found in the current view.');
-            return;
-        }
-        if (!confirm(`Re-run orientation analysis for ${targets.length} mismatch propert${targets.length === 1 ? 'y' : 'ies'}?`)) return;
-
-        setBatchRunning(true);
-        setBatchProgress({ done: 0, total: targets.length });
-
-        // Browser-side throttled loop — concurrency=3 to stay within Gemini rate limits.
-        const CONCURRENCY = 3;
-        let done = 0;
-        try {
-            for (let i = 0; i < targets.length; i += CONCURRENCY) {
-                const chunk = targets.slice(i, i + CONCURRENCY);
-                await Promise.allSettled(chunk.map(r => runForRow(r.zpid, true)));
-                done += chunk.length;
-                setBatchProgress({ done, total: targets.length });
-            }
-        } finally {
-            setBatchRunning(false);
-            setBatchProgress(null);
-            setTimeout(() => fetchData(), 1500);
-        }
+        }).map(r => r.zpid);
+        await queueCloudBatch(zpids, 'mismatched properties');
     };
 
     const handleRedownloadSatellites = async () => {
@@ -822,113 +672,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         setRedownloadProgress(null);
     };
 
-    const handleBackfillHeadings = async () => {
-        if (!isAdmin) return;
-        // Properties for the active city with a cached Firebase street view URL
-        const targets = rows.filter(r => {
-            if (activeCity && r.city !== activeCity) return false;
-            if (!isTargetForOrientationAnalysis(r).target) return false;
-            if (!r.coordinates) return false;
-            return !!(r.streetView?.includes('firebasestorage'));
-        });
 
-        if (targets.length === 0) {
-            alert('No properties with cached street view URLs found for this city.');
-            return;
-        }
-
-        if (!confirm(
-            `Backfill street view headings for ${targets.length} ${activeCity ?? ''} properties?\n\n` +
-            `This calls the Maps Street View Metadata API for each property and stores the camera heading in Firestore.` +
-            ` No images are re-downloaded.\n\nProceed?`
-        )) return;
-
-        setBackfillRunning(true);
-        setBackfillProgress({ done: 0, total: targets.length, found: 0 });
-
-        const CONCURRENCY = 8;
-        let found = 0;
-        for (let i = 0; i < targets.length; i += CONCURRENCY) {
-            const batch = targets.slice(i, i + CONCURRENCY);
-            const results = await Promise.allSettled(
-                batch.map(row => backfillStreetViewHeadingDeg(
-                    row.zpid,
-                    row.coordinates!.latitude,
-                    row.coordinates!.longitude
-                ))
-            );
-            results.forEach(r => { if (r.status === 'fulfilled' && r.value != null) found++; });
-            setBackfillProgress({ done: Math.min(i + CONCURRENCY, targets.length), total: targets.length, found });
-        }
-
-        setBackfillRunning(false);
-        setBackfillProgress(null);
-        alert(`✅ Backfill complete — ${found}/${targets.length} headings written.\n${targets.length - found} had no Street View coverage.`);
-    };
-
-    const handleImportGroundTruth = async () => {
-        if (!isAdmin) return;
-        const cityKey = (activeCity ?? 'pleasanton').toLowerCase();
-        const dataset = ALL_GROUND_TRUTH[cityKey];
-        if (!dataset) { alert(`No ground truth data for city "${cityKey}".`); return; }
-
-        const actionable = dataset.filter(r => r.expected_orientation != null || r.remark !== '');
-        if (!confirm(
-            `Import ${actionable.length} ground-truth rows for ${activeCity ?? 'this city'} into Firestore?\n\n` +
-            `Collection: orientation_ground_truth\nSchema per doc:\n  • address\n  • expected_orientation\n  • test_results[] — remark, ai_assessed_orientation, notes, tester, date\n\nExisting test_results arrays will be preserved.`
-        )) return;
-
-        // Build normalised address → zpid map from rows already in state
-        const norm = (s: string) => s.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
-        const addrToZpid = new Map<string, string>();
-        rows.forEach(r => { if (r.zpid) addrToZpid.set(norm(r.address ?? ''), r.zpid); });
-
-        setImportGTRunning(true);
-        setImportGTProgress({ done: 0, total: actionable.length });
-
-        let matched = 0, unmatched = 0;
-        const unmatchedAddrs: string[] = [];
-        const now = new Date().toISOString();
-
-        try {
-            for (let i = 0; i < actionable.length; i++) {
-                const row = actionable[i];
-                const zpid = addrToZpid.get(norm(row.address));
-                if (!zpid) {
-                    unmatched++;
-                    unmatchedAddrs.push(row.address.split(',')[0]);
-                } else {
-                    const manualResult = {
-                        remark:                  row.remark,
-                        ai_assessed_orientation: null,
-                        notes:                   row.tester_notes,
-                        tester:                  'manual' as const,
-                        date:                    now,
-                    };
-                    await setDoc(doc(db, 'orientation_ground_truth', zpid), {
-                        zpid,
-                        city:                 row.city,
-                        address:              row.address,
-                        expected_orientation: row.expected_orientation,
-                        expected_azimuth_deg: row.expected_orientation
-                            ? (AZIMUTH_FOR_ORIENTATION[row.expected_orientation] ?? null)
-                            : null,
-                        test_results: [manualResult],
-                    }, { merge: false });
-                    matched++;
-                }
-                setImportGTProgress({ done: i + 1, total: actionable.length });
-            }
-            const unmatchedMsg = unmatched > 0 ? `\n\nUnmatched (${unmatched}): ${unmatchedAddrs.join(', ')}` : '';
-            alert(`✅ Import complete — ${matched}/${actionable.length} written.${unmatchedMsg}`);
-        } catch (err: any) {
-            console.error('Import ground truth failed:', err);
-            alert(`❌ Import failed after ${matched} writes.\n\nError: ${err?.message ?? String(err)}\n\nCheck Firestore rules — orientation_ground_truth may need write access.`);
-        } finally {
-            setImportGTRunning(false);
-            setImportGTProgress(null);
-        }
-    };
 
     return (
         <>
@@ -1048,53 +792,67 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     </div>
 
                     {isAdmin && (
-                        <button
-                            onClick={handleRedownloadSatellites}
-                            disabled={redownloadRunning || batchRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                            title="Force re-download all satellite images for this city (ignores cache)"
-                        >
-                            {redownloadRunning ? (
-                                <>
-                                    <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                    {redownloadProgress ? `${redownloadProgress.done}/${redownloadProgress.total}` : 'Downloading…'}
-                                </>
-                            ) : (
-                                <>
-                                    <i className="fa-solid fa-satellite text-xs" />
-                                    Refresh city images
-                                </>
-                            )}
-                        </button>
-                    )}
-
-                    {isAdmin && (
-                        <>
+                        <div className="flex items-center gap-2">
                             <button
-                                onClick={handleBatchRun}
-                                disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
-                                className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                onClick={handleRedownloadSatellites}
+                                disabled={redownloadRunning || batchRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                                title="Force re-download all satellite images for this city (ignores cache)"
                             >
-                                {batchRunning ? (
+                                {redownloadRunning ? (
                                     <>
                                         <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                        {batchProgress ? `${batchProgress.done}/${batchProgress.total}` : 'Running…'}
+                                        {redownloadProgress ? `${redownloadProgress.done}/${redownloadProgress.total}` : 'Downloading…'}
                                     </>
                                 ) : (
                                     <>
-                                        <i className="fa-solid fa-satellite-dish text-xs" />
-                                        Calculate All ({filteredRows.filter(r => r.coordinates).length})
+                                        <i className="fa-solid fa-satellite text-xs" />
+                                        Refresh city images
                                     </>
                                 )}
                             </button>
+
+
+                            <button
+                                onClick={handleCloudBatchRun}
+                                disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
+                                className="flex items-center gap-2.5 px-5 py-2.5 bg-white border-2 border-indigo-600 text-indigo-600 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-indigo-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Run server-side batch analysis (20-way concurrency)"
+                            >
+                                <i className="fa-solid fa-cloud text-xs" />
+                                Cloud Batch ({filteredRows.filter(r => r.coordinates).length})
+                            </button>
+
+                            {selectedZpids.size > 0 && (
+                                <div className="flex items-center gap-2 pl-3 ml-3 border-l border-slate-200">
+                                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded-md">
+                                        {selectedZpids.size} selected
+                                    </span>
+                                    <button
+                                        onClick={handleBulkUpdate}
+                                        disabled={batchRunning}
+                                        className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 shadow-md transition-all h-[36px]"
+                                    >
+                                        <i className="fa-solid fa-cloud-arrow-up text-[10px]" />
+                                        Update Selected (Cloud)
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedZpids(new Set())}
+                                        className="text-slate-400 hover:text-rose-500 text-[16px] px-1"
+                                        title="Clear selection"
+                                    >
+                                        <i className="fa-solid fa-circle-xmark" />
+                                    </button>
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleCalculateMissed}
                                 disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
                                 className="flex items-center gap-2.5 px-5 py-2.5 bg-white border-2 border-slate-800 text-slate-800 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                title="Recalculate only for properties not updated in the last 2 hours"
+                                title="Recalculate only for properties not updated in the last 2 hours (Cloud)"
                             >
-                                <i className="fa-solid fa-clock-rotate-left text-xs" />
+                                <i className="fa-solid fa-cloud text-xs" />
                                 Resume / Fix Missed {missedProperties.length > 0 && `(${missedProperties.length})`}
                             </button>
 
@@ -1103,67 +861,12 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 onClick={handleRecalculateMismatches}
                                 disabled={batchRunning || redownloadRunning || loading || gtStats.mismatch === 0}
                                 className="flex items-center gap-2.5 px-5 py-2.5 bg-rose-50 border-2 border-rose-400 text-rose-600 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                title="Re-run orientation analysis only for properties whose AI result doesn't match tester ground truth"
+                                title="Rerun orientation analysis via Cloud for mismatched properties"
                             >
-                                <i className="fa-solid fa-arrows-rotate text-xs" />
+                                <i className="fa-solid fa-cloud text-xs" />
                                 Fix Mismatches {gtStats.mismatch > 0 && `(${gtStats.mismatch})`}
                             </button>
-
-                        {/* Backfill street view headings — metadata only, no image re-download */}
-                            <button
-                                onClick={handleBackfillHeadings}
-                                disabled={batchRunning || redownloadRunning || backfillRunning || loading}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                                title="Populate streetViewHeadingDeg for all cached street view properties — enables wrong-road cache fallback"
-                            >
-                                {backfillRunning ? (
-                                    <>
-                                        <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                        {backfillProgress
-                                            ? `${backfillProgress.done}/${backfillProgress.total} (✓${backfillProgress.found})`
-                                            : 'Backfilling…'}
-                                    </>
-                                ) : (
-                                    <>
-                                        <i className="fa-solid fa-compass text-xs" />
-                                        Backfill SV Headings
-                                    </>
-                                )}
-                            </button>
-
-                            <button
-                                onClick={handlePurgeNonTargets}
-                                disabled={purgeRunning || loading}
-                                className="flex items-center gap-2.5 px-5 py-2.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all disabled:opacity-40"
-                            >
-                                {purgeRunning ? (
-                                    <i className="fa-solid fa-spinner animate-spin" />
-                                ) : (
-                                    <i className="fa-solid fa-trash-can" />
-                                )}
-                                Purge Non-Targets
-                            </button>
-
-                            {/* Import tester ground truth into orientation_ground_truth collection */}
-                            <button
-                                onClick={handleImportGroundTruth}
-                                disabled={importGTRunning || batchRunning || loading}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-violet-50 border border-violet-200 text-violet-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                                title="Write tester-verified orientations to orientation_ground_truth Firestore collection"
-                            >
-                                {importGTRunning ? (
-                                    <>
-                                        <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                        {importGTProgress ? `${importGTProgress.done}/${importGTProgress.total}` : 'Importing…'}
-                                    </>
-                                ) : (
-                                    <>
-                                        <i className="fa-solid fa-database text-xs" />
-                                        Import Ground Truth
-                                    </>
-                                )}
-                            </button>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>
@@ -1283,7 +986,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         <table className="w-full text-left border-collapse min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-100">
+                                    <th className="p-5 text-center w-12">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedZpids.size > 0 && selectedZpids.size === filteredRows.length}
+                                            onChange={() => toggleSelectAll(filteredRows)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        />
+                                    </th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
+
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[140px]">Property</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Type</th>
 
@@ -1317,6 +1029,14 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     : 'bg-white border-b border-slate-100 hover:bg-slate-50/40'
                                                 }`}
                                         >
+                                            <td className="p-5 text-center w-12">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedZpids.has(row.zpid)}
+                                                    onChange={() => toggleSelect(row.zpid)}
+                                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                />
+                                            </td>
                                             <td className="p-5 text-center w-10">
                                                 <span className="text-[11px] font-black text-slate-300 font-mono">{idx + 1}</span>
                                             </td>
@@ -1634,25 +1354,11 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                         return relative === '—' ? (
                                                             <span className="text-[10px] text-slate-200 font-bold">—</span>
                                                         ) : (
-                                                            <span title={full} className="text-[10px] font-semibold text-emerald-600 cursor-default whitespace-nowrap">
+                                                            <span title={full} className="text-[10px] font-semibold text-slate-500 cursor-default whitespace-nowrap">
                                                                 {relative}
                                                             </span>
                                                         );
                                                     })()}
-
-                                                    {isAdmin && row.coordinates && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                runForRow(row.zpid);
-                                                            }}
-                                                            disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning}
-                                                            className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all disabled:opacity-30"
-                                                            title="Rerun orientation analysis"
-                                                        >
-                                                            <i className={`fa-solid fa-rotate text-[10px] ${(row.status === 'running') ? 'animate-spin' : ''}`} />
-                                                        </button>
-                                                    )}
                                                 </div>
                                             </td>
 
@@ -1687,14 +1393,12 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                         </button>
                                                         {/* Run analysis only (uses existing cached images) */}
                                                         <button
-                                                            onClick={() => runForRow(row.zpid)}
+                                                            onClick={() => queueCloudBatch([row.zpid], 'single property')}
                                                             disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
-                                                            title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis (uses existing cached images)'}
+                                                            title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis via Cloud'}
                                                             className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                                                         >
-                                                            {row.status === 'running'
-                                                                ? <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                                                : <i className="fa-solid fa-rotate text-xs" />}
+                                                            <i className="fa-solid fa-cloud text-xs" />
                                                         </button>
                                                     </div>
                                                 </td>

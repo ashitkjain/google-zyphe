@@ -182,7 +182,7 @@ async function main() {
 
     const start = Date.now();
     const result = await (ai.models as any).generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{ parts: [{ text: PROMPT }] }],
         config: {
             tools: [{ googleSearch: {} }],

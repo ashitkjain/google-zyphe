@@ -25,11 +25,10 @@ export const APP_CONFIG = {
         investment_research: true,
     },
     models: {
-        // Switched to gemini-2.5-flash: gemini-2.0-flash and gemini-2.0-flash-lite both
-        // returning 429s. 2.5 Flash is GA with higher rate limits.
-        // To revert: change both lines below back to 'gemini-2.0-flash-lite'.
+        // Switched to gemini-2.5-flash as requested by user.
+        // Higher tiers and concurrency available in 2.5 series.
         flash: 'gemini-2.5-flash',
-        flashLite: 'gemini-2.5-flash',
+        flashLite: 'gemini-2.5-flash-lite',
     },
     roleTabs: {
         buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'schools', 'satellitary', 'pulse', 'city_neighborhoods', 'image_analysis', 'investment', 'deep_research', 'context_graph'],

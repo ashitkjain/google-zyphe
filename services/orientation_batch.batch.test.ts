@@ -330,7 +330,7 @@ describe('Pleasanton Orientation Batch Validation', () => {
             console.warn('[Setup] Could not read globalSetup keys file:', e.message);
         }
 
-        (APP_CONFIG as any).models.flash = 'gemini-2.0-flash';
+        (APP_CONFIG as any).models.flash = 'gemini-2.5-flash';
 
         // Final fallback: direct env vars (works if .env.local has the keys)
         if (!APP_CONFIG.gemini.key && process.env.VITE_GEMINI_API_KEY) {

@@ -461,6 +461,8 @@ const MODEL_PRICING: Record<string, { input: number, output: number, cached?: nu
   'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000, cached: 0.3125 / 1000000 },
   'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
   'gemini-2.0-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000, cached: 0.01 / 1000000 },
+  'gemini-2.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
+  'gemini-2.5-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000, cached: 0.01 / 1000000 },
   'gemini-2.0-pro-exp': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
   'gemini-3-flash-preview': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
   'gemini-3-pro-preview': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
@@ -468,7 +470,7 @@ const MODEL_PRICING: Record<string, { input: number, output: number, cached?: nu
 
 function calculateUsage(response: any, modelName: string): AIUsage {
   const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
-  const pricing = MODEL_PRICING[modelName] || MODEL_PRICING['gemini-1.5-flash'];
+  const pricing = MODEL_PRICING[modelName] || MODEL_PRICING['gemini-2.5-flash'];
 
   // Basic calculation. Adjust for cached tokens if present.
   const cachedTokens = usage.cachedContentTokenCount || 0;
@@ -589,11 +591,11 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
 
-  onLog?.(`[Community Pulse] Running with gemini-2.0-flash + Google Search grounding for ${property.city}...`);
+  onLog?.(`[Community Pulse] Running with gemini-2.5-flash + Google Search grounding for ${property.city}...`);
   console.log(`[Community Pulse] Starting for ${property.city}, ${property.state}...`);
 
   return executeGeminiRequest<CommunityPulseResult>({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.7 },
     userId,
@@ -620,7 +622,7 @@ export const analyzeLifestyleInsights = async (property: PropertyData, userId: s
   console.log(`[Lifestyle Insights] Starting for ${property.address}...`);
 
   return executeGeminiRequest<LifestyleInsightsResult>({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.7 },
     userId,

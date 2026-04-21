@@ -455,7 +455,7 @@ export const opsCollections: CollectionSchema[] = [
         fields: [
             { name: 'user_id / zpid / address', type: 'string', source: 'system', description: 'Context identifiers for the call.' },
             { name: 'prompt_filename', type: 'string', source: 'system', description: 'e.g. "neighborhoodAnalysis.ts". Links log entry to source prompt file.', usedBy: 'CityDataTab LLM Cost Report, AI Audit' },
-            { name: 'llm_name', type: 'string', source: 'system', description: 'e.g. "gemini-2.0-flash". Controls per-model cost calculation.' },
+            { name: 'llm_name', type: 'string', source: 'system', description: 'e.g. "gemini-2.5-flash". Controls per-model cost calculation.' },
             { name: 'raw_payload', type: 'object', source: 'system', description: 'Dehydrated prompt — images replaced with Storage URLs to stay within 1MB doc limit.' },
             { name: 'raw_response', type: 'string', source: 'gemini', description: 'Full model text output.' },
             { name: 'status', type: 'string', source: 'system', description: '"pending" → "completed" | "failed"' },

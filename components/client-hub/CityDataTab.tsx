@@ -16,7 +16,7 @@ import { fetchPropertySpecs } from '../../services/api/property';
 import { PropertyData } from '../../types';
 import { isSupportedPropertyType, hasEssentialData } from '../../utils/propertyPolicies';
 import { GEMINI_CHECK_SOURCES, NON_GEMINI_CHECK_SOURCES } from '../../utils/pipelineCheckConfig';
-import { runFullIntelligencePipeline, runImageOnlyPipeline, runPropertyDataOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
+import { PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth, STATE_MAP } from '../../services/firebase/config';
@@ -117,6 +117,17 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [orientBatchRunning, setOrientBatchRunning] = useState(false);
     const [orientBatchProgress, setOrientBatchProgress] = useState<{ computed: number; cached: number; failed: number; total: number } | null>(null);
 
+    // Active Batch tracking
+    const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+
+    // Batch Intelligence
+    const [intelBatchRunning, setIntelBatchRunning] = useState(false);
+    const [intelBatchProgress, setIntelBatchProgress] = useState<{ done: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
+
+    // Batch Property Data
+    const [propBatchRunning, setPropBatchRunning] = useState(false);
+    const [propBatchProgress, setPropBatchProgress] = useState<{ done: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
+
     // Advanced Filtering
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('ALL');
     const [missingStreetViewOnly, setMissingStreetViewOnly] = useState<boolean>(false);
@@ -125,6 +136,54 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     useEffect(() => {
         getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
     }, []);
+
+    // ─── Universal Batch Job Listener ─────────────────────────────────────────
+    useEffect(() => {
+        if (!activeBatchId) return;
+
+        let unsubscribe: (() => void) | undefined;
+
+        const setupListener = async () => {
+            const { db } = await import('../../services/firebase/config');
+            const { doc, onSnapshot } = await import('firebase/firestore');
+            if (!db) return;
+
+            // Determine collection based on ID prefix
+            const collection = activeBatchId.startsWith('intel_') ? 'full_intel_batch_jobs'
+                : activeBatchId.startsWith('orient_') ? 'orientation_batch_jobs'
+                    : 'property_data_batch_jobs';
+
+            unsubscribe = onSnapshot(doc(db, collection, activeBatchId), (snap) => {
+                const data = snap.data();
+                if (!data) return;
+
+                const progress = {
+                    done: data.done || 0,
+                    failed: data.failed || 0,
+                    total: data.total || 0,
+                    results: data.results || {}
+                };
+
+                if (activeBatchId.startsWith('intel_')) {
+                    setIntelBatchProgress(progress);
+                    if (data.status === 'completed') setIntelBatchRunning(false);
+                } else if (activeBatchId.startsWith('orient_')) {
+                    setOrientBatchProgress({ ...progress, computed: data.done || 0, cached: 0 });
+                    if (data.status === 'completed') setOrientBatchRunning(false);
+                } else {
+                    setPropBatchProgress(progress);
+                    if (data.status === 'completed') setPropBatchRunning(false);
+                }
+
+                if (data.status === 'completed') {
+                    addLog(`Batch ${activeBatchId} complete.`);
+                }
+            });
+        };
+
+        setupListener();
+        return () => { if (unsubscribe) unsubscribe(); };
+    }, [activeBatchId]);
 
     // Dev-only: expose one-time key migration to browser console.
     // Run: window.__migrateCityKeys() — moves hyphen-keyed docs (e.g. pleasanton-ca)
@@ -269,9 +328,17 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         listings.forEach(item => {
             const id = String(item.zpid);
-            const itemCity = item.location?.address?.city || 'Unknown City';
+            let itemCity = item.location?.address?.city || 'Unknown City';
             const state = item.location?.address?.state_code || 'Unknown State';
             const hType = item.homeType || item.prop_type || item.propertyType || item.property_type || 'Residential';
+
+            // Clean up city name if it already includes state (e.g. "Dublin, CA" -> "Dublin")
+            if (itemCity.includes(',') && state && state !== 'Unknown State') {
+                const parts = itemCity.split(',');
+                if (parts[1].trim().toUpperCase() === state.toUpperCase()) {
+                    itemCity = parts[0].trim();
+                }
+            }
 
             // 1. Filter by State
             if (stateFilter && stateFilter !== 'ALL' && state !== stateFilter) return;
@@ -496,64 +563,46 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     const handleBulkPropertyData = async () => {
         if (selectedIds.size === 0) return;
+
         setLoading(true);
         setError(null);
         setViewMode('ingestion');
         setPipelineType('images'); // reuse ingestion view
         setIngestionReport(null);
-        addLog(`Starting Property Data pipeline (RapidAPI only, no images)...`);
+        addLog(`Queueing Property Data Batch for ${selectedIds.size} properties (Background/20x Concurrency)...`);
 
         const targets = listings.filter(l => {
             const id = String(l.zpid);
             return selectedIds.has(id);
         });
-        addLog(`Processing ${targets.length} properties...`);
 
-        const newJobs: IngestionJob[] = targets.map(item => {
-            const id = String(item.zpid);
-            const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
-            return { zpid: id, address: fullAddress, status: 'pending', progress: null };
-        });
-        setIngestionQueue(newJobs);
+        const zpids = targets.map(t => String(t.zpid));
+        const batchId = `prop_batch_${Date.now()}`;
 
-        const CHUNK_SIZE = 2; // RapidAPI: 2 requests/sec max
-        const INTER_CHUNK_DELAY_MS = 1000; // 1s between chunks to stay within rate limit
-        let successCount = 0;
+        try {
+            const { db } = await import('../../services/firebase/config');
+            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+            if (!db) throw new Error('Firestore not initialized');
 
-        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
-            const chunk = targets.slice(i, i + CHUNK_SIZE);
-            addLog(`Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
-
-            const chunkPromises = chunk.map(async (item) => {
-                const zpid = String(item.zpid);
-                const addrObj = item.location?.address;
-                const builtAddress = addrObj
-                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                    : (item.location?.address?.line || zpid);
-
-                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
-                try {
-                    await runPropertyDataOnlyPipeline(builtAddress, (progress) => {
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                    }, zpid, (msg) => addLog(`[${builtAddress}] ${msg}`));
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                    return true;
-                } catch (e: any) {
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                    return false;
-                }
+            await setDoc(doc(db, 'property_data_batch_jobs', batchId), {
+                zpids,
+                status: 'queued',
+                total: zpids.length,
+                done: 0,
+                failed: 0,
+                results: {},
+                userId: auth?.currentUser?.uid || 'anonymous',
+                createdAt: serverTimestamp(),
             });
 
-            const results = await Promise.all(chunkPromises);
-            successCount += results.filter(r => r === true).length;
-            if (i + CHUNK_SIZE < targets.length) await new Promise(r => setTimeout(r, INTER_CHUNK_DELAY_MS));
+            setPropBatchRunning(true);
+            setPropBatchProgress({ done: 0, failed: 0, total: zpids.length });
+            setActiveBatchId(batchId);
+            setLoading(false);
+        } catch (e: any) {
+            setError(`Failed to queue batch: ${e.message}`);
+            setLoading(false);
         }
-
-
-        addLog(`Property Data Complete. ${successCount} / ${targets.length} saved.`);
-        logPipelineAudit('Full Property Data', `${targets.length} properties`, successCount === targets.length ? 'success' : 'partial', `${successCount}/${targets.length} saved`, undefined, { successCount, total: targets.length });
-        setLoading(false);
-        if (successCount === targets.length) setSelectedIds(new Set());
     };
 
 
@@ -566,335 +615,43 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setError(null);
         setPipelineType('full');
         setViewMode('ingestion');
-        setIngestionReport(null);
-        const batchStartTime = Date.now();
-        addLog(`Starting Optimized Full Intel Suite...`);
+        addLog(`Queueing Full Intel Batch for ${selectedIds.size} properties (Background/5x Concurrency)...`);
 
         const targets = listings.filter(l => {
             const id = String(l.zpid);
             return selectedIds.has(id);
         });
 
+        const zpids = targets.map(t => String(t.zpid));
+        const batchId = `intel_batch_${Date.now()}`;
 
-        if (targets.length === 0) {
-            addLog(`[Filter] No supported properties to process. Done.`);
-            setLoading(false);
-            return;
-        }
-
-        addLog(`Selected ${targets.length} properties. Running smoke triage...`);
-
-        // ── PHASE 0: Smoke Test Triage ─────────────────────────────────────
-        // Run smoke test on all selected to classify what each property needs
-        const targetZpids = targets.map(t => String(t.zpid));
-        let smokeResults: CitySmokeSummary;
         try {
-            smokeResults = await runCitySmokeTest(targetZpids, (done, total) => {
-                addLog(`[Triage] Smoke testing ${done}/${total}...`);
-            }, zpidToAddressMap);
-        } catch (e: any) {
-            addLog(`[Triage] Smoke test failed: ${e.message}. Falling back to full run.`);
-            // Fallback: treat all as needing Gemini
-            smokeResults = { totalProperties: targets.length, passedCount: 0, failedCount: targets.length, results: [], ranAt: new Date() };
-        }
+            const { db } = await import('../../services/firebase/config');
+            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+            if (!db) throw new Error('Firestore not initialized');
 
-        // Build per-zpid classification
-        const smokeByZpid: Record<string, PropertySmokeResult> = {};
-        smokeResults.results.forEach(r => { smokeByZpid[r.zpid] = r; });
-
-        // ── PHASE 1: Image Gate ────────────────────────────────────────────
-        // Properties with <3 images AND no existing visual analysis can't run Gemini visual
-        const GEMINI_SOURCES = GEMINI_CHECK_SOURCES;
-        const NON_GEMINI_SOURCES = NON_GEMINI_CHECK_SOURCES;
-
-        const fullyPassed: string[] = [];
-        const noImages: string[] = [];
-        const needsNonGeminiOnly: string[] = [];
-        const needsGemini: string[] = [];
-
-        for (const zpid of targetZpids) {
-            const smoke = smokeByZpid[zpid];
-
-
-            if (!smoke) {
-                // No smoke result = no property doc → needs full pipeline
-                needsGemini.push(zpid);
-                continue;
-            }
-
-            // Already fully healthy
-            if (smoke.errorCount === 0 && smoke.warnCount === 0) {
-                fullyPassed.push(zpid);
-                // console.log(`[Triage] ${zpid} is already healthy — skipping.`);
-                continue;
-            }
-
-            // Check image status
-            const imgCheck = smoke.checks.find(c => c.id === 'images');
-            const hasEnoughPhotos = imgCheck?.passed ?? true;
-
-            // Classify by failed check sources
-            const failedSources = new Set(smoke.checks.filter(c => !c.passed).map(c => c.source));
-            const hasGeminiNeeds = [...failedSources].some(s => GEMINI_SOURCES.has(s as string));
-            const hasNonGeminiNeeds = [...failedSources].some(s => NON_GEMINI_SOURCES.has(s as string));
-
-            if (hasGeminiNeeds) {
-                // If user wants Full Intel, always run Gemini phase. 
-                // The pipeline will handle internal data/asset healing in Phase 1 of the backend.
-                needsGemini.push(zpid);
-            } else if (hasNonGeminiNeeds) {
-                // Only rout to Phase 1 (Data-only) if they DON'T need Gemini
-                needsNonGeminiOnly.push(zpid);
-            }
-
-            if (hasGeminiNeeds && !hasEnoughPhotos) {
-                noImages.push(zpid);
-            }
-        }
-
-        addLog(`[Triage] Classification complete:`);
-        addLog(`  ✓ ${fullyPassed.length} already healthy (skipped)`);
-        addLog(`  ⚠ ${noImages.length} insufficient photos (<3 images) — image analysis will be limited`);
-        addLog(`  ⚡ ${needsNonGeminiOnly.length} need data/asset healing only (no Gemini cost)`);
-        addLog(`  🤖 ${needsGemini.length} scheduled for Full Gemini Enterprise Suite`);
-
-        // ── Time Estimation ────────────────────────────────────────────────
-        const GEMINI_BATCH = 3;
-        const NON_GEMINI_PER_PROP_SEC = 4;   // ~4s per property (2 at a time)
-        const GEMINI_PER_PROP_SEC = 45;       // ~45s per property (5-8 Gemini calls)
-
-        const geminiBatches = Math.ceil(needsGemini.length / GEMINI_BATCH);
-
-        const nonGeminiTimeSec = Math.ceil(needsNonGeminiOnly.length / 2) * NON_GEMINI_PER_PROP_SEC;
-        const geminiTimeSec = geminiBatches > 0
-            ? geminiBatches * GEMINI_PER_PROP_SEC
-            : 0;
-        const totalEstSec = nonGeminiTimeSec + geminiTimeSec;
-
-        const formatTime = (sec: number) => {
-            if (sec < 60) return `${sec}s`;
-            const min = Math.floor(sec / 60);
-            const rem = Math.round(sec % 60);
-            return rem > 0 ? `${min}m ${rem}s` : `${min}m`;
-        };
-
-        addLog(`⏱ Estimated time: ${formatTime(totalEstSec)} (data healing: ~${formatTime(nonGeminiTimeSec)}, AI analysis: ~${formatTime(geminiTimeSec)})`);
-
-        // Initialize job queue for all properties that will be processed
-        const processableZpids = new Set([...needsNonGeminiOnly, ...needsGemini]);
-        const newJobs: IngestionJob[] = targets
-            .filter(t => processableZpids.has(String(t.zpid)))
-            .map(item => {
-                const id = String(item.zpid);
-                const addrObj = item.location?.address;
-                const fullAddress = addrObj
-                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                    : (item.location?.address?.line || id);
-                return { zpid: id, address: fullAddress, status: 'pending' as const, progress: null };
+            await setDoc(doc(db, 'full_intel_batch_jobs', batchId), {
+                zpids,
+                status: 'queued',
+                total: zpids.length,
+                done: 0,
+                failed: 0,
+                results: {},
+                userId: auth?.currentUser?.uid || 'anonymous',
+                createdAt: serverTimestamp(),
             });
-        setIngestionQueue(newJobs);
 
-        let successCount = 0;
-        let partialTotal = 0;
-
-        // ── PHASE 2: Non-Gemini Healing (pairs of 2, no delay) ──
-        if (needsNonGeminiOnly.length > 0) {
-            const HEAL_BATCH = 2;
-            addLog(`\n═══ Phase 1: Data Healing (${needsNonGeminiOnly.length} properties, ${HEAL_BATCH} at a time) ═══`);
-
-            const healOne = async (zpid: string, idx: number) => {
-                const addr = zpidToAddressMap[zpid] || zpid;
-                addLog(`[Heal] ${idx + 1}/${needsNonGeminiOnly.length} — ${addr}`);
-                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime: Date.now() } : j));
-
-                try {
-                    const smoke = smokeByZpid[zpid];
-                    // Exclude sourceNull checks — those are confirmed unavailable at source, futile to retry
-                    const failedSources = new Set(smoke?.checks.filter(c => !c.passed && !c.sourceNull).map(c => c.source) || []);
-
-                    if (failedSources.has('rapidapi')) {
-                        const { fetchPropertySpecs } = await import('../../services/api/property');
-                        const { savePropertyToCloud, getPropertyFromCloud } = await import('../../services/firebase/properties');
-                        const existing = await getPropertyFromCloud(zpid);
-                        const fresh = await fetchPropertySpecs(zpid);
-                        if (fresh && existing) {
-                            // _fetchMeta is audit metadata — always overwrite, never merge.
-                            // Without this, a stale _fetchMeta.fieldsNull would be kept even
-                            // after a re-fetch that produces a new (more complete) null field list.
-                            if (fresh._fetchMeta) {
-                                (existing as any)._fetchMeta = fresh._fetchMeta;
-                            }
-
-                            // Generic deep-merge: fills null/empty primitives, deep-merges objects, replaces empty arrays
-                            let healed = 0;
-                            for (const [key, freshVal] of Object.entries(fresh)) {
-                                if (freshVal == null || key === '_fetchMeta') continue;
-                                const ev = (existing as any)[key];
-                                if (Array.isArray(freshVal)) {
-                                    if (!ev?.length && freshVal.length > 0) { (existing as any)[key] = freshVal; healed++; }
-                                } else if (typeof freshVal === 'object') {
-                                    const obj = ev || {};
-                                    for (const [k, v] of Object.entries(freshVal)) {
-                                        if (v != null && v !== '' && (obj[k] == null || obj[k] === '')) { obj[k] = v; healed++; }
-                                    }
-                                    (existing as any)[key] = obj;
-                                } else if (ev == null || ev === '') {
-                                    (existing as any)[key] = freshVal; healed++;
-                                }
-                            }
-                            await savePropertyToCloud(zpid, existing);
-                            if (healed > 0) {
-                                addLog(`  ✓ Healed ${healed} fields`);
-                            } else {
-                                addLog(`  ✓ fetch metadata updated`);
-                            }
-                        }
-                    }
-
-                    if (failedSources.has('environmental')) {
-                        const { fetchPropertyDataFull } = await import('../../services/apiService');
-                        await fetchPropertyDataFull(zpid, true, false);
-                        addLog(`  ✓ Environmental data refreshed`);
-                    }
-
-                    if (failedSources.has('parcel')) {
-                        const { runPropertyDataOnlyPipeline } = await import('../../services/preloadService');
-                        await runPropertyDataOnlyPipeline(addr, () => { }, zpid, (msg) => addLog(`  [Parcel] ${msg}`));
-                    }
-
-                    if (failedSources.has('assets')) {
-                        const { runImageOnlyPipeline } = await import('../../services/preloadService');
-                        await runImageOnlyPipeline(addr, (progress) => {
-                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                        }, zpid, (msg) => addLog(`  [Assets] ${msg}`));
-                    }
-
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                    return true;
-                } catch (e: any) {
-                    addLog(`  ✗ Failed: ${e.message}`);
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                    return false;
-                }
-            };
-
-            for (let i = 0; i < needsNonGeminiOnly.length; i += HEAL_BATCH) {
-                const chunk = needsNonGeminiOnly.slice(i, i + HEAL_BATCH);
-                const results = await Promise.allSettled(chunk.map((zpid, j) => healOne(zpid, i + j)));
-                successCount += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-            }
-
-            addLog(`Phase 1 complete: ${successCount}/${needsNonGeminiOnly.length} healed.`);
-        }
-
-        // ── PHASE 3: Gemini Intelligence (groups of 3) ────────────────────
-        if (needsGemini.length > 0) {
-            addLog(`\n═══ Phase 2: AI Intelligence (${needsGemini.length} properties, batches of ${GEMINI_BATCH}) ═══`);
-
-            const geminiTargets = targets.filter(t => needsGemini.includes(String(t.zpid)));
-            let geminiSuccess = 0;
-
-            for (let i = 0; i < geminiTargets.length; i += GEMINI_BATCH) {
-                const chunk = geminiTargets.slice(i, i + GEMINI_BATCH);
-                addLog(`AI batch ${Math.floor(i / GEMINI_BATCH) + 1}/${geminiBatches} (${chunk.length} properties)...`);
-
-                const chunkPromises = chunk.map(async (item, index) => {
-                    const zpid = String(item.zpid);
-                    const addrObj = item.location?.address;
-                    const builtAddress = addrObj
-                        ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                        : (item.location?.address?.line || zpid);
-
-                    // Small stagger within chunk
-                    if (index > 0) {
-                        await new Promise(r => setTimeout(r, index * 1000));
-                    }
-
-                    const startTime = Date.now();
-                    addLog(`🤖 Starting AI pipeline for: ${builtAddress}`);
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
-
-                    try {
-                        const userId = auth?.currentUser?.uid || 'unknown';
-                        const { zpid: resultZpid, warnings } = await runFullIntelligencePipeline(builtAddress, (progress) => {
-                            if (progress.step.startsWith('AI:')) {
-                                const name = progress.step.replace('AI:', '');
-                                const outcome = progress.status === 'error' ? 'failed' as const
-                                    : progress.status === 'pending' ? 'skipped' as const
-                                        : progress.message === 'Cache hit' ? 'cached' as const
-                                            : 'ran' as const;
-                                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
-                                    ...j,
-                                    completedSteps: [...(j.completedSteps || []), { name, outcome }]
-                                } : j));
-                            } else {
-                                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                            }
-                        }, zpid, userId, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
-
-                        if (warnings && warnings.length > 0) {
-                            addLog(`⚠ Completed with warnings for: ${builtAddress} — ${warnings.join(', ')}`);
-                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
-                                ...j, status: 'partial', endTime: Date.now(),
-                                error: `Needs retry: ${warnings.join(', ')}`
-                            } : j));
-                            return 'partial';
-                        } else {
-                            addLog(`✓ Intelligence complete for: ${builtAddress}`);
-                            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                            return true;
-                        }
-                    } catch (e: any) {
-                        console.error(`Ingestion failed for ${zpid}:`, e);
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                        return false;
-                    }
-                });
-
-                const results = await Promise.all(chunkPromises);
-                geminiSuccess += results.filter(r => r === true).length;
-                partialTotal += results.filter(r => r === 'partial').length;
-            }
-
-            successCount += geminiSuccess;
-            addLog(`Phase 2 complete: ${geminiSuccess} AI analyses done, ${partialTotal} partial.`);
-        }
-
-        // ── Summary ────────────────────────────────────────────────────────
-        const ingestDuration = Date.now() - batchStartTime;
-        const totalProcessed = needsNonGeminiOnly.length + needsGemini.length;
-        addLog(`\n═══ Full Intel Suite Complete ═══`);
-        addLog(`  ✓ ${fullyPassed.length} already healthy (skipped)`);
-        addLog(`  ✗ ${noImages.length} missing images (skipped)`);
-        addLog(`  ⚡ ${needsNonGeminiOnly.length} data-healed`);
-        addLog(`  🤖 ${needsGemini.length} AI-analyzed (${partialTotal} partial)`);
-        addLog(`  ⏱ Total time: ${formatTime(Math.round(ingestDuration / 1000))}`);
-
-        logPipelineAudit('Full Intel Suite', `${targets.length} properties`, successCount === totalProcessed ? 'success' : (successCount > 0 ? 'partial' : 'error'),
-            `${fullyPassed.length} skipped (healthy), ${successCount} done, ${partialTotal} partial, ${noImages.length} no images`,
-            ingestDuration, { successCount, partialTotal, fullyPassed: fullyPassed.length, noImages: noImages.length, nonGeminiOnly: needsNonGeminiOnly.length, gemini: needsGemini.length, total: targets.length });
-        setLoading(false);
-
-        if (successCount === totalProcessed && noImages.length === 0) {
-            setSelectedIds(new Set());
-        }
-
-        // Generate Report
-        try {
-            const maxEnd = Date.now();
-            const userId = auth?.currentUser?.uid || 'unknown';
-
-            const [llmLogs, apiLogs] = await Promise.all([
-                getLLMLogsForTimeRange(userId, batchStartTime, maxEnd),
-                getAPILogsForTimeRange(userId, batchStartTime, maxEnd)
-            ]);
-
-            setIngestionReport({ llmLogs, apiLogs });
-            addLog(`Usage Report Generated: ${llmLogs.length} AI calls, ${apiLogs.length} API calls.`);
-        } catch (reportErr) {
-            console.error("Failed to generate ingestion report:", reportErr);
+            setIntelBatchRunning(true);
+            setIntelBatchProgress({ done: 0, failed: 0, total: zpids.length });
+            setActiveBatchId(batchId);
+            setLoading(false);
+            addLog(`Full Intel Batch queued. You can safely close this tab or navigate away.`);
+        } catch (e: any) {
+            setError(`Failed to queue intel batch: ${e.message}`);
+            setLoading(false);
         }
     };
+
 
     // Property validation — imported from central utility (see top-level imports)
 
@@ -1938,112 +1695,40 @@ ${JSON.stringify(propertySummaries)}
 
     // ── Batch Orientation Analysis ─────────────────────────────────────────
     const handleBatchOrientation = async () => {
-        // Use selected properties if any are checked, otherwise use all cached
         const targetIds = selectedIds.size > 0
             ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
             : cachedPropertyIds;
-        if (targetIds.size === 0) {
-            addLog('Select properties or load listings and check cache first before running batch orientation.');
-            return;
-        }
-        setOrientBatchRunning(true);
-        setOrientBatchProgress({ computed: 0, cached: 0, failed: 0, total: targetIds.size });
-        addLog(`[Orientation] Starting batch analysis for ${targetIds.size} properties...`);
+        if (targetIds.size === 0) return;
 
+        setLoading(true);
         const zpids = Array.from(targetIds) as string[];
-        let computed = 0;
-        let cached = 0;
-        let failed = 0;
+        const batchId = `orient_batch_${Date.now()}`;
 
-        // Lazy imports
-        const { getPropertyFromCloud } = await import('../../services/firebase/properties');
-        const { runSatellitaryAnalysis } = await import('../../services/satellitaryService');
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db: firestoreDb } = await import('../../services/firebase/config');
+        try {
+            const { db } = await import('../../services/firebase/config');
+            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+            if (!db) throw new Error('Firestore not initialized');
 
-        const CHUNK_SIZE = 3; // conservative — each call hits Gemini + Maps API
+            await setDoc(doc(db, 'orientation_batch_jobs', batchId), {
+                zpids,
+                status: 'queued',
+                total: zpids.length,
+                done: 0,
+                failed: 0,
+                userId: auth?.currentUser?.uid || 'anonymous',
+                createdAt: serverTimestamp(),
+            });
 
-        for (let i = 0; i < zpids.length; i += CHUNK_SIZE) {
-            const chunk = zpids.slice(i, i + CHUNK_SIZE);
-
-            const results = await Promise.allSettled(chunk.map(async (zpid) => {
-                const addr = zpidToAddressMap[zpid] || zpid;
-
-                // 1. Check if orientation already exists in properties doc
-                const propDoc = await getPropertyFromCloud(zpid);
-                if (propDoc?.orientation_ai?.final_orientation) {
-                    addLog(`[Orientation] ✓ Skip ${addr} — cached: ${propDoc.orientation_ai.final_orientation}`);
-                    return 'cached';
-                }
-
-                // 2. Get lat/lng from property data
-                const lat = propDoc?.coordinates?.latitude;
-                const lng = propDoc?.coordinates?.longitude;
-                if (!lat || !lng) {
-                    addLog(`[Orientation] ✗ Skip ${addr} — no lat/lng`);
-                    return 'failed';
-                }
-
-                // 3. Get cached street view URL from property_assets
-                let streetViewUrl: string | null = null;
-                if (firestoreDb) {
-                    try {
-                        const assetRef = doc(firestoreDb, 'property_assets', String(zpid));
-                        const assetSnap = await getDoc(assetRef);
-                        if (assetSnap.exists()) {
-                            const assetData = assetSnap.data();
-                            if (assetData.streetView?.includes('firebasestorage')) {
-                                streetViewUrl = assetData.streetView;
-                            }
-                        }
-                    } catch (e) {
-                        // proceed without cached street view
-                    }
-                }
-
-                // 4. Run orientation analysis (uses satellite + street view, saves to Firestore)
-                addLog(`[Orientation] Analyzing ${addr}...`);
-                const result = await runSatellitaryAnalysis(
-                    lat, lng,
-                    streetViewUrl,
-                    'batch-orientation',
-                    zpid,
-                    addr
-                );
-
-                if (result.final_orientation && result.final_orientation !== 'UNCLEAR_IMAGE') {
-                    addLog(`[Orientation] ✓ ${addr} → ${result.final_orientation} (${result.confidence})`);
-                    return 'computed';
-                } else {
-                    addLog(`[Orientation] ✗ ${addr} — unclear image, skipped save`);
-                    return 'failed';
-                }
-            }));
-
-            // Tally
-            for (const r of results) {
-                if (r.status === 'fulfilled') {
-                    if (r.value === 'cached') cached++;
-                    else if (r.value === 'computed') computed++;
-                    else failed++;
-                } else {
-                    failed++;
-                    addLog(`[Orientation] ✗ Error: ${r.reason?.message || r.reason}`);
-                }
-            }
-
-            setOrientBatchProgress({ computed, cached, failed, total: zpids.length });
-
-            // Cooldown between chunks
-            if (i + CHUNK_SIZE < zpids.length) {
-                await new Promise(r => setTimeout(r, 1500));
-            }
+            setOrientBatchRunning(true);
+            setOrientBatchProgress({ computed: 0, cached: 0, failed: 0, total: zpids.length });
+            setActiveBatchId(batchId);
+            setLoading(false);
+        } catch (e: any) {
+            setError(`Failed to queue orientation: ${e.message}`);
+            setLoading(false);
         }
-
-        addLog(`[Orientation] Batch complete: ${computed} computed, ${cached} from cache, ${failed} failed / ${zpids.length} total.`);
-        logPipelineAudit('Batch Orientation', `${zpids.length} properties`, failed === 0 ? 'success' : 'partial', `${computed} computed, ${cached} cached, ${failed} failed`, undefined, { computed, cached, failed, total: zpids.length });
-        setOrientBatchRunning(false);
     };
+
 
     const loadAuditTrail = useCallback(async () => {
         setAuditLoading(true);
@@ -2063,6 +1748,14 @@ ${JSON.stringify(propertySummaries)}
         const isSelected = selectedIds.has(itemId);
         const isCached = cachedPropertyIds.has(itemId);
         const isDeprecated = sweepResult?.deprecated.includes(itemId) ?? false;
+
+        const lastUpdated = propertyStatuses[itemId]?.property?.timestamp;
+        const isNew = useMemo(() => {
+            if (!lastUpdated) return false;
+            const updatedDate = lastUpdated.toMillis ? lastUpdated.toMillis() : (typeof lastUpdated === 'number' ? lastUpdated : new Date(lastUpdated).getTime());
+            const fiveDaysAgo = Date.now() - (5 * 24 * 60 * 60 * 1000);
+            return updatedDate > fiveDaysAgo;
+        }, [lastUpdated]);
 
         return (
             <tr
@@ -2120,6 +1813,11 @@ ${JSON.stringify(propertySummaries)}
                                 >
                                     {item.location?.address?.line || 'Unknown Address'}
                                 </button>
+                                {isNew && !isDeprecated && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-sm animate-in zoom-in-50 duration-300">
+                                        <i className="fa-solid fa-sparkles text-[7px]"></i> New
+                                    </span>
+                                )}
                                 {isCached && !propertyStatuses[itemId]?.visual && !isDeprecated && (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[8px] font-black uppercase tracking-widest rounded-lg animate-pulse">
                                         <i className="fa-solid fa-spinner animate-spin text-[7px]"></i> Pending AI
@@ -2336,8 +2034,6 @@ ${JSON.stringify(propertySummaries)}
                                         Full Property Data ({visibleSelectedCount})
                                     </button>
 
-
-
                                     <button
                                         onClick={handleBulkIngest}
                                         disabled={loading}
@@ -2348,7 +2044,6 @@ ${JSON.stringify(propertySummaries)}
                                     </button>
                                 </div>
                             )}
-                            {/* Refresh Active Listings + Smoke Test — visible whenever listings are loaded */}
                             {listings.length > 0 && (
                                 <div className="flex items-center gap-3 ml-auto">
                                     {/* Smoke Test button — only when we have cached properties to test */}
@@ -3637,6 +3332,157 @@ ${JSON.stringify(propertySummaries)}
                                         );
                                     })
                                 }
+                            </div>
+                        </div>
+                    )}
+
+                    {viewMode === 'ingestion' && (propBatchProgress || intelBatchProgress || orientBatchProgress) && (
+                        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-100/50 overflow-hidden mb-12 animate-in slide-in-from-top-4 duration-500">
+                            <div className="p-8 border-b border-slate-100 bg-slate-50/30">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1 uppercase">Cloud Batch Dashboard</h3>
+                                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
+                                            Server-side parallel execution active. You can safely navigate away.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => { setViewMode('table'); setIngestionReport(null); }}
+                                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 rounded-xl transition-all shadow-sm group"
+                                    >
+                                        <i className="fa-solid fa-xmark group-hover:rotate-90 transition-transform"></i>
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Property Data Card */}
+                                    {propBatchProgress && (
+                                        <div className={`p-6 rounded-2xl border-2 transition-all ${propBatchRunning ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-100 bg-white'}`}>
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${propBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <i className="fa-solid fa-database text-xs"></i>
+                                                </div>
+                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Property Data</span>
+                                            </div>
+                                            <div className="flex items-end justify-between mb-2">
+                                                <span className="text-2xl font-black tabular-nums">{propBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {propBatchProgress.total}</span></span>
+                                                {propBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{propBatchProgress.failed} Failed</span>}
+                                            </div>
+                                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${(propBatchProgress.done / propBatchProgress.total) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Intelligence Card */}
+                                    {intelBatchProgress && (
+                                        <div className={`p-6 rounded-2xl border-2 transition-all ${intelBatchRunning ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-100 bg-white'}`}>
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${intelBatchRunning ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <i className="fa-solid fa-brain text-xs"></i>
+                                                </div>
+                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Full Intel</span>
+                                            </div>
+                                            <div className="flex items-end justify-between mb-2">
+                                                <span className="text-2xl font-black tabular-nums">{intelBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {intelBatchProgress.total}</span></span>
+                                                {intelBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{intelBatchProgress.failed} Failed</span>}
+                                            </div>
+                                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${(intelBatchProgress.done / intelBatchProgress.total) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Orientation Card */}
+                                    {orientBatchProgress && (
+                                        <div className={`p-6 rounded-2xl border-2 transition-all ${orientBatchRunning ? 'border-amber-200 bg-amber-50/30' : 'border-slate-100 bg-white'}`}>
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${orientBatchRunning ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <i className="fa-solid fa-compass text-xs"></i>
+                                                </div>
+                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Orientation</span>
+                                            </div>
+                                            <div className="flex items-end justify-between mb-2">
+                                                <span className="text-2xl font-black tabular-nums">{orientBatchProgress.computed + orientBatchProgress.cached} <span className="text-xs text-slate-400 uppercase">/ {orientBatchProgress.total}</span></span>
+                                                {orientBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{orientBatchProgress.failed} Failed</span>}
+                                            </div>
+                                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${((orientBatchProgress.computed + orientBatchProgress.cached) / orientBatchProgress.total) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="p-8 bg-white">
+                                <div className="space-y-3 max-h-[400px] overflow-y-auto px-2 custom-scrollbar">
+                                    {/* Flattened results from all active batches */}
+                                    {[...(intelBatchProgress?.results ? Object.entries(intelBatchProgress.results) : []),
+                                    ...(propBatchProgress?.results ? Object.entries(propBatchProgress.results) : [])]
+                                        .sort((a, b) => 0) // Keep order or sort by timestamp if available
+                                        .reverse()
+                                        .map(([zpid, result]: [string, any]) => (
+                                            <div key={zpid} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl animate-in fade-in slide-in-from-left-4 duration-300">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-2 h-2 rounded-full ${result.status === 'success' || result.status === 'cached' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500'}`}></div>
+                                                    <div>
+                                                        <p className="text-[11px] font-black text-slate-900 tabular-nums uppercase tracking-widest">{zpid}</p>
+                                                        <p className="text-[10px] font-bold text-slate-500 uppercase">{result.message || 'Processing complete'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${result.status === 'success' || result.status === 'cached' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                        {result.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+
+                                {((propBatchRunning && propBatchProgress && propBatchProgress.done + propBatchProgress.failed < propBatchProgress.total) ||
+                                    (intelBatchRunning && intelBatchProgress && intelBatchProgress.done + intelBatchProgress.failed < intelBatchProgress.total)) && (
+                                        <div className="mt-8 flex items-center justify-center gap-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                                            <i className="fa-solid fa-circle-notch animate-spin text-indigo-500"></i>
+                                            <p className="text-[11px] font-black uppercase tracking-widest text-indigo-600">Processing wave in parallel on cloud functions...</p>
+                                        </div>
+                                    )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Property Data Batch Jobs (Background) */}
+                    {viewMode === 'ingestion' && propBatchProgress && (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between px-4">
+                                <h3 className="text-sm font-black text-emerald-900 uppercase tracking-widest">Property Data Batch Status</h3>
+                                <span className={`px-5 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest ${propBatchRunning ? 'bg-indigo-100 text-indigo-700 animate-pulse' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    {propBatchProgress.done} / {propBatchProgress.total} Saved
+                                    {propBatchProgress.failed > 0 && <span className="ml-2 text-rose-500">({propBatchProgress.failed} Failed)</span>}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4">
+                                {Object.entries(propBatchProgress.results || {}).reverse().map(([zpid, result]: [string, any]) => (
+                                    <div key={zpid} className={`bg-white p-5 rounded-[2rem] border shadow-sm transition-all ${result.status === 'success' ? 'border-emerald-100' : 'border-rose-100'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${result.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                    <i className={`fa-solid ${result.status === 'success' ? 'fa-check' : 'fa-xmark'}`}></i>
+                                                </div>
+                                                <span className="text-sm font-black text-slate-800 font-mono tracking-tight">{zpid}</span>
+                                            </div>
+                                            <span className={`text-[10px] font-bold px-3 py-1 rounded-lg ${result.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                {result.message}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {propBatchRunning && propBatchProgress.done + propBatchProgress.failed < propBatchProgress.total && (
+                                    <div className="p-8 text-center text-slate-400 bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[2rem]">
+                                        <i className="fa-solid fa-spinner animate-spin text-indigo-400 text-2xl mb-3"></i>
+                                        <p className="text-[11px] font-black uppercase tracking-widest">Processing {Math.min(20, propBatchProgress.total - (propBatchProgress.done + propBatchProgress.failed))} properties in parallel...</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

@@ -169,7 +169,6 @@ export const runFullIntelligencePipeline = async (
   try {
     // --- MAINTENANCE: Proactive Log Archival ---
     // Keep internal logs (LLM/API) for 2 days max to maintain a lean database.
-    import('./firebase/archivalService').then(({ runLogArchival }) => runLogArchival(2)).catch(() => {});
 
     // --- CHECK FOR EXISTING PROPERTY DATA IN CACHE ---
     onProgress({ step: 'Discovery', status: 'running', message: 'Checking cache for existing data...' });
@@ -1094,7 +1093,6 @@ export const prefetchCityIntelligence = async (
   onLog?: (msg: string) => void
 ): Promise<void> => {
   // Proactive log archival trigger
-  import('./firebase/archivalService').then(({ runLogArchival }) => runLogArchival(2)).catch(() => {});
 
   onLog?.(`[City-Intelligence] Triggering background urban research for ${city}, ${state}...`);
 
@@ -1138,7 +1136,6 @@ export const runCityDeepResearch = async (
   forceRefresh: boolean = false
 ): Promise<void> => {
   // Proactive log archival trigger
-  import('./firebase/archivalService').then(({ runLogArchival }) => runLogArchival(2)).catch(() => {});
 
   const { analyzeDeepInvestmentResearch } = await import('./geminiService.ts');
   const cityStateKey = generateCityStateKey(city, state);
