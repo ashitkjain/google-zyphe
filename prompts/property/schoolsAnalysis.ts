@@ -3,13 +3,18 @@ import { PropertyData, School } from "../../types";
 
 /**
  * Generate a sanitized cache key for a school.
- * Uses school name + city to produce a Firestore-safe document ID.
+ *
+ * Uses the FULL school name + city + state to produce a Firestore-safe document ID.
+ *
+ * ⚠️  Do NOT revert to using only the first two words of the school name.
+ * Schools like "Harvest Park Middle School" and "Harvest Park Preschool" share
+ * the same first two words but are entirely different schools. A truncated key
+ * causes a cache collision where both map to the same Firestore document and
+ * the wrong school's analysis is served.
  */
 export const getSchoolCacheKey = (schoolName: string, city: string, state: string = ''): string => {
-    const words = schoolName.trim().split(/\s+/);
-    const w1 = words[0] || '';
-    const w2 = words[1] || '';
-    return `${w1}_${w2}_${city}_${state}`
+    const normalizedName = schoolName.trim().replace(/\s+/g, '_');
+    return `${normalizedName}_${city}_${state}`
         .toLowerCase()
         .replace(/[^a-z0-9_]/g, '_')
         .replace(/_+/g, '_')

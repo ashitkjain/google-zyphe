@@ -278,6 +278,12 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
             const line = lines[i];
             const trimmedLine = line.trim();
 
+            // Skip leading empty lines or initial horizontal rules
+            if (elements.length === 0 && (trimmedLine === '' || trimmedLine === '---' || trimmedLine === '***')) {
+                i++;
+                continue;
+            }
+
             // Skip lines that are pure JSON punctuation leakage (e.g. `"`, `}`, `},`, `...`)
             if (/^[\s"{}[\],\.]+$/.test(trimmedLine) && trimmedLine !== '') {
                 i++;
@@ -310,7 +316,8 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
 
             // Horizontal rule
             if (trimmedLine === '---') {
-                elements.push(<hr key={i} className="my-4 border-gray-100" />);
+                i++;
+                continue;
             }
             // Skip H1 — it's the big document title the AI always emits, redundant with UI context
             else if (line.startsWith('# ')) {
@@ -331,7 +338,7 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                 const isMicroMarkets = title.toLowerCase().includes('micro-market');
                 const isLocalRisks = title.toLowerCase().includes('local risk');
                 elements.push(
-                    <div key={i} className={`mt-6 mb-4 pb-2 border-b ${isLocalRisks ? 'border-red-100' : 'border-gray-50'}`}>
+                    <div key={i} className={`mt-6 mb-2`}>
                         <div className="flex items-center gap-3">
                             {isMicroMarkets && <i className="fa-solid fa-archway text-indigo-400 text-sm"></i>}
                             {isLocalRisks && <i className="fa-solid fa-triangle-exclamation text-rose-400 text-sm animate-pulse"></i>}
@@ -464,79 +471,91 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
     };
 
     return (
-        <div className="space-y-8 pb-12 font-sans" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
-            <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-[0_8px_40px_rgb(0,0,0,0.04)] overflow-hidden p-10 space-y-8">
-                <div className="prose prose-slate max-w-none">
-                    <div className="text-gray-700 font-sans font-normal leading-[1.8] text-[15px] selection:bg-indigo-100 selection:text-indigo-900">
+        <div className="pb-6 font-sans">
+            <div className="bg-white rounded-[2.5rem] shadow-[0_8px_40px_rgb(0,0,0,0.04)] overflow-hidden p-6 pt-0">
+                <div className="prose prose-slate max-w-none mt-0 pt-0">
+                    <div className="text-gray-700 font-sans font-normal leading-[1.7] text-[14.5px] selection:bg-indigo-100 selection:text-indigo-900">
 
                         {data.structured_report ? (
-                            <div className="space-y-12">
-                                {/* Macro & Market Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="flex flex-col gap-4">
-                                        <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 flex-1">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <i className="fa-solid fa-chart-line text-indigo-500"></i>
-                                                <h3 className="text-lg font-black text-slate-800">Macroeconomics</h3>
+                            <div className="space-y-6 [&>*:first-child]:mt-0">
+                                {/* Macro & Market Sections — Flattened to full width */}
+                                <div className="flex flex-col gap-6">
+                                    <div className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 mt-0">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                                                <i className="fa-solid fa-chart-line text-indigo-600 text-[16px]"></i>
                                             </div>
-                                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">{cleanText(data.structured_report.macroeconomic_indicators?.summary)}</p>
-                                            <ul className="space-y-3">
-                                                {data.structured_report.macroeconomic_indicators?.details?.map((d, i) => (
-                                                    <li key={i} className="flex gap-2 text-sm text-slate-500">
-                                                        <span className="text-indigo-400">•</span>
-                                                        {cleanText(d)}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                            <h3 className="text-[18px] font-black text-slate-800 tracking-tight">Macroeconomics</h3>
                                         </div>
-                                        {data.structured_report.macroeconomic_indicators?.chart_data ? (
-                                            <div className="p-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm mt-4">
-                                                <SimpleChart
-                                                    data={data.structured_report.macroeconomic_indicators.chart_data.points}
-                                                    title={data.structured_report.macroeconomic_indicators.chart_data.title}
-                                                    metric1={data.structured_report.macroeconomic_indicators.chart_data.metric1}
-                                                    metric2={data.structured_report.macroeconomic_indicators.chart_data.metric2}
-                                                />
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                            <div>
+                                                <p className="text-[14.5px] text-slate-600 mb-6 font-medium leading-relaxed">{cleanText(data.structured_report.macroeconomic_indicators?.summary)}</p>
+                                                <ul className="space-y-3">
+                                                    {data.structured_report.macroeconomic_indicators?.details?.map((d, i) => (
+                                                        <li key={i} className="flex gap-2.5 text-[13px] text-slate-500 leading-relaxed font-medium">
+                                                            <i className="fa-solid fa-circle-check text-indigo-400 text-[9px] mt-1 flex-shrink-0" />
+                                                            {cleanText(d)}
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             </div>
-                                        ) : data.structured_report.macroeconomic_indicators?.visual_hint && (
-                                            <div className="h-48 bg-slate-900/5 rounded-[1.5rem] border border-slate-200 border-dashed flex flex-col items-center justify-center p-6 transition-all hover:bg-slate-900/[0.07]">
-                                                <i className="fa-solid fa-chart-area text-slate-300 text-3xl mb-3"></i>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Data Projection: {cleanText(data.structured_report.macroeconomic_indicators.visual_hint)}</div>
+                                            <div>
+                                                {data.structured_report.macroeconomic_indicators?.chart_data ? (
+                                                    <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm h-full flex flex-col justify-center">
+                                                        <SimpleChart
+                                                            data={data.structured_report.macroeconomic_indicators.chart_data.points}
+                                                            title={data.structured_report.macroeconomic_indicators.chart_data.title}
+                                                            metric1={data.structured_report.macroeconomic_indicators.chart_data.metric1}
+                                                            metric2={data.structured_report.macroeconomic_indicators.chart_data.metric2}
+                                                        />
+                                                    </div>
+                                                ) : data.structured_report.macroeconomic_indicators?.visual_hint && (
+                                                    <div className="h-full min-h-[250px] bg-slate-900/5 rounded-[2rem] border border-slate-200 border-dashed flex flex-col items-center justify-center p-10 transition-all hover:bg-slate-900/[0.07]">
+                                                        <i className="fa-solid fa-chart-area text-slate-200 text-5xl mb-4"></i>
+                                                        <div className="text-[12px] font-black text-slate-400 uppercase tracking-widest text-center max-w-xs">{cleanText(data.structured_report.macroeconomic_indicators.visual_hint)}</div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-4">
-                                        <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 flex-1">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <i className="fa-solid fa-house-chimney-window text-indigo-500"></i>
-                                                <h3 className="text-lg font-black text-slate-800">Market Dynamics</h3>
+                                    <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
+                                                <i className="fa-solid fa-house-chimney-window text-violet-600 text-[16px]"></i>
                                             </div>
-                                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">{cleanText(data.structured_report.market_dynamics?.summary)}</p>
-                                            <ul className="space-y-3">
-                                                {data.structured_report.market_dynamics?.details?.map((d, i) => (
-                                                    <li key={i} className="flex gap-2 text-sm text-slate-500">
-                                                        <span className="text-indigo-400">•</span>
-                                                        {cleanText(d)}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                            <h3 className="text-[18px] font-black text-slate-800 tracking-tight">Market Dynamics</h3>
                                         </div>
-                                        {data.structured_report.market_dynamics?.chart_data ? (
-                                            <div className="p-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm mt-4">
-                                                <SimpleChart
-                                                    data={data.structured_report.market_dynamics.chart_data.points}
-                                                    title={data.structured_report.market_dynamics.chart_data.title}
-                                                    metric1={data.structured_report.market_dynamics.chart_data.metric1}
-                                                    metric2={data.structured_report.market_dynamics.chart_data.metric2}
-                                                />
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                            <div>
+                                                <p className="text-[14.5px] text-slate-600 mb-6 font-medium leading-relaxed">{cleanText(data.structured_report.market_dynamics?.summary)}</p>
+                                                <ul className="space-y-3">
+                                                    {data.structured_report.market_dynamics?.details?.map((d, i) => (
+                                                        <li key={i} className="flex gap-2.5 text-[13px] text-slate-500 leading-relaxed font-medium">
+                                                            <i className="fa-solid fa-circle-check text-violet-400 text-[9px] mt-1 flex-shrink-0" />
+                                                            {cleanText(d)}
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             </div>
-                                        ) : data.structured_report.market_dynamics?.visual_hint && (
-                                            <div className="h-48 bg-slate-900/5 rounded-[1.5rem] border border-slate-200 border-dashed flex flex-col items-center justify-center p-6 transition-all hover:bg-slate-900/[0.07]">
-                                                <i className="fa-solid fa-chart-bar text-slate-300 text-3xl mb-3"></i>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Market Heatmap: {cleanText(data.structured_report.market_dynamics.visual_hint)}</div>
+                                            <div>
+                                                {data.structured_report.market_dynamics?.chart_data ? (
+                                                    <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm h-full flex flex-col justify-center">
+                                                        <SimpleChart
+                                                            data={data.structured_report.market_dynamics.chart_data.points}
+                                                            title={data.structured_report.market_dynamics.chart_data.title}
+                                                            metric1={data.structured_report.market_dynamics.chart_data.metric1}
+                                                            metric2={data.structured_report.market_dynamics.chart_data.metric2}
+                                                        />
+                                                    </div>
+                                                ) : data.structured_report.market_dynamics?.visual_hint && (
+                                                    <div className="h-full min-h-[250px] bg-slate-900/5 rounded-[2rem] border border-slate-200 border-dashed flex flex-col items-center justify-center p-10 transition-all hover:bg-slate-900/[0.07]">
+                                                        <i className="fa-solid fa-chart-bar text-slate-200 text-5xl mb-4"></i>
+                                                        <div className="text-[12px] font-black text-slate-400 uppercase tracking-widest text-center max-w-xs">{cleanText(data.structured_report.market_dynamics.visual_hint)}</div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -914,9 +933,14 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                     color: #0f172a;
                     font-weight: 800;
                 }
+                .prose h1 { font-size: 22px; }
+                .prose h2 { font-size: 19px; }
+                .prose h3 { font-size: 17px; }
                 .prose h1, .prose h2, .prose h3 {
                     color: #1e293b;
                     font-weight: 900;
+                    margin-top: 1.5em;
+                    margin-bottom: 0.5em;
                 }
             `}</style>
         </div>

@@ -145,6 +145,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             'community-pulse':   'ov-community',
             'economics':         'ov-rental',
             'investment-research':'ov-ai-analysis',
+            'graph':             'ov-ai-analysis',
         };
         const targetId = subToSectionId[subId];
         if (targetId) {

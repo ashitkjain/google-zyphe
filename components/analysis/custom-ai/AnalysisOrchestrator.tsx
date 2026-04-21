@@ -132,12 +132,16 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             const state = propertyData?.state;
             if (!schools?.length || !city) return;
             try {
-                const { getSchoolAnalysisFromCloud } = await import('../../../services/firebase/properties');
+        const { getSchoolAnalysisFromCloud } = await import('../../../services/firebase/properties');
                 const { getSchoolCacheKey } = await import('../../../prompts/property/schoolsAnalysis');
+                const { generateCityStateKey } = await import('../../../services/firebase/config');
                 const results: any[] = [];
+                const orchestratorCityStateKey = generateCityStateKey(city, state || '');
                 for (const school of schools) {
                     const cacheKey = getSchoolCacheKey(school.name, city, state || '');
-                    const cached = await getSchoolAnalysisFromCloud(cacheKey);
+                    const cached = orchestratorCityStateKey
+                        ? await getSchoolAnalysisFromCloud(cacheKey, orchestratorCityStateKey)
+                        : null;
                     if (cached?.name) {
                         results.push({
                             ...cached,
@@ -619,18 +623,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                             </button>
                                         </div>
                                     ) : (
-                                        <div>
-                                            <div className="flex justify-end mb-3">
-                                                <button
-                                                    onClick={() => handleRunDeepInvestmentResearch(true)}
-                                                    className="px-3 py-1.5 text-[11px] font-bold text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-100 transition-colors flex items-center gap-1.5"
-                                                >
-                                                    <i className="fa-solid fa-rotate text-[10px]"></i>
-                                                    Re-run
-                                                </button>
-                                            </div>
-                                            <DeepInvestmentView data={analysis.deep_investment_research} />
-                                        </div>
+                                        <DeepInvestmentView data={analysis.deep_investment_research} />
                                     )}
                                 </section>
                             )}

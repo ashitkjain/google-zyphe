@@ -194,31 +194,21 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                     )}
                 </div>
 
-                {/* Collapsible MLS Details */}
+                {/* Detailed MLS Details (Always Expanded) */}
                 {data.resoFacts && (
                     <div className="border-t border-slate-100">
-                        <button
-                            onClick={() => setMlsOpen(v => !v)}
-                            className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50/50 transition-colors group"
-                        >
-                            <div className="flex items-center gap-4">
-                                {!mlsOpen && data.imgSrc && (
-                                    <div className="w-14 h-10 rounded-lg overflow-hidden border border-slate-200 shadow-sm shrink-0">
-                                        <img src={data.imgSrc} className="w-full h-full object-cover" alt="MLS Preview" />
-                                    </div>
-                                )}
-                                <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center group-hover:bg-indigo-100 transition-colors shadow-sm">
-                                    <i className="fa-solid fa-list text-slate-400 group-hover:text-indigo-500 text-[10px] transition-colors" />
+                        <div className="px-5 py-4 bg-slate-50/30 flex items-center justify-between border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100 shadow-sm">
+                                    <i className="fa-solid fa-list text-indigo-500 text-[10px]" />
                                 </div>
-                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.15em] group-hover:text-slate-700 transition-colors">
+                                <span className="text-[11px] font-black text-slate-700 uppercase tracking-[0.15em]">
                                     Detailed Specifications
                                 </span>
                             </div>
-                            <i className={`fa-solid fa-chevron-${mlsOpen ? 'up' : 'down'} text-[10px] text-slate-400 transition-transform duration-200 mr-2`} />
-                        </button>
+                        </div>
 
-                        {mlsOpen && (
-                            <div className="px-5 pb-5 animate-in slide-in-from-top-1 duration-200 flex flex-col lg:flex-row gap-6">
+                        <div className="px-5 py-6 flex flex-col lg:flex-row gap-6">
                                 {data.images && data.images.length > 0 && (
                                     <div className="w-full lg:w-1/2 shrink-0">
                                         <PropertyImages
@@ -285,7 +275,6 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                     </div>
                                 </div>
                             </div>
-                        )}
                     </div>
                 )}
             </div>

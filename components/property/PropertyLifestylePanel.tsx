@@ -127,18 +127,18 @@ export const PropertyLifestylePanel: React.FC<PropertyLifestylePanelProps> = ({
 
                                 return (
                                     <div className="flex flex-col gap-3">
-                                        <p className="text-[15.5px] text-slate-700 leading-relaxed font-sans font-medium">{fitData.summary}</p>
+                                        <p className="text-[14px] text-slate-700 leading-relaxed font-sans font-medium">{fitData.summary}</p>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {fitData.strengths?.length > 0 && (
                                                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 shadow-sm">
-                                                    <div className="text-[11.5px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                        <i className="fa-solid fa-circle-check text-[14px]" /> Pros
+                                                    <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                        <i className="fa-solid fa-circle-check text-[13px]" /> Pros
                                                     </div>
                                                     <div className="flex flex-col gap-2">
                                                         {fitData.strengths.map((s: string, i: number) => (
                                                             <div key={i} className="flex items-start gap-2.5">
                                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2 flex-shrink-0" />
-                                                                <span className="text-[15px] text-slate-700 leading-snug font-sans font-medium">{s}</span>
+                                                                <span className="text-[14px] text-slate-700 leading-snug font-sans font-medium">{s}</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -146,14 +146,14 @@ export const PropertyLifestylePanel: React.FC<PropertyLifestylePanelProps> = ({
                                             )}
                                             {fitData.concerns?.length > 0 && (
                                                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 shadow-sm">
-                                                    <div className="text-[11.5px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                        <i className="fa-solid fa-triangle-exclamation text-[14px]" /> Cons
+                                                    <div className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                        <i className="fa-solid fa-triangle-exclamation text-[13px]" /> Cons
                                                     </div>
                                                     <div className="flex flex-col gap-2">
                                                         {fitData.concerns.map((c: string, i: number) => (
                                                             <div key={i} className="flex items-start gap-2.5">
                                                                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
-                                                                <span className="text-[15px] text-slate-700 leading-snug font-sans font-medium">{c}</span>
+                                                                <span className="text-[14px] text-slate-700 leading-snug font-sans font-medium">{c}</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -162,8 +162,8 @@ export const PropertyLifestylePanel: React.FC<PropertyLifestylePanelProps> = ({
                                         </div>
                                         {fitData.tip && (
                                             <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm">
-                                                <i className="fa-solid fa-lightbulb text-[15px] text-indigo-400 mt-1" />
-                                                <span className="text-[15px] text-indigo-700 leading-relaxed font-sans font-medium">{fitData.tip}</span>
+                                                <i className="fa-solid fa-lightbulb text-[13px] text-indigo-400 mt-1" />
+                                                <span className="text-[14px] text-indigo-700 leading-relaxed font-sans font-medium">{fitData.tip}</span>
                                             </div>
                                         )}
                                     </div>
@@ -191,9 +191,9 @@ export const PropertyLifestylePanel: React.FC<PropertyLifestylePanelProps> = ({
                                         {/* Header */}
                                         <div className="flex items-center gap-2">
                                             <div className={`w-8 h-8 rounded-lg ${t.bg} flex items-center justify-center shrink-0`}>
-                                                <i className={`fa-solid ${t.icon} ${t.text} text-[13px]`} />
+                                                <i className={`fa-solid ${t.icon} ${t.text} text-[12px]`} />
                                             </div>
-                                            <span className="text-[13px] font-black text-slate-800 leading-tight">{t.label}</span>
+                                            <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">{t.label}</span>
                                         </div>
                                         {/* Content */}
                                         {text ? (

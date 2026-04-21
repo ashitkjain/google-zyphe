@@ -80,81 +80,67 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                     iconColor="text-blue-500"
                     className="hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
                 >
-                    <div className="px-4 py-2 space-y-3">
-                        {schoolsIntelligence.schools.slice(0, 3).map((school: any, i: number) => {
-                            const isSelected = selectedSchool === i;
-                            return (
-                                <div
-                                    key={i}
-                                    className={`overflow-hidden rounded-2xl border transition-all duration-300 ${isSelected
-                                        ? 'bg-white border-indigo-200 shadow-lg shadow-indigo-100/50'
-                                        : 'bg-slate-50/50 border-slate-100 hover:border-slate-200'
-                                        }`}
-                                >
-                                    {/* Accordion Header */}
-                                    <button
-                                        onClick={() => setSelectedSchool(i)}
-                                        className="w-full flex items-center justify-between p-4 text-left"
+                    <div className="px-4 py-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {schoolsIntelligence.schools.slice(0, 3).map((school: any, i: number) => {
+                                return (
+                                    <div
+                                        key={i}
+                                        className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 p-4 flex flex-col h-full"
                                     >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 shadow-sm border border-slate-100'
-                                                }`}>
-                                                <i className="fa-solid fa-building-columns text-[13px]" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <h4 className={`text-[15px] font-black leading-tight transition-colors ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
-                                                    {school.name}
-                                                </h4>
-                                                {!isSelected && (
+                                        <div className="flex items-start justify-between gap-3 mb-3">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 shadow-sm border border-indigo-100 flex items-center justify-center shrink-0">
+                                                    <i className="fa-solid fa-building-columns text-[13px]" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className="text-[15px] font-black text-slate-900 leading-tight truncate">
+                                                        {school.name}
+                                                    </h4>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{school.type}</span>
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                                        <span className="text-[11px] font-bold text-emerald-600">{school.rating || '8'}/10</span>
                                                     </div>
-                                                )}
+                                                </div>
+                                            </div>
+                                            <div className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded-md text-[11px] font-black text-emerald-600 shrink-0">
+                                                {school.rating || '8'}/10
                                             </div>
                                         </div>
-                                        {!isSelected && (
-                                            <i className="fa-solid fa-chevron-down text-[10px] text-slate-300 transition-transform duration-300" />
-                                        )}
-                                    </button>
 
-                                    {/* Accordion Content */}
-                                    <div className={`overflow-hidden transition-all duration-300 ${isSelected ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                        <div className="px-4 pb-4 space-y-3">
-                                            <div className="p-3.5 bg-indigo-50/30 rounded-xl border border-indigo-100/50">
-                                                <p className="text-[14px] text-slate-600 leading-relaxed font-sans font-medium">
-                                                    {school.description ||
-                                                        `${school.name} is a highly-rated ${school.type?.toLowerCase() || 'public'} school in ${data.city || 'Dublin'}, CA, known for its strong academic performance and diverse student body.`
-                                                    }
+                                        {(school.test_scores || school.overall_assessment) ? (
+                                            <div className="mb-4 flex-1">
+                                                <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.18em] mb-1">
+                                                    {school.test_scores ? 'Test Scores' : 'Overview'}
+                                                </div>
+                                                <p className="text-[13px] text-slate-500 leading-relaxed font-sans font-medium line-clamp-3">
+                                                    {school.test_scores || school.overall_assessment}
                                                 </p>
                                             </div>
+                                        ) : (
+                                            <p className="text-[13px] text-slate-400 italic font-medium line-clamp-3 mb-4 flex-1">
+                                                Analysis loading...
+                                            </p>
+                                        )}
 
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
-                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Rating</div>
-                                                    <div className="text-[15px] font-black text-emerald-600">{school.rating || '8'}/10 <span className="text-slate-400 text-[11px] font-medium ml-1">GreatSchools</span></div>
-                                                </div>
-                                                <div className="p-3 bg-white border border-slate-100 rounded-xl">
-                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Distance</div>
-                                                    <div className="text-[15px] font-black text-slate-700">{school.distanceMiles?.toFixed(1) || '0.4'} mi</div>
-                                                </div>
+                                        <div className="flex items-center justify-between pt-3 border-t border-slate-50 gap-2">
+                                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                <i className="fa-solid fa-location-dot text-[11px] text-slate-300" />
+                                                <span className="text-[13px] font-black text-slate-600 truncate">{school.distanceMiles?.toFixed(1) || '0.4'} mi</span>
                                             </div>
-
                                             <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
+                                                onClick={() => {
+                                                    setSelectedSchool(i);
                                                     setIsSchoolModalOpen(true);
                                                 }}
-                                                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-indigo-100"
+                                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
                                             >
-                                                School Details
+                                                Details
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
                 </SectionCard>
             )}

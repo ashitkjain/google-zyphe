@@ -382,12 +382,15 @@ export const useAnalysisActions = (
                 try {
                     const { getSchoolAnalysisFromCloud } = await import('../../../../services/firebase/properties');
                     const { getSchoolCacheKey } = await import('../../../../prompts/property/schoolsAnalysis');
-                    const city = propertyData.city || '';
-                    const state = propertyData.state || '';
+                    const schoolCity = propertyData.city || '';
+                    const schoolState = propertyData.state || '';
+                    const schoolCityStateKey = generateCityStateKey(schoolCity, schoolState);
                     const schoolResults: any[] = [];
                     for (const school of propertyData.schools) {
-                        const cacheKey = getSchoolCacheKey(school.name, city, state);
-                        const cached = await getSchoolAnalysisFromCloud(cacheKey);
+                        const cacheKey = getSchoolCacheKey(school.name, schoolCity, schoolState);
+                        const cached = schoolCityStateKey
+                            ? await getSchoolAnalysisFromCloud(cacheKey, schoolCityStateKey)
+                            : null;
                         if (cached?.name) {
                             schoolResults.push({
                                 ...cached,

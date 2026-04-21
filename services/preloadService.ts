@@ -658,6 +658,7 @@ export const runFullIntelligencePipeline = async (
         const { getSchoolCacheKey } = await import('../prompts/property/schoolsAnalysis');
         const city = enrichedData.city || '';
         const state = enrichedData.state || '';
+        const schoolCityStateKey = generateCityStateKey(city, state);
 
         const analyzedSchools: any[] = [];
         let cachedCount = 0;
@@ -665,7 +666,11 @@ export const runFullIntelligencePipeline = async (
 
         for (const school of propertySchools) {
           const cacheKey = getSchoolCacheKey(school.name, city, state);
-          const cached = await getSchoolAnalysisFromCloud(cacheKey);
+          if (!schoolCityStateKey) {
+            onLog?.(`[Schools] Skipping "${school.name}" — could not resolve cityStateKey for ${city}, ${state}`);
+            continue;
+          }
+          const cached = await getSchoolAnalysisFromCloud(cacheKey, schoolCityStateKey);
 
           if (cached?.name) {
             // Quality gate: count how many fields say "Current data not available"
@@ -706,7 +711,7 @@ export const runFullIntelligencePipeline = async (
                 ...res.data,
                 sources: res.data.sources?.length ? res.data.sources : (res.sources || [])
               };
-              await saveSchoolAnalysisToCloud(cacheKey, schoolData);
+              await saveSchoolAnalysisToCloud(cacheKey, schoolData, schoolCityStateKey);
               analyzedSchools.push({
                 ...schoolData,
                 distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,

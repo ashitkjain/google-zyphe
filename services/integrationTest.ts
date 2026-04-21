@@ -109,9 +109,13 @@ async function runSmokeForProperty(zpid: string): Promise<{ errors: string[]; wa
   if (prop?.schools?.length && prop.city) {
     const { getSchoolCacheKey } = await import('../prompts/property/schoolsAnalysis');
     const { getSchoolAnalysisFromCloud } = await import('./firebase/properties');
+    const { generateCityStateKey } = await import('./firebase/config');
     for (const s of prop.schools) {
       const key = getSchoolCacheKey(s.name, prop.city, prop.state || '');
-      const sa = await getSchoolAnalysisFromCloud(key).catch(() => null);
+      const cityStateKey = generateCityStateKey(prop.city, prop.state || '') || '';
+      const sa = cityStateKey
+        ? await getSchoolAnalysisFromCloud(key, cityStateKey).catch(() => null)
+        : null;
       if (sa) schoolAnalyses[key] = sa;
     }
   }

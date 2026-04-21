@@ -925,10 +925,17 @@ export const getLivingWageFromCloud = async (
 };
 
 // ── Schools Intelligence Cache (keyed by school name + city, shared across properties) ──
+//
+// ⚠️  cityStateKey MUST be passed explicitly — never re-derive it by splitting the cache key.
+// The cache key uses underscores for every word, so for a city like "San Jose" the key looks
+// like "some_school_san_jose_ca" and a naive split().pop() gives "jose_ca" not "san_jose_ca".
 
-
-export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => {
-    if (!db || !cacheKey) return { success: false, error: "Database not initialized or missing cache key" };
+export const saveSchoolAnalysisToCloud = async (
+    cacheKey: string,
+    data: any,
+    cityStateKey: string   // e.g. "pleasanton_ca" — pass from generateCityStateKey(city, state)
+) => {
+    if (!db || !cacheKey || !cityStateKey) return { success: false, error: "Database not initialized or missing cache key / cityStateKey" };
     try {
         const payload = {
             ...sanitizeForFirestore(data),
@@ -936,17 +943,9 @@ export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => 
             timestamp: serverTimestamp()
         };
 
-        // 1. Consolidated write (ONLY)
-        // Cache key format is: {w1}_{w2}_{city}_{state} (all lower, separated by underscores)
-        const parts = cacheKey.split('_');
-        const state = parts.pop();
-        const city = parts.pop();
-        if (city && state) {
-            const cityStateKey = `${city}_${state}`;
-            const schoolRef = doc(db, "cities", cityStateKey, "schools", cacheKey);
-            logFirestoreQuery('setDoc', 'cities/schools', { cacheKey });
-            await setDoc(schoolRef, payload);
-        }
+        const schoolRef = doc(db, "cities", cityStateKey.toLowerCase(), "schools", cacheKey);
+        logFirestoreQuery('setDoc', 'cities/schools', { cacheKey, cityStateKey });
+        await setDoc(schoolRef, payload);
 
         return { success: true };
     } catch (error) {
@@ -954,21 +953,16 @@ export const saveSchoolAnalysisToCloud = async (cacheKey: string, data: any) => 
     }
 };
 
-export const getSchoolAnalysisFromCloud = async (cacheKey: string): Promise<any | null> => {
-    if (!db || !cacheKey) return null;
+export const getSchoolAnalysisFromCloud = async (
+    cacheKey: string,
+    cityStateKey: string   // e.g. "pleasanton_ca" — pass from generateCityStateKey(city, state)
+): Promise<any | null> => {
+    if (!db || !cacheKey || !cityStateKey) return null;
     try {
-        // 1. Consolidated path lookup (ONLY)
-        const parts = cacheKey.split('_');
-        const state = parts.pop();
-        const city = parts.pop();
-        if (city && state) {
-            const cityStateKey = `${city}_${state}`;
-            const schoolRef = doc(db, "cities", cityStateKey, "schools", cacheKey);
-            logFirestoreQuery('getDoc', 'cities/schools', { cacheKey });
-            const nestedSnap = await getDoc(schoolRef);
-            if (nestedSnap.exists()) return nestedSnap.data();
-        }
-        return null;
+        const schoolRef = doc(db, "cities", cityStateKey.toLowerCase(), "schools", cacheKey);
+        logFirestoreQuery('getDoc', 'cities/schools', { cacheKey, cityStateKey });
+        const snap = await getDoc(schoolRef);
+        return snap.exists() ? snap.data() : null;
     } catch (error) {
         handleFirestoreError(error, "getSchoolAnalysisFromCloud");
         return null;

@@ -24,7 +24,8 @@ import {
 } from '../../../services/firebase/properties';
 import { getSchoolCacheKey } from '../../../prompts/property/schoolsAnalysis';
 import { fetchCensusDemographics, fetchMicroclimateDelta, CensusDemographics, MicroclimateDelta } from '../../../services/api/environmental';
-import { extractDeepResearchInsights, analyzeLifestyleInsights } from '../../../services/geminiService';
+import { extractDeepResearchInsights, analyzeLifestyleInsights, analyzeSchool } from '../../../services/geminiService';
+import { generateCityStateKey } from '../../../services/firebase/config';
 
 type InternalTab = 'property-data' | 'visual-ai' | 'comprehensive';
 
@@ -167,11 +168,19 @@ export function useExploreTabData({
             const city = propertyData?.city;
             const state = propertyData?.state;
             if (!schools?.length || !city) return;
+
+            // cityStateKey is the Firestore parent doc (e.g. "pleasanton_ca").
+            // Always derive it from city+state — never by splitting the cache key.
+            const cityStateKey = generateCityStateKey(city, state || '');
+            if (!cityStateKey) return;
+
+            const { saveSchoolAnalysisToCloud } = await import('../../../services/firebase/properties');
+
             try {
                 const results: any[] = [];
                 for (const school of schools) {
                     const cacheKey = getSchoolCacheKey(school.name, city, state || '');
-                    const cached = await getSchoolAnalysisFromCloud(cacheKey);
+                    const cached = await getSchoolAnalysisFromCloud(cacheKey, cityStateKey);
                     if (cached?.name) {
                         results.push({
                             ...cached,
@@ -179,6 +188,29 @@ export function useExploreTabData({
                             mls_rating: school.rating,
                             is_assigned: true,
                         });
+                    } else {
+                        // Cache miss — run fresh Gemini analysis so deleted/missing entries self-heal
+                        // without needing a full pipeline re-run.
+                        console.log(`[Schools] Cache miss for "${school.name}" — running fresh analysis...`);
+                        try {
+                            const res = await analyzeSchool(school, propertyData, auth?.currentUser?.uid || 'unknown');
+                            if (res.data) {
+                                const schoolData = {
+                                    ...res.data,
+                                    sources: res.data.sources?.length ? res.data.sources : (res as any).sources || [],
+                                };
+                                await saveSchoolAnalysisToCloud(cacheKey, schoolData, cityStateKey);
+                                results.push({
+                                    ...schoolData,
+                                    distance_miles: parseFloat(String(school.distance).replace(/[^0-9.]/g, '')) || null,
+                                    mls_rating: school.rating,
+                                    is_assigned: true,
+                                });
+                                console.log(`[Schools] ✓ Fresh analysis saved for "${school.name}"`);
+                            }
+                        } catch (analysisErr: any) {
+                            console.warn(`[Schools] Fresh analysis failed for "${school.name}":`, analysisErr.message);
+                        }
                     }
                 }
                 if (results.length > 0) {

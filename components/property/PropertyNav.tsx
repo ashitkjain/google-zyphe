@@ -23,6 +23,7 @@ export interface NavSection {
     icon: string;
     subItems: NavSubItem[];
     visible?: boolean;
+    isFlat?: boolean;
 }
 
 interface PropertyNavProps {
@@ -98,11 +99,20 @@ function buildSections(vis: PropertyNavProps['visibility']): NavSection[] {
         },
         {
             id: 'investment',
-            label: 'Investment',
-            icon: 'fa-chart-line',
+            label: 'Investment Intelligence',
+            icon: 'fa-sack-dollar',
+            isFlat: true,
             subItems: [
-                { id: 'economics',           label: 'Economics',           icon: 'fa-sack-dollar',            visible: vis.hasLtrAnalysis },
-                { id: 'investment-research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart', visible: vis.hasDeepResearch },
+                { id: 'intelligence', label: 'Intelligence', icon: 'fa-sack-dollar', visible: true },
+            ],
+        },
+        {
+            id: 'context-graph',
+            label: 'Context Graph',
+            icon: 'fa-diagram-project',
+            isFlat: true,
+            subItems: [
+                { id: 'graph', label: 'Graph', icon: 'fa-diagram-project', visible: true },
             ],
         },
     ];
@@ -147,8 +157,8 @@ const PropertyNav: React.FC<PropertyNavProps> = ({
                         <i className="fa-solid fa-cube text-white text-[12px]" />
                     </div>
                     <div>
-                        <div className="text-[13px] font-black text-slate-900 leading-none tracking-tight">Zyphe</div>
-                        <div className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-[0.14em]">Property Intelligence</div>
+                        <div className="text-[15px] font-black text-slate-900 leading-none tracking-tight">Zyphe</div>
+                        <div className="text-[11px] font-bold text-slate-400 mt-0.5 uppercase tracking-[0.14em]">Property Intelligence</div>
                     </div>
                 </div>
             </div>
@@ -167,9 +177,13 @@ const PropertyNav: React.FC<PropertyNavProps> = ({
                             {/* Section row */}
                             <button
                                 onClick={() => {
-                                    toggleSection(section.id);
-                                    if (!isExpanded && visibleSubs.length > 0) {
-                                        onNavigate(section.id, visibleSubs[0].id);
+                                    if (section.isFlat) {
+                                        onNavigate(section.id, section.subItems[0].id);
+                                    } else {
+                                        toggleSection(section.id);
+                                        if (!isExpanded && visibleSubs.length > 0) {
+                                            onNavigate(section.id, visibleSubs[0].id);
+                                        }
                                     }
                                 }}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 group ${
@@ -182,21 +196,28 @@ const PropertyNav: React.FC<PropertyNavProps> = ({
                                 <div className={`w-0.5 h-4 rounded-full flex-shrink-0 transition-all ${
                                     isSectionActive ? 'bg-indigo-600' : 'bg-transparent'
                                 }`} />
-                                <i className={`fa-solid ${section.icon} text-[12px] flex-shrink-0 transition-colors ${
+                                <i className={`fa-solid ${section.icon} text-[14px] flex-shrink-0 transition-colors ${
                                     isSectionActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-500'
                                 }`} />
-                                <span className={`text-[12px] tracking-tight flex-1 truncate ${
+                                <span className={`text-[14px] tracking-tight flex-1 ${
                                     isSectionActive ? 'font-black' : 'font-bold'
                                 }`}>
                                     {section.label}
                                 </span>
-                                <i className={`fa-solid fa-chevron-right text-[8px] flex-shrink-0 transition-transform duration-200 ${
-                                    isExpanded ? 'rotate-90 text-slate-400' : 'text-slate-300'
-                                }`} />
+                                {section.isFlat && isSectionActive && (
+                                    <div className="flex items-center">
+                                        <div className="w-1 h-1 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
+                                    </div>
+                                )}
+                                {!section.isFlat && (
+                                    <i className={`fa-solid fa-chevron-right text-[8px] flex-shrink-0 transition-transform duration-200 ${
+                                        isExpanded ? 'rotate-90 text-slate-400' : 'text-slate-300'
+                                    }`} />
+                                )}
                             </button>
 
                             {/* Sub-items */}
-                            {isExpanded && visibleSubs.length > 0 && (
+                            {!section.isFlat && isExpanded && visibleSubs.length > 0 && (
                                 <div className="mt-1 mb-2 ml-[21px] pl-4 border-l border-slate-200/60 flex flex-col gap-0.5">
                                         {visibleSubs.map(sub => {
                                             if (sub.id.startsWith('sep-')) {
@@ -225,10 +246,10 @@ const PropertyNav: React.FC<PropertyNavProps> = ({
                                                         isActive ? 'bg-indigo-500' : 'bg-transparent group-hover/sub:bg-slate-200'
                                                     }`} style={{ marginLeft: '-17px' }} />
                                                     
-                                                    <i className={`fa-solid ${sub.icon} text-[10px] flex-shrink-0 transition-colors ${
+                                                    <i className={`fa-solid ${sub.icon} text-[12px] flex-shrink-0 transition-colors ${
                                                         isActive ? 'text-indigo-500' : 'text-slate-300 group-hover/sub:text-slate-400'
                                                     }`} />
-                                                    <span className={`text-[11px] tracking-tight truncate transition-colors ${
+                                                    <span className={`text-[13px] tracking-tight transition-colors ${
                                                         isActive ? 'font-black' : 'font-semibold'
                                                     }`}>
                                                         {sub.label}

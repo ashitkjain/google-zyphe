@@ -22,6 +22,7 @@ import { EnvironmentSectionPage } from './sections/EnvironmentSectionPage';
 import { RoomsSectionPage } from './sections/RoomsSectionPage';
 import { CommunityPulseSectionPage } from './sections/CommunityPulseSectionPage';
 import { CityNeighborhoodsView } from '../analysis/custom-ai/components/CityNeighborhoodsView';
+import { DeepInvestmentView } from '../analysis/custom-ai/components/DeepInvestmentView';
 
 // ─────────────────────────────────────────────────────────────
 // Props
@@ -87,7 +88,7 @@ interface PropertySectionViewProps {
 const PageHeader: React.FC<{ icon: string; title: string; subtitle?: string; color?: string }> = ({
     icon, title, subtitle, color = 'text-indigo-500',
 }) => (
-    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+    <div className="flex items-center gap-3 mb-4 pb-2">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-100 shadow-sm flex-shrink-0">
             <i className={`fa-solid ${icon} text-[16px] ${color}`} />
         </div>
@@ -146,7 +147,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
     };
 
     // ── Shared internal state (needed by Left/Right components) ─────────────
-    const [mlsOpen, setMlsOpen] = React.useState(false);
+    const [mlsOpen, setMlsOpen] = React.useState(true);
     const [envOpen, setEnvOpen] = React.useState<Record<string, boolean>>({});
     const [selectedSchool, setSelectedSchool] = React.useState(0);
     const [isSchoolModalOpen, setIsSchoolModalOpen] = React.useState(false);
@@ -213,6 +214,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     lifestyleFitTab={lifestyleFitTab} setLifestyleFitTab={setLifestyleFitTab}
                     lifestyleInterestTab={lifestyleInterestTab} setLifestyleInterestTab={setLifestyleInterestTab}
                     handleGenerateLifestyle={handleGenerateLifestyle}
+                    showOnly={['fit']}
                 />
                 <div className="mt-8">
                     <PropertyDashboardRight {...rightProps} showOnly={['schools', 'orientation']} />
@@ -403,11 +405,16 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
     // ────────────────────────────────────────────────────────────────────────
     // INVESTMENT
     // ────────────────────────────────────────────────────────────────────────
-    if (sectionId === 'investment') {
-        if (subId === 'economics') return (
-            <div className="animate-in fade-in duration-200 space-y-6">
-                <PageHeader icon="fa-sack-dollar" title="Economics"
-                    subtitle="Rental yield · Market rent · ROI estimates · Property Economics" color="text-emerald-500" />
+    // ────────────────────────────────────────────────────────────────────────
+    // INVESTMENT — Unified Research & Economics
+    // ────────────────────────────────────────────────────────────────────────
+        if (sectionId === 'investment') {
+        return (
+            <div className="animate-in fade-in duration-200 space-y-1">
+                <PageHeader icon="fa-sack-dollar" title="Investment Intelligence"
+                    subtitle="Economics · Market Dynamics · Deep Research · Valuation" color="text-indigo-600" />
+                
+                {/* 1. Economics (Rental Analysis) */}
                 <PropertyInsightsPanel
                     {...insightProps}
                     communityPulse={null}
@@ -415,25 +422,58 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     neighborhoodOverview={null}
                     showOnly={['rental']}
                 />
-            </div>
-        );
 
-        if (subId === 'investment-research') return (
-            <div className="animate-in fade-in duration-200 space-y-6">
-                <PageHeader icon="fa-magnifying-glass-chart" title="Investment Research"
-                    subtitle="Market dynamics · Deep intelligence · City neighborhoods · Context graph" color="text-indigo-500" />
+                {/* 2. Market Dynamics (The flattened metrics card) */}
                 <PropertyInsightsPanel
                     {...insightProps}
                     communityPulse={null}
                     ltrAnalysis={null}
                     showOnly={['ai-analysis']}
                 />
-                {/* Deep Research + City Neighborhoods + Context Graph AI tabs */}
-                {customAnalysis && (
-                    <div className="mt-2">
-                        <CustomAIAnalysis {...aiProps} activeSubTab="deep_research" />
+
+                {/* 3. Deep Research Full Report */}
+                {customAnalysisLoading ? (
+                    <div className="py-20 flex flex-col items-center justify-center gap-4 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                        <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Assembling Intelligence...</p>
+                    </div>
+                ) : customAnalysis?.deep_investment_research ? (
+                    <div>
+                        <DeepInvestmentView data={customAnalysis.deep_investment_research} />
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 gap-6 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center">
+                            <i className="fa-solid fa-microscope text-2xl text-violet-300"></i>
+                        </div>
+                        <div>
+                            <p className="text-slate-800 font-black text-lg tracking-tight">Deep Research Not Available</p>
+                            <p className="text-slate-400 text-sm mt-1 max-w-xs mx-auto">
+                                Run a comprehensive investment analysis to generate this deep-dive market report.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => onRunComprehensive?.()}
+                            className="px-6 py-3 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center gap-2"
+                        >
+                            <i className="fa-solid fa-wand-magic-sparkles" />
+                            Run Deep Research
+                        </button>
                     </div>
                 )}
+            </div>
+        );
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // CONTEXT GRAPH
+    // ────────────────────────────────────────────────────────────────────────
+    if (sectionId === 'context-graph') {
+        return (
+            <div className="animate-in fade-in duration-200 space-y-4">
+                <PageHeader icon="fa-diagram-project" title="Context Graph"
+                    subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" />
+                <CustomAIAnalysis {...aiProps} activeSubTab="context_graph" />
             </div>
         );
     }

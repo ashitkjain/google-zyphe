@@ -22,6 +22,7 @@ import { getCommunityPulseFromCloud, getDeepInvestmentResearchFromCloud, getScho
 import { resoFieldKey } from '../utils/propertyFieldConfig';
 import { isSupportedPropertyType, isGhostListing, isSingleFamily, isTownhome } from '../utils/propertyPolicies';
 import { APP_CONFIG } from '../config';
+import { getSchoolCacheKey as _getSchoolCacheKey } from '../prompts/property/schoolsAnalysis';
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -460,12 +461,7 @@ export async function runChecks(
         const missingFieldSummary: string[] = [];
 
         for (const school of prop.schools) {
-            const words = school.name.trim().split(/\s+/);
-            const w1 = words[0] || '';
-            const w2 = words[1] || '';
-            const key = `${w1}_${w2}_${prop.city}_${prop.state || ''}`
-                .toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_')
-                .replace(/^_|_$/g, '').substring(0, 120);
+            const key = _getSchoolCacheKey(school.name, prop.city || '', prop.state || '');
             const analysis = schoolAnalyses[key];
             if (analysis?.name) {
                 analyzedCount++;
@@ -704,22 +700,26 @@ export const runCitySmokeTest = async (
     for (const zpid of resolvedZpids) {
         const prop = allProps[zpid];
         if (Array.isArray(prop?.schools) && prop?.city) {
-            for (const school of prop.schools) {
-                const words = school.name.trim().split(/\s+/);
-                const w1 = words[0] || '';
-                const w2 = words[1] || '';
-                const key = `${w1}_${w2}_${prop.city}_${prop.state || ''}`
-                    .toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_')
-                    .replace(/^_|_$/g, '').substring(0, 120);
-                schoolCacheKeys.add(key);
-            }
+                schoolCacheKeys.add(_getSchoolCacheKey(school.name, prop.city || '', prop.state || ''));
         }
     }
 
     // Fetch school analyses — now at cities/{city_state}/schools/{cacheKey}
     if (schoolCacheKeys.size > 0) {
-        await Promise.all(Array.from(schoolCacheKeys).map(async (key) => {
-            const data = await getSchoolAnalysisFromCloud(key);
+        // Fetch per city-state group so we always pass cityStateKey explicitly
+        // (getSchoolAnalysisFromCloud now requires it — never tries to split the key)
+        const keyToCityState = new Map<string, string>();
+        for (const zpid of resolvedZpids) {
+            const prop = allProps[zpid];
+            const csk = generateCityStateKey(prop?.city, prop?.state) || '';
+            if (!prop?.schools || !prop?.city || !csk) continue;
+            for (const school of prop.schools) {
+                const k = _getSchoolCacheKey(school.name, prop.city || '', prop.state || '');
+                keyToCityState.set(k, csk);
+            }
+        }
+        await Promise.all(Array.from(keyToCityState.entries()).map(async ([key, csk]) => {
+            const data = await getSchoolAnalysisFromCloud(key, csk);
             if (data) allSchoolAnalyses[key] = data;
         }));
     }
