@@ -688,11 +688,11 @@ export const runCitySmokeTest = async (
         onProgress?.(done, zpids.length);
     }));
 
-    // Skip zpids that have no property document or aren't Single Family/Townhouse
+    // Skip zpids that have no property document or aren't supported types (Single Family, Townhouse, Condo)
     const resolvedZpids = zpids.filter(zpid => {
         const prop = allProps[zpid];
         if (!prop) return false;
-        return isSingleFamily(prop) || isTownhome(prop);
+        return isSupportedPropertyType(prop);
     });
 
     // Batch-fetch school analyses: derive cache keys from each property's schools list

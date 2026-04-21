@@ -61,8 +61,6 @@ interface OrientationRow {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-
-
 const getRelativeTime = (date: any): { relative: string; full: string } => {
     if (!date) return { relative: '—', full: '' };
     const d = date instanceof Date ? date : (date?.toDate?.() ?? new Date(date));
@@ -552,13 +550,22 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         const extractDir = (s: string) => s.split(/[\s(]/)[0].toLowerCase().trim();
         let match = 0, mismatch = 0, unclear = 0, noGt = 0;
         filteredRows.forEach(row => {
+            const gt = groundTruthByZpid.get(row.zpid);
+            
+            // User request: "count only those properties for which we dont have ground truth" (No Manual Assessment)
+            if (!gt || !gt.expected_orientation) {
+                noGt++;
+                return;
+            }
+
+            // If we have ground truth, but the AI hasn't analyzed it yet, 
+            // we can't determine Match/Mismatch/Unclear. We skip it in this summary.
+            if (!row.orientationAI) return;
+
             // Description-extracted orientation is authoritative — always a match,
             // regardless of GT label, layout type, or any other logic.
             if (extractOrientationFromDescription(row.description)) { match++; return; }
 
-            const gt = groundTruthByZpid.get(row.zpid);
-            if (!gt || !gt.expected_orientation) { noGt++; return; }
-            if (!row.orientationAI) { noGt++; return; }
             const aiDir = extractDir(row.orientationAI.final_orientation ?? '');
             const isUnderConstruction = !!row.orientationAI?.is_under_construction;
             if (aiDir === 'unclear' || isUnderConstruction) { unclear++; return; }
@@ -960,10 +967,11 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             <span className="text-[11px] font-black text-amber-700">{gtStats.unclear}</span>
                                         </div>
                                     )}
+                                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
                                     {gtStats.noGt > 0 && (
                                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-indigo-50 border-indigo-200">
                                             <span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
-                                            <span className="text-[9px] font-black uppercase tracking-wide text-indigo-700">New</span>
+                                            <span className="text-[9px] font-black uppercase tracking-wide text-indigo-700">No Manual Assessment</span>
                                             <span className="text-[11px] font-black text-indigo-700">{gtStats.noGt}</span>
                                         </div>
                                     )}
