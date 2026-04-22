@@ -372,7 +372,90 @@ export const runFullIntelligencePipeline = async (
           }
         } catch {}
       }
+
+      // ── Image URL healing ────────────────────────────────────────────────────
+      // Firebase Storage download tokens expire. HEAD-check all critical image
+      // URLs and re-generate/re-upload any that are dead before downstream AI
+      // steps try to use them. Runs silently — failures are non-blocking.
+      if (enrichedData.coordinates?.latitude && enrichedData.coordinates?.longitude) {
+        onProgress({ step: 'Cloud Storage', status: 'running', message: 'Verifying cached images...' });
+        try {
+          const { getOrCacheAerialSatelliteUrl, forceRefreshStreetViewUrl } = await import('./satellitaryService');
+          const lat = enrichedData.coordinates.latitude;
+          const lng = enrichedData.coordinates.longitude;
+
+          const isAlive = async (url?: string | null) => {
+            if (!url) return false;
+            try { const r = await fetch(url, { method: 'HEAD' }); return r.ok; } catch { return false; }
+          };
+
+          const [aerialOk, svOk, mapOk] = await Promise.all([
+            isAlive((enrichedData as any).satelliteImageUrl),
+            isAlive((enrichedData as any).streetView),
+            isAlive(enrichedData.mapZoomIn),
+          ]);
+
+          const healOps: Promise<void>[] = [];
+
+          if (!aerialOk) {
+            onLog?.(`[Images] Aerial satellite URL expired — re-fetching...`);
+            healOps.push(
+              getOrCacheAerialSatelliteUrl(zpid, lat, lng)
+                .then(freshUrl => {
+                  (enrichedData as any).satelliteImageUrl = freshUrl;
+                  onLog?.(`[Images] ✓ Aerial satellite refreshed.`);
+                })
+                .catch((e: any) => onLog?.(`[Images] Aerial refresh failed (non-blocking): ${e.message}`))
+            );
+          }
+
+          if ((enrichedData as any).streetView && !svOk) {
+            onLog?.(`[Images] Street view URL expired — re-fetching...`);
+            healOps.push(
+              forceRefreshStreetViewUrl(zpid, lat, lng)
+                .then(freshUrl => {
+                  (enrichedData as any).streetView = freshUrl || null;
+                  onLog?.(freshUrl
+                    ? `[Images] ✓ Street view refreshed.`
+                    : `[Images] No Street View coverage confirmed — cleared.`
+                  );
+                })
+                .catch((e: any) => onLog?.(`[Images] Street view refresh failed (non-blocking): ${e.message}`))
+            );
+          }
+
+          if (!mapOk && enrichedData.mapZoomIn) {
+            onLog?.(`[Images] Map zoom-in URL expired — re-uploading from source...`);
+            healOps.push(
+              uploadRemoteImageToStorage(enrichedData.mapZoomIn, `properties/${zpid}/maps/map_zoom_in.jpg`)
+                .then(freshUrl => {
+                  enrichedData!.mapZoomIn = freshUrl;
+                  onLog?.(`[Images] ✓ Map zoom-in refreshed.`);
+                })
+                .catch((e: any) => onLog?.(`[Images] Map zoom-in refresh failed (non-blocking): ${e.message}`))
+            );
+          }
+
+          if (healOps.length > 0) {
+            await Promise.allSettled(healOps);
+            // Persist updated URLs to Firestore
+            await savePropertyToCloud(zpid, {
+              satelliteImageUrl: (enrichedData as any).satelliteImageUrl,
+              streetView: (enrichedData as any).streetView,
+              mapZoomIn: enrichedData.mapZoomIn,
+            } as any).catch(() => {});
+            onLog?.(`[Images] Image URL healing complete (${healOps.length} refreshed).`);
+          } else {
+            onLog?.(`[Images] All cached image URLs are valid.`);
+          }
+
+          onProgress({ step: 'Cloud Storage', status: 'completed', message: 'Images verified.' });
+        } catch (e: any) {
+          onLog?.(`[Images] Image heal failed (non-blocking): ${e.message}`);
+        }
+      }
     }
+
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
 
