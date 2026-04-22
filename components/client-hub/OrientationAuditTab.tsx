@@ -689,6 +689,21 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         await queueCloudBatch(zpids, 'mismatched properties');
     };
 
+    // Stale = SFH with orientation_ai but no listing_photos_used — ran with old batch.
+    // Re-running picks up listing photos from analysis/visual and can improve results.
+    const staleNoPhotos = rows.filter(r => {
+        const homeType = (r.homeType || '').toUpperCase();
+        const isMultiUnit = ['TOWNHOUSE', 'CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
+        if (isMultiUnit) return false;
+        if (!r.orientationAI) return false;
+        const lpu = (r.orientationAI as any).listing_photos_used;
+        return !Array.isArray(lpu) || lpu.length === 0;
+    });
+
+    const handleBackfillListingPhotos = async () => {
+        await queueCloudBatch(staleNoPhotos.map(r => r.zpid), 'stale (no listing photos) properties');
+    };
+
     const handleRedownloadSatellites = async () => {
         const targets = filteredRows.filter(r => r.coordinates);
         if (targets.length === 0) return;
@@ -1009,6 +1024,19 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 <i className="fa-solid fa-cloud text-xs" />
                                 Fix Mismatches {gtStats.mismatch > 0 && `(${gtStats.mismatch})`}
                             </button>
+
+                            {/* Re-run stale SFH with no listing photos */}
+                            {staleNoPhotos.length > 0 && (
+                                <button
+                                    onClick={handleBackfillListingPhotos}
+                                    disabled={batchRunning || redownloadRunning || loading}
+                                    className="flex items-center gap-2.5 px-5 py-2.5 bg-violet-50 border-2 border-violet-500 text-violet-700 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Re-run batch for SFH properties that were analyzed before listing photo support was added"
+                                >
+                                    <i className="fa-solid fa-images text-xs" />
+                                    Backfill Photos ({staleNoPhotos.length})
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
