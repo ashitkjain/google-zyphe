@@ -631,20 +631,16 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
 
     // 5. Build prompt and call Gemini 2.5 Flash
-    let usesListingPhotos = !usesDualImage && listingPhotoImgs.length > 0;
-    let prompt;
-    if (usesListingPhotos) {
-        prompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
-        console.log(`[Batch] ${zpid}: Using LISTING PHOTOS mode (${listingPhotoImgs.length} exterior photo(s) found).`);
-    } else {
-        prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
-    }
+    // Listing photos are NEVER used in the primary call — only as a fallback for UNCLEAR results.
+    // Pattern B (SV uninformative) and Pattern C (catch-all UNCLEAR) handle the retry.
+    let usesListingPhotos = false;
+    const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
     const parts = [
         { text: prompt },
         { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
         ...(usesDualImage
             ? [{ inlineData: { mimeType: svImg.mimeType, data: svImg.data } }]
-            : listingPhotoImgs.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } }))
+            : []
         ),
     ];
 
