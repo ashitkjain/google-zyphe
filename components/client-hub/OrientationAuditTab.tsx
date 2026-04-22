@@ -128,7 +128,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
     const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear' | 'unvetted'>('all');
-    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null } | null>(null);
+    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null; listingPhotosUsed?: Array<{ index: number; url: string; score: number; analysisSnippet: string }> | null } | null>(null);
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
@@ -1024,6 +1024,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
+                                    <th className="p-5 text-[10px] font-black text-violet-400 uppercase tracking-widest text-center min-w-[90px]">
+                                        <i className="fa-solid fa-images mr-1" />Listing Photos
+                                    </th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Case</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Latest AI</th>
                                     <th className="p-5 text-[10px] font-black text-violet-400 uppercase tracking-widest min-w-[110px]">GT Expected</th>
@@ -1156,6 +1159,44 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                         })()}
                                             </td>
 
+                                            {/* Listing photos used for orientation */}
+                                            <td className="p-5 text-center">
+                                                {(() => {
+                                                    const photos = (row.orientationAI as any)?.listing_photos_used;
+                                                    if (!Array.isArray(photos) || photos.length === 0) {
+                                                        return <span className="text-[10px] text-slate-200 font-bold">—</span>;
+                                                    }
+                                                    return (
+                                                        <div className="flex flex-col items-center gap-1.5">
+                                                            {photos.map((photo: { index: number; url: string; score: number; analysisSnippet: string }, pi: number) => (
+                                                                <div key={pi} className="relative group cursor-pointer" title={`Photo #${photo.index}: ${photo.analysisSnippet}`}>
+                                                                    <img
+                                                                        src={photo.url}
+                                                                        alt={`Listing photo ${photo.index}`}
+                                                                        className="w-16 h-12 object-cover rounded-lg border border-violet-200 shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all"
+                                                                        onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/64x48/7c3aed/fff?text=?'; }}
+                                                                    />
+                                                                    {/* Index badge */}
+                                                                    <span className="absolute -top-1 -left-1 bg-violet-600 text-white text-[7px] font-black px-1 rounded-full leading-tight">
+                                                                        #{photo.index}
+                                                                    </span>
+                                                                    {/* Score badge */}
+                                                                    <span className="absolute -bottom-1 -right-1 bg-violet-100 text-violet-700 text-[7px] font-black px-1 rounded-full leading-tight border border-violet-300">
+                                                                        ×{photo.score}
+                                                                    </span>
+                                                                    {/* Tooltip */}
+                                                                    <div className="absolute left-full top-0 ml-2 z-50 hidden group-hover:block w-48 bg-slate-900 text-white text-[9px] leading-relaxed rounded-lg p-2 shadow-2xl pointer-events-none">
+                                                                        <div className="font-black text-violet-300 mb-1">Photo #{photo.index} (score: {photo.score})</div>
+                                                                        {photo.analysisSnippet}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            <div className="text-[8px] text-violet-500 font-black uppercase tracking-widest">sent to AI</div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </td>
+
                                             {/* Orientation Case */}
                                             <td className="p-5">
                                                 {row.orientationAI?.property_layout_type ? (
@@ -1204,7 +1245,18 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                             )}
                                                         </div>
                                                         {row.orientationAI.aerial_only_mode && (
-                                                            <div className="text-[9px] text-amber-600 font-black">aerial only</div>
+                                                            (() => {
+                                                                const photos = (row.orientationAI as any).listing_photos_used;
+                                                                const hasPhotos = Array.isArray(photos) && photos.length > 0;
+                                                                return hasPhotos ? (
+                                                                    <div className="text-[9px] text-violet-600 font-black flex items-center gap-0.5">
+                                                                        <i className="fa-solid fa-images text-[7px]" />
+                                                                        listing photos
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="text-[9px] text-amber-600 font-black">aerial only</div>
+                                                                );
+                                                            })()
                                                         )}
                                                     </div>
                                                 ) : (
@@ -1327,7 +1379,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                                     return (
                                                         <button
-                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null })}
+                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null, listingPhotosUsed: (row.orientationAI as any)?.listing_photos_used ?? null })}
                                                             title="Click to view with satellite &amp; street view images"
                                                             className={`max-h-40 overflow-y-auto text-[10px] leading-relaxed text-left whitespace-pre-wrap block w-full hover:bg-slate-50 rounded-lg p-1 -m-1 transition-colors ${
                                                                 isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')
@@ -1483,6 +1535,36 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                         <span className="text-[9px] text-slate-300 font-bold">No street view</span>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Listing photos used for orientation */}
+                        {Array.isArray(explanationPopup.listingPhotosUsed) && explanationPopup.listingPhotosUsed.length > 0 && (
+                            <div className="border-b border-violet-100 bg-violet-50/60 px-5 py-3">
+                                <div className="flex items-center gap-2 mb-2.5">
+                                    <i className="fa-solid fa-images text-violet-500 text-[10px]" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">Listing Photos Sent to AI</span>
+                                    <span className="text-[9px] text-violet-400 font-semibold">({explanationPopup.listingPhotosUsed.length} photo{explanationPopup.listingPhotosUsed.length > 1 ? 's' : ''} used instead of street view)</span>
+                                </div>
+                                <div className="flex gap-3 flex-wrap">
+                                    {explanationPopup.listingPhotosUsed.map((photo, pi) => (
+                                        <div key={pi} className="flex-1 min-w-[180px] max-w-[240px]">
+                                            <div className="relative rounded-xl overflow-hidden border border-violet-200 shadow-sm">
+                                                <img
+                                                    src={photo.url}
+                                                    alt={`Listing photo #${photo.index}`}
+                                                    className="w-full h-32 object-cover"
+                                                    onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/240x128/7c3aed/fff?text=Photo+Unavailable'; }}
+                                                />
+                                                <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
+                                                    <span className="bg-violet-700 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">Image #{photo.index + 1}</span>
+                                                    <span className="bg-violet-100 text-violet-700 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-violet-300">score ×{photo.score}</span>
+                                                </div>
+                                            </div>
+                                            <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500 line-clamp-3">{photo.analysisSnippet}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 

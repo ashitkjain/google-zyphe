@@ -203,16 +203,21 @@ function _scorePhotoForFront(analysis = '') {
 
 /**
  * Given an image_by_image_analysis array (from property_analyses_visual),
- * returns the top N image URLs most likely to show the front exterior.
+ * returns the top N entries most likely to show the front exterior.
+ * Returns objects with { url, index, score, analysisSnippet } for full traceability.
  */
 function _findBestExteriorPhotos(imageByImageAnalysis, maxCount = 2) {
     if (!Array.isArray(imageByImageAnalysis) || imageByImageAnalysis.length === 0) return [];
     return imageByImageAnalysis
-        .map(item => ({ url: item.image_id || '', score: _scorePhotoForFront(item.analysis || ''), analysis: item.analysis || '' }))
+        .map((item, idx) => ({
+            url: item.image_id || '',
+            index: idx,
+            score: _scorePhotoForFront(item.analysis || ''),
+            analysisSnippet: (item.analysis || '').slice(0, 150),
+        }))
         .filter(item => item.url && item.score > 0)
         .sort((a, b) => b.score - a.score)
-        .slice(0, maxCount)
-        .map(item => item.url);
+        .slice(0, maxCount);
 }
 
 // ─── Image utilities ──────────────────────────────────────────────────────────
@@ -476,19 +481,31 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // 4a. Listing photos fallback: if no usable street view, try to find exterior listing photos
     // from image_by_image_analysis stored in property_analyses_visual.
     // Only used for single-family homes in aerial-only mode — multi-units remain aerial-only.
+    // Metadata about selected listing photos (indices, URLs, score, snippet) for traceability.
+    // Stored in orientation_ai.listing_photos_used so the UI can show thumbnails + cite evidence.
     let listingPhotoImgs = [];
+    let listingPhotosUsed = [];  // [{index, url, score, analysisSnippet}]
     if (!usesDualImage && !isMultiUnit) {
         try {
             const visualSnap = await db.collection('property_analyses_visual').doc(zpid).get();
             if (visualSnap.exists) {
                 const visualData = visualSnap.data();
-                const bestUrls = _findBestExteriorPhotos(visualData.image_by_image_analysis, 2);
-                if (bestUrls.length > 0) {
-                    console.log(`[Batch] ${zpid}: Found ${bestUrls.length} exterior listing photo candidate(s) from image_by_image_analysis.`);
-                    const results = await Promise.allSettled(bestUrls.map(url => _downloadImageBase64(url)));
+                const bestItems = _findBestExteriorPhotos(visualData.image_by_image_analysis, 2);
+                if (bestItems.length > 0) {
+                    console.log(`[Batch] ${zpid}: Found ${bestItems.length} exterior listing photo candidate(s) — indices: [${bestItems.map(i => i.index).join(', ')}]`);
+                    const results = await Promise.allSettled(bestItems.map(item => _downloadImageBase64(item.url)));
                     listingPhotoImgs = results
                         .filter(r => r.status === 'fulfilled')
                         .map(r => r.value);
+                    // Only record candidates that actually downloaded successfully
+                    listingPhotosUsed = bestItems
+                        .filter((_, i) => results[i]?.status === 'fulfilled')
+                        .map(item => ({
+                            index: item.index,
+                            url: item.url,
+                            score: item.score,
+                            analysisSnippet: item.analysisSnippet,
+                        }));
                     if (listingPhotoImgs.length < results.length) {
                         console.warn(`[Batch] ${zpid}: ${results.length - listingPhotoImgs.length} listing photo(s) failed to download.`);
                     }
@@ -791,6 +808,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         property_layout_type: data.property_layout_type ?? null,
         explanation: data.explanation ?? null,
         is_under_construction: data.is_under_construction ?? false,
+        // Listing photo provenance — which image_by_image_analysis entries were sent to Gemini.
+        // null when street view was used; [] when aerial-only with no exterior photos found.
+        listing_photos_used: usesListingPhotos ? listingPhotosUsed : null,
     };
 
     await db.collection('properties').doc(zpid).set(
