@@ -181,6 +181,40 @@ async function _getStreetBearing(address, mapsKey, propLat = null, propLng = nul
     } catch (e) { return null; }
 }
 
+// ─── Exterior photo scoring ───────────────────────────────────────────────────
+
+// Keywords that indicate a listing photo shows the building exterior / front door.
+// Scored by counting how many match — higher score = stronger front-door candidate.
+const EXTERIOR_KEYWORDS = [
+    'front door', 'entryway', 'entry door', 'entrance', 'front of', 'facade', 'curb appeal',
+    'exterior', 'driveway', 'garage', 'front yard', 'front porch', 'porch', 'curb',
+    'street view', 'front facing', 'front walk', 'landscaping', 'front elevation',
+    'exterior view', 'outside', 'outdoor', 'front of the home', 'front of the house',
+];
+
+/**
+ * Score a listing photo's text description for likelihood of showing the front exterior.
+ * Returns 0 if no exterior keywords found, higher numbers = stronger candidate.
+ */
+function _scorePhotoForFront(analysis = '') {
+    const lower = analysis.toLowerCase();
+    return EXTERIOR_KEYWORDS.filter(kw => lower.includes(kw)).length;
+}
+
+/**
+ * Given an image_by_image_analysis array (from property_analyses_visual),
+ * returns the top N image URLs most likely to show the front exterior.
+ */
+function _findBestExteriorPhotos(imageByImageAnalysis, maxCount = 2) {
+    if (!Array.isArray(imageByImageAnalysis) || imageByImageAnalysis.length === 0) return [];
+    return imageByImageAnalysis
+        .map(item => ({ url: item.image_id || '', score: _scorePhotoForFront(item.analysis || ''), analysis: item.analysis || '' }))
+        .filter(item => item.url && item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxCount)
+        .map(item => item.url);
+}
+
 // ─── Image utilities ──────────────────────────────────────────────────────────
 
 async function _downloadImageBase64(url) {
@@ -310,6 +344,32 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const isMultiUnit = ['TOWNHOUSE', 'CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
     const usesDualImage = svImg !== null && !isMultiUnit;
 
+    // 4a. Listing photos fallback: if no usable street view, try to find exterior listing photos
+    // from image_by_image_analysis stored in property_analyses_visual.
+    // Only used for single-family homes in aerial-only mode — multi-units remain aerial-only.
+    let listingPhotoImgs = [];
+    if (!usesDualImage && !isMultiUnit) {
+        try {
+            const visualSnap = await db.collection('property_analyses_visual').doc(zpid).get();
+            if (visualSnap.exists) {
+                const visualData = visualSnap.data();
+                const bestUrls = _findBestExteriorPhotos(visualData.image_by_image_analysis, 2);
+                if (bestUrls.length > 0) {
+                    console.log(`[Batch] ${zpid}: Found ${bestUrls.length} exterior listing photo candidate(s) from image_by_image_analysis.`);
+                    const results = await Promise.allSettled(bestUrls.map(url => _downloadImageBase64(url)));
+                    listingPhotoImgs = results
+                        .filter(r => r.status === 'fulfilled')
+                        .map(r => r.value);
+                    if (listingPhotoImgs.length < results.length) {
+                        console.warn(`[Batch] ${zpid}: ${results.length - listingPhotoImgs.length} listing photo(s) failed to download.`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn(`[Batch] ${zpid}: Listing photos lookup failed (non-blocking):`, e.message);
+        }
+    }
+
     // 4b. Resolve street-view camera heading BEFORE building the prompt.
     // Priority: (1) streetViewHeadingDeg Firestore field (set by backfillStreetViewHeadingDeg),
     //           (2) &heading= embedded in the SV URL (set by test infrastructure).
@@ -345,11 +405,21 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
 
     // 5. Build prompt and call Gemini 2.5 Flash
-    const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
+    const usesListingPhotos = !usesDualImage && listingPhotoImgs.length > 0;
+    let prompt;
+    if (usesListingPhotos) {
+        prompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length);
+        console.log(`[Batch] ${zpid}: Using LISTING PHOTOS mode (${listingPhotoImgs.length} exterior photo(s) found).`);
+    } else {
+        prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
+    }
     const parts = [
         { text: prompt },
         { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
-        ...(usesDualImage ? [{ inlineData: { mimeType: svImg.mimeType, data: svImg.data } }] : []),
+        ...(usesDualImage
+            ? [{ inlineData: { mimeType: svImg.mimeType, data: svImg.data } }]
+            : listingPhotoImgs.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } }))
+        ),
     ];
 
     const model = new GoogleGenerativeAI(geminiKey).getGenerativeModel({
@@ -464,7 +534,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // (a) non-standard layout (curved road, flag lot, etc.)
     // (b) corner lot — two frontages, cannot pick primary without street view
     // (c) cul-de-sac — faces outward toward the court; cannot confirm without street view
-    const aerialOnlyMode = !usesDualImage || data.street_view_shows_front === null;
+    // Listing photos mode gives us front-facade confirmation similar to street view.
+    // For layout/confidence policy gates, treat it like dual-image mode.
+    const aerialOnlyMode = !usesDualImage && !usesListingPhotos || data.street_view_shows_front === null;
     const layoutType = data.property_layout_type;
     const isCornerOrCulDeSac = layoutType === 'corner_lot' || layoutType === 'cul_de_sac';
 
