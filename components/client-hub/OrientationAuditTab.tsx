@@ -1027,7 +1027,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[110px]">Case</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Latest AI</th>
                                     <th className="p-5 text-[10px] font-black text-violet-400 uppercase tracking-widest min-w-[110px]">GT Expected</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Explanation</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[320px]">Explanation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Prev AI</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Calculated</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Audited</th>
@@ -1304,41 +1304,40 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 {(() => {
                                                     const explanation = row.orientationAI?.explanation;
                                                     const privacyInsight = row.orientationAI?.privacy_insight;
-                                                    
-                                                    // Detection logic for "From description"
-                                                    const isFromDescription = 
-                                                        explanation?.startsWith('Orientation extracted') || 
+
+                                                    const isFromDescription =
+                                                        explanation?.startsWith('Orientation extracted') ||
                                                         privacyInsight?.startsWith('Not assessed — orientation sourced');
-                                                        
-                                                    let displayText = "";
+
+                                                    let displayText = '';
                                                     let isLegacyGemini = false;
 
                                                     if (isFromDescription) {
-                                                        displayText = "Orientation extracted from description";
+                                                        displayText = 'Orientation extracted from description';
                                                     } else if (explanation) {
                                                         displayText = explanation;
                                                     } else if (row.orientationAI) {
-                                                        displayText = "AI reasoning not captured (Legacy)";
+                                                        displayText = 'AI reasoning not captured (Legacy)';
                                                         isLegacyGemini = true;
                                                     } else {
-                                                        displayText = "—";
+                                                        displayText = '—';
                                                     }
-                                                    
-                                                    if (displayText === "—") return <span className="text-[10px] text-slate-200 font-bold">—</span>;
 
-                                                    const words = displayText.split(' ');
-                                                    const preview = words.slice(0, 10).join(' ') + (words.length > 10 ? '…' : '');
+                                                    if (displayText === '—') return <span className="text-[10px] text-slate-200 font-bold">—</span>;
+
                                                     const fullText = explanation || privacyInsight || (isLegacyGemini ? 'This record was created before the explanation field was persisted.' : displayText);
 
                                                     return (
                                                         <button
                                                             onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null })}
-                                                            className={`text-[10px] leading-snug text-left hover:underline underline-offset-2 ${
+                                                            title="Click to view with satellite &amp; street view images"
+                                                            className={`max-h-40 overflow-y-auto text-[10px] leading-relaxed text-left whitespace-pre-wrap block w-full hover:bg-slate-50 rounded-lg p-1 -m-1 transition-colors ${
                                                                 isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')
                                                             }`}
                                                         >
                                                             {isFromDescription && <i className="fa-solid fa-align-left text-[8px] mr-1" />}
-                                                            {preview}
+                                                            {displayText}
+                                                            <span className="block mt-1 text-[9px] text-indigo-400 font-black uppercase tracking-widest">↗ View with images</span>
                                                         </button>
                                                     );
                                                 })()}
