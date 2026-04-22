@@ -1030,8 +1030,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[320px]">Explanation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Prev AI</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Calculated</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Audited</th>
-                                    {isAdmin && <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -1384,47 +1382,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 </div>
                                             </td>
 
-                                            {/* Last Assessed */}
-                                            <td className="p-5">
-                                                {(() => {
-                                                    const { relative, full } = getRelativeTime(row.assessedAt);
-                                                    return relative === '—' ? (
-                                                        <span className="text-[10px] text-slate-200 font-bold">—</span>
-                                                    ) : (
-                                                        <span title={full} className="text-[10px] font-semibold text-slate-500 cursor-default whitespace-nowrap">
-                                                            {relative}
-                                                        </span>
-                                                    );
-                                                })()}
-                                            </td>
 
-                                            {/* Action — admin only */}
-                                            {isAdmin && (
-                                                <td className="p-5 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        {/* Force-refresh: delete images → re-download → re-analyze */}
-                                                        <button
-                                                            onClick={() => forceRefreshForRow(row.zpid)}
-                                                            disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
-                                                            title={!row.coordinates ? 'No coordinates available' : 'Force-refresh: delete cached images, re-download, and re-run orientation analysis'}
-                                                            className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                                        >
-                                                            {row.status === 'refreshing'
-                                                                ? <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                                                : <i className="fa-solid fa-arrows-rotate text-xs" />}
-                                                        </button>
-                                                        {/* Run analysis only (uses existing cached images) */}
-                                                        <button
-                                                            onClick={() => queueCloudBatch([row.zpid], 'single property')}
-                                                            disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
-                                                            title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis via Cloud'}
-                                                            className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                                        >
-                                                            <i className="fa-solid fa-cloud text-xs" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            )}
                                         </tr>
                                     );
                                 })}
