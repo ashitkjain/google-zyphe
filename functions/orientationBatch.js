@@ -224,6 +224,108 @@ async function _downloadImageBase64(url) {
     return { data: Buffer.from(buf).toString('base64'), mimeType: res.headers.get('content-type') || 'image/jpeg' };
 }
 
+/**
+ * Checks whether a Firebase Storage URL is still alive (i.e. token hasn't expired).
+ * Uses a cheap HEAD request — no image bytes transferred.
+ * Returns false for 401/403/404, true for 200.
+ */
+async function _isUrlAlive(url) {
+    if (!url) return false;
+    try {
+        const res = await fetch(url, { method: 'HEAD' });
+        return res.ok;
+    } catch { return false; }
+}
+
+/**
+ * Re-fetches the aerial satellite image from Google Maps Static API,
+ * uploads it to Firebase Storage, and persists the fresh URL to Firestore.
+ * Mirrors client-side getOrCacheAerialSatelliteUrl (Admin SDK equivalent).
+ */
+async function _refreshAerialUrl(zpid, lat, lng, mapsKey, db, bucket) {
+    const googleUrl =
+        `https://maps.googleapis.com/maps/api/staticmap` +
+        `?center=${lat},${lng}` +
+        `&zoom=20&size=640x640&scale=2&maptype=satellite` +
+        `&markers=color:red%7Csize:tiny%7C${lat},${lng}` +
+        `&markers=color:blue%7Csize:tiny%7Clabel:N%7C${Math.round((lat + 0.00027) * 1e7) / 1e7},${lng}` +
+        `&key=${mapsKey}`;
+
+    const storagePath = `properties/${zpid}/maps/aerial_satellite_scale2.jpg`;
+    const file = bucket.file(storagePath);
+
+    console.log(`[Batch] Re-fetching aerial for ${zpid}...`);
+    const res = await fetch(googleUrl);
+    if (!res.ok) throw new Error(`Google Maps Static API ${res.status} for ${zpid}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+
+    await file.save(buf, { metadata: { contentType: 'image/jpeg' }, resumable: false });
+    await file.makePublic();
+    const [metadata] = await file.getMetadata();
+    const freshUrl = metadata.mediaLink ||
+        `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+
+    // Persist to Firestore
+    await db.collection('properties').doc(zpid).update({ satelliteImageUrl: freshUrl });
+    console.log(`[Batch] Aerial re-cached for ${zpid}: ${freshUrl.slice(0, 80)}...`);
+    return freshUrl;
+}
+
+/**
+ * Re-fetches the street view image using the Metadata API for heading,
+ * uploads to Firebase Storage, and persists the fresh URL + heading to Firestore.
+ * Mirrors client-side forceRefreshStreetViewUrl (Admin SDK equivalent).
+ * Returns '' if Street View is unavailable at this location.
+ */
+async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, address = null) {
+    const storagePath = `properties/${zpid}/maps/street_view.jpg`;
+
+    // Step 1: Metadata call to verify SV availability and get heading
+    const metaUrl =
+        `https://maps.googleapis.com/maps/api/streetview/metadata` +
+        `?location=${lat},${lng}&radius=100&source=outdoor&key=${mapsKey}`;
+    const meta = await fetch(metaUrl).then(r => r.json()).catch(() => null);
+    if (!meta || meta.status !== 'OK') {
+        console.log(`[Batch] No Street View coverage for ${zpid} (status=${meta?.status || 'error'}). Skipping SV refresh.`);
+        return '';
+    }
+
+    // Compute heading from pano coords → property
+    const panoLat = meta.location?.lat ?? lat;
+    const panoLng = meta.location?.lng ?? lng;
+    const heading = Math.round(_computeBearing(panoLat, panoLng, lat, lng));
+
+    // Step 2: Fetch street view image
+    const svApiUrl =
+        `https://maps.googleapis.com/maps/api/streetview` +
+        `?size=640x640&location=${lat},${lng}` +
+        `&fov=90&radius=100&source=outdoor&return_error_code=true` +
+        `&heading=${heading}&key=${mapsKey}`;
+
+    console.log(`[Batch] Re-fetching street view for ${zpid} (heading=${heading}°)...`);
+    const res = await fetch(svApiUrl);
+    if (!res.ok) {
+        console.warn(`[Batch] Street View image API ${res.status} for ${zpid}.`);
+        return '';
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    const file = bucket.file(storagePath);
+    await file.save(buf, { metadata: { contentType: 'image/jpeg' }, resumable: false });
+    await file.makePublic();
+    const [fileMetadata] = await file.getMetadata();
+    const freshUrl = fileMetadata.mediaLink ||
+        `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+
+    // Persist fresh URL + heading to Firestore
+    await db.collection('properties').doc(zpid).update({
+        streetView: freshUrl,
+        streetViewHeadingDeg: heading,
+    });
+    console.log(`[Batch] Street view re-cached for ${zpid} (heading=${heading}°): ${freshUrl.slice(0, 80)}...`);
+    return freshUrl;
+}
+
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 
 function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide, svHeading) {
@@ -308,8 +410,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     const address = prop.address || '';
     const homeType = (prop.homeType || '').toUpperCase();
-    const aerialUrl = prop.satelliteImageUrl || null;
-    const svUrl = prop.streetView || prop.streetViewAnalysis?.imageUrl || null;
+    let aerialUrl = prop.satelliteImageUrl || null;
+    let svUrl = prop.streetView || prop.streetViewAnalysis?.imageUrl || null;
 
     if (!aerialUrl) throw new Error(`No cached aerial image for ${zpid}`);
 
@@ -331,8 +433,35 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         streetSide = br?.streetSide ?? null;
     } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
 
+    // 2b. Resolve storage bucket for image re-caching
+    const bucket = admin.storage().bucket();
 
-    // 3. Download images to base64 (Firebase Storage URLs with tokens are publicly accessible)
+    // 3. Health-check cached image URLs. If expired (404/403), re-fetch from Google APIs.
+    // This avoids silent aerial-only fallback caused purely by expired Firebase Storage tokens.
+    const [aerialAlive, svAlive] = await Promise.all([
+        _isUrlAlive(aerialUrl),
+        _isUrlAlive(svUrl),
+    ]);
+
+    if (!aerialAlive && propLat != null) {
+        console.warn(`[Batch] ${zpid}: Aerial URL expired/dead — re-fetching from Google Maps Static API.`);
+        try { aerialUrl = await _refreshAerialUrl(zpid, propLat, propLng, mapsKey, db, bucket); }
+        catch (e) { console.warn(`[Batch] ${zpid}: Aerial re-fetch failed:`, e.message); }
+    } else if (!aerialAlive) {
+        console.warn(`[Batch] ${zpid}: Aerial URL dead but no coordinates available — cannot refresh.`);
+    }
+
+    if (svUrl && !svAlive && propLat != null) {
+        console.warn(`[Batch] ${zpid}: Street view URL expired/dead — re-fetching from Street View API.`);
+        try {
+            const freshSv = await _refreshStreetViewUrl(zpid, propLat, propLng, mapsKey, db, bucket, address);
+            svUrl = freshSv || null;
+        } catch (e) { console.warn(`[Batch] ${zpid}: Street view re-fetch failed:`, e.message); svUrl = null; }
+    } else if (!svAlive) {
+        svUrl = null;
+    }
+
+    // 3b. Download (now using fresh/valid URLs)
     const aerialImg = await _downloadImageBase64(aerialUrl);
     let svImg = null;
     if (svUrl) {
