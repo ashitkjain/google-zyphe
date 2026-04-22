@@ -133,6 +133,15 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
     const [selectedZpids, setSelectedZpids] = useState<Set<string>>(new Set());
+    const [activeBatchJob, setActiveBatchJob] = useState<{
+        id: string;
+        total: number;
+        done: number;
+        failed: number;
+        status: string;
+        label: string;
+    } | null>(null);
+    const activeBatchUnsubRef = React.useRef<(() => void) | null>(null);
 
     const toggleSelect = (zpid: string) => {
         const next = new Set(selectedZpids);
@@ -589,7 +598,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
         try {
             setBatchRunning(true);
-            await addDoc(collection(db, 'orientation_batch_jobs'), {
+            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
                 zpids,
                 status: 'queued',
                 total: zpids.length,
@@ -598,7 +607,35 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 userId: auth.currentUser?.uid || 'anonymous',
                 createdAt: serverTimestamp()
             });
-            alert(`Cloud batch job queued for ${zpids.length} properties!`);
+
+            // Unsubscribe any previous listener
+            activeBatchUnsubRef.current?.();
+
+            // Live listener on the job document
+            const unsub = onSnapshot(doc(db, 'orientation_batch_jobs', jobRef.id), (snap) => {
+                if (!snap.exists()) return;
+                const d = snap.data();
+                setActiveBatchJob({
+                    id: jobRef.id,
+                    total: d.total ?? zpids.length,
+                    done: d.done ?? 0,
+                    failed: d.failed ?? 0,
+                    status: d.status ?? 'queued',
+                    label,
+                });
+
+                if (d.status === 'completed') {
+                    // Auto-refresh the table to pick up new orientation_ai values
+                    setTimeout(() => fetchData(), 1500);
+                    // Unsubscribe after a short delay so the completion state is visible
+                    setTimeout(() => {
+                        unsub();
+                        activeBatchUnsubRef.current = null;
+                    }, 8000);
+                }
+            });
+
+            activeBatchUnsubRef.current = unsub;
             setSelectedZpids(new Set());
         } catch (e: any) {
             console.error('Cloud batch error:', e);
@@ -686,6 +723,89 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     return (
         <>
         <div className="space-y-6">
+
+            {/* ── Live Batch Progress Banner ─────────────────────────────────── */}
+            {activeBatchJob && (() => {
+                const { total, done, failed, status, label } = activeBatchJob;
+                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                const isCompleted = status === 'completed';
+                const isRunning = status === 'running' || status === 'queued';
+                return (
+                    <div className={`rounded-2xl border shadow-lg overflow-hidden transition-all ${
+                        isCompleted
+                            ? 'border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50'
+                            : 'border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50'
+                    }`}>
+                        {/* Top bar */}
+                        <div className="px-5 py-3 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                                {isCompleted ? (
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 shadow-sm">
+                                        <i className="fa-solid fa-circle-check text-white text-sm" />
+                                    </div>
+                                ) : (
+                                    <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                                        <i className="fa-solid fa-microchip fa-spin text-white text-sm" />
+                                    </div>
+                                )}
+                                <div className="min-w-0">
+                                    <div className={`text-[11px] font-black uppercase tracking-widest ${isCompleted ? 'text-emerald-700' : 'text-indigo-700'}`}>
+                                        {isCompleted ? '✓ Batch complete' : isRunning && done > 0 ? 'Running orientation batch…' : 'Queued — waiting for server…'}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 font-medium truncate">{label}</div>
+                                </div>
+                            </div>
+
+                            {/* Counters */}
+                            <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-center">
+                                    <div className={`text-lg font-black leading-none ${isCompleted ? 'text-emerald-700' : 'text-indigo-700'}`}>{done}</div>
+                                    <div className="text-[8px] font-black uppercase tracking-widest text-slate-400">done</div>
+                                </div>
+                                {failed > 0 && (
+                                    <div className="text-center">
+                                        <div className="text-lg font-black leading-none text-rose-500">{failed}</div>
+                                        <div className="text-[8px] font-black uppercase tracking-widest text-slate-400">failed</div>
+                                    </div>
+                                )}
+                                <div className="text-center">
+                                    <div className="text-lg font-black leading-none text-slate-400">{total}</div>
+                                    <div className="text-[8px] font-black uppercase tracking-widest text-slate-400">total</div>
+                                </div>
+                                <div className={`text-2xl font-black leading-none ${isCompleted ? 'text-emerald-600' : 'text-indigo-600'}`}>{pct}%</div>
+                                <button
+                                    onClick={() => {
+                                        activeBatchUnsubRef.current?.();
+                                        activeBatchUnsubRef.current = null;
+                                        setActiveBatchJob(null);
+                                    }}
+                                    className="w-6 h-6 rounded-full bg-white/60 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors"
+                                    title="Dismiss"
+                                >
+                                    <i className="fa-solid fa-xmark text-slate-400 text-[9px]" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="h-1.5 bg-white/50">
+                            <div
+                                className={`h-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-indigo-500 to-violet-500'}`}
+                                style={{ width: `${pct}%` }}
+                            />
+                        </div>
+
+                        {/* Completion message */}
+                        {isCompleted && (
+                            <div className="px-5 py-2 text-[10px] text-emerald-700 font-semibold flex items-center gap-2">
+                                <i className="fa-solid fa-rotate text-[9px]" />
+                                Table refreshed automatically — {done} propert{done !== 1 ? 'ies' : 'y'} updated{failed > 0 ? `, ${failed} failed` : ''}.
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-xl font-black text-slate-900">Orientation Audit</h2>
