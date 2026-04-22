@@ -901,6 +901,36 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         }
     }
 
+    // Pattern C: catch-all UNCLEAR → listing photo retry.
+    // If, after all gates, the result is still UNCLEAR AND listing photos are available
+    // AND we haven't already used them (usesListingPhotos=false) AND this is not a multi-unit
+    // property (townhouse/condo policy gates always win), retry Gemini with aerial + photos.
+    // This covers: cul-de-sac (no azimuth), non-standard layout, low-confidence aerial, etc.
+    if (finalOrientation === 'UNCLEAR' && !isMultiUnit && !usesListingPhotos && listingPhotoImgs.length > 0) {
+        console.log(`[Batch] ${zpid}: Pattern C — result UNCLEAR, retrying with ${listingPhotoImgs.length} listing photo(s).`);
+        try {
+            const retryPrompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
+            const retryParts = [
+                { text: retryPrompt },
+                { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
+                ...listingPhotoImgs.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+            ];
+            const retryResult = await model.generateContent({ contents: [{ role: 'user', parts: retryParts }] });
+            const retryData = JSON.parse(retryResult.response.text());
+            if (retryData.final_orientation && retryData.final_orientation !== 'UNCLEAR') {
+                console.log(`[Batch] ${zpid}: Pattern C listing photo retry → ${retryData.final_orientation}. Replacing UNCLEAR.`);
+                data = retryData;
+                finalAzimuth = retryData.azimuth_degrees ?? null;
+                finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : retryData.final_orientation;
+                usesListingPhotos = true;
+            } else {
+                console.log(`[Batch] ${zpid}: Pattern C listing photo retry → still UNCLEAR.`);
+            }
+        } catch (e) {
+            console.warn(`[Batch] ${zpid}: Pattern C listing photo retry failed:`, e.message);
+        }
+    }
+
     // Confidence cap: aerial-only analysis cannot be HIGH confidence.
     // When headingAzimuth===null (no GPS-confirmed heading was used), the result comes
     // entirely from Gemini's aerial image interpretation. Driveway/walkway tracing from
