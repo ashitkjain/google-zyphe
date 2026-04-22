@@ -185,11 +185,19 @@ async function _getStreetBearing(address, mapsKey, propLat = null, propLng = nul
 
 // Keywords that indicate a listing photo shows the building exterior / front door.
 // Scored by counting how many match — higher score = stronger front-door candidate.
+// Aerial/drone photos are valuable — they show the full footprint including which side is the front.
 const EXTERIOR_KEYWORDS = [
+    // Front door / entry — strongest signal
     'front door', 'entryway', 'entry door', 'entrance', 'front of', 'facade', 'curb appeal',
-    'exterior', 'driveway', 'garage', 'front yard', 'front porch', 'porch', 'curb',
-    'street view', 'front facing', 'front walk', 'landscaping', 'front elevation',
-    'exterior view', 'outside', 'outdoor', 'front of the home', 'front of the house',
+    'front of the home', 'front of the house', 'front elevation', 'front facing', 'front walk',
+    'front porch', 'front yard',
+    // General exterior
+    'exterior', 'driveway', 'garage', 'porch', 'curb',
+    'exterior view', 'outside', 'outdoor', 'front walk', 'landscaping',
+    // Aerial / overhead — these show the full building layout, useful for front identification
+    'aerial view', 'aerial photo', 'aerial image', 'bird\'s eye', 'bird\'s-eye', 'drone',
+    'overhead view', 'overhead photo', 'top-down', 'top down', 'from above',
+    'surrounding neighborhood', 'property location',
 ];
 
 /**
@@ -205,8 +213,9 @@ function _scorePhotoForFront(analysis = '') {
  * Given an image_by_image_analysis array (from property_analyses_visual),
  * returns the top N entries most likely to show the front exterior.
  * Returns objects with { url, index, score, analysisSnippet } for full traceability.
+ * maxCount=3: allows 1 aerial listing photo + up to 2 ground-level exterior photos.
  */
-function _findBestExteriorPhotos(imageByImageAnalysis, maxCount = 2) {
+function _findBestExteriorPhotos(imageByImageAnalysis, maxCount = 3) {
     if (!Array.isArray(imageByImageAnalysis) || imageByImageAnalysis.length === 0) return [];
     return imageByImageAnalysis
         .map((item, idx) => ({
@@ -405,7 +414,74 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
     ].join('\n').trim();
 }
 
+/**
+ * Prompt for the listing-photos fallback mode.
+ * Called when no usable street view is available but we found exterior/aerial listing photos.
+ * Image order sent to Gemini:
+ *   Image A = aerial satellite (cached, North-up)
+ *   Image B..D = listing gallery photos (exterior / aerial, from image_by_image_analysis)
+ *
+ * @param photoMeta - metadata for selected photos [{index, url, score, analysisSnippet}]
+ */
+function _buildListingPhotoPrompt(address, description, streetBearing, streetSide, photoCount, photoMeta = []) {
+    const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
+    const sideLabel = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
+    const sideFact = (streetBearing == null && sideLabel)
+        ? ` GPS confirms "${streetName || address}" is to the ${sideLabel} \u2014 the front likely faces ${sideLabel}.` : '';
+    const addressClue = address
+        ? `\nPROPERTY ADDRESS: "${address}"\nFront entrance MUST face "${streetName || address}".${sideFact}\n\u2022 DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier.` : '';
+    const descHint = (() => {
+        if (!description) return '';
+        const text = Array.isArray(description) ? description.join(' ') : description;
+        return `\n\n\uD83C\uDFF7\uFE0F LISTING DESCRIPTION (seller-provided \u2014 highest-priority signal):\n"${text}"\nIf it states a cardinal facing direction, treat as ground truth.`;
+    })();
+    const bearingHint = streetBearing != null ? (() => {
+        const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
+        const p3 = (streetBearing + 180) % 360;
+        return `\nGPS STREET BEARING ADVISORY: Street runs at ~${Math.round(streetBearing)}\u00b0.\nIf the lot IS standard: front most likely faces ${_dir8(p1)} (~${Math.round(p1)}\u00b0) or ${_dir8(p2)} (~${Math.round(p2)}\u00b0).\n\u26D4 FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}\u00b0 and ~${Math.round(p3)}\u00b0 are road-parallel.`;
+    })() : '';
+
+    // Build per-photo labels so Gemini knows what each image is (aerial vs ground-level)
+    const photoLabels = photoMeta.map((p, i) => {
+        const isAerial = /aerial|drone|bird|overhead|top.?down|from above/i.test(p.analysisSnippet || '');
+        const imgLetter = String.fromCharCode(66 + i); // B, C, D...
+        const typeLabel = isAerial
+            ? 'AERIAL/DRONE listing photo \u2014 shows building footprint from above (different angle than Image A)'
+            : 'exterior/ground-level listing photo';
+        return `  Image ${imgLetter} = Listing photo #${p.index + 1} (${typeLabel}): "${(p.analysisSnippet || '').trim()}"`;
+    }).join('\n');
+
+    return [
+        `You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up) and ${photoCount} listing photo(s) from the property gallery.`,
+        `\nIMAGE GUIDE:\n  Image A = cached satellite aerial \u2014 North is UP. Use as authoritative layout reference.`,
+        photoLabels ? photoLabels : '',
+        `\n\u26A0\uFE0F LISTING PHOTOS KEY RULES:`,
+        `  \u2022 AERIAL/DRONE listing photos: compare with Image A to confirm which face of the building has the main entry/driveway toward the address street. They may show the property at a different zoom/angle than the cached satellite.`,
+        `  \u2022 GROUND-LEVEL exterior photos: look for front door, porch, entryway, or driveway apron. Set street_view_shows_front=true if the main entry is clearly visible; false if only garage/side/back; null if inconclusive.`,
+        `  \u2022 Do NOT set street_view_shows_front=true unless you can clearly see the front door or main pedestrian entry.`,
+        addressClue, descHint, bearingHint,
+        `\nGUIDING PRINCIPLES:`,
+        `1. Image A IS THE ANCHOR: North is strictly at the top. Identify the building footprint, street, and driveway.`,
+        `2. WALKWAY RULE: Trace the pedestrian walkway from the public sidewalk to the main door. That wall is the architectural FRONT.`,
+        `3. LISTING PHOTOS supplement the aerial by confirming which face of the building matches the front entry.`,
+        `\nLAYOUT CLASSIFICATION (do FIRST):`,
+        `CORNER LOT: Two named public roads meeting at an intersection adjacent to the lot \u2192 corner_lot.`,
+        `CUL-DE-SAC: Circular dead-end street; driveway connects to the circle \u2192 cul_de_sac.`,
+        `Set standard_street_layout=FALSE for: corner lot, flag lot, curved/loop street, cul-de-sac.`,
+        `\nCONFIDENCE GATE (MANDATORY): If you cannot clearly identify driveway apron OR pedestrian walkway from aerial + listing photos combined:`,
+        `\u2192 confidence='low', final_orientation='UNCLEAR', azimuth_degrees=null.`,
+        `\nTASK:`,
+        `Step 1 \u2014 Layout: classify lot type.`,
+        `Step 2 \u2014 Aerial analysis: identify building footprint, driveway, and candidate front wall from Image A.`,
+        `Step 3 \u2014 Listing photo confirmation: does any listing photo confirm or contradict the aerial conclusion? Set street_view_shows_front accordingly.`,
+        `Step 4 \u2014 Front wall compass direction (0\u00b0=N, 90\u00b0=E, 180\u00b0=S, 270\u00b0=W). PERPENDICULAR RULE: azimuth must be ~perpendicular (\u00b145\u00b0) to the road bearing. If parallel \u2192 correct or set UNCLEAR.`,
+        `Step 5 \u2014 Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.`,
+        `\nEXPLANATION FORMAT \u2014 use this EXACT structure:\n(1) LAYOUT: type and one visual reason.\n(2) STREET CONTEXT: address street, which edge, approximate bearing.\n(3) AERIAL EVIDENCE: driveway/walkway on Image A, which road edge it connects to, raw aerial azimuth.\n(4) LISTING PHOTO EVIDENCE: what each listing photo shows, whether aerial vs ground-level, and how street_view_shows_front was set.\n(5) FINAL: final orientation and confidence.`,
+    ].join('\n').trim();
+}
+
 // ─── Core: analyze a single property ─────────────────────────────────────────
+
 
 async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // 1. Read property from Firestore (Admin SDK)
@@ -554,7 +630,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const usesListingPhotos = !usesDualImage && listingPhotoImgs.length > 0;
     let prompt;
     if (usesListingPhotos) {
-        prompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length);
+        prompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
         console.log(`[Batch] ${zpid}: Using LISTING PHOTOS mode (${listingPhotoImgs.length} exterior photo(s) found).`);
     } else {
         prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
