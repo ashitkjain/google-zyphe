@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, orderBy, getDocs, collectionGroup, doc, getDoc, setDoc, serverTimestamp, addDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, collectionGroup, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
 import { runSatellitaryAnalysis, runOrientationViaBatch, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, getOrCacheAerialSatelliteUrl, deleteOrientationVersionsForProperty, forceRefreshStreetViewUrl, backfillStreetViewHeadingDeg, extractOrientationFromDescription } from '../../services/satellitaryService';
 import { isTargetForOrientationAnalysis } from '../../utils/propertyPolicies';
@@ -597,47 +597,78 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         const confirmMsg = `Queue CLOUD analysis (Server-side) for ${zpids.length} ${label}? \n\n(This will process in the background via Gemini 2.5 Flash)`;
         if (!confirm(confirmMsg)) return;
 
+        // Split into sub-batches of 150 to stay within the 9-minute Cloud Function timeout
+        // (~150 properties × ~3s each = ~7.5min, safely under the 540s limit)
+        const SUB_BATCH_SIZE = 150;
+
         try {
             setBatchRunning(true);
-            const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
-                zpids,
-                status: 'queued',
-                total: zpids.length,
-                done: 0,
-                failed: 0,
-                userId: auth.currentUser?.uid || 'anonymous',
-                createdAt: serverTimestamp()
-            });
 
-            // Unsubscribe any previous listener
-            activeBatchUnsubRef.current?.();
+            const chunks: string[][] = [];
+            for (let i = 0; i < zpids.length; i += SUB_BATCH_SIZE) {
+                chunks.push(zpids.slice(i, i + SUB_BATCH_SIZE));
+            }
 
-            // Live listener on the job document
-            const unsub = onSnapshot(doc(db, 'orientation_batch_jobs', jobRef.id), (snap) => {
-                if (!snap.exists()) return;
-                const d = snap.data();
-                setActiveBatchJob({
-                    id: jobRef.id,
-                    total: d.total ?? zpids.length,
-                    done: d.done ?? 0,
-                    failed: d.failed ?? 0,
-                    status: d.status ?? 'queued',
-                    label,
+            for (let ci = 0; ci < chunks.length; ci++) {
+                const chunk = chunks[ci];
+                const chunkLabel = chunks.length > 1 ? `${label} (part ${ci + 1}/${chunks.length})` : label;
+
+                const jobRef = await addDoc(collection(db, 'orientation_batch_jobs'), {
+                    zpids: chunk,
+                    status: 'queued',
+                    total: chunk.length,
+                    done: 0,
+                    failed: 0,
+                    userId: auth.currentUser?.uid || 'anonymous',
+                    createdAt: serverTimestamp()
                 });
 
-                if (d.status === 'completed') {
-                    // Auto-refresh the table to pick up new orientation_ai values
-                    setTimeout(() => fetchData(), 1500);
-                    // Unsubscribe after a short delay so the completion state is visible
-                    setTimeout(() => {
-                        unsub();
-                        activeBatchUnsubRef.current = null;
-                    }, 8000);
-                }
-            });
+                // Unsubscribe any previous listener
+                activeBatchUnsubRef.current?.();
 
-            activeBatchUnsubRef.current = unsub;
-            setSelectedZpids(new Set());
+                // Live listener on the job document
+                await new Promise<void>((resolve) => {
+                    // Auto-timeout: if the job is still running after 11 minutes, mark it stuck
+                    const timeoutId = setTimeout(async () => {
+                        try {
+                            await updateDoc(doc(db, 'orientation_batch_jobs', jobRef.id), {
+                                status: 'completed',
+                                note: 'UI timeout — function likely hit server limit. Re-run to catch missed items.',
+                            });
+                        } catch { /* ignore */ }
+                        resolve();
+                    }, 11 * 60 * 1000);
+
+                    const unsub = onSnapshot(doc(db, 'orientation_batch_jobs', jobRef.id), (snap) => {
+                        if (!snap.exists()) return;
+                        const d = snap.data();
+                        setActiveBatchJob({
+                            id: jobRef.id,
+                            total: d.total ?? chunk.length,
+                            done: d.done ?? 0,
+                            failed: d.failed ?? 0,
+                            status: d.status ?? 'queued',
+                            label: chunkLabel,
+                        });
+
+                        if (d.status === 'completed') {
+                            clearTimeout(timeoutId);
+                            // Auto-refresh the table to pick up new orientation_ai values
+                            setTimeout(() => fetchData(), 1500);
+                            // Unsubscribe after a short delay so the completion state is visible
+                            setTimeout(() => {
+                                unsub();
+                                activeBatchUnsubRef.current = null;
+                                resolve();
+                            }, chunks.length > 1 ? 2000 : 8000);  // shorter pause between sub-batches
+                        }
+                    });
+
+                    activeBatchUnsubRef.current = unsub;
+                });
+
+                setSelectedZpids(new Set());
+            }
         } catch (e: any) {
             console.error('Cloud batch error:', e);
             alert('Failed to queue batch: ' + e.message);
