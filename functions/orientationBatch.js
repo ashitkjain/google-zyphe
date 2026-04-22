@@ -779,7 +779,13 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     //   or the property is aerial-only with genuinely no usable direction.
     const isCornerLot = layoutType === 'corner_lot';
     const isCulDeSac = layoutType === 'cul_de_sac';
-    const cornerlotUnclear = isCornerLot;
+
+    // Corner lot exception: if listing photos VISUALLY confirmed the front door (shows_front=true)
+    // with high confidence, the "two frontages ambiguous" argument is resolved by photographic evidence.
+    // We still force UNCLEAR for aerial-only corner lots (no photo proof).
+    const listingPhotoConfirmedFront = usesListingPhotos && data.street_view_shows_front === true && data.confidence === 'high';
+    const cornerlotUnclear = isCornerLot && !listingPhotoConfirmedFront;
+
     // No culdesacSVFailed gate — cul-de-sac rule: front faces the circle, aerial tells us which way.
     const complexLayoutSVFailed = cornerlotUnclear ||
         // legacy: non-cul-de-sac complex layouts when SV is uninformative
@@ -792,12 +798,18 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
             console.log(`[Batch] ${zpid}: cul-de-sac aerial azimuth ${finalAzimuth}° — trusting architectural rule (front faces cul-de-sac circle).`);
             // Do not override — let finalAzimuth / finalOrientation stand.
         } else {
-            const reason = isCornerLot ? 'corner_lot (always UNCLEAR — two frontages ambiguous)'
-                : data.standard_street_layout === false ? 'non-standard layout'
-                    : 'cul_de_sac (no azimuth from aerial)';
-            console.log(`[Batch] Override ${zpid}: ${reason} → UNCLEAR`);
-            finalOrientation = 'UNCLEAR';
-            finalAzimuth = null;
+            const reason = (isCornerLot && !cornerlotUnclear)
+                ? null  // listing photo exception — skip this block entirely
+                : isCornerLot ? 'corner_lot (aerial-only, two frontages ambiguous)'
+                    : data.standard_street_layout === false ? 'non-standard layout'
+                        : 'cul_de_sac (no azimuth from aerial)';
+            if (reason) {
+                console.log(`[Batch] Override ${zpid}: ${reason} → UNCLEAR`);
+                finalOrientation = 'UNCLEAR';
+                finalAzimuth = null;
+            } else {
+                console.log(`[Batch] ${zpid}: corner_lot BUT listing photo confirmed front (shows_front=true, high confidence) — trusting orientation.`);
+            }
         }
     }
 
