@@ -555,7 +555,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const usesDualImage = svImg !== null && !isMultiUnit;
 
     // 4a. Listing photos fallback: if no usable street view, try to find exterior listing photos
-    // from image_by_image_analysis stored in property_analyses_visual.
+    // from image_by_image_analysis stored at properties/{zpid}/analysis/visual (subcollection).
     // Only used for single-family homes in aerial-only mode — multi-units remain aerial-only.
     // Metadata about selected listing photos (indices, URLs, score, snippet) for traceability.
     // Stored in orientation_ai.listing_photos_used so the UI can show thumbnails + cite evidence.
@@ -563,7 +563,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     let listingPhotosUsed = [];  // [{index, url, score, analysisSnippet}]
     if (!usesDualImage && !isMultiUnit) {
         try {
-            const visualSnap = await db.collection('property_analyses_visual').doc(zpid).get();
+            const visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
             if (visualSnap.exists) {
                 const visualData = visualSnap.data();
                 const bestItems = _findBestExteriorPhotos(visualData.image_by_image_analysis, 2);
