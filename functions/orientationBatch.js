@@ -800,28 +800,35 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
     // Post-processing gate 2: Townhouse → UNCLEAR
     // Policy:
-    //   aerial-only + shared-wall → ALWAYS UNCLEAR (aerial alone is too unreliable
-    //   to distinguish a unit's front from shared party walls or walkways).
-    //   dual-image + shared-wall → UNCLEAR if front door missing / complex layout /
-    //   non-standard street.
+    //   aerial-only  + shared-wall → ALWAYS UNCLEAR (aerial alone cannot distinguish unit orientation).
+    //   cul-de-sac   + townhouse   → ALWAYS UNCLEAR (curved/loop street makes direction unreliable).
+    //   corner lot   + townhouse   → ALWAYS UNCLEAR (two frontages, shared walls add ambiguity).
+    //   listing photos + townhouse + complex layout → ALWAYS UNCLEAR (photos confirm front face but
+    //     not reliable enough on curved roads where bearing calculation is the failure point).
+    //   dual-image + shared-wall + standard-straight-street → allow if front door visible.
     if (isMultiUnit && finalOrientation !== 'UNCLEAR') {
+        const layoutType = data.property_layout_type;
+        const complexLayout = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
+        const frontDoorMissing = data.front_door_clearly_visible === false;
+        const nonStandardStreet = data.standard_street_layout === false;
+
         if (aerialOnlyMode) {
+            // Aerial-only townhouse: always UNCLEAR
             console.log(`[Batch] Override ${zpid}: townhouse + aerial_only_mode → UNCLEAR (always)`);
             finalOrientation = 'UNCLEAR';
             finalAzimuth = null;
-        } else {
-            const layoutType = data.property_layout_type;
-            const frontDoorMissing = data.front_door_clearly_visible === false;
-            const complexLayout = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
-            const nonStandardStreet = data.standard_street_layout === false;
-            if (frontDoorMissing || complexLayout || nonStandardStreet) {
-                const reason = frontDoorMissing ? 'front_door_clearly_visible=false'
-                    : nonStandardStreet ? 'standard_street_layout=false'
-                        : `layout=${layoutType}`;
-                console.log(`[Batch] Override ${zpid}: townhouse + ${reason} → UNCLEAR`);
-                finalOrientation = 'UNCLEAR';
-                finalAzimuth = null;
-            }
+        } else if (complexLayout) {
+            // Cul-de-sac or corner lot townhouse: always UNCLEAR regardless of image mode.
+            // Curved/multi-frontage roads make the bearing calculation unreliable even with photos.
+            console.log(`[Batch] Override ${zpid}: townhouse + ${layoutType} → UNCLEAR (always, regardless of image mode)`);
+            finalOrientation = 'UNCLEAR';
+            finalAzimuth = null;
+        } else if (frontDoorMissing || nonStandardStreet) {
+            // Standard-ish lot but door missing or non-standard street → UNCLEAR
+            const reason = frontDoorMissing ? 'front_door_clearly_visible=false' : 'standard_street_layout=false';
+            console.log(`[Batch] Override ${zpid}: townhouse + ${reason} → UNCLEAR`);
+            finalOrientation = 'UNCLEAR';
+            finalAzimuth = null;
         }
     }
 
