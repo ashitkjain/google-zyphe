@@ -129,7 +129,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
     const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear' | 'unvetted'>('all');
-    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null; listingPhotosUsed?: Array<{ index: number; url: string; score: number; analysisSnippet: string }> | null } | null>(null);
+    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null; batchVersion?: string | null; listingPhotosUsed?: Array<{ index: number; url: string; score: number; analysisSnippet: string }> | null } | null>(null);
     const [listingPhotoPopup, setListingPhotoPopup] = useState<{ address: string; photos: Array<{ index: number; url: string; score: number; analysisSnippet: string }>; activeIdx: number } | null>(null);
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
@@ -1583,7 +1583,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                                     return (
                                                         <button
-                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null, listingPhotosUsed: (row.orientationAI as any)?.listing_photos_used ?? null })}
+                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null, batchVersion: (row.orientationAI as any)?.batch_version ?? null, listingPhotosUsed: (row.orientationAI as any)?.listing_photos_used ?? null })}
                                                             title="Click to view with satellite &amp; street view images"
                                                             className={`max-h-40 overflow-y-auto text-[10px] leading-relaxed text-left whitespace-pre-wrap block w-full hover:bg-slate-50 rounded-lg p-1 -m-1 transition-colors ${
                                                                 isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')
@@ -1670,7 +1670,26 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     {explanationPopup.fromDescription ? (
                                         <span className="text-violet-600"><i className="fa-solid fa-align-left mr-1" />From Listing Description</span>
                                     ) : (
-                                        <span><i className="fa-solid fa-brain mr-1 text-indigo-400" />AI Reasoning</span>
+                                        <div className="flex items-center gap-2">
+                                            <span><i className="fa-solid fa-brain mr-1 text-indigo-400" />AI Reasoning</span>
+                                            {/* Batch version badge inside popup */}
+                                            {(() => {
+                                                const ver = explanationPopup.batchVersion;
+                                                const isLegacy = !ver;
+                                                return (
+                                                    <div
+                                                        className={`text-[7px] font-black px-1 py-0.5 rounded leading-tight uppercase tracking-widest ${
+                                                            isLegacy
+                                                                ? 'text-amber-600 bg-amber-50 border border-amber-200/50'
+                                                                : 'text-slate-400 bg-slate-100 border border-slate-200'
+                                                        }`}
+                                                        title={isLegacy ? 'Analyzed by a pre-v5 function version — re-run to update' : `Function version ${ver}`}
+                                                    >
+                                                        {isLegacy ? 'legacy' : ver}
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
