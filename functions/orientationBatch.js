@@ -554,26 +554,26 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     const isMultiUnit = ['TOWNHOUSE', 'CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
     const usesDualImage = svImg !== null && !isMultiUnit;
 
-    // 4a. Listing photos fallback: if no usable street view, try to find exterior listing photos
-    // from image_by_image_analysis stored at properties/{zpid}/analysis/visual (subcollection).
-    // Only used for single-family homes in aerial-only mode — multi-units remain aerial-only.
-    // Metadata about selected listing photos (indices, URLs, score, snippet) for traceability.
-    // Stored in orientation_ai.listing_photos_used so the UI can show thumbnails + cite evidence.
+    // 4a. Listing photos fallback: fetch exterior listing photos from the gallery for ALL
+    // single-family properties. These are used:
+    //   (a) PRIMARY mode — when there is no street view at all (aerial-only)
+    //   (b) FALLBACK mode — when street view was sent but Gemini found it uninformative
+    //       (shows_front=null, e.g. blurry/obstructed/privacy-blurred). In this case we
+    //       retry Gemini with aerial + listing photos instead of forcing UNCLEAR.
+    // Multi-unit properties remain aerial-only (listing photos won't reliably show «s unit front).
     let listingPhotoImgs = [];
     let listingPhotosUsed = [];  // [{index, url, score, analysisSnippet}]
-    if (!usesDualImage && !isMultiUnit) {
+    if (!isMultiUnit) {
         try {
             const visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
             if (visualSnap.exists) {
                 const visualData = visualSnap.data();
-                const bestItems = _findBestExteriorPhotos(visualData.image_by_image_analysis, 2);
+                const bestItems = _findBestExteriorPhotos(visualData.image_by_image_analysis, 3);
                 if (bestItems.length > 0) {
-                    console.log(`[Batch] ${zpid}: Found ${bestItems.length} exterior listing photo candidate(s) — indices: [${bestItems.map(i => i.index).join(', ')}]`);
                     const results = await Promise.allSettled(bestItems.map(item => _downloadImageBase64(item.url)));
                     listingPhotoImgs = results
                         .filter(r => r.status === 'fulfilled')
                         .map(r => r.value);
-                    // Only record candidates that actually downloaded successfully
                     listingPhotosUsed = bestItems
                         .filter((_, i) => results[i]?.status === 'fulfilled')
                         .map(item => ({
@@ -582,8 +582,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
                             score: item.score,
                             analysisSnippet: item.analysisSnippet,
                         }));
+                    if (listingPhotoImgs.length > 0) {
+                        const mode = usesDualImage ? 'pre-fetched for SV-fallback' : 'primary listing-photo mode';
+                        console.log(`[Batch] ${zpid}: Found ${listingPhotoImgs.length} listing photo(s) (indices: [${listingPhotosUsed.map(i => i.index).join(', ')}]) — ${mode}.`);
+                    }
                     if (listingPhotoImgs.length < results.length) {
-                        console.warn(`[Batch] ${zpid}: ${results.length - listingPhotoImgs.length} listing photo(s) failed to download.`);
+                        console.warn(`[Batch] ${zpid}: ${results.filter(r => r.status !== 'fulfilled').length} listing photo(s) failed to download.`);
                     }
                 }
             }
@@ -627,7 +631,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
 
 
     // 5. Build prompt and call Gemini 2.5 Flash
-    const usesListingPhotos = !usesDualImage && listingPhotoImgs.length > 0;
+    let usesListingPhotos = !usesDualImage && listingPhotoImgs.length > 0;
     let prompt;
     if (usesListingPhotos) {
         prompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
@@ -848,14 +852,41 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         finalAzimuth = null;
     }
 
-    // Pattern B: street view was sent (svHeading proves this) but Gemini could not
-    // determine shows_front from it (null = blurry/obstructed/uninformative).
-    // aerial_only_mode=true in this case. The aerial estimate is unverified and if
-    // wrong, we have no runtime way to detect it. UNCLEAR is more honest.
+    // Pattern B: street view was sent but Gemini found it uninformative (null = blurry/obstructed).
+    // Instead of forcing UNCLEAR immediately, retry with listing photos if available.
     if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === null && svHeading !== null) {
-        console.log(`[Batch] Override ${zpid}: shows_front=null (SV uninformative) + aerial_only_mode → UNCLEAR`);
-        finalOrientation = 'UNCLEAR';
-        finalAzimuth = null;
+        if (listingPhotoImgs.length > 0) {
+            console.log(`[Batch] ${zpid}: SV uninformative (shows_front=null) — retrying with ${listingPhotoImgs.length} listing photo(s).`);
+            try {
+                const retryPrompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
+                const retryParts = [
+                    { text: retryPrompt },
+                    { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
+                    ...listingPhotoImgs.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+                ];
+                const retryResult = await model.generateContent({ contents: [{ role: 'user', parts: retryParts }] });
+                const retryData = JSON.parse(retryResult.response.text());
+                if (retryData.final_orientation && retryData.final_orientation !== 'UNCLEAR') {
+                    console.log(`[Batch] ${zpid}: Listing photo retry → ${retryData.final_orientation}. Replacing SV-uninformative result.`);
+                    data = retryData;
+                    finalAzimuth = retryData.azimuth_degrees ?? null;
+                    finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : retryData.final_orientation;
+                    usesListingPhotos = true;  // listing photos were the deciding signal
+                } else {
+                    console.log(`[Batch] ${zpid}: Listing photo retry → still UNCLEAR.`);
+                    finalOrientation = 'UNCLEAR';
+                    finalAzimuth = null;
+                }
+            } catch (e) {
+                console.warn(`[Batch] ${zpid}: Listing photo retry failed:`, e.message);
+                finalOrientation = 'UNCLEAR';
+                finalAzimuth = null;
+            }
+        } else {
+            console.log(`[Batch] Override ${zpid}: shows_front=null (SV uninformative) + no listing photos → UNCLEAR`);
+            finalOrientation = 'UNCLEAR';
+            finalAzimuth = null;
+        }
     }
 
     // Confidence cap: aerial-only analysis cannot be HIGH confidence.
