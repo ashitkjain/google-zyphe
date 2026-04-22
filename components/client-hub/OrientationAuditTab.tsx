@@ -129,6 +129,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
     const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear' | 'unvetted'>('all');
     const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null; listingPhotosUsed?: Array<{ index: number; url: string; score: number; analysisSnippet: string }> | null } | null>(null);
+    const [listingPhotoPopup, setListingPhotoPopup] = useState<{ address: string; photos: Array<{ index: number; url: string; score: number; analysisSnippet: string }>; activeIdx: number } | null>(null);
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
@@ -1292,13 +1293,22 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                     return (
                                                         <div className="flex flex-col items-center gap-1.5">
                                                             {photos.map((photo: { index: number; url: string; score: number; analysisSnippet: string }, pi: number) => (
-                                                                <div key={pi} className="relative group cursor-pointer" title={`Photo #${photo.index}: ${photo.analysisSnippet}`}>
+                                                                <div
+                                                                    key={pi}
+                                                                    className="relative group cursor-pointer"
+                                                                    title={`Photo #${photo.index}: ${photo.analysisSnippet}`}
+                                                                    onClick={() => setListingPhotoPopup({ address: row.address, photos, activeIdx: pi })}
+                                                                >
                                                                     <img
                                                                         src={photo.url}
                                                                         alt={`Listing photo ${photo.index}`}
-                                                                        className="w-16 h-12 object-cover rounded-lg border border-violet-200 shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all"
+                                                                        className="w-16 h-12 object-cover rounded-lg border border-violet-200 shadow-sm group-hover:scale-105 group-hover:shadow-md group-hover:border-violet-400 transition-all"
                                                                         onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/64x48/7c3aed/fff?text=?'; }}
                                                                     />
+                                                                    {/* Expand icon on hover */}
+                                                                    <div className="absolute inset-0 rounded-lg bg-violet-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                                        <i className="fa-solid fa-expand text-white text-[10px]" />
+                                                                    </div>
                                                                     {/* Index badge */}
                                                                     <span className="absolute -top-1 -left-1 bg-violet-600 text-white text-[7px] font-black px-1 rounded-full leading-tight">
                                                                         #{photo.index}
@@ -1720,6 +1730,130 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                     </div>
                 </div>
             )}
+            {/* ── Listing photo lightbox popup ──────────────────────────── */}
+            {listingPhotoPopup && (() => {
+                const { address, photos, activeIdx } = listingPhotoPopup;
+                const photo = photos[activeIdx];
+                const hasPrev = activeIdx > 0;
+                const hasNext = activeIdx < photos.length - 1;
+                return (
+                    <div
+                        className="fixed inset-0 z-[400] flex items-center justify-center p-4"
+                        onClick={() => setListingPhotoPopup(null)}
+                        onKeyDown={e => {
+                            if (e.key === 'Escape') setListingPhotoPopup(null);
+                            if (e.key === 'ArrowLeft' && hasPrev) setListingPhotoPopup(p => p && { ...p, activeIdx: p.activeIdx - 1 });
+                            if (e.key === 'ArrowRight' && hasNext) setListingPhotoPopup(p => p && { ...p, activeIdx: p.activeIdx + 1 });
+                        }}
+                    >
+                        {/* Backdrop */}
+                        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" />
+
+                        {/* Panel */}
+                        <div
+                            className="relative bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {/* Header */}
+                            <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-700/60 bg-slate-800/80">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center shadow-sm">
+                                        <i className="fa-solid fa-images text-white text-[11px]" />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-violet-400">Listing Photos · Sent to AI</div>
+                                        <div className="text-[12px] font-bold text-white leading-tight truncate max-w-[360px]">{address}</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setListingPhotoPopup(null)}
+                                    className="w-7 h-7 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition-colors"
+                                >
+                                    <i className="fa-solid fa-xmark text-slate-300 text-xs" />
+                                </button>
+                            </div>
+
+                            {/* Main image */}
+                            <div className="relative bg-slate-950">
+                                <img
+                                    key={photo.url}
+                                    src={photo.url}
+                                    alt={`Listing photo #${photo.index}`}
+                                    className="w-full max-h-[55vh] object-contain"
+                                    onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/640x360/1e293b/7c3aed?text=Photo+Unavailable'; }}
+                                />
+                                {/* Corner badges */}
+                                <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                                    <span className="bg-violet-700 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow">Gallery Photo #{photo.index + 1}</span>
+                                    <span className="bg-violet-900/80 text-violet-300 text-[9px] font-black px-2 py-0.5 rounded-full border border-violet-700">Relevance ×{photo.score}</span>
+                                </div>
+                                {/* Navigation arrows */}
+                                {hasPrev && (
+                                    <button
+                                        onClick={e => { e.stopPropagation(); setListingPhotoPopup(p => p && { ...p, activeIdx: p.activeIdx - 1 }); }}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-800/90 hover:bg-violet-700 border border-slate-600 flex items-center justify-center transition-colors shadow-lg"
+                                    >
+                                        <i className="fa-solid fa-chevron-left text-white text-xs" />
+                                    </button>
+                                )}
+                                {hasNext && (
+                                    <button
+                                        onClick={e => { e.stopPropagation(); setListingPhotoPopup(p => p && { ...p, activeIdx: p.activeIdx + 1 }); }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-800/90 hover:bg-violet-700 border border-slate-600 flex items-center justify-center transition-colors shadow-lg"
+                                    >
+                                        <i className="fa-solid fa-chevron-right text-white text-xs" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Analysis snippet */}
+                            <div className="px-5 py-3 bg-slate-800/60 border-t border-slate-700/50">
+                                <div className="text-[9px] font-black uppercase tracking-widest text-violet-400 mb-1">AI Analysis of this photo</div>
+                                <p className="text-[12px] text-slate-300 leading-relaxed">{photo.analysisSnippet}</p>
+                            </div>
+
+                            {/* Thumbnail strip (multiple photos) */}
+                            {photos.length > 1 && (
+                                <div className="flex gap-2 px-5 py-3 border-t border-slate-700/50 bg-slate-900/80 overflow-x-auto">
+                                    {photos.map((p, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={e => { e.stopPropagation(); setListingPhotoPopup(prev => prev && { ...prev, activeIdx: i }); }}
+                                            className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                                                i === activeIdx
+                                                    ? 'border-violet-500 shadow-[0_0_0_2px_rgba(139,92,246,0.4)]'
+                                                    : 'border-slate-700 hover:border-violet-600 opacity-60 hover:opacity-100'
+                                            }`}
+                                        >
+                                            <img
+                                                src={p.url}
+                                                alt={`Photo ${p.index}`}
+                                                className="w-16 h-12 object-cover"
+                                                onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/64x48/1e293b/7c3aed?text=?'; }}
+                                            />
+                                            <span className="absolute bottom-0 inset-x-0 text-center text-[7px] font-black bg-slate-950/70 text-violet-300 py-0.5">#{p.index}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Photo counter */}
+                            <div className="flex items-center justify-center gap-2 py-2 border-t border-slate-700/30">
+                                {photos.map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={e => { e.stopPropagation(); setListingPhotoPopup(p => p && { ...p, activeIdx: i }); }}
+                                        className={`w-1.5 h-1.5 rounded-full transition-all ${
+                                            i === activeIdx ? 'bg-violet-500 w-4' : 'bg-slate-600 hover:bg-violet-700'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
         </>
     );
 };
