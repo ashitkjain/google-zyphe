@@ -366,12 +366,17 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
     const bearingHint = streetBearing != null ? (() => {
         const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
         const p3 = (streetBearing + 180) % 360;
-        return `\nGPS STREET BEARING ADVISORY: Street runs at ~${Math.round(streetBearing)}°.\n`
-            + `⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this hint entirely and determine orientation from the aerial visually.\n`
-            + `If the road IS straight and the lot IS standard: front most likely faces `
+        return `\nGPS STREET BEARING ADVISORY — READ BEFORE USING:\n`
+            + `⛔ CUL-DE-SAC / DEAD-END COURT OVERRIDE (MANDATORY — check FIRST):\n`
+            + `   Before using this bearing, look at Image A: is this a cul-de-sac (circular dead-end) or dead-end court?\n`
+            + `   YES → DISCARD this GPS bearing completely. Do NOT use it AT ALL. Derive the front direction\n`
+            + `          purely from aerial: draw a vector from the property center to the cul-de-sac circle center\n`
+            + `          — that direction is the front. The GPS bearing is from the approach road, NOT the circle.\n`
+            + `   NO  → Street runs at ~${Math.round(streetBearing)}°. Front most likely faces `
             + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°) — perpendicular to road.\n`
             + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel. Do NOT output these unless the visual override applies.`;
     })() : '';
+
 
     if (usesDualImage) {
         return [
@@ -447,7 +452,14 @@ function _buildListingPhotoPrompt(address, description, streetBearing, streetSid
     const bearingHint = streetBearing != null ? (() => {
         const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
         const p3 = (streetBearing + 180) % 360;
-        return `\nGPS STREET BEARING ADVISORY: Street runs at ~${Math.round(streetBearing)}\u00b0.\nIf the lot IS standard: front most likely faces ${_dir8(p1)} (~${Math.round(p1)}\u00b0) or ${_dir8(p2)} (~${Math.round(p2)}\u00b0).\n\u26D4 FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}\u00b0 and ~${Math.round(p3)}\u00b0 are road-parallel.`;
+        return `\nGPS STREET BEARING ADVISORY — READ BEFORE USING:\n`
+            + `⛔ CUL-DE-SAC / DEAD-END COURT OVERRIDE (MANDATORY — check FIRST):\n`
+            + `   Before using this bearing, look at Image A: is this a cul-de-sac (circular dead-end) or dead-end court?\n`
+            + `   YES → DISCARD this GPS bearing completely. Do NOT use it AT ALL. Derive the front direction\n`
+            + `          purely from aerial: draw a vector from property center to cul-de-sac circle center.\n`
+            + `   NO  → Street runs at ~${Math.round(streetBearing)}°. Front most likely faces `
+            + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°).\n`
+            + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel.`;
     })() : '';
 
     // Build per-photo labels so Gemini knows what each image is (aerial vs ground-level)
