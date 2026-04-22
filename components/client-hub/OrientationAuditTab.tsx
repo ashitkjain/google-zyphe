@@ -1355,7 +1355,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                                 <div
                                                                     key={pi}
                                                                     className="relative group cursor-pointer"
-                                                                    title={`Photo #${photo.index}: ${photo.analysisSnippet}`}
                                                                     onClick={() => setListingPhotoPopup({ address: row.address, photos, activeIdx: pi })}
                                                                 >
                                                                     <img
@@ -1376,11 +1375,6 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                                     <span className="absolute -bottom-1 -right-1 bg-violet-100 text-violet-700 text-[7px] font-black px-1 rounded-full leading-tight border border-violet-300">
                                                                         ×{photo.score}
                                                                     </span>
-                                                                    {/* Tooltip */}
-                                                                    <div className="absolute left-full top-0 ml-2 z-50 hidden group-hover:block w-48 bg-slate-900 text-white text-[9px] leading-relaxed rounded-lg p-2 shadow-2xl pointer-events-none">
-                                                                        <div className="font-black text-violet-300 mb-1">Photo #{photo.index} (score: {photo.score})</div>
-                                                                        {photo.analysisSnippet}
-                                                                    </div>
                                                                 </div>
                                                             ))}
                                                             <div className="text-[8px] text-violet-500 font-black uppercase tracking-widest">sent to AI</div>
