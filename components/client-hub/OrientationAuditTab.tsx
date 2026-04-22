@@ -127,7 +127,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [showChangedFromFirstOnly, setShowChangedFromFirstOnly] = useState(false);
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
-    const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear'>('all');
+    const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear' | 'unvetted'>('all');
     const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null } | null>(null);
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
@@ -479,6 +479,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                 if (extractOrientationFromDescription(r.description)) return gtMatchFilter === 'match';
 
                 const gt = groundTruthByZpid.get(r.zpid);
+                if (gtMatchFilter === 'unvetted') return !gt || !gt.expected_orientation;
+
                 if (!gt || !gt.expected_orientation) return false;
                 if (!r.orientationAI) return false;
                 const aiDir = xDir(r.orientationAI.final_orientation ?? '');
@@ -747,16 +749,29 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                     {/* ── GT result filter ── */}
                     <div className="flex items-center gap-0 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        {(['all', 'match', 'mismatch', 'unclear'] as const).map((v, i) => {
+                        {(['all', 'match', 'mismatch', 'unclear', 'unvetted'] as const).map((v, i) => {
                             const active = gtMatchFilter === v;
                             const colors = {
                                 all:      active ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50',
                                 match:    active ? 'bg-emerald-500 text-white' : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-700',
                                 mismatch: active ? 'bg-rose-500 text-white'    : 'text-slate-500 hover:bg-rose-50 hover:text-rose-700',
                                 unclear:  active ? 'bg-amber-400 text-white'   : 'text-slate-500 hover:bg-amber-50 hover:text-amber-700',
+                                unvetted: active ? 'bg-indigo-500 text-white'  : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-700',
                             }[v];
-                            const label = { all: 'GT: All', match: '✓ Match', mismatch: '✗ Mismatch', unclear: '? Unclear' }[v];
-                            const title = { all: 'Show all properties', match: 'GT match only', mismatch: 'GT mismatch only', unclear: 'GT unclear only' }[v];
+                            const label = { 
+                                all: 'GT: All', 
+                                match: '✓ Match', 
+                                mismatch: '✗ Mismatch', 
+                                unclear: '? Unclear',
+                                unvetted: '○ Unvetted'
+                            }[v];
+                            const title = { 
+                                all: 'Show all properties', 
+                                match: 'GT match only', 
+                                mismatch: 'GT mismatch only', 
+                                unclear: 'GT unclear only',
+                                unvetted: 'Show properties with no manual assessment'
+                            }[v];
                             return (
                                 <button
                                     key={v}
