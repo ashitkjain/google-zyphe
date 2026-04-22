@@ -40,6 +40,7 @@ interface OrientationRow {
         open_sky_direction?: string | null;
         explanation?: string | null;
         is_under_construction?: boolean;
+        batch_version?: string | null;
     } | null;
     finalOrientation?: string | null;
     description?: string | null;     // Listing description for description-first optimization
@@ -1444,6 +1445,23 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                                 );
                                                             })()
                                                         )}
+                                                        {/* Batch version badge */}
+                                                        {(() => {
+                                                            const ver = (row.orientationAI as any).batch_version;
+                                                            const isLegacy = !ver;
+                                                            return (
+                                                                <div
+                                                                    className={`text-[8px] font-black px-1 py-0.5 rounded leading-tight ${
+                                                                        isLegacy
+                                                                            ? 'text-amber-600 bg-amber-50 border border-amber-200'
+                                                                            : 'text-slate-400 bg-slate-50 border border-slate-200'
+                                                                    }`}
+                                                                    title={isLegacy ? 'Analyzed by a pre-v5 function version — re-run to update' : `Function version ${ver}`}
+                                                                >
+                                                                    {isLegacy ? 'legacy' : ver}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 ) : (
                                                     <span className="text-[10px] text-slate-300 font-bold">—</span>

@@ -19,6 +19,15 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const BATCH_CONCURRENCY = 20;
 const ORIENTATION_MODEL_CF = 'gemini-2.5-flash';
+// Increment when the analysis logic changes so the audit UI can show which
+// version produced a given result. Useful for distinguishing stale results
+// from re-runs after a code change.
+// v1: original release
+// v2: listing photo primary mode (aerial-only + photos → listing photo prompt)
+// v3: Pattern B/C retry (SV uninformative or any UNCLEAR triggers photo retry)
+// v4: listing photos removed from primary call
+// v5: strict two-pass — listing photos ONLY for aerial-only UNCLEAR (no SV)
+const BATCH_VERSION = 'v5';
 
 // ─── Gemini response schema ───────────────────────────────────────────────────
 // Uses plain string type names (compatible with all @google/generative-ai versions).
@@ -931,6 +940,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         // Listing photo provenance — which image_by_image_analysis entries were sent to Gemini.
         // null when street view was used; [] when aerial-only with no exterior photos found.
         listing_photos_used: usesListingPhotos ? listingPhotosUsed : null,
+        // Function version — increment BATCH_VERSION when analysis logic changes.
+        // Lets the audit UI show whether a result is from old or new code.
+        batch_version: BATCH_VERSION,
     };
 
     await db.collection('properties').doc(zpid).set(
