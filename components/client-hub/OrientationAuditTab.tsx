@@ -1248,8 +1248,11 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                             {/* Street view */}
                                             <td className="p-5 text-center">
-                                                {/* If no cached Firebase street view, generate a live fallback thumbnail from coordinates */}
+                                                {/* Use cached Firebase URL; on 404, clear it and fall through to live Maps API fallback */}
                                                 {(() => {
+                                                    // If the stored URL is a Firebase Storage signed URL it will 404 after token expiry.
+                                                    // When that happens onRefreshUrl clears it (sets row.streetView null), and we
+                                                    // immediately fall through to the live Google Maps API thumbnail.
                                                     const svUrl = row.streetView || (
                                                         row.coordinates?.latitude && row.coordinates?.longitude && APP_CONFIG.maps.key
                                                             ? `https://maps.googleapis.com/maps/api/streetview?size=128x96&location=${row.coordinates.latitude},${row.coordinates.longitude}&fov=90&pitch=0&key=${APP_CONFIG.maps.key}`
@@ -1269,7 +1272,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                         saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                     },
                                                 }} onRefreshUrl={(newUrl) => {
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, streetView: newUrl } : r));
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, streetView: newUrl || null } : r));
                                                 }} />
                                                 {isLive && (
                                                     <span className="absolute -bottom-1 -right-1 bg-amber-400 text-[7px] font-black text-white px-1 rounded-full leading-tight" title="Live fallback — not cached in Firestore">LIVE</span>
@@ -1772,34 +1775,49 @@ function MapThumb({ url, label, orientations, onRefreshUrl }: {
                     className="w-full h-full object-cover"
                     onError={async (e) => {
                         const target = e.target as HTMLImageElement;
-                        console.warn(`[MapThumb] 404/Error on thumbnail: ${label} for ${orientations?.zpid}`);
-                        // 1. Show placeholder
-                        target.src = 'https://placehold.co/100x100/1e293b/FFFFFF?text=404';
+                        if ((target as any)._retried) return;  // guard: only attempt recovery once per mount
+                        (target as any)._retried = true;
 
-                        // 2. Proactive recovery: if we have coordinates and zpid, try to re-fetch/re-cache URL
-                        if (orientations?.zpid && (orientations as any).coordinates && !(target as any)._retried) {
-                            if (label !== 'Satellite' && label !== 'Street View') return;
-                            (target as any)._retried = true;
-                            try {
-                                const freshUrl = label === 'Satellite'
-                                    ? await getOrCacheAerialSatelliteUrl(
-                                        orientations.zpid,
-                                        (orientations as any).coordinates.latitude,
-                                        (orientations as any).coordinates.longitude
-                                    )
-                                    : await forceRefreshStreetViewUrl(
-                                        orientations.zpid,
-                                        (orientations as any).coordinates.latitude,
-                                        (orientations as any).coordinates.longitude
-                                    );
-                                if (freshUrl) {
-                                    target.src = freshUrl;
-                                    if (onRefreshUrl) onRefreshUrl(freshUrl);
-                                }
-                            } catch (err) {
-                                console.warn(`[MapThumb] Auto-recovery failed for ${label}:`, err);
+                        // If this is a Firebase Storage URL (has "token="), it's expired.
+                        // Clear it from state immediately — the component will re-render with the live
+                        // Google Maps API fallback instead of hammering Firebase Storage on every render.
+                        const isFbStorage = url?.includes('firebasestorage.googleapis.com') || url?.includes('firebasestorage.app');
+                        if (isFbStorage) {
+                            // Silently clear the URL — no console spam, no placeholder
+                            target.style.opacity = '0.3';  // dim to signal stale
+                            if (onRefreshUrl) {
+                                // Signal the parent to clear the dead URL; it will fall through to live Maps fallback
+                                onRefreshUrl('');
                             }
+                            // Attempt proactive re-cache in the background
+                            if (orientations?.zpid && orientations?.coordinates) {
+                                try {
+                                    const freshUrl = label === 'Satellite'
+                                        ? await getOrCacheAerialSatelliteUrl(
+                                            orientations.zpid,
+                                            orientations.coordinates.latitude,
+                                            orientations.coordinates.longitude
+                                        )
+                                        : await forceRefreshStreetViewUrl(
+                                            orientations.zpid,
+                                            orientations.coordinates.latitude,
+                                            orientations.coordinates.longitude
+                                        );
+                                    if (freshUrl) {
+                                        target.src = freshUrl;
+                                        target.style.opacity = '1';
+                                        if (onRefreshUrl) onRefreshUrl(freshUrl);
+                                    }
+                                } catch (err) {
+                                    // Silent — the live fallback is already rendering
+                                }
+                            }
+                            return;
                         }
+
+                        // Non-Firebase URL (e.g. Google Maps API live URL) failed — show placeholder
+                        console.warn(`[MapThumb] 404/Error on thumbnail: ${label} for ${orientations?.zpid}`);
+                        target.src = 'https://placehold.co/100x100/1e293b/FFFFFF?text=404';
                     }}
                 />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
