@@ -860,50 +860,18 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         finalAzimuth = null;
     }
 
-    // Pattern B: street view was sent but Gemini found it uninformative (null = blurry/obstructed).
-    // Instead of forcing UNCLEAR immediately, retry with listing photos if available.
-    if (finalOrientation !== 'UNCLEAR' && usesDualImage && data.street_view_shows_front === null && svHeading !== null) {
-        if (listingPhotoImgs.length > 0) {
-            console.log(`[Batch] ${zpid}: SV uninformative (shows_front=null) — retrying with ${listingPhotoImgs.length} listing photo(s).`);
-            try {
-                const retryPrompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
-                const retryParts = [
-                    { text: retryPrompt },
-                    { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
-                    ...listingPhotoImgs.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
-                ];
-                const retryResult = await model.generateContent({ contents: [{ role: 'user', parts: retryParts }] });
-                const retryData = JSON.parse(retryResult.response.text());
-                if (retryData.final_orientation && retryData.final_orientation !== 'UNCLEAR') {
-                    console.log(`[Batch] ${zpid}: Listing photo retry → ${retryData.final_orientation}. Replacing SV-uninformative result.`);
-                    data = retryData;
-                    finalAzimuth = retryData.azimuth_degrees ?? null;
-                    finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : retryData.final_orientation;
-                    usesListingPhotos = true;  // listing photos were the deciding signal
-                } else {
-                    console.log(`[Batch] ${zpid}: Listing photo retry → still UNCLEAR.`);
-                    finalOrientation = 'UNCLEAR';
-                    finalAzimuth = null;
-                }
-            } catch (e) {
-                console.warn(`[Batch] ${zpid}: Listing photo retry failed:`, e.message);
-                finalOrientation = 'UNCLEAR';
-                finalAzimuth = null;
-            }
-        } else {
-            console.log(`[Batch] Override ${zpid}: shows_front=null (SV uninformative) + no listing photos → UNCLEAR`);
-            finalOrientation = 'UNCLEAR';
-            finalAzimuth = null;
-        }
-    }
-
-    // Pattern C: catch-all UNCLEAR → listing photo retry.
-    // If, after all gates, the result is still UNCLEAR AND listing photos are available
-    // AND we haven't already used them (usesListingPhotos=false) AND this is not a multi-unit
-    // property (townhouse/condo policy gates always win), retry Gemini with aerial + photos.
-    // This covers: cul-de-sac (no azimuth), non-standard layout, low-confidence aerial, etc.
-    if (finalOrientation === 'UNCLEAR' && !isMultiUnit && !usesListingPhotos && listingPhotoImgs.length > 0) {
-        console.log(`[Batch] ${zpid}: Pattern C — result UNCLEAR, retrying with ${listingPhotoImgs.length} listing photo(s).`);
+    // Listing photo retry: aerial-only UNCLEAR properties only.
+    //
+    // Two-pass design (user requirement):
+    //   Pass 1: aerial + SV (or aerial-alone if no SV available)  ← done above
+    //   Pass 2: ONLY if Pass 1 had no SV (!usesDualImage) AND result is UNCLEAR
+    //           → re-run with aerial + listing photos (NO street view)
+    //
+    // Listing photos NEVER mix with street view — doing so causes hallucinations
+    // (e.g. Gemini reverses azimuth when it has both images to reconcile).
+    // If a property has SV, we trust Pass 1's result fully regardless of confidence.
+    if (finalOrientation === 'UNCLEAR' && !usesDualImage && !isMultiUnit && !usesListingPhotos && listingPhotoImgs.length > 0) {
+        console.log(`[Batch] ${zpid}: aerial-only UNCLEAR — Pass 2 with ${listingPhotoImgs.length} listing photo(s).`);
         try {
             const retryPrompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
             const retryParts = [
@@ -914,16 +882,16 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
             const retryResult = await model.generateContent({ contents: [{ role: 'user', parts: retryParts }] });
             const retryData = JSON.parse(retryResult.response.text());
             if (retryData.final_orientation && retryData.final_orientation !== 'UNCLEAR') {
-                console.log(`[Batch] ${zpid}: Pattern C listing photo retry → ${retryData.final_orientation}. Replacing UNCLEAR.`);
+                console.log(`[Batch] ${zpid}: Pass 2 → ${retryData.final_orientation}. Replacing UNCLEAR.`);
                 data = retryData;
                 finalAzimuth = retryData.azimuth_degrees ?? null;
                 finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : retryData.final_orientation;
                 usesListingPhotos = true;
             } else {
-                console.log(`[Batch] ${zpid}: Pattern C listing photo retry → still UNCLEAR.`);
+                console.log(`[Batch] ${zpid}: Pass 2 → still UNCLEAR.`);
             }
         } catch (e) {
-            console.warn(`[Batch] ${zpid}: Pattern C listing photo retry failed:`, e.message);
+            console.warn(`[Batch] ${zpid}: Pass 2 listing photo retry failed:`, e.message);
         }
     }
 
