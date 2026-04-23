@@ -16,7 +16,7 @@ import { fetchPropertySpecs } from '../../services/api/property';
 import { PropertyData } from '../../types';
 import { isSupportedPropertyType, hasEssentialData } from '../../utils/propertyPolicies';
 import { GEMINI_CHECK_SOURCES, NON_GEMINI_CHECK_SOURCES } from '../../utils/pipelineCheckConfig';
-import { PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
+import { PipelineProgress, runCityDeepResearch, runImageOnlyPipeline } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth, STATE_MAP } from '../../services/firebase/config';

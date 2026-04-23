@@ -21,7 +21,7 @@ const ORIENTATION_MODEL = FLASH_MODEL;
 
 
 
-import { buildOrientationPromptDual, buildOrientationPromptAerialOnly, satellitarySchema, getDualPromptFinalInstructions } from '../prompts/property/satellitaryAnalysis';
+import { buildOrientationPromptDual, buildOrientationPromptAerialOnly, buildListingPhotoPrompt, satellitarySchema, getDualPromptFinalInstructions } from '../prompts/property/satellitaryAnalysis';
 import { savePropertyOrientationToCloud } from './firebase/properties';
 import { logOrientationVersion, setGroundTruthFromDescription } from './firebase/orientation_history';
 import { doc, getDoc, updateDoc, serverTimestamp, addDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -98,8 +98,17 @@ export interface SatellitaryResult {
     // Image URLs
     aerial_url: string;               // Public URL of satellite image used
     street_view_url: string;          // Public URL of street view used (empty string if none)
-    aerial_only_mode: boolean;        // true when no street view was available
-    _debug?: any;                     // Internal metadata for auditing (heading, raw guess)
+    aerial_only_mode: boolean;         // true if no street view was used
+    listing_photos_used?: Array<{ index: number; url: string; score: number; analysisSnippet: string; confirmed_front?: boolean }> | null;
+    street_bearing_deg?: number | null;
+    street_bearing_visual_deg?: number | null;
+    _debug?: {
+        streetViewHeading: number | null;
+        streetBearing: number | null;
+        geminiAzimuth: number | null;
+        streetViewShowsFront: boolean | null;
+        aerialConfidenceFailed?: boolean;
+    };
 }
 
 /**
@@ -406,6 +415,52 @@ function computeBearing(lat1: number, lng1: number, lat2: number, lng2: number):
     const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(dλ);
     return Math.round(((Math.atan2(y, x) * (180 / Math.PI)) + 360) % 360);
 }
+/**
+ * Keywords that indicate a listing photo shows the building exterior / front door.
+ * Scored by counting how many match — higher score = stronger front-door candidate.
+ * Aerial/drone photos are valuable — they show the full footprint including which side is the front.
+ */
+const EXTERIOR_KEYWORDS = [
+    // Front door / entry — strongest signal
+    'front door', 'entryway', 'entry door', 'entrance', 'front of', 'facade', 'curb appeal',
+    'front of the home', 'front of the house', 'front elevation', 'front facing', 'front walk',
+    'front porch', 'front yard',
+    // General exterior
+    'exterior', 'driveway', 'garage', 'porch', 'curb',
+    'exterior view', 'outside', 'outdoor', 'front walk', 'landscaping',
+    // Aerial / overhead — these show the full building layout, useful for front identification
+    'aerial view', 'aerial photo', 'aerial image', 'bird\'s eye', 'bird\'s-eye', 'drone',
+    'overhead view', 'overhead photo', 'top-down', 'top down', 'from above',
+    'surrounding neighborhood', 'property location',
+];
+
+/**
+ * Score a listing photo's text description for likelihood of showing the front exterior.
+ * Returns 0 if no exterior keywords found, higher numbers = stronger candidate.
+ */
+function _scorePhotoForFront(analysis = ''): number {
+    const lower = analysis.toLowerCase();
+    return EXTERIOR_KEYWORDS.filter(kw => lower.includes(kw)).length;
+}
+
+/**
+ * Given an image_by_image_analysis array (from property_analyses_visual),
+ * returns the top N entries most likely to show the front exterior.
+ */
+function _findBestExteriorPhotos(imageByImageAnalysis: any[], maxCount = 3): any[] {
+    if (!Array.isArray(imageByImageAnalysis) || imageByImageAnalysis.length === 0) return [];
+    return imageByImageAnalysis
+        .map((item, idx) => ({
+            url: item.image_id || '',
+            index: idx,
+            score: _scorePhotoForFront(item.analysis || ''),
+            analysisSnippet: (item.analysis || '').slice(0, 150),
+        }))
+        .filter(item => item.url && item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxCount);
+}
+
 
 /**
  * Computes the bearing of the address street by geocoding a 2nd point ~200 house
@@ -1016,6 +1071,38 @@ export async function runSatellitaryAnalysis(
             }
         }
 
+        // ── 1c. Listing photos fallback: fetch exterior photos ──────────────────
+        let listingPhotoImgs: Array<{ data: string; mimeType: string }> = [];
+        let listingPhotosUsed: any[] = [];
+        if (zpid) {
+            try {
+                const visualSnap = await getDoc(doc(db, 'properties', zpid, 'analysis', 'visual'));
+                if (visualSnap.exists()) {
+                    const visualData = visualSnap.data() as any;
+                    const bestItems = _findBestExteriorPhotos(visualData.image_by_image_analysis, 3);
+                    if (bestItems.length > 0) {
+                        const results = await Promise.allSettled(bestItems.map(item => urlToBase64(item.url)));
+                        listingPhotoImgs = results
+                            .filter((r): r is PromiseFulfilledResult<{ data: string; mimeType: string }> => r.status === 'fulfilled')
+                            .map(r => r.value);
+                        listingPhotosUsed = bestItems
+                            .filter((_, i) => results[i].status === 'fulfilled')
+                            .map(item => ({
+                                index: item.index,
+                                url: item.url,
+                                score: item.score,
+                                analysisSnippet: item.analysisSnippet,
+                            }));
+                        if (listingPhotoImgs.length > 0) {
+                            console.log(`[Satellitary] Found ${listingPhotoImgs.length} exterior listing photo(s) for ${zpid}.`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`[Satellitary] Listing photos lookup failed:`, e);
+            }
+        }
+
         // ── 1b. Aerial-only + Shared-wall property → UNCLEAR ─────────────────────
         // Townhouses and condos share party walls and look identical from above.
         // Without a street view there is no reliable way to determine which face is front.
@@ -1169,8 +1256,8 @@ export async function runSatellitaryAnalysis(
 
         usesDualImage = !!streetB64;
         const basePrompt = usesDualImage
-            ? buildOrientationPromptDual(streetViewHeading, address, description, streetBearingForAzimuth)
-            : buildOrientationPromptAerialOnly(address, description, streetBearingForAzimuth, streetSide);
+            ? buildOrientationPromptDual(streetViewHeading, address, description, streetBearingForAzimuth, homeType)
+            : buildOrientationPromptAerialOnly(address, description, streetBearingForAzimuth, streetSide, homeType);
 
         const prompt = basePrompt + "\n\n" + getDualPromptFinalInstructions(streetViewHeading);
 
@@ -1506,8 +1593,22 @@ export async function runSatellitaryAnalysis(
             const frontDoorMissing  = (result as any).front_door_clearly_visible === false;
             const complexLayout     = layoutType === 'cul_de_sac' || layoutType === 'corner_lot';
             const nonStandardStreet = (result as any).standard_street_layout === false;
-            if (frontDoorMissing || complexLayout || nonStandardStreet) {
+            const explanationLower  = (result.explanation || '').toLowerCase();
+            const facesInternal     = explanationLower.includes('internal street') || 
+                                      explanationLower.includes('internal road') ||
+                                      explanationLower.includes('common area') ||
+                                      explanationLower.includes('greenbelt') ||
+                                      explanationLower.includes('walkway') ||
+                                      explanationLower.includes('shared driveway') ||
+                                      explanationLower.includes('private road') ||
+                                      explanationLower.includes('widened curve') ||
+                                      explanationLower.includes('eyebrow');
+            const hasUnitNumber     = (address || '').includes('#') || /\b(UNIT|APT|STE)\b/i.test(address || '');
+
+            if (frontDoorMissing || complexLayout || nonStandardStreet || facesInternal || hasUnitNumber) {
                 const reason = frontDoorMissing   ? 'front door not clearly visible'
+                             : facesInternal      ? 'faces internal street/common area/shared driveway'
+                             : hasUnitNumber      ? 'has unit number (complex multi-unit logic)'
                              : nonStandardStreet  ? 'non-standard street layout (internal access road)'
                              : `complex lot layout (${layoutType})`;
                 console.log(`[Satellitary] Post-Gemini override: townhouse + ${reason} → UNCLEAR`);
@@ -1568,6 +1669,56 @@ export async function runSatellitaryAnalysis(
             }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }
+
+    // ── Post-processing: Pass 2 Listing Photo Retry ──────────────────────────
+    // If we are still UNCLEAR (due to complex layout, uninformative SV, or aerial-only)
+    // AND we have listing photos, run a second pass with the photos.
+    if (result && result.final_orientation === 'UNCLEAR' && !isSharedWallProperty(homeType, address) && listingPhotoImgs.length > 0) {
+        console.log(`[Satellitary] Pass 2 retry with ${listingPhotoImgs.length} listing photo(s) for ${zpid}...`);
+        try {
+            const aerialB64 = await urlToBase64(aerialUrl);
+            const retryPrompt = buildListingPhotoPrompt(address, description, streetBearingForAzimuth, streetSide, listingPhotoImgs.length, listingPhotosUsed);
+            
+            const retryParts: any[] = [
+                { text: retryPrompt },
+                { inlineData: { data: aerialB64.data, mimeType: aerialB64.mimeType } },
+                ...listingPhotoImgs.map(img => ({ inlineData: { data: img.data, mimeType: img.mimeType } })),
+            ];
+
+            const { data: retryData } = await executeGeminiRequest<any>({
+                model: ORIENTATION_MODEL,
+                contents: { parts: retryParts },
+                config: { temperature: 0 },
+                userId, zpid, address,
+                promptFilename: 'satellitaryAnalysis.ts',
+                extractResultJson: true,
+                schema: satellitarySchema,
+                imageUrls: [aerialUrl, ...listingPhotosUsed.map(p => p.url)],
+            });
+
+            if (retryData.final_orientation && retryData.final_orientation !== 'UNCLEAR') {
+                console.log(`[Satellitary] Pass 2 → ${retryData.final_orientation}. Confirmed.`);
+                const retryAz = retryData.azimuth_degrees ?? null;
+                result = {
+                    ...result,
+                    ...retryData,
+                    visual_azimuth_estimate: retryAz,
+                    azimuth_degrees: retryAz,
+                    final_orientation: retryAz != null ? azimuthToCompassLabel(retryAz) : retryData.final_orientation,
+                    confidence: retryData.confidence ?? 'medium',
+                    listing_photos_used: listingPhotosUsed.map((photo, i) => ({
+                        ...photo,
+                        confirmed_front: (retryData.listing_photos_showing_front || []).includes(String.fromCharCode(66 + i)),
+                    })),
+                };
+            } else {
+                console.log(`[Satellitary] Pass 2 → still UNCLEAR.`);
+            }
+        } catch (e) {
+            console.warn(`[Satellitary] Pass 2 listing photo retry failed:`, e);
+        }
+    }
+
     return result;
 }
 
