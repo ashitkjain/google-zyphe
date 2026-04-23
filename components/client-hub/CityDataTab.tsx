@@ -2044,7 +2044,8 @@ ${JSON.stringify(propertySummaries)}
                                     </button>
                                 </div>
                             )}
-                            {listings.length > 0 && (
+                            {/* Action Buttons — always visible if we have data or selection */}
+                            {(listings.length > 0 || cachedPropertyIds.size > 0) && (
                                 <div className="flex items-center gap-3 ml-auto">
                                     {/* Smoke Test button — only when we have cached properties to test */}
                                     {cachedPropertyIds.size > 0 && (
@@ -2767,7 +2768,224 @@ ${JSON.stringify(propertySummaries)}
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            {/* ─── Smoke Test Results Panel (Promoted to Top) ──────────────────────────────────────── */}
+            {smokeSummary && (
+                <div className="mb-10">
+                    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-100/60 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+                            <div className="flex items-center gap-4">
+                                <div className="w-11 h-11 bg-violet-50 rounded-2xl flex items-center justify-center">
+                                    <i className="fa-solid fa-flask text-violet-500 text-lg"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-slate-900">Smoke Test Results</h3>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
+                                        {smokeSummary.totalProperties} properties · ran {smokeSummary.ranAt instanceof Date ? smokeSummary.ranAt.toLocaleTimeString() : new Date(smokeSummary.ranAt).toLocaleTimeString()}
+                                    </p>
+                                </div>
+                                {/* Summary pills */}
+                                <div className="flex items-center gap-2 ml-4">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                        <i className="fa-solid fa-circle-check text-[9px]"></i>{smokeSummary.passedCount} passed
+                                    </span>
+                                    {smokeSummary.failedCount > 0 && (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                            <i className="fa-solid fa-circle-xmark text-[9px]"></i>{smokeSummary.failedCount} errors
+                                        </span>
+                                    )}
+                                    {smokeSummary.results.some(r => r.warnCount > 0) && (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                            <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>
+                                            {smokeSummary.results.reduce((s, r) => s + r.warnCount, 0)} warnings
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {/* Filter toggle */}
+                                <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+                                    {(['all', 'failed', 'warned'] as const).map(f => (
+                                        <button key={f} onClick={() => setSmokeFilter(f)}
+                                            className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${smokeFilter === f ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
+                                            {f === 'all' ? 'All' : f === 'failed' ? 'Errors Only' : 'With Warnings'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={() => setSmokeSummary(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Per-check failure counts */}
+                        {(() => {
+                            const failCounts: Record<string, { label: string; severity: string; count: number }> = {};
+                            const sourceNullCounts: Record<string, { label: string; count: number }> = {};
+                            smokeSummary.results.forEach(r => {
+                                r.checks.forEach(c => {
+                                    if (c.sourceNull) {
+                                        if (!sourceNullCounts[c.id]) {
+                                            sourceNullCounts[c.id] = { label: c.label, count: 0 };
+                                        }
+                                        sourceNullCounts[c.id].count++;
+                                    } else if (!c.passed) {
+                                        if (!failCounts[c.id]) {
+                                            failCounts[c.id] = { label: c.label, severity: c.severity, count: 0 };
+                                        }
+                                        failCounts[c.id].count++;
+                                    }
+                                });
+                            });
+                            const sortedFails = Object.entries(failCounts).sort((a, b) => {
+                                if (a[1].severity !== b[1].severity) return a[1].severity === 'error' ? -1 : 1;
+                                return b[1].count - a[1].count;
+                            });
+                            const sortedNA = Object.entries(sourceNullCounts).sort((a, b) => b[1].count - a[1].count);
+                            if (sortedFails.length === 0 && sortedNA.length === 0) return null;
+                            return (
+                                <div className="mx-6 mt-4 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <i className="fa-solid fa-chart-bar text-slate-400 text-xs"></i>
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Failure Breakdown ({sortedFails.length} checks across {smokeSummary.totalProperties} properties)
+                                        </span>
+                                        {smokeCheckFilter && (
+                                            <button
+                                                onClick={() => setSmokeCheckFilter(null)}
+                                                className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+                                            >
+                                                <i className="fa-solid fa-xmark text-[8px]"></i> Clear Filter
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Actionable failures — these can be fixed by running the pipeline */}
+                                    {sortedFails.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {sortedFails.map(([id, { label, severity, count }]) => (
+                                                <button key={id}
+                                                    onClick={() => toggleSmokeCheckFilter(id, false)}
+                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all ${severity === 'error'
+                                                        ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                                                        : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                                                        } ${smokeCheckFilter === id ? 'ring-2 ring-offset-1 ' + (severity === 'error' ? 'ring-rose-400' : 'ring-amber-400') : ''}`}
+                                                    title={`Click to filter: ${label} — ${count}/${smokeSummary.totalProperties} properties failing`}
+                                                >
+                                                    {label} <span className="font-black">{count}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Source Unavailable — API was called but data doesn't exist at source */}
+                                    {sortedNA.length > 0 && (
+                                        <div className="mt-3">
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                                <i className="fa-solid fa-ban text-slate-300 text-[9px]"></i>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                                    Source Unavailable — data does not exist at source
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {sortedNA.map(([id, { label, count }]) => (
+                                                    <button key={`na-${id}`}
+                                                        onClick={() => toggleSmokeCheckFilter(id, true)}
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all
+                                                            bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-150 hover:text-slate-500
+                                                            ${smokeCheckFilter === `na:${id}` ? 'ring-2 ring-offset-1 ring-slate-300' : ''}`}
+                                                        title={`${label} — ${count} properties where this field is unavailable at source (not actionable)`}
+                                                    >
+                                                        <i className="fa-solid fa-ban text-[8px]"></i> {label} <span className="font-black">{count}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Detailed Results */}
+                        <div className="p-6">
+                            <div className="space-y-4 max-h-[600px] overflow-y-auto px-2 custom-scrollbar">
+                                {(smokeFilter === 'all'
+                                    ? smokeSummary.results
+                                    : smokeFilter === 'failed'
+                                        ? smokeSummary.results.filter(r => r.errorCount > 0)
+                                        : smokeSummary.results.filter(r => r.warnCount > 0)
+                                )
+                                    .filter(r => {
+                                        if (!smokeCheckFilter) return true;
+                                        const [prefix, id] = smokeCheckFilter.includes(':') ? smokeCheckFilter.split(':') : [null, smokeCheckFilter];
+                                        if (prefix === 'na') {
+                                            return r.checks.some(c => c.id === id && c.sourceNull);
+                                        }
+                                        return r.checks.some(c => c.id === id && !c.passed && !c.sourceNull);
+                                    })
+                                    .map((res) => (
+                                        <div key={res.zpid} className="border border-slate-100 rounded-2xl overflow-hidden hover:border-violet-200 transition-all">
+                                            <button
+                                                onClick={() => {
+                                                    const next = new Set(smokeExpanded);
+                                                    if (next.has(res.zpid)) next.delete(res.zpid);
+                                                    else next.add(res.zpid);
+                                                    setSmokeExpanded(next);
+                                                }}
+                                                className="w-full flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${res.errorCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                                        {res.errorCount > 0 ? <i className="fa-solid fa-xmark"></i> : <i className="fa-solid fa-check"></i>}
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <span className="text-[11px] font-black text-slate-800 block leading-tight">{res.address}</span>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{res.homeType}</span>
+                                                            <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${res.errorCount > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                                {res.errorCount} errors · {res.warnCount} warnings
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <i className={`fa-solid fa-chevron-down text-slate-300 text-xs transition-transform ${smokeExpanded.has(res.zpid) ? 'rotate-180' : ''}`}></i>
+                                            </button>
+
+                                            {smokeExpanded.has(res.zpid) && (
+                                                <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 bg-white">
+                                                    {res.checks.map((c) => (
+                                                        <div key={c.id} className={`p-2.5 rounded-xl border flex items-start gap-2.5 transition-all
+                                                            ${c.passed
+                                                                ? 'bg-emerald-50/30 border-emerald-100/50 grayscale-[0.3]'
+                                                                : c.severity === 'error'
+                                                                    ? 'bg-rose-50 border-rose-200'
+                                                                    : 'bg-amber-50 border-amber-200'
+                                                            }`}>
+                                                            <i className={`fa-solid ${c.passed ? 'fa-circle-check text-emerald-500' : c.severity === 'error' ? 'fa-circle-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'} mt-0.5 text-[10px]`}></i>
+                                                            <div>
+                                                                <div className="text-[9.5px] font-black text-slate-700 leading-none mb-1">{c.label}</div>
+                                                                {c.detail && (
+                                                                    <div className={`text-[8.5px] font-medium leading-[1.2] ${c.passed ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                                        {c.detail}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {viewMode !== 'audit' && (
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 {/* Left: Live Console */}
                 <div className="lg:col-span-1 space-y-6">
                     <div className="bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden h-[600px] flex flex-col border border-slate-800">
@@ -2805,218 +3023,6 @@ ${JSON.stringify(propertySummaries)}
 
                 {/* Right: Results or Queue */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* ─── Smoke Test Results Panel (Promoted to Top) ──────────────────────────────────────── */}
-                    {smokeSummary && (
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-100/60 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Header */}
-                            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-11 h-11 bg-violet-50 rounded-2xl flex items-center justify-center">
-                                        <i className="fa-solid fa-flask text-violet-500 text-lg"></i>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-black text-slate-900">Smoke Test Results</h3>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
-                                            {smokeSummary.totalProperties} properties · ran {smokeSummary.ranAt.toLocaleTimeString()}
-                                        </p>
-                                    </div>
-                                    {/* Summary pills */}
-                                    <div className="flex items-center gap-2 ml-4">
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                            <i className="fa-solid fa-circle-check text-[9px]"></i>{smokeSummary.passedCount} passed
-                                        </span>
-                                        {smokeSummary.failedCount > 0 && (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                                <i className="fa-solid fa-circle-xmark text-[9px]"></i>{smokeSummary.failedCount} errors
-                                            </span>
-                                        )}
-                                        {smokeSummary.results.some(r => r.warnCount > 0) && (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                                <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>
-                                                {smokeSummary.results.reduce((s, r) => s + r.warnCount, 0)} warnings
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {/* Filter toggle */}
-                                    <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-                                        {(['all', 'failed', 'warned'] as const).map(f => (
-                                            <button key={f} onClick={() => setSmokeFilter(f)}
-                                                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${smokeFilter === f ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
-                                                {f === 'all' ? 'All' : f === 'failed' ? 'Errors Only' : 'With Warnings'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <button onClick={() => setSmokeSummary(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
-                                        <i className="fa-solid fa-xmark"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Per-check failure counts */}
-                            {(() => {
-                                const failCounts: Record<string, { label: string; severity: string; count: number }> = {};
-                                const sourceNullCounts: Record<string, { label: string; count: number }> = {};
-                                smokeSummary.results.forEach(r => {
-                                    r.checks.forEach(c => {
-                                        if (c.sourceNull) {
-                                            if (!sourceNullCounts[c.id]) {
-                                                sourceNullCounts[c.id] = { label: c.label, count: 0 };
-                                            }
-                                            sourceNullCounts[c.id].count++;
-                                        } else if (!c.passed) {
-                                            if (!failCounts[c.id]) {
-                                                failCounts[c.id] = { label: c.label, severity: c.severity, count: 0 };
-                                            }
-                                            failCounts[c.id].count++;
-                                        }
-                                    });
-                                });
-                                const sortedFails = Object.entries(failCounts).sort((a, b) => {
-                                    if (a[1].severity !== b[1].severity) return a[1].severity === 'error' ? -1 : 1;
-                                    return b[1].count - a[1].count;
-                                });
-                                const sortedNA = Object.entries(sourceNullCounts).sort((a, b) => b[1].count - a[1].count);
-                                if (sortedFails.length === 0 && sortedNA.length === 0) return null;
-                                return (
-                                    <div className="mx-6 mt-4 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <i className="fa-solid fa-chart-bar text-slate-400 text-xs"></i>
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                                Failure Breakdown ({sortedFails.length} checks across {smokeSummary.totalProperties} properties)
-                                            </span>
-                                            {smokeCheckFilter && (
-                                                <button
-                                                    onClick={() => setSmokeCheckFilter(null)}
-                                                    className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
-                                                >
-                                                    <i className="fa-solid fa-xmark text-[8px]"></i> Clear Filter
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* Actionable failures — these can be fixed by running the pipeline */}
-                                        {sortedFails.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {sortedFails.map(([id, { label, severity, count }]) => (
-                                                    <button key={id}
-                                                        onClick={() => toggleSmokeCheckFilter(id, false)}
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all ${severity === 'error'
-                                                            ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
-                                                            : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-                                                            } ${smokeCheckFilter === id ? 'ring-2 ring-offset-1 ' + (severity === 'error' ? 'ring-rose-400' : 'ring-amber-400') : ''}`}
-                                                        title={`Click to filter: ${label} — ${count}/${smokeSummary.totalProperties} properties failing`}
-                                                    >
-                                                        {label} <span className="font-black">{count}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Source Unavailable — API was called but data doesn't exist at source */}
-                                        {sortedNA.length > 0 && (
-                                            <div className="mt-3">
-                                                <div className="flex items-center gap-1.5 mb-2">
-                                                    <i className="fa-solid fa-ban text-slate-300 text-[9px]"></i>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                                        Source Unavailable — data does not exist at source
-                                                    </span>
-                                                </div>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {sortedNA.map(([id, { label, count }]) => (
-                                                        <button key={`na-${id}`}
-                                                            onClick={() => toggleSmokeCheckFilter(id, true)}
-                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all
-                                                                bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-150 hover:text-slate-500
-                                                                ${smokeCheckFilter === `na:${id}` ? 'ring-2 ring-offset-1 ring-slate-300' : ''}`}
-                                                            title={`${label} — ${count} properties where this field is unavailable at source (not actionable)`}
-                                                        >
-                                                            <i className="fa-solid fa-ban text-[8px]"></i> {label} <span className="font-black">{count}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Detailed Results */}
-                            <div className="p-6">
-                                <div className="space-y-4 max-h-[600px] overflow-y-auto px-2 custom-scrollbar">
-                                    {(smokeFilter === 'all'
-                                        ? smokeSummary.results
-                                        : smokeFilter === 'failed'
-                                            ? smokeSummary.results.filter(r => r.errorCount > 0)
-                                            : smokeSummary.results.filter(r => r.warnCount > 0)
-                                    )
-                                        .filter(r => {
-                                            if (!smokeCheckFilter) return true;
-                                            const [prefix, id] = smokeCheckFilter.includes(':') ? smokeCheckFilter.split(':') : [null, smokeCheckFilter];
-                                            if (prefix === 'na') {
-                                                return r.checks.some(c => c.id === id && c.sourceNull);
-                                            }
-                                            return r.checks.some(c => c.id === id && !c.passed && !c.sourceNull);
-                                        })
-                                        .map((res) => (
-                                            <div key={res.zpid} className="border border-slate-100 rounded-2xl overflow-hidden hover:border-violet-200 transition-all">
-                                                <button
-                                                    onClick={() => {
-                                                        const next = new Set(smokeExpanded);
-                                                        if (next.has(res.zpid)) next.delete(res.zpid);
-                                                        else next.add(res.zpid);
-                                                        setSmokeExpanded(next);
-                                                    }}
-                                                    className="w-full flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${res.errorCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                                            {res.errorCount > 0 ? <i className="fa-solid fa-xmark"></i> : <i className="fa-solid fa-check"></i>}
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <span className="text-[11px] font-black text-slate-800 block leading-tight">{res.address}</span>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{res.homeType}</span>
-                                                                <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                                                                <span className={`text-[9px] font-black uppercase tracking-widest ${res.errorCount > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                                    {res.errorCount} errors · {res.warnCount} warnings
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <i className={`fa-solid fa-chevron-down text-slate-300 text-xs transition-transform ${smokeExpanded.has(res.zpid) ? 'rotate-180' : ''}`}></i>
-                                                </button>
-
-                                                {smokeExpanded.has(res.zpid) && (
-                                                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 bg-white">
-                                                        {res.checks.map((c) => (
-                                                            <div key={c.id} className={`p-2.5 rounded-xl border flex items-start gap-2.5 transition-all
-                                                                ${c.passed
-                                                                    ? 'bg-emerald-50/30 border-emerald-100/50 grayscale-[0.3]'
-                                                                    : c.severity === 'error'
-                                                                        ? 'bg-rose-50 border-rose-200'
-                                                                        : 'bg-amber-50 border-amber-200'
-                                                                }`}>
-                                                                <i className={`fa-solid ${c.passed ? 'fa-circle-check text-emerald-500' : c.severity === 'error' ? 'fa-circle-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'} mt-0.5 text-[10px]`}></i>
-                                                                <div>
-                                                                    <div className="text-[9.5px] font-black text-slate-700 leading-none mb-1">{c.label}</div>
-                                                                    {c.detail && (
-                                                                        <div className={`text-[8.5px] font-medium leading-[1.2] ${c.passed ? 'text-slate-400' : 'text-slate-600'}`}>
-                                                                            {c.detail}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Discovery Results */}
                     {viewMode === 'table' && (
@@ -3268,272 +3274,7 @@ ${JSON.stringify(propertySummaries)}
                         )
                     )}
 
-                    {/* ─── Smoke Test Results Panel ──────────────────────────────────────── */}
-                    {smokeSummary && (
-                        <div className="mt-8 bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-100/60 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Header */}
-                            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-11 h-11 bg-violet-50 rounded-2xl flex items-center justify-center">
-                                        <i className="fa-solid fa-flask text-violet-500 text-lg"></i>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-black text-slate-900">Smoke Test Results</h3>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
-                                            {smokeSummary.totalProperties} properties · ran {smokeSummary.ranAt.toLocaleTimeString()}
-                                        </p>
-                                    </div>
-                                    {/* Summary pills */}
-                                    <div className="flex items-center gap-2 ml-4">
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                            <i className="fa-solid fa-circle-check text-[9px]"></i>{smokeSummary.passedCount} passed
-                                        </span>
-                                        {smokeSummary.failedCount > 0 && (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                                <i className="fa-solid fa-circle-xmark text-[9px]"></i>{smokeSummary.failedCount} errors
-                                            </span>
-                                        )}
-                                        {smokeSummary.results.some(r => r.warnCount > 0) && (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                                <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>
-                                                {smokeSummary.results.reduce((s, r) => s + r.warnCount, 0)} warnings
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {/* Filter toggle */}
-                                    <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-                                        {(['all', 'failed', 'warned'] as const).map(f => (
-                                            <button key={f} onClick={() => setSmokeFilter(f)}
-                                                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${smokeFilter === f ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
-                                                {f === 'all' ? 'All' : f === 'failed' ? 'Errors Only' : 'With Warnings'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <button onClick={() => setSmokeSummary(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
-                                        <i className="fa-solid fa-xmark"></i>
-                                    </button>
-                                </div>
-                            </div>
 
-                            {/* Per-check failure counts */}
-                            {(() => {
-                                const failCounts: Record<string, { label: string; severity: string; count: number }> = {};
-                                const sourceNullCounts: Record<string, { label: string; count: number }> = {};
-                                smokeSummary.results.forEach(r => {
-                                    r.checks.forEach(c => {
-                                        if (c.sourceNull) {
-                                            if (!sourceNullCounts[c.id]) {
-                                                sourceNullCounts[c.id] = { label: c.label, count: 0 };
-                                            }
-                                            sourceNullCounts[c.id].count++;
-                                        } else if (!c.passed) {
-                                            if (!failCounts[c.id]) {
-                                                failCounts[c.id] = { label: c.label, severity: c.severity, count: 0 };
-                                            }
-                                            failCounts[c.id].count++;
-                                        }
-                                    });
-                                });
-                                const sortedFails = Object.entries(failCounts).sort((a, b) => {
-                                    if (a[1].severity !== b[1].severity) return a[1].severity === 'error' ? -1 : 1;
-                                    return b[1].count - a[1].count;
-                                });
-                                const sortedNA = Object.entries(sourceNullCounts).sort((a, b) => b[1].count - a[1].count);
-                                if (sortedFails.length === 0 && sortedNA.length === 0) return null;
-                                return (
-                                    <div className="mx-6 mt-4 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <i className="fa-solid fa-chart-bar text-slate-400 text-xs"></i>
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                                Failure Breakdown ({sortedFails.length} checks across {smokeSummary.totalProperties} properties)
-                                            </span>
-                                            {smokeCheckFilter && (
-                                                <button
-                                                    onClick={() => setSmokeCheckFilter(null)}
-                                                    className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
-                                                >
-                                                    <i className="fa-solid fa-xmark text-[8px]"></i> Clear Filter
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* Actionable failures — these can be fixed by running the pipeline */}
-                                        {sortedFails.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {sortedFails.map(([id, { label, severity, count }]) => (
-                                                    <button key={id}
-                                                        onClick={() => toggleSmokeCheckFilter(id, false)}
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all ${severity === 'error'
-                                                            ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
-                                                            : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-                                                            } ${smokeCheckFilter === id ? 'ring-2 ring-offset-1 ' + (severity === 'error' ? 'ring-rose-400' : 'ring-amber-400') : ''}`}
-                                                        title={`Click to filter: ${label} — ${count}/${smokeSummary.totalProperties} properties failing`}
-                                                    >
-                                                        {label} <span className="font-black">{count}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Source Unavailable — API was called but data doesn't exist at source */}
-                                        {sortedNA.length > 0 && (
-                                            <div className="mt-3">
-                                                <div className="flex items-center gap-1.5 mb-2">
-                                                    <i className="fa-solid fa-ban text-slate-300 text-[9px]"></i>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                                        Source Unavailable — data does not exist at source
-                                                    </span>
-                                                </div>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {sortedNA.map(([id, { label, count }]) => (
-                                                        <button key={`na-${id}`}
-                                                            onClick={() => toggleSmokeCheckFilter(id, true)}
-                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9.5px] font-bold border cursor-pointer transition-all
-                                                                bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-150 hover:text-slate-500
-                                                                ${smokeCheckFilter === `na:${id}` ? 'ring-2 ring-offset-1 ring-slate-300' : ''}`}
-                                                            title={`${label} — ${count} properties where this field is unavailable at source (not actionable)`}
-                                                        >
-                                                            <i className="fa-solid fa-ban text-[8px]"></i> {label} <span className="font-black">{count}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-                            {/* Common warnings across all properties */}
-                            {(() => {
-                                const results = smokeSummary.results;
-                                if (results.length < 2) return null;
-                                // Find warning/error check IDs that fail in EVERY property
-                                const allCheckIds = new Set<string>();
-                                results[0]?.checks.forEach(c => allCheckIds.add(c.id));
-                                const commonFailing = Array.from(allCheckIds).filter(checkId =>
-                                    results.every(r => {
-                                        const c = r.checks.find(ch => ch.id === checkId);
-                                        return c && !c.passed;
-                                    })
-                                );
-                                if (commonFailing.length === 0) return null;
-                                const commonChecks = commonFailing.map(id => {
-                                    const c = results[0].checks.find(ch => ch.id === id)!;
-                                    return c;
-                                });
-                                return (
-                                    <div className="mx-6 mt-4 mb-2 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl">
-                                        <div className="flex items-center gap-2 mb-2.5">
-                                            <i className="fa-solid fa-triangle-exclamation text-amber-500 text-xs"></i>
-                                            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
-                                                Common across all {results.length} properties
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {commonChecks.map(c => (
-                                                <span key={c.id}
-                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${c.severity === 'error'
-                                                        ? 'bg-rose-50 border-rose-200 text-rose-700'
-                                                        : 'bg-amber-100 border-amber-300 text-amber-800'
-                                                        }`}
-                                                >
-                                                    <i className={`fa-solid ${c.severity === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'} text-[8px]`}></i>
-                                                    {c.label}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Results table */}
-                            <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
-                                {smokeSummary.results
-                                    .filter(r => {
-                                        if (smokeCheckFilter) {
-                                            // Handle na: prefix for source-null filtering
-                                            if (smokeCheckFilter.startsWith('na:')) {
-                                                const checkId = smokeCheckFilter.slice(3);
-                                                return r.checks.some(c => c.id === checkId && c.sourceNull);
-                                            }
-                                            return r.checks.some(c => c.id === smokeCheckFilter && !c.passed);
-                                        }
-                                        if (smokeFilter === 'failed') return !r.passed;
-                                        if (smokeFilter === 'warned') return r.warnCount > 0;
-                                        return true;
-                                    })
-                                    .sort((a, b) => b.errorCount - a.errorCount || b.warnCount - a.warnCount)
-                                    .map(result => {
-                                        const isExpanded = smokeExpanded.has(result.zpid);
-                                        return (
-                                            <div key={result.zpid} className="group">
-                                                {/* Row */}
-                                                <div
-                                                    className={`flex items-center gap-4 px-8 py-4 cursor-pointer hover:bg-slate-50/80 transition-colors ${result.errorCount > 0 ? 'bg-rose-50/20' : result.warnCount > 0 ? 'bg-amber-50/10' : ''}`}
-                                                    onClick={() => setSmokeExpanded(prev => {
-                                                        const next = new Set(prev);
-                                                        isExpanded ? next.delete(result.zpid) : next.add(result.zpid);
-                                                        return next;
-                                                    })}
-                                                >
-                                                    {/* Status icon */}
-                                                    <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${result.passed ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                                        <i className={`fa-solid text-[11px] ${result.passed ? 'fa-circle-check' : 'fa-circle-xmark'}`}></i>
-                                                    </div>
-                                                    {/* Address */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-sm font-bold text-slate-900 truncate">{result.address}</div>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-[10px] text-slate-400 font-medium">{result.zpid}</span>
-                                                            <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                                                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{result.homeType?.replace(/_/g, ' ')}</span>
-                                                        </div>
-                                                    </div>
-                                                    {/* Counts */}
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        {result.errorCount > 0 && (
-                                                            <span className="px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 text-[9px] font-black uppercase rounded-lg">
-                                                                {result.errorCount} error{result.errorCount > 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
-                                                        {result.warnCount > 0 && (
-                                                            <span className="px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-black uppercase rounded-lg">
-                                                                {result.warnCount} warn{result.warnCount > 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
-                                                        {result.errorCount === 0 && result.warnCount === 0 && (
-                                                            <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase rounded-lg">clean</span>
-                                                        )}
-                                                        <i className={`fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-slate-300 text-[10px] ml-2`}></i>
-                                                    </div>
-                                                </div>
-                                                {/* Expanded checks */}
-                                                {isExpanded && (
-                                                    <div className="px-12 pb-5 pt-1 grid grid-cols-2 lg:grid-cols-3 gap-2 bg-slate-50/40 border-t border-slate-100 animate-in fade-in duration-200">
-                                                        {result.checks.map(check => (
-                                                            <div key={check.id}
-                                                                className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-[10px] ${check.sourceNull
-                                                                    ? 'bg-slate-50 border-slate-200 text-slate-400'
-                                                                    : check.passed ? 'bg-white border-slate-100 text-slate-600' : check.severity === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-                                                                <i className={`fa-solid mt-0.5 text-[9px] shrink-0 ${check.sourceNull
-                                                                    ? 'fa-ban text-slate-300'
-                                                                    : check.passed ? 'fa-check text-emerald-500' : check.severity === 'error' ? 'fa-xmark text-rose-500' : 'fa-triangle-exclamation text-amber-500'}`}></i>
-                                                                <div className="min-w-0">
-                                                                    <div className="font-black truncate">{check.label}{check.sourceNull ? ' ᴺ/ᴬ' : ''}</div>
-                                                                    {check.detail && <div className="font-medium opacity-70 truncate mt-0.5" title={check.detail}>{check.detail}</div>}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })
-                                }
-                            </div>
-                        </div>
-                    )}
 
                     {viewMode === 'ingestion' && (propBatchProgress || intelBatchProgress || orientBatchProgress) && (
                         <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-100/50 overflow-hidden mb-12 animate-in slide-in-from-top-4 duration-500">
@@ -3858,9 +3599,9 @@ ${JSON.stringify(propertySummaries)}
                 </div>
             </div>
 
-            {/* Ingestion Usage Report */}
-            {ingestionReport && (
-                <div className="mt-20 border-t border-slate-100 pt-20 animate-in slide-in-from-bottom-8">
+                    {/* Ingestion Usage Report */}
+                    {ingestionReport && (
+                        <div className="mt-20 border-t border-slate-100 pt-20 animate-in slide-in-from-bottom-8">
                     <div className="flex items-end justify-between mb-12">
                         <div>
                             <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Post-Analysis Intelligence</div>
@@ -4023,7 +3764,9 @@ ${JSON.stringify(propertySummaries)}
                             </div>
                         )}
                     </div>
-                </div>
+                    </div>
+                    )}
+                </>
             )}
 
             {/* ── Audit Trail View ────────────────────────────────────────────── */}

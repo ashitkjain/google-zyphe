@@ -24,7 +24,9 @@ export const fetchPropertyDataFull = async (
     isZpid: boolean = false,
     forceEnvironment: boolean = false,
     onStep?: (step: string) => void,
-    skipImages: boolean = false
+    skipImages: boolean = false,
+    skipEnvironment: boolean = false,
+    skipParcel: boolean = false
 ): Promise<PropertyData> => {
     const cacheKey = `data-full-${addressOrZpid}`;
 
@@ -161,11 +163,10 @@ export const fetchPropertyDataFull = async (
             (mappedData as any).__cachedEnvEarly = cachedEnvEarly;
         }
 
-        // INDEPENDENT ENVIRONMENTAL CHECK:
         // Even if we don't have a ZPID, if we have coordinates, we can fetch Solar/Air/Pollen/AI.
         let parcelDirty = false;
         let satelliteDirty = false;
-        if (mappedData.coordinates) {
+        if (mappedData.coordinates && !skipEnvironment) {
             const storageKey = mappedData.zpid || (mappedData.address ? mappedData.address.toLowerCase().replace(/[^a-z0-9]/g, '_') : undefined);
 
             const TTL_ENV = 60 * 24 * 60 * 60 * 1000; // 60 days for all environmental data
@@ -469,7 +470,7 @@ export const fetchPropertyDataFull = async (
         // ── PARCEL DATA (previously lazy-loaded by ParcelValidationCard) ────────
         // Fetch ArcGIS parcel polygon, APN, and area if not already cached.
         // Skip if parcelNotFound is stamped — ArcGIS confirmed it has no record for this address.
-        if (mappedData.coordinates && mappedData.zpid && !mappedData.parcelPolygon && !(mappedData as any).parcelNotFound) {
+        if (mappedData.coordinates && mappedData.zpid && !mappedData.parcelPolygon && !(mappedData as any).parcelNotFound && !skipParcel) {
             onStep?.('Fetching parcel data from ArcGIS...');
             _mark('Parcel fetch start');
             console.log(`[⏱ DataPipeline] +${_elapsed()} — parcel fetch start`);

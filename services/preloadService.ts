@@ -1297,7 +1297,7 @@ export const runImageOnlyPipeline = async (
     onProgress({ step: 'Discovery', status: 'running', message: 'Resolving location and property ID...' });
     const [radar, propData] = await Promise.all([
       normalizeAddress(rawAddress, providedZpid),
-      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false)
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false, undefined, false, true /* skipEnvironment */, true /* skipParcel */)
     ]);
 
     const zpid = propData.zpid || providedZpid;
@@ -1404,7 +1404,7 @@ export const runRapidAPIOnlyPipeline = async (
     // Fetch RapidAPI data and Radar geocoding in parallel
     const [radar, propData] = await Promise.all([
       normalizeAddress(rawAddress, providedZpid),
-      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false, undefined, true /* skipImages */)
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false, undefined, true /* skipImages */, true /* skipEnvironment */, true /* skipParcel */)
     ]);
 
     const zpid = propData.zpid || providedZpid;

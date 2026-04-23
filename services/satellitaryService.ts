@@ -18,6 +18,7 @@ import { urlToBase64, executeGeminiRequest, FLASH_MODEL } from './geminiService'
 
 // Orientation uses the same model as the rest of the app (set in config.ts → APP_CONFIG.models.flash).
 const ORIENTATION_MODEL = FLASH_MODEL;
+const ORIENTATION_VERSION = 'v29';
 
 
 
@@ -1666,6 +1667,13 @@ export async function runSatellitaryAnalysis(
                 property_layout_type: result.property_layout_type,
                 explanation: result.explanation ?? null,
                 is_under_construction: result.is_under_construction,
+                batch_version: ORIENTATION_VERSION,
+                smoke_test_results: {
+                    has_orientation: result.final_orientation !== 'UNCLEAR',
+                    confidence_high: result.confidence === 'high',
+                    is_v21: ORIENTATION_VERSION === 'v21',
+                    is_under_construction: !!result.is_under_construction
+                }
             }
         ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
     }

@@ -564,6 +564,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         let match = 0, mismatch = 0, unclear = 0, noGt = 0;
         filteredRows.forEach(row => {
             const gt = groundTruthByZpid.get(row.zpid);
+            const isStale = !!row.orientationAI && row.orientationAI.batch_version !== 'v29';
             
             // User request: "count only those properties for which we dont have ground truth" (No Manual Assessment)
             if (!gt || !gt.expected_orientation) {
@@ -583,7 +584,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
             const isUnderConstruction = !!row.orientationAI?.is_under_construction;
             if (aiDir === 'unclear' || isUnderConstruction) { unclear++; return; }
             const gtDir = extractDir(gt.expected_orientation);
-            if (aiDir && aiDir === gtDir) match++;
+            if (aiDir && aiDir === gtDir && !isStale) match++;
             else mismatch++;
         });
         const total = match + mismatch; // unclear excluded from accuracy %
@@ -712,11 +713,19 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
     const handleRecalculateMismatches = async () => {
         const zpids = filteredRows.filter(r => {
+            if (!r.orientationAI) return false;
+            
+            // Case 1: Old version (pre-v29) — always a mismatch with current system state
+            if (r.orientationAI.batch_version !== 'v29') return true;
+
+            // Case 2: Ground Truth mismatch
             const gt = groundTruthByZpid.get(r.zpid);
-            if (!gt || !gt.expected_orientation || !r.orientationAI) return false;
-            const aiDir = r.orientationAI.final_orientation.split(' ')[0].toLowerCase();
-            const gtDir = gt.expected_orientation.split(' ')[0].toLowerCase();
-            return aiDir !== gtDir;
+            if (gt && gt.expected_orientation) {
+                const aiDir = r.orientationAI.final_orientation.split(' ')[0].toLowerCase();
+                const gtDir = gt.expected_orientation.split(' ')[0].toLowerCase();
+                return aiDir !== gtDir;
+            }
+            return false;
         }).map(r => r.zpid);
         await queueCloudBatch(zpids, 'mismatched properties');
     };
@@ -1415,17 +1424,22 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                             {/* Listing photos used for orientation */}
                                             <td className="p-5 text-center">
                                                 {(() => {
-                                                    const photos = (row.orientationAI as any)?.listing_photos_used;
-                                                    if (!Array.isArray(photos) || photos.length === 0) {
+                                                    const allPhotos = (row.orientationAI as any)?.listing_photos_used;
+                                                    if (!Array.isArray(allPhotos) || allPhotos.length === 0) {
                                                         return <span className="text-[10px] text-slate-200 font-bold">—</span>;
                                                     }
+                                                    // v10+: show only photos Gemini confirmed showed exterior/front.
+                                                    // Older results have no confirmed_front flag — fall back to showing all.
+                                                    const hasConfirmation = allPhotos.some((p: any) => p.confirmed_front !== undefined);
+                                                    const displayed = hasConfirmation ? allPhotos.filter((p: any) => p.confirmed_front) : allPhotos;
+
                                                     return (
                                                         <div className="flex flex-col items-center gap-1.5">
-                                                            {photos.map((photo: { index: number; url: string; score: number; analysisSnippet: string }, pi: number) => (
+                                                            {displayed.map((photo: { index: number; url: string; score: number; analysisSnippet: string; confirmed_front?: boolean }, pi: number) => (
                                                                 <div
                                                                     key={pi}
                                                                     className="relative group cursor-pointer"
-                                                                    onClick={() => setListingPhotoPopup({ address: row.address, photos, activeIdx: pi })}
+                                                                    onClick={() => setListingPhotoPopup({ address: row.address, photos: allPhotos, activeIdx: allPhotos.findIndex(p => p.url === photo.url) })}
                                                                 >
                                                                     <img
                                                                         src={photo.url}
@@ -1447,7 +1461,9 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                                     </span>
                                                                 </div>
                                                             ))}
-                                                            <div className="text-[8px] text-violet-500 font-black uppercase tracking-widest">sent to AI</div>
+                                                            <div className={`text-[8px] font-black uppercase tracking-widest ${displayed.length > 0 ? 'text-violet-500' : 'text-slate-300'}`}>
+                                                                {hasConfirmation ? (displayed.length > 0 ? 'used by AI' : 'none used') : 'sent to AI'}
+                                                            </div>
                                                         </div>
                                                     );
                                                 })()}

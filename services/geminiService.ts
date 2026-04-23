@@ -595,7 +595,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
   console.log(`[Community Pulse] Starting for ${property.city}, ${property.state}...`);
 
   return executeGeminiRequest<CommunityPulseResult>({
-    model: 'gemini-2.5-flash',
+    model: FLASH_MODEL,
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.7 },
     userId,
@@ -622,7 +622,7 @@ export const analyzeLifestyleInsights = async (property: PropertyData, userId: s
   console.log(`[Lifestyle Insights] Starting for ${property.address}...`);
 
   return executeGeminiRequest<LifestyleInsightsResult>({
-    model: 'gemini-2.5-flash',
+    model: FLASH_MODEL,
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.7 },
     userId,
@@ -669,7 +669,7 @@ export const analyzeSchool = async (school: any, property: PropertyData, userId:
   console.log(`[Schools Intelligence] Analyzing: ${school.name}...`);
 
   return executeGeminiRequest<any>({
-    model: 'gemini-3-flash-preview',
+    model: FLASH_MODEL,
     contents: prompt,
     config: { tools: [groundingTool], temperature: 0.5 },
     userId,

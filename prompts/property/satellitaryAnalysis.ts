@@ -15,7 +15,7 @@ import { Type } from '@google/genai';
 /** Inline azimuth→compass label for use in prompt builders (avoids circular import). */
 function azimuthToCompassLabel(az: number | null): string {
     if (az == null) return 'UNCLEAR';
-    const dirs = ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'];
+    const dirs = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
     return dirs[Math.round(((az % 360) + 360) % 360 / 45) % 8];
 }
 
@@ -45,11 +45,11 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
     const addressClue = address ? `\n\nPROPERTY ADDRESS: "${address}"${typeLabel}\nThe front entrance usually faces "${streetName || address}", but for townhouses/multi-unit complexes, it may face an internal courtyard, shared walkway, or park instead.` : '';
     const descriptionOverride = buildDescriptionHint(description);
 
-    const compassLabel = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
+    const compassLabel = (az: number) => ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
     const bearingHintDual = streetBearing != null ? (() => {
         const perp1 = (streetBearing + 90) % 360;
         const perp2 = (streetBearing - 90 + 360) % 360;
-        const par2  = (streetBearing + 180) % 360;
+        const par2 = (streetBearing + 180) % 360;
         return `\n\nGPS STREET BEARING ADVISORY: GPS data estimates the address street runs at ~${Math.round(streetBearing)}°.
 ⚠ VISUAL OVERRIDE — Before using this hint, look at Image A: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this GPS hint entirely and determine orientation from the aerial image visually.
 If the road IS straight and the lot IS standard: the front most likely faces ${compassLabel(perp1)} (~${Math.round(perp1)}°) or ${compassLabel(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road. Use the driveway apron (Image A) and the visible door/walkway (Image B) to decide which is correct.
@@ -68,8 +68,9 @@ GUIDING PRINCIPLES:
 4. CORNER LOTS: Garages sometimes face secondary streets or rear alleys. Always verify with the pedestrian walkway or porch, not just the garage.
 5. TOWARD RULE (most common error): The front faces TOWARD the road — in the direction FROM the lot center TO the road. The direction the road TRAVELS is irrelevant.
    → Road on the NORTHEAST edge → front faces NORTHEAST (~45°). NOT NW or SE (those are the road's travel directions).
-   → Road on the NORTH edge → front faces NORTH (~0°). NOT east or west.
    TRAP: "The road runs NW/SE along the NE edge" → front faces NE — never NW or SE.
+6. THE ANCHOR STRATEGY (Anti-Hallucination): Before determining orientation, identify one "Anchor Feature" visible in both the Aerial (Image A) and the Street View (Image B) — e.g., a specific tree, neighbor's roof color, chimney, or driveway curve. Describe its relative position in both images to ensure you haven't lost track of "North" when switching perspectives.
+7. THE 3X3 GRID RULE: Mentally divide the lot into a 3x3 grid. Label the center square "House". Identify which squares contain the "Primary Road" (e.g., "Top-Center" and "Top-Right"). The orientation vector must originate in the "House" square and terminate in a "Road" square.
 
 TASK SEQUENCE:
 Step 0: Quality & Construction Check.
@@ -109,62 +110,53 @@ Step 0b: Street View Usability Check (MANDATORY before Steps 3–4).
    SIDE-LOADING GARAGE TRAP (CRITICAL FOR CORNER LOTS): In modern townhouses, the GARAGE and DRIVEWAY are often on one street (the side or back) while the FRONT DOOR and WALKWAY are on the other street (the main front).
      → DRIVEWAY RECONCILIATION: If Image B shows a porch but NO driveway, and Image A shows a driveway on the South side, the front is NOT the South side. You must find the porch on the aerial and orient to THAT wall.
      → If the driveway and walkway lead to DIFFERENT streets: The orientation is the direction of the WALKWAY/FRONT DOOR.
-     \u2192 CORNER SCRUTINY: On Image A, trace the pedestrian path separately from the driveway. If the neighbors in the same row all face East, but the corner unit has a driveway on the South, the corner unit's front door likely still faces EAST to match the row.
-     \u2192 RECTANGULAR FOOTPRINT RULE: Most houses are rectangular with walls facing 0, 90, 180, or 270 degrees (or the primary slant of the street). Do NOT use diagonal azimuths (45, 135, 225, 315) just because a house is on a corner. You must identify the specific wall the door is on. If the door is on the East wall, the orientation is 90\u00b0, even if the house sits near a curved Southeast corner.
+     → RECTANGULAR FOOTPRINT RULE (MANDATORY): Most houses are rectangular with walls facing 0, 90, 180, or 270 degrees. Do NOT use diagonal azimuths (45, 135, 225, 315) just because a house is on a corner or a curve. 
+      • If the house walls are parallel to the North-up edges of the image, the orientation is a cardinal direction (0, 90, 180, or 270). 
+      • A property's edge touching a slanted road (Southwest) DOES NOT mean it faces Southwest. If the house faces South, its orientation is 180°, even if the street is to its SW.
+      • Only use slanted/diagonal azimuths if the building structure itself is visibly rotated at an angle relative to the cardinal grid of the neighborhood.
 
    ELIMINATION & VALIDATION LOGIC:
-     \u2192 RULE OUT DIRECTIONS: Use Image B to validate your assumptions. If Image B shows a back patio, a side wall with no entry, or a garage-only facade, then the direction that camera is facing is highly unlikely to be the correct final_orientation.
-     \u2192 CROSS-CHECK AERIAL ASSUMPTIONS: If you assume the house faces North from the aerial, but the North-facing Street View (Image B) shows a featureless wall or back fence, your aerial assumption is likely incorrect and should be re-evaluated.
-     \u2192 DRIVEWAY/PORCH RECONCILIATION: If Image B shows a residential porch but NO driveway, and the aerial shows a driveway on the South side, the front is likely NOT the South side. Seek visual evidence of the porch wall on the aerial.
+     → RULE OUT DIRECTIONS: Use Image B to validate your assumptions. If Image B shows a back patio, a side wall with no entry, or a garage-only facade, then the direction that camera is facing is highly unlikely to be the correct final_orientation.
+     → CROSS-CHECK AERIAL ASSUMPTIONS: If you assume the house faces North from the aerial, but the North-facing Street View (Image B) shows a featureless wall or back fence, your aerial assumption is likely incorrect and should be re-evaluated.
+     → DRIVEWAY/PORCH RECONCILIATION: If Image B shows a residential porch but NO driveway, and the aerial shows a driveway on the South side, the front is likely NOT the South side. Seek visual evidence of the porch wall on the aerial.
 
    TOWNHOUSE COMPLEX LAYOUT RULE: If the PROPERTY_TYPE is a townhouse/condo (shared walls) AND the layout is non-standard (corner lot, cul-de-sac, internal shared driveway, or eyebrow/widened curve):
-     \u2192 You should default to final_orientation = 'UNCLEAR' unless the front door and orientation are indisputable (e.g., clearly visible entry in Street View matching exactly one wall on the Aerial with high confidence).
+     → You should default to final_orientation = 'UNCLEAR' unless the front door and orientation are indisputable (e.g., clearly visible entry in Street View matching exactly one wall on the Aerial with high confidence).
 
-   STALE AERIAL / NEW CONSTRUCTION RULE: If Image A (Satellite) shows a construction site (dirt lot, framing, or foundations) but the Listing Photos show a finished home, the aerial imagery is STALE.
-     \u2192 You should set confidence = 'low'.
-     \u2192 If the Roadmap does not yet show the street or you are "inferring" the path of a road that isn't clearly paved in the aerial, you should set final_orientation = 'UNCLEAR'. Do not guess the orientation of a house that hasn't been built yet in the satellite view.
-     Orientation for these multi-unit configurations is too complex for aerial/street-view analysis alone.
-   If ANY condition is uncertain or unmet:
-     → Set front_door_clearly_visible = false
-     → Do NOT apply heading math from Image B
-     → Rely on aerial analysis only
-     → Set confidence = 'low'
+   STALE AERIAL / NEW CONSTRUCTION RULE: If Image A (Satellite) shows a construction site (dirt lot, framing, or foundations) but the Listing Photos or Street View show a finished home, the aerial imagery is STALE.
+     → You MUST set is_under_construction = false (because the home is now finished).
+     → You should set confidence = 'low' due to the imagery discrepancy.
+     → If the Roadmap does not yet show the street or you are "inferring" the path of a road that isn't clearly paved in the aerial, you should set final_orientation = 'UNCLEAR'. Do not guess the orientation of a house that hasn't been built yet in the satellite view.
 
 Step 1: LAYOUT DETECTION — Examine Image A FIRST to determine the street layout:
    OPTION A — CUL-DE-SAC / COURT: Is there a clearly visible rounded bulb/teardrop dead-end terminus in the street AND the subject lot abuts this circular area directly?
-      ⚠️ COURT & EYEBROW TRAP:
-        - COURT/WAY: Many streets ending in a cul-de-sac are named "Court" or "Way". If the property is on the STRAIGHT portion leading to the bulb, it is NOT a cul-de-sac lot — it is a STANDARD lot.
-        - EYEBROW / THROUGH-STREET: If the street continues past the circular area in both directions, it is a widened curve (an "eyebrow"), NOT a cul-de-sac. Only classify as cul_de_sac if the street literally ENDS at a bulb and does not continue.
-      → If YES (both must be true): Set property_layout_type = "cul_de_sac".
-         The FRONT WALL of the house FACES OUTWARD toward the center of that circular open area.
-         (Think of it as: the front door and garage open onto the circular paved court — cars drive from the circle to the garage.)
-         CUL-DE-SAC DIRECTION METHOD — compute the direction from property to cul-de-sac center precisely:
-           • Locate the center of the cul-de-sac bulb (point C).
-           • Locate the center of the subject property (point P, marked by the pin).
-           • Draw a vector P → C and read its compass direction using BOTH axes:
-               Upper-left of P  = NORTHWEST (~315°) — NOT west, NOT southwest
-               Upper-right of P = NORTHEAST (~45°)  — NOT north, NOT east
-               Lower-left of P  = SOUTHWEST (~225°) — NOT south, NOT west
-               Lower-right of P = SOUTHEAST (~135°) — NOT south, NOT east
-               Directly above P = NORTH (0°)   |  Directly right = EAST (90°)
-               Directly below P = SOUTH (180°) |  Directly left  = WEST (270°)
-           • If the cul-de-sac is diagonally placed (both horizontal AND vertical offset), you MUST use the diagonal compass direction (NW/NE/SW/SE). Do NOT reduce it to a cardinal direction (N/E/S/W) unless the offset is almost entirely in one axis.
-           • The front wall azimuth = the angle from P toward C (the direction the front wall FACES).
-          CUL-DE-SAC EXTRA GATE FOR Step 3: The Street View camera may be positioned ANYWHERE on the curved road — it is NOT guaranteed to be looking at the front.
-          Set street_view_shows_front = TRUE ONLY if the face of the house visible in Image B faces the SAME direction as the cul-de-sac center (the direction computed in your P→C vector above).
-          If the camera heading puts it looking at a SIDE or BACK wall (i.e., the visible face runs parallel to or away from the P→C vector), set street_view_shows_front = FALSE.
-          Do NOT set sv_front = TRUE just because a wall, fence, or garage door is visible in Image B — it must be the face that OPENS toward the cul-de-sac circle.
-   OPTION B — STANDARD lot: Straight or gently curved street segment. Use the walkway rule. (Includes lots on the straight portion of a dead-end street or court.)
-   OPTION C — CORNER lot: Two distinct street frontages visible. Use pedestrian walkway to determine primary front.
-   OPTION D — FLAG lot: Long driveway/easement leads to a setback lot hidden behind another property.
+      ⚠️ PROXIMITY TRAP: A property is ONLY a cul_de_sac lot if its front boundary abuts the CURVED/CIRCULAR bulb. If the road segment directly in front of the driveway is STRAIGHT, it is a STANDARD_STREET_LAYOUT, even if a cul-de-sac bulb exists nearby on the same street.
+      → If YES (must abut the curve): Set property_layout_type = "cul_de_sac".
+          CUL-DE-SAC DIRECTION METHOD — Prioritize physical evidence:
+            • PRIMARY SIGNAL: Locate the Driveway Apron and Pedestrian Walkway in Image A. Trace the vector through that connection to the street.
+            • SECONDARY FALLBACK (Verification): Locate the center of the cul-de-sac bulb (Point C) and the property center (Point P). The vector P→C usually aligns with the front, but ONLY if the driveway also points that way.
+            • If the P→C vector and the Driveway vector disagree, the DRIVEWAY CONNECTION is authoritative.
+            • Snap to the nearest CARDINAL direction (N, S, E, W) if the house matches the neighborhood grid.
+            • Roadmap Note: Ignore local tangents on curves. Focus on the main building facade.
+
+           CUL-DE-SAC EXTRA GATE: The Street View camera (Image C) may be on a side-street segment.
+           - FENCE = SIDE RULE (MANDATORY): If Image C shows a fence, a side-yard gate, a chimney-side wall, or a backyard-style lawn, it is a SIDE view. Set street_view_shows_front = FALSE.
+           - Set street_view_shows_front = TRUE ONLY if the house face in Image C contains the FRONT DOOR or GARAGE DOORS.
+           - If the camera sees a SIDE or BACK wall, set street_view_shows_front = FALSE.
+    OPTION B — STANDARD lot: Straight or gently curved street segment. Use the walkway rule.
+    OPTION C — CORNER lot: Two distinct street frontages visible. Use pedestrian walkway to determine primary front.
+    OPTION D — FLAG lot: Long driveway/easement leads to a setback lot hidden behind another property.
 
    DRIVEWAY CONNECTION RULE (applies to ALL layout types — check this before deciding the front street):
    A road is only a valid front street if there is a DIRECT VISIBLE CONNECTION from the property to that road:
      • A driveway or apron leading from the garage/parking to the road, OR
      • A pedestrian walkway from the front door to the sidewalk on that road.
-   If a road is separated from the property by a green belt, tree row, park strip, retaining wall, or any physical barrier with NO driveway or path crossing it:
+   If a road is separated from the property by a green belt, tree row, park strip, retaining wall, fence, or any physical barrier (including a private lawn with no path):
      → That road is NOT the front street, regardless of how prominent or close it appears.
      → Do NOT default to the largest or nearest road — look for where the driveway actually exits.
+   
+   CARDINAL EXCLUSION (MANDATORY): Before deciding a direction (e.g., East), you MUST check all other directions (N, S, W). If another direction (e.g., North) has a clear driveway connection while the first direction (East) has a fence/lawn barrier, you MUST pivot to the clear connection.
+   
    If you cannot find a clear driveway connection to any road, set confidence='low' and final_orientation='UNCLEAR'.
 
 Step 2: Aerial Front-Wall Identification.
@@ -221,8 +213,14 @@ Step 4: Finalize.
         c) If a clear pedestrian walkway is visible on another face → that face is the architectural front.
            Revise azimuth_degrees and final_orientation to reflect that face.
         d) If no other face shows a clear pedestrian entry path → set final_orientation = 'UNCLEAR',
-           azimuth_degrees = null, confidence = 'low'.
-           Do NOT use the garage-facing direction as the final answer.
+            azimuth_degrees = null, confidence = 'low'.
+            Do NOT use the garage-facing direction as the final answer.
+
+Step 5: CLOCK-FACE CHECK (Geometric Verification):
+    Map the road and the front door to a clock face where 12:00 is North.
+    - Which "hour" does the road lie on relative to the house center?
+    - Which "hour" does the front door point toward?
+    - VERIFICATION: These must be within 3 "hours" (90 degrees) of each other. If they are not, you have likely hallucinated a direction — RE-EVALUATE.
 
 ADDITIONAL ANALYSIS:
 - Privacy: Assess neighboring sightlines into the backyard/pool.
@@ -259,12 +257,12 @@ export function buildOrientationPromptAerialOnly(address?: string, description?:
         ? `\nPROPERTY ADDRESS: "${address}"${typeLabel}\nThe front entrance usually faces "${streetName || address}" — this is the primary reference street. However, for townhouses or multi-unit complexes, the pedestrian entry may face an internal courtyard or shared walkway instead. Rules:\n\u2022 DRIVEWAY CONNECTION: While a driveway usually connects to the front street, townhomes often have rear-loading or side-loading garages. Locate the PEDESTRIAN entry first.\n\u2022 If a road is separated from the property by a green belt, tree row, park strip, or any physical barrier with NO driveway crossing it \u2014 that road is likely NOT the front street.\n\u2022 Do NOT default to the largest or most prominent visible road. Look for where the pedestrian walkway actually leads.\n\u2022 Override the address street only if you can visually identify a clear pedestrian entry facing a different direction.`
         : '';
     const descriptionOverride = buildDescriptionHint(description);
-    const compassLabel = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
+    const compassLabel = (az: number) => ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
     const bearingHint = streetBearing != null ? (() => {
         const perp1 = (streetBearing + 90) % 360;
         const perp2 = (streetBearing - 90 + 360) % 360;
-        const par2  = (streetBearing + 180) % 360;
-        const label = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
+        const par2 = (streetBearing + 180) % 360;
+        const label = (az: number) => ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
         return `\nGPS STREET BEARING ADVISORY: GPS data estimates the address street runs at ~${Math.round(streetBearing)}°.\n⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this GPS hint entirely and determine orientation from the aerial image visually.\nIf the road IS straight and the lot IS standard: the front most likely faces ${label(perp1)} (~${Math.round(perp1)}°) or ${label(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road.\n⛔ SLANTED ROAD PRECISION: If the road is slanted (not perfectly N/E/S/W), the front azimuth MUST also be slanted. Do NOT round to the nearest cardinal direction (N/E/S/W) if it means sacrificing more than 10° of accuracy. If a road is at 165° (SSE), the perpendicular is 255° (WSW), NOT 270° (West). Use the lot lines in the Road Map (if provided) as a high-precision reference for perpendicularity.\n⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions. Do NOT output these unless the visual override applies.\nVISUAL CROSS-CHECK: Independently estimate the road bearing from the aerial using the diagonal guide (lower-left→upper-right = SW↔NE ≈ 45°, lower-right→upper-left = SE↔NW ≈ 135°, left↔right = E↔W ≈ 90°, top↔bottom = N↔S ≈ 0°). Set street_bearing_visual_degrees to that estimate. If your visual estimate and the GPS bearing above differ by more than 45° as road directions (0–179° scale), note the conflict and set confidence='low'.`;
     })() : `\nVISUAL BEARING ESTIMATE: No GPS bearing is available. Estimate the road bearing from the aerial using the diagonal guide: lower-left→upper-right = SW↔NE ≈ 45°, lower-right→upper-left = SE↔NW ≈ 135°, left↔right = E↔W ≈ 90°, top↔bottom = N↔S ≈ 0°. Set street_bearing_visual_degrees to that estimate.`;
 
@@ -291,7 +289,9 @@ GUIDING PRINCIPLES:
    • If the road is to the RIGHT of the house         → front faces EAST (90°).
    • If the road is to the LEFT of the house          → front faces WEST (270°).
    ⚠️ INVERSION TRAP: If the camera is on the road looking NORTH at the house, the house is facing SOUTH toward the camera. Do not confuse the camera's direction with the house's facing direction.
-6. DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier.
+6. 3x3 GRID ANCHORING: Imagine a 3x3 grid over the property. The house center is the middle square. Determine the direction of the road relative to this center point to anchor your facing direction.
+7. DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if there is a direct visible connection from the property to that road with no barrier.
+8. NEW CONSTRUCTION / STALE SATELLITE: If Image A (Satellite) shows a dirt lot or construction site but listing photos or ground-level cues indicate a finished home, the aerial is STALE. Set is_under_construction=false and prioritize the finished state for orientation. Only set is_under_construction=true if ALL images show an unfinished state.
    TRAP: "The road runs NW/SE along the NE edge" → front faces NE — never NW or SE.
 
 LAYOUT CLASSIFICATION (do this FIRST, before orientation):
@@ -325,7 +325,12 @@ Step 4 — State the compass direction the FRONT WALL faces outward (0°=North, 
    The front wall faces TOWARD or AWAY from the road — NEVER along it.
    → If the road runs at ~315° (NW↔SE), valid azimuths are ~45°(NE) or ~225°(SW). NOT 315° or 135°.
    → If the road runs at ~90° (E↔W), valid azimuths are ~0°(N) or ~180°(S). NOT 90° or 270°.
-   If your azimuth is within 15° of the road bearing, you have made an error — CORRECT IT to the nearest perpendicular.
+    If your azimuth is within 15° of the road bearing, you have made an error — CORRECT IT to the nearest perpendicular.
+Step 4b — CLOCK-FACE CHECK (Geometric Verification):
+    Map the road and the front door to a clock face where 12:00 is North.
+    - Which "hour" does the road lie on relative to the house center?
+    - Which "hour" does the front door point toward?
+    - VERIFICATION: These must be within 3 "hours" (90 degrees) of each other. If they are not, you have likely hallucinated a direction — RE-EVALUATE.
 Step 5 — Assess Privacy, Lot Coverage (Hardscape %), and Site Features (Pool/Garage/Yard directions).
 Step 6 — GPS SELF-CHECK (only if a GPS STREET BEARING PRIOR appears above):
    a) The prior already told you the two valid perpendicular directions for this lot.
@@ -565,12 +570,14 @@ The images are from nearby streets on each side of the property. Use them togeth
 
 GUIDING PRINCIPLES:
 1. NORTH IS UP on Image A. The top of Image A = North. Left = West. Bottom = South. Right = East.
-2. WALKWAY RULE: The front is the side where a pedestrian path from a public street leads to the main door.
+2. WALKWAY RULE: The front is the side where a pedestrian path (including stairs, steps, or tiered walkways) from a public street leads to the main door.
 3. GARAGE: Garages are supporting evidence only. Confirm with porch/front door.
 4. ADDRESS STREET: The front typically faces ${streetName || 'the address street'}.
+5. THE ANCHOR STRATEGY (Anti-Hallucination): Before deciding on orientation, identify one "Anchor Feature" visible in both the Aerial (Image A) and the Street View panoramas — e.g., a specific tree, neighbor's roof color, chimney, or driveway curve. Describe its position in Image A versus its position in the street-view letter you select.
+6. THE 3X3 GRID RULE: Mentally divide the lot into a 3x3 grid. Label the center square "House". Identify which squares contain the "Primary Road". The orientation vector must originate in the "House" square and terminate in a "Road" square.
 
 TASK:
-Step 1: Using Image A, find the WALKWAY — a paved/concrete path from a public road leading to the main door. Which compass direction does it face? (The front wall faces outward in the same direction as the walkway.)
+Step 1: Using Image A, find the WALKWAY — a paved/concrete path, set of stairs, or steps from a public road leading to the main door. Which compass direction does it face? (The front wall faces outward in the same direction as the walkway.)
 Step 2: Set azimuth_degrees to the direction the FRONT WALL faces outward (0=North, 90=East, 180=South, 270=West).
          ⚠️  AZIMUTH-LETTER CONSISTENCY CHECK: These must match exactly:
          • If front_image_letter = "B" → azimuth_degrees ≈ ${Math.round((imageBHeading + 180) % 360)} (the ${imageBDir}-facing wall)
@@ -602,7 +609,7 @@ export const ORIENTATION_PROMPT = ORIENTATION_PROMPT_DUAL;
 export function getDualPromptFinalInstructions(streetViewHeading?: number | null): string {
     return `
 FINAL REMINDER:
-1. WALKWAY RULE: The side where the path from the street leads to a door is the FRONT.
+1. WALKWAY RULE: The side where the path (or stairs/steps) from the street leads to a door is the FRONT. Priority: Pedestrian Entry > Garage Direction.
 2. FACING DIRECTION: The azimuth is the direction from the house TOWARD the street (never away from it). All 8 directions are valid — do NOT collapse diagonals to cardinals. Examples: street to south→S(180°), to SE→SE(135°), to NW→NW(315°). Do NOT invert (street south = face south, not north).
 3. AMBIGUITY: If Image B shows the front door, use the heading ${streetViewHeading != null ? `${streetViewHeading}°` : 'provided'} to derive the exact azimuth. If Image B shows a garage, carport, or vehicle bay — even facing the main road — street_view_shows_front must be FALSE. A carport or garage door is NEVER a front door.
 4. CONFIDENCE: Be low/medium if the image is soft or cues are conflicting.
@@ -630,7 +637,7 @@ export function buildListingPhotoPrompt(address?: string, description?: string |
     const lastWord2 = (streetName || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
     const culDeSacSuffix2 = /^(ct|court|cir|circle|pl|place)$/.test(lastWord2);
     const culDeSacSuffixHint2 = culDeSacSuffix2
-        ? `\n⚠️ CUL-DE-SAC / DEAD-END ALERT: "${streetName}" ends in "${lastWord2.charAt(0).toUpperCase() + lastWord2.slice(1)}" — streets with this suffix are almost always cul-de-sacs or dead-end courts. Look for a circular loop or dead-end terminus for "${streetName}". If found: classify as cul_de_sac and derive the front direction by drawing a vector from property center toward the dead-end/loop center.
+        ? `\n⚠️ CUL-DE-SAC / DEAD-END ALERT: "${streetName}" ends in "${lastWord2.charAt(0).toUpperCase() + lastWord2.slice(1)}" — streets with this suffix are almost always cul-de-sacs or dead-end courts. Look for a circular loop or dead-end terminus for "${streetName}". If found: classify as cul_de_sac and derive the front direction by tracing the physical driveway connection to the specific segment it meets.
            ⚠️ THROUGH-STREET TRAP: If the street continues in both directions past the circular area, it is a widened curve (an "eyebrow"), NOT a cul-de-sac.`
         : '';
     const addressClue = address
@@ -648,7 +655,7 @@ export function buildListingPhotoPrompt(address?: string, description?: string |
             + `⛔ CUL-DE-SAC / DEAD-END COURT OVERRIDE (MANDATORY — check FIRST):\n`
             + `   Before using this bearing, look at Image A: is this a cul-de-sac (circular dead-end) or dead-end court?\n`
             + `   YES → DISCARD this GPS bearing completely. Do NOT use it AT ALL. Derive the front direction\n`
-            + `          purely from aerial: draw a vector from property center to cul-de-sac circle center.\n`
+            + `          purely from aerial: trace the driveway apron and pedestrian walkway to the specific road segment connection.\n`
             + `   NO  → Street runs at ~${Math.round(streetBearing)}°. Front most likely faces `
             + `${dir8(p1)} (~${Math.round(p1)}°) or ${dir8(p2)} (~${Math.round(p2)}°).\n`
             + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel.`;
@@ -692,27 +699,51 @@ GUIDING PRINCIPLES:
 4. UNIT-SPECIFIC ACCURACY: In rows of townhouses or condos, identify the specific unit (marked by the red pin). Do not simply state the building's overall orientation. Verify that the door you see in the listing photos actually belongs to the unit at the pin location by matching features (walkway shapes, window patterns, balconies) between the photos and Image A.
 5. FRONT DOOR VS BUILDING FACE: The front orientation is the direction the FRONT DOOR itself faces. If the door is in an alcove, side-entry, or recessed area, the azimuth must reflect the direction you face when walking out the door, NOT necessarily the building's main street-facing facade.
 6. LISTING PHOTOS supplement the aerial by confirming which face of the building matches the front entry.
-7. TOWARD RULE: The front faces TOWARD the road — in the direction FROM house center TO the road.
+7. THE ANCHOR STRATEGY (Anti-Hallucination): Before determining orientation, identify one "Anchor Feature" visible in both the Aerial (Image A) and the Listing Photos — e.g., a specific tree, neighbor's roof color, chimney, or driveway curve. Describe its relative position in both images to ensure you haven't lost track of "North" when switching perspectives.
+8. THE 3X3 GRID RULE: Mentally divide the lot into a 3x3 grid. Label the center square "House". Identify which squares contain the "Primary Road" (e.g., "Top-Center" and "Top-Right"). The orientation vector must originate in the "House" square and terminate in a "Road" square.
+9. NEW CONSTRUCTION / STALE SATELLITE: Listing photos are the GROUND TRUTH for current state. 
+   • If listing photos show a finished exterior (windows, roof, siding complete), set is_under_construction=false (even if aerial shows dirt).
+   • If listing photos show an unfinished state (exposed framing, scaffolding, foundation, or active construction site), set is_under_construction=true.
+   • If NO listing photos are available, use Image A (aerial) to decide.
+   • Classification: set final_orientation="UNDER_CONSTRUCTION" and azimuth_degrees=null if the building footprint is not yet defined. If framing is complete but unfinished, you can still provide an orientation.
+10. TOWARD RULE: The front faces TOWARD the road — in the direction FROM house center TO the road.
    • Road BELOW house (bottom) → faces SOUTH (180°).
    • Road ABOVE house (top)    → faces NORTH (0°).
    • Road to the RIGHT of house → faces EAST (90°).
    • Road to the LEFT of house  → faces WEST (270°).
-   TRAP: "The road runs NW/SE along the NE edge" → front faces NE — never NW or SE.
-8. SLANTED ROAD PRECISION: If the road is slanted (not perfectly N/E/S/W), the front azimuth MUST also be slanted. Do NOT round to the nearest cardinal direction (N/E/S/W) if it means sacrificing more than 10° of accuracy. If a road is at 165° (SSE), the perpendicular is 255° (WSW), NOT 270° (West). Use the lot lines in the Road Map (if provided) as a high-precision reference for perpendicularity.
+   IMPORTANT: The orientation is ALWAYS the vector from house center TOWARD the specific road. If the house is Southeast of a Northwest-running road, it faces Northwest. Never assume diagonal roads forbid diagonal orientations. Use Image A cardinal axes strictly.
+11. SLANTED ROAD PRECISION: If the road is slanted (not perfectly N/E/S/W), the front azimuth MUST also be slanted. Do NOT round to the nearest cardinal direction (N/E/S/W) if it means sacrificing more than 10° of accuracy. If a road is at 165° (SSE), the perpendicular is 255° (WSW), NOT 270° (West). Use the lot lines in the Road Map (if provided) as a high-precision reference for perpendicularity.
+12. CURVED ROAD / CUL-DE-SAC TIE-BREAKER (CRITICAL): If a property sits on a curve or a cul-de-sac where the road is visible on multiple sides, the orientation is strictly defined by the physical connection. Trace the Driveway Apron and Pedestrian Walkway. Use the vector to the "center of the loop" ONLY as a secondary confirmation. If the driveway connection and the loop center vector disagree, the physical driveway connection is the AUTHORITATIVE signal.
+13. SIDE-BY-SIDE CONSISTENCY: If listing photos show the garage door, driveway, and front door are all on the same face of the house, their orientation in Image A MUST be identical. If you see the driveway going North in the aerial, but you conclude the front door faces East, you have likely made a 90° spatial error. Re-evaluate using the driveway as your cardinal anchor.
+14. FENCE / SIDE-WALL REJECTION (STRICT): If an image (especially Street View Image C) only shows a fence, a side wall, a chimney, or a side-yard lawn without an entrance, set street_view_shows_front=false. Do NOT set it to true unless the main architectural entryway or garage doors are clearly visible.
+15. CUL-DE-SAC SIDE-STREET TRAP: On cul-DE-sacs, the road often wraps around the property side. If Street View (Image C) shows a side fence/lawn while Listing Photos (Image B) show the front door/garage, you are likely looking at a side-street. The front orientation is defined by the listing photos' features, NOT by whatever road segment the Street View camera happens to be on. Follow the architectural features back to Image A to decide the cardinal direction.
+16. FRONT DOOR MANDATORY: The ultimate goal is to identify the direction the FRONT DOOR faces. If you cannot clearly see the front door (or the main architectural entryway) in either the Listing Photos or Street View, you MUST set final_orientation='UNCLEAR' and confidence='low', regardless of how clear the driveway is. A driveway alone is not enough to guarantee the front door direction (as it could be a side or rear entry).
 
 LAYOUT CLASSIFICATION (do FIRST):
 CORNER LOT: Two named public roads meeting at an intersection adjacent to the lot → corner_lot.
 CUL-DE-SAC: Circular dead-end street; driveway connects to the circle → cul_de_sac.
 Set standard_street_layout=FALSE for: corner lot, flag lot, curved/loop street, cul-de-sac.
+CUL-DE-SAC VERIFICATION: Before classifying as cul_de_sac, you MUST verify that the road in front of the driveway is CURVED. If it is straight, you MUST classify as standard_street_layout (Option B).
+CORNER LOT FACING: If a property is at an intersection, it has two potential frontages. Identify the main pedestrian entrance/walkway. The orientation is the vector from that entrance TOWARD the street it faces. Do NOT average the two street bearings or use the bearing of the secondary street.
 
-CONFIDENCE GATE (MANDATORY): If you cannot clearly identify driveway apron OR pedestrian walkway from aerial + listing photos combined:
-→ confidence='low', final_orientation='UNCLEAR', azimuth_degrees=null.
+CONFIDENCE GATE (MANDATORY):
+1. If you cannot clearly see the FRONT DOOR or main architectural entryway in either the Listing Photos or Street View → confidence='low', final_orientation='UNCLEAR'.
+2. If you cannot clearly identify the driveway apron OR pedestrian walkway from the aerial (Image A) → confidence='low', final_orientation='UNCLEAR'.
+In both cases, set azimuth_degrees=null.
 
 TASK:
 Step 1 — Layout: classify lot type.
 Step 2 — Aerial analysis: identify building footprint, driveway, and candidate front wall from Image A.
 Step 3 — Listing photo confirmation: for each listing photo (Images B, C, D…), decide if it shows the building exterior or front door — NOT an interior room (kitchen, bedroom, bathroom, living area, etc.). Set street_view_shows_front based on the best exterior photo found. Set listing_photos_showing_front to an array of image labels (e.g. ["B","C"]) for every photo that showed the exterior or front door; use an empty array if none did.
-Step 4 — Front wall compass direction (0°=N, 90°=E, 180°=S, 270°=W). PERPENDICULAR RULE: azimuth must be ~perpendicular (±45°) to the road bearing. If parallel → correct or set UNCLEAR.
+Step 4 — Front wall compass direction (0°=N, 90°=E, 180°=S, 270°=W). 
+    - VERIFY: Does the front door visible in ground-level imagery face the SAME direction as the driveway/garage seen in Image A? 
+    - If they disagree (e.g., door faces North, driveway exits East), or if the door/entryway is not clearly visible in ground-level photos, you MUST set final_orientation='UNCLEAR'.
+    - PERPENDICULAR RULE: azimuth must be ~perpendicular (±45°) to the road bearing. If parallel → correct or set UNCLEAR.
+Step 4b — CLOCK-FACE CHECK (Geometric Verification):
+    Map the road and the front door to a clock face where 12:00 is North.
+    - Which "hour" does the road lie on relative to the house center?
+    - Which "hour" does the front door point toward?
+    - VERIFICATION: These must be within 3 "hours" (90 degrees) of each other.
 Step 5 — Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.
 `.trim();
 }

@@ -337,9 +337,20 @@ export async function runChecks(
 
     // Orientation AI (saved on properties doc)
     const orientationAi = prop?.orientation_ai;
-    const hasOrientation = !!(orientationAi?.final_orientation);
+    const orientationVal = orientationAi?.final_orientation;
+    const isUnclear = orientationVal === 'UNCLEAR';
+    const hasOrientation = !!orientationVal && !isUnclear;
+    const isV29 = orientationAi?.batch_version === 'v29' || orientationAi?.orientation_version === 'v29';
+
     chk(checks, 'orientationAi', 'Front Orientation AI', 'error', 'ai_visual', hasOrientation,
-        hasOrientation ? orientationAi.final_orientation : 'missing');
+        isUnclear ? 'UNCLEAR (ambiguous)' : (hasOrientation ? orientationVal : 'missing'));
+
+    if (hasOrientation) {
+        chk(checks, 'orientationConfidence', 'Orientation Confidence', 'warn', 'ai_visual', orientationAi.confidence === 'high',
+            orientationAi.confidence || 'unknown');
+        chk(checks, 'orientationVersion', 'Orientation Version (v29)', 'error', 'ai_visual', isV29,
+            isV29 ? 'v29' : (orientationAi?.batch_version || orientationAi?.orientation_version || 'old version'));
+    }
 
     // Street view AI (lives on google_environmental_data)
     const svAnalysis = env?.streetViewAnalysis;

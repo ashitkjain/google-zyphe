@@ -8,6 +8,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
     'gemini-1.5-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
     'gemini-2.0-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
     'gemini-2.5-flash':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
+    'gemini-2.5-flash-lite':  { input: 0.075 / 1e6, output: 0.30 / 1e6 },
     'gemini-2.0-pro-exp':     { input: 1.25 / 1e6, output: 5.00 / 1e6 },
     'gemini-1.5-pro':         { input: 1.25 / 1e6, output: 5.00 / 1e6 },
     'gemini-3-flash-preview': { input: 0.10 / 1e6, output: 0.40 / 1e6 }
@@ -89,7 +90,7 @@ const CostDashboardTab: React.FC = () => {
             {/* Platform Summary Summary */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '40px' }}>
                 <StatCard label="Total API Calls" value={stats.summary.totalApi?.toLocaleString()} sub="External Integrations" color="#3b82f6" icon="fa-bolt" />
-                <StatCard label="AI Analyses" value={stats.summary.totalGemini?.toLocaleString()} sub="Gemini Flash 2.0" color="#8b5cf6" icon="fa-robot" />
+                <StatCard label="AI Analyses" value={stats.summary.totalGemini?.toLocaleString()} sub="Gemini Flash 2.5" color="#8b5cf6" icon="fa-robot" />
                 <StatCard label="Token Consumption" value={stats.summary.totalTokens?.toLocaleString()} sub="Aggregated Processing" color="#ec4899" icon="fa-coins" />
                 <StatCard label="Estimated Cost" value={`$${estimatedCost}`} sub="Platform Overhead" color="#10b981" icon="fa-dollar-sign" />
             </div>
