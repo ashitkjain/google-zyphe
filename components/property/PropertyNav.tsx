@@ -45,12 +45,13 @@ interface PropertyNavProps {
         hasLtrAnalysis: boolean;
         hasDeepResearch: boolean;
     };
+    userRole?: string;
 }
 
 // ─── Nav structure ────────────────────────────────────────────
 
-function buildSections(vis: PropertyNavProps['visibility'], cityName?: string): NavSection[] {
-    return [
+function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, userRole?: string): NavSection[] {
+    const sections: NavSection[] = [
         {
             id: 'property',
             label: 'Property',
@@ -110,7 +111,11 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string): 
                 { id: 'graph', label: 'Graph', icon: 'fa-diagram-project', visible: true },
             ],
         },
-        {
+        },
+    ];
+
+    if (userRole === 'admin') {
+        sections.push({
             id: 'legacy',
             label: 'Legacy',
             icon: 'fa-box-archive',
@@ -125,8 +130,10 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string): 
                 { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie', visible: true },
                 { id: 'comprehensive', label: 'Comprehensive', icon: 'fa-book-open', visible: true },
             ],
-        },
-    ];
+        });
+    }
+
+    return sections;
 }
 
 // ─── Component ────────────────────────────────────────────────
@@ -137,8 +144,9 @@ const PropertyNav: React.FC<PropertyNavProps> = ({
     cityName,
     onNavigate,
     visibility,
+    userRole,
 }) => {
-    const sections = buildSections(visibility, cityName);
+    const sections = buildSections(visibility, cityName, userRole);
 
     // Keep all sections expanded by default except Legacy
     const [expandedSections, setExpandedSections] = useState<Set<string>>(

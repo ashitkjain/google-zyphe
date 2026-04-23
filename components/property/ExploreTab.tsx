@@ -396,6 +396,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             activeSubId={activeNavSub}
                                             onNavigate={handleNavNavigate}
                                             visibility={navVisibility}
+                                            userRole={userRole}
                                         />
                                         {/* Scrollable content area — driven by PropertySectionView */}
                                         <div className="flex-1 min-w-0 py-4 pr-4 lg:py-6 lg:pr-6">
