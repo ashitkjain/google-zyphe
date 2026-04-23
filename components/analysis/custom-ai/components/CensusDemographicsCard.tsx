@@ -42,7 +42,7 @@ export const CensusDemographicsCard: React.FC<CensusDemographicsCardProps> = ({ 
                             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
                                 <i className="fa-solid fa-users text-indigo-600 text-[12px]"></i>
                             </div>
-                            <span className="text-[16px] font-bold text-slate-800 tracking-tight">Census Demographics</span>
+                            <span className="text-[16px] font-bold text-slate-800 tracking-tight">Neighborhood Profile</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 mb-3">
@@ -82,7 +82,7 @@ export const CensusDemographicsCard: React.FC<CensusDemographicsCardProps> = ({ 
                     <i className="fa-solid fa-chart-column text-indigo-600 text-lg"></i>
                 </div>
                 <div>
-                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">CENSUS DEMOGRAPHICS</div>
+                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD PROFILE</div>
                     <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
                         Official {data.tractLabel || 'Tract Area'} Metrics
                     </p>

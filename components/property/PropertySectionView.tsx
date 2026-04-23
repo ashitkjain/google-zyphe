@@ -356,7 +356,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         return (
             <div className="animate-in fade-in duration-200 space-y-6">
                 <PageHeader icon="fa-location-dot" title="Location Overview"
-                    subtitle="Neighborhood dynamics · Demographics · Local amenities" color="text-blue-500" />
+                    subtitle="Neighborhood dynamics · Profile · Local amenities" color="text-blue-500" />
                 
                 {/* Neighborhood + Affordability/Census — side by side */}
                 <div className="grid grid-cols-5 gap-4 items-start">

@@ -2,7 +2,7 @@
  * PropertyInsightsPanel
  *
  * Renders the Street View, Lot Intelligence (Ground Truth), City Overview,
- * Community Pulse, Market Dynamics, Affordability, Census Demographics,
+ * Community Pulse, Market Dynamics, Affordability, Neighborhood Profile,
  * and Property Facts sections on the property Overview tab.
  *
  * Extracted from ExploreRow2Cards.tsx ('insights' section) for clarity and maintainability.
@@ -220,7 +220,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
             )}{/* end streetview+lot */}
 
 
-            {/* Affordability + Census only — no outer city overview wrapper */}
+            {/* Affordability + Neighborhood Profile only — no outer city overview wrapper */}
             {!show('pulse') && !show('rental') && !show('ai-analysis') && (show('affordability') || show('census')) && (
                 <div className="flex flex-col gap-3">
                     {show('affordability') && (
@@ -248,7 +248,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                 </div>
             )}
 
-            {/* City Overview — Community Pulse · Market Dynamics · Affordability · Census */}
+            {/* City Overview — Community Pulse · Neighborhood Identity · Affordability · Neighborhood Profile */}
             {(show('pulse') || show('rental') || show('ai-analysis')) && (show('pulse') || show('rental') || show('ai-analysis') || show('affordability') || show('census')) && (keyInsights || ltrAnalysis || analysis?.detailed_analysis?.community_pulse || communityPulse || lifestyleLoading || propertyData) && (
                 <div id="ov-community" className="w-full px-2 overflow-hidden bg-transparent scroll-mt-24">
                     {/* Market Dynamics — Full Width High-Density Metrics */}
@@ -546,7 +546,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                         {/* Right column — Affordability + Census */}
                         <div className="flex flex-col gap-6">
 
-                            {/* Affordability + Census Demographics */}
+                            {/* Affordability + Neighborhood Profile */}
                             <div className="flex flex-col gap-3 px-2">
                                 {show('affordability') && (
                                     <AffordabilityCard

@@ -3,7 +3,7 @@
  *
  * Row 1 of the Explore overview AI insights strip:
  *   Front Orientation · Outdoors & Privacy · Schools Intelligence
- *   Neighborhood Identity · Affordability · Census Demographics
+ *   Neighborhood Identity · Affordability · Neighborhood Profile
  *
  * Extracted from ExploreTab.tsx for maintainability.
  */
