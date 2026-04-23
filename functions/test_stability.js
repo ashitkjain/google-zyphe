@@ -40,6 +40,7 @@ function buildOrientationPrompt(usesDualImage, address, description, streetBeari
     GUIDING PRINCIPLES:
     1. North is UP.
     2. Front faces TOWARD the street.
+    3. ⚠️ TOWNHOUSE/CONDO HARD STOP: If the property is a townhouse or condo (check PROPERTY TYPE) and Image B shows only a garage with no clear front door, IMMEDIATELY set final_orientation='UNCLEAR', azimuth_degrees=null. Do NOT try to guess the front door from the aerial image.
     ${roadmapStep}
     
     Output JSON with final_orientation and azimuth_degrees.
