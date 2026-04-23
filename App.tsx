@@ -815,7 +815,7 @@ const App: React.FC = () => {
   // REALTOR/INVESTOR/AUDITOR LAYOUT: Merged ClientHub + Homepage
   if (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'auditor' || currentUser?.role === 'admin') {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-[#eef2ff]">
         {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
         <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
         {currentUser && (
@@ -876,22 +876,22 @@ const App: React.FC = () => {
 
   // STANDARD LAYOUT (Non-Realtor / Guest)
   return (
-    <div className={`${(viewMode === 'knowledge_center' || viewMode === 'guides') ? 'h-screen' : 'min-h-screen'} bg-slate-50 flex flex-col`}>
+    <div className={`${(viewMode === 'knowledge_center' || viewMode === 'guides') ? 'h-screen' : 'min-h-screen'} bg-[#eef2ff] flex flex-col`}>
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
 
       {/* Consolidated Navigation Bar */}
       {((viewMode !== 'knowledge_center' && viewMode !== 'guides' && window.location.pathname !== '/') || currentUser) && (
-        <div className="py-2 px-6 bg-slate-900 text-white border-b border-white/10 relative z-[60] shadow-2xl">
+        <div className="py-2 px-6 bg-white text-slate-700 border-b border-slate-200 relative z-[60] shadow-sm">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             {/* Left side: Logo + Account Info */}
             <div className="flex items-center gap-6">
               <Logo size={40} className="hover:opacity-80 transition-opacity cursor-pointer" onClick={() => transitionToView('main')} />
-              <div className="h-6 w-px bg-white/10"></div>
+              <div className="h-6 w-px bg-slate-200"></div>
               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em]">
                 <button
                   onClick={() => transitionToView('main')}
-                  className={`transition-colors flex items-center gap-2 ${viewMode === 'main' || viewMode === 'explore' ? 'text-indigo-400' : 'text-white/60 hover:text-white'}`}
+                  className={`transition-colors flex items-center gap-2 ${viewMode === 'main' || viewMode === 'explore' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-700'}`}
                 >
                   <i className="fa-solid fa-compass text-[10px]"></i>
                   EXPLORE
@@ -904,7 +904,7 @@ const App: React.FC = () => {
               {currentUser && (
                 <button
                   onClick={() => transitionToView('my_zyphe')}
-                  className={`transition-colors flex items-center gap-2 ${viewMode === 'my_zyphe' ? 'text-indigo-400' : 'text-white/60 hover:text-white'}`}
+                  className={`transition-colors flex items-center gap-2 ${viewMode === 'my_zyphe' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-700'}`}
                 >
                   <i className="fa-solid fa-chart-line text-[10px]"></i>
                   MY ZYPHE
@@ -912,12 +912,12 @@ const App: React.FC = () => {
               )}
               <button
                 onClick={() => transitionToView('knowledge_center')}
-                className={`transition-colors flex items-center gap-2 ${viewMode === 'knowledge_center' ? 'text-indigo-400' : 'text-white/60 hover:text-white'}`}
+                className={`transition-colors flex items-center gap-2 ${viewMode === 'knowledge_center' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-700'}`}
               >
                 <i className="fa-solid fa-book-open text-[10px]"></i>
                 LEARN
               </button>
-              
+
               {!currentUser && (
                 <button
                   onClick={() => setAuthModalOpen(true)}
@@ -930,17 +930,17 @@ const App: React.FC = () => {
 
               {currentUser && (
                 <>
-                  <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+                  <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
                   <div className="flex items-center gap-4">
                     {realtorName && (
-                      <div className="hidden lg:flex flex-col items-end mr-3 border-r border-white/5 pr-4">
-                        <span className="text-white tracking-[0.1em] font-black uppercase text-[9px] leading-none mb-1">{realtorName}</span>
-                        <span className="text-indigo-400 tracking-[0.2em] font-black uppercase text-[7px] leading-none">Your Agent</span>
+                      <div className="hidden lg:flex flex-col items-end mr-3 border-r border-slate-200 pr-4">
+                        <span className="text-slate-700 tracking-[0.1em] font-black uppercase text-[9px] leading-none mb-1">{realtorName}</span>
+                        <span className="text-indigo-500 tracking-[0.2em] font-black uppercase text-[7px] leading-none">Your Agent</span>
                       </div>
                     )}
-                    <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px] hidden lg:inline">{currentUser.displayName}</span>
-                    <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
-                    <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-50 hover:bg-rose-500/10 p-1.5 rounded-lg transition-all"><i className="fa-solid fa-trash-can"></i></button>
+                    <span className="text-indigo-500 tracking-[0.3em] font-black uppercase text-[10px] hidden lg:inline">{currentUser.displayName}</span>
+                    <button onClick={handleSignOut} className="text-slate-500 hover:text-rose-500 transition-colors">SIGN OUT</button>
+                    <button onClick={() => handleDeleteAccount()} className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-all"><i className="fa-solid fa-trash-can"></i></button>
                   </div>
                 </>
               )}

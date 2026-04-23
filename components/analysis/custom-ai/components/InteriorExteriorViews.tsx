@@ -12,10 +12,7 @@ export const InteriorView: React.FC<InteriorViewProps> = ({ data }) => {
     return (
         <section className="space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
-                <div className="space-y-4">
-                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">OVERVIEW</div>
-                    <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.625]">{data.overall_description}</p>
-                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-12 border-t border-gray-100">
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
                         <div className="flex justify-between items-start mb-4">
@@ -163,10 +160,12 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
                 {sorted.map((room, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
                         <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
                                 <i className={`fa-solid ${roomIcon(room.room_name)} text-lg`}></i>
                             </div>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">{room.floor || 'N/A'}</span>
+                            {room.floor && (
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">{room.floor}</span>
+                            )}
                         </div>
                         <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">{room.room_name}</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed mb-4">{room.description}</p>
@@ -333,26 +332,7 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                     {isTarget && satellitaryOrientation && satellitaryOrientation.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
                         const sat = satellitaryOrientation;
                         return (<>
-                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                        <i className="fa-solid fa-compass text-lg"></i>
-                                    </div>
-                                </div>
-                                <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Front Orientation</h4>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">
-                                    The front of the home likely faces <strong>{sat.final_orientation}</strong>.
-                                    {sat.orientation_highlights ? ` ${sat.orientation_highlights}` : ''}
-                                </p>
-                                {(sat.aerial_only_mode || (sat.image_quality && sat.image_quality !== 'clear')) && (
-                                    <div className="flex gap-2 pt-3 flex-wrap">
-                                        {sat.aerial_only_mode && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">aerial only</span>}
-                                        {sat.image_quality && sat.image_quality !== 'clear' && (
-                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${sat.image_quality === 'blurry' ? 'bg-gray-100 text-gray-500' : 'bg-amber-50 text-amber-700'}`}>{sat.image_quality} image</span>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+
                             {sat.privacy_insight && (
                                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
                                     <div className="flex justify-between items-start mb-4">

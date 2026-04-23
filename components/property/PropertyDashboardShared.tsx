@@ -36,6 +36,6 @@ export const SectionCard: React.FC<{
             </div>
             {badge}
         </div>
-        <div className={noPadding ? '' : 'px-5 pb-5 pt-1.5'}>{children}</div>
+        <div className={noPadding ? '' : 'px-5 pb-6 pt-1.5'}>{children}</div>
     </div>
 );

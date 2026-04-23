@@ -22,6 +22,7 @@ import {
     getSchoolAnalysisFromCloud,
     saveLifestyleInsightsToCloud,
 } from '../../../services/firebase/properties';
+import { getPropertyGroundTruth } from '../../../services/firebase/orientation_history';
 import { getSchoolCacheKey } from '../../../prompts/property/schoolsAnalysis';
 import { fetchCensusDemographics, fetchMicroclimateDelta, CensusDemographics, MicroclimateDelta } from '../../../services/api/environmental';
 import { extractDeepResearchInsights, analyzeLifestyleInsights, analyzeSchool } from '../../../services/geminiService';
@@ -236,6 +237,7 @@ export function useExploreTabData({
     const [cachedVisualAnalysis, setCachedVisualAnalysis] = useState<CustomAIAnalysisResult | null>(null);
     const [cachedCommunityPulse, setCachedCommunityPulse] = useState<any | null>(null);
     const [interiorSummary, setInteriorSummary] = useState<any | null>(null);
+    const [orientationGroundTruth, setOrientationGroundTruth] = useState<{ expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null>(null);
 
     // Guard: track which zpids have already had a Gemini backfill attempted
     // so we never fire a live AI call more than once per property per session.
@@ -254,12 +256,13 @@ export function useExploreTabData({
                 const cityStateKey = generateCityStateKey(propertyData.city, propertyData.state);
                 console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read start`);
 
-                const [visualCache, investmentCache, deepResearchCache, communityPulseCache, interiorCache] = await Promise.all([
+                const [visualCache, investmentCache, deepResearchCache, communityPulseCache, interiorCache, orientationGTCache] = await Promise.all([
                     getVisualAnalysisFromCloud(String(propertyData.zpid)),
                     getPropertyInvestmentFromCloud(String(propertyData.zpid)),
                     cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
                     cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
                     getInteriorSummaryFromCloud(String(propertyData.zpid)),
+                    getPropertyGroundTruth(String(propertyData.zpid)),
                 ]);
                 console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read done`);
 
@@ -277,6 +280,7 @@ export function useExploreTabData({
                 if (communityPulseCache) setCachedCommunityPulse(communityPulseCache);
                 if (investmentCache?.ltr_analysis) setCachedLtrAnalysis(investmentCache.ltr_analysis);
                 if (interiorCache) setInteriorSummary(interiorCache);
+                if (orientationGTCache) setOrientationGroundTruth(orientationGTCache);
 
                 // Comprehensive analysis
                 try {
@@ -369,6 +373,7 @@ export function useExploreTabData({
         designStyle, marketDynamics, ltrAnalysis, keyInsights,
         neighborhoodOverview, communityPulse, visualPoi, mapLabels,
         currentInteriorSummary, analysis,
+        orientationGroundTruth,
         // Actions
         handleFullRefresh,
     };

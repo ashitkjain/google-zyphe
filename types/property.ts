@@ -326,6 +326,11 @@ export interface PropertyData {
         score: number;
         signals: any;
     } | null;
+    orientation_ground_truth?: {
+        expected_orientation: string;
+        expected_azimuth_deg: number | null;
+        gt_source: string;
+    } | null;
 }
 
 export interface PropertyDetails {

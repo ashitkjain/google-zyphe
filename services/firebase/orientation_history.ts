@@ -187,6 +187,29 @@ export async function saveManualGroundTruth(data: {
 }
 
 /**
+ * Fetches the ground truth record for a specific property.
+ */
+export async function getPropertyGroundTruth(zpid: string): Promise<{ expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null> {
+    try {
+        const gtRef = firestore.doc(db, 'orientation_ground_truth', zpid);
+        const snap = await firestore.getDoc(gtRef);
+        if (snap.exists()) {
+            const data = snap.data();
+            if (data.expected_orientation) {
+                return {
+                    expected_orientation: data.expected_orientation,
+                    expected_azimuth_deg: data.expected_azimuth_deg ?? null,
+                    gt_source: data.gt_source ?? 'unknown',
+                };
+            }
+        }
+    } catch (e) {
+        console.error('[getPropertyGroundTruth] Error:', e);
+    }
+    return null;
+}
+
+/**
  * Reads expected_orientation and gt_source from all orientation_ground_truth docs.
  * Used by the audit tab to overlay Firestore-based GT over the static local dataset.
  */

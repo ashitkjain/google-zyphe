@@ -38,11 +38,8 @@ interface PropertyDashboardRightProps {
     /** Extra content rendered at the bottom of the Neighborhood SectionCard */
     extraNeighborhoodContent?: React.ReactNode;
     analysis?: ComprehensiveAnalysisResult | null;
-    hasOrientation?: boolean;
-    hasNeighborhood?: boolean;
-    hasNearby?: boolean;
-    schoolsExpanded?: Record<number, boolean>;
     setSchoolsExpanded?: (v: Record<number, boolean>) => void;
+    orientationGroundTruth?: { expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -66,10 +63,11 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
     onRunAnalysis,
     showOnly,
     extraNeighborhoodContent,
+    orientationGroundTruth,
 }) => {
     const show = (key: string) => !showOnly || showOnly.includes(key);
     return (
-        <>
+        <div className="flex flex-col gap-8 w-full">
             {/* Schools */}
             {show('schools') && hasSchools && (
                 <SectionCard
@@ -80,7 +78,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                     iconColor="text-blue-500"
                     className="hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
                 >
-                    <div className="px-4 py-2">
+                    <div className="px-4 pt-2">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {schoolsIntelligence.schools.slice(0, 3).map((school: any, i: number) => {
                                 return (
@@ -291,6 +289,12 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
             {/* Orientation & Vastu */}
             {show('orientation') && data && isTargetForOrientationAnalysis(data).target && (data as any).orientation_ai && isOrientationClear((data as any).orientation_ai) && (() => {
                 const sat = (data as any).orientation_ai;
+                const gt = orientationGroundTruth;
+                
+                const displayOrientation = gt ? gt.expected_orientation : sat.final_orientation;
+                const displayAzimuth = gt ? gt.expected_azimuth_deg : sat.azimuth_degrees;
+                const isGT = !!gt;
+
                 return (
                     <SectionCard
                         id="ov-orientation"
@@ -300,20 +304,26 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                         iconColor="text-amber-500"
                         className="hover:-translate-y-1 hover:shadow-md transition-all duration-300"
                     >
-                        <div className="p-4 space-y-3">
-                            {sat.orientation_highlights && (
-                                <p className="text-[14px] text-slate-600 leading-relaxed font-sans font-medium">
-                                    The front of the home likely faces <strong className="text-slate-900">{sat.final_orientation}</strong>. {sat.orientation_highlights}
-                                </p>
+                        <div className="px-2 pb-2">
+                            {displayOrientation !== 'UNCLEAR' ? (
+                                <VastuCard
+                                    compact
+                                    azimuth_degrees={displayAzimuth}
+                                    final_orientation={displayOrientation}
+                                    open_sky_direction={sat.open_sky_direction}
+                                    isGT={isGT}
+                                />
+                            ) : (
+                                <div className="m-2 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                    <div className="flex items-start gap-2">
+                                        <i className="fa-solid fa-eye-slash text-slate-400 mt-0.5" />
+                                        <p className="text-[12px] text-slate-500 font-medium leading-relaxed">
+                                            Satellite imagery and listing photos are inconclusive regarding the main entrance orientation.
+                                            Vastu analysis is unavailable without a confirmed facing direction.
+                                        </p>
+                                    </div>
+                                </div>
                             )}
-                            <VastuCard
-                                compact
-                                azimuth_degrees={sat.azimuth_degrees}
-                                pool_visible={sat.pool_visible}
-                                pool_direction={sat.pool_direction}
-                                garage_direction={sat.garage_direction}
-                                open_sky_direction={sat.open_sky_direction}
-                            />
                         </div>
                     </SectionCard>
                 );
@@ -607,6 +617,6 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                     )}
                 </div>
             )}
-        </>
+        </div>
     );
 };

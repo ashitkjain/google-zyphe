@@ -13,6 +13,7 @@ import { fetchHistoricalDisasters } from './disasters';
 import { fetchBroadbandData } from './broadband';
 import { fetchDroughtData } from './drought';
 import { logAPICall, updateAPICall } from '../firebase/api_logs';
+import { getPropertyGroundTruth } from '../firebase/orientation_history';
 
 const MAPS_API_KEY = APP_CONFIG.maps.key;
 
@@ -543,6 +544,21 @@ export const fetchPropertyDataFull = async (
             _timings[i].dur = _timings[i].ms - _timings[i - 1].ms;
         }
         (mappedData as any).__pipeline_timings = _timings;
+
+        // ── STEP 13: Fetch Orientation Ground Truth ──────────────────────────
+        const zpid = mappedData.zpid || (isZpid ? addressOrZpid : null);
+        if (zpid) {
+            try {
+                const gt = await getPropertyGroundTruth(zpid);
+                if (gt) {
+                    mappedData.orientation_ground_truth = gt;
+                    console.log(`[DataPipeline] Attached orientation ground truth for ${zpid}`);
+                }
+            } catch (e) {
+                console.warn('[DataPipeline] Failed to fetch orientation ground truth:', e);
+            }
+        }
+
         console.log(`%c[⏱ DataPipeline] +${_elapsed()} — COMPLETE`, 'color: #22c55e; font-weight: bold;');
         return mappedData;
     })();

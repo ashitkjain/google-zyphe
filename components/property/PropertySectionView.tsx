@@ -12,12 +12,14 @@ import { NeighborhoodAnalysis } from '../../types/ai';
 
 import { PropertyDashboardLeft } from './PropertyDashboardLeft';
 import { PropertyDashboardRight } from './PropertyDashboardRight';
+import { VastuZonesTable } from './VastuCard';
 import { PropertyLifestylePanel } from './PropertyLifestylePanel';
 import { ExploreRow1Cards } from './ExploreRow1Cards';
 import { PropertyInsightsPanel } from './PropertyInsightsPanel';
 import { calculateSolarPotential } from '../../utils/solarCalculations';
 import CommuteCalculator from './CommuteCalculator';
 import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
+import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import { EnvironmentSectionPage } from './sections/EnvironmentSectionPage';
 import { RoomsSectionPage } from './sections/RoomsSectionPage';
 import { CommunityPulseSectionPage } from './sections/CommunityPulseSectionPage';
@@ -70,15 +72,16 @@ interface PropertySectionViewProps {
     // ── CustomAIAnalysis passthrough ────────────────────────────────────────
     customAnalysisLoading?: boolean;
     comprehensiveAnalysis: ComprehensiveAnalysisResult | null;
+    comprehensiveLoading?: boolean;
     onRunAnalysis: () => void;
     onRefreshAnalysis?: () => void;
     onFullRefresh?: () => void;
-    onRunComprehensive?: () => void;
+    onRunComprehensive?: (refresh: boolean) => void;
     onUpdateAnalysis?: (updated: CustomAIAnalysisResult) => void;
     onUpdatePropertyData?: (fields: any) => void;
-    addLog?: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
     isFavorited?: boolean;
     onToggleFavorite?: () => void;
+    orientationGroundTruth?: { expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -122,6 +125,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         onRefreshAnalysis, onFullRefresh, onRunComprehensive,
         onUpdateAnalysis, onUpdatePropertyData, addLog,
         isFavorited, onToggleFavorite,
+        orientationGroundTruth,
     } = props;
 
     // ── Shared CustomAIAnalysis props ────────────────────────────────────────
@@ -145,6 +149,13 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         onToggleFavorite,
         onTabChange: () => {},
     };
+
+    // Auto-fetch customAnalysis if missing when visiting the Indoor or Outdoor tab
+    React.useEffect(() => {
+        if ((subId === 'indoor' || subId === 'outdoor') && !customAnalysis && !customAnalysisLoading && onRunAnalysis) {
+            onRunAnalysis();
+        }
+    }, [subId, customAnalysis, customAnalysisLoading, onRunAnalysis]);
 
     // ── Shared internal state (needed by Left/Right components) ─────────────
     const [mlsOpen, setMlsOpen] = React.useState(true);
@@ -187,6 +198,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         isSchoolModalOpen, setIsSchoolModalOpen,
         isNearbyCollapsed, setIsNearbyCollapsed,
         onRunAnalysis,
+        orientationGroundTruth,
     };
 
     // ── Shared InsightsPanel props ──────────────────────────────────────────
@@ -220,6 +232,12 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 <div className="mt-8">
                     <PropertyDashboardRight {...rightProps} showOnly={['schools', 'orientation']} />
                 </div>
+                <div className="mt-8">
+                    <VastuZonesTable azimuth_degrees={
+                        orientationGroundTruth?.expected_azimuth_deg ??
+                        (data as any).orientation_ai?.azimuth_degrees
+                    } />
+                </div>
             </div>
         );
 
@@ -240,15 +258,10 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
                     userRole={userRole} designStyle={designStyle}
                     currentInteriorSummary={currentInteriorSummary}
+                    customOverviewText={customAnalysis?.home_interior?.overall_description}
+                    customAnalysisHomeInterior={customAnalysis?.home_interior}
                     showOnly={['interior']}
                 />
-                {/* AI Visual Analysis — Interior & Rooms */}
-                {customAnalysis && (
-                    <div className="mt-2 space-y-6">
-                        <CustomAIAnalysis {...aiProps} activeSubTab="interior" />
-                        <CustomAIAnalysis {...aiProps} activeSubTab="rooms" />
-                    </div>
-                )}
             </div>
         );
 
@@ -266,43 +279,9 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         );
 
         if (subId === 'outdoor') return (
-            <div className="animate-in fade-in duration-200">
-                <PageHeader icon="fa-tree" title="Outdoor"
-                    subtitle="Exterior lot · Yard · Satellite view" color="text-emerald-500" />
-                <ExploreRow1Cards
-                    propertyData={data} analysis={analysis} census={census}
-                    lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
-                    userRole={userRole} designStyle={designStyle}
-                    currentInteriorSummary={currentInteriorSummary}
-                    showOnly={['outdoor']}
-                />
-            </div>
-        );
-
-        if (subId === 'exterior') return (
             <div className="animate-in fade-in duration-200 space-y-6">
-                <PageHeader icon="fa-house-chimney" title="Exterior"
-                    subtitle="Curb appeal · Façade · Street presence · AI Analysis" color="text-amber-500" />
-                <ExploreRow1Cards
-                    propertyData={data} analysis={analysis} census={census}
-                    lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
-                    userRole={userRole} designStyle={designStyle}
-                    currentInteriorSummary={currentInteriorSummary}
-                    showOnly={['exterior']}
-                />
-                {/* AI Visual Analysis — Exterior & Neighborhood */}
-                {customAnalysis && (
-                    <div className="mt-2">
-                        <CustomAIAnalysis {...aiProps} activeSubTab="exterior_and_neighborhood" />
-                    </div>
-                )}
-            </div>
-        );
-
-        if (subId === 'eye-on-street' || subId === 'lot-intelligence') return (
-            <div className="animate-in fade-in duration-200">
-                <PageHeader icon="fa-street-view" title="Eye on Street & Lot Intelligence"
-                    subtitle="Street view · Visual analysis · Parcel map · Ground truth" color="text-sky-500" />
+                <PageHeader icon="fa-house-chimney" title="Outdoor"
+                    subtitle="Curb appeal · Street view · Lot intelligence · AI Analysis" color="text-amber-500" />
                 <PropertyInsightsPanel
                     {...insightProps}
                     communityPulse={null}
@@ -311,6 +290,12 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     neighborhoodOverview={null}
                     showOnly={['streetview', 'lot']}
                 />
+                {/* AI Visual Analysis — Exterior & Neighborhood */}
+                {customAnalysis && (
+                    <div className="mt-2">
+                        <CustomAIAnalysis {...aiProps} activeSubTab="exterior_and_neighborhood" />
+                    </div>
+                )}
             </div>
         );
     }
@@ -475,6 +460,35 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 <PageHeader icon="fa-diagram-project" title="Context Graph"
                     subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" />
                 <CustomAIAnalysis {...aiProps} activeSubTab="context_graph" />
+            </div>
+        );
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // LEGACY VIEWS
+    // ────────────────────────────────────────────────────────────────────────
+    if (sectionId === 'legacy') {
+        if (subId === 'comprehensive') {
+            return (
+                <div className="animate-in fade-in duration-200">
+                    <ComprehensiveAnalysis
+                        analysis={comprehensiveAnalysis}
+                        loading={props.comprehensiveLoading}
+                        onBack={() => {}}
+                        isFavorited={props.isFavorited}
+                        onToggleFavorite={props.onToggleFavorite}
+                    />
+                </div>
+            );
+        }
+
+        return (
+            <div className="animate-in fade-in duration-200">
+                <CustomAIAnalysis 
+                    {...aiProps} 
+                    activeSubTab={subId || 'interior'} 
+                    onTabChange={() => {}}
+                />
             </div>
         );
     }

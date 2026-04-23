@@ -24,7 +24,6 @@ import { StickyNotesLayer } from './components/StickyNotesLayer';
 import SatellitaryView from './components/SatellitaryView';
 import { CityNeighborhoodsView } from './components/CityNeighborhoodsView';
 
-import { VastuCard } from '../../property/VastuCard';
 import { runSatellitaryAnalysis } from '../../../services/satellitaryService';
 import { isTargetForOrientationAnalysis } from '../../../utils/propertyPolicies';
 
@@ -362,21 +361,6 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                         propertyData={propertyData}
                                     />
 
-                                    {/* Vastu Analysis — bottom of exterior tab */}
-                                    {isTargetForOrientationAnalysis(propertyData).target && orientationAI?.azimuth_degrees != null && (
-                                        <div className="mt-4">
-                                            <VastuCard
-                                                azimuth_degrees={orientationAI.azimuth_degrees}
-                                                final_orientation={orientationAI.final_orientation !== 'UNCLEAR_IMAGE' ? orientationAI.final_orientation : null}
-                                                onRefresh={refreshOrientation}
-                                                refreshing={satelliteLoading}
-                                                pool_visible={orientationAI.pool_visible ?? null}
-                                                pool_direction={orientationAI.pool_direction ?? null}
-                                                garage_direction={orientationAI.garage_direction ?? null}
-                                                open_sky_direction={orientationAI.open_sky_direction ?? null}
-                                            />
-                                        </div>
-                                    )}
                                 </>
                             )}
                             {activeTab === 'neighborhood' && (

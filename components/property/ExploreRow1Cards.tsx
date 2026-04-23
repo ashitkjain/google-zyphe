@@ -24,6 +24,8 @@ interface ExploreRow1CardsProps {
     currentInteriorSummary?: any;
     /** If provided, only renders matching section keys: 'interior' | 'outdoor' | 'exterior' */
     showOnly?: string[];
+    customOverviewText?: string | null;
+    customAnalysisHomeInterior?: any;
 }
 
 
@@ -36,6 +38,8 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
     userRole,
     designStyle,
     currentInteriorSummary,
+    customOverviewText,
+    customAnalysisHomeInterior,
     showOnly,
 }) => {
     const show = (key: string) => !showOnly || showOnly.includes(key);
@@ -44,50 +48,101 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
     return (
         <>
                                                 {/* Row 1: Property & Neighborhood Context */}
-                                                <div id="ov-ai-analysis" className="mx-2 mb-4 rounded-2xl border-2 border-slate-100 overflow-hidden bg-white shadow-sm scroll-mt-20">
-                                                    <div className="px-5 pt-4 pb-0 flex items-center gap-2.5">
-                                                        <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                                            <i className="fa-solid fa-brain text-indigo-500 text-[12px]" />
-                                                        </div>
-                                                        <h3 className="text-[18px] font-black text-slate-900 tracking-tight">Property AI</h3>
-                                                    </div>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-2 pb-2 pt-1.5">
+                                                <div id="ov-ai-analysis" className="mb-4 scroll-mt-20">
+                                                    <div className="flex flex-col sm:flex-row gap-4 w-full">
 
                                                         {/* Interiors */}
-                                                        {currentInteriorSummary && (
-                                                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                        {show('interior') && (currentInteriorSummary || customOverviewText) && (
+                                                            <div className="flex-1 flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                                 <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                     <div className="p-3">
                                                                         <div className="flex items-center gap-2 mb-3">
                                                                             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                                                                 <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 group-hover:text-white text-[11px]"></i>
                                                                             </div>
-                                                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Interiors</span>
+                                                                            <span className="text-[14px] font-bold text-slate-800 tracking-tight">Overview</span>
                                                                         </div>
                                                                         <div className="space-y-4">
                                                                             <div>
-                                                                                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                                                                                    {currentInteriorSummary.interior_summary}
-                                                                                </p>
-                                                                            </div>
-                                                                            <div>
-                                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                                                                    <i className="fa-solid fa-door-open text-indigo-400"></i>
-                                                                                    Spaces
-                                                                                </div>
-                                                                                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                                                                                    {currentInteriorSummary.rooms_summary}
-                                                                                </p>
+                                                                                {currentInteriorSummary?.interior_summary && (
+                                                                                    <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                                                                                        {currentInteriorSummary.interior_summary}
+                                                                                    </p>
+                                                                                )}
+                                                                                {customOverviewText && (
+                                                                                    <p className={`text-[13px] text-slate-600 leading-relaxed font-medium ${currentInteriorSummary?.interior_summary ? 'mt-4' : ''}`}>
+                                                                                        {customOverviewText}
+                                                                                    </p>
+                                                                                )}
                                                                             </div>
                                                                         </div>
+                                                                        {customAnalysisHomeInterior && (
+                                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-8 mt-6 border-t border-slate-200/60">
+                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex justify-between items-start mb-4">
+                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                                                                            <i className="fa-solid fa-palette text-lg"></i>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Design Philosophy</h4>
+                                                                                    <div className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full mb-2 self-start">{customAnalysisHomeInterior.design_style?.style}</div>
+                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.design_style?.reasoning}</p>
+                                                                                </div>
+                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex justify-between items-start mb-4">
+                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                                                                            <i className="fa-solid fa-swatchbook text-lg"></i>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Colors & Materials</h4>
+                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.color_and_materials}</p>
+                                                                                </div>
+                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex justify-between items-start mb-4">
+                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                                                                            <i className="fa-solid fa-lightbulb text-lg"></i>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Lighting Environment</h4>
+                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.lighting}</p>
+                                                                                </div>
+                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex justify-between items-start mb-4">
+                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                                                                            <i className="fa-solid fa-arrows-up-down-left-right text-lg"></i>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Spatial Architecture</h4>
+                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.spatial_flow}</p>
+                                                                                </div>
+                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex justify-between items-start mb-4">
+                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                                                                            <i className="fa-solid fa-chair text-lg"></i>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Staging & Furnishings</h4>
+                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.staging_and_furnishings}</p>
+                                                                                </div>
+                                                                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                                                                    <div className="flex justify-between items-start mb-4">
+                                                                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                                                                            <i className="fa-solid fa-screwdriver-wrench text-lg"></i>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Condition & Finish</h4>
+                                                                                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{customAnalysisHomeInterior.condition_and_finish}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {/* Outdoors & Privacy */}
-                                                        {(analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
-                                                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                        {show('outdoor') && (analysis?.detailed_analysis?.outdoors_view_quality || analysis?.detailed_analysis?.privacy_layout) && (
+                                                            <div className="flex-1 flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                                 <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                     <div className="p-3">
                                                                         <div className="flex items-center gap-2 mb-3">
@@ -150,8 +205,8 @@ export const ExploreRow1Cards: React.FC<ExploreRow1CardsProps> = ({
                                                         )}
 
                                                         {/* Architecture Appeal */}
-                                                        {(designStyle?.style || analysis?.detailed_analysis?.visual_appeal_condition) && (
-                                                            <div className="flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                        {show('exterior') && (designStyle?.style || analysis?.detailed_analysis?.visual_appeal_condition) && (
+                                                            <div className="flex-1 flex flex-col gap-2 bg-white rounded-xl border border-slate-100/80 p-2 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                                                                 <div className="bg-slate-50/50 rounded-xl border border-slate-100/80 overflow-hidden shadow-sm">
                                                                     <div className="p-3">
                                                                         <div className="flex items-center gap-2 mb-3">

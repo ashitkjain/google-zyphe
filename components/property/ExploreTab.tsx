@@ -117,6 +117,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         neighborhoodOverview, communityPulse, visualPoi, mapLabels,
         currentInteriorSummary, analysis,
         handleFullRefresh,
+        orientationGroundTruth,
     } = useExploreTabData({ propertyData, viewMode, customAnalysis, comprehensiveAnalysis, onRunCustomAnalysis });
 
     // ── New 2-level nav state ───────────────────────────────
@@ -132,7 +133,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             'mls-data': 'ov-property',
             'indoor': 'ov-ai-analysis',
             'outdoor': 'ov-ai-analysis',
-            'exterior': 'ov-ai-analysis',
             'hazards': 'ov-resilience',
             'noise-air': 'ov-environment',
             'solar': 'ov-sun',
@@ -249,7 +249,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             <div className="flex flex-col items-center px-6 select-none">
                 {/* Search bar at top */}
                 {searchBar && (
-                    <div className="w-full max-w-4xl mx-auto pt-8 pb-4 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
+                    <div className="w-full max-w-4xl mx-auto pt-8 pb-4 sticky top-0 z-[40] bg-[#eef2ff]/80 backdrop-blur-md">
                         {searchBar}
                     </div>
                 )}
@@ -376,98 +376,21 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                         <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab={stickyNoteActiveTab}>
                             {(renderPalette) => (<>
-                                {/* ── Tab Navigation Bar ── */}
-                                <div className="bg-white border-x border-b border-slate-100 px-6 py-3 flex items-center gap-3">
-                                    {/* Overview tab — full size */}
-                                    <button
-                                        onClick={() => setActiveTab('property-data')}
-                                        className={`flex items-center gap-2.5 px-7 py-3.5 rounded-2xl text-sm font-black uppercase tracking-widest whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'property-data'
-                                            ? 'bg-gradient-to-r from-indigo-700 to-slate-900 text-white shadow-xl shadow-indigo-300/40'
-                                            : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                                            }`}
-                                    >
-                                        Overview
-                                    </button>
-
-                                    {/* Divider */}
-                                    <div className="w-px h-8 bg-slate-200 flex-shrink-0"></div>
-
-                                    {/* AI sub-tabs — two rows */}
-                                    <div className="flex-1 space-y-1">
-                                        {/* Row 1 */}
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            {([
-                                                { id: 'interior', label: 'Interior', icon: 'fa-couch' },
-                                                { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
-                                                { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
-                                                { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
-                                                { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
-                                            ]).map(tab => {
-                                                const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
-                                                return (
-                                                    <button
-                                                        key={tab.id}
-                                                        onClick={() => {
-                                                            setActiveTab('visual-ai');
-                                                            setActiveSubTab(tab.id);
-                                                            onRunCustomAnalysis(false);
-                                                        }}
-                                                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
-                                                            ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
-                                                            : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
-                                                            }`}
-                                                    >
-                                                        <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
-                                                        {tab.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        {/* Row 2 */}
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            {([
-                                                { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
-                                                { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city' },
-                                                { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
-                                                { id: 'context_graph', label: 'Context Graph', icon: 'fa-diagram-project' },
-                                            ]).map(tab => {
-                                                const isSelected = activeTab === 'visual-ai' && activeSubTab === tab.id;
-                                                return (
-                                                    <button
-                                                        key={tab.id}
-                                                        onClick={() => {
-                                                            setActiveTab('visual-ai');
-                                                            setActiveSubTab(tab.id);
-                                                            onRunCustomAnalysis(false);
-                                                        }}
-                                                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isSelected
-                                                            ? 'bg-indigo-600 text-white border border-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_4px_rgba(79,70,229,0.3)]'
-                                                            : 'bg-white text-slate-500 border border-slate-200 border-b-[3px] border-b-slate-300 shadow-[0_2px_3px_rgba(0,0,0,0.06)] hover:border-indigo-300 hover:text-indigo-600 hover:shadow-[0_2px_6px_rgba(99,102,241,0.15)] active:translate-y-[1px] active:border-b-[2px] active:shadow-none'
-                                                            }`}
-                                                    >
-                                                        <i className={`fa-solid ${tab.icon} text-[9px]`}></i>
-                                                        {tab.label}
-                                                    </button>
-                                                );
-                                            })}
-                                            {userRole === 'admin' && (
-                                                <button
-                                                    onClick={handleFullRefresh}
-                                                    title="Full Refresh"
-                                                    className="flex items-center justify-center w-7 h-7 rounded-lg text-indigo-500 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-all"
-                                                >
-                                                    <i className="fa-solid fa-sync text-[9px]"></i>
-                                                </button>
-                                            )}
-                                            {renderPalette()}
-                                        </div>
-                                    </div>
+                                <div className="bg-white border-x border-b border-slate-100 px-6 py-2 flex items-center justify-end gap-2">
+                                    {userRole === 'admin' && (
+                                        <button
+                                            onClick={handleFullRefresh}
+                                            title="Full Refresh"
+                                            className="flex items-center justify-center w-7 h-7 rounded-lg text-indigo-500 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-all"
+                                        >
+                                            <i className="fa-solid fa-sync text-[9px]"></i>
+                                        </button>
+                                    )}
+                                    {renderPalette()}
                                 </div>
 
-                                {/* ══ Tab Content ══ */}
-                                {activeTab === 'property-data' && (
-                                    <div className="flex gap-0 min-h-screen bg-slate-50/50">
-                                        {/* Full-height PropertyNav (xl+) */}
+                                <div className="flex gap-4 min-h-screen">
+                                    {/* Full-height PropertyNav (xl+) */}
                                         <PropertyNav
                                             activeSectionId={activeNavSection}
                                             activeSubId={activeNavSub}
@@ -475,7 +398,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             visibility={navVisibility}
                                         />
                                         {/* Scrollable content area — driven by PropertySectionView */}
-                                        <div className="flex-1 min-w-0 p-4 lg:p-8">
+                                        <div className="flex-1 min-w-0 py-4 pr-4 lg:py-6 lg:pr-6">
                                             <PropertySectionView
                                                 sectionId={activeNavSection}
                                                 subId={activeNavSub}
@@ -524,48 +447,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                                 isFavorited={isFavorited}
                                                 onToggleFavorite={onToggleFavorite}
                                                 userRole={userRole}
+                                                orientationGroundTruth={orientationGroundTruth}
                                             />
                                         </div>{/* end scrollable content area */}
                                     </div>
-                                )}
 
-
-
-
-
-                                {activeTab === 'visual-ai' && (
-                                    <CustomAIAnalysis
-                                        analysis={customAnalysis}
-                                        loading={customAnalysisLoading}
-                                        onBack={() => setActiveTab('property-data')}
-                                        onRefresh={() => onRunCustomAnalysis(true)}
-                                        onFullRefresh={handleFullRefresh}
-                                        onRunComprehensive={() => { setActiveTab('comprehensive'); onRunComprehensive(false); }}
-                                        comprehensiveResult={comprehensiveAnalysis}
-                                        hasImages={(propertyData?.images?.length || 0) > 0}
-                                        userRole={userRole}
-                                        propertyImages={propertyData?.images}
-                                        zpid={propertyData?.zpid}
-                                        propertyData={propertyData}
-                                        onUpdateAnalysis={onUpdateAnalysis}
-                                        onUpdatePropertyData={onUpdatePropertyData}
-                                        addLog={addLog}
-                                        isFavorited={isFavorited}
-                                        onToggleFavorite={onToggleFavorite}
-                                        activeSubTab={activeSubTab}
-                                        onTabChange={(tabId) => setActiveSubTab(tabId)}
-                                    />
-                                )}
-
-                                {activeTab === 'comprehensive' && (
-                                    <ComprehensiveAnalysis
-                                        analysis={comprehensiveAnalysis}
-                                        loading={comprehensiveLoading}
-                                        onBack={() => setActiveTab('visual-ai')}
-                                        isFavorited={isFavorited}
-                                        onToggleFavorite={onToggleFavorite}
-                                    />
-                                )}
                             </>)}
                         </StickyNotesLayer>
                     </>

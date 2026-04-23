@@ -28,9 +28,9 @@ interface Props {
     cityNhEntryOverview?: any;
     visualPoi?: NeighborhoodAnalysis['visual_poi'];
     mapLabels?: string[];
-    neighborhoodOverview: string | null;
     ltrAnalysis?: { monthly_rent?: string; vacancy_rate?: string; comparison_summary?: string } | null;
     onRunAnalysis?: () => void;
+    orientationGroundTruth?: { expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null;
 }
 
 const PropertyOverviewDashboard: React.FC<Props> = ({
@@ -44,6 +44,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
     neighborhoodOverview,
     ltrAnalysis,
     onRunAnalysis,
+    orientationGroundTruth,
 }) => {
     // ── Derived feature flags ──────────────────────────────────────────────────
     const solar = data.solarData;
@@ -78,7 +79,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
             <div className="flex flex-col xl:flex-row gap-8 items-start">
 
                 {/* ── LEFT COLUMN ── */}
-                <div className="flex-1 xl:flex-[3] min-w-0 flex flex-col gap-2">
+                <div className="flex-1 xl:flex-[3] min-w-0 flex flex-col gap-8">
                     <PropertyDashboardLeft
                         data={data}
                         micro={micro}
@@ -100,7 +101,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                 </div>
 
                 {/* ── RIGHT COLUMN ── */}
-                <div className="xl:flex-1 flex flex-col gap-4">
+                <div className="xl:flex-1 flex flex-col">
                     <PropertyDashboardRight
                         data={data}
                         customAnalysis={customAnalysis}
@@ -119,6 +120,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                         isNearbyCollapsed={isNearbyCollapsed}
                         setIsNearbyCollapsed={setIsNearbyCollapsed}
                         onRunAnalysis={onRunAnalysis}
+                        orientationGroundTruth={orientationGroundTruth}
                     />
                 </div>
 
