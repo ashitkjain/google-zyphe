@@ -299,15 +299,13 @@ async function _isUrlAlive(url) {
  * Returns base64 image data for inclusion in the Gemini prompt.
  * Zoom 16 gives ~400m field of view — enough to see street names and road geometry.
  */
-async function _fetchRoadmapImage(lat, lng, mapsKey) {
-    const url =
-        `https://maps.googleapis.com/maps/api/staticmap` +
-        `?center=${lat},${lng}` +
-        `&zoom=16&size=640x640&scale=2&maptype=roadmap` +
-        `&markers=color:red%7Csize:tiny%7C${lat},${lng}` +
-        `&key=${mapsKey}`;
+async function _fetchRoadmapImage(lat, lng, radarKey) {
+    if (!radarKey) throw new Error("Radar API key missing for roadmap fetch");
+    // Radar zoom 19 is a cross-over: shows parcel/building detail + enough street context for labels.
+    const url = `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=19&width=800&height=800&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`;
+    
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Roadmap fetch HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Radar Roadmap fetch HTTP ${res.status}`);
     const buf = await res.arrayBuffer();
     return { data: Buffer.from(buf).toString('base64'), mimeType: 'image/png' };
 }
@@ -443,8 +441,8 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
 
     const streetName2 = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : 'the address street';
     const roadmapStep = roadmapLabel
-        ? `\nSTREET DIRECTION — MAP FIRST (Image ${roadmapLabel}):\n` +
-          `  Image ${roadmapLabel} is a labeled road map (North-up, zoom 16) centered on the property (red dot).\n` +
+        ? `\nSTREET DIRECTION — PARCEL MAP FIRST (Image ${roadmapLabel}):\n` +
+          `  Image ${roadmapLabel} is a labeled Radar parcel map (North-up, zoom 19) centered on the property.\n` +
           `  1. Find "${streetName2}" on Image ${roadmapLabel} by reading the street name labels.\n` +
           `     → If the label is clearly readable: read the bearing the road travels (0°=N, 90°=E, 180°=S, 270°=W) and set street_bearing_from_map to this value. This is more reliable than estimating from satellite texture.\n` +
           `     → If the label is NOT visible or the street cannot be identified on the map: set street_bearing_from_map=null and estimate the bearing from Image A (satellite) as a fallback.\n` +
@@ -592,7 +590,7 @@ function _buildListingPhotoPrompt(address, description, streetBearing, streetSid
 // ─── Core: analyze a single property ─────────────────────────────────────────
 
 
-async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
+async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
     // 1. Read property from Firestore (Admin SDK)
     const propSnap = await db.collection('properties').doc(zpid).get();
     if (!propSnap.exists) throw new Error(`Property ${zpid} not found`);
@@ -745,12 +743,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // Google Maps Static roadmap at zoom 16 shows street names — Gemini reads the address
     // street bearing from it instead of guessing from satellite texture.
     let roadmapImg = null;
-    if (propLat != null && propLng != null && mapsKey) {
+    if (propLat != null && propLng != null && radarKey) {
         try {
-            roadmapImg = await _fetchRoadmapImage(propLat, propLng, mapsKey);
-            console.log(`[Batch] ${zpid}: Roadmap image fetched.`);
+            roadmapImg = await _fetchRoadmapImage(propLat, propLng, radarKey);
+            console.log(`[Batch] ${zpid}: Radar Roadmap image fetched.`);
         } catch (e) {
-            console.warn(`[Batch] ${zpid}: Roadmap fetch failed (non-blocking):`, e.message);
+            console.warn(`[Batch] ${zpid}: Radar Roadmap fetch failed (non-blocking):`, e.message);
         }
     }
     // Image labeling: aerial=A, then street-view=B (dual-image) or roadmap=B (aerial-only),
@@ -1157,6 +1155,7 @@ exports.runOrientationBatchOnCreate = functions
         const keys = keysSnap.exists ? keysSnap.data() : {};
         const geminiKey = keys.gemini_key || process.env.GEMINI_API_KEY || '';
         const mapsKey = keys.maps_key || process.env.MAPS_API_KEY || '';
+        const radarKey = keys.radar_key || keys.radar_publishable_key || process.env.RADAR_API_KEY || '';
 
         let done = 0, failed = 0;
 
@@ -1167,7 +1166,7 @@ exports.runOrientationBatchOnCreate = functions
             await Promise.allSettled(
                 wave.map(async (zpid) => {
                     try {
-                        await _analyzeOneProperty(zpid, db, geminiKey, mapsKey);
+                        await _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey);
                         done++;
                     } catch (e) {
                         console.error(`[Batch] ✗ ${zpid}:`, e.message);

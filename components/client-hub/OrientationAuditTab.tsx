@@ -1234,6 +1234,7 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Type</th>
 
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Roadmap</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
                                     <th className="p-5 text-[10px] font-black text-violet-400 uppercase tracking-widest text-center min-w-[90px]">
                                         <i className="fa-solid fa-images mr-1" />Listing Photos
@@ -1335,6 +1336,44 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 }} onRefreshUrl={(newUrl) => {
                                                     setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, satelliteImageUrl: newUrl } : r));
                                                 }} />
+                                            </td>
+
+                                            {/* Roadmap (Radar Parcel Map) */}
+                                            <td className="p-5 text-center">
+                                                {(() => {
+                                                    const radarKey = APP_CONFIG.radar.key;
+                                                    const lat = row.coordinates?.latitude;
+                                                    const lng = row.coordinates?.longitude;
+                                                    
+                                                    // Thumbnail: prefer mapZoomOut (Radar Zoom 15) for context
+                                                    const roadmapUrl = row.mapZoomOut || (lat && lng && radarKey
+                                                        ? `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=15&width=256&height=192&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`
+                                                        : undefined);
+
+                                                    // Modal: prefer mapZoomIn (Radar Zoom 20) for parcel detail
+                                                    const roadmapModalUrl = row.mapZoomIn || (lat && lng && radarKey
+                                                        ? `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=20&width=1024&height=1024&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`
+                                                        : undefined);
+
+                                                    return (
+                                                        <MapThumb 
+                                                            url={roadmapUrl} 
+                                                            modalUrl={roadmapModalUrl}
+                                                            label="Roadmap" 
+                                                            orientations={{
+                                                                ...row,
+                                                                selectedAssessment: row.orientationAssessment,
+                                                                onSelectAssessment: (v) => {
+                                                                    const next = row.orientationAssessment.includes(v)
+                                                                        ? row.orientationAssessment.filter(x => x !== v)
+                                                                        : [...row.orientationAssessment, v];
+                                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
+                                                                    saveOrientationAssessment(row.zpid, next).catch(console.error);
+                                                                },
+                                                            }} 
+                                                        />
+                                                    );
+                                                })()}
                                             </td>
 
                                             {/* Street view */}
@@ -1613,7 +1652,16 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
 
                                                     return (
                                                         <button
-                                                            onClick={() => setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null, batchVersion: (row.orientationAI as any)?.batch_version ?? null, listingPhotosUsed: (row.orientationAI as any)?.listing_photos_used ?? null })}
+                                                            onClick={() => {
+                                                                const radarKey = APP_CONFIG.radar.key;
+                                                                const lat = row.coordinates?.latitude;
+                                                                const lng = row.coordinates?.longitude;
+                                                                const roadmapUrl = row.mapZoomIn || (lat && lng && radarKey
+                                                                    ? `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=19&width=800&height=800&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`
+                                                                    : null);
+
+                                                                setExplanationPopup({ address: row.address, text: fullText, fromDescription: !!isFromDescription, frontStreet: (row.orientationAI as any)?.front_street_name ?? null, satelliteUrl: row.satelliteImageUrl ?? null, roadmapUrl, streetViewUrl: row.streetView ?? null, orientation: row.orientationAI?.final_orientation ?? null, azimuth: row.orientationAI?.azimuth_degrees ?? null, streetBearing: (row.orientationAI as any)?.street_bearing_deg ?? (row.orientationAI as any)?._debug?.streetBearing ?? null, batchVersion: (row.orientationAI as any)?.batch_version ?? null, listingPhotosUsed: (row.orientationAI as any)?.listing_photos_used ?? null });
+                                                            }}
                                                             title="Click to view with satellite &amp; street view images"
                                                             className={`max-h-40 overflow-y-auto text-[10px] leading-relaxed text-left whitespace-pre-wrap block w-full hover:bg-slate-50 rounded-lg p-1 -m-1 transition-colors ${
                                                                 isFromDescription ? 'text-violet-600 font-black' : (isLegacyGemini ? 'text-slate-400 italic' : 'text-slate-600')
@@ -1758,33 +1806,43 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         </div>
 
                         {/* Images */}
-                        {(explanationPopup.satelliteUrl || explanationPopup.streetViewUrl) && (
-                            <div className="grid grid-cols-2 gap-0 border-b border-slate-100">
+                        {(explanationPopup.satelliteUrl || explanationPopup.roadmapUrl || explanationPopup.streetViewUrl) && (
+                            <div className={`grid ${explanationPopup.roadmapUrl ? 'grid-cols-3' : 'grid-cols-2'} gap-0 border-b border-slate-100`}>
                                 {explanationPopup.satelliteUrl ? (
-                                    <div className="relative">
+                                    <div className="relative bg-slate-50">
                                         <img
                                             src={explanationPopup.satelliteUrl}
                                             alt="Satellite"
-                                            className="w-full h-44 object-cover"
+                                            className="w-full aspect-square object-contain"
                                         />
                                         <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-slate-900/70 text-white text-[9px] font-black uppercase tracking-widest rounded-md">Satellite</span>
                                     </div>
                                 ) : (
-                                    <div className="h-44 bg-slate-50 flex items-center justify-center">
+                                    <div className="aspect-square bg-slate-50 flex items-center justify-center">
                                         <span className="text-[9px] text-slate-300 font-bold">No satellite</span>
                                     </div>
                                 )}
+                                {explanationPopup.roadmapUrl && (
+                                    <div className="relative border-l border-slate-100 bg-slate-50">
+                                        <img
+                                            src={explanationPopup.roadmapUrl}
+                                            alt="Roadmap"
+                                            className="w-full aspect-square object-contain"
+                                        />
+                                        <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-slate-900/70 text-white text-[9px] font-black uppercase tracking-widest rounded-md">Roadmap</span>
+                                    </div>
+                                )}
                                 {explanationPopup.streetViewUrl ? (
-                                    <div className="relative border-l border-slate-100">
+                                    <div className="relative border-l border-slate-100 bg-slate-50">
                                         <img
                                             src={explanationPopup.streetViewUrl}
                                             alt="Street View"
-                                            className="w-full h-44 object-cover"
+                                            className="w-full aspect-square object-contain"
                                         />
                                         <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-slate-900/70 text-white text-[9px] font-black uppercase tracking-widest rounded-md">Street View</span>
                                     </div>
                                 ) : (
-                                    <div className="h-44 bg-slate-50 flex items-center justify-center border-l border-slate-100">
+                                    <div className="aspect-square bg-slate-50 flex items-center justify-center border-l border-slate-100">
                                         <span className="text-[9px] text-slate-300 font-bold">No street view</span>
                                     </div>
                                 )}
@@ -2014,8 +2072,9 @@ interface OrientationSummary {
 
 // ─── Image thumbnail with full-screen modal ───────────────────────────────────
 
-function MapThumb({ url, label, orientations, onRefreshUrl }: {
+function MapThumb({ url, modalUrl, label, orientations, onRefreshUrl }: {
     url?: string;
+    modalUrl?: string; // Larger high-res version for the modal
     label: string;
     orientations?: OrientationSummary;
     onRefreshUrl?: (newUrl: string) => void;
@@ -2101,12 +2160,12 @@ function MapThumb({ url, label, orientations, onRefreshUrl }: {
                         <div>
                             <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-2">{label}</div>
                             <img
-                                src={url}
+                                src={modalUrl || url}
                                 alt={label}
                                 className="w-full rounded-2xl shadow-2xl"
                                 onError={(e) => {
                                     // Handle broken storage links by attempting to clear them or showing error state
-                                    console.warn(`[MapThumb] Image failed to load: ${url}`);
+                                    console.warn(`[MapThumb] Image failed to load: ${modalUrl || url}`);
                                     (e.target as HTMLImageElement).src = 'https://placehold.co/640x640/1e293b/FFFFFF?text=Image+Unavailable';
                                 }}
                             />
