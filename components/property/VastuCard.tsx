@@ -537,12 +537,6 @@ const ZoneRow: React.FC<{ zone: VastuZoneWithAngle; isEntrance: boolean; auspici
             </td>
             <td className="px-2 py-1.5 text-slate-500 font-medium">{zone.name}</td>
             <td className="px-2 py-1.5 text-slate-400 hidden sm:table-cell">{zone.ideal_rooms}</td>
-            <td className="px-2 py-1.5 text-right">
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${zone.relativePosition === 'Front' ? 'bg-indigo-100 text-indigo-700' :
-                        zone.relativePosition === 'Back' ? 'bg-slate-100 text-slate-500' :
-                            'bg-slate-50 text-slate-400'
-                    }`}>{zone.relativePosition}</span>
-            </td>
         </tr>
     );
 };
@@ -698,7 +692,6 @@ export const VastuCard: React.FC<VastuCardProps> = ({
                                 <th className="px-2 py-1 text-left">Dir</th>
                                 <th className="px-2 py-1 text-left">Zone</th>
                                 <th className="px-2 py-1 text-left hidden sm:table-cell">Best For</th>
-                                <th className="px-2 py-1 text-right">Position</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -744,7 +737,6 @@ export const VastuZonesTable: React.FC<{ azimuth_degrees: number | null | undefi
                             <th className="px-2 py-1 text-left">Dir</th>
                             <th className="px-2 py-1 text-left">Zone</th>
                             <th className="px-2 py-1 text-left hidden sm:table-cell">Best For</th>
-                            <th className="px-2 py-1 text-right">Position</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">

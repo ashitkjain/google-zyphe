@@ -92,7 +92,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                                     <i className="fa-solid fa-building-columns text-[13px]" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className="text-[15px] font-black text-slate-900 leading-tight truncate">
+                                                    <h4 className="text-[15px] font-black text-slate-900 leading-tight">
                                                         {school.name}
                                                     </h4>
                                                     <div className="flex items-center gap-2 mt-1">
@@ -171,7 +171,7 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-3 mb-1">
-                                        <h2 className="text-[18px] font-black text-slate-800 tracking-tight leading-tight truncate">
+                                        <h2 className="text-[18px] font-black text-slate-800 tracking-tight leading-tight">
                                             {schoolsIntelligence.schools[selectedSchool]?.name}
                                         </h2>
                                         <div className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded-md text-[11px] font-black text-emerald-600 shrink-0">
