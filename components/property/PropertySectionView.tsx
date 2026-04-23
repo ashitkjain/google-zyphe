@@ -82,23 +82,31 @@ interface PropertySectionViewProps {
     isFavorited?: boolean;
     onToggleFavorite?: () => void;
     orientationGroundTruth?: { expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null;
+    renderPalette?: () => React.ReactNode;
 }
 
 // ─────────────────────────────────────────────────────────────
 // Section page header
 // ─────────────────────────────────────────────────────────────
 
-const PageHeader: React.FC<{ icon: string; title: string; subtitle?: string; color?: string }> = ({
-    icon, title, subtitle, color = 'text-indigo-500',
+const PageHeader: React.FC<{ icon: string; title: string; subtitle?: string; color?: string; renderPalette?: () => React.ReactNode }> = ({
+    icon, title, subtitle, color = 'text-indigo-500', renderPalette,
 }) => (
-    <div className="flex items-center gap-3 mb-4 pb-2">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-100 shadow-sm flex-shrink-0">
-            <i className={`fa-solid ${icon} text-[16px] ${color}`} />
+    <div className="flex items-center justify-between mb-4 pb-2 pr-2">
+        <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-100 shadow-sm flex-shrink-0">
+                <i className={`fa-solid ${icon} text-[16px] ${color}`} />
+            </div>
+            <div>
+                <h2 className="text-[22px] font-black text-slate-900 tracking-tight leading-none">{title}</h2>
+                {subtitle && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{subtitle}</p>}
+            </div>
         </div>
-        <div>
-            <h2 className="text-[22px] font-black text-slate-900 tracking-tight leading-none">{title}</h2>
-            {subtitle && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{subtitle}</p>}
-        </div>
+        {renderPalette && (
+            <div className="flex-shrink-0">
+                {renderPalette()}
+            </div>
+        )}
     </div>
 );
 
@@ -126,6 +134,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         onUpdateAnalysis, onUpdatePropertyData, addLog,
         isFavorited, onToggleFavorite,
         orientationGroundTruth,
+        renderPalette,
     } = props;
 
     // ── Shared CustomAIAnalysis props ────────────────────────────────────────
@@ -149,6 +158,8 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         onToggleFavorite,
         onTabChange: () => {},
     };
+
+    const headerProps = { renderPalette };
 
     // Auto-fetch customAnalysis if missing when visiting the Indoor or Outdoor tab
     React.useEffect(() => {
@@ -220,7 +231,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         if (subId === 'lifestyle-vastu') return (
             <div className="animate-in fade-in duration-200">
                 <PageHeader icon="fa-people-roof" title="Lifestyle, Schools & Vastu"
-                    subtitle="Compatibility · Education · Orientation" />
+                    subtitle="Compatibility · Education · Orientation" {...headerProps} />
                 <PropertyLifestylePanel
                     lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
                     lifestyleLoading={lifestyleLoading}
@@ -244,7 +255,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         if (subId === 'mls-data') return (
             <div className="animate-in fade-in duration-200">
                 <PageHeader icon="fa-table-cells-large" title="MLS Property Data"
-                    subtitle="Listing details · Full specifications" />
+                    subtitle="Listing details · Full specifications" color="text-slate-500" {...headerProps} />
                 <PropertyDashboardLeft {...leftProps} showOnly={['mls']} />
             </div>
         );
@@ -252,7 +263,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         if (subId === 'indoor') return (
             <div className="animate-in fade-in duration-200 space-y-6">
                 <PageHeader icon="fa-couch" title="Indoor"
-                    subtitle="Interior · Rooms · Design · AI Analysis" color="text-violet-500" />
+                    subtitle="Interior · Rooms · Design · AI Analysis" color="text-violet-500" {...headerProps} />
                 <ExploreRow1Cards
                     propertyData={data} analysis={analysis} census={census}
                     lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
@@ -281,7 +292,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         if (subId === 'outdoor') return (
             <div className="animate-in fade-in duration-200 space-y-6">
                 <PageHeader icon="fa-house-chimney" title="Outdoor"
-                    subtitle="Curb appeal · Street view · Lot intelligence · AI Analysis" color="text-amber-500" />
+                    subtitle="Curb appeal · Street view · Lot intelligence · AI Analysis" color="text-amber-500" {...headerProps} />
                 <PropertyInsightsPanel
                     {...insightProps}
                     communityPulse={null}
@@ -315,7 +326,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         return (
             <div className="animate-in fade-in duration-200 space-y-4">
                 <PageHeader icon="fa-network-wired" title="Connectivity"
-                    subtitle="Commute · Walk Scores · Internet & Broadband" color="text-blue-500" />
+                    subtitle="Commute · Walk Scores · Internet & Broadband" color="text-blue-500" {...headerProps} />
 
                 {/* Single card with all connectivity data — no duplicates */}
                 <PropertyDashboardLeft {...leftProps} showOnly={['commute', 'walk', 'broadband']} />
@@ -356,7 +367,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         return (
             <div className="animate-in fade-in duration-200 space-y-6">
                 <PageHeader icon="fa-location-dot" title="Location Overview"
-                    subtitle="Neighborhood dynamics · Profile · Local amenities" color="text-blue-500" />
+                    subtitle="Neighborhood dynamics · Profile · Local amenities" color="text-blue-500" {...headerProps} />
                 
                 {/* Neighborhood + Affordability/Census — side by side */}
                 <div className="grid grid-cols-5 gap-4 items-start">
@@ -401,7 +412,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         return (
             <div className="animate-in fade-in duration-200 space-y-1">
                 <PageHeader icon="fa-sack-dollar" title="Investment Intelligence"
-                    subtitle="Economics · Market Dynamics · Deep Research · Valuation" color="text-indigo-600" />
+                    subtitle="Economics · Market Dynamics · Deep Research · Valuation" color="text-indigo-600" {...headerProps} />
                 
                 {/* 1. Economics (Rental Analysis) */}
                 <PropertyInsightsPanel
@@ -461,7 +472,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         return (
             <div className="animate-in fade-in duration-200 space-y-4">
                 <PageHeader icon="fa-diagram-project" title="Context Graph"
-                    subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" />
+                    subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" {...headerProps} />
                 <CustomAIAnalysis {...aiProps} activeSubTab="context_graph" />
             </div>
         );

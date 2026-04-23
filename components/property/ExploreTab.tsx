@@ -376,82 +376,68 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
 
                         <StickyNotesLayer zpid={propertyData?.zpid || ''} activeTab={stickyNoteActiveTab}>
                             {(renderPalette) => (<>
-                                <div className="bg-white border-x border-b border-slate-100 px-6 py-2 flex items-center justify-end gap-2">
-                                    {userRole === 'admin' && (
-                                        <button
-                                            onClick={handleFullRefresh}
-                                            title="Full Refresh"
-                                            className="flex items-center justify-center w-7 h-7 rounded-lg text-indigo-500 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-all"
-                                        >
-                                            <i className="fa-solid fa-sync text-[9px]"></i>
-                                        </button>
-                                    )}
-                                    {renderPalette()}
-                                </div>
-
                                 <div className="flex gap-4 min-h-screen">
-                                    {/* Full-height PropertyNav (xl+) */}
-                                        <PropertyNav
-                                            activeSectionId={activeNavSection}
-                                            activeSubId={activeNavSub}
-                                            onNavigate={handleNavNavigate}
-                                            visibility={navVisibility}
+                                    <PropertyNav
+                                        activeSectionId={activeNavSection}
+                                        activeSubId={activeNavSub}
+                                        onNavigate={handleNavNavigate}
+                                        visibility={navVisibility}
+                                        userRole={userRole}
+                                    />
+                                    <div className="flex-1 min-w-0 py-4 pr-4 lg:py-6 lg:pr-6">
+                                        <PropertySectionView
+                                            sectionId={activeNavSection}
+                                            subId={activeNavSub}
+                                            propertyData={propertyData}
+                                            customAnalysis={customAnalysis}
+                                            comprehensiveAnalysis={comprehensiveAnalysis}
+                                            communityPulse={communityPulse}
+                                            ltrAnalysis={ltrAnalysis}
+                                            renderPalette={renderPalette}
+                                            keyInsights={keyInsights}
+                                            neighborhoodOverview={neighborhoodOverview}
+                                            visualPoi={visualPoi}
+                                            mapLabels={mapLabels}
+                                            designStyle={designStyle}
+                                            currentInteriorSummary={currentInteriorSummary}
+                                            census={census}
+                                            micro={micro}
+                                            lifestyleFit={lifestyleFit}
+                                            lifestyleInsights={lifestyleInsights}
+                                            lifestyleLoading={lifestyleLoading}
+                                            lifestyleFitTab={lifestyleFitTab}
+                                            setLifestyleFitTab={setLifestyleFitTab}
+                                            lifestyleInterestTab={lifestyleInterestTab}
+                                            setLifestyleInterestTab={setLifestyleInterestTab}
+                                            handleGenerateLifestyle={handleGenerateLifestyle}
+                                            schoolsIntelligence={schoolsIntelligence}
+                                            cityNhEntryOverview={cityNhEntryOverview}
+                                            pulseExpanded={pulseExpanded}
+                                            setPulseExpanded={setPulseExpanded}
+                                            isRefreshingPulse={isRefreshingPulse}
+                                            setIsRefreshingPulse={setIsRefreshingPulse}
+                                            isSatelliteExpanded={isSatelliteExpanded}
+                                            setIsSatelliteExpanded={setIsSatelliteExpanded}
+                                            groundTruthMapTab={groundTruthMapTab}
+                                            setGroundTruthMapTab={setGroundTruthMapTab}
+                                            onRunAnalysis={() => onRunCustomAnalysis(false)}
+                                            onRefreshAnalysis={() => onRunCustomAnalysis(true)}
+                                            onFullRefresh={handleFullRefresh}
+                                            onRunComprehensive={() => { onRunComprehensive(false); }}
+                                            onRefreshEnvironment={onRefreshEnvironment}
+                                            environmentRefreshing={environmentRefreshing}
+                                            onRefreshCommunityPulse={onRefreshCommunityPulse}
+                                            customAnalysisLoading={customAnalysisLoading}
+                                            onUpdateAnalysis={onUpdateAnalysis}
+                                            onUpdatePropertyData={onUpdatePropertyData}
+                                            addLog={addLog}
+                                            isFavorited={isFavorited}
+                                            onToggleFavorite={onToggleFavorite}
                                             userRole={userRole}
+                                            orientationGroundTruth={orientationGroundTruth}
                                         />
-                                        {/* Scrollable content area — driven by PropertySectionView */}
-                                        <div className="flex-1 min-w-0 py-4 pr-4 lg:py-6 lg:pr-6">
-                                            <PropertySectionView
-                                                sectionId={activeNavSection}
-                                                subId={activeNavSub}
-                                                propertyData={propertyData}
-                                                customAnalysis={customAnalysis}
-                                                comprehensiveAnalysis={comprehensiveAnalysis}
-                                                communityPulse={communityPulse}
-                                                ltrAnalysis={ltrAnalysis}
-                                                keyInsights={keyInsights}
-                                                neighborhoodOverview={neighborhoodOverview}
-                                                visualPoi={visualPoi}
-                                                mapLabels={mapLabels}
-                                                designStyle={designStyle}
-                                                currentInteriorSummary={currentInteriorSummary}
-                                                census={census}
-                                                micro={micro}
-                                                lifestyleFit={lifestyleFit}
-                                                lifestyleInsights={lifestyleInsights}
-                                                lifestyleLoading={lifestyleLoading}
-                                                lifestyleFitTab={lifestyleFitTab}
-                                                setLifestyleFitTab={setLifestyleFitTab}
-                                                lifestyleInterestTab={lifestyleInterestTab}
-                                                setLifestyleInterestTab={setLifestyleInterestTab}
-                                                handleGenerateLifestyle={handleGenerateLifestyle}
-                                                schoolsIntelligence={schoolsIntelligence}
-                                                cityNhEntryOverview={cityNhEntryOverview}
-                                                pulseExpanded={pulseExpanded}
-                                                setPulseExpanded={setPulseExpanded}
-                                                isRefreshingPulse={isRefreshingPulse}
-                                                setIsRefreshingPulse={setIsRefreshingPulse}
-                                                isSatelliteExpanded={isSatelliteExpanded}
-                                                setIsSatelliteExpanded={setIsSatelliteExpanded}
-                                                groundTruthMapTab={groundTruthMapTab}
-                                                setGroundTruthMapTab={setGroundTruthMapTab}
-                                                onRunAnalysis={() => onRunCustomAnalysis(false)}
-                                                onRefreshAnalysis={() => onRunCustomAnalysis(true)}
-                                                onFullRefresh={handleFullRefresh}
-                                                onRunComprehensive={() => { onRunComprehensive(false); }}
-                                                onRefreshEnvironment={onRefreshEnvironment}
-                                                environmentRefreshing={environmentRefreshing}
-                                                onRefreshCommunityPulse={onRefreshCommunityPulse}
-                                                customAnalysisLoading={customAnalysisLoading}
-                                                onUpdateAnalysis={onUpdateAnalysis}
-                                                onUpdatePropertyData={onUpdatePropertyData}
-                                                addLog={addLog}
-                                                isFavorited={isFavorited}
-                                                onToggleFavorite={onToggleFavorite}
-                                                userRole={userRole}
-                                                orientationGroundTruth={orientationGroundTruth}
-                                            />
-                                        </div>{/* end scrollable content area */}
-                                    </div>
+                                    </div>{/* end scrollable content area */}
+                                </div>
 
                             </>)}
                         </StickyNotesLayer>

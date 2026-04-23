@@ -180,26 +180,33 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
     };
 
     const palette = () => (
-        <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-xl border border-slate-200 shadow-inner group/palette ml-2">
-            <div className="flex flex-col items-center mr-1 opacity-20 group-hover/palette:opacity-40 transition-opacity">
-                <i className="fa-solid fa-palette text-[9px] text-slate-800"></i>
-                <span className="text-[7px] font-black uppercase tracking-tighter text-slate-800">Notes</span>
-            </div>
-            {PALETTE_COLORS.map(color => (
-                <div key={color.id} className="relative group/palette-item">
-                    <div className="absolute inset-0 translate-x-[1px] translate-y-[1px] rounded-sm bg-black/5 blur-[1px]"></div>
+        <div className="flex flex-col items-end gap-1.5 ml-auto">
+            <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 shadow-sm group/palette">
+                <div className="flex flex-col items-center mr-1 opacity-20 group-hover/palette:opacity-40 transition-opacity">
+                    <i className="fa-solid fa-palette text-[10px] text-slate-800"></i>
+                    <span className="text-[8px] font-black uppercase tracking-tighter text-slate-800">Notes</span>
+                </div>
+                <div className="relative group/palette-item">
+                    {/* Visual stack effect */}
+                    <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-sm bg-[#ffff88]/40 blur-[1px] border border-black/5"></div>
+                    <div className="absolute inset-0 translate-x-[1.5px] translate-y-[1.5px] rounded-sm bg-[#ffff88]/60 blur-[0.5px] border border-black/5"></div>
+                    
                     <div
-                        onMouseDown={(e) => handlePaletteDragStart(e, color.id)}
-                        onTouchStart={(e) => handlePaletteDragStart(e, color.id)}
+                        onMouseDown={(e) => handlePaletteDragStart(e, 'yellow')}
+                        onTouchStart={(e) => handlePaletteDragStart(e, 'yellow')}
                         onDragStart={(e) => e.preventDefault()}
-                        title={`Drag ${color.label} focus note to page`}
-                        className={`relative z-10 w-8 h-8 rounded-[1px] ${color.color} cursor-grab active:cursor-grabbing flex flex-col items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-xl shadow-sm border border-white/30`}
+                        title="Drag focus note to page"
+                        className="relative z-10 w-11 h-11 rounded-[1px] bg-[#ffff88] cursor-grab active:cursor-grabbing flex flex-col items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-2xl shadow-md border border-white/30"
                     >
-                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/20 rounded-t-sm"></div>
-                        <i className={`fa-solid fa-plus text-[8px] opacity-30 ${color.id === 'rose' ? 'text-white' : 'text-slate-800'}`}></i>
+                        <div className="absolute top-0 left-0 right-0 h-[4px] bg-white/20 rounded-t-sm"></div>
+                        <i className="fa-solid fa-plus text-[10px] opacity-30 text-slate-800"></i>
                     </div>
                 </div>
-            ))}
+            </div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 pr-2">
+                <i className="fa-solid fa-hand-pointer text-[8px] opacity-40 animate-bounce" />
+                drag to page to make notes
+            </div>
         </div>
     );
 
