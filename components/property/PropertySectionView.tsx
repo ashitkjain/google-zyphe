@@ -175,6 +175,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         hasEnv, hasCoords: !!data.coordinates, hasNoise, hasPollen,
         hasSolar, hasWalk, hasBroadband, hasEV,
         solarPotential, mlsOpen, setMlsOpen, envOpen, toggleEnv,
+        customAnalysis,
     };
 
     // ── Shared Right column props ───────────────────────────────────────────

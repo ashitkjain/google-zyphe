@@ -129,8 +129,8 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [caseFilter, setCaseFilter] = useState<string>('all');
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('all');
     const [gtMatchFilter, setGtMatchFilter] = useState<'all' | 'match' | 'mismatch' | 'unclear' | 'unvetted'>('all');
-    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null; batchVersion?: string | null; listingPhotosUsed?: Array<{ index: number; url: string; score: number; analysisSnippet: string }> | null } | null>(null);
-    const [listingPhotoPopup, setListingPhotoPopup] = useState<{ address: string; photos: Array<{ index: number; url: string; score: number; analysisSnippet: string }>; activeIdx: number } | null>(null);
+    const [explanationPopup, setExplanationPopup] = useState<{ address: string; text: string; fromDescription: boolean; frontStreet?: string | null; satelliteUrl?: string | null; streetViewUrl?: string | null; orientation?: string | null; azimuth?: number | null; streetBearing?: number | null; batchVersion?: string | null; listingPhotosUsed?: Array<{ index: number; url: string; score: number; analysisSnippet: string; confirmed_front?: boolean }> | null } | null>(null);
+    const [listingPhotoPopup, setListingPhotoPopup] = useState<{ address: string; photos: Array<{ index: number; url: string; score: number; analysisSnippet: string; confirmed_front?: boolean }>; activeIdx: number } | null>(null);
     const [firestoreGtByZpid, setFirestoreGtByZpid] = useState<Record<string, { expected_orientation: string; gt_source: string }>>({});
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
@@ -736,6 +736,21 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
         await queueCloudBatch(staleNoPhotos.map(r => r.zpid), 'stale (no listing photos) properties');
     };
 
+    // All UNCLEAR properties in view — includes both aerial-only and dual-image UNCLEAR.
+    const allUnclear = filteredRows.filter(r =>
+        r.orientationAI?.final_orientation === 'UNCLEAR'
+    );
+
+    const handleRerunUnclear = async () => {
+        // If properties are selected, re-run only those; otherwise re-run all UNCLEAR in view.
+        if (selectedZpids.size > 0) {
+            const selected = filteredRows.filter(r => selectedZpids.has(r.zpid));
+            await queueCloudBatch(selected.map(r => r.zpid), 'selected properties');
+        } else {
+            await queueCloudBatch(allUnclear.map(r => r.zpid), 'UNCLEAR properties');
+        }
+    };
+
     const handleRedownloadSatellites = async () => {
         const targets = filteredRows.filter(r => r.coordinates);
         if (targets.length === 0) return;
@@ -1067,6 +1082,21 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                 >
                                     <i className="fa-solid fa-images text-xs" />
                                     Backfill Photos ({staleNoPhotos.length})
+                                </button>
+                            )}
+
+                            {/* Re-run UNCLEAR — re-runs selected if any, otherwise all UNCLEAR in view */}
+                            {(selectedZpids.size > 0 || allUnclear.length > 0) && (
+                                <button
+                                    onClick={handleRerunUnclear}
+                                    disabled={batchRunning || redownloadRunning || loading}
+                                    className="flex items-center gap-2.5 px-5 py-2.5 bg-amber-50 border-2 border-amber-500 text-amber-700 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title={selectedZpids.size > 0 ? `Re-run ${selectedZpids.size} selected properties` : `Re-run all ${allUnclear.length} UNCLEAR properties in view`}
+                                >
+                                    <i className="fa-solid fa-cloud-arrow-up text-xs" />
+                                    {selectedZpids.size > 0
+                                        ? `Re-run Selected (${selectedZpids.size})`
+                                        : `Re-run Unclear (${allUnclear.length})`}
                                 </button>
                             )}
                         </div>
@@ -1762,34 +1792,44 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                         )}
 
                         {/* Listing photos used for orientation */}
-                        {Array.isArray(explanationPopup.listingPhotosUsed) && explanationPopup.listingPhotosUsed.length > 0 && (
-                            <div className="border-b border-violet-100 bg-violet-50/60 px-5 py-3">
-                                <div className="flex items-center gap-2 mb-2.5">
-                                    <i className="fa-solid fa-images text-violet-500 text-[10px]" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">Listing Photos Sent to AI</span>
-                                    <span className="text-[9px] text-violet-400 font-semibold">({explanationPopup.listingPhotosUsed.length} photo{explanationPopup.listingPhotosUsed.length > 1 ? 's' : ''} used instead of street view)</span>
-                                </div>
-                                <div className="flex gap-3 flex-wrap">
-                                    {explanationPopup.listingPhotosUsed.map((photo, pi) => (
-                                        <div key={pi} className="flex-1 min-w-[180px] max-w-[240px]">
-                                            <div className="relative rounded-xl overflow-hidden border border-violet-200 shadow-sm">
-                                                <img
-                                                    src={photo.url}
-                                                    alt={`Listing photo #${photo.index}`}
-                                                    className="w-full h-32 object-cover"
-                                                    onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/240x128/7c3aed/fff?text=Photo+Unavailable'; }}
-                                                />
-                                                <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
-                                                    <span className="bg-violet-700 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">Image #{photo.index + 1}</span>
-                                                    <span className="bg-violet-100 text-violet-700 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-violet-300">score ×{photo.score}</span>
+                        {Array.isArray(explanationPopup.listingPhotosUsed) && explanationPopup.listingPhotosUsed.length > 0 && (() => {
+                            const allSent = explanationPopup.listingPhotosUsed!;
+                            // v10+: show only photos Gemini confirmed showed exterior/front.
+                            // Older results have no confirmed_front flag — fall back to showing all.
+                            const hasConfirmation = allSent.some(p => p.confirmed_front !== undefined);
+                            const displayed = hasConfirmation ? allSent.filter(p => p.confirmed_front) : allSent;
+                            if (displayed.length === 0) return null;
+                            return (
+                                <div className="border-b border-violet-100 bg-violet-50/60 px-5 py-3">
+                                    <div className="flex items-center gap-2 mb-2.5">
+                                        <i className="fa-solid fa-images text-violet-500 text-[10px]" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">Listing Photos Sent to AI</span>
+                                        <span className="text-[9px] text-violet-400 font-semibold">
+                                            ({displayed.length} photo{displayed.length > 1 ? 's' : ''} used instead of street view)
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-3 flex-wrap">
+                                        {displayed.map((photo, pi) => (
+                                            <div key={pi} className="flex-1 min-w-[180px] max-w-[240px]">
+                                                <div className="relative rounded-xl overflow-hidden border border-violet-200 shadow-sm">
+                                                    <img
+                                                        src={photo.url}
+                                                        alt={`Listing photo #${photo.index}`}
+                                                        className="w-full h-32 object-cover"
+                                                        onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/240x128/7c3aed/fff?text=Photo+Unavailable'; }}
+                                                    />
+                                                    <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
+                                                        <span className="bg-violet-700 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">Image #{photo.index + 1}</span>
+                                                        <span className="bg-violet-100 text-violet-700 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-violet-300">score ×{photo.score}</span>
+                                                    </div>
                                                 </div>
+                                                <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500 line-clamp-3">{photo.analysisSnippet}</p>
                                             </div>
-                                            <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500 line-clamp-3">{photo.analysisSnippet}</p>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         {/* Body */}
                         <div className="px-5 py-4 max-h-[40vh] overflow-y-auto">

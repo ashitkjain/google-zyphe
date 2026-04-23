@@ -95,6 +95,7 @@ const PropertyOverviewDashboard: React.FC<Props> = ({
                         setMlsOpen={setMlsOpen}
                         envOpen={envOpen}
                         toggleEnv={toggleEnv}
+                        customAnalysis={customAnalysis}
                     />
                 </div>
 

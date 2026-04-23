@@ -52,8 +52,9 @@ export function buildOrientationPromptDual(streetViewHeading?: number | null, ad
         return `\n\nGPS STREET BEARING ADVISORY: GPS data estimates the address street runs at ~${Math.round(streetBearing)}°.
 ⚠ VISUAL OVERRIDE — Before using this hint, look at Image A: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this GPS hint entirely and determine orientation from the aerial image visually.
 If the road IS straight and the lot IS standard: the front most likely faces ${compassLabel(perp1)} (~${Math.round(perp1)}°) or ${compassLabel(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road. Use the driveway apron (Image A) and the visible door/walkway (Image B) to decide which is correct.
-⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions. Do NOT output these unless you have overridden the hint due to a curved or complex layout.`;
-    })() : '';
+⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions. Do NOT output these unless you have overridden the hint due to a curved or complex layout.
+VISUAL CROSS-CHECK: Independently estimate the road bearing from Image A using the diagonal guide (lower-left→upper-right = SW↔NE ≈ 45°, lower-right→upper-left = SE↔NW ≈ 135°, left↔right = E↔W ≈ 90°, top↔bottom = N↔S ≈ 0°). Set street_bearing_visual_degrees to that estimate. If your visual estimate and the GPS bearing above differ by more than 45° when treated as road directions (0–179° scale), note the conflict in your explanation and set confidence='low'.`;
+    })() : `\n\nVISUAL BEARING ESTIMATE: No GPS bearing is available. Estimate the road bearing from Image A using the diagonal guide: lower-left→upper-right = SW↔NE ≈ 45°, lower-right→upper-left = SE↔NW ≈ 135°, left↔right = E↔W ≈ 90°, top↔bottom = N↔S ≈ 0°. Set street_bearing_visual_degrees to that estimate.`;
 
     return `
 You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up) and a Street View image (Image B) of a property.
@@ -214,7 +215,7 @@ ADDITIONAL ANALYSIS:
 
 EXPLANATION FORMAT — use this EXACT structure, one numbered sentence per step:
 (1) LAYOUT: State the layout type (standard / cul-de-sac / corner / flag) and one visual reason why (e.g. "Standard lot — straight road, single street frontage visible in Image A").
-(2) STREET CONTEXT: Name the address street and state which edge of the lot it runs along and at what bearing (e.g. "Chalk Hill Way runs East-West along the NORTH edge, bearing ≈ 270°").
+(2) STREET CONTEXT: Name the address street and state which edge of the lot it runs along. State your visual bearing estimate and the GPS bearing (if provided). Format: "Chalk Hill Way runs East-West along the NORTH edge. Visual bearing: ~90° (E↔W). GPS bearing: 89° (provided) — agree." or "Visual bearing: ~45° (SW↔NE). GPS bearing: n/a (not provided)." or "Visual bearing: ~45°. GPS bearing: 90° — CONFLICT (differ by 45° as road directions) → confidence lowered."
 (3) AERIAL EVIDENCE: State what the driveway / walkway in Image A shows (e.g. "Driveway exits the garage on the NORTH side, connecting to Chalk Hill Way → front faces NORTH"). Include the raw azimuth you read from Image A (e.g. "aerial azimuth estimate: ~0°").
 (4) IMAGE B EVIDENCE: State the camera heading in degrees and what Image B shows (e.g. "Camera heading 269° (pointing West). Image B shows front door on the North-facing wall → street_view_shows_front = TRUE → GPS: (269+180)%360 = 89° but the perpendicular-street bailout fires because both GPS candidates are >90° from aerial estimate, so aerial azimuth ~0° is used"). If Image B was uninformative, state that explicitly.
 (5) FINAL: State the final azimuth in degrees and the compass label (e.g. "Final orientation: North (~0°), confidence = high").
@@ -246,8 +247,8 @@ export function buildOrientationPromptAerialOnly(address?: string, description?:
         const perp2 = (streetBearing - 90 + 360) % 360;
         const par2  = (streetBearing + 180) % 360;
         const label = (az: number) => ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
-        return `\nGPS STREET BEARING ADVISORY: GPS data estimates the address street runs at ~${Math.round(streetBearing)}°.\n⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this GPS hint entirely and determine orientation from the aerial image visually.\nIf the road IS straight and the lot IS standard: the front most likely faces ${label(perp1)} (~${Math.round(perp1)}°) or ${label(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road.\n⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions. Do NOT output these unless the visual override applies.`;
-    })() : '';
+        return `\nGPS STREET BEARING ADVISORY: GPS data estimates the address street runs at ~${Math.round(streetBearing)}°.\n⚠ VISUAL OVERRIDE — Before using this hint, look at the aerial: if the road is curved, a cul-de-sac/dead-end loop, or this is a corner lot with two distinct street frontages, IGNORE this GPS hint entirely and determine orientation from the aerial image visually.\nIf the road IS straight and the lot IS standard: the front most likely faces ${label(perp1)} (~${Math.round(perp1)}°) or ${label(perp2)} (~${Math.round(perp2)}°) — perpendicular to the road.\n⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(par2)}° are the road-parallel directions. Do NOT output these unless the visual override applies.\nVISUAL CROSS-CHECK: Independently estimate the road bearing from the aerial using the diagonal guide (lower-left→upper-right = SW↔NE ≈ 45°, lower-right→upper-left = SE↔NW ≈ 135°, left↔right = E↔W ≈ 90°, top↔bottom = N↔S ≈ 0°). Set street_bearing_visual_degrees to that estimate. If your visual estimate and the GPS bearing above differ by more than 45° as road directions (0–179° scale), note the conflict and set confidence='low'.`;
+    })() : `\nVISUAL BEARING ESTIMATE: No GPS bearing is available. Estimate the road bearing from the aerial using the diagonal guide: lower-left→upper-right = SW↔NE ≈ 45°, lower-right→upper-left = SE↔NW ≈ 135°, left↔right = E↔W ≈ 90°, top↔bottom = N↔S ≈ 0°. Set street_bearing_visual_degrees to that estimate.`;
 
     return `
 You are a spatial analysis expert. I am providing one high-resolution aerial satellite image (North-up, blue "N" dot marks North).
@@ -306,9 +307,9 @@ Step 6 — GPS SELF-CHECK (only if a GPS STREET BEARING PRIOR appears above):
 
 EXPLANATION FORMAT — use this EXACT structure, one numbered sentence per step:
 (1) LAYOUT: State standard_street_layout=true/false and one specific visual reason (e.g. "Corner lot — two distinct road frontages visible in Image A").
-(2) STREET CONTEXT: Name the address street, which edge of the lot it runs along, and the approximate bearing (e.g. "Chalk Hill Way runs East-West (~269°) along the NORTH edge of the lot").
+(2) STREET CONTEXT: Name the address street and which edge of the lot it runs along. State your visual bearing estimate and the GPS bearing (if provided). Format: "Chalk Hill Way runs along the NORTH edge. Visual bearing: ~90° (E↔W). GPS bearing: 89° (provided) — agree." or "Visual bearing: ~45° (SW↔NE). GPS bearing: n/a (not provided)." or "Visual bearing: ~45°. GPS bearing: 90° — CONFLICT (differ by 45° as road directions) → confidence lowered."
 (3) AERIAL EVIDENCE: State what the driveway / walkway shows and which road edge it connects to (e.g. "Driveway curb cut connects to Chalk Hill Way on the north edge → front faces North"). Include your raw aerial azimuth estimate before any GPS self-check.
-(4) GPS SELF-CHECK: State whether a GPS correction was applied. If yes: "GPS self-check: adjusted from [original]° to [corrected]°." If no: "GPS self-check: no correction needed — aerial estimate already within 15° of perpendicular."
+(4) GPS SELF-CHECK: State whether a GPS correction was applied and show the numbers. Format: "GPS self-check: visual azimuth ~225°, GPS perpendiculars ~135°/~315° — adjusted to 225° (already aligned)." or "GPS self-check: no GPS bearing available — using visual bearing only."
 (5) FINAL: State the resulting orientation and confidence (e.g. "Final orientation: North (~0°), confidence = high").
 Also set front_street_name to the road name identified in step 2.
 `.trim();
@@ -374,6 +375,11 @@ export const satellitarySchema = {
         front_street_name: {
             type: Type.STRING,
             description: 'The name of the road the front of the house faces (e.g. "Atlas Peak Dr", "Main St"). This is the street the driveway/walkway connects to — not a highway or back alley. Omit if unknown.',
+            nullable: true
+        },
+        street_bearing_visual_degrees: {
+            type: Type.NUMBER,
+            description: 'Your visual estimate of the compass bearing the address street runs along, read from the aerial image. Use the diagonal guide: lower-left→upper-right = SW↔NE ≈ 45°, lower-right→upper-left = SE↔NW ≈ 135°, left↔right = E↔W ≈ 90°, top↔bottom = N↔S ≈ 0°. Output the smaller of the two opposite directions (0–179°). Null if the road is too curved to characterize with a single bearing.',
             nullable: true
         },
         feng_shui_vastu: {

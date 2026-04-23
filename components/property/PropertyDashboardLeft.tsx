@@ -96,6 +96,7 @@ interface PropertyDashboardLeftProps {
     toggleEnv: (key: string) => void;
     /** If provided, only renders the listed section keys: 'mls' | 'environment' | 'resilience' | 'solar' | 'commute' | 'walk' | 'broadband' */
     showOnly?: string[];
+    customAnalysis?: CustomAIAnalysisResult | null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -116,6 +117,7 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
     envOpen,
     toggleEnv,
     showOnly,
+    customAnalysis,
 }) => {
     const price = data.listPrice ?? data.price;
     const show = (key: string) => !showOnly || showOnly.includes(key);
@@ -216,6 +218,7 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                             loading={false}
                                             homeStatus={data.homeStatus}
                                             attribution={data.attributionInfo}
+                                            imageAnalysis={customAnalysis?.image_by_image_analysis}
                                         />
                                     </div>
                                 )}

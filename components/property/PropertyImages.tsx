@@ -11,11 +11,15 @@ interface Props {
     mlsName?: string;
     mlsId?: string;
   };
+  imageAnalysis?: Array<{
+    image_id: string;
+    analysis: string;
+  }>;
 }
 
 const MAX_SIDEBAR_IMAGES = 7; // Thumbnails shown in the sidebar
 
-const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribution }) => {
+const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribution, imageAnalysis }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -63,6 +67,30 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
     return () => window.removeEventListener('keydown', onKey);
   }, [lightboxOpen, prevImage, nextImage, closeLightbox]);
 
+  // Helper to match image URLs robustly
+  const getAnalysisForImage = (imageUrl: string | null) => {
+    if (!imageUrl || !imageAnalysis) return null;
+    
+    const cleanUrl = (url: string) => url.split('?')[0].split('#')[0];
+    const getFilename = (url: string) => {
+      try {
+        const decoded = decodeURIComponent(url);
+        return decoded.split('/').pop()?.split('?')[0] || url;
+      } catch {
+        return url.split('/').pop()?.split('?')[0] || url;
+      }
+    };
+    
+    const targetClean = cleanUrl(imageUrl);
+    const targetFile = getFilename(imageUrl);
+    
+    return imageAnalysis.find(a => {
+      const analysisClean = cleanUrl(a.image_id);
+      const analysisFile = getFilename(a.image_id);
+      return analysisClean === targetClean || analysisFile === targetFile;
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col md:flex-row gap-5 h-[350px] md:h-[400px] mb-10">
@@ -77,6 +105,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
   }
 
   const isOffMarket = totalCount === 0;
+  const currentMainAnalysis = getAnalysisForImage(selectedImage || displayImages[0]);
 
   return (
     <>
@@ -95,45 +124,56 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
         ) : (
           <div className="flex flex-col md:flex-row md:items-start gap-3">
             {/* Main large image — click to open lightbox */}
-            <button
-              className="min-w-0 flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white group relative cursor-zoom-in self-start"
+            <div
+              className="min-w-0 flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white group relative cursor-zoom-in self-start aspect-[4/3] md:aspect-auto"
               onClick={() => openLightbox(allImages.indexOf(selectedImage ?? allImages[0]))}
-              title="Click to view all photos"
             >
               <img
                 src={selectedImage || displayImages[0]}
                 alt="Property Main View"
-                className="w-full h-auto object-contain transition-all duration-700 ease-in-out"
+                className="w-full h-full object-contain transition-all duration-700 ease-in-out"
                 loading="eager"
                 decoding="async"
               />
+              
+              {/* Overlay Gradient (static but hidden) */}
+              {currentMainAnalysis && (
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+              )}
+
               {/* Expand hint */}
-              <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                 <i className="fa-solid fa-expand text-[9px]" />
                 All photos
               </div>
-              {/* Mobile dots */}
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 md:hidden">
-                {displayImages.slice(0, 8).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-2 h-2 rounded-full transition-all ${displayImages[i] === selectedImage ? 'bg-white w-5' : 'bg-white/50'}`}
-                  />
-                ))}
-              </div>
-            </button>
+
+              {/* AI Description Tooltip (Main Image) - Simplified Animation */}
+              {currentMainAnalysis && (
+                <div className="absolute inset-x-0 bottom-0 p-6 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 ease-out pointer-events-none z-10">
+                  <div className="flex items-start gap-3 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-2xl">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/40">
+                      <i className="fa-solid fa-sparkles text-white text-xs" />
+                    </div>
+                    <p className="text-white text-[13px] leading-relaxed font-bold drop-shadow-md">
+                      {currentMainAnalysis.analysis}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Thumbnail sidebar */}
             <div className="flex flex-col gap-2 w-full md:w-28 shrink-0">
               <div className="flex md:flex-col flex-row gap-2 w-full overflow-x-auto md:overflow-y-auto snap-x md:snap-y scroll-smooth">
                 {displayImages.map((img, idx) => {
                   const isLast = idx === displayImages.length - 1 && hiddenCount > 0;
+                  const thumbAnalysis = getAnalysisForImage(img);
+
                   return (
                     <button
                       key={idx}
                       onClick={() => {
                         if (isLast) {
-                          // Open lightbox at the first hidden image
                           openLightbox(MAX_SIDEBAR_IMAGES);
                         } else {
                           setSelectedImage(img);
@@ -141,7 +181,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                       }}
                       className={`relative flex-shrink-0 w-24 md:w-full h-16 md:h-20 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast
                         ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
-                        : 'border-transparent hover:border-gray-300'
+                        : 'border-transparent hover:border-gray-200'
                         }`}
                     >
                       <img
@@ -152,25 +192,31 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                         loading="lazy"
                         decoding="async"
                       />
-                      {/* "+N more" overlay — clicking opens lightbox at first unseen image */}
+                      {/* "+N more" overlay */}
                       {isLast && (
-                        <div className="absolute inset-0 bg-black/65 flex flex-col items-center justify-center gap-0.5 cursor-pointer">
+                        <div className="absolute inset-0 bg-black/65 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
                           <i className="fa-solid fa-images text-white/80 text-sm" />
                           <span className="text-white text-xs font-black">+{hiddenCount}</span>
-                          <span className="text-white/60 text-[8px] font-semibold">more</span>
+                          <span className="text-white/60 text-[8px] font-semibold uppercase tracking-tight">more</span>
+                        </div>
+                      )}
+
+                      {/* AI Description Tooltip (Thumbnail Overlay) - More robust */}
+                      {!isLast && thumbAnalysis && (
+                        <div className="absolute inset-0 bg-indigo-600/90 flex flex-col items-center justify-center p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
+                           <i className="fa-solid fa-sparkles text-white/40 text-[10px] mb-1" />
+                           <p className="text-white text-[9px] font-bold leading-tight text-center line-clamp-4">
+                            {thumbAnalysis.analysis}
+                          </p>
                         </div>
                       )}
                     </button>
                   );
                 })}
               </div>
-
             </div>
           </div>
         )}
-
-
-
       </div>
 
       {/* ── Full-screen Lightbox ────────────────────────────────────────────── */}
@@ -209,11 +255,31 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
               draggable={false}
             />
 
+            {/* AI Description (Lightbox Overlay) */}
+            {(() => {
+                const lightboxAnalysis = getAnalysisForImage(allImages[lightboxIndex]);
+                if (!lightboxAnalysis) return null;
+                return (
+                  <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6 pointer-events-none">
+                    <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-2xl">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                          <i className="fa-solid fa-sparkles text-indigo-400 text-[11px]" />
+                        </div>
+                        <p className="text-white/90 text-[13px] leading-relaxed font-semibold">
+                          {lightboxAnalysis.analysis}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+            })()}
+
             {/* Prev */}
             {totalCount > 1 && (
               <button
                 onClick={prevImage}
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all backdrop-blur-sm"
+                className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all backdrop-blur-sm"
                 title="Previous (←)"
               >
                 <i className="fa-solid fa-chevron-left" />
@@ -224,7 +290,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
             {totalCount > 1 && (
               <button
                 onClick={nextImage}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all backdrop-blur-sm"
+                className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all backdrop-blur-sm"
                 title="Next (→)"
               >
                 <i className="fa-solid fa-chevron-right" />

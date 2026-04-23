@@ -27,7 +27,23 @@ const ORIENTATION_MODEL_CF = 'gemini-2.5-flash';
 // v3: Pattern B/C retry (SV uninformative or any UNCLEAR triggers photo retry)
 // v4: listing photos removed from primary call
 // v5: strict two-pass — listing photos ONLY for aerial-only UNCLEAR (no SV)
-const BATCH_VERSION = 'v5';
+// v6: street_bearing_visual_degrees — Gemini outputs visual road bearing; GPS/visual conflict detection; stability-check no longer suppresses bearing early
+// v7: TOWNHOUSE removed from isMultiUnit — townhouses now get street view + listing photo Pass 2 like single-family homes
+// v8: Pass 2 now also fires when street view ran but was uninformative (street_view_shows_front=null) — fixes corner lots and cul-de-sacs where SV showed only a fence/carport
+// v9: svWasUninformative extended to shows_front=false; complexLayoutForcedUnclear — corner/cul-de-sac always get Pass 2 regardless of what SV returned
+// v10: Gemini reports listing_photos_showing_front (image labels that showed exterior/front door); listing_photos_used now includes confirmed_front flag per photo; UI filters to confirmed photos only
+// v11: roadmap image (Google Maps Static, zoom 16) sent to Gemini — Gemini reads address street bearing from labeled map; street_bearing_from_map stored in result
+// v12: roadmap is primary source for street direction; explicit instruction not to estimate bearing from satellite; guiding principles updated
+// v13: roadmap-first with satellite fallback — if map label unclear, fall back to satellite estimate rather than failing
+// v14: sideFact upgraded to mandatory PERPENDICULAR TIE-BREAKER — prevents 180° flip when GPS bearing is suppressed but streetSide is known (e.g. Shelton St NE vs SW)
+// v15: sideFact softened to advisory — aerial takes precedence; GPS hint only used when aerial is genuinely ambiguous (prevents hallucination on curved streets like Canelli Ct)
+// v15b: curved road detection in _getStreetBearing — if bearing(+50) vs bearing(+100) differ >20°, GPS hint suppressed entirely; Gemini reads direction from roadmap only
+// v16: address-suffix hint — streets ending in Ct/Court/Cir/Circle pre-alert Gemini to look for dead-end/cul-de-sac on map and skip the perpendicular rule
+// v16b: smarter curve detection — require dist12>30m between the two geocoded points to avoid false positives on short/noisy streets
+// v17: restore mandatory tie-breaker — safe now because curve detection already suppresses it for curved roads; straight short streets (Shelton St) get mandatory hint again
+// v18: CORNER LOT/BEND EXCEPTION in roadmap step — if GPS tie-breaker direction is parallel to local road bearing, face that direction directly (fixes Shelton St corner lot bend)
+// v19: GPS DIRECT ANSWER — gives Gemini an exact azimuth degree (not just direction name) so roadmap bearing inconsistency can't override a reliable GPS streetSide
+const BATCH_VERSION = 'v19';
 
 // ─── Gemini response schema ───────────────────────────────────────────────────
 // Uses plain string type names (compatible with all @google/generative-ai versions).
@@ -56,6 +72,8 @@ const ORIENTATION_SCHEMA = {
         pool_direction: { type: 'string', nullable: true },
         garage_direction: { type: 'string', nullable: true },
         open_sky_direction: { type: 'string', nullable: true },
+        listing_photos_showing_front: { type: 'array', items: { type: 'string' }, nullable: true },
+        street_bearing_from_map: { type: 'number', nullable: true },
     },
     required: [
         'property_layout_type', 'image_quality', 'final_orientation', 'confidence',
@@ -138,6 +156,22 @@ async function _getStreetBearing(address, mapsKey, propLat = null, propLng = nul
         }
 
         if (bearings.length === 0) return null;
+
+        // Curved road detection: if bearing(+50) and bearing(+100) differ by >25° AND the two
+        // geocoded points are genuinely far apart (>30m from each other), the road curves here.
+        // Require the distance check to avoid false positives on short/dead-end streets where
+        // +50 and +100 snap to nearby locations with noise but the road itself is straight.
+        if (bearings.length >= 2) {
+            const b0 = bearings[0], b1 = bearings[1];
+            const dlat12 = (b1.p2lat - b0.p2lat) * 111320;
+            const dlng12 = (b1.p2lng - b0.p2lng) * 111320 * Math.cos(p1.lat * Math.PI / 180);
+            const dist12 = Math.sqrt(dlat12 * dlat12 + dlng12 * dlng12);
+            const curveDiff = _angDiff(b0.bearing, b1.bearing);
+            if (dist12 > 30 && curveDiff > 25) {
+                console.log(`[Batch] _getStreetBearing: road curved (bearing+50=${Math.round(b0.bearing)}°, bearing+100=${Math.round(b1.bearing)}°, diff=${Math.round(curveDiff)}°, dist12=${Math.round(dist12)}m) — GPS hint suppressed`);
+                return { bearing: null, streetSide: null };
+            }
+        }
 
         // Compute streetSide using signed perpendicular: cross-product of road direction × property offset.
         // This correctly identifies which side of the road the property is on for diagonal streets.
@@ -261,6 +295,24 @@ async function _isUrlAlive(url) {
 }
 
 /**
+ * Fetches a Google Maps Static roadmap tile centered on the property.
+ * Returns base64 image data for inclusion in the Gemini prompt.
+ * Zoom 16 gives ~400m field of view — enough to see street names and road geometry.
+ */
+async function _fetchRoadmapImage(lat, lng, mapsKey) {
+    const url =
+        `https://maps.googleapis.com/maps/api/staticmap` +
+        `?center=${lat},${lng}` +
+        `&zoom=16&size=640x640&scale=2&maptype=roadmap` +
+        `&markers=color:red%7Csize:tiny%7C${lat},${lng}` +
+        `&key=${mapsKey}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Roadmap fetch HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    return { data: Buffer.from(buf).toString('base64'), mimeType: 'image/png' };
+}
+
+/**
  * Re-fetches the aerial satellite image from Google Maps Static API,
  * uploads it to Firebase Storage, and persists the fresh URL to Firestore.
  * Mirrors client-side getOrCacheAerialSatelliteUrl (Admin SDK equivalent).
@@ -351,13 +403,25 @@ async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, addres
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 
-function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide, svHeading) {
+function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide, svHeading, roadmapLabel) {
     const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
     const sideLabel = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
-    const sideFact = (streetBearing == null && sideLabel)
-        ? ` GPS confirms "${streetName || address}" is to the ${sideLabel} — the front likely faces ${sideLabel}.` : '';
+    // GPS direct azimuth suggestion — only fires when streetSide is non-null.
+    // Curve detection suppresses it for curved roads; this is safe for short straight streets.
+    // Gives Gemini an actual degree value so it works even when the roadmap reads an inconsistent bearing.
+    const SIDE_AZ_MAP = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+    const sideAzimuth = streetSide ? SIDE_AZ_MAP[streetSide] : null;
+    const sideFact = (streetBearing == null && sideLabel && sideAzimuth != null)
+        ? ` ⚠️ GPS DIRECT ANSWER (override roadmap perpendicular rule): GPS road-offset geometry confirms "${streetName || address}" is to the ${sideLabel} of this property. Set azimuth_degrees ≈ ${sideAzimuth}° (${sideLabel}). Only override this if the aerial driveway/walkway CLEARLY exits toward a completely different direction — otherwise trust the GPS.`
+        : '';
+    // Streets ending in Ct/Court/Cir/Circle are almost always dead-end or cul-de-sac — pre-alert Gemini.
+    const lastWord = (streetName || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
+    const culDeSacSuffix = /^(ct|court|cir|circle|pl|place)$/.test(lastWord);
+    const culDeSacSuffixHint = culDeSacSuffix
+        ? `\n⚠️ CUL-DE-SAC / DEAD-END ALERT: "${streetName}" ends in "${lastWord.charAt(0).toUpperCase() + lastWord.slice(1)}" — streets with this suffix are almost always cul-de-sacs or dead-end courts. On the road map image, look for a circular loop or dead-end terminus for "${streetName}". If found (even if not a perfect circle): classify as cul_de_sac, SKIP the perpendicular rule, and derive the front direction by drawing a vector from the property center toward the dead-end/loop center.`
+        : '';
     const addressClue = address
-        ? `\nPROPERTY ADDRESS: "${address}"\nFront entrance MUST face "${streetName || address}".${sideFact}\n• DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier. If a road is separated by a green belt, tree row, or park strip with NO driveway crossing, it is NOT the front street.\n• Do NOT default to the largest or nearest road — look for where the driveway actually exits.` : '';
+        ? `\nPROPERTY ADDRESS: "${address}"\nFront entrance MUST face "${streetName || address}".${sideFact}${culDeSacSuffixHint}\n• DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier. If a road is separated by a green belt, tree row, or park strip with NO driveway crossing, it is NOT the front street.\n• Do NOT default to the largest or nearest road — look for where the driveway actually exits.` : '';
     const descHint = (() => {
         if (!description) return '';
         const text = Array.isArray(description) ? description.join(' ') : description;
@@ -377,14 +441,28 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
             + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel. Do NOT output these unless the visual override applies.`;
     })() : '';
 
+    const streetName2 = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : 'the address street';
+    const roadmapStep = roadmapLabel
+        ? `\nSTREET DIRECTION — MAP FIRST (Image ${roadmapLabel}):\n` +
+          `  Image ${roadmapLabel} is a labeled road map (North-up, zoom 16) centered on the property (red dot).\n` +
+          `  1. Find "${streetName2}" on Image ${roadmapLabel} by reading the street name labels.\n` +
+          `     → If the label is clearly readable: read the bearing the road travels (0°=N, 90°=E, 180°=S, 270°=W) and set street_bearing_from_map to this value. This is more reliable than estimating from satellite texture.\n` +
+          `     → If the label is NOT visible or the street cannot be identified on the map: set street_bearing_from_map=null and estimate the bearing from Image A (satellite) as a fallback.\n` +
+          `  2. PERPENDICULAR RULE: your final azimuth_degrees must be ~perpendicular (±45°) to street_bearing_from_map (or your satellite estimate if map was unclear).\n` +
+          `     If your azimuth is within 15° of the road bearing (road-parallel), you have made the most common error — correct to the nearest perpendicular.\n` +
+          `     → TIE-BREAKER: a road has two perpendiculars (e.g. NE and SW). If a GPS TIE-BREAKER is stated in the PROPERTY ADDRESS section above, use it to pick the correct perpendicular.\n` +
+          `  ⚠️ CORNER LOT / BEND EXCEPTION: On curved streets or at road bends, the local road segment may run roughly TOWARD the property — in that case the front faces the road directly (not perpendicular to it). If a GPS TIE-BREAKER gives a direction that is approximately PARALLEL to the local road bearing (within 45°), trust the GPS direction — it is telling you the road arrives at your face, so face it directly.\n` +
+          `  ⚠️ CUL-DE-SAC EXCEPTION: if the map shows "${streetName2}" terminates in a circular dead-end, IGNORE the perpendicular rule — derive direction from aerial (property center → cul-de-sac center).`
+        : '';
 
     if (usesDualImage) {
         return [
-            `You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up) and a Street View image (Image B) of a property.`,
+            `You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up), a Street View image (Image B)${roadmapLabel ? `, and a labeled Road Map (Image ${roadmapLabel}, North-up)` : ''} of a property.`,
             svHeading != null ? `\n\nCAMERA HEADING: ${Math.round(svHeading)}\u00b0 (0\u00b0=North, 90\u00b0=East, 180\u00b0=South, 270\u00b0=West)\nThe camera was pointing in direction ${Math.round(svHeading)}\u00b0 when it captured Image B.` : '',
             addressClue, descHint, bearingHint,
+            roadmapStep,
             `\nGUIDING PRINCIPLES:`,
-            `1. IMAGE A IS THE ANCHOR: North is strictly at the top. Identify the building footprint, street, and driveway.`,
+            `1. IMAGE A IS THE ANCHOR: North is strictly at the top. Identify the building footprint and driveway. For street direction, prefer the road map — use Image A as fallback only if the map label is unclear.`,
             `2. WALKWAY RULE: Trace the pedestrian walkway from the public sidewalk to the main door. That wall is the architectural FRONT.`,
             `3. DRIVEWAY/GARAGE (supporting): Garage and front door are usually on the SAME wall. Driveway runs from street to garage.`,
             `\nTASK:`,
@@ -396,18 +474,20 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
             `Step 3: Image B judgment ONLY. Look at Image B — does it show the FRONT (door, porch, entry) or BACK (blank wall, fence)? Judge from the image alone, NOT from your Step 2 aerial conclusion. Set street_view_shows_front = true (front visible) or false (back/side visible) or null (obstructed/blurred/too far). The system computes the final azimuth from GPS heading + your answer. Do NOT compute azimuth yourself or adjust this field to match your Step 2 guess.`,
             `Step 4: Finalize — output final_orientation, azimuth_degrees, confidence, property_layout_type.\n   IF street_view_shows_front = FALSE (set in Step 3): ⚠️ GARAGE-SIDE CORRECTION. The camera confirmed it was NOT seeing the front. This means the driveway you traced in Step 2 connects to the GARAGE, NOT the front entrance. The Step 2 azimuth is the GARAGE direction — do NOT use it as the final answer. Re-examine Image A: (a) look for a pedestrian walkway on any OTHER face of the house. (b) If a clear pedestrian path is visible on another face, set azimuth_degrees to THAT face. (c) If no other face shows a clear walkway, set final_orientation='UNCLEAR', azimuth_degrees=null, confidence='low'.`,
             `ADDITIONAL: Assess privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.`,
-            `EXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: layout type and one visual reason.\n(2) STREET CONTEXT: name the address street, which edge it runs along, and its approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows, which road edge it connects to, and the raw aerial azimuth estimate.\n(4) IMAGE B EVIDENCE: state the camera heading in degrees, what Image B shows (front/back/uninformative), and how street_view_shows_front was set.\n(5) FINAL: final azimuth in degrees and compass label, confidence.`,
+            `EXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: layout type and one visual reason.\n(2) STREET CONTEXT: name the address street, its bearing as read from the road map (Image C/B), and which edge of the property it runs along.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows, which road edge it connects to, and the raw aerial azimuth estimate.\n(4) IMAGE B EVIDENCE: state the camera heading in degrees, what Image B shows (front/back/uninformative), and how street_view_shows_front was set.\n(5) FINAL: final azimuth in degrees and compass label, confidence.`,
         ].join('\n').trim();
     }
 
     return [
-        `You are a spatial analysis expert. I am providing one aerial satellite image (North-up).`,
+        `You are a spatial analysis expert. I am providing one aerial satellite image (Image A, North-up)${roadmapLabel ? ` and a labeled Road Map (Image ${roadmapLabel}, North-up)` : ''}.`,
         addressClue, bearingHint, descHint,
+        roadmapStep,
         `\nGUIDING PRINCIPLES:`,
         `1. NORTH IS UP: Use the top of the frame as 0° North.`,
         `2. WALKWAY RULE (MANDATORY): Front of property = where the pedestrian path from the public sidewalk leads to the main door.`,
         `3. ADDRESS STREET PRIORITY: When multiple streets are visible, give strong priority to the address street.`,
         `4. TOWARD RULE (most common error): The front faces TOWARD the road — in the direction FROM the lot center TO the road. The direction the road TRAVELS is irrelevant. Road on the NE edge → front faces NE (~45°), NOT NW or SE. Road on N edge → front faces N (~0°). TRAP: "road runs NW/SE along NE edge" → front faces NE, never NW or SE.`,
+        roadmapLabel ? `5. STREET DIRECTION: prefer Image ${roadmapLabel} (road map labels) for road bearing — only fall back to satellite texture in Image A if the street label is not clearly readable on the map.` : '',
         `\nLAYOUT CLASSIFICATION (do FIRST):`,
         `CORNER LOT: A property is a corner lot when TWO named public roads form its boundary, meeting at an intersection adjacent to the lot.\n  HOW TO IDENTIFY — use traffic-lane signals, NOT curb corner geometry:\n  (a) Can you see two distinct traffic lanes (lane markings, consistent road width, curbs/sidewalks) meeting at a junction or T-intersection?\n  (b) Does one edge of the property border each of these two roads?\n  ⚠️ CURVED CURBS DO NOT DISQUALIFY: Modern intersections have CURVED corner curbs (rounded radius turns). A rounded corner curve at the lot corner is NORMAL for corner lots — do not read it as evidence the lot is standard.\n  KEY TEST: Two distinct public road surfaces forming a junction adjacent to this lot? If yes → corner_lot.\n  NOT a corner lot: private internal roads, parking aisles, alleys, shared courtyards.`,
         `Set standard_street_layout = FALSE if: corner lot, flag lot, curved/loop street (CT, CIR, LOOP, COURT in name), side-loading entry, or rural acreage.`,
@@ -419,10 +499,10 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
         `Step 1 — Layout: classify lot type using the CORNER LOT criteria above.`,
         `Step 2 — Driveway Apron: verify curb cut (driveway connects to public road with no gap or fence interruption).`,
         `Step 3 — Front Walk: look for pedestrian path to main door.`,
-        `Step 4 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W). PERPENDICULAR RULE (MANDATORY): azimuth must be ~perpendicular (±45°) to the road — never parallel to it. If road runs at ~315°, valid azimuths are ~45° or ~225°, NOT 315°. If road runs at ~90°, valid azimuths are ~0° or ~180°, NOT 90°. If your azimuth is within 15° of the road bearing you have made an error — correct to the nearest perpendicular.`,
+        `Step 4 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W). PERPENDICULAR RULE (MANDATORY): azimuth must be ~perpendicular (±45°) to street_bearing_from_map (read from the road map) — never parallel to it. If street_bearing_from_map≈315°, valid azimuths are ~45° or ~225°. If street_bearing_from_map≈90°, valid azimuths are ~0° or ~180°. If your azimuth is within 15° of street_bearing_from_map you have made an error — correct to the nearest perpendicular.`,
         `Step 5 — Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage/yard directions, buyer pro/con.`,
         `Step 6 — GPS Self-Check (only if bearing prior given): verify azimuth is within 45° of a perpendicular. Correct if ≥45° off; note if corrected. PARALLEL CHECK (always run): if your azimuth is within 15° of the road bearing itself (not the perpendicular), you have made the most common error — correct to nearest perpendicular or set UNCLEAR.`,
-        `\nEXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: standard_street_layout=true/false and one specific visual reason.\n(2) STREET CONTEXT: name the address street, which edge it runs along, and the approximate bearing.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows and which road edge it connects to; include the raw aerial azimuth estimate.\n(4) GPS SELF-CHECK: whether a correction was applied; if yes: "GPS self-check: adjusted from X° to Y°"; if no: "No correction needed".\n(5) FINAL: final orientation and confidence.`,
+        `\nEXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: standard_street_layout=true/false and one specific visual reason.\n(2) STREET CONTEXT: name the address street, its bearing as read from the road map, and which edge of the property it runs along.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows and which road edge it connects to; include the raw aerial azimuth estimate.\n(4) GPS SELF-CHECK: whether a correction was applied; if yes: "GPS self-check: adjusted from X° to Y°"; if no: "No correction needed".\n(5) FINAL: final orientation and confidence.`,
 
 
     ].join('\n').trim();
@@ -440,10 +520,18 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
 function _buildListingPhotoPrompt(address, description, streetBearing, streetSide, photoCount, photoMeta = []) {
     const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
     const sideLabel = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
-    const sideFact = (streetBearing == null && sideLabel)
-        ? ` GPS confirms "${streetName || address}" is to the ${sideLabel} \u2014 the front likely faces ${sideLabel}.` : '';
+    const SIDE_AZ_MAP2 = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+    const sideAzimuth2 = streetSide ? SIDE_AZ_MAP2[streetSide] : null;
+    const sideFact = (streetBearing == null && sideLabel && sideAzimuth2 != null)
+        ? ` \u26a0\ufe0f GPS DIRECT ANSWER (override roadmap perpendicular rule): GPS road-offset geometry confirms "${streetName || address}" is to the ${sideLabel} of this property. Set azimuth_degrees \u2248 ${sideAzimuth2}\u00b0 (${sideLabel}). Only override if the aerial driveway/walkway CLEARLY exits in a completely different direction.`
+        : '';
+    const lastWord2 = (streetName || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
+    const culDeSacSuffix2 = /^(ct|court|cir|circle|pl|place)$/.test(lastWord2);
+    const culDeSacSuffixHint2 = culDeSacSuffix2
+        ? `\n\u26a0\ufe0f CUL-DE-SAC / DEAD-END ALERT: "${streetName}" ends in "${lastWord2.charAt(0).toUpperCase() + lastWord2.slice(1)}" \u2014 streets with this suffix are almost always cul-de-sacs or dead-end courts. Look for a circular loop or dead-end terminus for "${streetName}". If found: classify as cul_de_sac and derive the front direction by drawing a vector from property center toward the dead-end/loop center.`
+        : '';
     const addressClue = address
-        ? `\nPROPERTY ADDRESS: "${address}"\nFront entrance MUST face "${streetName || address}".${sideFact}\n\u2022 DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier.` : '';
+        ? `\nPROPERTY ADDRESS: "${address}"\nFront entrance MUST face "${streetName || address}".${sideFact}${culDeSacSuffixHint2}\n\u2022 DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier.` : '';
     const descHint = (() => {
         if (!description) return '';
         const text = Array.isArray(description) ? description.join(' ') : description;
@@ -494,7 +582,7 @@ function _buildListingPhotoPrompt(address, description, streetBearing, streetSid
         `\nTASK:`,
         `Step 1 \u2014 Layout: classify lot type.`,
         `Step 2 \u2014 Aerial analysis: identify building footprint, driveway, and candidate front wall from Image A.`,
-        `Step 3 \u2014 Listing photo confirmation: does any listing photo confirm or contradict the aerial conclusion? Set street_view_shows_front accordingly.`,
+        `Step 3 \u2014 Listing photo confirmation: for each listing photo (Images B, C, D…), decide if it shows the building exterior or front door \u2014 NOT an interior room (kitchen, bedroom, bathroom, living area, etc.). Set street_view_shows_front based on the best exterior photo found. Set listing_photos_showing_front to an array of image labels (e.g. [\"B\",\"C\"]) for every photo that showed the exterior or front door; use an empty array if none did.`,
         `Step 4 \u2014 Front wall compass direction (0\u00b0=N, 90\u00b0=E, 180\u00b0=S, 270\u00b0=W). PERPENDICULAR RULE: azimuth must be ~perpendicular (\u00b145\u00b0) to the road bearing. If parallel \u2192 correct or set UNCLEAR.`,
         `Step 5 \u2014 Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.`,
         `\nEXPLANATION FORMAT \u2014 use this EXACT structure:\n(1) LAYOUT: type and one visual reason.\n(2) STREET CONTEXT: address street, which edge, approximate bearing.\n(3) AERIAL EVIDENCE: driveway/walkway on Image A, which road edge it connects to, raw aerial azimuth.\n(4) LISTING PHOTO EVIDENCE: what each listing photo shows, whether aerial vs ground-level, and how street_view_shows_front was set.\n(5) FINAL: final orientation and confidence.`,
@@ -571,8 +659,10 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         catch (e) { console.warn(`[Batch] SV download failed for ${zpid}:`, e.message); }
     }
 
-    // 4. Townhouse/condo gate: force aerial-only for shared-wall properties
-    const isMultiUnit = ['TOWNHOUSE', 'CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
+    // 4. Multi-unit gate: shared-building types where street view/listing photos can't
+    //    reliably identify a specific unit's entrance. Townhouses are excluded — they have
+    //    their own front door, driveway, and exterior and behave like single-family homes.
+    const isMultiUnit = ['CONDO', 'APARTMENT', 'MULTI_FAMILY'].includes(homeType);
     const usesDualImage = svImg !== null && !isMultiUnit;
 
     // 4a. Listing photos fallback: fetch exterior listing photos from the gallery for ALL
@@ -651,16 +741,36 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     }
 
 
+    // 4d. Fetch labeled roadmap image for Gemini street-direction reading.
+    // Google Maps Static roadmap at zoom 16 shows street names — Gemini reads the address
+    // street bearing from it instead of guessing from satellite texture.
+    let roadmapImg = null;
+    if (propLat != null && propLng != null && mapsKey) {
+        try {
+            roadmapImg = await _fetchRoadmapImage(propLat, propLng, mapsKey);
+            console.log(`[Batch] ${zpid}: Roadmap image fetched.`);
+        } catch (e) {
+            console.warn(`[Batch] ${zpid}: Roadmap fetch failed (non-blocking):`, e.message);
+        }
+    }
+    // Image labeling: aerial=A, then street-view=B (dual-image) or roadmap=B (aerial-only),
+    // and roadmap=C for dual-image.
+    const roadmapLabel = roadmapImg ? (usesDualImage ? 'C' : 'B') : null;
+
     // 5. Build prompt and call Gemini 2.5 Flash
     // Listing photos are NEVER used in the primary call — only as a fallback for UNCLEAR results.
     // Pattern B (SV uninformative) and Pattern C (catch-all UNCLEAR) handle the retry.
     let usesListingPhotos = false;
-    const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading);
+    const prompt = _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading, roadmapLabel);
     const parts = [
         { text: prompt },
         { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
         ...(usesDualImage
             ? [{ inlineData: { mimeType: svImg.mimeType, data: svImg.data } }]
+            : []
+        ),
+        ...(roadmapImg
+            ? [{ inlineData: { mimeType: roadmapImg.mimeType, data: roadmapImg.data } }]
             : []
         ),
     ];
@@ -800,6 +910,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
     // Corner lot exception: if listing photos VISUALLY confirmed the front door (shows_front=true)
     // with high confidence, the "two frontages ambiguous" argument is resolved by photographic evidence.
     // We still force UNCLEAR for aerial-only corner lots (no photo proof).
+    // Street view confirmation alone is not sufficient here — GPS heading math for corner lots can
+    // produce wrong azimuths (camera on approach road gives incorrect candidateFront). Listing photos
+    // are used in Pass 2 to confirm the correct face. See Pass 2 gate below.
     const listingPhotoConfirmedFront = usesListingPhotos && data.street_view_shows_front === true && data.confidence === 'high';
     const cornerlotUnclear = isCornerLot && !listingPhotoConfirmedFront;
 
@@ -881,18 +994,31 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         finalAzimuth = null;
     }
 
-    // Listing photo retry: aerial-only UNCLEAR properties only.
+    // Listing photo retry: two-pass design.
     //
-    // Two-pass design (user requirement):
     //   Pass 1: aerial + SV (or aerial-alone if no SV available)  ← done above
-    //   Pass 2: ONLY if Pass 1 had no SV (!usesDualImage) AND result is UNCLEAR
-    //           → re-run with aerial + listing photos (NO street view)
+    //   Pass 2: triggered when Pass 1 returned UNCLEAR AND any of:
+    //     a) No street view was available (!usesDualImage), OR
+    //     b) Street view ran but was uninformative (street_view_shows_front === null)
+    //        — camera showed a fence/carport/blank wall, contributed nothing useful.
+    //     c) Street view ran but showed the wrong side (street_view_shows_front === false)
+    //        — camera confirmed it was NOT the front, causing Pattern A to force UNCLEAR.
+    //        Listing photos may still show the front exterior and resolve orientation.
+    //     d) Complex layout (corner lot or cul-de-sac) forced UNCLEAR by the post-processing gate
+    //        even when SV ran — because for these layouts GPS heading math is unreliable
+    //        (camera on approach road gives wrong candidateFront) and two-frontage ambiguity
+    //        is best resolved by listing photos that visually show the correct front face.
     //
-    // Listing photos NEVER mix with street view — doing so causes hallucinations
-    // (e.g. Gemini reverses azimuth when it has both images to reconcile).
-    // If a property has SV, we trust Pass 1's result fully regardless of confidence.
-    if (finalOrientation === 'UNCLEAR' && !usesDualImage && !isMultiUnit && !usesListingPhotos && listingPhotoImgs.length > 0) {
-        console.log(`[Batch] ${zpid}: aerial-only UNCLEAR — Pass 2 with ${listingPhotoImgs.length} listing photo(s).`);
+    // Listing photos are NOT mixed with street view when SV was informative and confirmed
+    // the front on a STANDARD lot (shows_front=true, standard layout) — doing so causes
+    // hallucinations. But complex layouts and unhelpful SV all qualify for Pass 2.
+    const svWasUninformative = usesDualImage && (data.street_view_shows_front === null || data.street_view_shows_front === false);
+    // Complex layout (corner/cul-de-sac) forced UNCLEAR by post-processing gate — SV may have
+    // run and appeared informative (shows_front=true) but GPS heading math is unreliable for
+    // these layouts, so listing photos should get a chance to visually confirm the front.
+    const complexLayoutForcedUnclear = isCornerOrCulDeSac;
+    if (finalOrientation === 'UNCLEAR' && (!usesDualImage || svWasUninformative || complexLayoutForcedUnclear) && !isMultiUnit && !usesListingPhotos && listingPhotoImgs.length > 0) {
+        console.log(`[Batch] ${zpid}: UNCLEAR (shows_front=${data.street_view_shows_front}, complexLayout=${complexLayoutForcedUnclear}) — Pass 2 with ${listingPhotoImgs.length} listing photo(s).`);
         try {
             const retryPrompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
             const retryParts = [
@@ -902,8 +1028,16 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
             ];
             const retryResult = await model.generateContent({ contents: [{ role: 'user', parts: retryParts }] });
             const retryData = JSON.parse(retryResult.response.text());
+            // Annotate each sent photo with whether Gemini confirmed it showed the exterior/front.
+            // Image labels: aerial = A, listing photos = B, C, D…
+            const confirmedLabels = Array.isArray(retryData.listing_photos_showing_front)
+                ? retryData.listing_photos_showing_front : [];
+            listingPhotosUsed = listingPhotosUsed.map((photo, i) => ({
+                ...photo,
+                confirmed_front: confirmedLabels.includes(String.fromCharCode(66 + i)), // 'B','C','D'…
+            }));
             if (retryData.final_orientation && retryData.final_orientation !== 'UNCLEAR') {
-                console.log(`[Batch] ${zpid}: Pass 2 → ${retryData.final_orientation}. Replacing UNCLEAR.`);
+                console.log(`[Batch] ${zpid}: Pass 2 → ${retryData.final_orientation}. Confirmed photos: [${confirmedLabels.join(',')}]. Replacing UNCLEAR.`);
                 data = retryData;
                 finalAzimuth = retryData.azimuth_degrees ?? null;
                 finalOrientation = finalAzimuth != null ? _azimuthToCompassLabel(finalAzimuth) : retryData.final_orientation;
@@ -955,6 +1089,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey) {
         // Function version — increment BATCH_VERSION when analysis logic changes.
         // Lets the audit UI show whether a result is from old or new code.
         batch_version: BATCH_VERSION,
+        street_bearing_from_map: data.street_bearing_from_map ?? null,
     };
 
     await db.collection('properties').doc(zpid).set(

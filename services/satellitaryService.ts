@@ -467,14 +467,14 @@ async function getStreetBearing(address: string): Promise<{ bearing: number | nu
             : (avgDlng > 0 ? 'E' : 'W');
         console.log(`[Satellitary] getStreetBearing: street extends to the ${streetSide} of the property (avgDlat=${avgDlat.toFixed(5)}, avgDlng=${avgDlng.toFixed(5)})`);
 
-        // Stability check: if we have two bearings, verify they agree within threshold.
-        // Disagreement means the address numbers span different road segments (curve, loop, etc).
+        // Log stability between the two forward offsets but do NOT suppress here.
+        // A road that curves far from the property can still be locally straight enough
+        // near the subject address — the bidirectional check below is a stronger gate.
         if (bearings.length >= 2) {
             const angDist = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
             const diff = angDist(bearings[0].bearing, bearings[1].bearing);
             if (diff > STABILITY_THRESHOLD_DEG) {
-                console.log(`[Satellitary] getStreetBearing: bearings disagree by ${Math.round(diff)}° — bearing suppressed, but streetSide=${streetSide} still usable`);
-                return { bearing: null, streetSide };
+                console.log(`[Satellitary] getStreetBearing: bearings disagree by ${Math.round(diff)}° — road curves far from property, using closest offset only; bidirectional check will validate`);
             }
         }
 
@@ -1248,6 +1248,19 @@ export async function runSatellitaryAnalysis(
             (data as any).street_view_shows_front = null;
         }
 
+        const visualStreetBearing: number | null = (data as any).street_bearing_visual_degrees ?? null;
+
+        // Cross-check GPS bearing vs Gemini's visual estimate (road directions are bidirectional,
+        // so normalize to 0–179° before comparing).
+        if (streetBearingForAzimuth != null && visualStreetBearing != null) {
+            const normRoad = (b: number) => ((b % 180) + 180) % 180;
+            const roadDiff = Math.abs(normRoad(streetBearingForAzimuth) - normRoad(visualStreetBearing));
+            const conflictDeg = Math.min(roadDiff, 180 - roadDiff);
+            if (conflictDeg > 45) {
+                console.warn(`[Satellitary] GPS/visual bearing conflict: GPS=${Math.round(streetBearingForAzimuth)}° vs Gemini visual=${Math.round(visualStreetBearing)}° (diff=${Math.round(conflictDeg)}° as road directions)`);
+            }
+        }
+
         const resultAzimuth = computeAccurateAzimuth(
             data.azimuth_degrees ?? null,
             usesDualImage ? streetViewHeading : null,
@@ -1288,10 +1301,12 @@ export async function runSatellitaryAnalysis(
         // The front is perpendicular to the street: bearing+90° or bearing-90°.
         // We pick whichever perpendicular is closest to Gemini's weak aerial azimuth.
         let streetBearingFallbackAzimuth: number | null = null;
-        if (aerialConfidenceFailed && (data as any).standard_street_layout === true && streetBearingForAzimuth != null) {
+        // Use GPS bearing first; fall back to Gemini's own visual bearing estimate when GPS is null.
+        const fallbackBearing = streetBearingForAzimuth ?? visualStreetBearing;
+        if (aerialConfidenceFailed && (data as any).standard_street_layout === true && fallbackBearing != null) {
             const angDistFn = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
-            const perp1 = (streetBearingForAzimuth + 90) % 360;
-            const perp2 = (streetBearingForAzimuth - 90 + 360) % 360;
+            const perp1 = (fallbackBearing + 90) % 360;
+            const perp2 = (fallbackBearing - 90 + 360) % 360;
             const weakAzimuth = data.azimuth_degrees ?? null;
             // Initially pick the perp closest to Gemini's weak azimuth hint.
             let chosenPerp = weakAzimuth != null
@@ -1309,7 +1324,8 @@ export async function runSatellitaryAnalysis(
                 }
             }
             streetBearingFallbackAzimuth = chosenPerp;
-            console.log(`[Satellitary] Street-bearing fallback: bearing=${Math.round(streetBearingForAzimuth)}° → azimuth=${Math.round(streetBearingFallbackAzimuth)}° (${azimuthToCompassLabel(streetBearingFallbackAzimuth)})`);
+            const bearingSource = streetBearingForAzimuth != null ? 'GPS' : 'visual';
+            console.log(`[Satellitary] Street-bearing fallback (${bearingSource}): bearing=${Math.round(fallbackBearing)}° → azimuth=${Math.round(streetBearingFallbackAzimuth)}° (${azimuthToCompassLabel(streetBearingFallbackAzimuth)})`);
         }
 
 
@@ -1375,6 +1391,7 @@ export async function runSatellitaryAnalysis(
             street_view_url: streetViewUrl ?? '',
             aerial_only_mode: !usesDualImage || (data as any).street_view_shows_front === null,
             street_bearing_deg: streetBearingForAzimuth,
+            street_bearing_visual_deg: visualStreetBearing,
             _debug: {
                 streetViewHeading,
                 streetBearing: streetBearingForAzimuth,
