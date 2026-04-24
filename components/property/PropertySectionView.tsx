@@ -25,6 +25,7 @@ import { RoomsSectionPage } from './sections/RoomsSectionPage';
 import { CommunityPulseSectionPage } from './sections/CommunityPulseSectionPage';
 import { CityNeighborhoodsView } from '../analysis/custom-ai/components/CityNeighborhoodsView';
 import { DeepInvestmentView } from '../analysis/custom-ai/components/DeepInvestmentView';
+import { LifestyleSchoolsVastuSection } from './sections/LifestyleSchoolsVastuSection';
 
 // ─────────────────────────────────────────────────────────────
 // Props
@@ -272,22 +273,22 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 if (sectionId === 'property') {
                     if (subId === 'lifestyle-vastu') return (
                         <div className="animate-in fade-in duration-200">
-                            <PageHeader icon="fa-people-roof" title="Lifestyle, Schools & Vastu"
-                                label="Compatibility & Education"
-                                description="Personalized fit analysis cross-referenced with neighborhood lifestyle, educational intelligence, and property orientation."
-                                color="text-indigo-600" {...headerProps} />
-                            <PropertyLifestylePanel
-                                lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
+                            <LifestyleSchoolsVastuSection
+                                data={data}
+                                lifestyleFit={lifestyleFit}
+                                lifestyleInsights={lifestyleInsights}
                                 lifestyleLoading={lifestyleLoading}
-                                lifestyleFitTab={lifestyleFitTab} setLifestyleFitTab={setLifestyleFitTab}
-                                lifestyleInterestTab={lifestyleInterestTab} setLifestyleInterestTab={setLifestyleInterestTab}
+                                lifestyleFitTab={lifestyleFitTab}
+                                setLifestyleFitTab={setLifestyleFitTab}
                                 handleGenerateLifestyle={handleGenerateLifestyle}
-                                showOnly={['fit']}
+                                schoolsIntelligence={schoolsIntelligence}
+                                selectedSchool={selectedSchool}
+                                setSelectedSchool={setSelectedSchool}
+                                isSchoolModalOpen={isSchoolModalOpen}
+                                setIsSchoolModalOpen={setIsSchoolModalOpen}
+                                orientationGroundTruth={orientationGroundTruth}
+                                renderPalette={renderPalette}
                             />
-                            <div className="mt-8">
-                                <PropertyDashboardRight {...rightProps} showOnly={['schools', 'orientation']} />
-                            </div>
-
                         </div>
                     );
 

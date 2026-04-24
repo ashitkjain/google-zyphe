@@ -65,9 +65,17 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
       "vibe": "Objective description of the aesthetic atmosphere and physical character using neutral terminology (e.g., 'minimalist and utilitarian', 'traditional with heavy ornamentation').",
       "objective_tags": ["Purely descriptive, objective tags such as 'hardwood-floors', 'recessed-lighting', 'vaulted-ceilings', 'stainless-appliances'."]
     },
+    "property_fit_scores": {
+      "entertain": "Evaluate (0-100): Based on open layout, yard size, chef's kitchen, and nearby dining/entertainment options.",
+      "commute": "Evaluate (0-100): Based on transit access, proximity to major roads/highways, and commute scores.",
+      "schools": "Evaluate (0-100): Based on nearby school ratings and district desirability.",
+      "walkability": "Evaluate (0-100): Based on walk scores, sidewalk presence, and proximity to shops or parks.",
+      "quiet": "Evaluate (0-100): Based on street type, community pulse, and distance from major highways or noise pollution.",
+      "tech": "Evaluate (0-100): Based on mentions of smart home features, updated appliances, EV charging, or solar readiness."
+    },
     "schools_summary": "3-5 sentence summary of the nearby schools landscape. Mention the school district, key assigned schools and their ratings, whether this is a desirable zone, and any standout positives or concerns. Use the provided Schools Intelligence Data if available. Use **bold** for school names and ratings."
   }
-  `;
+  \`;
 };
 
 export const comprehensiveAnalysisSchema = {
@@ -101,7 +109,19 @@ export const comprehensiveAnalysisSchema = {
       },
       required: ["interior_summary", "rooms_summary", "vibe", "objective_tags"]
     },
+    property_fit_scores: {
+      type: Type.OBJECT,
+      properties: {
+        entertain: { type: Type.INTEGER },
+        commute: { type: Type.INTEGER },
+        schools: { type: Type.INTEGER },
+        walkability: { type: Type.INTEGER },
+        quiet: { type: Type.INTEGER },
+        tech: { type: Type.INTEGER }
+      },
+      required: ["entertain", "commute", "schools", "walkability", "quiet", "tech"]
+    },
     schools_summary: { type: Type.STRING }
   },
-  required: ["summary", "detailed_analysis", "risks_considerations", "interior_summary", "schools_summary"]
+  required: ["summary", "detailed_analysis", "risks_considerations", "interior_summary", "property_fit_scores", "schools_summary"]
 };

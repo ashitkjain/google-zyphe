@@ -15,7 +15,7 @@ interface RemedyItem {
     urgency: RemedyUrgency;
 }
 
-interface VastuRemedyConfig {
+export interface VastuRemedyConfig {
     heading: string;
     statement: string;
     riskLabel: string;
@@ -27,7 +27,7 @@ interface VastuRemedyConfig {
     donts: string[];
 }
 
-const VASTU_REMEDIES: Record<string, VastuRemedyConfig> = {
+export const VASTU_REMEDIES: Record<string, VastuRemedyConfig> = {
     SW: {
         heading: 'Nairutya Dosha — Structural Remediation Required',
         statement: 'The primary entrance opens to the Southwest (Nairutya), governed by Rahu and the earth element. Classical Vastu Shastra designates this the most challenging entrance direction — the Demon Corner — which creates downward energy pressure on household stability, finances, and the health of senior family members. Systematic structural remedies are essential to transform this dense earth energy into a stabilizing, grounding force for all occupants.',
