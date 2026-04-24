@@ -11,19 +11,19 @@ const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const INTEL_CONCURRENCY = 2; // Reduced to prevent 429s on heavy image tasks
-const MODEL_NAME = 'gemini-2.5-flash'; // High performance/low cost for background processing
+const INTEL_CONCURRENCY = 5; // Increased to 5 as requested
+const MODEL_NAME = 'gemini-2.5-flash'; 
 
 // ─── AI Pipeline Helpers ─────────────────────────────────────────────────────
 
 /**
- * 60-day TTL for environmental and visual data
+ * 30-day TTL for environmental and visual data
  */
 function _isStale(timestamp) {
     if (!timestamp) return true;
     const now = Date.now();
     const updatedMs = timestamp.toMillis ? timestamp.toMillis() : new Date(timestamp).getTime();
-    const TTL = 60 * 24 * 60 * 60 * 1000;
+    const TTL = 30 * 24 * 60 * 60 * 1000;
     return (now - updatedMs) > TTL;
 }
 
@@ -108,6 +108,57 @@ async function _fetchImageAsBase64(url) {
     }
 }
 
+/**
+ * Robust JSON extraction with structural repair
+ */
+function _extractJson(text) {
+    const tryParse = (str) => {
+        try { return JSON.parse(str); } catch { return null; }
+    };
+
+    const repairJson = (str) => {
+        let result = '';
+        let inString = false;
+        let escaped = false;
+        for (let i = 0; i < str.length; i++) {
+            const ch = str[i];
+            if (escaped) { result += ch; escaped = false; continue; }
+            if (ch === '\\' && inString) { result += ch; escaped = true; continue; }
+            if (ch === '"') { inString = !inString; result += ch; continue; }
+            if (inString && (ch === '\n' || ch === '\r')) { result += '\\n'; continue; }
+            result += ch;
+        }
+        result = result.replace(/,\s*([}\]])/g, '$1');
+        result = result.replace(/("|\d|true|false|null|\]|\})\s*\n?\s*"/g, '$1,\n"');
+        result = result.replace(/,+/g, ',');
+        result = result.replace(/\{,/g, '{');
+        result = result.replace(/\[,/g, '[');
+        result = result.replace(/,}/g, '}');
+        result = result.replace(/,]/g, ']');
+        return result;
+    };
+
+    const cleaned = text.replace(/```json\s*|```/g, '').trim();
+    
+    // 1. Try direct & repaired
+    let res = tryParse(cleaned) || tryParse(repairJson(cleaned));
+    if (res) return res;
+
+    // 2. Greedy Extraction
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+        for (let end = lastBrace; end > firstBrace; end--) {
+            if (cleaned[end] === '}') {
+                const cand = cleaned.substring(firstBrace, end + 1);
+                res = tryParse(cand) || tryParse(repairJson(cand));
+                if (res) return res;
+            }
+        }
+    }
+    throw new Error("Could not parse AI response as JSON");
+}
+
 async function _processOneIntel(zpid, db, genAI, force = false) {
     try {
         const propRef = db.collection('properties').doc(zpid);
@@ -154,15 +205,12 @@ async function _processOneIntel(zpid, db, genAI, force = false) {
                     ]);
 
                     const text = result.response.text();
-                    const jsonMatch = text.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) {
-                        visualData = JSON.parse(jsonMatch[0]);
-                        await analysisRef.doc('visual').set({
-                            ...visualData,
-                            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                            version: 'batch-v1'
-                        });
-                    }
+                    visualData = _extractJson(text);
+                    await analysisRef.doc('visual').set({
+                        ...visualData,
+                        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                        version: 'batch-v2' // bumped version
+                    });
                 }
             }
         }
@@ -174,19 +222,17 @@ async function _processOneIntel(zpid, db, genAI, force = false) {
             const prompt = _getComprehensivePrompt(propData, visualData || {});
             const result = await model.generateContent(prompt);
             const text = result.response.text();
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const compData = JSON.parse(jsonMatch[0]);
-                await analysisRef.doc('comprehensive').set({
-                    ...compData,
-                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                });
-            }
+            const compData = _extractJson(text);
+            await analysisRef.doc('comprehensive').set({
+                ...compData,
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+            });
         }
 
         return {
             status: (needsVisualRefresh || force) ? 'success' : 'cached',
             zpid,
+            message: (needsVisualRefresh || force) ? 'Analyzed (Fresh)' : 'Loaded from Cache',
             healed: {
                 visual: needsVisualRefresh,
                 environmental: needsEnvRefresh
@@ -194,7 +240,7 @@ async function _processOneIntel(zpid, db, genAI, force = false) {
         };
     } catch (e) {
         console.error(`[Intel Error] ${zpid}:`, e);
-        return { status: 'failed', message: e.message };
+        return { status: 'failed', message: `Error: ${e.message.slice(0, 100)}` };
     }
 }
 
@@ -225,14 +271,45 @@ exports.runFullIntelBatchOnCreate = functions
         const genAI = new GoogleGenerativeAI(apiKey);
         await snap.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
-        let done = 0;
-        let failed = 0;
-        const results = {};
+        // 1. Prioritization & Resumability Check
+        // We load existing progress to support resumption after timeouts
+        let results = jobData.results || {};
+        let done = jobData.done || 0;
+        let failed = jobData.failed || 0;
 
-        // Process in waves to respect rate limits
-        for (let i = 0; i < zpids.length; i += INTEL_CONCURRENCY) {
-            const chunk = zpids.slice(i, i + INTEL_CONCURRENCY);
-            const batchResults = await Promise.allSettled(chunk.map(async (zpid) => {
+        let sortedZpids = [...zpids];
+        try {
+            console.log(`[Intel Batch] Pre-scanning ${zpids.length} properties for prioritization...`);
+            const statusSnaps = await Promise.all(zpids.map(zpid => db.collection('properties').doc(zpid).collection('analysis').doc('visual').get()));
+            const needsWorkMap = new Map();
+            statusSnaps.forEach((s, idx) => {
+                const zpid = zpids[idx];
+                const data = s.exists ? s.data() : null;
+                const isNew = !s.exists || !_isVisualComplete(data);
+                const isStale = data && _isStale(data.lastUpdated);
+                // Priority Weight: New (2) > Stale (1) > Fresh (0)
+                needsWorkMap.set(zpid, isNew ? 2 : (isStale ? 1 : 0));
+            });
+            sortedZpids.sort((a, b) => needsWorkMap.get(b) - needsWorkMap.get(a));
+            console.log(`[Intel Batch] Prioritization complete.`);
+        } catch (e) {
+            console.warn('[Intel Batch] Prioritization failed:', e.message);
+        }
+
+        // 2. Process in waves
+        for (let i = 0; i < sortedZpids.length; i += INTEL_CONCURRENCY) {
+            const chunk = sortedZpids.slice(i, i + INTEL_CONCURRENCY);
+            
+            // Resume Check: Filter out zpids that were already processed in a previous (timed-out) run
+            const workChunk = chunk.filter(zpid => !results[zpid]);
+            
+            if (workChunk.length === 0) {
+                // If the entire chunk is already done, just update the total 'done' count if it's missing from the snap
+                continue; 
+            }
+
+            console.log(`[Intel Batch] Processing chunk: ${workChunk.join(', ')}`);
+            const batchResults = await Promise.allSettled(workChunk.map(async (zpid) => {
                 const res = await _processOneIntel(zpid, db, genAI, !!jobData.force);
                 return { zpid, ...res };
             }));
@@ -241,14 +318,31 @@ exports.runFullIntelBatchOnCreate = functions
                 if (res.status === 'fulfilled') {
                     const val = res.value;
                     results[val.zpid] = val;
-                    if (val.status === 'success' || val.status === 'cached') done++; else failed++;
+                    // Count as done if successfully analyzed OR loaded from cache
+                    if (val.status === 'success' || val.status === 'cached') {
+                        // Incremental 'done' logic: we recalculate from the full results object to be safe
+                    }
                 } else {
-                    failed++;
+                    // We don't mark as failed in results yet, so it can be retried
                 }
             });
 
-            // Update progress in Firestore so UI can reflect it
-            await snap.ref.update({ done, failed, results });
+            // Recalculate counts from the latest results state
+            const currentResults = Object.values(results);
+            const newDone = currentResults.filter(r => r.status === 'success' || r.status === 'cached').length;
+            const newFailed = currentResults.filter(r => r.status === 'failed').length;
+
+            // Update progress in Firestore
+            await snap.ref.update({ 
+                done: newDone, 
+                failed: newFailed, 
+                results 
+            });
+
+            // 3. 2-Second Gap between chunks
+            if (i + INTEL_CONCURRENCY < sortedZpids.length) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
         }
 
         await snap.ref.update({

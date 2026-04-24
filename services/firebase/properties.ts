@@ -1359,6 +1359,8 @@ export interface PropertyStatusDetails {
         thumbnailUrl?: string;
     };
     visual?: { timestamp: any };
+    comprehensive?: { timestamp: any };
+    environmental?: { timestamp: any };
 }
 
 export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<Record<string, PropertyStatusDetails>> => {
@@ -1494,11 +1496,25 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
                     };
                 }
 
-                // Visual (AI RUN): now written to new nested path
+                // Visual (AI RUN)
                 const visualSnap = await getDoc(doc(db, "properties", zpid, "analysis", "visual"));
                 if (visualSnap.exists()) {
                     if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
                     canonicalStatuses[zpid].visual = { timestamp: visualSnap.data().timestamp };
+                }
+
+                // Comprehensive (Full Intel)
+                const compSnap = await getDoc(doc(db, "properties", zpid, "analysis", "comprehensive"));
+                if (compSnap.exists()) {
+                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                    canonicalStatuses[zpid].comprehensive = { timestamp: compSnap.data().timestamp };
+                }
+
+                // Environmental (Google Data)
+                const envSnap = await getDoc(doc(db, "properties", zpid, "environmental", "thirdparty_data"));
+                if (envSnap.exists()) {
+                    if (!canonicalStatuses[zpid]) canonicalStatuses[zpid] = {};
+                    canonicalStatuses[zpid].environmental = { timestamp: envSnap.data().lastUpdated || envSnap.data().timestamp };
                 }
             }));
         }));

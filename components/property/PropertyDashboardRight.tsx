@@ -79,66 +79,152 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                     className="hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
                 >
                     <div className="px-4 pt-2">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            {schoolsIntelligence.schools.slice(0, 3).map((school: any, i: number) => {
+                        {(() => {
+                            const schools = schoolsIntelligence.schools || [];
+                            const highSchool = schools.find((s: any) => s.level?.toLowerCase().includes('high'));
+                            const middleSchool = schools.find((s: any) => s.level?.toLowerCase().includes('middle'));
+                            const elementarySchool = schools.find((s: any) => s.level?.toLowerCase().includes('elementary') || s.level?.toLowerCase().includes('primary'));
+
+                            const renderSchoolCard = (school: any, isCompact = false) => {
+                                if (!school) return null;
                                 return (
-                                    <div
-                                        key={i}
-                                        className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 p-4 flex flex-col h-full"
-                                    >
+                                    <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 p-4 flex flex-col ${isCompact ? 'py-3' : ''}`}>
                                         <div className="flex items-start justify-between gap-3 mb-3">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 shadow-sm border border-indigo-100 flex items-center justify-center shrink-0">
                                                     <i className="fa-solid fa-building-columns text-[13px]" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className="text-[15px] font-black text-slate-900 leading-tight">
+                                                    <h4 className="text-[16px] font-black text-slate-900 leading-tight truncate">
                                                         {school.name}
                                                     </h4>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{school.type}</span>
+                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                        <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">{school.type}</span>
+                                                        <span className="text-slate-300">•</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <i className="fa-solid fa-users text-[10px] text-slate-300" />
+                                                            <span className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">{school.enrollment || '---'}</span>
+                                                        </div>
+                                                        <span className="text-slate-300">•</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <i className="fa-solid fa-layer-group text-[10px] text-slate-300" />
+                                                            <span className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">{school.grades_served || '---'}</span>
+                                                        </div>
+                                                        {school.student_teacher_ratio && (
+                                                            <>
+                                                                <span className="text-slate-300">•</span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <i className="fa-solid fa-chalkboard-user text-[10px] text-slate-300" />
+                                                                    <span className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">{school.student_teacher_ratio} Ratio</span>
+                                                                </div>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded-md text-[11px] font-black text-emerald-600 shrink-0">
+                                            <div className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-md text-[12px] font-black text-emerald-600 shrink-0">
                                                 {school.rating || '8'}/10
                                             </div>
                                         </div>
 
-                                        {(school.test_scores || school.overall_assessment) ? (
-                                            <div className="mb-4 flex-1">
-                                                <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.18em] mb-1">
-                                                    {school.test_scores ? 'Test Scores' : 'Overview'}
+                                        <div className={`space-y-5 mb-5 flex-1 ${isCompact ? 'space-y-3 mb-3' : ''}`}>
+                                            {(school.test_scores || school.overall_assessment) && (
+                                                <div>
+                                                    <div className="text-[11px] font-black text-slate-300 uppercase tracking-[0.18em] mb-1.5">
+                                                        Academic Performance
+                                                    </div>
+                                                    <p className="text-[13px] text-slate-500 leading-relaxed font-sans font-medium">
+                                                        {school.test_scores || school.overall_assessment}
+                                                    </p>
                                                 </div>
-                                                <p className="text-[13px] text-slate-500 leading-relaxed font-sans font-medium">
-                                                    {school.test_scores || school.overall_assessment}
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <p className="text-[13px] text-slate-400 italic font-medium line-clamp-3 mb-4 flex-1">
-                                                Analysis loading...
-                                            </p>
-                                        )}
+                                            )}
 
-                                        <div className="flex items-center justify-between pt-3 border-t border-slate-50 gap-2">
+                                            {school.extracurriculars && (
+                                                <div>
+                                                    <div className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.18em] mb-1.5">
+                                                        Strengths & Activities
+                                                    </div>
+                                                    <p className="text-[13px] text-slate-500 leading-relaxed font-sans font-medium">
+                                                        {school.extracurriculars}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {school.sentiment && (
+                                                <div>
+                                                    <div className="text-[11px] font-black text-amber-400 uppercase tracking-[0.18em] mb-1.5">
+                                                        Parent Insights
+                                                    </div>
+                                                    <p className="text-[13px] text-slate-500 leading-relaxed font-sans font-medium italic">
+                                                        "{school.sentiment}"
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {school.level?.toLowerCase().includes('high') && school.ap_ib_programs && (
+                                                <div>
+                                                    <div className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.18em] mb-1.5">
+                                                        AP & IB Programs
+                                                    </div>
+                                                    <p className="text-[13px] text-slate-500 leading-relaxed font-sans font-medium">
+                                                        {school.ap_ib_programs}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {(school.level?.toLowerCase().includes('high') || school.level?.toLowerCase().includes('middle')) && school.college_readiness && (
+                                                <div>
+                                                    <div className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.18em] mb-1.5">
+                                                        College Readiness
+                                                    </div>
+                                                    <p className="text-[13px] text-slate-500 leading-relaxed font-sans font-medium">
+                                                        {school.college_readiness}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-3 border-t border-slate-50 gap-2 mt-auto">
                                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                                 <i className="fa-solid fa-location-dot text-[11px] text-slate-300" />
                                                 <span className="text-[13px] font-black text-slate-600 truncate">{school.distanceMiles?.toFixed(1) || '0.4'} mi</span>
                                             </div>
                                             <button
                                                 onClick={() => {
-                                                    setSelectedSchool(i);
+                                                    const originalIndex = schools.indexOf(school);
+                                                    setSelectedSchool(originalIndex !== -1 ? originalIndex : 0);
                                                     setIsSchoolModalOpen(true);
                                                 }}
                                                 className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
                                             >
-                                                Details
+                                                Other Details
                                             </button>
                                         </div>
                                     </div>
                                 );
-                            })}
-                        </div>
+                            };
+
+                            return (
+                                <div className="flex flex-col md:flex-row gap-3 items-stretch">
+                                    {/* Left: High School (40%) */}
+                                    <div className="w-full md:w-[40%] flex">
+                                        <div className="flex-1">
+                                            {renderSchoolCard(highSchool)}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Right: Middle & Elementary (60%) */}
+                                    <div className="w-full md:w-[60%] flex flex-col gap-3">
+                                        <div className="flex-1">
+                                            {renderSchoolCard(middleSchool, true)}
+                                        </div>
+                                        <div className="flex-1">
+                                            {renderSchoolCard(elementarySchool, true)}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </SectionCard>
             )}
@@ -149,9 +235,9 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                     className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300"
                     onClick={() => setIsSchoolModalOpen(false)}
                 >
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+                    <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px]"></div>
                     <div
-                        className="relative max-w-4xl w-full bg-white rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col"
+                        className="relative max-w-2xl w-full bg-white rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col border border-slate-200/50"
                         style={{ maxHeight: '92vh' }}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -167,104 +253,59 @@ export const PropertyDashboardRight: React.FC<PropertyDashboardRightProps> = ({
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
                                     <i className={`fa-solid ${schoolsIntelligence.schools[selectedSchool]?.level?.toLowerCase().includes('elementary') ? 'fa-user' :
                                         schoolsIntelligence.schools[selectedSchool]?.level?.toLowerCase().includes('middle') ? 'fa-map' : 'fa-graduation-cap'
-                                        } text-white text-[18px]`} />
+                                        } text-white text-xl`} />
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <h2 className="text-[18px] font-black text-slate-800 tracking-tight leading-tight">
-                                            {schoolsIntelligence.schools[selectedSchool]?.name}
-                                        </h2>
-                                        <div className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded-md text-[11px] font-black text-emerald-600 shrink-0">
-                                            {schoolsIntelligence.schools[selectedSchool]?.rating || '9'}/10
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Grades</span>
-                                            <span className="text-[11px] font-bold text-slate-600">{schoolsIntelligence.schools[selectedSchool]?.grades_served || 'K-5'}</span>
-                                        </div>
-                                        <div className="w-1 h-1 rounded-full bg-slate-200" />
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Distance</span>
-                                            <span className="text-[11px] font-bold text-slate-600">{schoolsIntelligence.schools[selectedSchool]?.distanceMiles?.toFixed(1) || '0.4'} mi</span>
-                                        </div>
-                                    </div>
+                                <div className="min-w-0">
+                                    <h3 className="text-2xl font-black text-slate-900 leading-tight">
+                                        Other Details
+                                    </h3>
+                                    <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                        {schoolsIntelligence.schools[selectedSchool]?.name}
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="p-8 space-y-8 overflow-y-auto">
-                            <div className="space-y-4">
-                                <p className="text-[13px] md:text-[14px] text-slate-600 leading-relaxed font-sans font-medium">
-                                    {schoolsIntelligence.schools[selectedSchool]?.overall_assessment ||
-                                        `${schoolsIntelligence.schools[selectedSchool].name} is a highly-rated ${schoolsIntelligence.schools[selectedSchool].type || 'public'} school in ${data.city || 'Dublin'}, CA, known for its strong academic performance and diverse student body.`}
-                                </p>
-                                <div className="flex flex-wrap gap-2 pt-2">
-                                    {[
-                                        { label: 'Enrollment', val: schoolsIntelligence.schools[selectedSchool]?.enrollment?.toLocaleString() || '852' },
-                                        { label: 'Ratio', val: schoolsIntelligence.schools[selectedSchool]?.student_teacher_ratio || '21:1' },
-                                        { label: 'Type', val: (schoolsIntelligence.schools[selectedSchool]?.type || 'Public').toUpperCase() }
-                                    ].map((b, i) => (
-                                        <div key={i} className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full flex items-center gap-2">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none pt-0.5">{b.label}:</span>
-                                            <span className="text-[11px] font-black text-slate-700">{b.val}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
+                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                             <div className="space-y-8">
-                                <div className="space-y-3">
-                                    <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Test Scores</div>
-                                    <p className="text-[13px] text-slate-600 leading-relaxed font-sans font-medium">
-                                        {schoolsIntelligence.schools[selectedSchool]?.test_scores || 'Students demonstrate high proficiency rates in both Math and ELA, significantly exceeding state averages.'}
-                                    </p>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="p-3.5 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
-                                        <div className="flex items-center gap-1.5 text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-2">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-3">
                                             <i className="fa-solid fa-thumbs-up" /> Parent Loves
                                         </div>
-                                        <p className="text-[11px] text-emerald-900 leading-relaxed font-sans font-medium">
-                                            {schoolsIntelligence.schools[selectedSchool]?.parent_sentiment_positive || 'Parents appreciate the dedicated teachers and the overall quality of education provided.'}
+                                        <p className="text-[13px] text-emerald-900 leading-relaxed font-sans font-medium">
+                                            {schoolsIntelligence.schools[selectedSchool]?.parent_sentiment_positive || 'Parents appreciate the dedicated staff and supportive learning environment.'}
                                         </p>
                                     </div>
-                                    <div className="p-3.5 bg-rose-50/50 rounded-xl border border-rose-100/50">
-                                        <div className="flex items-center gap-1.5 text-[9px] font-black text-rose-600 uppercase tracking-widest mb-2">
+                                    <div className="p-4 bg-rose-50/50 rounded-2xl border border-rose-100/50">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-black text-rose-600 uppercase tracking-widest mb-3">
                                             <i className="fa-solid fa-triangle-exclamation" /> Parent Concerns
                                         </div>
-                                        <p className="text-[11px] text-rose-900 leading-relaxed font-sans font-medium">
-                                            {schoolsIntelligence.schools[selectedSchool]?.parent_sentiment_concerns || 'Some concerns have been raised regarding resources for special needs students.'}
+                                        <p className="text-[13px] text-rose-900 leading-relaxed font-sans font-medium">
+                                            {schoolsIntelligence.schools[selectedSchool]?.parent_sentiment_concerns || 'No significant concerns reported in recent verified reviews.'}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">
-                                        <i className="fa-solid fa-trophy text-amber-500 text-[9px]" /> Activities & Strengths
+                                {schoolsIntelligence.schools[selectedSchool]?.recent_news && (
+                                    <div className="space-y-2">
+                                        <div className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Recent News & Updates</div>
+                                        <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                                            {schoolsIntelligence.schools[selectedSchool]?.recent_news}
+                                        </p>
                                     </div>
-                                    <p className="text-[12px] text-slate-600 leading-relaxed font-sans font-medium">
-                                        {schoolsIntelligence.schools[selectedSchool]?.extracurriculars || 'Offers a variety of after-school enrichment programs, music, and arts.'}
-                                    </p>
-                                </div>
+                                )}
 
-                                <div className="space-y-2">
-                                    <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">Recent News</div>
-                                    <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
-                                        {schoolsIntelligence.schools[selectedSchool]?.recent_news || 'No major recent news changes reported for this calendar year.'}
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">
-                                        <i className="fa-solid fa-users text-indigo-500 text-[9px]" /> Demographics
+                                {schoolsIntelligence.schools[selectedSchool]?.demographics_summary && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">
+                                            <i className="fa-solid fa-users-viewfinder text-indigo-500 text-[10px]" /> Demographics Summary
+                                        </div>
+                                        <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                                            {schoolsIntelligence.schools[selectedSchool]?.demographics_summary}
+                                        </p>
                                     </div>
-                                    <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
-                                        {schoolsIntelligence.schools[selectedSchool]?.demographics_summary || 'The student body is diverse, with strong community engagement.'}
-                                    </p>
-                                </div>
+                                )}
 
                                 <div className="pt-6 border-t border-slate-100 flex flex-wrap items-center gap-x-4 gap-y-2">
                                     <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0 leading-none">Sources:</span>

@@ -38,14 +38,16 @@ Use your search tools to find comprehensive data about this school. Be thorough 
 
 RECENCY RULE: The current year is ${new Date().getFullYear()}. Prefer data from the ${new Date().getFullYear() - 1}-${new Date().getFullYear()} or ${new Date().getFullYear() - 2}-${new Date().getFullYear() - 1} school years. Data from the ${new Date().getFullYear() - 3}-${new Date().getFullYear() - 2} school year is also acceptable if more recent data is unavailable. Only reject statistics older than the ${new Date().getFullYear() - 3}-${new Date().getFullYear() - 2} school year. Always note the data year when citing statistics.
 
-1. **Academic Performance**: Test score proficiency rates (Math & ELA), any notable AP/IB programs offered, number of AP courses
-2. **College Readiness** (high schools only): Graduation rate, college acceptance rate, average SAT/ACT scores, notable college acceptances, percentage attending 4-year vs 2-year institutions
-3. **Student Experience**: Student-teacher ratio, total enrollment, demographics summary
-4. **Community Sentiment**: What do parents love about this school? What are common concerns or complaints? (from Niche reviews, GreatSchools reviews, Google Reviews, local forums)
-5. **Extracurriculars & Strengths**: Notable programs — athletics, arts, STEM, debate, music. Any championship teams or award-winning programs.
-6. **Recent Developments**: Any recent news — new principal, construction, boundary changes, safety incidents, awards, funding changes
-7. **District Info**: The school district name
-8. **Sources**: Include the actual URLs of the web pages you used to gather this data (e.g. greatschools.org, niche.com, the school's official website, news articles). List the 3-5 most important source URLs.
+1. **Student Body & Scope**: Current total enrollment numbers and the specific grades served (e.g., K-5, 6-8, 9-12).
+2. **Academic Performance**: Test score proficiency rates (Math & ELA).
+3. **Extracurriculars & Strengths**: Notable programs — athletics, arts, STEM, debate, music. Identify championship teams or award-winning programs.
+4. **College Readiness (HIGH SCHOOLS & MIDDLE SCHOOLS)**: For High Schools, find graduation rates, college acceptance rates, and average SAT/ACT scores. For Middle Schools, find data on high school preparation and any early college-track programs.
+5. **AP/IB Programs (HIGH SCHOOLS ONLY)**: Detailed list of AP or IB courses offered. For Middle/Elementary, skip this or note if advanced placement is available for math/science.
+6. **Community Sentiment**: What do parents love about this school? What are common concerns or complaints? (from Niche reviews, GreatSchools reviews, Google Reviews).
+7. **Demographics**: Brief summary of the student body diversity and community makeup.
+8. **Student-Teacher Ratio**: The current ratio of students to teachers.
+9. **Recent Developments**: Any recent news — new principal, construction, safety awards, or funding changes.
+10. **Sources**: Include the actual URLs of the web pages you used.
 
 ## OUTPUT FORMAT
 

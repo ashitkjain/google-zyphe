@@ -10,7 +10,7 @@ import {
     removePropertyFromZipCache,
     getCachedCities
 } from '../../services/firebase/cityData';
-import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep, refreshStreetView } from '../../services/firebase/properties';
+import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis, runDeprecationSweep, refreshStreetView, getDeprecatedProperties } from '../../services/firebase/properties';
 import { fetchPropertySpecs } from '../../services/api/property';
 
 import { PropertyData } from '../../types';
@@ -39,6 +39,7 @@ interface IngestionJob {
     address: string;
     status: 'pending' | 'running' | 'completed' | 'error';
     progress: PipelineProgress | null;
+    logs?: string[];
     startTime?: number;
     endTime?: number;
     error?: string;
@@ -112,6 +113,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [buyerFilterPrice, setBuyerFilterPrice] = useState<[string, string]>(['', '']);
     const [buyerFilterBeds, setBuyerFilterBeds] = useState('');
     const [buyerFilterBaths, setBuyerFilterBaths] = useState('');
+
+    const [activeTableTab, setActiveTableTab] = useState<'active' | 'sold'>('active');
+    const [soldProperties, setSoldProperties] = useState<any[]>([]);
+    const [loadingSold, setLoadingSold] = useState(false);
 
     // Batch Orientation
     const [orientBatchRunning, setOrientBatchRunning] = useState(false);
@@ -287,24 +292,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     }, [city, stateFilter]);
 
 
+    const sourceList = useMemo(() => 
+        activeTableTab === 'active' ? listings : soldProperties
+    , [activeTableTab, listings, soldProperties]);
+
     const availableStates = useMemo(() => {
         const states = new Set<string>();
-        listings.forEach(item => {
+        sourceList.forEach(item => {
             if (item.location?.address?.state_code) {
                 states.add(item.location?.address?.state_code);
             }
         });
         return Array.from(states).sort();
-    }, [listings]);
+    }, [sourceList]);
 
     const availablePropertyTypes = useMemo(() => {
         const types = new Set<string>();
-        listings.forEach(item => {
+        sourceList.forEach(item => {
             const hType = item.homeType || item.prop_type || item.propertyType || item.property_type;
             if (hType) types.add(hType);
         });
         return Array.from(types).sort();
-    }, [listings]);
+    }, [sourceList]);
 
     // Reset group pages when listings or state filter changes
     React.useEffect(() => { setGroupPages({}); }, [listings, stateFilter]);
@@ -312,7 +321,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     // State Filter effect removed
     const zpidToAddressMap = useMemo(() => {
         const map: Record<string, string> = {};
-        listings.forEach(item => {
+        sourceList.forEach(item => {
             const id = String(item.zpid);
             const addrObj = item.location?.address;
             const builtAddress = addrObj
@@ -321,12 +330,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             map[id] = builtAddress;
         });
         return map;
-    }, [listings]);
+    }, [sourceList]);
 
     const groupedListings = useMemo<Record<string, any[]>>(() => {
         const groups: Record<string, any[]> = {};
 
-        listings.forEach(item => {
+        sourceList.forEach(item => {
             const id = String(item.zpid);
             let itemCity = item.location?.address?.city || 'Unknown City';
             const state = item.location?.address?.state_code || 'Unknown State';
@@ -357,7 +366,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             groups[key].push(item);
         });
         return groups;
-    }, [listings, stateFilter, propertyTypeFilter, missingStreetViewOnly, propertyStatuses]);
+    }, [sourceList, stateFilter, propertyTypeFilter, missingStreetViewOnly, propertyStatuses]);
 
     const addLog = (message: string) => {
         console.log(message);
@@ -397,8 +406,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     // Auto-fetch statuses for results
     React.useEffect(() => {
-        fetchStatuses(listings);
-    }, [listings]);
+        fetchStatuses(sourceList);
+    }, [sourceList]);
 
     // Load all cached cities for suggestion list
     React.useEffect(() => {
@@ -468,6 +477,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setSelectedIds(new Set(targetIds));
     };
 
+    const selectStale = () => {
+        const targetIds = Object.values(groupedListings)
+            .flat()
+            .filter((item: any) => {
+                const id = String(item.zpid);
+                const status = propertyStatuses[id];
+                if (!status) return true; // not cached
+                const getAge = (ts: any) => {
+                    if (!ts) return null;
+                    const ms = ts.toMillis ? ts.toMillis() : (typeof ts === 'number' ? ts : new Date(ts).getTime());
+                    return (Date.now() - ms) / (24 * 60 * 60 * 1000);
+                };
+                const pAge = getAge(status.property?.timestamp);
+                const vAge = getAge(status.visual?.timestamp);
+                const cAge = getAge((status as any).comprehensive?.timestamp);
+                return !status.property || !status.visual || !status.comprehensive || (pAge !== null && pAge >= 30) || (vAge !== null && vAge >= 30) || (cAge !== null && cAge >= 30);
+            })
+            .map((item: any) => String(item.zpid));
+
+        setSelectedIds(new Set(targetIds));
+    };
+
     const handleBulkSecureImages = async () => {
         if (selectedIds.size === 0) return;
 
@@ -478,8 +509,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setIngestionReport(null);
         const batchStartTime = Date.now();
         addLog(`Starting Bulk Image Secure pipeline...`);
-
-        const targets = listings.filter(l => {
+        const targets = sourceList.filter(l => {
             const id = String(l.zpid);
             return selectedIds.has(id);
         });
@@ -568,10 +598,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setError(null);
         setViewMode('ingestion');
         setPipelineType('images'); // reuse ingestion view
-        setIngestionReport(null);
         addLog(`Queueing Property Data Batch for ${selectedIds.size} properties (Background/20x Concurrency)...`);
 
-        const targets = listings.filter(l => {
+        const targets = sourceList.filter(l => {
             const id = String(l.zpid);
             return selectedIds.has(id);
         });
@@ -617,7 +646,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setViewMode('ingestion');
         addLog(`Queueing Full Intel Batch for ${selectedIds.size} properties (Background/5x Concurrency)...`);
 
-        const targets = listings.filter(l => {
+        const targets = sourceList.filter(l => {
             const id = String(l.zpid);
             return selectedIds.has(id);
         });
@@ -649,6 +678,22 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         } catch (e: any) {
             setError(`Failed to queue intel batch: ${e.message}`);
             setLoading(false);
+        }
+    };
+
+    const handleRetryFailed = async () => {
+        const failedZpids = ingestionQueue
+            .filter(j => j.status === 'error' || j.status === 'partial')
+            .map(j => j.zpid);
+        
+        if (failedZpids.length === 0) return;
+        
+        setSelectedIds(new Set(failedZpids));
+        
+        if (pipelineType === 'images') {
+            await handleBulkSecureImages();
+        } else {
+            await handleBulkIngest();
         }
     };
 
@@ -800,7 +845,58 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
-    const handleSearch = async (forceRefresh = false) => {
+    /**
+     * Helper to fetch recently sold listings (comparables) for a zip.
+     * Updates the zip_sold_listings_cache in Firestore.
+     */
+    const fetchSoldListings = async (zip: string, fallbackCity?: string, fallbackState?: string, forceRefresh = false) => {
+        const config = APP_CONFIG.usHousingApi;
+        const cityStateKey = fallbackCity && fallbackState ? `${fallbackCity.toLowerCase().replace(/\s+/g, '_')}_${fallbackState.toLowerCase()}` : undefined;
+
+        if (!forceRefresh) {
+            try {
+                const cloudCached = await getZipSoldListings(zip, cityStateKey);
+                if (cloudCached && (cloudCached.listings?.length ?? 0) > 0) {
+                    addLog(`Cloud Cache Hit for Sold: ${zip} (${cloudCached.listings.length} items)`);
+                    return cloudCached.listings;
+                }
+            } catch (e) {
+                console.warn('Cloud sold cache check failed', e);
+            }
+        }
+
+        const baseUrl = `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=RecentlySold&soldInLast=6m`;
+        addLog(`Fetching live sold data for ${zip}…`);
+
+        try {
+            const allSold: any[] = [];
+            let page = 1;
+            let totalPages = 1;
+            while (page <= totalPages) {
+                const resp = await fetch(`${baseUrl}&page=${page}`, {
+                    headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host }
+                });
+                if (!resp.ok) { addLog(`    Sold p${page} error: ${resp.status}`); break; }
+                const result = await resp.json();
+                const items = Array.isArray(result) ? result : (result.props || result.results || []);
+                totalPages = result.totalPages ?? result.total_pages ?? 1;
+                allSold.push(...items);
+                addLog(`    Sold p${page}/${totalPages}: ${items.length}`);
+                page++;
+                if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
+            }
+            if (allSold.length > 0) {
+                await saveZipSoldListings(zip, allSold, cityStateKey);
+                addLog(`    ✓ Sold: ${allSold.length} saved for ${zip}`);
+            }
+            return allSold;
+        } catch (e: any) {
+            addLog(`    ⚠ Sold error for ${zip}: ${e.message}`);
+            return [];
+        }
+    };
+
+    const handleSearch = async (forceRefresh = true) => {
         if (!city) {
             setError('Please provide a City or Postal Code.');
             return;
@@ -954,10 +1050,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             for (const zip of zipsToScan) {
                 const fallback = zipRegistry[zip];
+                // 1. Fetch fresh active listings (updates cache + adds to results)
                 const zipListings = await fetchListings(zip, fallback?.city, fallback?.state, forceRefresh);
                 rawResults.push(...zipListings);
+                
+                // 2. Fetch fresh sold listings (updates comps cache)
+                await fetchSoldListings(zip, fallback?.city, fallback?.state, forceRefresh);
+                
                 // Tiny delay to avoid rate triggers
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(r => setTimeout(r, 400));
             }
 
             // Step 4: De-duplicate and Set State
@@ -1032,6 +1133,21 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 } else {
                     addLog(`All ${allZpids.length} properties already in Firestore — enrichment skipped.`);
                 }
+
+                // ── Step 6: Move Inactive Listings (Deprecation Sweep) ──────────
+                // Now that we have fresh results, compare Firestore against this 
+                // list and move anything that disappeared to Sold/Unlisted.
+                addLog(`Starting active listing sweep for ${city.trim()}...`);
+                const allActiveZpids = new Set<string>(results.map((r: any) => String(r.zpid)).filter(Boolean));
+                const scopedCities = new Set<string>();
+                results.forEach(r => {
+                    const c = r.location?.address?.city;
+                    if (c) scopedCities.add(c);
+                });
+                
+                const sweepResult = await runDeprecationSweep(allActiveZpids, scopedCities, `${results.length} active listings`, addLog);
+                addLog(`Sweep complete: ${sweepResult.deprecated.length} properties moved to Sold/Unlisted, ${sweepResult.skipped.length} verified active.`);
+                logPipelineAudit('Refresh Active Listings', Array.from(scopedCities).join(', '), sweepResult.errors.length === 0 ? 'success' : 'partial', `${sweepResult.deprecated.length} off market, ${sweepResult.skipped.length} active`, undefined, { deprecated: sweepResult.deprecated.length, active: sweepResult.skipped.length });
             }
 
         } catch (err: any) {
@@ -1745,6 +1861,18 @@ ${JSON.stringify(propertySummaries)}
     // Table Row Component
     const ListingRow = ({ item }: { item: any, key?: any }) => {
         const itemId = String(item.zpid);
+
+        // Helper to extract sold date
+        const extractSoldDate = (p: any) => {
+            const raw = p.dateSold || p.lastSoldDate || p.soldDate || p.date_sold || p.sold_date || p.closedDate;
+            if (!raw) return null;
+            try {
+                const d = new Date(raw);
+                if (!isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            } catch { }
+            return String(raw);
+        };
+        const soldDate = extractSoldDate(item);
         const isSelected = selectedIds.has(itemId);
         const isCached = cachedPropertyIds.has(itemId);
         const isDeprecated = sweepResult?.deprecated.includes(itemId) ?? false;
@@ -1756,6 +1884,25 @@ ${JSON.stringify(propertySummaries)}
             const fiveDaysAgo = Date.now() - (5 * 24 * 60 * 60 * 1000);
             return updatedDate > fiveDaysAgo;
         }, [lastUpdated]);
+
+        const STALE_THRESHOLD_DAYS = 30;
+        const getStaleness = (ts: any) => {
+            if (!ts) return null;
+            const ms = ts.toMillis ? ts.toMillis() : (typeof ts === 'number' ? ts : new Date(ts).getTime());
+            const days = Math.floor((Date.now() - ms) / (24 * 60 * 60 * 1000));
+            return days;
+        };
+
+        const status = propertyStatuses[itemId];
+        const propertyAge = getStaleness(status?.property?.timestamp);
+        const visualAge = getStaleness(status?.visual?.timestamp);
+        const comprehensiveAge = getStaleness((status as any)?.comprehensive?.timestamp);
+        const environmentalAge = getStaleness((status as any)?.environmental?.timestamp);
+
+        const isPropertyStale = propertyAge !== null && propertyAge >= STALE_THRESHOLD_DAYS;
+        const isVisualStale = visualAge !== null && visualAge >= STALE_THRESHOLD_DAYS;
+        const isComprehensiveStale = comprehensiveAge !== null && comprehensiveAge >= STALE_THRESHOLD_DAYS;
+        const isEnvironmentalStale = environmentalAge !== null && environmentalAge >= STALE_THRESHOLD_DAYS;
 
         return (
             <tr
@@ -1836,6 +1983,11 @@ ${JSON.stringify(propertySummaries)}
                 <td className="p-4 text-right font-bold text-slate-800 text-[10px] uppercase tracking-widest bg-slate-50/20">
                     {item.homeType || item.prop_type || item.propertyType || item.property_type || 'Residential'}
                 </td>
+                {activeTableTab === 'sold' && (
+                    <td className="p-4 text-right font-black text-rose-600 text-[10px] uppercase tracking-widest">
+                        {soldDate || '—'}
+                    </td>
+                )}
                 <td className="p-4">
                     <div className="flex items-center gap-3">
                         {/* Asset Icons */}
@@ -1900,6 +2052,36 @@ ${JSON.stringify(propertySummaries)}
                     {propertyStatuses[itemId]?.property?.timestamp ? (
                         new Date(propertyStatuses[itemId].property.timestamp.toMillis ? propertyStatuses[itemId].property.timestamp.toMillis() : propertyStatuses[itemId].property.timestamp).toLocaleDateString()
                     ) : '--'}
+                </td>
+                <td className="p-4 text-center">
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                        {isPropertyStale && (
+                            <span className="px-1.5 py-0.5 bg-rose-50 border border-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-tighter rounded" title={`Property specs stale (${propertyAge} days old)`}>
+                                Specs
+                            </span>
+                        )}
+                        {isVisualStale && (
+                            <span className="px-1.5 py-0.5 bg-amber-50 border border-amber-100 text-amber-600 text-[8px] font-black uppercase tracking-tighter rounded" title={`Visual AI stale (${visualAge} days old)`}>
+                                Visual
+                            </span>
+                        )}
+                        {isComprehensiveStale && (
+                            <span className="px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[8px] font-black uppercase tracking-tighter rounded" title={`Intel Suite stale (${comprehensiveAge} days old)`}>
+                                Intel
+                            </span>
+                        )}
+                        {isEnvironmentalStale && (
+                            <span className="px-1.5 py-0.5 bg-sky-50 border border-sky-100 text-sky-600 text-[8px] font-black uppercase tracking-tighter rounded" title={`Environmental stale (${environmentalAge} days old)`}>
+                                Env
+                            </span>
+                        )}
+                        {!isPropertyStale && !isVisualStale && !isComprehensiveStale && !isEnvironmentalStale && isCached && (
+                            <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[8px] font-black uppercase tracking-tighter rounded">
+                                Optimal
+                            </span>
+                        )}
+                        {!isCached && <span className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">N/A</span>}
+                    </div>
                 </td>
                 <td className="p-4 text-right">
                     <div className="flex justify-end items-center gap-1">
@@ -1983,13 +2165,61 @@ ${JSON.stringify(propertySummaries)}
         );
     };
 
+    const loadSoldProperties = useCallback(async () => {
+        setLoadingSold(true);
+        try {
+            const allSold = await getDeprecatedProperties();
+            // Filter by city if set
+            if (city) {
+                const { cityName } = parseCityInput(city);
+                const filtered = allSold.filter(p => 
+                    (p.location?.address?.city?.toLowerCase() === cityName.toLowerCase()) ||
+                    (p.city?.toLowerCase() === cityName.toLowerCase())
+                );
+                setSoldProperties(filtered);
+            } else {
+                setSoldProperties(allSold);
+            }
+        } catch (err) {
+            console.error('Error loading sold properties:', err);
+        } finally {
+            setLoadingSold(false);
+        }
+    }, [city]);
+
+    useEffect(() => {
+        if (activeTableTab === 'sold') {
+            loadSoldProperties();
+        }
+    }, [activeTableTab, loadSoldProperties]);
+
     return (
         <div className="max-w-7xl mx-auto py-12 px-6 animate-in fade-in duration-700">
+            {/* Header / Sub-tabs */}
+            <div className="flex items-center gap-6 mb-8 border-b border-slate-100 pb-6">
+                <button
+                    onClick={() => setActiveTableTab('active')}
+                    className={`flex items-center gap-3 pb-2 transition-all relative ${activeTableTab === 'active' ? 'text-indigo-600 font-black' : 'text-slate-400 font-bold hover:text-slate-600'}`}
+                >
+                    <i className="fa-solid fa-house-signal"></i>
+                    Active Listings
+                    {activeTableTab === 'active' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-full"></div>}
+                </button>
+                <button
+                    onClick={() => setActiveTableTab('sold')}
+                    className={`flex items-center gap-3 pb-2 transition-all relative ${activeTableTab === 'sold' ? 'text-amber-600 font-black' : 'text-slate-400 font-bold hover:text-slate-600'}`}
+                >
+                    <i className="fa-solid fa-house-circle-check"></i>
+                    Sold & Unlisted
+                    {activeTableTab === 'sold' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-600 rounded-full"></div>}
+                </button>
+            </div>
+
             <div className="mb-6 items-center justify-between flex">
                 <div className="flex items-center gap-3">
                     {viewMode === 'table' ? (
                         <>
-                            {listings.length > 0 && (
+                            {((activeTableTab === 'active' && listings.length > 0) || (activeTableTab === 'sold' && soldProperties.length > 0)) && (
                                 <div className="flex items-center bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                                     <button
                                         onClick={selectAll}
@@ -2011,6 +2241,14 @@ ${JSON.stringify(propertySummaries)}
                                         title="Select properties without images in Firebase Storage"
                                     >
                                         Select Unsecured
+                                    </button>
+                                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                                    <button
+                                        onClick={selectStale}
+                                        className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-amber-600 transition-all"
+                                        title="Select properties with stale or failed data"
+                                    >
+                                        Select Stale
                                     </button>
                                 </div>
                             )}
@@ -2190,30 +2428,6 @@ ${JSON.stringify(propertySummaries)}
                                             <span className="text-[11px] font-black text-emerald-600">{smokeSummary.passedCount} pass</span>
                                             {smokeSummary.failedCount > 0 && (<><span className="text-slate-300">|</span><span className="text-[11px] font-black text-rose-600">{smokeSummary.failedCount} errors</span></>)}
                                             <button onClick={() => setSmokeSummary(null)} className="w-5 h-5 flex items-center justify-center text-violet-300 hover:text-violet-500 transition-colors ml-1">
-                                                <i className="fa-solid fa-xmark text-[10px]"></i>
-                                            </button>
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={handleDeprecationSweep}
-                                        disabled={sweepRunning || loading}
-                                        className="px-6 py-3 bg-white border-2 border-rose-200 hover:border-rose-400 hover:bg-rose-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
-                                        title="Compare properties in Firestore against current listings and mark unlisted ones as off market"
-                                    >
-                                        {sweepRunning ? (
-                                            <><i className="fa-solid fa-spinner animate-spin text-rose-400"></i>Refreshing...</>
-                                        ) : (
-                                            <><i className="fa-solid fa-arrows-rotate text-rose-400 group-hover:scale-110 transition-transform"></i>Refresh Active Listings</>
-                                        )}
-                                    </button>
-                                    {sweepResult && (
-                                        <div className="flex items-center gap-3 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-2xl animate-in fade-in">
-                                            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Result:</span>
-                                            <span className="text-[11px] font-black text-rose-700">{sweepResult.deprecated.length} off market</span>
-                                            <span className="text-slate-300">|</span>
-                                            <span className="text-[11px] font-semibold text-emerald-600">{sweepResult.skipped.length} active</span>
-                                            {sweepResult.errors.length > 0 && (<><span className="text-slate-300">|</span><span className="text-[11px] font-semibold text-amber-600">{sweepResult.errors.length} errors</span></>)}
-                                            <button onClick={() => setSweepResult(null)} className="w-5 h-5 flex items-center justify-center text-rose-300 hover:text-rose-500 transition-colors ml-1">
                                                 <i className="fa-solid fa-xmark text-[10px]"></i>
                                             </button>
                                         </div>
@@ -2465,163 +2679,6 @@ ${JSON.stringify(propertySummaries)}
                                         Launch Ingestion
                                     </>
                                 )}
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    if (!city) { addLog('Please enter a city name.'); return; }
-                                    setLoading(true);
-                                    setListings([]);
-                                    setStateFilter('ALL');
-                                    const { cityName: parsedCity, stateCode: parsedState } = parseCityInput(city);
-                                    const normalizedCity = parsedCity;
-                                    addLog(`[Cache Refresh] Resolving zips for ${normalizedCity}...`);
-
-                                    // Resolve zips
-                                    const cachedGroups = await getZipsForCity(normalizedCity, parsedState);
-                                    if (!cachedGroups) {
-                                        addLog('⚠ No zips found. Run zip ingestion first.');
-                                        setLoading(false);
-                                        return;
-                                    }
-                                    const supportedUpper = SUPPORTED_STATES.map(s => s.toUpperCase());
-                                    const resolveState = (s: string) => STATE_NAME_MAP[s.toLowerCase()] || s.toUpperCase();
-                                    const allZips = Object.entries(cachedGroups)
-                                        .filter(([state]) => supportedUpper.includes(resolveState(state)))
-                                        .flatMap(([, zips]) => zips);
-                                    const uniqueZips = [...new Set(allZips)];
-
-                                    // Build a zip → state code lookup from cachedGroups
-                                    const zipStateMap: Record<string, string> = {};
-                                    Object.entries(cachedGroups).forEach(([st, zips]) => {
-                                        const stateCode = resolveState(st);
-                                        zips.forEach(z => { zipStateMap[z] = stateCode; });
-                                    });
-
-                                    if (uniqueZips.length === 0) {
-                                        addLog('⚠ No supported-state zips found.');
-                                        setLoading(false);
-                                        return;
-                                    }
-
-                                    const config = APP_CONFIG.usHousingApi;
-                                    addLog(`[Cache Refresh] Force-refreshing ${uniqueZips.length} zips (ForSale + RecentlySold)...`);
-
-                                    const allForSaleResults: any[] = [];
-
-                                    for (let i = 0; i < uniqueZips.length; i++) {
-                                        const zip = uniqueZips[i];
-                                        const fallbackState = zipStateMap[zip] || 'Unknown State';
-                                        addLog(`  [${i + 1}/${uniqueZips.length}] Zip ${zip}...`);
-
-                                        // ForSale listings
-                                        try {
-                                            const allForSale: any[] = [];
-                                            let page = 1;
-                                            let totalPages = 1;
-                                            while (page <= totalPages) {
-                                                const resp = await fetch(
-                                                    `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale&page=${page}`,
-                                                    { headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host } }
-                                                );
-                                                if (!resp.ok) { addLog(`    ForSale p${page} error: ${resp.status}`); break; }
-                                                const result = await resp.json();
-                                                const items = Array.isArray(result) ? result : (result.props || result.results || []);
-                                                totalPages = result.totalPages ?? result.total_pages ?? 1;
-                                                allForSale.push(...items);
-                                                addLog(`    ForSale p${page}/${totalPages}: ${items.length}`);
-                                                page++;
-                                                if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
-                                            }
-                                            if (allForSale.length > 0) {
-                                                // Normalize listings WITH fallback state before saving to cache
-                                                const mapped = allForSale
-                                                    .filter((item: any) => isSupportedPropertyType(item))
-                                                    .map((item: any) => {
-                                                        const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
-                                                        const legacyAddr = legacyLoc.address || {};
-                                                        const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
-                                                        const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
-                                                        return {
-                                                            ...item,
-                                                            property_id: String(item.zpid),
-                                                            location: {
-                                                                address: {
-                                                                    line: legacyAddr.line || item.address || item.streetAddress || item.full_address || 'Unknown Address',
-                                                                    city: legacyAddr.city || item.city || item.town || normalizedCity || 'Unknown City',
-                                                                    state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || 'Unknown State',
-                                                                    postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
-                                                                }
-                                                            },
-                                                            list_price: numericPrice,
-                                                            primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
-                                                        };
-                                                    });
-                                                const filtered = allForSale.length - mapped.length;
-                                                await saveZipListings(zip, mapped);
-                                                allForSaleResults.push(...mapped);
-                                                if (filtered > 0) addLog(`    Filtered ${filtered} ghost/unsupported listings`);
-                                            }
-                                            addLog(`    ✓ ForSale: ${allForSale.length} fetched, ${allForSale.length > 0 ? allForSaleResults.length : 0} saved`);
-                                        } catch (e: any) {
-                                            addLog(`    ⚠ ForSale error: ${e.message}`);
-                                        }
-
-                                        // RecentlySold listings
-                                        try {
-                                            const allSold: any[] = [];
-                                            let page = 1;
-                                            let totalPages = 1;
-                                            while (page <= totalPages) {
-                                                const resp = await fetch(
-                                                    `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=RecentlySold&soldInLast=6m&page=${page}`,
-                                                    { headers: { 'X-RapidAPI-Key': config.key, 'X-RapidAPI-Host': config.host } }
-                                                );
-                                                if (!resp.ok) { addLog(`    Sold p${page} error: ${resp.status}`); break; }
-                                                const result = await resp.json();
-                                                const items = Array.isArray(result) ? result : (result.props || result.results || []);
-                                                totalPages = result.totalPages ?? result.total_pages ?? 1;
-                                                allSold.push(...items);
-                                                addLog(`    Sold p${page}/${totalPages}: ${items.length}`);
-                                                page++;
-                                                if (page <= totalPages) await new Promise(r => setTimeout(r, 1000));
-                                            }
-                                            if (allSold.length > 0) await saveZipSoldListings(zip, allSold);
-                                            addLog(`    ✓ Sold: ${allSold.length} saved`);
-                                        } catch (e: any) {
-                                            addLog(`    ⚠ Sold error: ${e.message}`);
-                                        }
-
-                                        // Brief pause between zips
-                                        if (i < uniqueZips.length - 1) await new Promise(r => setTimeout(r, 500));
-                                    }
-
-                                    // Deduplicate and update the UI table
-                                    const seenIds = new Set<string>();
-                                    const deduped = allForSaleResults.filter(item => {
-                                        const id = item.zpid;
-                                        const addrId = item.location?.address?.line;
-                                        const compositeId = id ? String(id) : (addrId ? addrId.toLowerCase().replace(/\s+/g, '') : null);
-                                        if (!compositeId || seenIds.has(compositeId)) return false;
-                                        seenIds.add(compositeId);
-                                        return true;
-                                    });
-                                    // Compare old vs new listings to report changes
-                                    const oldIds = new Set<string>(listings.map((item: any) => String(item.zpid || '')));
-                                    const newIds = new Set<string>(deduped.map((item: any) => String(item.zpid || '')));
-                                    const removedCount = Array.from(oldIds).filter(id => id && !newIds.has(id)).length;
-                                    const addedCount = Array.from(newIds).filter(id => id && !oldIds.has(id)).length;
-
-                                    setListings(deduped);
-                                    addLog(`[Cache Refresh] Done. ${deduped.length} unique ForSale listings loaded. ${addedCount} new, ${removedCount} removed. All zip caches refreshed for ${normalizedCity}.`);
-                                    logPipelineAudit('Refresh Zip Listing Caches', normalizedCity, 'success', `${deduped.length} listings loaded, +${addedCount} new, -${removedCount} removed, ${uniqueZips.length} zips refreshed`, undefined, { listings: deduped.length, added: addedCount, removed: removedCount, zips: uniqueZips.length });
-                                    setLoading(false);
-                                }}
-                                disabled={loading || !city}
-                                title="Force refresh ForSale and RecentlySold zip listing caches for all zips in this city"
-                                className="px-6 py-4 border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                            >
-                                <i className="fa-solid fa-arrows-rotate" />
-                                Refresh Zip Listing Caches
                             </button>
                             <button
                                 onClick={async () => {
@@ -3206,8 +3263,10 @@ ${JSON.stringify(propertySummaries)}
                                                             <th className="p-6 w-20 text-center">Batch</th>
                                                             <th className="p-6">Property</th>
                                                             <th className="p-6 text-right">Property Type</th>
+                                                            {activeTableTab === 'sold' && <th className="p-6 text-right">Sold Date</th>}
                                                             <th className="p-6">Cache Status</th>
                                                             <th className="p-6 text-center">Last Scan</th>
+                                                            <th className="p-6 text-center">API Health</th>
                                                             <th className="p-6 text-right">Actions</th>
                                                         </tr>
                                                     </thead>
@@ -3432,9 +3491,20 @@ ${JSON.stringify(propertySummaries)}
                         <div className="space-y-6">
                             <div className="flex items-center justify-between px-4">
                                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Ingestion Jobs</h3>
-                                <span className="px-5 py-2.5 bg-slate-100 rounded-2xl text-sm font-black text-slate-700 uppercase tracking-widest">
-                                    {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} {pipelineType === 'images' ? 'Images Secured' : 'Reports Synthesized'}
-                                </span>
+                                <div className="flex items-center gap-3">
+                                    {ingestionQueue.some(q => q.status === 'error' || q.status === 'partial') && (
+                                        <button
+                                            onClick={handleRetryFailed}
+                                            className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-200"
+                                        >
+                                            <i className="fa-solid fa-rotate-right mr-2"></i>
+                                            Retry {ingestionQueue.filter(q => q.status === 'error' || q.status === 'partial').length} Failed
+                                        </button>
+                                    )}
+                                    <span className="px-5 py-2.5 bg-slate-100 rounded-2xl text-sm font-black text-slate-700 uppercase tracking-widest">
+                                        {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} {pipelineType === 'images' ? 'Images Secured' : 'Reports Synthesized'}
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4">

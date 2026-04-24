@@ -287,12 +287,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                             <div className="mt-8">
                                 <PropertyDashboardRight {...rightProps} showOnly={['schools', 'orientation']} />
                             </div>
-                            <div className="mt-8">
-                                <VastuZonesTable azimuth_degrees={
-                                    orientationGroundTruth?.expected_azimuth_deg ??
-                                    (data as any).orientation_ai?.azimuth_degrees
-                                } />
-                            </div>
+
                         </div>
                     );
 

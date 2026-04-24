@@ -150,24 +150,39 @@ function extractJson<T>(text: string | undefined): T {
     }
   };
 
-  // Repair helper: fix unescaped newlines inside JSON strings & trailing commas
+  // Repair helper: fix common LLM JSON malformations
   const repairJson = (str: string): string => {
-    // Fix unescaped literal newlines inside JSON string values
     let result = '';
     let inString = false;
     let escaped = false;
+    
+    // Pass 1: Handle escaped characters and literal newlines in strings
     for (let i = 0; i < str.length; i++) {
       const ch = str[i];
       if (escaped) { result += ch; escaped = false; continue; }
       if (ch === '\\' && inString) { result += ch; escaped = true; continue; }
       if (ch === '"') { inString = !inString; result += ch; continue; }
-      if (inString && ch === '\n') { result += '\\n'; continue; }
-      if (inString && ch === '\r') { continue; }
+      if (inString && (ch === '\n' || ch === '\r')) { result += '\\n'; continue; }
       if (inString && ch === '\t') { result += '\\t'; continue; }
       result += ch;
     }
-    // Remove trailing commas before } or ]
+
+    // Pass 2: Aggressive structural fixes
+    // 1. Remove trailing commas before } or ]
     result = result.replace(/,\s*([}\]])/g, '$1');
+    
+    // 2. Fix missing commas between property values and next keys
+    // Example: "key": "value" "next_key" -> "key": "value", "next_key"
+    // Matches: [quote, digit, boolean, or closing bracket/brace] followed by whitespace/newline then another quote
+    result = result.replace(/("|\d|true|false|null|\]|\})\s*\n?\s*"/g, '$1,\n"');
+    
+    // 3. Fix double commas or comma-brace mismatches
+    result = result.replace(/,+/g, ',');
+    result = result.replace(/\{,/g, '{');
+    result = result.replace(/\[,/g, '[');
+    result = result.replace(/,}/g, '}');
+    result = result.replace(/,]/g, ']');
+
     return result;
   };
 
