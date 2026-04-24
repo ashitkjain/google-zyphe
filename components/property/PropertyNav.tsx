@@ -111,7 +111,6 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
                 { id: 'graph', label: 'Graph', icon: 'fa-diagram-project', visible: true },
             ],
         },
-        },
     ];
 
     if (userRole === 'admin') {
