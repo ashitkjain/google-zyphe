@@ -141,33 +141,10 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
     const visibleQuakes = quakesExpanded ? recentQuakes : recentQuakes.slice(0, QUAKE_PREVIEW);
 
     return (
-        <div className="min-h-screen" style={{ background: '#f1f1f8' }}>
-            <div className="max-w-5xl mx-auto py-8 px-4 space-y-5">
+        <div className="space-y-5">
 
-                {/* ── Hero ───────────────────────────────────────────────── */}
-                <div className="bg-white rounded-3xl border border-slate-200/60 p-8 shadow-sm">
-                    <div className="flex items-start justify-between gap-6">
-                        <div className="flex-1 min-w-0">
-                            <div className={`${T.label} mb-2`}>Environmental Analysis</div>
-                            <h1 className={`${T.hero} mb-3`}>
-                                Environmental<br />
-                                <span className="text-indigo-600">Overview</span>
-                            </h1>
-                            <p className={T.body}>
-                                Comprehensive hazard analysis for{' '}
-                                <strong className="text-slate-700 font-black">{data.address || 'this property'}</strong>.
-                                {' '}Covering climate risk, seismic zones, air quality, and solar potential.
-                            </p>
-                        </div>
-                        {data.annualHomeownersInsurance && (
-                            <div className="shrink-0 bg-slate-50 rounded-2xl border border-slate-200 px-5 py-4 text-right">
-                                <div className={T.label}>Est. Annual Insurance</div>
-                                <div className={`${T.metric} mt-1`}>${data.annualHomeownersInsurance.toLocaleString()}</div>
-                                <div className={`${T.label} mt-0.5`}>per year</div>
-                            </div>
-                        )}
-                    </div>
-                </div>
+
+
 
                 {/* ── 4 Climate Risk Cards ────────────────────────────────── */}
                 {available.length > 0 && (
@@ -592,7 +569,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                     <div className={T.attr}>Zyphe Property Intelligence</div>
                 </div>
 
-            </div>
         </div>
+
     );
 };

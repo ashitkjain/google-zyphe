@@ -88,7 +88,7 @@ export const PropertyLifestylePanel: React.FC<PropertyLifestylePanelProps> = ({
     };
 
     return (
-        <div id="ov-lifestyle" className="flex flex-col gap-1 w-full scroll-mt-20 select-none">
+        <div className="flex flex-col gap-1 w-full select-none">
             <div className="flex flex-col xl:flex-row gap-8 w-full">
 
                 {/* Lifestyle Fit */}

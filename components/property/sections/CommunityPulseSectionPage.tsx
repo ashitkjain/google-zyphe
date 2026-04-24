@@ -190,25 +190,7 @@ export const CommunityPulseSectionPage: React.FC<Props> = ({ communityPulse: cp,
     return (
         <div className="space-y-5">
 
-            {/* ── Hero ───────────────────────────────────────────────── */}
-            <div className="bg-white rounded-3xl border border-slate-200/60 p-8 shadow-sm">
-                <div className="flex items-center gap-4 mb-3">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
-                        <i className="fa-solid fa-users text-blue-600 text-[16px]" />
-                    </div>
-                    <div>
-                        <div className={`${T.label} mb-0.5`}>Resident Sentiment Report</div>
-                        <h1 className="text-[28px] font-black text-slate-900 leading-none tracking-tight">
-                            Community Pulse
-                        </h1>
-                    </div>
-                </div>
-                <p className={T.body}>
-                    What residents actually say about living in{' '}
-                    <strong className="text-slate-700 font-black">{city || 'this area'}</strong> — sourced from community forums, reviews, and local intelligence.
-                </p>
-                <div className={`${T.attr} text-right mt-3`}>Zyphe Ground Truth Unit · 2026</div>
-            </div>
+
 
             {/* ── Full analysis text (if available) ─────────────────── */}
             {fallbackText && (

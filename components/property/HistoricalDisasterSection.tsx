@@ -271,16 +271,7 @@ const HistoricalDisasterSection: React.FC<Props> = ({ data, drought, compact, on
                             { label: 'FEMA Events', desc: 'Federal disaster declarations by county' },
                         ]} />
                     </div>
-                    {onRefresh && (
-                        <button
-                            onClick={onRefresh}
-                            disabled={refreshing}
-                            className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${refreshing ? 'text-indigo-400 animate-spin' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
-                            title="Refresh"
-                        >
-                            <i className="fa-solid fa-arrows-rotate text-[9px]"></i>
-                        </button>
-                    )}
+
                 </div>
 
                 {/* Inline zone badges + event counts in one row */}

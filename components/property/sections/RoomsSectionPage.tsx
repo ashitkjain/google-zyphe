@@ -94,35 +94,7 @@ export const RoomsSectionPage: React.FC<Props> = ({ data, currentInteriorSummary
     return (
         <div className="space-y-5">
 
-                {/* ── Hero strip: beds / baths / stories / sqft ─────────── */}
-                <div className="bg-white rounded-3xl border border-slate-200/60 p-8 shadow-sm">
-                    <div className="flex items-center justify-between gap-6">
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-[24px] font-black text-slate-900 leading-none tracking-tight mb-2">
-                                Room <span className="text-indigo-600">Details</span>
-                            </h1>
-                            <p className={T.body}>
-                                Room insights derived from property photos by AI.
-                            </p>
-                        </div>
 
-                        {/* Key stats */}
-                        <div className="shrink-0 flex gap-3">
-                            {[
-                                data.bedrooms  != null && { label: 'Bedrooms',  value: `${data.bedrooms}`,  icon: 'fa-bed',   color: 'text-indigo-600' },
-                                data.bathrooms != null && { label: 'Bathrooms', value: `${data.bathrooms}`, icon: 'fa-bath',  color: 'text-sky-600' },
-                                reso?.stories  != null && { label: 'Stories',   value: `${reso.stories}`,   icon: 'fa-stairs', color: 'text-violet-600' },
-                                data.sqft      != null && { label: 'Sq Ft',     value: Number(data.sqft).toLocaleString(), icon: 'fa-ruler-combined', color: 'text-amber-600' },
-                            ].filter(Boolean).map((m: any, i) => (
-                                <div key={i} className="bg-slate-50 rounded-xl border border-slate-100 px-3 py-2 text-center min-w-[70px]">
-                                    <i className={`fa-solid ${m.icon} ${m.color} text-[12px] mb-1`} />
-                                    <div className="text-[16px] font-black text-slate-900 leading-none">{m.value}</div>
-                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{m.label}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
 
 
 

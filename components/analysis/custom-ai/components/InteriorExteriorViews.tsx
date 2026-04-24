@@ -15,58 +15,58 @@ export const InteriorView: React.FC<InteriorViewProps> = ({ data }) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-12 border-t border-gray-100">
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-palette text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Design Philosophy</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Design Philosophy</h4>
                         <div className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full mb-2 self-start">{data.design_style?.style}</div>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.design_style?.reasoning}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-swatchbook text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Colors & Materials</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Colors & Materials</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.color_and_materials}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-lightbulb text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Lighting Environment</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Lighting Environment</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.lighting}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-arrows-up-down-left-right text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Spatial Architecture</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Spatial Architecture</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.spatial_flow}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-chair text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Staging & Furnishings</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Staging & Furnishings</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.staging_and_furnishings}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-screwdriver-wrench text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Condition & Finish</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Condition & Finish</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.condition_and_finish}</p>
                     </div>
                 </div>
@@ -159,15 +159,17 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {sorted.map((room, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className={`fa-solid ${roomIcon(room.room_name)} text-lg`}></i>
                             </div>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="font-black text-gray-900 text-lg tracking-tight truncate">{room.room_name}</h4>
+                            </div>
                             {room.floor && (
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">{room.floor}</span>
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100 shrink-0">{room.floor}</span>
                             )}
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">{room.room_name}</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed mb-4">{room.description}</p>
                         {room.potential_improvements && (
                             <div className="pt-4 border-t border-gray-100 bg-gray-50 -mx-6 -mb-6 px-6 py-4 rounded-b-2xl mt-auto">
@@ -334,24 +336,24 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                         return (<>
 
                             {sat.privacy_insight && (
-                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                            <i className="fa-solid fa-eye-slash text-lg"></i>
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
+                                                <i className="fa-solid fa-eye-slash text-lg"></i>
+                                            </div>
+                                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Privacy</h4>
                                         </div>
-                                    </div>
-                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Privacy</h4>
                                     <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{sat.privacy_insight}</p>
                                 </div>
                             )}
                             {sat.lot_coverage_hardscape != null && (
                                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                             <i className="fa-solid fa-layer-group text-lg"></i>
                                         </div>
+                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Lot Coverage</h4>
                                     </div>
-                                    <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Lot Coverage</h4>
                                     <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
                                         <div className="h-full bg-gray-400 rounded-full" style={{ width: `${Math.round((sat.lot_coverage_hardscape > 0 && sat.lot_coverage_hardscape <= 1) ? sat.lot_coverage_hardscape * 100 : (sat.lot_coverage_hardscape ?? 0))}%` }} />
                                     </div>
@@ -369,40 +371,40 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
 
                     {/* Architecture & lot cards — always shown */}
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-building-columns text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Style</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Style</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.architecture_style}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-house text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Curb Appeal</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Curb Appeal</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.curb_appeal}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                 <i className="fa-solid fa-tree text-lg"></i>
                             </div>
+                            <h4 className="font-black text-gray-900 text-lg tracking-tight">Backyard & Patio</h4>
                         </div>
-                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Backyard & Patio</h4>
                         <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
                     </div>
                     {data.views_privacy_orientation?.views && (
                         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                     <i className="fa-solid fa-mountain-sun text-lg"></i>
                                 </div>
+                                <h4 className="font-black text-gray-900 text-lg tracking-tight">Views</h4>
                             </div>
-                            <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">Views</h4>
                             <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">{data.views_privacy_orientation.views}</p>
                         </div>
                     )}

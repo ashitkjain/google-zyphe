@@ -127,9 +127,9 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
     }
 
     return (
-        <section className="space-y-8">
+        <div className="space-y-8">
             {/* ── Main Container ─────────────────────────────── */}
-            <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
+            <div className="space-y-12">
 
 
                 {!neighborhoodData ? (
@@ -230,18 +230,18 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
                                             return next;
                                         })}
                                     >
-                                        {/* Icon + Tier badge */}
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                        {/* Icon + Name + Tier badge */}
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors shrink-0">
                                                 <i className={`fa-solid ${icon} text-lg`}></i>
                                             </div>
-                                            <span className={`text-[10px] font-black px-3 py-1.5 rounded-full ${getTierColor(n.price_context?.tier)}`}>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-black text-gray-900 text-lg tracking-tight truncate">{n.neighborhood_name}</h4>
+                                            </div>
+                                            <span className={`text-[10px] font-black px-3 py-1.5 rounded-full shrink-0 ${getTierColor(n.price_context?.tier)}`}>
                                                 {n.price_context?.tier || 'N/A'}
                                             </span>
                                         </div>
-
-                                        {/* Name */}
-                                        <h4 className="font-black text-gray-900 text-lg mb-2 tracking-tight">{n.neighborhood_name}</h4>
 
                                         {/* Price + Community Type badges */}
                                         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -258,7 +258,7 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
                                         </div>
 
                                         {/* Description */}
-                                        <p className={`text-gray-700 font-sans font-normal text-[13px] leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
+                                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-relaxed">
                                             {n.character?.description || 'No description available.'}
                                         </p>
 
@@ -507,7 +507,7 @@ const CityNeighborhoodsView: React.FC<CityNeighborhoodsViewProps> = ({ propertyD
                     </>
                 )}
             </div>
-        </section>
+        </div>
     );
 };
 

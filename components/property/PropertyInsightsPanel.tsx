@@ -89,8 +89,6 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                         <div id="ov-streetview" className="rounded-2xl border-2 border-indigo-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 scroll-mt-24">
                             <StreetViewAnalysisSection
                                 data={propertyData}
-                                onRefresh={onRefreshOrientation}
-                                refreshing={orientationRefreshing}
                             />
                         </div>
                     )}
@@ -443,20 +441,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                                 >
                                                     Details
                                                 </button>
-                                                {userRole === 'admin' && onRefreshCommunityPulse && (
-                                                    <button
-                                                        onClick={async () => {
-                                                            setIsRefreshingPulse(true);
-                                                            await onRefreshCommunityPulse();
-                                                            setIsRefreshingPulse(false);
-                                                        }}
-                                                        disabled={isRefreshingPulse}
-                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isRefreshingPulse ? 'bg-blue-50 text-blue-400 animate-spin' : 'bg-blue-50 text-blue-500 hover:bg-blue-100'}`}
-                                                        title="Refresh Community Pulse"
-                                                    >
-                                                        <i className="fa-solid fa-arrows-rotate text-[10px]"></i>
-                                                    </button>
-                                                )}
+                                                {/* Removed redundant refresh button */}
                                             </div>
                                         </div>
 

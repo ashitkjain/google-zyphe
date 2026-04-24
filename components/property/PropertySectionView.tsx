@@ -89,22 +89,44 @@ interface PropertySectionViewProps {
 // Section page header
 // ─────────────────────────────────────────────────────────────
 
-const PageHeader: React.FC<{ icon: string; title: string; subtitle?: string; color?: string; renderPalette?: () => React.ReactNode }> = ({
-    icon, title, subtitle, color = 'text-indigo-500', renderPalette,
+const PageHeader: React.FC<{
+    icon: string;
+    label?: string;
+    title: string;
+    description?: string;
+    subtitle?: string;
+    color?: string;
+    attribution?: string;
+    renderPalette?: () => React.ReactNode;
+}> = ({
+    icon, label, title, description, subtitle, color = 'text-indigo-500', attribution, renderPalette,
 }) => (
-    <div className="flex items-center justify-between mb-4 pb-2 pr-2">
-        <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-100 shadow-sm flex-shrink-0">
-                <i className={`fa-solid ${icon} text-[16px] ${color}`} />
+    <div className="bg-white rounded-3xl border border-slate-200/60 p-8 shadow-sm mb-6">
+        <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center shadow-sm flex-shrink-0">
+                    <i className={`fa-solid ${icon} text-[18px] ${color}`} />
+                </div>
+                <div>
+                    {label && <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</div>}
+                    <h2 className="text-[28px] font-black text-slate-900 tracking-tight leading-none">{title}</h2>
+                </div>
             </div>
-            <div>
-                <h2 className="text-[22px] font-black text-slate-900 tracking-tight leading-none">{title}</h2>
-                {subtitle && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{subtitle}</p>}
-            </div>
+            {renderPalette && (
+                <div className="flex-shrink-0 flex items-center gap-3">
+                    <span className="text-[10px] text-slate-300 font-bold italic">Drag notes to page</span>
+                    {renderPalette()}
+                </div>
+            )}
         </div>
-        {renderPalette && (
-            <div className="flex-shrink-0">
-                {renderPalette()}
+        {(description || subtitle) && (
+            <p className="text-[13px] font-medium text-slate-500 leading-relaxed max-w-4xl">
+                {description || subtitle}
+            </p>
+        )}
+        {attribution && (
+            <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-right mt-3">
+                {attribution}
             </div>
         )}
     </div>
@@ -191,6 +213,23 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
 
     const analysis = comprehensiveAnalysis;
 
+    // ── Scroll to top on section change ──────────────────────────────────────
+    React.useEffect(() => {
+        // Find the top of the section content
+        const topEl = document.getElementById('property-section-top');
+        if (topEl) {
+            // Calculate position relative to the document
+            const rect = topEl.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const targetY = rect.top + scrollTop - 20; // 20px buffer for breathing room
+            
+            window.scrollTo({
+                top: Math.max(0, targetY),
+                behavior: 'smooth'
+            });
+        }
+    }, [sectionId, subId]);
+
     // ── Shared Left column props ─────────────────────────────────────────────
     const leftProps = {
         data, micro,
@@ -224,294 +263,283 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         onRefreshCommunityPulse,
     };
 
-    // ────────────────────────────────────────────────────────────────────────
-    // PROPERTY
-    // ────────────────────────────────────────────────────────────────────────
-    if (sectionId === 'property') {
-        if (subId === 'lifestyle-vastu') return (
-            <div className="animate-in fade-in duration-200">
-                <PageHeader icon="fa-people-roof" title="Lifestyle, Schools & Vastu"
-                    subtitle="Compatibility · Education · Orientation" {...headerProps} />
-                <PropertyLifestylePanel
-                    lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
-                    lifestyleLoading={lifestyleLoading}
-                    lifestyleFitTab={lifestyleFitTab} setLifestyleFitTab={setLifestyleFitTab}
-                    lifestyleInterestTab={lifestyleInterestTab} setLifestyleInterestTab={setLifestyleInterestTab}
-                    handleGenerateLifestyle={handleGenerateLifestyle}
-                    showOnly={['fit']}
-                />
-                <div className="mt-8">
-                    <PropertyDashboardRight {...rightProps} showOnly={['schools', 'orientation']} />
-                </div>
-                <div className="mt-8">
-                    <VastuZonesTable azimuth_degrees={
-                        orientationGroundTruth?.expected_azimuth_deg ??
-                        (data as any).orientation_ai?.azimuth_degrees
-                    } />
-                </div>
-            </div>
-        );
-
-        if (subId === 'mls-data') return (
-            <div className="animate-in fade-in duration-200">
-                <PageHeader icon="fa-table-cells-large" title="MLS Property Data"
-                    subtitle="Listing details · Full specifications" color="text-slate-500" {...headerProps} />
-                <PropertyDashboardLeft {...leftProps} showOnly={['mls']} />
-            </div>
-        );
-
-        if (subId === 'indoor') return (
-            <div className="animate-in fade-in duration-200 space-y-6">
-                <PageHeader icon="fa-couch" title="Indoor"
-                    subtitle="Interior · Rooms · Design · AI Analysis" color="text-violet-500" {...headerProps} />
-                <ExploreRow1Cards
-                    propertyData={data} analysis={analysis} census={census}
-                    lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
-                    userRole={userRole} designStyle={designStyle}
-                    currentInteriorSummary={currentInteriorSummary}
-                    customOverviewText={customAnalysis?.home_interior?.overall_description}
-                    customAnalysisHomeInterior={customAnalysis?.home_interior}
-                    showOnly={['interior']}
-                />
-            </div>
-        );
-
-        if (subId === 'rooms') return (
-            <div className="animate-in fade-in duration-200 space-y-4">
-                <RoomsSectionPage
-                    data={data}
-                    currentInteriorSummary={currentInteriorSummary}
-                />
-                {/* Per-room AI cards — Entryway, Kitchen, Bedrooms, etc. */}
-                {customAnalysis && (
-                    <CustomAIAnalysis {...aiProps} activeSubTab="rooms" />
-                )}
-            </div>
-        );
-
-        if (subId === 'outdoor') return (
-            <div className="animate-in fade-in duration-200 space-y-6">
-                <PageHeader icon="fa-house-chimney" title="Outdoor"
-                    subtitle="Curb appeal · Street view · Lot intelligence · AI Analysis" color="text-amber-500" {...headerProps} />
-                <PropertyInsightsPanel
-                    {...insightProps}
-                    communityPulse={null}
-                    keyInsights={null}
-                    ltrAnalysis={null}
-                    neighborhoodOverview={null}
-                    showOnly={['streetview', 'lot']}
-                />
-                {/* AI Visual Analysis — Exterior & Neighborhood */}
-                {customAnalysis && (
-                    <div className="mt-2">
-                        <CustomAIAnalysis {...aiProps} activeSubTab="exterior_and_neighborhood" />
-                    </div>
-                )}
-            </div>
-        );
-    }
-
-    // ────────────────────────────────────────────────────────────────────────
-    // ENVIRONMENT — Stitch-styled unified page
-    // ────────────────────────────────────────────────────────────────────────
-    if (sectionId === 'environment') {
-        return <EnvironmentSectionPage data={data} solarPotential={solarPotential} onRefreshEnvironment={onRefreshEnvironment} environmentRefreshing={environmentRefreshing} />;
-    }
-
-
-    // ────────────────────────────────────────────────────────────────────────
-    // CONNECTIVITY — all sub-tabs show one merged page
-    // ────────────────────────────────────────────────────────────────────────
-    if (sectionId === 'connectivity') {
-        return (
-            <div className="animate-in fade-in duration-200 space-y-4">
-                <PageHeader icon="fa-network-wired" title="Connectivity"
-                    subtitle="Commute · Walk Scores · Internet & Broadband" color="text-blue-500" {...headerProps} />
-
-                {/* Single card with all connectivity data — no duplicates */}
-                <PropertyDashboardLeft {...leftProps} showOnly={['commute', 'walk', 'broadband']} />
-
-                {/* Commute Calculator — interactive route planner */}
-                {data.coordinates && (
-                    <CommuteCalculator
-                        originLat={data.coordinates.lat}
-                        originLng={data.coordinates.lng}
-                        propertyAddress={data.address}
-                    />
-                )}
-            </div>
-        );
-    }
-
-    // ────────────────────────────────────────────────────────────────────────
-    // LOCATION — city-neighborhoods is isolated; rest merged
-    // ────────────────────────────────────────────────────────────────────────
-    if (sectionId === 'location') {
-
-        if (subId === 'city-neighborhoods') return (
-            <div className="animate-in fade-in duration-200">
-                <CityNeighborhoodsView propertyData={data} />
-            </div>
-        );
-
-        if (subId === 'community-pulse') return (
-            <div className="animate-in fade-in duration-200">
-                <CommunityPulseSectionPage
-                    communityPulse={communityPulse}
-                    analysis={analysis}
-                    city={data.city}
-                />
-            </div>
-        );
-
-        return (
-            <div className="animate-in fade-in duration-200 space-y-6">
-                <PageHeader icon="fa-location-dot" title="Location Overview"
-                    subtitle="Neighborhood dynamics · Profile · Local amenities" color="text-blue-500" {...headerProps} />
-                
-                {/* Neighborhood + Affordability/Census — side by side */}
-                <div className="grid grid-cols-5 gap-4 items-start">
-                    {/* Neighborhood card — wider left column */}
-                    <div className="col-span-3 min-w-0">
-                        <PropertyDashboardRight
-                            {...rightProps}
-                            showOnly={['neighborhood']}
-                        />
-                    </div>
-                    {/* Affordability + Census — right column */}
-                    <div className="col-span-2 min-w-0">
-                        <PropertyInsightsPanel
-                            {...insightProps}
-                            keyInsights={null}
-                            ltrAnalysis={null}
-                            neighborhoodOverview={null}
-                            showOnly={['affordability', 'census']}
-                        />
-                    </div>
-                </div>
-                <PropertyLifestylePanel
-                    lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
-                    lifestyleLoading={lifestyleLoading}
-                    lifestyleFitTab={lifestyleFitTab} setLifestyleFitTab={setLifestyleFitTab}
-                    lifestyleInterestTab={lifestyleInterestTab} setLifestyleInterestTab={setLifestyleInterestTab}
-                    handleGenerateLifestyle={handleGenerateLifestyle}
-                    showOnly={['interests']}
-                />
-                <PropertyDashboardRight {...rightProps} showOnly={['nearby']} />
-            </div>
-        );
-    }
-
-    // ────────────────────────────────────────────────────────────────────────
-    // INVESTMENT
-    // ────────────────────────────────────────────────────────────────────────
-    // ────────────────────────────────────────────────────────────────────────
-    // INVESTMENT — Unified Research & Economics
-    // ────────────────────────────────────────────────────────────────────────
-        if (sectionId === 'investment') {
-        return (
-            <div className="animate-in fade-in duration-200 space-y-1">
-                <PageHeader icon="fa-sack-dollar" title="Investment Intelligence"
-                    subtitle="Economics · Market Dynamics · Deep Research · Valuation" color="text-indigo-600" {...headerProps} />
-                
-                {/* 1. Economics (Rental Analysis) */}
-                <PropertyInsightsPanel
-                    {...insightProps}
-                    communityPulse={null}
-                    keyInsights={null}
-                    neighborhoodOverview={null}
-                    showOnly={['rental']}
-                />
-
-                {/* 2. Market Dynamics (The flattened metrics card) */}
-                <PropertyInsightsPanel
-                    {...insightProps}
-                    communityPulse={null}
-                    ltrAnalysis={null}
-                    showOnly={['ai-analysis']}
-                />
-
-                {/* 3. Deep Research Full Report */}
-                {customAnalysisLoading ? (
-                    <div className="py-20 flex flex-col items-center justify-center gap-4 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
-                        <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
-                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Assembling Intelligence...</p>
-                    </div>
-                ) : customAnalysis?.deep_investment_research ? (
-                    <div>
-                        <DeepInvestmentView data={customAnalysis.deep_investment_research} />
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 gap-6 text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center">
-                            <i className="fa-solid fa-microscope text-2xl text-violet-300"></i>
-                        </div>
-                        <div>
-                            <p className="text-slate-800 font-black text-lg tracking-tight">Deep Research Not Available</p>
-                            <p className="text-slate-400 text-sm mt-1 max-w-xs mx-auto">
-                                Run a comprehensive investment analysis to generate this deep-dive market report.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => onRunComprehensive?.()}
-                            className="px-6 py-3 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center gap-2"
-                        >
-                            <i className="fa-solid fa-wand-magic-sparkles" />
-                            Run Deep Research
-                        </button>
-                    </div>
-                )}
-            </div>
-        );
-    }
-
-    // ────────────────────────────────────────────────────────────────────────
-    // CONTEXT GRAPH
-    // ────────────────────────────────────────────────────────────────────────
-    if (sectionId === 'context-graph') {
-        return (
-            <div className="animate-in fade-in duration-200 space-y-4">
-                <PageHeader icon="fa-diagram-project" title="Context Graph"
-                    subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" {...headerProps} />
-                <CustomAIAnalysis {...aiProps} activeSubTab="context_graph" />
-            </div>
-        );
-    }
-
-    // ────────────────────────────────────────────────────────────────────────
-    // LEGACY VIEWS
-    // ────────────────────────────────────────────────────────────────────────
-    if (sectionId === 'legacy') {
-        if (subId === 'comprehensive') {
-            return (
-                <div className="animate-in fade-in duration-200">
-                    <ComprehensiveAnalysis
-                        analysis={comprehensiveAnalysis}
-                        loading={props.comprehensiveLoading}
-                        onBack={() => {}}
-                        isFavorited={props.isFavorited}
-                        onToggleFavorite={props.onToggleFavorite}
-                    />
-                </div>
-            );
-        }
-
-        return (
-            <div className="animate-in fade-in duration-200">
-                <CustomAIAnalysis 
-                    {...aiProps} 
-                    activeSubTab={subId || 'interior'} 
-                    onTabChange={() => {}}
-                />
-            </div>
-        );
-    }
-
-    // ── Fallback ──────────────────────────────────────────────────────────────
     return (
-        <div className="flex flex-col items-center justify-center min-h-[40vh] text-center text-slate-400">
-            <i className="fa-solid fa-compass text-5xl mb-4 text-slate-200" />
-            <p className="text-sm font-black uppercase tracking-widest">Select a section from the nav</p>
+        <div id="property-section-top" className="flex flex-col w-full min-h-screen scroll-mt-20">
+            {(() => {
+                // ────────────────────────────────────────────────────────────────────────
+                // PROPERTY
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'property') {
+                    if (subId === 'lifestyle-vastu') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-people-roof" title="Lifestyle, Schools & Vastu"
+                                label="Compatibility & Education"
+                                description="Personalized fit analysis cross-referenced with neighborhood lifestyle, educational intelligence, and property orientation."
+                                color="text-indigo-600" {...headerProps} />
+                            <PropertyLifestylePanel
+                                lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
+                                lifestyleLoading={lifestyleLoading}
+                                lifestyleFitTab={lifestyleFitTab} setLifestyleFitTab={setLifestyleFitTab}
+                                lifestyleInterestTab={lifestyleInterestTab} setLifestyleInterestTab={setLifestyleInterestTab}
+                                handleGenerateLifestyle={handleGenerateLifestyle}
+                                showOnly={['fit']}
+                            />
+                            <div className="mt-8">
+                                <PropertyDashboardRight {...rightProps} showOnly={['schools', 'orientation']} />
+                            </div>
+                            <div className="mt-8">
+                                <VastuZonesTable azimuth_degrees={
+                                    orientationGroundTruth?.expected_azimuth_deg ??
+                                    (data as any).orientation_ai?.azimuth_degrees
+                                } />
+                            </div>
+                        </div>
+                    );
+
+                    if (subId === 'mls-data') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-table-cells-large" title="MLS Property Data"
+                                label="Listing Details"
+                                description="Full technical specifications, listing remarks, and official property images from the Multiple Listing Service."
+                                color="text-slate-500" {...headerProps} />
+                            <PropertyDashboardLeft {...leftProps} showOnly={['mls']} />
+                        </div>
+                    );
+
+                    if (subId === 'indoor') return (
+                        <div className="animate-in fade-in duration-200 space-y-6">
+                            <PageHeader icon="fa-couch" title="Indoor"
+                                label="Interior Intelligence"
+                                description="Room-by-room analysis, design style classification, and interior material quality assessments."
+                                color="text-violet-500" {...headerProps} />
+                            <ExploreRow1Cards
+                                propertyData={data} analysis={analysis} census={census}
+                                lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
+                                userRole={userRole} designStyle={designStyle}
+                                currentInteriorSummary={currentInteriorSummary}
+                                customOverviewText={customAnalysis?.home_interior?.overall_description}
+                                customAnalysisHomeInterior={customAnalysis?.home_interior}
+                                showOnly={['interior']}
+                            />
+                        </div>
+                    );
+
+                    if (subId === 'rooms') return (
+                        <div className="animate-in fade-in duration-200 space-y-4">
+                            <PageHeader icon="fa-bed" title="Rooms & Layout"
+                                label="Interior Specifications"
+                                description="Detailed room counts, square footage allocations, and architectural layout details."
+                                color="text-indigo-500" {...headerProps} />
+                            <RoomsSectionPage
+                                data={data}
+                                currentInteriorSummary={currentInteriorSummary}
+                            />
+                            {/* Per-room AI cards — Entryway, Kitchen, Bedrooms, etc. */}
+                            {customAnalysis && (
+                                <CustomAIAnalysis {...aiProps} activeSubTab="rooms" />
+                            )}
+                        </div>
+                    );
+
+                    if (subId === 'outdoor') return (
+                        <div className="animate-in fade-in duration-200 space-y-6">
+                            <PageHeader icon="fa-house-chimney" title="Outdoor"
+                                label="Exterior Intelligence"
+                                description="Curb appeal, lot utility, street-view analysis, and satellite-based land characterization."
+                                color="text-amber-500" {...headerProps} />
+                            <PropertyInsightsPanel
+                                {...insightProps}
+                                communityPulse={null}
+                                keyInsights={null}
+                                ltrAnalysis={null}
+                                neighborhoodOverview={null}
+                                showOnly={['streetview', 'lot']}
+                            />
+                            {/* AI Visual Analysis — Exterior & Neighborhood */}
+                            {customAnalysis && (
+                                <div className="mt-2">
+                                    <CustomAIAnalysis {...aiProps} activeSubTab="exterior_and_neighborhood" />
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+
+                // ────────────────────────────────────────────────────────────────────────
+                // ENVIRONMENT
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'environment') {
+                    return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-leaf" title="Environmental Overview"
+                                label="Sustainability & Hazard Analysis"
+                                description={`Comprehensive hazard analysis for ${data.address || 'this property'}. Covering climate risk, seismic zones, air quality, and solar potential.`}
+                                attribution="Environmental Intelligence Unit · 2026"
+                                color="text-emerald-500" {...headerProps} />
+                            <EnvironmentSectionPage data={data} solarPotential={solarPotential} onRefreshEnvironment={onRefreshEnvironment} environmentRefreshing={environmentRefreshing} />
+                        </div>
+                    );
+                }
+
+                // ────────────────────────────────────────────────────────────────────────
+                // CONNECTIVITY
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'connectivity') {
+                    return (
+                        <div className="animate-in fade-in duration-200 space-y-4">
+                            <PageHeader icon="fa-network-wired" title="Connectivity"
+                                label="Mobility & Infrastructure"
+                                description="Real-world commute times, walkability metrics, and high-speed broadband availability."
+                                color="text-blue-500" {...headerProps} />
+                            <PropertyDashboardLeft {...leftProps} showOnly={['commute', 'walk', 'broadband']} />
+                            {data.coordinates && (
+                                <CommuteCalculator
+                                    originLat={data.coordinates.lat}
+                                    originLng={data.coordinates.lng}
+                                    propertyAddress={data.address}
+                                />
+                            )}
+                        </div>
+                    );
+                }
+
+                // ────────────────────────────────────────────────────────────────────────
+                // LOCATION
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'location') {
+                    if (subId === 'city-neighborhoods') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-mountain-city" title="City & Neighborhoods"
+                                label="Urban Geography"
+                                description="Comprehensive atlas of local districts, community tiers, and neighborhood character across the greater metropolitan area."
+                                color="text-indigo-600" {...headerProps} />
+                            <CityNeighborhoodsView propertyData={data} />
+                        </div>
+                    );
+
+                    if (subId === 'community-pulse') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-users" title="Community Pulse"
+                                label="Resident Sentiment Report"
+                                description={`What residents actually say about living in ${data.city || 'this area'} — sourced from community forums, reviews, and local intelligence.`}
+                                attribution="Zyphe Ground Truth Unit · 2026"
+                                color="text-blue-600" {...headerProps} />
+                            <CommunityPulseSectionPage
+                                communityPulse={communityPulse}
+                                analysis={analysis}
+                                city={data.city}
+                            />
+                        </div>
+                    );
+
+                    return (
+                        <div className="animate-in fade-in duration-200 space-y-6">
+                            <PageHeader icon="fa-location-dot" title="Location Overview"
+                                label="Geographic Context"
+                                description="Neighborhood dynamics, area demographics, and key local amenities cross-referenced with lifestyle preferences."
+                                color="text-blue-500" {...headerProps} />
+                            <div className="grid grid-cols-5 gap-4 items-start">
+                                <div className="col-span-3 min-w-0">
+                                    <PropertyDashboardRight {...rightProps} showOnly={['neighborhood']} />
+                                </div>
+                                <div className="col-span-2 min-w-0">
+                                    <PropertyInsightsPanel {...insightProps} showOnly={['affordability', 'census']} />
+                                </div>
+                            </div>
+                            <PropertyLifestylePanel
+                                lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
+                                lifestyleLoading={lifestyleLoading}
+                                lifestyleFitTab={lifestyleFitTab} setLifestyleFitTab={setLifestyleFitTab}
+                                lifestyleInterestTab={lifestyleInterestTab} setLifestyleInterestTab={setLifestyleInterestTab}
+                                handleGenerateLifestyle={handleGenerateLifestyle}
+                                showOnly={['interests']}
+                            />
+                            <PropertyDashboardRight {...rightProps} showOnly={['nearby']} />
+                        </div>
+                    );
+                }
+
+                // ────────────────────────────────────────────────────────────────────────
+                // INVESTMENT
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'investment') {
+                    return (
+                        <div className="animate-in fade-in duration-200 space-y-1">
+                            <PageHeader icon="fa-sack-dollar" title="Investment Intelligence"
+                                label="Market Economics"
+                                description="Financial research, valuation average, and deep-dive investment analysis for high-conviction decision making."
+                                color="text-indigo-600" {...headerProps} />
+                            <PropertyInsightsPanel {...insightProps} showOnly={['rental']} />
+                            <PropertyInsightsPanel {...insightProps} showOnly={['ai-analysis']} />
+                            {customAnalysisLoading ? (
+                                <div className="py-20 flex flex-col items-center justify-center gap-4 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                                    <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
+                                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Assembling Intelligence...</p>
+                                </div>
+                            ) : customAnalysis?.deep_investment_research ? (
+                                <DeepInvestmentView data={customAnalysis.deep_investment_research} />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 gap-6 text-center">
+                                    <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center">
+                                        <i className="fa-solid fa-microscope text-2xl text-violet-300"></i>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-800 font-black text-lg tracking-tight">Deep Research Not Available</p>
+                                        <p className="text-slate-400 text-sm mt-1 max-w-xs mx-auto">Run a comprehensive investment analysis to generate this deep-dive market report.</p>
+                                    </div>
+                                    <button onClick={() => onRunComprehensive?.()} className="px-6 py-3 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center gap-2">
+                                        <i className="fa-solid fa-wand-magic-sparkles" /> Run Deep Research
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+
+                // ────────────────────────────────────────────────────────────────────────
+                // CONTEXT GRAPH
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'context-graph') {
+                    return (
+                        <div className="animate-in fade-in duration-200 space-y-4">
+                            <PageHeader icon="fa-diagram-project" title="Context Graph"
+                                subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" {...headerProps} />
+                            <CustomAIAnalysis {...aiProps} activeSubTab="context_graph" />
+                        </div>
+                    );
+                }
+
+                // ────────────────────────────────────────────────────────────────────────
+                // LEGACY VIEWS
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'legacy') {
+                    if (subId === 'comprehensive') return (
+                        <div className="animate-in fade-in duration-200">
+                            <ComprehensiveAnalysis
+                                analysis={comprehensiveAnalysis}
+                                loading={props.comprehensiveLoading}
+                                onBack={() => {}}
+                                isFavorited={props.isFavorited}
+                                onToggleFavorite={props.onToggleFavorite}
+                            />
+                        </div>
+                    );
+                    return (
+                        <div className="animate-in fade-in duration-200">
+                            <CustomAIAnalysis {...aiProps} activeSubTab={subId || 'interior'} onTabChange={() => {}} />
+                        </div>
+                    );
+                }
+
+                // ── Fallback ──────────────────────────────────────────────────────────────
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-[40vh] text-center text-slate-400">
+                        <i className="fa-solid fa-compass text-5xl mb-4 text-slate-200" />
+                        <p className="text-sm font-black uppercase tracking-widest">Select a section from the nav</p>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
+

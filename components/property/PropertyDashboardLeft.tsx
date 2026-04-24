@@ -127,56 +127,10 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
             {/* Property title / MLS */}
             {show('mls') && (
                 <div id="ov-property" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden scroll-mt-24">
-                    <div className="px-5 py-4 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center border border-slate-100/50">
-                            <i className="fa-solid fa-table-cells-large text-indigo-500 text-[13px]" />
-                        </div>
-                        <h3 className="text-[18px] font-black text-slate-900 tracking-tight leading-none">
-                            MLS Property Data
-                        </h3>
-                    </div>
+                    {/* Removed duplicated internal header */}
                     <div className="px-5 py-5 flex flex-col gap-4">
                         {/* Row 1: Address + badges */}
-                        <div className="min-w-0">
-                            <h1 className="text-[18px] font-black text-slate-900 tracking-tight leading-tight">
-                                {data.address?.split(',')[0] || 'Property Overview'}
-                            </h1>
-                            <p className="text-[12px] text-slate-500 mt-1 font-semibold uppercase tracking-wider">
-                                {data.address?.split(',').slice(1).join(',').trim()}
-                            </p>
-                            <div className="flex flex-wrap gap-2 mt-4">
-                                {data.homeType && (
-                                    <span className="px-3 py-1.5 bg-indigo-50 border border-indigo-100/50 rounded-lg text-[10px] font-black text-indigo-700 uppercase tracking-[0.1em]">
-                                        {data.homeType.replace(/_/g, ' ')}
-                                    </span>
-                                )}
-                                {data.bedrooms != null && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        <i className="fa-solid fa-bed mr-2 text-[10px] text-slate-400" />{data.bedrooms} Bed
-                                    </span>
-                                )}
-                                {data.bathrooms != null && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        <i className="fa-solid fa-bath mr-2 text-[10px] text-slate-400" />{data.bathrooms} Bath
-                                    </span>
-                                )}
-                                {data.livingAreaValue && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        <i className="fa-solid fa-maximize mr-2 text-[10px] text-slate-400" />{data.livingAreaValue.toLocaleString()} SF
-                                    </span>
-                                )}
-                                {data.yearBuilt && (
-                                    <span className="px-3 py-1.5 bg-slate-50 border border-slate-200/60 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-[0.1em]">
-                                        Built {data.yearBuilt}
-                                    </span>
-                                )}
-                                {price && data.livingAreaValue && (
-                                    <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-100/50 rounded-lg text-[10px] font-black text-emerald-700 uppercase tracking-[0.1em]">
-                                        ${Math.round(price / data.livingAreaValue).toLocaleString()}/SF
-                                    </span>
-                                )}
-                            </div>
-                        </div>
+                        {/* Removed duplicated address block */}
                     </div>
 
                     {/* Listing Remarks — full width above specifications */}
