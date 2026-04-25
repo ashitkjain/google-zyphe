@@ -505,6 +505,7 @@ interface LifestyleSchoolsVastuSectionProps {
 }
 
 export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSectionProps> = ({
+    data,
     lifestyleFit,
     lifestyleInsights,
     lifestyleLoading,
