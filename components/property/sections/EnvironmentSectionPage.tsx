@@ -357,7 +357,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                     )}
 
                                     {/* Fault Map & List */}
-                                    {((data as any).faults?.faults || []).length > 0 && (
+                                    {((data as any).faults?.faults || []).length > 0 ? (
                                         <div style={{ marginTop: 20 }}>
                                             <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 12 }}>
                                                 Nearby Geological Faults
@@ -389,6 +389,12 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                                     ))}
                                                 </div>
                                             </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ marginTop: 20, padding: '16px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                            <i className="fa-solid fa-shield-check" style={{ color: '#10b981', fontSize: 16, marginBottom: 8, display: 'block' }} />
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>No Active Quaternary Faults</div>
+                                            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>No identified fault lines within a 20-mile radius.</div>
                                         </div>
                                     )}
                                 </div>

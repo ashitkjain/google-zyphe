@@ -40,21 +40,16 @@ export const fetchNearbyFaults = async (
     try {
         // Query within approx 20 miles (0.3 degrees)
         const buffer = 0.3;
-        const geometry = encodeURIComponent(JSON.stringify({
+        const geometry = JSON.stringify({
             xmin: lng - buffer,
             ymin: lat - buffer,
             xmax: lng + buffer,
             ymax: lat + buffer,
             spatialReference: { wkid: 4326 }
-        }));
-
-        const url = `https://services.arcgis.com/jIL9qeH9vMvXYAeY/arcgis/rest/services/Quaternary_Faults/FeatureServer/0/query` +
-            `?geometry=${geometry}` +
-            `&geometryType=esriGeometryEnvelope` +
-            `&spatialRel=esriSpatialRelIntersects` +
-            `&outFields=fault_name,age,slip_rate,slip_sense,dip_direction` +
-            `&returnGeometry=true` +
-            `&f=json`;
+        });
+        
+        // Use proxy to avoid CORS
+        const url = `https://us-central1-zyphe-af0bf.cloudfunctions.net/proxyFaults?geometry=${encodeURIComponent(geometry)}`;
 
         const response = await fetch(url);
         if (!response.ok) throw new Error(`USGS API Error: ${response.status}`);
