@@ -786,7 +786,7 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
         // 1. Research destinations via Gemini
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             tools: [{ googleSearch: {} }]
         });
 
