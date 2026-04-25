@@ -356,6 +356,7 @@ export interface EVChargerData {
     closestDistanceMi: number | null;
     networks: string[];
     connectorTypes: string[];
+    stations?: any[];
     fetchedAt: string;
 }
 
@@ -436,6 +437,13 @@ export const fetchNearbyEVChargers = async (
             closestDistanceMi: closest.distance != null ? Math.round(closest.distance * 10) / 10 : null,
             networks: [...networkSet],
             connectorTypes: [...connectorSet],
+            stations: stations.map((s: any) => ({
+                name: s.station_name,
+                distanceMi: s.distance,
+                portCount: (s.ev_dc_fast_num || 0) + (s.ev_level2_evse_num || 0),
+                network: s.ev_network,
+                address: s.street_address
+            })),
             fetchedAt: new Date().toISOString(),
         };
     } catch (e) {

@@ -29,6 +29,7 @@ import { getDeepInvestmentResearchPrompt, deepInvestmentResearchSchema } from ".
 import { getDeepResearchInsightsPrompt, deepResearchInsightsSchema } from "../prompts/property/deepResearchInsights";
 
 import { getInteriorSummaryPrompt, interiorSummarySchema } from "../prompts/property/interiorSummary";
+import { getCommuteDestinationsPrompt, commuteDestinationsSchema, CommuteDestinationsResult } from "../prompts/property/commuteDestinations";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
 import { buildCityContextGraphContext, getCityContextGraphPrompt, cityContextGraphSchema, CityContextGraphResult } from "../prompts/property/cityContextGraphExtraction";
 import { precomputeDataFactors } from "../utils/contextGraphPrecompute";
@@ -619,6 +620,22 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
     promptFilename: "communityPulse.ts",
     extractResultJson: true,
     schema: communityPulseSchema
+  });
+};
+
+export const analyzeCommuteDestinations = async (city: string, state: string, userId: string = "unknown"): Promise<AIResponseWithUsage<CommuteDestinationsResult>> => {
+  const prompt = getCommuteDestinationsPrompt({ city, state });
+
+  console.log(`[Commute Destinations] Starting for ${city}, ${state}...`);
+
+  return executeGeminiRequest<CommuteDestinationsResult>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.5 },
+    userId,
+    promptFilename: "commuteDestinations.ts",
+    extractResultJson: true,
+    schema: commuteDestinationsSchema
   });
 };
 

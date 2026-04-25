@@ -376,7 +376,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                         <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-leaf" title="Environmental Overview"
                                 label="Sustainability & Hazard Analysis"
-                                description={`Comprehensive hazard analysis for ${data.address || 'this property'}. Covering climate risk, seismic zones, air quality, and solar potential.`}
+                                description="Climate risk, seismic zone, air quality and solar"
                                 attribution="Environmental Intelligence Unit · 2026"
                                 color="text-emerald-500" {...headerProps} />
                             <EnvironmentSectionPage data={data} solarPotential={solarPotential} onRefreshEnvironment={onRefreshEnvironment} environmentRefreshing={environmentRefreshing} />
@@ -450,6 +450,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                 lifestyleInsights={props.lifestyleInsights}
                                 visualPoi={visualPoi}
                                 mapLabels={mapLabels}
+                                cityNhEntryOverview={cityNhEntryOverview}
                             />
                         </div>
                     );

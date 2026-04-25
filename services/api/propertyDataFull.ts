@@ -12,6 +12,7 @@ import { fetchSolarData, fetchAirQuality, fetchPollenData, fetchNoiseScore, fetc
 import { fetchHistoricalDisasters } from './disasters';
 import { fetchBroadbandData } from './broadband';
 import { fetchDroughtData } from './drought';
+import { fetchCommuteDestinations } from './commute';
 import { logAPICall, updateAPICall } from '../firebase/api_logs';
 import { getPropertyGroundTruth } from '../firebase/orientation_history';
 
@@ -214,17 +215,18 @@ export const fetchPropertyDataFull = async (
             const needsBroadband = !cachedEnvData?.broadband || forceEnvironment || isCacheExpired(cachedEnvData?.broadband?.fetchedAt, TTL_BROADBAND);
             const needsDrought = !cachedEnvData?.drought || forceEnvironment || isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT);
             const needsEV = !cachedEnvData?.evChargers || forceEnvironment || isCacheExpired(cachedEnvData?.evChargers?.fetchedAt, TTL_EV);
+            const needsCommute = !cachedEnvData?.commuteDestinations || forceEnvironment || isCacheExpired(cachedEnvData?.lastUpdated, TTL_ENV);
 
-            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsEV;
+            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsEV || needsCommute;
             let streetViewDirty = false;
 
             if (envDirty) {
                 onStep?.('Fetching environmental data...');
             }
 
-            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} ev=${needsEV})`);
-            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsEV && 'ev'].filter(Boolean).join(', ') || 'all cached'})`);
-            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshEV] = await Promise.all([
+            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} ev=${needsEV} commute=${needsCommute})`);
+            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsEV && 'ev', needsCommute && 'commute'].filter(Boolean).join(', ') || 'all cached'})`);
+            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshEV, freshCommute] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
@@ -233,6 +235,7 @@ export const fetchPropertyDataFull = async (
                 needsBroadband ? fetchBroadbandData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsEV ? fetchNearbyEVChargers(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
+                needsCommute ? fetchCommuteDestinations(mappedData, auth?.currentUser?.uid || 'unknown') : Promise.resolve(null),
             ]);
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch done`);
             _mark('Environmental done');
@@ -306,6 +309,13 @@ export const fetchPropertyDataFull = async (
                 (mappedData as any).evChargers = freshEV;
             } else if (!needsEV && cachedEnvData?.evChargers) {
                 (mappedData as any).evChargers = cachedEnvData.evChargers;
+            }
+            
+            // 9. Commute Destinations
+            if (needsCommute && freshCommute) {
+                (mappedData as any).commuteDestinations = freshCommute;
+            } else if (!needsCommute && cachedEnvData?.commuteDestinations) {
+                (mappedData as any).commuteDestinations = cachedEnvData.commuteDestinations;
             }
 
             // 6. AI Street View Analysis
@@ -431,6 +441,7 @@ export const fetchPropertyDataFull = async (
                     evChargers: (mappedData as any).evChargers ?? null,
                     drought: mappedData.drought ?? null,
                     broadband: (mappedData as any).broadband ?? null,
+                    commuteDestinations: (mappedData as any).commuteDestinations ?? null,
                 };
 
                 // Generic field-level audit: only mark a field as source-null if the API
@@ -447,6 +458,7 @@ export const fetchPropertyDataFull = async (
                     evChargers:             { wasFetched: needsEV,        value: freshEV },
                     drought:                { wasFetched: needsDrought,   value: freshDrought },
                     broadband:              { wasFetched: needsBroadband, value: freshBroadband },
+                    commuteDestinations:    { wasFetched: needsCommute,   value: freshCommute },
                 };
                 for (const [key, { wasFetched, value }] of Object.entries(envFetchedFields)) {
                     if (!wasFetched) continue; // Not fetched this run → don't record opinion

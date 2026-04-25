@@ -130,11 +130,12 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
     ].filter(Boolean) as { icon: string; label: string; score: number }[];
 
     // ── Noise helpers ─────────────────────────────────────────────────────────
+    // HowLoud SoundScore: 100 is quietest, 0 is loudest.
     const noiseScore   = data.noiseScore ?? null;
     const noiseLabel   = noiseScore == null ? null
-        : noiseScore < 40 ? 'Quiet' : noiseScore < 65 ? 'Moderate' : 'Loud';
+        : noiseScore >= 85 ? 'Pristine' : noiseScore >= 70 ? 'Quiet' : noiseScore >= 50 ? 'Moderate' : 'Loud';
     const noiseColor   = noiseScore == null ? '#10b981'
-        : noiseScore < 40 ? '#10b981' : noiseScore < 65 ? '#f59e0b' : '#ef4444';
+        : noiseScore >= 70 ? '#10b981' : noiseScore >= 50 ? '#f59e0b' : '#ef4444';
 
     const noiseSubs = [
         { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
@@ -220,7 +221,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                                         {n.desc && <span style={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 600, textTransform: 'lowercase' }}>{n.desc}</span>}
                                                     </div>
                                                     <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
-                                                        <div style={{ width: `${n.score}%`, height: '100%', background: '#8b5cf6', borderRadius: 99 }} />
+                                                        <div style={{ width: `${n.score}%`, height: '100%', background: n.score >= 70 ? '#10b981' : n.score >= 50 ? '#f59e0b' : '#7c3aed', borderRadius: 99 }} />
                                                     </div>
                                                 </div>
                                             ))}

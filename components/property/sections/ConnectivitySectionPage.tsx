@@ -108,7 +108,7 @@ export const ConnectivitySectionPage: React.FC<Props> = ({ data }) => {
 
     const evStations = evChargers?.stations || [];
     const totalPorts  = evChargers?.totalPorts || evStations.reduce((a: number, s: any) => a + (s.portCount || 0), 0);
-    const closestMi   = evChargers?.closestDistanceMi || (evStations[0]?.distanceMi?.toFixed(1));
+    const closestMi   = evChargers?.closestDistanceMi ?? (evStations[0]?.distanceMi ? evStations[0].distanceMi.toFixed(1) : null);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
@@ -182,17 +182,45 @@ export const ConnectivitySectionPage: React.FC<Props> = ({ data }) => {
                         </div>
                         {evStations.length > 0 || evChargers ? (
                             <>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
-                                    <MiniStat label="Stations" value={String(evStations.length || '—')} />
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+                                    <MiniStat label="Stations" value={evChargers?.totalStations != null ? String(evChargers.totalStations) : (evStations.length > 0 ? String(evStations.length) : '—')} />
                                     <MiniStat label="Closest" value={closestMi ? `${closestMi} mi` : '—'} />
                                     <MiniStat label="Ports" value={totalPorts ? String(totalPorts) : '—'} />
                                 </div>
-                                {evStations.slice(0, 3).map((s: any, i: number) => (
-                                    <div key={i} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: i < 2 ? '1px dashed #e2e8f0' : 'none' }}>
-                                        <div style={{ fontSize: 11.5, fontWeight: 600, color: '#0f172a' }}>{s.name || 'EV Station'}</div>
-                                        <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{s.distanceMi?.toFixed(1)} mi · {s.portCount} ports</div>
+
+                                {evChargers?.networks?.length > 0 && (
+                                    <div style={{ marginBottom: 14 }}>
+                                        <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Major Networks</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                            {evChargers.networks.slice(0, 4).map((n: string) => (
+                                                <span key={n} style={{ fontSize: 10, fontWeight: 700, color: ACCENT_INK, background: `${ACCENT}15`, padding: '2px 8px', borderRadius: 6 }}>{n}</span>
+                                            ))}
+                                        </div>
                                     </div>
-                                ))}
+                                )}
+
+                                {evChargers?.connectorTypes?.length > 0 && (
+                                    <div style={{ marginBottom: 14 }}>
+                                        <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Connectors</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                            {evChargers.connectorTypes.map((c: string) => (
+                                                <span key={c} style={{ fontSize: 10, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>{c}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {evStations.length > 0 && (
+                                    <>
+                                        <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10, borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>Nearest Stations</div>
+                                        {evStations.slice(0, 3).map((s: any, i: number) => (
+                                            <div key={i} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: i < 2 ? '1px dashed #e2e8f0' : 'none' }}>
+                                                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#0f172a' }}>{s.name || 'EV Station'}</div>
+                                                <div style={{ fontSize: 10.5, color: '#64748b' }}>{s.distanceMi?.toFixed(1)} mi · {s.portCount} ports · {s.network}</div>
+                                            </div>
+                                        ))}
+                                    </>
+                                )}
                             </>
                         ) : (
                             <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>EV charger data not available for this area.</div>
@@ -202,29 +230,37 @@ export const ConnectivitySectionPage: React.FC<Props> = ({ data }) => {
             </div>
 
             {/* Section 02 — Commute Destinations */}
-            <div>
-                <SectionTitleBar num="02" kicker="Commute" title="Plan your daily drive" italicWord="drive" />
-                <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 22 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                        {[
-                            { dest: 'Downtown SF', t: '~48', c: ACCENT, ex: 'BART + walk ~1h 05m via 580/BART' },
-                            { dest: 'Livermore / LLNL', t: '~18', c: '#16a34a', ex: '~12 mi via I-580 W' },
-                            { dest: 'SJC Airport', t: '~38', c: '#d97706', ex: 'via I-680 S' },
-                            { dest: 'San Jose / SV', t: '~35', c: '#6366f1', ex: 'via 680 S to 101/280' },
-                        ].map(d => (
-                            <div key={d.dest} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, borderColor: `${d.c}25` }}>
-                                <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' as const, marginBottom: 4 }}>{d.dest}</div>
-                                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                                    <span style={{ fontFamily: serif, fontSize: 32, color: d.c, fontWeight: 400, lineHeight: 1 }}>{d.t}</span>
-                                    <span style={{ fontSize: 11, color: '#94a3b8' }}>min</span>
-                                </div>
-                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{d.ex}</div>
-                            </div>
-                        ))}
+            {(data as any).commuteDestinations && (
+                <div className="space-y-4">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <SectionTitleBar num="02" kicker="Commute" title="Plan your daily drive" italicWord="drive" />
+                        <div style={{ fontSize: 9, fontWeight: 800, color: ACCENT, textTransform: 'uppercase', letterSpacing: '0.1em', background: `${ACCENT}10`, padding: '4px 10px', borderRadius: 20, border: `1px solid ${ACCENT}20` }}>
+                            <i className="fa-solid fa-sparkles" style={{ marginRight: 5 }}></i>
+                            Researched via Gemini
+                        </div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', textAlign: 'right' as const, marginTop: 10 }}>◉ Estimated drive times via Google Maps · peak hours vary</div>
+                    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 22 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                            {(data as any).commuteDestinations.map((d: any) => (
+                                <div key={d.name} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, borderColor: `${d.color}25` }}>
+                                    <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' as const, marginBottom: 4 }}>{d.name}</div>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                                        <span style={{ fontFamily: serif, fontSize: 32, color: d.color, fontWeight: 400, lineHeight: 1 }}>{d.timeMin ? `~${d.timeMin}` : '--'}</span>
+                                        <span style={{ fontSize: 11, color: '#94a3b8' }}>min</span>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                        {d.description}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'right' as const, marginTop: 12, fontWeight: 500 }}>
+                            <i className="fa-solid fa-clock-rotate-left" style={{ marginRight: 6, fontSize: 10 }}></i>
+                            Dynamic precalculation via Google Distance Matrix · peak hour estimates
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

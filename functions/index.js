@@ -708,6 +708,143 @@ exports.proxyNoiseScore = functions.https.onRequest(async (req, res) => {
 });
 
 /**
+ * Proxy function for Google Distance Matrix API.
+ * Bypasses CORS and keeps API key server-side.
+ */
+exports.proxyDistanceMatrix = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) {
+        res.status(401).json({ status: "ERROR", error: "Unauthenticated" });
+        return;
+    }
+    try {
+        await admin.auth().verifyIdToken(idToken);
+    } catch (e) {
+        res.status(401).json({ status: "ERROR", error: "Invalid auth token" });
+        return;
+    }
+
+    const { origins, destinations } = req.body;
+    if (!origins || !destinations) {
+        res.status(400).json({ status: "ERROR", error: "Missing origins or destinations" });
+        return;
+    }
+
+    const keys = await getApiKeys();
+    const MAPS_KEY = keys.maps_key || process.env.GOOGLE_MAPS_KEY || '';
+    
+    // origins/destinations can be strings (lat,lng or address) or arrays
+    const originsStr = Array.isArray(origins) ? origins.join('|') : origins;
+    const destinationsStr = Array.isArray(destinations) ? destinations.join('|') : destinations;
+
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(originsStr)}&destinations=${encodeURIComponent(destinationsStr)}&departure_time=now&traffic_model=best_guess&key=${MAPS_KEY}`;
+
+    console.log(`[ProxyDistanceMatrix] Fetching matrix for ${originsStr} -> ${destinationsStr}`);
+
+    try {
+        const response = await fetch(url);
+        const json = await response.json();
+        res.status(200).json(json);
+    } catch (error) {
+        console.error("[ProxyDistanceMatrix] Error:", error);
+        res.status(500).json({ status: "ERROR", error: error.message });
+    }
+});
+
+/**
+ * Server-side Orchestrator for Commute Destinations.
+ * 1. Uses Gemini with Search Grounding to find top destinations for a city.
+ * 2. Uses Google Maps Distance Matrix to calculate real-time drive times.
+ * This completely removes all browser-side API calls for commute data.
+ */
+exports.getCommuteDestinations = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+    }
+
+    const { city, state, lat, lng } = data;
+    if (!city || !state || lat == null || lng == null) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing required parameters (city, state, lat, lng).");
+    }
+
+    console.log(`[getCommuteDestinations] Orchestrating for ${city}, ${state} from (${lat}, ${lng})`);
+
+    try {
+        const keys = await getApiKeys();
+        const geminiKey = keys.gemini_key || process.env.GEMINI_API_KEY || '';
+        const mapsKey = keys.maps_key || process.env.GOOGLE_MAPS_KEY || '';
+
+        // 1. Research destinations via Gemini
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            tools: [{ googleSearch: {} }]
+        });
+
+        const prompt = `You are a local transit and economic researcher.
+TASK: Identify the top 4 primary commute or high-traffic destinations for residents of ${city}, ${state}.
+CONTEXT: Potential homebuyers need to know where people in this specific city typically commute to for work, major shopping, or regional airports.
+FOR EACH DESTINATION:
+- Name: Human-readable name (e.g., "Downtown San Francisco").
+- Why: 1-sentence reason why it's a top destination.
+- search_query: A specific string to use for Google Maps Place search to get exact coordinates.
+Return valid JSON matching this structure: { "destinations": [ { "name": "...", "description": "...", "search_query": "..." } ] } with EXACTLY 4 items.`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        
+        // Simple JSON extraction
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("AI failed to return valid JSON");
+        const aiData = JSON.parse(jsonMatch[0]);
+        const destinations = aiData.destinations || [];
+
+        if (destinations.length === 0) return null;
+
+        // 2. Calculate real-time drive times via Distance Matrix
+        const origins = [`${lat},${lng}`];
+        const destStrings = destinations.map(d => d.search_query).join('|');
+        const dmUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins[0])}&destinations=${encodeURIComponent(destStrings)}&departure_time=now&traffic_model=best_guess&key=${mapsKey}`;
+        
+        const dmRes = await fetch(dmUrl);
+        const dmData = await dmRes.json();
+
+        if (dmData.status !== 'OK') {
+            console.warn(`[getCommuteDestinations] Distance Matrix status: ${dmData.status}`);
+        }
+
+        // 3. Assemble final results
+        const COLORS = ['#0ea5e9', '#16a34a', '#d97706', '#6366f1'];
+        return destinations.map((d, i) => {
+            const element = dmData.rows?.[0]?.elements?.[i];
+            const timeSec = element?.duration_in_traffic?.value || element?.duration?.value;
+            const distMeters = element?.distance?.value;
+
+            return {
+                name: d.name,
+                description: d.description,
+                timeMin: timeSec ? Math.round(timeSec / 60) : null,
+                distanceMi: distMeters ? Math.round((distMeters / 1609.34) * 10) / 10 : null,
+                color: COLORS[i % COLORS.length]
+            };
+        });
+
+    } catch (error) {
+        console.error("[getCommuteDestinations] Error:", error);
+        throw new functions.https.HttpsError("internal", error.message);
+    }
+});
+
+/**
  * Proxy function to call Census Bureau Geocoder + ACS 5-Year APIs.
  * Both APIs lack CORS headers, blocking all browser requests.
  * This function runs server-side and returns structured demographic data.
