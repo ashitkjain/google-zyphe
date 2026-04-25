@@ -761,6 +761,36 @@ exports.proxyDistanceMatrix = functions.https.onRequest(async (req, res) => {
 });
 
 /**
+ * Proxy for USGS Quaternary Faults (ArcGIS REST)
+ * Avoids CORS issues in the browser.
+ */
+exports.proxyFaults = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") return res.status(204).send("");
+
+    try {
+        const { geometry } = req.query;
+        if (!geometry) return res.status(400).send("Missing geometry");
+
+        const url = `https://services.arcgis.com/jIL9qeH9vMvXYAeY/arcgis/rest/services/Quaternary_Faults/FeatureServer/0/query` +
+            `?geometry=${encodeURIComponent(geometry)}` +
+            `&geometryType=esriGeometryEnvelope` +
+            `&spatialRel=esriSpatialRelIntersects` +
+            `&outFields=fault_name,age,slip_rate,slip_sense,dip_direction` +
+            `&returnGeometry=true` +
+            `&f=json`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
+});
+
+/**
  * Server-side Orchestrator for Commute Destinations.
  * 1. Uses Gemini with Search Grounding to find top destinations for a city.
  * 2. Uses Google Maps Distance Matrix to calculate real-time drive times.
@@ -786,7 +816,7 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
         // 1. Research destinations via Gemini
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash",
+            model: "gemini-2.5-flash-lite",
             tools: [{ googleSearch: {} }]
         });
 
