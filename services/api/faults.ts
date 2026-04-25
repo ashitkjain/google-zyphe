@@ -9,8 +9,28 @@ export interface FaultLine {
     slipSense: string;
     dipDirection: string;
     distanceMi: number;
-    geometry: { lat: number; lng: number }[]; // We'll simplify to a single line or multiple paths
+    activityStatus?: string;
+    lastActive?: string;
+    geometry: { lat: number; lng: number }[]; 
 }
+
+const mapAgeToLastActive = (age: string): string => {
+    const low = age.toLowerCase();
+    if (low.includes('holocene') || low.includes('15,000')) return '< 15,000 yrs ago';
+    if (low.includes('latest quaternary')) return '< 15,000 yrs ago';
+    if (low.includes('late quaternary') || low.includes('130,000')) return '< 130,000 yrs ago';
+    if (low.includes('middle') || low.includes('750,000')) return '< 750,000 yrs ago';
+    if (low.includes('quaternary')) return '< 2.6M yrs ago';
+    return age;
+};
+
+const getActivityStatus = (slipRate: string, age: string): string => {
+    const s = slipRate.toLowerCase();
+    const a = age.toLowerCase();
+    if (s.includes('> 5') || s.includes('1-5') || s.includes('high')) return 'High Activity';
+    if (a.includes('holocene') || a.includes('15,000') || a.includes('latest')) return 'Historically Active';
+    return 'Potentially Active';
+};
 
 export interface FaultData {
     faults: FaultLine[];
@@ -74,20 +94,34 @@ export const fetchNearbyFaults = async (
                 if (d < minDist) minDist = d;
             });
 
+            const age = attrs.age || 'Unknown';
+            const slipRate = attrs.slip_rate || 'Unspecified';
+
             return {
                 id: `fault-${idx}-${attrs.fault_name || 'unknown'}`,
                 name: attrs.fault_name || 'Unnamed Fault',
-                age: attrs.age || 'Unknown',
-                slipRate: attrs.slip_rate || 'Unknown',
+                age,
+                slipRate,
                 slipSense: attrs.slip_sense || 'Unknown',
                 dipDirection: attrs.dip_direction || 'Unknown',
                 distanceMi: Math.round(minDist * 0.621371 * 10) / 10,
+                activityStatus: getActivityStatus(slipRate, age),
+                lastActive: mapAgeToLastActive(age),
                 geometry: path
             };
         });
 
-        // Sort by distance
-        faults.sort((a, b) => a.distanceMi - b.distanceMi);
+        // Deduplicate by name, keeping the nearest
+        const uniqueFaults: Record<string, FaultLine> = {};
+        faults.forEach(f => {
+            const cleanName = (f.name || 'Unnamed Fault').trim().toLowerCase();
+            if (!uniqueFaults[cleanName] || f.distanceMi < uniqueFaults[cleanName].distanceMi) {
+                uniqueFaults[cleanName] = f;
+            }
+        });
+
+        const finalFaults = Object.values(uniqueFaults);
+        finalFaults.sort((a, b) => a.distanceMi - b.distanceMi);
 
         if (logId) {
             updateAPICall(logId, {
@@ -97,7 +131,7 @@ export const fetchNearbyFaults = async (
         }
 
         return {
-            faults: faults.slice(0, 10), // Return top 10 nearest
+            faults: finalFaults.slice(0, 10), // Return top 10 nearest unique faults
             fetchedAt: Date.now()
         };
     } catch (e) {

@@ -269,19 +269,45 @@ function VastuEditorialBlock({ azimuth, dir, isGT }: { azimuth: number; dir: str
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 20 }}>
-            {/* Left: light card */}
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Left: Post-it style card */}
+            <div style={{ 
+                background: '#fff9eb', 
+                borderRadius: '2px', 
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                padding: 24, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 16,
+                transform: 'rotate(0.6deg)',
+                position: 'relative',
+                borderLeft: '12px solid rgba(245,158,11,0.3)',
+            }}>
+                {/* Tape effect */}
+                <div style={{ 
+                    position: 'absolute', 
+                    top: -10, 
+                    left: '50%', 
+                    transform: 'translateX(-50%)',
+                    width: 80, 
+                    height: 24, 
+                    background: 'rgba(255,255,255,0.4)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                    zIndex: 1,
+                    borderRadius: '1px'
+                }} />
+
                 {/* Warning badge */}
                 <div>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
-                        fontSize: 10, letterSpacing: '0.14em', fontWeight: 700,
+                        fontSize: 10, letterSpacing: '0.14em', fontWeight: 800,
                         color: warningColor, background: warningBg,
-                        padding: '4px 10px', borderRadius: 999, textTransform: 'uppercase' as const,
+                        padding: '4px 12px', borderRadius: 4, textTransform: 'uppercase' as const,
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                     }}>
-                        <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: 8 }} />
-                        {dirFullLabel} Facing Front
-                        {isGT && <i className="fa-solid fa-circle-check" style={{ fontSize: 8, marginLeft: 2 }} title="Verified orientation" />}
+                        <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: 9 }} />
+                        {dirFullLabel} Facing
+                        {isGT && <i className="fa-solid fa-circle-check" style={{ fontSize: 9, marginLeft: 2 }} title="Verified orientation" />}
                     </span>
                 </div>
 
@@ -294,8 +320,8 @@ function VastuEditorialBlock({ azimuth, dir, isGT }: { azimuth: number; dir: str
                 </h3>
 
                 {/* Statement */}
-                <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
-                    {config.statement}
+                <p style={{ fontSize: 14.5, color: '#7c2d12', lineHeight: 1.6, margin: 0, fontFamily: serif, fontStyle: 'italic' }}>
+                    "{config.statement}"
                 </p>
 
                 {/* Compass + metric cards */}

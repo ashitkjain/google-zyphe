@@ -179,12 +179,116 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
         heatScore  != null && heatScore  > 5 && { icon: 'fa-temperature-high',  title: 'Heat Mitigation',       desc: 'Cool roofing and improved insulation reduce cooling load during extreme heat events.' },
     ].filter(Boolean) as { icon: string; title: string; desc: string }[];
 
-    const sn = { climate: '01', hazard: '02', solar: '03' };
+    const sn = { environmental: '01', climate: '02', hazard: '03', solar: '04' };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
-            {/* ── Section 01 — Climate Risk ─────────────────────────────────── */}
+
+            {/* ── Section 01 — Environmental Quality ────────────────────────── */}
+            {(noiseScore != null || aqi != null || pollenCat) && (
+                <section>
+                    <SectionTitleBar num={sn.environmental} kicker="Air · Acoustic · Pollen" title="Environmental Quality" italicWord="Quality" />
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+                        {/* Noise */}
+                        {noiseScore != null && (
+                            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <i className="fa-solid fa-volume-high" style={{ fontSize: 10, color: '#7c3aed' }} />
+                                    </div>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Noise</span>
+                                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                                        <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{noiseScore}</span>
+                                        <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>/100</span>
+                                    </div>
+                                </div>
+                                <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                    <div style={{ width: `${noiseScore}%`, height: '100%', background: noiseColor, borderRadius: 99 }} />
+                                </div>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: noiseColor }}>{noiseLabel}</span>
+                                {noiseSubs.length > 0 && (
+                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {noiseSubs.map((n, i) => (
+                                            <div key={i}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                    <span style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>{n.label}</span>
+                                                    {n.desc && <span style={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 600, textTransform: 'lowercase' }}>{n.desc}</span>}
+                                                </div>
+                                                <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                                    <div style={{ width: `${n.score}%`, height: '100%', background: n.score >= 70 ? '#10b981' : n.score >= 50 ? '#f59e0b' : '#7c3aed', borderRadius: 99 }} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Air Quality */}
+                        {aqi != null && (
+                            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(14,165,233,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <i className="fa-solid fa-wind" style={{ fontSize: 10, color: '#0ea5e9' }} />
+                                    </div>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Air Quality</span>
+                                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                                        <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{aqi}</span>
+                                        <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>AQI</span>
+                                    </div>
+                                </div>
+                                <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                    <div style={{ width: `${Math.min(aqi / 200, 1) * 100}%`, height: '100%', background: aqiColor, borderRadius: 99 }} />
+                                </div>
+                                {aqiLabel && <Pill label={aqiLabel} style={{ alignSelf: 'flex-start', background: aqi <= 50 ? '#ecfdf5' : aqi <= 100 ? '#fffbeb' : '#fef2f2', color: aqiColor, border: `1px solid ${aqi <= 50 ? '#a7f3d0' : aqi <= 100 ? '#fde68a' : '#fecaca'}` }} />}
+                                {data.airQuality?.pollutants && data.airQuality.pollutants.length > 0 && (
+                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                        {data.airQuality.pollutants.slice(0, 4).map((p: any, i: number) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: 9.5, letterSpacing: '0.1em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{p.fullName}</span>
+                                                <span style={{ fontSize: 10, color: '#475569', fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
+                                                    {p.concentration?.toFixed(1)} {p.unit?.replace(/_/g, ' ')}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>Google Air Quality API</div>
+                            </div>
+                        )}
+
+                        {/* Pollen */}
+                        {pollenCat && (
+                            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(101,163,13,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <i className="fa-solid fa-seedling" style={{ fontSize: 10, color: '#65a30d' }} />
+                                    </div>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Pollen</span>
+                                    <Pill label={pollenCat} style={{ marginLeft: 'auto', background: pollenCat === 'Low' ? '#ecfdf5' : pollenCat === 'Moderate' ? '#fffbeb' : '#fef2f2', color: pollenColor, border: `1px solid ${pollenCat === 'Low' ? '#a7f3d0' : pollenCat === 'Moderate' ? '#fde68a' : '#fecaca'}` }} />
+                                </div>
+                                <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                    <div style={{ width: `${pollenPct * 100}%`, height: '100%', background: pollenColor, borderRadius: 99 }} />
+                                </div>
+                                {data.pollen?.dominantPollenType && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Dominant</span>
+                                        <Pill label={data.pollen.dominantPollenType} style={{ background: '#f7fee7', color: '#4d7c0f', border: '1px solid #d9f99d' }} />
+                                    </div>
+                                )}
+                                {data.pollen?.description && (
+                                    <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.55, margin: 0, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>{data.pollen.description}</p>
+                                )}
+                                <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>Google Pollen API</div>
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
+
+            {/* ── Section 02 — Climate Risk ─────────────────────────────────── */}
             {riskTiles.length > 0 && (
                 <section>
                     <SectionTitleBar num={sn.climate} kicker="First Street Foundation" title="Climate Risk Overview" italicWord="Risk" />
@@ -194,103 +298,26 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                         {riskTiles.map(t => <RiskTile key={t.label} icon={t.icon} label={t.label} score={t.score} />)}
                     </div>
 
-                    {/* Noise · Air Quality · Pollen — 3 cards */}
-                    {(noiseScore != null || aqi != null || pollenCat) && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-
-                            {/* Noise */}
-                            {noiseScore != null && (
-                                <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <i className="fa-solid fa-volume-high" style={{ fontSize: 10, color: '#7c3aed' }} />
+                    {/* Resilience Actions Integrated here */}
+                    {actions.length > 0 && (
+                        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: '20px 24px', marginBottom: 20 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                                <div style={{ width: 3, height: 16, background: '#4f46e5', borderRadius: 99 }} />
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions Recommended</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+                                {actions.map((a, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                                            <i className={`fa-solid ${a.icon}`} style={{ fontSize: 10, color: '#4f46e5' }} />
                                         </div>
-                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Noise</span>
-                                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                                            <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{noiseScore}</span>
-                                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>/100</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
-                                        <div style={{ width: `${noiseScore}%`, height: '100%', background: noiseColor, borderRadius: 99 }} />
-                                    </div>
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: noiseColor }}>{noiseLabel}</span>
-                                    {noiseSubs.length > 0 && (
-                                        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {noiseSubs.map((n, i) => (
-                                                <div key={i}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                        <span style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>{n.label}</span>
-                                                        {n.desc && <span style={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 600, textTransform: 'lowercase' }}>{n.desc}</span>}
-                                                    </div>
-                                                    <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
-                                                        <div style={{ width: `${n.score}%`, height: '100%', background: n.score >= 70 ? '#10b981' : n.score >= 50 ? '#f59e0b' : '#7c3aed', borderRadius: 99 }} />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Air Quality */}
-                            {aqi != null && (
-                                <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(14,165,233,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <i className="fa-solid fa-wind" style={{ fontSize: 10, color: '#0ea5e9' }} />
-                                        </div>
-                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Air Quality</span>
-                                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                                            <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{aqi}</span>
-                                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>AQI</span>
+                                        <div>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>{a.title}</div>
+                                            <p style={{ fontSize: 11.5, color: '#64748b', margin: 0, lineHeight: 1.5 }}>{a.desc}</p>
                                         </div>
                                     </div>
-                                    <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
-                                        <div style={{ width: `${Math.min(aqi / 200, 1) * 100}%`, height: '100%', background: aqiColor, borderRadius: 99 }} />
-                                    </div>
-                                    {aqiLabel && <Pill label={aqiLabel} style={{ alignSelf: 'flex-start', background: aqi <= 50 ? '#ecfdf5' : aqi <= 100 ? '#fffbeb' : '#fef2f2', color: aqiColor, border: `1px solid ${aqi <= 50 ? '#a7f3d0' : aqi <= 100 ? '#fde68a' : '#fecaca'}` }} />}
-                                    {data.airQuality?.pollutants && data.airQuality.pollutants.length > 0 && (
-                                        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                            {data.airQuality.pollutants.slice(0, 4).map((p: any, i: number) => (
-                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <span style={{ fontSize: 9.5, letterSpacing: '0.1em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{p.fullName}</span>
-                                                    <span style={{ fontSize: 10, color: '#475569', fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
-                                                        {p.concentration?.toFixed(1)} {p.unit?.replace(/_/g, ' ')}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>Google Air Quality API</div>
-                                </div>
-                            )}
-
-                            {/* Pollen */}
-                            {pollenCat && (
-                                <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(101,163,13,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <i className="fa-solid fa-seedling" style={{ fontSize: 10, color: '#65a30d' }} />
-                                        </div>
-                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Pollen</span>
-                                        <Pill label={pollenCat} style={{ marginLeft: 'auto', background: pollenCat === 'Low' ? '#ecfdf5' : pollenCat === 'Moderate' ? '#fffbeb' : '#fef2f2', color: pollenColor, border: `1px solid ${pollenCat === 'Low' ? '#a7f3d0' : pollenCat === 'Moderate' ? '#fde68a' : '#fecaca'}` }} />
-                                    </div>
-                                    <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
-                                        <div style={{ width: `${pollenPct * 100}%`, height: '100%', background: pollenColor, borderRadius: 99 }} />
-                                    </div>
-                                    {data.pollen?.dominantPollenType && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <span style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Dominant</span>
-                                            <Pill label={data.pollen.dominantPollenType} style={{ background: '#f7fee7', color: '#4d7c0f', border: '1px solid #d9f99d' }} />
-                                        </div>
-                                    )}
-                                    {data.pollen?.description && (
-                                        <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.55, margin: 0, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>{data.pollen.description}</p>
-                                    )}
-                                    <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>Google Pollen API</div>
-                                </div>
-                            )}
+                                ))}
+                            </div>
                         </div>
                     )}
                 </section>
@@ -369,24 +396,46 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                                     faults={(data as any).faults.faults} 
                                                 />
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
-                                                    {((data as any).faults.faults as FaultLine[]).map((fault, i) => (
-                                                        <div key={i} style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 12px' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>{fault.name}</div>
-                                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#ef4444' }}>{fault.distanceMi} mi</div>
-                                                            </div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                                                <div>
-                                                                    <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Slip Rate</div>
-                                                                    <div style={{ fontSize: 10, fontWeight: 600, color: '#475569' }}>{fault.slipRate}</div>
+                                                    {(() => {
+                                                        const rawFaults = ((data as any).faults.faults as FaultLine[]) || [];
+                                                        const unique: Record<string, FaultLine> = {};
+                                                        rawFaults.forEach(f => {
+                                                            const key = f.name.trim().toLowerCase();
+                                                            if (!unique[key] || f.distanceMi < unique[key].distanceMi) {
+                                                                unique[key] = f;
+                                                            }
+                                                        });
+                                                        return Object.values(unique).sort((a, b) => a.distanceMi - b.distanceMi).map((fault, i) => (
+                                                            <div key={i} style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 12px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>{fault.name}</div>
+                                                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#ef4444' }}>{fault.distanceMi} mi</div>
                                                                 </div>
-                                                                <div>
-                                                                    <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Age</div>
-                                                                    <div style={{ fontSize: 10, fontWeight: 600, color: '#475569' }}>{fault.age}</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                                        {fault.activityStatus && (
+                                                                            <Pill 
+                                                                                label={fault.activityStatus} 
+                                                                                style={{ 
+                                                                                    background: fault.activityStatus === 'High Activity' ? '#fef2f2' : fault.activityStatus === 'Historically Active' ? '#fffbeb' : '#f1f5f9', 
+                                                                                    color: fault.activityStatus === 'High Activity' ? '#ef4444' : fault.activityStatus === 'Historically Active' ? '#d97706' : '#64748b',
+                                                                                    border: 'none',
+                                                                                    fontSize: 9
+                                                                                }} 
+                                                                            />
+                                                                        )}
+                                                                        <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8' }}>{fault.lastActive}</span>
+                                                                    </div>
+                                                                    {fault.slipRate && fault.slipRate !== 'Unspecified' && (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                            <span style={{ fontSize: 8, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase' }}>Slip Rate:</span>
+                                                                            <span style={{ fontSize: 9, fontWeight: 700, color: '#64748b' }}>{fault.slipRate}</span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        ));
+                                                    })()}
                                                 </div>
                                             </div>
                                         </div>
@@ -528,28 +577,6 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                 </section>
             )}
 
-            {/* ── Resilience Actions ────────────────────────────────────────── */}
-            {actions.length > 0 && (
-                <section>
-                    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 24 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                            <div style={{ width: 4, height: 20, background: '#4f46e5', borderRadius: 99 }} />
-                            <span style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Actions Recommended</span>
-                        </div>
-                        {actions.map((a, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 0', borderBottom: i < actions.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-                                    <i className={`fa-solid ${a.icon}`} style={{ fontSize: 11, color: '#4f46e5' }} />
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{a.title}</div>
-                                    <p style={{ fontSize: 12, color: '#64748b', margin: 0, lineHeight: 1.55 }}>{a.desc}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            )}
 
             {/* ── Section 03 — Solar & Sun Arc ──────────────────────────────── */}
             {hasSolar && (

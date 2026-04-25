@@ -472,13 +472,11 @@ function extractMetadata(response: any) {
 }
 
 const MODEL_PRICING: Record<string, { input: number, output: number, cached?: number }> = {
-  // Paid Tier (Standard) Pricing per 1M tokens (for prompts <= 128k)
-  'gemini-1.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
-  'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000, cached: 0.3125 / 1000000 },
-  'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
-  'gemini-2.0-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000, cached: 0.01 / 1000000 },
   'gemini-2.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
   'gemini-2.5-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000, cached: 0.01 / 1000000 },
+  'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
+  'gemini-2.0-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000, cached: 0.01 / 1000000 },
+  'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000, cached: 0.3125 / 1000000 },
   'gemini-2.0-pro-exp': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
   'gemini-3-flash-preview': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
   'gemini-3-pro-preview': { input: 1.25 / 1000000, output: 5.00 / 1000000 },

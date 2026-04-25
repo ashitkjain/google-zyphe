@@ -22,9 +22,15 @@ const FaultMap: React.FC<FaultMapProps> = ({ lat, lng, faults }) => {
         if (!radarKey) return;
 
         try {
-            Radar.registerPlugin(createMapsPlugin());
-            Radar.initialize(radarKey);
-        } catch (e) {}
+            // @ts-ignore
+            if (typeof Radar !== 'undefined' && Radar.registerPlugin) {
+                Radar.registerPlugin(createMapsPlugin());
+                Radar.initialize(radarKey);
+                console.log("[FaultMap] Radar initialized with key:", radarKey.substring(0, 8) + "...");
+            }
+        } catch (e) {
+            console.warn("[FaultMap] Radar initialization warning:", e);
+        }
 
         // Initialize map
         // @ts-ignore
@@ -39,10 +45,18 @@ const FaultMap: React.FC<FaultMapProps> = ({ lat, lng, faults }) => {
 
         map.on('load', () => {
             // Add property marker
-            // @ts-ignore
-            Radar.ui.marker({ color: '#ef4444' })
-                .setLngLat([lng, lat])
-                .addTo(map);
+            try {
+                // @ts-ignore
+                if (Radar.ui && Radar.ui.marker) {
+                    Radar.ui.marker({ color: '#ef4444' })
+                        .setLngLat([lng, lat])
+                        .addTo(map);
+                } else {
+                    console.error("[FaultMap] Radar.ui.marker is missing. Plugin not registered correctly?");
+                }
+            } catch (markerErr) {
+                console.error("[FaultMap] Error adding marker:", markerErr);
+            }
 
             // Add fault lines
             faults.forEach((fault, i) => {
