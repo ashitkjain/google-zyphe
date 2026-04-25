@@ -412,9 +412,9 @@ export interface ComprehensiveAnalysisResult {
     };
     schools_summary?: string;
     lifestyle_fit?: {
-        working_professionals?: { verdict: string; details: string; confidence: number };
-        families_with_kids?: { verdict: string; details: string; confidence: number };
-        seniors?: { verdict: string; details: string; confidence: number };
+        working_professionals?: LifestyleFitCategory;
+        families_with_kids?: LifestyleFitCategory;
+        seniors?: LifestyleFitCategory;
     };
 }
 

@@ -21,11 +21,12 @@ import {
     getLifestyleFitFromCloud,
     getSchoolAnalysisFromCloud,
     saveLifestyleInsightsToCloud,
+    saveLifestyleFitToCloud,
 } from '../../../services/firebase/properties';
 import { getPropertyGroundTruth } from '../../../services/firebase/orientation_history';
 import { getSchoolCacheKey } from '../../../prompts/property/schoolsAnalysis';
 import { fetchCensusDemographics, fetchMicroclimateDelta, CensusDemographics, MicroclimateDelta } from '../../../services/api/environmental';
-import { extractDeepResearchInsights, analyzeLifestyleInsights, analyzeSchool } from '../../../services/geminiService';
+import { extractDeepResearchInsights, analyzeLifestyleInsights, analyzeLifestyleFit, analyzeSchool } from '../../../services/geminiService';
 import { generateCityStateKey } from '../../../services/firebase/config';
 
 type InternalTab = 'property-data' | 'visual-ai' | 'comprehensive';
@@ -148,11 +149,25 @@ export function useExploreTabData({
         if (!propertyData || lifestyleLoading) return;
         setLifestyleLoading(true);
         try {
-            const { data } = await analyzeLifestyleInsights(propertyData, auth?.currentUser?.uid || 'unknown');
-            setLifestyleInsights(data);
-            if (propertyData.zpid) await saveLifestyleInsightsToCloud(propertyData.zpid, data);
+            const uid = auth?.currentUser?.uid || 'unknown';
+            // 1. Lifestyle Insights (Neighborhood/Location focus)
+            const insightsRes = await analyzeLifestyleInsights(propertyData, uid);
+            setLifestyleInsights(insightsRes.data);
+            if (propertyData.zpid) await saveLifestyleInsightsToCloud(propertyData.zpid, insightsRes.data);
+
+            // 2. Lifestyle Fit (Property specifics focus)
+            const fitRes = await analyzeLifestyleFit(
+                propertyData,
+                customAnalysis, // pass current visual analysis if any
+                (propertyData as any).streetViewAnalysis, // pass street view if any
+                uid
+            );
+            if (fitRes.data) {
+                setLifestyleFit(fitRes.data);
+                if (propertyData.zpid) await saveLifestyleFitToCloud(propertyData.zpid, fitRes.data);
+            }
         } catch (e: any) {
-            console.error('[Lifestyle Insights] Failed:', e.message);
+            console.error('[Lifestyle Generation] Failed:', e.message);
         }
         setLifestyleLoading(false);
     };

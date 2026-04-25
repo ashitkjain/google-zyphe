@@ -505,11 +505,12 @@ interface LifestyleSchoolsVastuSectionProps {
 }
 
 export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSectionProps> = ({
-    data,
     lifestyleFit,
+    lifestyleInsights,
     lifestyleLoading,
     lifestyleFitTab,
     setLifestyleFitTab,
+    handleGenerateLifestyle,
     schoolsIntelligence,
     selectedSchool,
     setSelectedSchool,
@@ -672,9 +673,33 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                         )}
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                        <i className={`fa-solid fa-people-arrows text-3xl text-slate-200 mb-3`} />
-                        <p className="text-[13px] font-bold text-slate-400">No lifestyle analysis available for {activePersona.label.toLowerCase()}</p>
+                    <div className="flex flex-col items-center justify-center py-14 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 gap-6">
+                        <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                            <i className={`fa-solid fa-people-arrows text-2xl text-indigo-300`} />
+                        </div>
+                        <div>
+                            <p className="text-slate-800 font-black text-lg tracking-tight">Intelligence Missing</p>
+                            <p className="text-slate-400 text-sm mt-1 max-w-xs mx-auto">
+                                No lifestyle analysis available for {activePersona.label.toLowerCase()}.
+                            </p>
+                        </div>
+                        <button 
+                            onClick={handleGenerateLifestyle}
+                            disabled={lifestyleLoading}
+                            className="px-6 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50"
+                        >
+                            {lifestyleLoading ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Analyzing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fa-solid fa-wand-magic-sparkles" />
+                                    <span>Generate Fit Analysis</span>
+                                </>
+                            )}
+                        </button>
                     </div>
                 )}
             </div>
