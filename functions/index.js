@@ -774,10 +774,12 @@ exports.proxyFaults = functions.https.onRequest(async (req, res) => {
         const { geometry } = req.query;
         if (!geometry) return res.status(400).send("Missing geometry");
 
-        const url = `https://services.arcgis.com/jIL9qeH9vMvXYAeY/arcgis/rest/services/Quaternary_Faults/FeatureServer/0/query` +
+        const url = `https://earthquake.usgs.gov/arcgis/rest/services/haz/Qfaults/MapServer/21/query` +
             `?geometry=${encodeURIComponent(geometry)}` +
             `&geometryType=esriGeometryEnvelope` +
             `&spatialRel=esriSpatialRelIntersects` +
+            `&inSR=4326` +
+            `&outSR=4326` +
             `&outFields=fault_name,age,slip_rate,slip_sense,dip_direction` +
             `&returnGeometry=true` +
             `&f=json`;

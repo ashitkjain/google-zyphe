@@ -38,8 +38,8 @@ export const fetchNearbyFaults = async (
     });
 
     try {
-        // Query within approx 20 miles (0.3 degrees)
-        const buffer = 0.3;
+        // Query within approx 35 miles (0.5 degrees)
+        const buffer = 0.5;
         const geometry = JSON.stringify({
             xmin: lng - buffer,
             ymin: lat - buffer,
