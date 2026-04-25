@@ -587,10 +587,6 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                         <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Data Sources</div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginTop: 3 }}>First Street · FEMA · USGS · Drought Monitor</div>
                     </div>
-                    <div>
-                        <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Confidence</div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginTop: 3 }}>Verified</div>
-                    </div>
                 </div>
                 <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Zyphe Property Intelligence</div>
             </div>
