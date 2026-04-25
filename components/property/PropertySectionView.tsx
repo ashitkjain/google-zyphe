@@ -375,9 +375,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     return (
                         <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-leaf" title="Environmental Overview"
-                                label="Sustainability & Hazard Analysis"
                                 description="Climate risk, seismic zone, air quality and solar"
-                                attribution="Environmental Intelligence Unit · 2026"
                                 color="text-emerald-500" {...headerProps} />
                             <EnvironmentSectionPage data={data} solarPotential={solarPotential} onRefreshEnvironment={onRefreshEnvironment} environmentRefreshing={environmentRefreshing} />
                         </div>
