@@ -40,7 +40,7 @@ const FaultMap: React.FC<FaultMapProps> = ({ lat, lng, faults }) => {
         map.on('load', () => {
             // Add property marker
             // @ts-ignore
-            new Radar.ui.marker({ color: '#ef4444' })
+            Radar.ui.marker({ color: '#ef4444' })
                 .setLngLat([lng, lat])
                 .addTo(map);
 
