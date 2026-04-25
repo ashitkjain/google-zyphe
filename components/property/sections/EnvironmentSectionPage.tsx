@@ -7,6 +7,8 @@ import React from 'react';
 import { PropertyData } from '../../../types';
 import { calculateSolarPotential } from '../../../utils/solarCalculations';
 import SeasonalSunCard from '../SeasonalSunCard';
+import FaultMap from './FaultMap';
+import { FaultLine } from '../../../services/api/faults';
 
 interface Props {
     data: PropertyData;
@@ -350,6 +352,42 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                             <div>
                                                 <div style={{ fontSize: 12, fontWeight: 700, color: '#3730a3' }}>Seismic Reinforcement Recommended</div>
                                                 <p style={{ fontSize: 11, color: '#4f46e5', margin: '3px 0 0', lineHeight: 1.5 }}>Category {seismic.designCategory}: Structural bolting and soft-story retrofits are strongly advised.</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Fault Map & List */}
+                                    {((data as any).faults?.faults || []).length > 0 && (
+                                        <div style={{ marginTop: 20 }}>
+                                            <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 12 }}>
+                                                Nearby Geological Faults
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
+                                                <FaultMap 
+                                                    lat={data.coordinates.latitude} 
+                                                    lng={data.coordinates.longitude} 
+                                                    faults={(data as any).faults.faults} 
+                                                />
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
+                                                    {((data as any).faults.faults as FaultLine[]).map((fault, i) => (
+                                                        <div key={i} style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 12px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>{fault.name}</div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#ef4444' }}>{fault.distanceMi} mi</div>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                                                <div>
+                                                                    <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Slip Rate</div>
+                                                                    <div style={{ fontSize: 10, fontWeight: 600, color: '#475569' }}>{fault.slipRate}</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Age</div>
+                                                                    <div style={{ fontSize: 10, fontWeight: 600, color: '#475569' }}>{fault.age}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
