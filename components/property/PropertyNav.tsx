@@ -165,24 +165,11 @@ const PropertyNav: React.FC<PropertyNavProps> = ({
     };
 
     return (
-        <nav className="hidden xl:flex flex-col w-[240px] flex-shrink-0 sticky top-4 h-[calc(100vh-2rem)] z-50 select-none ml-0 rounded-2xl overflow-hidden"
+        <nav className="hidden xl:flex flex-col w-[240px] flex-shrink-0 sticky top-4 z-50 select-none ml-0 rounded-2xl"
             style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 4px 0 rgba(99,102,241,0.06), 0 0 0 1px rgba(99,102,241,0.04)' }}>
 
-            {/* ── Brand ────────────────────────────────────────── */}
-            <div className="px-5 pt-6 pb-5">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
-                        <i className="fa-solid fa-cube text-white text-[12px]" />
-                    </div>
-                    <div>
-                        <div className="text-[15px] font-black text-slate-900 leading-none tracking-tight">Zyphe</div>
-                        <div className="text-[11px] font-bold text-slate-400 mt-0.5 uppercase tracking-[0.14em]">Property Intelligence</div>
-                    </div>
-                </div>
-            </div>
-
             {/* ── Nav items ────────────────────────────────────── */}
-            <div className="flex-1 overflow-y-auto px-2 pb-4">
+            <div className="flex-1 px-2 pb-4 pt-4">
                 {sections.map(section => {
                     const visibleSubs = section.subItems.filter(s => s.visible !== false);
                     if (visibleSubs.length === 0) return null;
