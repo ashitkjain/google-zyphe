@@ -358,6 +358,7 @@ export interface CustomAIAnalysisResult {
     room_highlights: Array<{
         room_name: string;
         floor: string;
+        image_id: string;
         description: string;
         potential_improvements: string;
     }>;
@@ -372,6 +373,12 @@ export interface CustomAIAnalysisResult {
             privacy: string;
         };
         neighborhood_street_insights?: string;
+        outdoor_highlights: Array<{
+            label: string;
+            image_id: string;
+            description?: string;
+        }>;
+        objective_tags: string[];
     };
     neighborhood?: NeighborhoodAnalysis;
     community_pulse?: CommunityPulseResult;

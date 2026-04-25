@@ -144,6 +144,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
             'interests': 'property-section-top',
             'whats-nearby': 'property-section-top',
             'community-pulse': 'property-section-top',
+            'summary': 'property-section-top',
             'city-neighborhoods': 'property-section-top',
             'economics': 'property-section-top',
             'investment-research': 'property-section-top',
@@ -392,7 +393,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             subId={activeNavSub}
                                             propertyData={propertyData}
                                             customAnalysis={customAnalysis}
-                                            comprehensiveAnalysis={comprehensiveAnalysis}
+                                            comprehensiveAnalysis={analysis}
                                             communityPulse={communityPulse}
                                             ltrAnalysis={ltrAnalysis}
                                             renderPalette={renderPalette}

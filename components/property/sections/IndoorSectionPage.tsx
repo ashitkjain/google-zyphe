@@ -303,111 +303,68 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
                     )}
                 </div>
 
-                {/* Photo grid - Mosaic of top 5 photos */}
+                {/* Photo grid - Mosaic of top 3 photos */}
                 {(() => {
-                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_photos || [];
+                    const roomHighlights = customAnalysis?.room_highlights || [];
                     const imageAnalysis = customAnalysis?.image_by_image_analysis || [];
                     
-                    // 1. Try to find the first 5 internal spaces from image-by-image analysis
-                    // We look for keywords in the analysis text and map them to the corresponding image.
-                    const internalKeywords = [
-                        'entryway', 'foyer', 'hallway', 'living room', 'livingroom', 'great room', 
-                        'family room', 'kitchen', 'dining', 'bedroom', 'bathroom', 'office', 'den', 'laundry'
-                    ];
+                    let items: Array<{ url: string; label: string }> = [];
+                    const used = new Set<number>();
 
-                    let topImages: Array<{ url: string; label: string }> = [];
-                    const usedIndices = new Set<number>();
+                    // 1. Priority: Use image_id explicitly mapped in room_highlights
+                    for (const room of roomHighlights) {
+                        const imgId = room.image_id || '';
+                        const idx = parseInt(imgId.match(/\d+/)?.[0] || '-1');
+                        const url = data.images?.[idx];
+                        if (url && !used.has(idx)) {
+                            items.push({ url: url as string, label: room.room_name });
+                            used.add(idx);
+                            if (items.length >= 3) break;
+                        }
+                    }
 
-                    // Process image analysis in order (they are likely already sorted by index)
-                    imageAnalysis.forEach((entry) => {
-                        if (topImages.length >= 5) return;
-                        
-                        const analysisText = entry.analysis.toLowerCase();
-                        const imageId = entry.image_id;
-                        // Extract index from imageId (e.g., "img_5.jpg" -> 5)
-                        const match = imageId.match(/img_(\d+)/);
-                        const idx = match ? parseInt(match[1]) : -1;
-                        if (idx === -1 || usedIndices.has(idx)) return;
-
-                        // Check if this image analysis contains any of our target keywords
-                        for (const kw of internalKeywords) {
-                            if (analysisText.includes(kw)) {
-                                // Try to extract a clean label (e.g., "Living Room")
-                                let label = kw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                                if (kw === 'livingroom') label = 'Living Room';
-                                
-                                const url = data.images?.[idx];
-                                if (url) {
-                                    topImages.push({
-                                        url: url as string,
-                                        label: label
-                                    });
-                                    usedIndices.add(idx);
-                                    break; // Found a keyword for this image
-                                }
+                    // 2. Fallback: Sniff image_by_image_analysis (for backwards compatibility/missing data)
+                    if (items.length < 3) {
+                        const internalKeywords = ['living', 'kitchen', 'bedroom', 'bath', 'dining', 'foyer', 'entry'];
+                        for (const entry of imageAnalysis) {
+                            const idx = parseInt(entry.image_id.match(/\d+/)?.[0] || '-1');
+                            const url = data.images?.[idx];
+                            if (url && !used.has(idx) && internalKeywords.some(k => entry.analysis.toLowerCase().includes(k))) {
+                                items.push({ url: url as string, label: '' }); // No label for fallback
+                                used.add(idx);
+                                if (items.length >= 3) break;
                             }
                         }
-                    });
+                    }
 
-                    // 2. Fallback to AI top_photos if we don't have 5 yet
-                    if (topImages.length < 5) {
-                        topPhotoData.forEach(p => {
-                            if (topImages.length >= 5) return;
-                            if (usedIndices.has(p.image_index)) return;
-                            
-                            const url = data.images?.[p.image_index];
-                            if (url) {
-                                topImages.push({
-                                    url: url as string,
-                                    label: p.label || 'AI Choice'
-                                });
-                                usedIndices.add(p.image_index);
+                    // 3. Last resort: Skip first 3 and take next
+                    if (items.length < 3) {
+                        for (let i = 3; i < (data.images?.length || 0); i++) {
+                            const url = data.images?.[i];
+                            if (url && !used.has(i)) {
+                                items.push({ url: url as string, label: '' }); // No label for fallback
+                                used.add(i);
+                                if (items.length >= 3) break;
                             }
-                        });
+                        }
                     }
-
-                    // 3. Ultimate fallback to first available images
-                    if (topImages.length < 5) {
-                        (data.images || []).forEach((url, idx) => {
-                            if (topImages.length >= 5) return;
-                            if (usedIndices.has(idx)) return;
-                            if (!url) return;
-                            
-                            topImages.push({
-                                url: url as string,
-                                label: `Photo ${idx + 1}`
-                            });
-                            usedIndices.add(idx);
-                        });
-                    }
-
-                    const items = topImages.slice(0, 3);
 
                     return (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                            {items.map((img, i) => {
-                                // First image is a hero spanning both columns
-                                const isHero = i === 0;
-                                return (
-                                    <div key={i} style={{ 
-                                        borderRadius: 12, 
-                                        overflow: 'hidden', 
-                                        height: isHero ? 320 : 220, 
-                                        position: 'relative',
-                                        gridColumn: isHero ? '1 / span 2' : 'auto',
-                                        background: '#f8fafc',
-                                        border: '1px solid #e2e8f0',
-                                        cursor: 'zoom-in'
-                                    }}
-                                    onClick={() => setSelectedImage({ url: img.url, label: img.label })}
-                                    >
-                                        <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                            {items.map((img, i) => (
+                                <div key={i} style={{ 
+                                    borderRadius: 12, overflow: 'hidden', height: i === 0 ? 320 : 220, 
+                                    position: 'relative', gridColumn: i === 0 ? '1 / span 2' : 'auto',
+                                    background: '#f8fafc', border: '1px solid #e2e8f0', cursor: 'zoom-in'
+                                }} onClick={() => setSelectedImage({ url: img.url, label: img.label })}>
+                                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    {img.label && (
+                                        <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
                                             {img.label}
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     );
                 })()}
@@ -455,23 +412,37 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
                 <div>
                     <SectionTitleBar num={nextSec()} kicker="Room by Room" title={`${roomHighlights.length} spaces explored`} italicWord="spaces" />
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-                        {roomHighlights.map((room, i) => (
-                            <div key={i} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                                    <div style={{ fontFamily: serif, fontSize: 18, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>{room.room_name}</div>
-                                    {room.floor && (
-                                        <span style={{ fontFamily: mono, fontSize: 9.5, color: '#94a3b8', fontWeight: 700, background: '#f8fafc', border: '1px solid #e2e8f0', padding: '2px 7px', borderRadius: 4, flexShrink: 0, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>{room.floor}</span>
+                        {roomHighlights.map((room, i) => {
+                            const imgId = room.image_id || '';
+                            const idx = parseInt(imgId.match(/\d+/)?.[0] || '-1');
+                            const url = data.images?.[idx];
+
+                            return (
+                                <div key={i} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 18, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
+                                    {url && (
+                                        <div
+                                            style={{ width: 'calc(100% + 36px)', margin: '-18px -18px 18px -18px', height: 160, overflow: 'hidden', cursor: 'zoom-in', background: '#f8fafc' }}
+                                            onClick={() => setSelectedImage({ url, label: room.room_name })}
+                                        >
+                                            <img src={url} alt={room.room_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                                        <div style={{ fontFamily: serif, fontSize: 18, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>{room.room_name}</div>
+                                        {room.floor && (
+                                            <span style={{ fontFamily: mono, fontSize: 9.5, color: '#94a3b8', fontWeight: 700, background: '#f8fafc', border: '1px solid #e2e8f0', padding: '2px 7px', borderRadius: 4, flexShrink: 0, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>{room.floor}</span>
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: 12.5, color: '#64748b', lineHeight: 1.6, margin: 0, textWrap: 'pretty' as any }}>{room.description}</p>
+                                    {room.potential_improvements && (
+                                        <div style={{ paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
+                                            <div style={{ fontSize: 9.5, letterSpacing: '0.12em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, marginBottom: 4 }}>Potential</div>
+                                            <p style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.5, margin: 0 }}>{room.potential_improvements}</p>
+                                        </div>
                                     )}
                                 </div>
-                                <p style={{ fontSize: 12.5, color: '#64748b', lineHeight: 1.6, margin: 0, textWrap: 'pretty' as any }}>{room.description}</p>
-                                {room.potential_improvements && (
-                                    <div style={{ paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
-                                        <div style={{ fontSize: 9.5, letterSpacing: '0.12em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, marginBottom: 4 }}>Potential</div>
-                                        <p style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.5, margin: 0 }}>{room.potential_improvements}</p>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}
@@ -517,7 +488,7 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
 
             {/* ── Image Modal ── */}
             {selectedImage && (
-                <div 
+                <div
                     style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'grid', placeItems: 'center', padding: 40 }}
                     onClick={() => setSelectedImage(null)}
                 >
@@ -526,7 +497,7 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
                         <div style={{ marginTop: 20, textAlign: 'center' }}>
                             <h3 style={{ fontFamily: serif, fontSize: 28, color: '#fff', margin: 0 }}>{selectedImage.label}</h3>
                         </div>
-                        <button 
+                        <button
                             onClick={() => setSelectedImage(null)}
                             style={{ position: 'absolute', top: -50, right: 0, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', fontFamily: mono }}
                         >

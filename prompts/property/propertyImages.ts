@@ -48,6 +48,7 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
     {
       "room_name": "[e.g., Kitchen, Master Bedroom, Living Room]",
       "floor": "[e.g., Ground Floor]",
+      "image_id": "The [TOKEN: filename] of the best representative image for this room (e.g., 'img_5.jpg').",
       "description": "Brief description of the room's standout features and unique selling points.",
       "potential_improvements": "Suggestions for potential improvements or alternative uses for the space."
     }
@@ -61,7 +62,17 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
     "views_privacy_orientation": {
       "views": "Description of any scenic views.",
       "privacy": "Degree of privacy from neighbors and the street."
-    }
+    },
+    "objective_tags": [
+      "[e.g., Resort Pool, Gated Community, Panoramic Views, Professional Landscaping]"
+    ],
+    "outdoor_highlights": [
+      {
+        "label": "[e.g., Front Facade, Resort Pool, Panoramic View, Manicured Gardens]",
+        "image_id": "The [TOKEN: filename] of the best image for this feature.",
+        "description": "Brief description of this specific outdoor feature."
+      }
+    ]
   }
 }
 
@@ -236,10 +247,11 @@ export const propertyImagesSchema = {
         properties: {
           room_name: { type: Type.STRING, description: "Specific room name, e.g. 'Primary Bedroom', 'Bathroom 2', 'Kitchen', 'Laundry Room'" },
           floor: { type: Type.STRING },
+          image_id: { type: Type.STRING, description: "The [TOKEN: filename] of the primary image for this room." },
           description: { type: Type.STRING, description: "2-4 sentences on standout features, finishes, and selling points. Synthesize all available images of this space." },
           potential_improvements: { type: Type.STRING, description: "Suggestions for enhancements or alternative uses." }
         },
-        required: ["room_name", "description"]
+        required: ["room_name", "description", "image_id"]
       }
     },
     exterior_and_neighborhood: {
@@ -265,9 +277,27 @@ export const propertyImagesSchema = {
         neighborhood_street_insights: {
           type: Type.STRING,
           description: "Narrative on street condition, safety, upkeep of nearby homes, and proximity to visible amenities/noise."
+        },
+        outdoor_highlights: {
+          type: Type.ARRAY,
+          description: "3-5 key outdoor/landscape features paired with their best image ID.",
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              label: { type: Type.STRING, description: "Descriptive label, e.g. 'Pool Oasis', 'Street Appeal'" },
+              image_id: { type: Type.STRING, description: "The [TOKEN: filename] for this feature." },
+              description: { type: Type.STRING }
+            },
+            required: ["label", "image_id"]
+          }
+        },
+        objective_tags: {
+          type: Type.ARRAY,
+          description: "4-6 objective chips/tags for the exterior and neighborhood, e.g. 'Mature Trees', 'Corner Lot', 'Quiet Cul-de-sac'",
+          items: { type: Type.STRING }
         }
       },
-      required: ["exterior_and_lot_appeal", "views_privacy_orientation", "neighborhood_street_insights"]
+      required: ["exterior_and_lot_appeal", "views_privacy_orientation", "neighborhood_street_insights", "outdoor_highlights", "objective_tags"]
     },
     image_quality_analysis: {
       type: Type.OBJECT,

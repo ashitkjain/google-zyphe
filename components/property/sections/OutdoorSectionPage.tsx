@@ -107,6 +107,7 @@ function ParcelStat({ icon, label, value, sub, badge }: {
 export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) => {
     const [selectedImage, setSelectedImage] = useState<{ url: string; label: string } | null>(null);
     const ext = customAnalysis?.exterior_and_neighborhood;
+    const outdoorHighlights = ext?.outdoor_highlights || [];
     const lotFeaturesRaw = data.resoFacts?.lotFeatures;
     const lotFeatures = Array.isArray(lotFeaturesRaw) ? lotFeaturesRaw.join(', ') : (lotFeaturesRaw || '');
     const fencingRaw = data.resoFacts?.fencing;
@@ -283,123 +284,81 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
                     <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.65, margin: 0, textWrap: 'pretty' as any }}>
                         {ext?.views_privacy_orientation?.views} {ext?.views_privacy_orientation?.privacy}
                     </p>
+
+                    {/* Objective tags as chips */}
+                    {(() => {
+                        const tags = ext?.objective_tags || ext?.outdoor_highlights?.map(h => h.label) || [];
+                        if (tags.length === 0) return null;
+                        return (
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 16 }}>
+                                {tags.map(tag => (
+                                    <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', background: `${ACCENT}10`, color: ACCENT, padding: '2px 8px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, border: `1px solid ${ACCENT}25` }}>
+                                        {tag.replace(/-/g, ' ')}
+                                    </span>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </div>
 
-                {/* Photo grid - Mosaic of top 5 exterior photos */}
+                {/* Photo grid - Mosaic of top 3 exterior photos */}
                 {(() => {
-                    const analysisList = customAnalysis?.image_by_image_analysis || [];
-                    const topPhotos = customAnalysis?.image_quality_analysis?.top_photos || [];
+                    const outdoorHighlights = customAnalysis?.exterior_and_neighborhood?.outdoor_highlights || [];
+                    const imageAnalysis = customAnalysis?.image_by_image_analysis || [];
                     
-                    const outdoorKeywords = [
-                        'aerial', 'drone', 'exterior', 'outdoor', 'backyard', 'front yard', 'frontyard', 
-                        'pool', 'patio', 'deck', 'landscape', 'garden', 'driveway'
-                    ];
+                    let items: Array<{ url: string; label: string }> = [];
+                    const used = new Set<number>();
 
-                    let topImages: Array<{ url: string; label: string }> = [];
-                    const usedIndices = new Set<number>();
+                    // 1. Priority: AI-mapped outdoor highlights
+                    for (const highlight of outdoorHighlights) {
+                        const idx = parseInt(highlight.image_id.match(/\d+/)?.[0] || '-1');
+                        const url = data.images?.[idx];
+                        if (url && !used.has(idx)) {
+                            items.push({ url: url as string, label: highlight.label });
+                            used.add(idx);
+                            if (items.length >= 3) break;
+                        }
+                    }
 
-                    // 1. Try to find photos explicitly labeled as exterior in top_photos
-                    topPhotos.forEach(p => {
-                        if (topImages.length >= 5) return;
-                        const lbl = p.label.toLowerCase();
-                        const isOutdoor = outdoorKeywords.some(kw => lbl.includes(kw));
-                        
-                        if (isOutdoor) {
-                            // Check if this image has an analysis entry that marks it as internal
-                            const analysisEntry = analysisList.find(a => a.image_id === `img_${p.image_index}.jpg`);
-                            if (analysisEntry) {
-                                const analysisText = analysisEntry.analysis.toLowerCase();
-                                const internalKeywords = [
-                                    'room', 'kitchen', 'bedroom', 'bathroom', 'living', 'dining', 
-                                    'office', 'entryway', 'foyer', 'hallway', 'interior', 'ceiling', 'floor'
-                                ];
-                                if (internalKeywords.some(kw => analysisText.includes(kw))) return;
-                            }
-
-                            const url = data.images?.[p.image_index];
-                            if (url && !usedIndices.has(p.image_index)) {
-                                topImages.push({ url: url as string, label: p.label });
-                                usedIndices.add(p.image_index);
+                    // 2. Fallback: Sniff image analysis for outdoor keywords
+                    if (items.length < 3) {
+                        const outdoorKeywords = ['exterior', 'aerial', 'drone', 'pool', 'backyard', 'garden', 'driveway'];
+                        for (const entry of imageAnalysis) {
+                            const idx = parseInt(entry.image_id.match(/\d+/)?.[0] || '-1');
+                            const url = data.images?.[idx];
+                            if (url && !used.has(idx) && outdoorKeywords.some(k => entry.analysis.toLowerCase().includes(k))) {
+                                items.push({ url: url as string, label: '' }); // No label for fallback
+                                used.add(idx);
+                                if (items.length >= 3) break;
                             }
                         }
-                    });
+                    }
 
-                    // 2. Supplement with any photos whose analysis mentions outdoor keywords
-                    analysisList.forEach((entry) => {
-                        if (topImages.length >= 5) return;
-                        
-                        const analysisText = entry.analysis.toLowerCase();
-                        const imageId = entry.image_id;
-                        const match = imageId.match(/img_(\d+)/);
-                        const idx = match ? parseInt(match[1]) : -1;
-                        if (idx === -1 || usedIndices.has(idx)) return;
-
-                        // NEW: Ignore if it looks like an internal room (likely a view from a window)
-                        const internalKeywords = [
-                            'room', 'kitchen', 'bedroom', 'bathroom', 'living', 'dining', 
-                            'office', 'entryway', 'foyer', 'hallway', 'interior', 'ceiling', 'floor'
-                        ];
-                        const isInternal = internalKeywords.some(kw => analysisText.includes(kw));
-                        if (isInternal) return;
-
-                        for (const kw of outdoorKeywords) {
-                            if (analysisText.includes(kw)) {
-                                let label = kw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                                if (kw === 'frontyard' || kw === 'front yard') label = 'Front';
-                                if (kw === 'exterior') label = 'Property Exterior';
-                                
-                                const url = data.images?.[idx];
-                                if (url) {
-                                    topImages.push({
-                                        url: url as string,
-                                        label: label
-                                    });
-                                    usedIndices.add(idx);
-                                    break;
-                                }
-                            }
-                        }
-                    });
-
-                    // 3. Fallback to first few photos (listing agents usually put exterior first)
-                    if (topImages.length < 5) {
+                    // 3. Last resort: First 3 available
+                    if (items.length < 3) {
                         (data.images || []).forEach((img, idx) => {
-                            if (topImages.length >= 5) return;
-                            if (usedIndices.has(idx)) return;
-                            if (!img) return;
-                            
-                            topImages.push({ url: img as string, label: 'Property Exterior' });
-                            usedIndices.add(idx);
+                            if (items.length >= 3 || used.has(idx) || !img) return;
+                            items.push({ url: img as string, label: '' }); // No label for fallback
+                            used.add(idx);
                         });
                     }
 
-                    const displayItems = topImages.slice(0, 3);
-
                     return (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                            {displayItems.map((item: any, i) => {
-                                const isHero = i === 0;
-                                const img = item?.url;
-                                return (
-                                    <div key={i} style={{ 
-                                        borderRadius: 12, 
-                                        overflow: 'hidden', 
-                                        height: isHero ? 320 : 220, 
-                                        position: 'relative',
-                                        gridColumn: isHero ? '1 / span 2' : 'auto',
-                                        background: '#f8fafc',
-                                        border: '1px solid #e2e8f0',
-                                        cursor: 'zoom-in'
-                                    }}
-                                    onClick={() => setSelectedImage({ url: img, label: item.label })}
-                                    >
-                                        <img src={img} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                            {items.map((item, i) => (
+                                <div key={i} style={{ 
+                                    borderRadius: 12, overflow: 'hidden', height: i === 0 ? 320 : 220, 
+                                    position: 'relative', gridColumn: i === 0 ? '1 / span 2' : 'auto',
+                                    background: '#f8fafc', border: '1px solid #e2e8f0', cursor: 'zoom-in'
+                                }} onClick={() => setSelectedImage({ url: item.url, label: item.label })}>
+                                    <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    {item.label && (
+                                        <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
                                             {item.label}
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     );
                 })()}
@@ -746,6 +705,36 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
                 </div>{/* end stats card / right col */}
                 </div>{/* end outer 2-col grid */}
             </section>
+
+            {/* ── Outdoor Highlights Cards ── */}
+            {outdoorHighlights.length > 0 && (
+                <section style={{ marginTop: 60 }}>
+                    <SectionTitleBar kicker="Outdoor Highlights" title={`${outdoorHighlights.length} focus areas`} italicWord="areas" />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                        {outdoorHighlights.map((highlight, i) => {
+                            const imgId = highlight.image_id || '';
+                            const idx = parseInt(imgId.match(/\d+/)?.[0] || '-1');
+                            const url = data.images?.[idx];
+                            return (
+                                <div key={i} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 18, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
+                                    {url && (
+                                        <div
+                                            style={{ width: 'calc(100% + 36px)', margin: '-18px -18px 18px -18px', height: 160, overflow: 'hidden', cursor: 'zoom-in', background: '#f8fafc' }}
+                                            onClick={() => setSelectedImage({ url, label: highlight.label })}
+                                        >
+                                            <img src={url} alt={highlight.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    )}
+                                    <div style={{ fontFamily: serif, fontSize: 18, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>{highlight.label}</div>
+                                    {highlight.description && (
+                                        <p style={{ fontSize: 12.5, color: '#64748b', lineHeight: 1.6, margin: 0, textWrap: 'pretty' as any }}>{highlight.description}</p>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
 
             {/* ── Expand Modals ─────────────────────────────────────────────── */}
             {isSatelliteExpanded && hasSatellite && (

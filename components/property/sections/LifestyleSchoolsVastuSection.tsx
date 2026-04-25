@@ -569,56 +569,46 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
 
     return (
         <div className="flex flex-col gap-12 w-full">
-            {/* ── Editorial hero header ─────────────────────────────────────── */}
+            {/* ── Section Header — Lifestyle Hero ────────────────────────── */}
             <div style={{
-                background: `linear-gradient(180deg, ${activePersona.softBg} 0%, transparent 100%)`,
-                borderRadius: 24, border: '1px solid #e2e8f0', padding: '16px 24px 18px',
-                transition: 'background 0.4s ease',
+                background: '#fff9eb', 
+                borderRadius: '2px', 
+                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                padding: '32px 36px', 
+                position: 'relative',
+                transform: 'rotate(-0.4deg)',
+                borderLeft: '14px solid rgba(245,158,11,0.25)',
+                marginBottom: 20
             }}>
-                {/* Label row + palette */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: '#94a3b8', fontWeight: 600 }}>
+                {/* Large Tape effect */}
+                <div style={{ 
+                    position: 'absolute', 
+                    top: -12, 
+                    left: '50%', 
+                    transform: 'translateX(-50%) rotate(1deg)',
+                    width: 120, 
+                    height: 32, 
+                    background: 'rgba(255,255,255,0.5)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                    zIndex: 1,
+                    borderRadius: '1px'
+                }} />
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: '#b45309', fontWeight: 800 }}>
                         Compatibility & Education&nbsp;·&nbsp;Lifestyle
                     </div>
-                    {/* {renderPalette && renderPalette()} */}
                 </div>
 
-                <h1 style={{ fontFamily: serif, fontSize: 36, lineHeight: 1.05, margin: '0 0 6px', fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                <h1 style={{ fontFamily: serif, fontSize: 48, lineHeight: 1, margin: '0 0 12px', fontWeight: 400, letterSpacing: '-0.03em', color: '#0f172a' }}>
                     Will this home fit{' '}
                     <em style={{ fontStyle: 'italic', color: activePersona.accent }}>your</em>
                     {' '}life?
                 </h1>
 
-                <p style={{ fontSize: 13, color: '#64748b', maxWidth: 680, lineHeight: 1.5, marginBottom: 14 }}>
-                    Personalized fit analysis cross-referenced with neighborhood lifestyle, educational intelligence, and property orientation.
+                <p style={{ fontSize: 16, color: '#7c2d12', maxWidth: 680, lineHeight: 1.6, marginBottom: 0, fontFamily: serif, fontStyle: 'italic' }}>
+                    "Personalized fit analysis cross-referenced with neighborhood lifestyle, educational intelligence, and property orientation."
                 </p>
-
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-                    {PERSONAS.map(p => {
-                        const isActive = p.id === lifestyleFitTab;
-                        const verdict = lifestyleFit?.[p.id]?.verdict;
-                        const badgeCls = verdict ? (VERDICT_BADGE[verdict] || 'bg-slate-100 text-slate-500') : 'bg-slate-100 text-slate-400';
-                        return (
-                            <button key={p.id} onClick={() => setLifestyleFitTab(p.id)}
-                                style={{
-                                    padding: '10px 16px', borderRadius: 12, cursor: 'pointer',
-                                    background: isActive ? '#fff' : 'transparent',
-                                    border: isActive ? `1px solid ${p.accent}` : '1px solid #e2e8f0',
-                                    boxShadow: isActive ? `0 0 0 3px ${p.chipActive.shadow}` : 'none',
-                                    display: 'flex', alignItems: 'center', gap: 10,
-                                    transition: 'all 0.2s ease',
-                                }}>
-                                <span style={{ width: 8, height: 8, borderRadius: 999, background: p.accent, display: 'inline-block' }} />
-                                <span style={{ fontSize: 13, fontWeight: 500, color: isActive ? '#1e293b' : '#64748b' }}>{p.label}</span>
-                                {verdict && (
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${badgeCls}`}>
-                                        {verdict}
-                                    </span>
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
             </div>
 
             {/* ── Section 01: Lifestyle Fit ─────────────────────────────────── */}
@@ -629,6 +619,35 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                     sub={`How this home reads for ${activePersona.label.toLowerCase()} — strengths, tradeoffs, and a concierge tip.`}
                     accent={activePersona.accent}
                 />
+
+                {/* Persona Switcher Tabs — Moved here */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const, marginBottom: 24 }}>
+                    {PERSONAS.map(p => {
+                        const isActive = p.id === lifestyleFitTab;
+                        const verdict = lifestyleFit?.[p.id]?.verdict;
+                        const badgeCls = verdict ? (VERDICT_BADGE[verdict] || 'bg-slate-100 text-slate-500') : 'bg-slate-100 text-slate-400';
+                        return (
+                            <button key={p.id} onClick={() => setLifestyleFitTab(p.id)}
+                                style={{
+                                    padding: '12px 20px', borderRadius: 10, cursor: 'pointer',
+                                    background: isActive ? '#fff' : '#f8fafc',
+                                    border: isActive ? `1px solid ${p.accent}` : '1px solid #e2e8f0',
+                                    boxShadow: isActive ? `0 4px 12px ${p.chipActive.shadow}` : 'none',
+                                    display: 'flex', alignItems: 'center', gap: 12,
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    transform: isActive ? 'scale(1.02) translateY(-2px)' : 'none'
+                                }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 999, background: p.accent, display: 'inline-block' }} />
+                                <span style={{ fontSize: 14, fontWeight: 700, color: isActive ? '#0f172a' : '#64748b' }}>{p.label}</span>
+                                {verdict && (
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${badgeCls}`} style={{ boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)' }}>
+                                        {verdict}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
 
                 {lifestyleLoading ? (
                     <div className="space-y-4">
