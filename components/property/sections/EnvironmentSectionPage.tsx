@@ -357,55 +357,10 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                             </div>
                         )}
 
-                        {/* Flood zone */}
-                        {floodZone ? (
-                            <>
-                                {seismic && <div style={{ height: 1, background: '#f1f5f9' }} />}
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <i className="fa-solid fa-water" style={{ fontSize: 14, color: '#3b82f6' }} />
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>FEMA Flood Zone</span>
-                                            <Pill
-                                                label={`Zone ${floodZone.zone}`}
-                                                style={
-                                                    floodZone.riskLevel === 'high'     ? { background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }
-                                                    : floodZone.riskLevel === 'moderate' ? { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }
-                                                    : { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }
-                                                }
-                                            />
-                                            {floodZone.insuranceRequired && (
-                                                <Pill label="Insurance Required" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }} />
-                                            )}
-                                        </div>
-                                        <p style={{ fontSize: 12, color: '#64748b', margin: 0, textTransform: 'capitalize' }}>{floodZone.riskLevel} flood risk</p>
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                {seismic && <div style={{ height: 1, background: '#f1f5f9' }} />}
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <i className="fa-solid fa-water" style={{ fontSize: 14, color: '#cbd5e1' }} />
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#94a3b8' }}>FEMA Flood Zone</span>
-                                            <Pill label="Minimal Risk" style={{ background: '#f8fafc', color: '#94a3b8' }} />
-                                        </div>
-                                        <p style={{ fontSize: 11, color: '#cbd5e1', margin: 0 }}>Outside of special flood hazard areas (Zone X or similar).</p>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
                         {/* Recent earthquakes */}
                         {recentQuakes.length > 0 && (
                             <>
-                                <div style={{ height: 1, background: '#f1f5f9' }} />
+                                {seismic && <div style={{ height: 1, background: '#f1f5f9' }} />}
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                                         <span style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
@@ -452,50 +407,75 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                             </>
                         )}
 
-                        {/* FEMA declarations */}
                         <div style={{ height: 1, background: '#f1f5f9' }} />
-                        <div>
-                            <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>FEMA Disaster Declarations</div>
-                            {femaEvents.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {femaEvents.slice(0, 3).map((ev, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 12px' }}>
-                                            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: 10, color: '#f59e0b' }} />
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>
-                                                <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 2, textTransform: 'lowercase' }}>{ev.date} · {ev.description}</div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '12px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
-                                    No recent major disaster declarations for this county.
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Drought */}
-                        <div style={{ height: 1, background: '#f1f5f9' }} />
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 12, background: drought?.drought_level ? '#f0fdf4' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <i className="fa-solid fa-droplet-slash" style={{ fontSize: 14, color: drought?.drought_level ? '#16a34a' : '#cbd5e1' }} />
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: 14, fontWeight: 700, color: drought?.drought_level ? '#0f172a' : '#94a3b8' }}>Drought Intensity</span>
-                                    <Pill
-                                        label={drought?.drought_level?.toUpperCase() || 'NORMAL'}
-                                        style={
-                                            !drought?.drought_level || drought.drought_level.toLowerCase() === 'none'
-                                                ? { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }
-                                                : { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }
-                                        }
+                        {/* Hazards Grid (Flood, FEMA, Drought) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                            
+                            {/* FEMA Flood Zone Box */}
+                            <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: floodZone ? '#eff6ff' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <i className="fa-solid fa-water" style={{ fontSize: 12, color: floodZone ? '#3b82f6' : '#94a3b8' }} />
+                                    </div>
+                                    <span style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>FEMA Flood</span>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                                        {floodZone ? `Zone ${floodZone.zone}` : 'Minimal Risk'}
+                                    </div>
+                                    <Pill 
+                                        label={floodZone ? `${floodZone.riskLevel} risk` : 'Inland / Low'} 
+                                        style={floodZone?.riskLevel === 'high' ? { background: '#fef2f2', color: '#dc2626' } : { background: '#ecfdf5', color: '#059669' }} 
                                     />
                                 </div>
-                                <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>{drought?.description || 'Current moisture levels are within normal historical ranges.'}</p>
+                                <p style={{ fontSize: 10, color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                                    {floodZone?.insuranceRequired ? 'Mandatory flood insurance area.' : 'Insurance typically not required for mortgage.'}
+                                </p>
+                            </div>
+
+                            {/* FEMA Disaster Declarations Box */}
+                            <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: femaEvents.length > 0 ? '#fffbeb' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: 12, color: femaEvents.length > 0 ? '#f59e0b' : '#94a3b8' }} />
+                                    </div>
+                                    <span style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>FEMA History</span>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                                        {femaEvents.length > 0 ? `${femaEvents.length} Recent Events` : 'No Recent Events'}
+                                    </div>
+                                    <Pill 
+                                        label={femaEvents.length > 0 ? 'Federal Record' : 'Clean History'} 
+                                        style={femaEvents.length > 0 ? { background: '#fffbeb', color: '#d97706' } : { background: '#ecfdf5', color: '#059669' }} 
+                                    />
+                                </div>
+                                <p style={{ fontSize: 10, color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                                    {femaEvents.length > 0 ? `Latest: ${femaEvents[0].title}` : 'No major disaster declarations for this county.'}
+                                </p>
+                            </div>
+
+                            {/* Drought Intensity Box */}
+                            <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: drought?.drought_level ? '#f0fdf4' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <i className="fa-solid fa-droplet-slash" style={{ fontSize: 12, color: drought?.drought_level ? '#16a34a' : '#94a3b8' }} />
+                                    </div>
+                                    <span style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Drought</span>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                                        {drought?.drought_level?.toUpperCase() || 'NORMAL'}
+                                    </div>
+                                    <Pill 
+                                        label={drought?.drought_level ? 'Active Monitor' : 'Stable Levels'} 
+                                        style={drought?.drought_level && drought.drought_level !== 'None' ? { background: '#fffbeb', color: '#d97706' } : { background: '#ecfdf5', color: '#059669' }} 
+                                    />
+                                </div>
+                                <p style={{ fontSize: 10, color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                                    {drought?.description || 'Current moisture levels are within normal historical ranges.'}
+                                </p>
                             </div>
                         </div>
 
