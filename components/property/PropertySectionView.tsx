@@ -409,11 +409,13 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 // ────────────────────────────────────────────────────────────────────────
                 // LOCATION
                 // ────────────────────────────────────────────────────────────────────────
-                if (sectionId === 'location') {
-                    if (subId === 'summary') return (
+                // ────────────────────────────────────────────────────────────────────────
+                // EXECUTIVE SUMMARY
+                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'executive-summary') {
+                    return (
                         <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-book-open" title="Executive Summary"
-                                description="High-density intelligence report covering market dynamics, property character, and strategic investment outlook."
                                 color="text-indigo-600" {...headerProps} />
                             
                             {props.comprehensiveLoading ? (

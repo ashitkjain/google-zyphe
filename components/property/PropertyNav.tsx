@@ -87,7 +87,6 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
             icon: 'fa-map-location-dot',
             subItems: [
                 { id: 'overview', label: 'Location Overview', icon: 'fa-map-location-dot', visible: true, isPageLink: true },
-                { id: 'summary', label: 'Executive Summary', icon: 'fa-book-open', visible: true, isPageLink: true },
                 { id: 'sep-deep-dive', label: cityName ? `ABOUT ${cityName.toUpperCase()}` : 'DEEP RESEARCH', icon: '', visible: true },
                 { id: 'community-pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder', visible: vis.hasCommunityPulse, isPageLink: true },
                 { id: 'city-neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city', visible: true, isPageLink: true },
@@ -100,6 +99,15 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
             isFlat: true,
             subItems: [
                 { id: 'intelligence', label: 'Intelligence', icon: 'fa-sack-dollar', visible: true },
+            ],
+        },
+        {
+            id: 'executive-summary',
+            label: 'Executive Summary',
+            icon: 'fa-book-open',
+            isFlat: true,
+            subItems: [
+                { id: 'summary', label: 'Executive Summary', icon: 'fa-book-open', visible: true },
             ],
         },
         {
