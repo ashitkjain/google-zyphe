@@ -249,6 +249,119 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            
+            {/* ── Exterior Hero Section — Mosaic of top 5 outdoor photos ── */}
+            <div style={{
+                background: `linear-gradient(180deg, ${ACCENT_BG}60 0%, #fff 160px)`,
+                borderRadius: 16, border: `1px solid ${ACCENT}30`, padding: 24,
+                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, alignItems: 'start',
+            }}>
+                <div>
+                    {/* Dynamic exterior tags */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' as const }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', background: `${ACCENT}18`, color: ACCENT, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>◈ Exterior Intelligence</span>
+                        {ext?.exterior_and_lot_appeal?.architecture_style && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', background: '#f8fafc', color: '#64748b', padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                                {ext.exterior_and_lot_appeal.architecture_style.split(' ').slice(0, 3).join(' ')}
+                            </span>
+                        )}
+                        {lotSqft && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', background: '#f8fafc', color: '#64748b', padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                                {Math.round(lotSqft / 43560 * 100) / 100} Acres
+                            </span>
+                        )}
+                    </div>
+
+                    <h2 style={{ fontFamily: serif, fontSize: 30, lineHeight: 1.1, margin: '0 0 14px', fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                        Outdoor &amp; <em style={{ color: ACCENT, fontStyle: 'italic' }}>curb appeal</em>
+                    </h2>
+
+                    <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.65, margin: '0 0 14px', textWrap: 'pretty' as any }}>
+                        {ext?.exterior_and_lot_appeal?.curb_appeal} {ext?.exterior_and_lot_appeal?.backyard_and_patio}
+                    </p>
+                    <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.65, margin: 0, textWrap: 'pretty' as any }}>
+                        {ext?.views_privacy_orientation?.views} {ext?.views_privacy_orientation?.privacy}
+                    </p>
+                </div>
+
+                {/* Photo grid - Mosaic of top 5 exterior photos */}
+                {(() => {
+                    const analysisList = customAnalysis?.image_by_image_analysis || [];
+                    const topPhotos = customAnalysis?.image_quality_analysis?.top_photos || [];
+                    
+                    // 1. Try to find photos explicitly labeled as exterior in top_photos
+                    const topExtFromAI = topPhotos.filter(p => {
+                        const lbl = p.label.toLowerCase();
+                        return lbl.includes('exterior') || lbl.includes('outdoor') || lbl.includes('drone') || 
+                               lbl.includes('backyard') || lbl.includes('pool') || lbl.includes('aerial') || 
+                               lbl.includes('view') || lbl.includes('patio') || lbl.includes('landscape');
+                    }).map(p => ({ url: data.images?.[p.image_index], label: p.label }));
+
+                    // 2. Supplement with any photos whose analysis mentions outdoor keywords
+                    const otherExtFromAnalysis = analysisList.filter(a => {
+                        const txt = a.analysis.toLowerCase();
+                        return txt.includes('exterior') || txt.includes('outdoor') || txt.includes('drone') || 
+                               txt.includes('backyard') || txt.includes('pool') || txt.includes('aerial');
+                    }).map(a => ({ url: a.image_id, label: 'Exterior' }));
+
+                    // 3. Collate and uniqueify
+                    let finalExtPhotos: Array<{ url: string; label: string }> = [];
+                    const seen = new Set<string>();
+                    [...topExtFromAI, ...otherExtFromAnalysis].forEach(p => {
+                        if (p.url && !seen.has(p.url)) {
+                            seen.add(p.url);
+                            finalExtPhotos.push(p as any);
+                        }
+                    });
+
+                    // 4. Fallback to first few photos if needed (listing agents usually put exterior first)
+                    if (finalExtPhotos.length < 5) {
+                        (data.images || []).slice(0, 8).forEach(img => {
+                            if (!seen.has(img) && finalExtPhotos.length < 5) {
+                                seen.add(img);
+                                finalExtPhotos.push({ url: img, label: 'Property Exterior' });
+                            }
+                        });
+                    }
+
+                    finalExtPhotos = finalExtPhotos.slice(0, 5);
+                    const items = finalExtPhotos.length > 0 ? finalExtPhotos : Array.from({ length: 5 });
+
+                    return (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                            {items.map((item: any, i) => {
+                                const isHero = i === 0;
+                                const img = item?.url;
+                                return (
+                                    <div key={i} style={{ 
+                                        borderRadius: 10, 
+                                        overflow: 'hidden', 
+                                        height: isHero ? 180 : 120, 
+                                        position: 'relative',
+                                        gridColumn: isHero ? '1 / span 2' : 'auto',
+                                        background: !img ? `repeating-linear-gradient(135deg, ${ACCENT}0a 0 6px, transparent 6px 14px), #f8fafc` : 'none',
+                                        border: !img ? '1px dashed #e2e8f0' : 'none',
+                                        display: !img ? 'flex' : 'block',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        {img ? (
+                                            <>
+                                                <img src={img} alt={`Exterior ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', color: '#fff', padding: '3px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                    {item.label}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <span style={{ fontSize: 10, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Photo {i + 1}</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                })()}
+            </div>
 
             {/* ── Section 01 — Eyes on the Street ──────────────────────────── */}
             {svUrl && <section>

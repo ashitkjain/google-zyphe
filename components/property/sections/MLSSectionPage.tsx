@@ -374,7 +374,7 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
             {/* ── Section 02 — Gallery ── */}
             {hasImages && sec.gallery && (
                 <div>
-                    <SectionTitleBar num={sec.gallery} kicker="Property Images" title="Gallery & exterior" italicWord="exterior"
+                    <SectionTitleBar num={sec.gallery} kicker="Property Images" title="Gallery" 
                         right={<span style={{ fontSize: 11, color: '#94a3b8' }}>{images.length} photos</span>} />
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '200px 200px', gap: 12 }}>
                         {/* Hero */}
@@ -403,7 +403,7 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
 
             {/* ── Detailed Specs ── */}
             <div>
-                <SectionTitleBar num={sec.specs} kicker="Detailed Specifications" title="Everything on the data sheet" italicWord="data"
+                <SectionTitleBar num={sec.specs} kicker="Detailed Specifications" title="The Data Sheet" italicWord="Data"
                     right={<span style={{ fontSize: 11, color: '#94a3b8' }}>◇ {mlsSource}</span>} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                     {structureRows.length > 0  && <SpecBlock title="Structure"          icon="⌂" rows={structureRows} />}

@@ -302,19 +302,60 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
                     )}
                 </div>
 
-                {/* Photo grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                    {(data.images || []).slice(0, 4).map((img, i) => (
-                        <div key={i} style={{ borderRadius: 10, overflow: 'hidden', height: 130, position: 'relative' }}>
-                            <img src={img} alt={`Interior ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {/* Photo grid - Mosaic of top 5 photos */}
+                {(() => {
+                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_photos || [];
+                    let topImages = topPhotoData
+                        .map(p => data.images?.[p.image_index])
+                        .filter(Boolean);
+
+                    // Fallback to first 5 images if AI top_photos missing or incomplete
+                    if (topImages.length < 5) {
+                        const existingSet = new Set(topImages);
+                        const fallbacks = (data.images || []).filter(img => !existingSet.has(img));
+                        topImages = [...topImages, ...fallbacks].slice(0, 5);
+                    }
+
+                    const hasImages = topImages.length > 0;
+                    const items = hasImages ? topImages : Array.from({ length: 5 });
+
+                    return (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                            {items.map((img, i) => {
+                                // First image is a hero spanning both columns
+                                const isHero = i === 0;
+                                return (
+                                    <div key={i} style={{ 
+                                        borderRadius: 10, 
+                                        overflow: 'hidden', 
+                                        height: isHero ? 180 : 120, 
+                                        position: 'relative',
+                                        gridColumn: isHero ? '1 / span 2' : 'auto',
+                                        background: !img ? `repeating-linear-gradient(135deg, ${ACCENT}0a 0 6px, transparent 6px 14px), #f8fafc` : 'none',
+                                        border: !img ? '1px dashed #e2e8f0' : 'none',
+                                        display: !img ? 'flex' : 'block',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        {img ? (
+                                            <>
+                                                <img src={img as string} alt={`Top Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                {/* Badge for AI Top Photos */}
+                                                {i < topPhotoData.length && (
+                                                    <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', color: '#fff', padding: '3px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                        {topPhotoData[i].label || 'AI Choice'}
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <span style={{ fontSize: 10, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Photo {i + 1}</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
-                    ))}
-                    {(data.images || []).length === 0 && Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} style={{ borderRadius: 10, height: 130, background: `repeating-linear-gradient(135deg, ${ACCENT}0a 0 6px, transparent 6px 14px), #f8fafc`, border: '1px dashed #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
-                            Photo {i + 1}
-                        </div>
-                    ))}
-                </div>
+                    );
+                })()}
             </div>
 
             {/* ── Atmosphere Dials ── */}
