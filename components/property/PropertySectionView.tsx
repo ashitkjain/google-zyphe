@@ -4,7 +4,7 @@
  * Content router for the new 5-section hierarchical nav.
  * Each (sectionId, subId) pair renders a focused, isolated view.
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../../types';
 import { DeepResearchInsights } from '../../types/ai';
 import { CensusDemographics } from '../../services/api/environmental';
@@ -75,11 +75,10 @@ interface PropertySectionViewProps {
     environmentRefreshing?: boolean;
     onRefreshCommunityPulse?: () => Promise<void>;
     userRole?: string;
+    addLog: (service: string, meta: any, content: any) => void;
     // ── CustomAIAnalysis passthrough ────────────────────────────────────────
     customAnalysisLoading?: boolean;
-    comprehensiveAnalysis: ComprehensiveAnalysisResult | null;
     comprehensiveLoading?: boolean;
-    onRunAnalysis: () => void;
     onRefreshAnalysis?: () => void;
     onFullRefresh?: () => void;
     onRunComprehensive?: (refresh: boolean) => void;
@@ -181,7 +180,7 @@ const PageHeader: React.FC<{
 export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) => {
     const {
         sectionId, subId, propertyData: data,
-        customAnalysis, comprehensiveAnalysis, communityPulse, ltrAnalysis, keyInsights,
+        customAnalysis, comprehensiveAnalysis: analysis, communityPulse, ltrAnalysis, keyInsights,
         neighborhoodOverview, visualPoi, mapLabels, designStyle, currentInteriorSummary,
         census, micro,
         lifestyleFit, lifestyleInsights, lifestyleLoading,
@@ -209,7 +208,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         onRefresh: onRefreshAnalysis ?? (() => {}),
         onFullRefresh: onFullRefresh ?? (() => {}),
         onRunComprehensive: onRunComprehensive ?? (() => {}),
-        comprehensiveResult: comprehensiveAnalysis,
+        comprehensiveResult: analysis,
         hasImages: (data.images?.length ?? 0) > 0,
         userRole,
         propertyImages: data.images,
@@ -226,18 +225,18 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
     const headerProps = { renderPalette };
 
     // Auto-fetch customAnalysis if missing when visiting the Indoor or Outdoor tab
-    React.useEffect(() => {
+    useEffect(() => {
         if ((subId === 'indoor' || subId === 'outdoor') && !customAnalysis && !customAnalysisLoading && onRunAnalysis) {
             onRunAnalysis();
         }
     }, [subId, customAnalysis, customAnalysisLoading, onRunAnalysis]);
 
     // ── Shared internal state (needed by Left/Right components) ─────────────
-    const [mlsOpen, setMlsOpen] = React.useState(true);
-    const [envOpen, setEnvOpen] = React.useState<Record<string, boolean>>({});
-    const [selectedSchool, setSelectedSchool] = React.useState(0);
-    const [isSchoolModalOpen, setIsSchoolModalOpen] = React.useState(false);
-    const [isNearbyCollapsed, setIsNearbyCollapsed] = React.useState(false);
+    const [mlsOpen, setMlsOpen] = useState(true);
+    const [envOpen, setEnvOpen] = useState<Record<string, boolean>>({});
+    const [selectedSchool, setSelectedSchool] = useState(0);
+    const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
+    const [isNearbyCollapsed, setIsNearbyCollapsed] = useState(false);
     const toggleEnv = (key: string) => setEnvOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
     // ── Derived flags ────────────────────────────────────────────────────────
@@ -253,10 +252,8 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
     const hasSchools = !!(schoolsIntelligence?.schools?.length);
     const hasPlaces = !!(data.google_places || visualPoi);
 
-    const analysis = comprehensiveAnalysis;
-
     // ── Scroll to top on section change ──────────────────────────────────────
-    React.useEffect(() => {
+    useEffect(() => {
         // Find the top of the section content
         const topEl = document.getElementById('property-section-top');
         if (topEl) {

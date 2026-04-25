@@ -554,7 +554,7 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                     <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: '#94a3b8', fontWeight: 600 }}>
                         Compatibility & Education&nbsp;·&nbsp;Lifestyle, Schools & Vastu
                     </div>
-                    {renderPalette && renderPalette()}
+                    {/* {renderPalette && renderPalette()} */}
                 </div>
 
                 <h1 style={{ fontFamily: serif, fontSize: 36, lineHeight: 1.05, margin: '0 0 6px', fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>

@@ -22,12 +22,12 @@ import {
     getSchoolAnalysisFromCloud,
     saveLifestyleInsightsToCloud,
     saveLifestyleFitToCloud,
+    saveSchoolAnalysisToCloud,
 } from '../../../services/firebase/properties';
 import { getPropertyGroundTruth } from '../../../services/firebase/orientation_history';
 import { getSchoolCacheKey } from '../../../prompts/property/schoolsAnalysis';
 import { fetchCensusDemographics, fetchMicroclimateDelta, CensusDemographics, MicroclimateDelta } from '../../../services/api/environmental';
 import { extractDeepResearchInsights, analyzeLifestyleInsights, analyzeLifestyleFit, analyzeSchool } from '../../../services/geminiService';
-import { generateCityStateKey } from '../../../services/firebase/config';
 
 type InternalTab = 'property-data' | 'visual-ai' | 'comprehensive';
 
@@ -198,8 +198,6 @@ export function useExploreTabData({
             // Always derive it from city+state — never by splitting the cache key.
             const cityStateKey = generateCityStateKey(city, state || '');
             if (!cityStateKey) return;
-
-            const { saveSchoolAnalysisToCloud } = await import('../../../services/firebase/properties');
 
             try {
                 const results: any[] = [];
