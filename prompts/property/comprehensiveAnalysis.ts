@@ -75,7 +75,7 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
     },
     "schools_summary": "3-5 sentence summary of the nearby schools landscape. Mention the school district, key assigned schools and their ratings, whether this is a desirable zone, and any standout positives or concerns. Use the provided Schools Intelligence Data if available. Use **bold** for school names and ratings."
   }
-  \`;
+  `;
 };
 
 export const comprehensiveAnalysisSchema = {

@@ -21,11 +21,16 @@ import CommuteCalculator from './CommuteCalculator';
 import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
 import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import { EnvironmentSectionPage } from './sections/EnvironmentSectionPage';
-import { RoomsSectionPage } from './sections/RoomsSectionPage';
+
 import { CommunityPulseSectionPage } from './sections/CommunityPulseSectionPage';
 import { CityNeighborhoodsView } from '../analysis/custom-ai/components/CityNeighborhoodsView';
 import { DeepInvestmentView } from '../analysis/custom-ai/components/DeepInvestmentView';
 import { LifestyleSchoolsVastuSection } from './sections/LifestyleSchoolsVastuSection';
+import { MLSSectionPage } from './sections/MLSSectionPage';
+import { IndoorSectionPage } from './sections/IndoorSectionPage';
+import { OutdoorSectionPage } from './sections/OutdoorSectionPage';
+import { ConnectivitySectionPage } from './sections/ConnectivitySectionPage';
+import { LocationOverviewSectionPage } from './sections/LocationOverviewSectionPage';
 
 // ─────────────────────────────────────────────────────────────
 // Props
@@ -87,8 +92,28 @@ interface PropertySectionViewProps {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Section page header
+// Section page header — editorial serif design
 // ─────────────────────────────────────────────────────────────
+
+const TAILWIND_TO_HEX: Record<string, string> = {
+    'text-slate-500':    '#64748b',
+    'text-slate-600':    '#475569',
+    'text-violet-500':   '#8b5cf6',
+    'text-violet-600':   '#7c3aed',
+    'text-indigo-500':   '#6366f1',
+    'text-indigo-600':   '#4f46e5',
+    'text-amber-500':    '#f59e0b',
+    'text-amber-600':    '#d97706',
+    'text-emerald-500':  '#10b981',
+    'text-emerald-600':  '#059669',
+    'text-blue-500':     '#3b82f6',
+    'text-blue-600':     '#2563eb',
+    'text-rose-500':     '#f43f5e',
+    'text-teal-500':     '#14b8a6',
+    'text-teal-600':     '#0d9488',
+};
+
+const _serif = "'Instrument Serif', Georgia, serif";
 
 const PageHeader: React.FC<{
     icon: string;
@@ -101,37 +126,56 @@ const PageHeader: React.FC<{
     renderPalette?: () => React.ReactNode;
 }> = ({
     icon, label, title, description, subtitle, color = 'text-indigo-500', attribution, renderPalette,
-}) => (
-    <div className="bg-white rounded-3xl border border-slate-200/60 p-8 shadow-sm mb-6">
-        <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center shadow-sm flex-shrink-0">
-                    <i className={`fa-solid ${icon} text-[18px] ${color}`} />
+}) => {
+    const accentHex = TAILWIND_TO_HEX[color] || '#4f46e5';
+    return (
+        <div style={{
+            background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0',
+            padding: 28, marginBottom: 24, position: 'relative', overflow: 'hidden',
+        }}>
+            {/* Gradient blob */}
+            <div style={{
+                position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%',
+                background: `radial-gradient(circle, ${accentHex}20 0%, transparent 70%)`, pointerEvents: 'none',
+            }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <div style={{
+                    width: 40, height: 40, borderRadius: 10, display: 'grid', placeItems: 'center',
+                    background: `${accentHex}18`, color: accentHex, flexShrink: 0,
+                }}>
+                    <i className={`fa-solid ${icon} text-base`} />
                 </div>
-                <div>
-                    {label && <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</div>}
-                    <h2 className="text-[28px] font-black text-slate-900 tracking-tight leading-none">{title}</h2>
-                </div>
+                {label && (
+                    <div style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                        {label}
+                    </div>
+                )}
+                <div style={{ flex: 1 }} />
+                {renderPalette && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px', border: '1px dashed #e2e8f0', borderRadius: 999, color: '#94a3b8', fontSize: 11, flexShrink: 0 }}>
+                        <span style={{ width: 20, height: 20, borderRadius: 5, background: '#f8fafc', display: 'inline-grid', placeItems: 'center', fontSize: 11 }}>◳</span>
+                        Drop notes to page
+                        {renderPalette()}
+                    </div>
+                )}
             </div>
-            {renderPalette && (
-                <div className="flex-shrink-0 flex items-center gap-3">
-                    <span className="text-[10px] text-slate-300 font-bold italic">Drag notes to page</span>
-                    {renderPalette()}
+            <h1 style={{
+                fontFamily: _serif, fontSize: 40, lineHeight: 1.04, margin: '0 0 10px',
+                fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a',
+            }}>{title}</h1>
+            {(description || subtitle) && (
+                <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.55, margin: 0, maxWidth: 720 }}>
+                    {description || subtitle}
+                </p>
+            )}
+            {attribution && (
+                <div style={{ fontSize: 9, letterSpacing: '0.14em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginTop: 10, textAlign: 'right' }}>
+                    {attribution}
                 </div>
             )}
         </div>
-        {(description || subtitle) && (
-            <p className="text-[13px] font-medium text-slate-500 leading-relaxed max-w-4xl">
-                {description || subtitle}
-            </p>
-        )}
-        {attribution && (
-            <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-right mt-3">
-                {attribution}
-            </div>
-        )}
-    </div>
-);
+    );
+};
 
 // ─────────────────────────────────────────────────────────────
 // Component
@@ -295,68 +339,37 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     if (subId === 'mls-data') return (
                         <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-table-cells-large" title="MLS Property Data"
-                                label="Listing Details"
+                                label="Listing Intelligence"
                                 description="Full technical specifications, listing remarks, and official property images from the Multiple Listing Service."
-                                color="text-slate-500" {...headerProps} />
-                            <PropertyDashboardLeft {...leftProps} showOnly={['mls']} />
+                                color="text-indigo-500" {...headerProps} />
+                            <MLSSectionPage data={data} />
                         </div>
                     );
 
                     if (subId === 'indoor') return (
-                        <div className="animate-in fade-in duration-200 space-y-6">
-                            <PageHeader icon="fa-couch" title="Indoor"
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-couch" title="Indoor atmosphere"
                                 label="Interior Intelligence"
                                 description="Room-by-room analysis, design style classification, and interior material quality assessments."
-                                color="text-violet-500" {...headerProps} />
-                            <ExploreRow1Cards
-                                propertyData={data} analysis={analysis} census={census}
-                                lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
-                                userRole={userRole} designStyle={designStyle}
+                                color="text-teal-600" {...headerProps} />
+                            <IndoorSectionPage
+                                data={data}
+                                customAnalysis={customAnalysis}
                                 currentInteriorSummary={currentInteriorSummary}
-                                customOverviewText={customAnalysis?.home_interior?.overall_description}
-                                customAnalysisHomeInterior={customAnalysis?.home_interior}
-                                showOnly={['interior']}
+                                designStyle={designStyle}
                             />
                         </div>
                     );
 
-                    if (subId === 'rooms') return (
-                        <div className="animate-in fade-in duration-200 space-y-4">
-                            <PageHeader icon="fa-bed" title="Rooms & Layout"
-                                label="Interior Specifications"
-                                description="Detailed room counts, square footage allocations, and architectural layout details."
-                                color="text-indigo-500" {...headerProps} />
-                            <RoomsSectionPage
-                                data={data}
-                                currentInteriorSummary={currentInteriorSummary}
-                            />
-                            {/* Per-room AI cards — Entryway, Kitchen, Bedrooms, etc. */}
-                            {customAnalysis && (
-                                <CustomAIAnalysis {...aiProps} activeSubTab="rooms" />
-                            )}
-                        </div>
-                    );
+
 
                     if (subId === 'outdoor') return (
-                        <div className="animate-in fade-in duration-200 space-y-6">
-                            <PageHeader icon="fa-house-chimney" title="Outdoor"
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-house-chimney" title="Outdoor &amp; curb appeal"
                                 label="Exterior Intelligence"
-                                description="Curb appeal, lot utility, street-view analysis, and satellite-based land characterization."
-                                color="text-amber-500" {...headerProps} />
-                            <PropertyInsightsPanel
-                                {...insightProps}
-                                communityPulse={null}
-                                keyInsights={null}
-                                ltrAnalysis={null}
-                                neighborhoodOverview={null}
-                                showOnly={['streetview', 'lot']}
-                            />
-                            {/* AI Visual Analysis — Exterior & Neighborhood */}
-                            {customAnalysis && (
-                                <div className="mt-2">
-                                    <CustomAIAnalysis {...aiProps} activeSubTab="exterior_and_neighborhood" />
-                                </div>
-                            )}
+                                description="Curb appeal, lot utility, street-view analysis, and satellite-based parcel characterization."
+                                color="text-emerald-500" {...headerProps} />
+                            <OutdoorSectionPage data={data} customAnalysis={customAnalysis} />
                         </div>
                     );
                 }
@@ -382,18 +395,20 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 // ────────────────────────────────────────────────────────────────────────
                 if (sectionId === 'connectivity') {
                     return (
-                        <div className="animate-in fade-in duration-200 space-y-4">
+                        <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-network-wired" title="Connectivity"
                                 label="Mobility & Infrastructure"
                                 description="Real-world commute times, walkability metrics, and high-speed broadband availability."
                                 color="text-blue-500" {...headerProps} />
-                            <PropertyDashboardLeft {...leftProps} showOnly={['commute', 'walk', 'broadband']} />
+                            <ConnectivitySectionPage data={data} />
                             {data.coordinates && (
-                                <CommuteCalculator
-                                    originLat={data.coordinates.lat}
-                                    originLng={data.coordinates.lng}
-                                    propertyAddress={data.address}
-                                />
+                                <div className="mt-6">
+                                    <CommuteCalculator
+                                        originLat={data.coordinates.lat}
+                                        originLng={data.coordinates.lng}
+                                        propertyAddress={data.address}
+                                    />
+                                </div>
                             )}
                         </div>
                     );
@@ -429,28 +444,19 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     );
 
                     return (
-                        <div className="animate-in fade-in duration-200 space-y-6">
+                        <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-location-dot" title="Location Overview"
                                 label="Geographic Context"
                                 description="Neighborhood dynamics, area demographics, and key local amenities cross-referenced with lifestyle preferences."
-                                color="text-blue-500" {...headerProps} />
-                            <div className="grid grid-cols-5 gap-4 items-start">
-                                <div className="col-span-3 min-w-0">
-                                    <PropertyDashboardRight {...rightProps} showOnly={['neighborhood']} />
-                                </div>
-                                <div className="col-span-2 min-w-0">
-                                    <PropertyInsightsPanel {...insightProps} showOnly={['affordability', 'census']} />
-                                </div>
-                            </div>
-                            <PropertyLifestylePanel
-                                lifestyleFit={lifestyleFit} lifestyleInsights={lifestyleInsights}
-                                lifestyleLoading={lifestyleLoading}
-                                lifestyleFitTab={lifestyleFitTab} setLifestyleFitTab={setLifestyleFitTab}
-                                lifestyleInterestTab={lifestyleInterestTab} setLifestyleInterestTab={setLifestyleInterestTab}
-                                handleGenerateLifestyle={handleGenerateLifestyle}
-                                showOnly={['interests']}
+                                color="text-indigo-500" {...headerProps} />
+                            <LocationOverviewSectionPage
+                                data={data}
+                                neighborhoodOverview={neighborhoodOverview}
+                                census={census}
+                                lifestyleInsights={props.lifestyleInsights}
+                                visualPoi={visualPoi}
+                                mapLabels={mapLabels}
                             />
-                            <PropertyDashboardRight {...rightProps} showOnly={['nearby']} />
                         </div>
                     );
                 }

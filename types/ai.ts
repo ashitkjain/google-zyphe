@@ -289,6 +289,12 @@ export interface ContextGraphExtractionResult {
 
 // Removed InvestmentResearchResult aggregation to avoid redundancy
 
+export interface StreetViewObservationPin {
+    num: number;       // 1–6 matching the observation order
+    xPct: number;      // 0–100: horizontal position from left edge of image
+    yPct: number;      // 0–100: vertical position from top edge of image
+}
+
 export interface StreetViewAnalysisResult {
     curbAppealScore: number;
     neighborhoodVibe: string;
@@ -303,6 +309,7 @@ export interface StreetViewAnalysisResult {
     utilityAesthetic: string;
     isImageryAvailable: boolean;
     neighborCondition: string;
+    observationPins?: StreetViewObservationPin[];
     imageUrl?: string;
 }
 
@@ -325,6 +332,28 @@ export interface CustomAIAnalysisResult {
         spatial_flow: string;
         staging_and_furnishings: string;
         condition_and_finish: string;
+        // Image-analysis fields (from prompt)
+        hero_headline?: string;
+        atmosphere_scores?: {
+            brightness: number;     // from image analysis
+            warmth: number;         // from image analysis
+            openness: number;       // from image analysis
+        };
+        facet_tags?: {
+            colors_tag: string;     // from image analysis
+            lighting_tag: string;   // from image analysis
+            staging_tag: string;    // from image analysis
+        };
+        material_palette?: Array<{
+            name: string;
+            hex: string;
+            location: string;
+        }>;
+        // Derived fields (computed from resoFacts / context graph — NOT in prompt)
+        hero_tags?: string[];           // derived: Factor 30 + Factor 28
+        finish_quality_score?: number;  // derived: Factor 30 + Factor 21
+        spatial_tag?: string;           // derived: Factor 30 + Factor 16
+        condition_tag?: string;         // derived: Factor 21
     };
     room_highlights: Array<{
         room_name: string;

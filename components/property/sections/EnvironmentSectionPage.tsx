@@ -1,16 +1,7 @@
 /**
  * EnvironmentSectionPage
- *
- * Stitch-inspired redesign of the Environment section.
- * Covers: Resilience · Hazards · Noise & Air · Pollen · Solar
- *
- * Type scale (consistent throughout):
- *   text-[10px] font-black uppercase tracking-widest  → labels / captions
- *   text-[13px] font-medium                           → body text
- *   text-[14px] font-black                            → item titles / sub-labels
- *   text-[16px] font-black                            → card headings
- *   text-[24px] font-black                            → metric numbers
- *   text-[36px] font-black                            → hero number
+ * IDS redesign — inline styles, Instrument Serif + JetBrains Mono.
+ * Accent: sky-blue (#0ea5e9).  All data dynamic from PropertyData.
  */
 import React from 'react';
 import { PropertyData } from '../../../types';
@@ -24,301 +15,339 @@ interface Props {
     environmentRefreshing?: boolean;
 }
 
-// ─── Type Scale Constants ────────────────────────────────────────────────────
-const T = {
-    label: 'text-[10px] font-black text-slate-400 uppercase tracking-widest',
-    body: 'text-[13px] font-medium text-slate-500 leading-relaxed',
-    title: 'text-[14px] font-black text-slate-800',
-    cardH: 'text-[16px] font-black text-slate-900 tracking-tight',
-    metric: 'text-[24px] font-black text-slate-900 leading-none tracking-tight',
-    hero: 'text-[36px] font-black text-slate-900 leading-none tracking-tight',
-    attr: 'text-[10px] font-bold text-slate-300 uppercase tracking-widest',
-};
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const serif = "'Instrument Serif', Georgia, 'Times New Roman', serif";
+const mono  = "'JetBrains Mono', ui-monospace, monospace";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const ACCENT     = '#0ea5e9';
+const ACCENT_BG  = 'rgba(14,165,233,0.10)';
 
-const riskOf = (score: number, max = 10) => {
+// ── Risk colour palettes ──────────────────────────────────────────────────────
+interface RiskPalette {
+    bar: string; text: string; bg: string; border: string; label: string; topStrip: string;
+}
+
+function riskPalette(score: number, max = 10): RiskPalette {
     const p = score / max;
-    if (p <= 0.3) return { label: 'Minimal Risk', color: 'text-emerald-600', pill: 'bg-emerald-50 text-emerald-700 border-emerald-100', bar: 'bg-emerald-400' };
-    if (p <= 0.6) return { label: 'Moderate', color: 'text-amber-600', pill: 'bg-amber-50 text-amber-700 border-amber-100', bar: 'bg-amber-400' };
-    return { label: 'High Risk', color: 'text-rose-600', pill: 'bg-rose-50 text-rose-700 border-rose-100', bar: 'bg-rose-500' };
-};
+    if (p <= 0.3) return { bar: '#10b981', text: '#059669', bg: '#ecfdf5', border: '#a7f3d0', label: 'Minimal Risk',  topStrip: '#10b981' };
+    if (p <= 0.6) return { bar: '#f59e0b', text: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Moderate',      topStrip: '#f59e0b' };
+    return             { bar: '#ef4444', text: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'High Risk',      topStrip: '#ef4444' };
+}
 
-const aqiOf = (aqi: number) => {
-    if (aqi <= 50) return { label: 'Good', pill: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
-    if (aqi <= 100) return { label: 'Moderate', pill: 'bg-amber-50 text-amber-700 border-amber-100' };
-    if (aqi <= 150) return { label: 'Sensitive', pill: 'bg-orange-50 text-orange-700 border-orange-100' };
-    return { label: 'Unhealthy', pill: 'bg-rose-50 text-rose-700 border-rose-100' };
-};
+// ── Primitives ────────────────────────────────────────────────────────────────
 
-const Bar: React.FC<{ pct: number; color: string }> = ({ pct, color }) => (
-    <div className="w-full h-[3px] bg-slate-100 rounded-full overflow-hidden mt-2">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(Math.max(pct * 100, 0), 100)}%` }} />
-    </div>
-);
-
-const Pill: React.FC<{ label: string; cls: string }> = ({ label, cls }) => (
-    <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black border ${cls}`}>{label}</span>
-);
-
-const Divider = () => <div className="h-px bg-slate-100" />;
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-const MetricCard: React.FC<{
-    icon: string; label: string; value: string; unit?: string;
-    score: number; max?: number;
-}> = ({ icon, label, value, unit, score, max = 10 }) => {
-    const risk = riskOf(score, max);
+function SectionTitleBar({ num, kicker, title, italicWord }: {
+    num: string; kicker: string; title: string; italicWord?: string;
+}) {
+    const parts = italicWord && title.includes(italicWord) ? title.split(italicWord) : null;
     return (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 flex flex-col gap-3
-                        hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-center justify-between">
-                <span className={T.label}>{label}</span>
-                <i className={`fa-solid ${icon} text-slate-300 text-[11px]`} />
+        <div style={{ marginBottom: 22, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontFamily: mono, fontSize: 11, color: ACCENT, padding: '2px 7px', borderRadius: 4, background: ACCENT_BG, fontWeight: 700 }}>{num}</span>
+                <span style={{ width: 24, height: 1, background: ACCENT, display: 'inline-block' }} />
+                <span style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 700, color: ACCENT, textTransform: 'uppercase' }}>{kicker}</span>
             </div>
-            <div className="flex items-baseline gap-1.5">
-                <span className={T.metric}>{value}</span>
-                {unit && <span className={T.label}>{unit}</span>}
-            </div>
-            <Bar pct={score / max} color={risk.bar} />
-            <span className={`text-[11px] font-black ${risk.color}`}>{risk.label}</span>
+            <h2 style={{ fontFamily: serif, fontSize: 30, lineHeight: 1.05, margin: 0, fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                {parts
+                    ? <>{parts[0]}<em style={{ color: ACCENT, fontStyle: 'italic' }}>{italicWord}</em>{parts[1]}</>
+                    : title}
+            </h2>
+        </div>
+    );
+}
+
+const MiniStatTile: React.FC<{ label: string; value: string; unit?: string; color?: string }> = ({ label, value, unit, color }) => {
+    return (
+        <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '14px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
+            <div style={{ fontFamily: serif, fontSize: 22, color: color ?? '#0f172a', fontWeight: 400, lineHeight: 1 }}>{value}</div>
+            {unit && <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{unit}</div>}
         </div>
     );
 };
 
-const ActionItem: React.FC<{ icon: string; title: string; desc: string }> = ({ icon, title, desc }) => (
-    <div className="flex items-start gap-4 py-4 border-b border-slate-100 last:border-0">
-        <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <i className={`fa-solid ${icon} text-indigo-500 text-[11px]`} />
+const RiskTile: React.FC<{ icon: string; label: string; score: number }> = ({ icon, label, score }) => {
+    const pal = riskPalette(score);
+    const pct = Math.min(score / 10, 1);
+    return (
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${pal.border}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ height: 4, background: pal.topStrip }} />
+            <div style={{ padding: '16px 16px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: pal.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <i className={`fa-solid ${icon}`} style={{ fontSize: 11, color: pal.text }} />
+                        </div>
+                        <span style={{ fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{label}</span>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                    <span style={{ fontFamily: serif, fontSize: 34, color: pal.text, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em' }}>{score}</span>
+                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>/10</span>
+                </div>
+                <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct * 100}%`, height: '100%', background: pal.bar, borderRadius: 99 }} />
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: pal.text }}>{pal.label}</span>
+            </div>
         </div>
-        <div>
-            <div className={`${T.title} mb-0.5`}>{title}</div>
-            <p className={T.body}>{desc}</p>
-        </div>
-    </div>
-);
+    );
+};
 
-/** Inline hover tooltip — no JS state needed */
-const InfoTip: React.FC<{ tip: string }> = ({ tip }) => (
-    <span className="relative inline-flex items-center group ml-1 align-middle">
-        <i className="fa-solid fa-circle-info text-slate-300 text-[10px] cursor-help group-hover:text-indigo-400 transition-colors" />
-        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-xl bg-slate-800 text-white text-[11px] font-medium leading-relaxed px-3 py-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
-            {tip}
+function Pill({ label, style }: { label: string; style?: React.CSSProperties }) {
+    return (
+        <span style={{ padding: '2px 9px', borderRadius: 6, fontSize: 10, fontWeight: 700, border: '1px solid #e2e8f0', ...style }}>{label}</span>
+    );
+}
+
+function InfoTip({ tip }: { tip: string }) {
+    return (
+        <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: 4 }} className="group">
+            <i className="fa-solid fa-circle-info group-hover:text-indigo-400 transition-colors"
+                style={{ fontSize: 10, color: '#cbd5e1', cursor: 'help' }} />
+            <span style={{ pointerEvents: 'none', position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6, width: 210, borderRadius: 10, background: '#1e293b', color: '#fff', fontSize: 11, fontWeight: 500, lineHeight: 1.5, padding: '6px 10px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', opacity: 0, zIndex: 50 }}
+                className="group-hover:opacity-100 transition-opacity">
+                {tip}
+            </span>
         </span>
-    </span>
-);
+    );
+}
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }) => {
 
-    // ── Risk scores (First Street Foundation) ────────────────────────────────
-    const windScore = data.windRiskScore ?? null;
+    // ── Climate risk scores ───────────────────────────────────────────────────
+    const windScore  = data.windRiskScore  ?? null;
     const floodScore = data.floodRiskScore ?? null;
-    const fireScore = data.fireRiskScore ?? null;
-    const heatScore = data.heatRiskScore ?? null;
-    const available = [windScore, floodScore, fireScore, heatScore].filter((s): s is number => s != null);
+    const fireScore  = data.fireRiskScore  ?? null;
+    const heatScore  = data.heatRiskScore  ?? null;
+    const riskTiles  = [
+        windScore  != null && { icon: 'fa-wind',             label: 'Wind',  score: windScore  },
+        floodScore != null && { icon: 'fa-water',            label: 'Flood', score: floodScore },
+        fireScore  != null && { icon: 'fa-fire',             label: 'Fire',  score: fireScore  },
+        heatScore  != null && { icon: 'fa-temperature-high', label: 'Heat',  score: heatScore  },
+    ].filter(Boolean) as { icon: string; label: string; score: number }[];
 
-    // ── Historical disasters ──────────────────────────────────────────────────
-    const seismic = data.historical_disasters?.seismicZone ?? null;
-    const floodZoneData = data.historical_disasters?.floodZone ?? null;
+    // ── Noise helpers ─────────────────────────────────────────────────────────
+    const noiseScore   = data.noiseScore ?? null;
+    const noiseLabel   = noiseScore == null ? null
+        : noiseScore < 40 ? 'Quiet' : noiseScore < 65 ? 'Moderate' : 'Loud';
+    const noiseColor   = noiseScore == null ? '#10b981'
+        : noiseScore < 40 ? '#10b981' : noiseScore < 65 ? '#f59e0b' : '#ef4444';
+
+    const noiseSubs = [
+        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
+        { label: 'Local',   score: data.noiseLocalScore,   desc: data.noiseLocalDesc   },
+        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
+    ].filter(n => n.score != null) as { label: string; score: number; desc?: string }[];
+
+    // ── Air quality helpers ───────────────────────────────────────────────────
+    const aqi      = data.airQuality?.aqi ?? null;
+    const aqiLabel = aqi == null ? null : aqi <= 50 ? 'Good' : aqi <= 100 ? 'Moderate' : aqi <= 150 ? 'Sensitive' : 'Unhealthy';
+    const aqiColor = aqi == null ? '#10b981' : aqi <= 50 ? '#10b981' : aqi <= 100 ? '#f59e0b' : '#ef4444';
+
+    // ── Pollen helpers ────────────────────────────────────────────────────────
+    const pollenCat = data.pollen?.category ?? null;
+    const pollenPct = pollenCat ? ({ High: 0.85, Moderate: 0.5, Low: 0.15, VeryHigh: 1.0 } as Record<string,number>)[pollenCat] ?? 0.2 : 0;
+    const pollenColor = pollenCat === 'Low' ? '#10b981' : pollenCat === 'Moderate' ? '#f59e0b' : '#ef4444';
+
+    // ── Hazard data ───────────────────────────────────────────────────────────
+    const seismic      = data.historical_disasters?.seismicZone ?? null;
+    const floodZone    = data.historical_disasters?.floodZone ?? null;
     const recentQuakes = data.historical_disasters?.earthquakes ?? [];
-    const femaEvents = data.historical_disasters?.femaDeclarations?.slice(0, 3) ?? [];
-    const hasHazards = !!data.historical_disasters || !!data.drought?.drought_level;
+    const femaEvents   = data.historical_disasters?.femaDeclarations?.slice(0, 3) ?? [];
+    const hasHazards   = !!(seismic || floodZone || recentQuakes.length || femaEvents.length || data.drought?.drought_level);
 
-    // ── Actions ───────────────────────────────────────────────────────────────
+    const [quakesOpen, setQuakesOpen] = React.useState(false);
+    const QUAKE_PREVIEW = 3;
+    const visibleQuakes = quakesOpen ? recentQuakes : recentQuakes.slice(0, QUAKE_PREVIEW);
+
+    // ── Solar ─────────────────────────────────────────────────────────────────
+    const hasSolar = !!(data.solarData || data.coordinates);
+    const sd       = data.solarData;
+
+    // ── Conditional action items ──────────────────────────────────────────────
     const actions = [
-        fireScore != null && fireScore > 5 && { icon: 'fa-fire-extinguisher', title: 'Fire Mitigation', desc: 'Install ember-resistant vents and maintain a defensible space perimeter to reduce wildfire exposure.' },
-        windScore != null && windScore > 5 && { icon: 'fa-house-chimney', title: 'Roof Tie-Downs', desc: 'Secondary water resistance and hurricane clips could reduce annual insurance premiums significantly.' },
-        floodScore != null && floodScore > 5 && { icon: 'fa-droplet', title: 'Smart Leak Sensors', desc: 'IoT sensors in mechanical rooms can mitigate internal flooding and reduce water damage claims.' },
-        heatScore != null && heatScore > 5 && { icon: 'fa-temperature-high', title: 'Heat Mitigation', desc: 'Consider cool roofing and improved insulation to reduce cooling load during extreme heat events.' },
+        fireScore  != null && fireScore  > 5 && { icon: 'fa-fire-extinguisher', title: 'Fire Mitigation',      desc: 'Install ember-resistant vents and maintain a defensible space perimeter to reduce wildfire exposure.' },
+        windScore  != null && windScore  > 5 && { icon: 'fa-house-chimney',     title: 'Roof Tie-Downs',        desc: 'Secondary water resistance and hurricane clips can reduce annual insurance premiums significantly.' },
+        floodScore != null && floodScore > 5 && { icon: 'fa-droplet',           title: 'Smart Leak Sensors',    desc: 'IoT sensors in mechanical rooms can mitigate internal flooding and reduce water damage claims.' },
+        heatScore  != null && heatScore  > 5 && { icon: 'fa-temperature-high',  title: 'Heat Mitigation',       desc: 'Cool roofing and improved insulation reduce cooling load during extreme heat events.' },
     ].filter(Boolean) as { icon: string; title: string; desc: string }[];
 
-    // ── Collapse state ────────────────────────────────────────────────────────
-    const [quakesExpanded, setQuakesExpanded] = React.useState(false);
-    const QUAKE_PREVIEW = 3;
-    const visibleQuakes = quakesExpanded ? recentQuakes : recentQuakes.slice(0, QUAKE_PREVIEW);
+    const sn = { climate: '01', hazard: '02', solar: '03' };
 
     return (
-        <div className="space-y-5">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
+            {/* ── Section 01 — Climate Risk ─────────────────────────────────── */}
+            {riskTiles.length > 0 && (
+                <section>
+                    <SectionTitleBar num={sn.climate} kicker="First Street Foundation" title="Climate Risk Overview" italicWord="Risk" />
 
-
-
-                {/* ── 4 Climate Risk Cards ────────────────────────────────── */}
-                {available.length > 0 && (
-                    <div className={`grid grid-cols-2 gap-4 ${available.length >= 4 ? 'lg:grid-cols-4' : available.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-                        {windScore != null && <MetricCard icon="fa-wind" label="Wind" value={`${windScore}`} unit="/ 10" score={windScore} />}
-                        {floodScore != null && <MetricCard icon="fa-water" label="Flood" value={floodZoneData ? `Zone ${floodZoneData.zone}` : `${floodScore}`} unit={floodZoneData ? '' : '/ 10'} score={floodScore} />}
-                        {fireScore != null && <MetricCard icon="fa-fire" label="Fire" value={`${fireScore}`} unit="/ 10" score={fireScore} />}
-                        {heatScore != null && <MetricCard icon="fa-temperature-high" label="Heat" value={`${heatScore}`} unit="/ 10" score={heatScore} />}
+                    {/* 4 risk tiles */}
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${riskTiles.length}, 1fr)`, gap: 14, marginBottom: 20 }}>
+                        {riskTiles.map(t => <RiskTile key={t.label} icon={t.icon} label={t.label} score={t.score} />)}
                     </div>
-                )}
 
-                {/* ── Noise · Air Quality · Pollen — 3-column card row ────── */}
-                {(data.noiseScore != null || data.airQuality?.aqi != null || data.pollen?.category) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Noise · Air Quality · Pollen — 3 cards */}
+                    {(noiseScore != null || aqi != null || pollenCat) && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
 
-                        {/* Noise */}
-                        {data.noiseScore != null && (
-                            <div className="bg-white rounded-3xl border border-slate-200/60 p-5 shadow-sm flex flex-col gap-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                                        <i className="fa-solid fa-volume-high text-violet-500 text-[11px]" />
+                            {/* Noise */}
+                            {noiseScore != null && (
+                                <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <i className="fa-solid fa-volume-high" style={{ fontSize: 10, color: '#7c3aed' }} />
+                                        </div>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Noise</span>
+                                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                                            <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{noiseScore}</span>
+                                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>/100</span>
+                                        </div>
                                     </div>
-                                    <span className={T.cardH}>Noise</span>
-                                    <span className={`${T.title} ml-auto text-slate-900`}>
-                                        {data.noiseScore}<span className={`${T.label} ml-0.5`}>/100</span>
-                                    </span>
-                                </div>
-                                <Bar pct={data.noiseScore / 100}
-                                    color={data.noiseScore < 40 ? 'bg-emerald-400' : data.noiseScore < 65 ? 'bg-amber-400' : 'bg-rose-500'} />
-                                <span className={`text-[11px] font-black ${data.noiseScore < 40 ? 'text-emerald-600' : data.noiseScore < 65 ? 'text-amber-600' : 'text-rose-600'}`}>
-                                    {data.noiseScore < 40 ? 'Quiet' : data.noiseScore < 65 ? 'Moderate' : 'Loud'}
-                                </span>
-                                {(data.noiseTrafficScore != null || data.noiseLocalScore != null || data.noiseAirportScore != null) && (
-                                    <div className="space-y-2 pt-1 border-t border-slate-100">
-                                        {[
-                                            { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
-                                            { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
-                                            { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
-                                        ].filter(n => n.score != null).map((n, i) => (
-                                            <div key={i}>
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className={T.label}>{n.label}</span>
-                                                    {n.desc && <span className={`${T.label} lowercase`}>{n.desc}</span>}
+                                    <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                        <div style={{ width: `${noiseScore}%`, height: '100%', background: noiseColor, borderRadius: 99 }} />
+                                    </div>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: noiseColor }}>{noiseLabel}</span>
+                                    {noiseSubs.length > 0 && (
+                                        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {noiseSubs.map((n, i) => (
+                                                <div key={i}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                        <span style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>{n.label}</span>
+                                                        {n.desc && <span style={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 600, textTransform: 'lowercase' }}>{n.desc}</span>}
+                                                    </div>
+                                                    <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                                        <div style={{ width: `${n.score}%`, height: '100%', background: '#8b5cf6', borderRadius: 99 }} />
+                                                    </div>
                                                 </div>
-                                                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-violet-400 rounded-full" style={{ width: `${n.score}%` }} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Air Quality */}
+                            {aqi != null && (
+                                <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(14,165,233,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <i className="fa-solid fa-wind" style={{ fontSize: 10, color: '#0ea5e9' }} />
+                                        </div>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Air Quality</span>
+                                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                                            <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{aqi}</span>
+                                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>AQI</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                        <div style={{ width: `${Math.min(aqi / 200, 1) * 100}%`, height: '100%', background: aqiColor, borderRadius: 99 }} />
+                                    </div>
+                                    {aqiLabel && <Pill label={aqiLabel} style={{ alignSelf: 'flex-start', background: aqi <= 50 ? '#ecfdf5' : aqi <= 100 ? '#fffbeb' : '#fef2f2', color: aqiColor, border: `1px solid ${aqi <= 50 ? '#a7f3d0' : aqi <= 100 ? '#fde68a' : '#fecaca'}` }} />}
+                                    {data.airQuality?.pollutants && data.airQuality.pollutants.length > 0 && (
+                                        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                            {data.airQuality.pollutants.slice(0, 4).map((p: any, i: number) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontSize: 9.5, letterSpacing: '0.1em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{p.fullName}</span>
+                                                    <span style={{ fontSize: 10, color: '#475569', fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
+                                                        {p.concentration?.toFixed(1)} {p.unit?.replace(/_/g, ' ')}
+                                                    </span>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Air Quality */}
-                        {data.airQuality?.aqi != null && (
-                            <div className="bg-white rounded-3xl border border-slate-200/60 p-5 shadow-sm flex flex-col gap-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-sky-50 flex items-center justify-center shrink-0">
-                                        <i className="fa-solid fa-wind text-sky-500 text-[11px]" />
-                                    </div>
-                                    <span className={T.cardH}>Air Quality</span>
-                                    <span className={`${T.title} ml-auto text-slate-900`}>
-                                        {data.airQuality.aqi}<span className={`${T.label} ml-0.5`}>AQI</span>
-                                    </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>Google Air Quality API</div>
                                 </div>
-                                <Bar pct={data.airQuality.aqi / 200}
-                                    color={data.airQuality.aqi < 50 ? 'bg-emerald-400' : data.airQuality.aqi < 100 ? 'bg-amber-400' : 'bg-rose-500'} />
-                                <Pill label={aqiOf(data.airQuality.aqi).label} cls={aqiOf(data.airQuality.aqi).pill} />
-                                {data.airQuality.pollutants && data.airQuality.pollutants.length > 0 && (
-                                    <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                                        {data.airQuality.pollutants.slice(0, 4).map((p: any, i: number) => (
-                                            <div key={i} className="flex items-center justify-between">
-                                                <span className={`${T.label} truncate`}>{p.fullName}</span>
-                                                <span className={`${T.label} shrink-0 ml-2 text-slate-600`}>
-                                                    {p.concentration?.toFixed(1)} {p.unit?.replace(/_/g, ' ')}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className={`${T.attr} text-right mt-auto`}>Google Air Quality API</div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* Pollen */}
-                        {data.pollen?.category && (
-                            <div className="bg-white rounded-3xl border border-slate-200/60 p-5 shadow-sm flex flex-col gap-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-lime-50 flex items-center justify-center shrink-0">
-                                        <i className="fa-solid fa-seedling text-lime-500 text-[11px]" />
+                            {/* Pollen */}
+                            {pollenCat && (
+                                <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(101,163,13,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <i className="fa-solid fa-seedling" style={{ fontSize: 10, color: '#65a30d' }} />
+                                        </div>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Pollen</span>
+                                        <Pill label={pollenCat} style={{ marginLeft: 'auto', background: pollenCat === 'Low' ? '#ecfdf5' : pollenCat === 'Moderate' ? '#fffbeb' : '#fef2f2', color: pollenColor, border: `1px solid ${pollenCat === 'Low' ? '#a7f3d0' : pollenCat === 'Moderate' ? '#fde68a' : '#fecaca'}` }} />
                                     </div>
-                                    <span className={T.cardH}>Pollen</span>
-                                    <span className={`${T.title} ml-auto text-slate-900`}>{data.pollen.category}</span>
+                                    <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                        <div style={{ width: `${pollenPct * 100}%`, height: '100%', background: pollenColor, borderRadius: 99 }} />
+                                    </div>
+                                    {data.pollen?.dominantPollenType && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Dominant</span>
+                                            <Pill label={data.pollen.dominantPollenType} style={{ background: '#f7fee7', color: '#4d7c0f', border: '1px solid #d9f99d' }} />
+                                        </div>
+                                    )}
+                                    {data.pollen?.description && (
+                                        <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.55, margin: 0, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>{data.pollen.description}</p>
+                                    )}
+                                    <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>Google Pollen API</div>
                                 </div>
-                                <Bar
-                                    pct={({ High: 0.85, Moderate: 0.5, Low: 0.15, VeryHigh: 1.0 } as any)[data.pollen.category] ?? 0.15}
-                                    color={data.pollen.category === 'Low' ? 'bg-emerald-400' : data.pollen.category === 'Moderate' ? 'bg-amber-400' : 'bg-rose-500'}
-                                />
-                                {data.pollen.dominantPollenType && (
-                                    <div className="flex items-center gap-2">
-                                        <span className={T.label}>Dominant</span>
-                                        <Pill label={data.pollen.dominantPollenType} cls="bg-lime-50 text-lime-700 border-lime-100" />
-                                    </div>
-                                )}
-                                {data.pollen.description && (
-                                    <p className={`${T.body} pt-1 border-t border-slate-100`}>{data.pollen.description}</p>
-                                )}
-                                <div className={`${T.attr} text-right mt-auto`}>Google Pollen API</div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )}
+                </section>
+            )}
 
-                {/* ── Hazard Zones ───────────────────────────────────────── */}
-                {hasHazards && (
-                    <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-sm space-y-5">
-                        <h2 className={T.cardH}>Hazard Zones</h2>
+            {/* ── Section 02 — Seismic & Structural ────────────────────────── */}
+            {hasHazards && (
+                <section>
+                    <SectionTitleBar num={sn.hazard} kicker="USGS · FEMA · Seismic" title="Seismic & Structural" italicWord="Structural" />
 
-                        {/* Seismic */}
+                    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                        {/* Seismic zone */}
                         {seismic && (
-                            <div className="flex items-start gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
-                                    <i className="fa-solid fa-house-chimney-crack text-rose-500 text-[14px]" />
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <i className="fa-solid fa-house-chimney-crack" style={{ fontSize: 14, color: '#ef4444' }} />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2.5 mb-2 flex-wrap">
-                                        <span className={T.title}>Seismic Design Zone</span>
-                                        <Pill label={`Category ${seismic.designCategory}`} cls={
-                                            seismic.riskLevel === 'very_high' ? 'bg-rose-500 text-white border-rose-500'
-                                                : seismic.riskLevel === 'high' ? 'bg-orange-500 text-white border-orange-500'
-                                                    : seismic.riskLevel === 'moderate' ? 'bg-amber-50 text-amber-700 border-amber-100'
-                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                        } />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Seismic Design Zone</span>
+                                        <Pill
+                                            label={`Category ${seismic.designCategory}`}
+                                            style={
+                                                seismic.riskLevel === 'very_high' ? { background: '#ef4444', color: '#fff', border: '1px solid #ef4444' }
+                                                : seismic.riskLevel === 'high'     ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
+                                                : seismic.riskLevel === 'moderate' ? { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }
+                                                : { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }
+                                            }
+                                        />
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2 mb-2">
+
+                                    {/* PGA / Ss / S1 mini tiles */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
                                         {[
-                                            {
-                                                label: 'Peak Ground Accel.',
-                                                abbr: 'PGA',
-                                                value: `${seismic.pga}g`,
-                                                tip: 'Peak Ground Acceleration — the maximum force (in g) the earthquake exerts on a structure. Higher values mean stronger shaking.',
-                                            },
-                                            {
-                                                label: 'Short-Period Accel.',
-                                                abbr: 'Ss',
-                                                value: `${seismic.ss}g`,
-                                                tip: 'Spectral Response at 0.2s — measures shaking force on short, stiff buildings like 1–2 story homes. Used in structural engineering design codes (ASCE 7-22).',
-                                            },
-                                            {
-                                                label: '1-Second Accel.',
-                                                abbr: 'S1',
-                                                value: `${seismic.s1}g`,
-                                                tip: 'Spectral Response at 1.0s — measures shaking force on taller or more flexible structures. Important for multi-story buildings and soft soils.',
-                                            },
+                                            { label: 'Peak Ground Accel.', abbr: 'PGA', value: `${seismic.pga}g`, tip: 'Peak Ground Acceleration — the maximum force (in g) the earthquake exerts on a structure. Higher values mean stronger shaking.' },
+                                            { label: 'Short-Period Accel.', abbr: 'Ss',  value: `${seismic.ss}g`,  tip: 'Spectral Response at 0.2s — measures shaking force on short, stiff buildings like 1–2 story homes. Used in structural design codes (ASCE 7-22).' },
+                                            { label: '1-Second Accel.',     abbr: 'S1',  value: `${seismic.s1}g`,  tip: 'Spectral Response at 1.0s — measures shaking force on taller or more flexible structures. Important for multi-story buildings and soft soils.' },
                                         ].map(({ label, abbr, value, tip }) => (
-                                            <div key={abbr} className="bg-slate-50 rounded-xl border border-slate-100 p-2.5 text-center">
-                                                <div className="flex items-center justify-center gap-0.5">
-                                                    <span className={T.label}>{label}</span>
+                                            <div key={abbr} style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 8px', textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <span style={{ fontSize: 9, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>{label}</span>
                                                     <InfoTip tip={tip} />
                                                 </div>
-                                                <div className={`${T.title} text-center mt-0.5`}>{value}</div>
+                                                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>{value}</div>
                                             </div>
                                         ))}
                                     </div>
-                                    <span className={`text-[11px] font-black capitalize ${riskOf(seismic.riskLevel === 'very_high' ? 8 : seismic.riskLevel === 'high' ? 6 : seismic.riskLevel === 'moderate' ? 4 : 2).color}`}>
+
+                                    {/* Risk label */}
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: seismic.riskLevel === 'very_high' ? '#dc2626' : seismic.riskLevel === 'high' ? '#ea580c' : seismic.riskLevel === 'moderate' ? '#d97706' : '#059669', textTransform: 'capitalize' }}>
                                         {seismic.riskLevel.replace('_', ' ')} seismic risk
                                     </span>
+
+                                    {/* Reinforcement banner */}
                                     {seismic.riskLevel !== 'low' && (
-                                        <div className="mt-3 flex items-start gap-3 bg-indigo-50 rounded-xl border border-indigo-100 px-3 py-2.5">
-                                            <i className="fa-solid fa-arrow-up-from-ground-water text-indigo-500 text-[11px] mt-0.5" />
+                                        <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 10, background: '#eef2ff', borderRadius: 10, border: '1px solid #c7d2fe', padding: '10px 12px' }}>
+                                            <i className="fa-solid fa-arrow-up-from-ground-water" style={{ fontSize: 10, color: '#4f46e5', marginTop: 2, flexShrink: 0 }} />
                                             <div>
-                                                <div className={`${T.title} text-indigo-800`}>Seismic Reinforcement Recommended</div>
-                                                <p className={`${T.body} text-indigo-600 mt-0.5`}>Category {seismic.designCategory}: Structural bolting and soft-story retrofits are strongly advised.</p>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: '#3730a3' }}>Seismic Reinforcement Recommended</div>
+                                                <p style={{ fontSize: 11, color: '#4f46e5', margin: '3px 0 0', lineHeight: 1.5 }}>Category {seismic.designCategory}: Structural bolting and soft-story retrofits are strongly advised.</p>
                                             </div>
                                         </div>
                                     )}
@@ -326,73 +355,76 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                             </div>
                         )}
 
-                        {/* Flood Zone */}
-                        {floodZoneData && (
+                        {/* Flood zone */}
+                        {floodZone && (
                             <>
-                                {seismic && <Divider />}
-                                <div className="flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                                        <i className="fa-solid fa-water text-blue-500 text-[14px]" />
+                                {seismic && <div style={{ height: 1, background: '#f1f5f9' }} />}
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <i className="fa-solid fa-water" style={{ fontSize: 14, color: '#3b82f6' }} />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2.5 mb-1 flex-wrap">
-                                            <span className={T.title}>Flood Zone</span>
-                                            <Pill label={`Zone ${floodZoneData.zone}`} cls={
-                                                floodZoneData.riskLevel === 'high' ? 'bg-rose-500 text-white border-rose-500'
-                                                    : floodZoneData.riskLevel === 'moderate' ? 'bg-amber-50 text-amber-700 border-amber-100'
-                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                            } />
-                                            {floodZoneData.insuranceRequired && (
-                                                <Pill label="Insurance Required" cls="bg-rose-50 text-rose-700 border-rose-100" />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Flood Zone</span>
+                                            <Pill
+                                                label={`Zone ${floodZone.zone}`}
+                                                style={
+                                                    floodZone.riskLevel === 'high'     ? { background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }
+                                                    : floodZone.riskLevel === 'moderate' ? { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }
+                                                    : { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }
+                                                }
+                                            />
+                                            {floodZone.insuranceRequired && (
+                                                <Pill label="Insurance Required" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }} />
                                             )}
                                         </div>
-                                        <p className={T.body + ' capitalize'}>{floodZoneData.riskLevel} flood risk</p>
+                                        <p style={{ fontSize: 12, color: '#64748b', margin: 0, textTransform: 'capitalize' }}>{floodZone.riskLevel} flood risk</p>
                                     </div>
                                 </div>
                             </>
                         )}
 
-                        {/* Recent Earthquakes */}
+                        {/* Recent earthquakes */}
                         {recentQuakes.length > 0 && (
                             <>
-                                <Divider />
+                                <div style={{ height: 1, background: '#f1f5f9' }} />
                                 <div>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className={T.label}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                        <span style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
                                             Recent Earthquakes — {data.historical_disasters?.radiusMi ?? 5}mi radius, M3.0+
-                                            <span className="ml-1.5 text-slate-300">({recentQuakes.length})</span>
-                                        </div>
+                                            <span style={{ marginLeft: 6, color: '#cbd5e1' }}>({recentQuakes.length})</span>
+                                        </span>
                                         {recentQuakes.length > QUAKE_PREVIEW && (
                                             <button
-                                                onClick={() => setQuakesExpanded(e => !e)}
-                                                className="flex items-center gap-1.5 text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 transition-colors"
+                                                onClick={() => setQuakesOpen(o => !o)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, color: ACCENT, textTransform: 'uppercase', letterSpacing: '0.14em', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                                             >
-                                                {quakesExpanded ? 'Show less' : `Show all ${recentQuakes.length}`}
-                                                <i className={`fa-solid fa-chevron-${quakesExpanded ? 'up' : 'down'} text-[8px]`} />
+                                                {quakesOpen ? 'Show less' : `Show all ${recentQuakes.length}`}
+                                                <i className={`fa-solid fa-chevron-${quakesOpen ? 'up' : 'down'}`} style={{ fontSize: 8 }} />
                                             </button>
                                         )}
                                     </div>
-                                    <div className="space-y-2">
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         {visibleQuakes.map((eq, i) => (
-                                            <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-xl border border-slate-100 px-3 py-2.5">
-                                                <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
-                                                    <i className="fa-solid fa-circle-radiation text-rose-400 text-[10px]" />
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 12px' }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    <i className="fa-solid fa-circle-radiation" style={{ fontSize: 10, color: '#f87171' }} />
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className={`${T.title} truncate`}>{eq.title}</div>
-                                                    <div className={T.label + ' mt-0.5 lowercase'}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.title}</div>
+                                                    <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 2, textTransform: 'lowercase' }}>
                                                         {eq.date}{eq.distanceMi != null ? ` · ${eq.distanceMi}mi away` : ''}
                                                     </div>
                                                 </div>
-                                                <span className="text-[13px] font-black text-rose-600 shrink-0">{eq.severity}</span>
+                                                <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: '#ef4444', flexShrink: 0 }}>{eq.severity}</span>
                                             </div>
                                         ))}
                                     </div>
-                                    {!quakesExpanded && recentQuakes.length > QUAKE_PREVIEW && (
-                                        <div className="mt-2 text-center">
+                                    {!quakesOpen && recentQuakes.length > QUAKE_PREVIEW && (
+                                        <div style={{ marginTop: 8, textAlign: 'center' }}>
                                             <button
-                                                onClick={() => setQuakesExpanded(true)}
-                                                className="text-[11px] font-black text-slate-400 hover:text-indigo-500 transition-colors"
+                                                onClick={() => setQuakesOpen(true)}
+                                                style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
                                             >
                                                 + {recentQuakes.length - QUAKE_PREVIEW} more earthquakes
                                             </button>
@@ -402,21 +434,21 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                             </>
                         )}
 
-                        {/* FEMA Declarations */}
+                        {/* FEMA declarations */}
                         {femaEvents.length > 0 && (
                             <>
-                                <Divider />
+                                <div style={{ height: 1, background: '#f1f5f9' }} />
                                 <div>
-                                    <div className={`${T.label} mb-3`}>FEMA Disaster Declarations</div>
-                                    <div className="space-y-2">
+                                    <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>FEMA Disaster Declarations</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         {femaEvents.map((ev, i) => (
-                                            <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-xl border border-slate-100 px-3 py-2.5">
-                                                <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                                                    <i className="fa-solid fa-triangle-exclamation text-amber-500 text-[10px]" />
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 12px' }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: 10, color: '#f59e0b' }} />
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className={`${T.title} truncate`}>{ev.title}</div>
-                                                    <div className={T.label + ' mt-0.5 lowercase'}>{ev.date} · {ev.description}</div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>
+                                                    <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 2, textTransform: 'lowercase' }}>{ev.date} · {ev.description}</div>
                                                 </div>
                                             </div>
                                         ))}
@@ -428,122 +460,119 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                         {/* Drought */}
                         {data.drought?.drought_level && (
                             <>
-                                <Divider />
-                                <div className="flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                        <i className="fa-solid fa-droplet-slash text-emerald-500 text-[14px]" />
+                                <div style={{ height: 1, background: '#f1f5f9' }} />
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <i className="fa-solid fa-droplet-slash" style={{ fontSize: 14, color: '#16a34a' }} />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2.5 mb-1 flex-wrap">
-                                            <span className={T.title}>Drought Intensity</span>
-                                            <Pill label={data.drought.drought_level.toUpperCase()} cls={
-                                                data.drought.drought_level.toLowerCase() === 'none'
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                    : 'bg-amber-50 text-amber-700 border-amber-100'
-                                            } />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Drought Intensity</span>
+                                            <Pill
+                                                label={data.drought.drought_level.toUpperCase()}
+                                                style={
+                                                    data.drought.drought_level.toLowerCase() === 'none'
+                                                        ? { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }
+                                                        : { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }
+                                                }
+                                            />
                                         </div>
-                                        {data.drought.description && <p className={T.body}>{data.drought.description}</p>}
+                                        {data.drought.description && <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>{data.drought.description}</p>}
                                     </div>
                                 </div>
                             </>
                         )}
 
-                        <div className={`${T.attr} text-right`}>USGS · FEMA · Drought Monitor</div>
+                        <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right' }}>USGS · FEMA · Drought Monitor</div>
                     </div>
-                )}
+                </section>
+            )}
 
-                {/* ── Actions ─────────────────────────────────────────────── */}
-                {actions.length > 0 && (
-                    <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-1 h-5 bg-indigo-500 rounded-full" />
-                            <h2 className={T.cardH}>Action Recommended</h2>
+            {/* ── Resilience Actions ────────────────────────────────────────── */}
+            {actions.length > 0 && (
+                <section>
+                    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                            <div style={{ width: 4, height: 20, background: '#4f46e5', borderRadius: 99 }} />
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Actions Recommended</span>
                         </div>
-                        {actions.slice(0, 3).map((a, i) => <ActionItem key={i} {...a} />)}
-                    </div>
-                )}
-
-                {/* ── Solar ───────────────────────────────────────────────── */}
-                {(!!data.solarData || !!data.coordinates) && (
-                    <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-sm">
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-                                <i className="fa-solid fa-sun text-amber-500 text-[13px]" />
+                        {actions.map((a, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 0', borderBottom: i < actions.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                                    <i className={`fa-solid ${a.icon}`} style={{ fontSize: 11, color: '#4f46e5' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{a.title}</div>
+                                    <p style={{ fontSize: 12, color: '#64748b', margin: 0, lineHeight: 1.55 }}>{a.desc}</p>
+                                </div>
                             </div>
-                            <h2 className={T.cardH}>Solar &amp; Sun Arc</h2>
-                            {solarPotential && (
-                                <Pill label="High Potential" cls="ml-auto bg-emerald-50 text-emerald-700 border-emerald-100" />
-                            )}
-                        </div>
-                        {/* ── Solar Panel Generation metrics — shown first ── */}
-                        {!!data.solarData && (
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {/* ── Section 03 — Solar & Sun Arc ──────────────────────────────── */}
+            {hasSolar && (
+                <section>
+                    <SectionTitleBar num={sn.solar} kicker="Google Solar API" title="Solar & Sun Arc" italicWord="Sun" />
+
+                    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                        {/* Solar generation metrics */}
+                        {sd && (
                             <>
-                                <div className={`${T.label} mb-3`}>
-                                    <i className="fa-solid fa-solar-panel mr-1.5" />
+                                <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <i className="fa-solid fa-solar-panel" style={{ fontSize: 9 }} />
                                     Solar Panel Generation
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
                                     {[
-                                        data.solarData?.maxSunshineHoursPerYear != null && {
-                                            label: 'Sunshine Hours',
-                                            value: Math.round(data.solarData.maxSunshineHoursPerYear).toLocaleString(),
-                                            unit: 'hrs/yr', color: 'text-amber-500',
+                                        sd.maxSunshineHoursPerYear != null && {
+                                            label: 'Sunshine Hours', value: Math.round(sd.maxSunshineHoursPerYear).toLocaleString(), unit: 'hrs/yr', color: '#d97706',
                                         },
                                         solarPotential?.annualKwh != null && {
-                                            label: 'Annual Output',
-                                            value: solarPotential.annualKwh.toLocaleString(),
-                                            unit: 'kWh/yr', color: 'text-indigo-600',
+                                            label: 'Annual Output', value: solarPotential.annualKwh.toLocaleString(), unit: 'kWh/yr', color: '#4f46e5',
                                         },
-                                        data.solarData?.financialAnalysis?.cashPurchase?.paybackYears != null && {
-                                            label: 'Payback Period',
-                                            value: data.solarData.financialAnalysis.cashPurchase.paybackYears.toFixed(1),
-                                            unit: 'years', color: 'text-orange-500',
+                                        sd.financialAnalysis?.cashPurchase?.paybackYears != null && {
+                                            label: 'Payback Period', value: sd.financialAnalysis.cashPurchase.paybackYears.toFixed(1), unit: 'years', color: '#ea580c',
                                         },
-                                        data.solarData?.financialAnalysis?.cashPurchase?.savings?.savingsYear20 != null && {
-                                            label: '20-Yr Savings',
-                                            value: `$${data.solarData.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}`,
-                                            unit: '', color: 'text-emerald-600',
+                                        sd.financialAnalysis?.cashPurchase?.savings?.savingsYear20 != null && {
+                                            label: '20-Yr Savings', value: `$${sd.financialAnalysis.cashPurchase.savings.savingsYear20.toLocaleString()}`, unit: '', color: '#059669',
                                         },
-                                    ].filter(Boolean).map((m: any, i) => (
-                                        <div key={i} className="bg-slate-50 rounded-2xl border border-slate-100 p-4 text-center">
-                                            <div className={`${T.label} mb-1.5`}>{m.label}</div>
-                                            <div className={`text-[22px] font-black ${m.color} leading-none`}>{m.value}</div>
-                                            {m.unit && <div className={`${T.label} mt-0.5`}>{m.unit}</div>}
-                                        </div>
+                                    ].filter(Boolean).map((m: any, i: number) => (
+                                        <MiniStatTile key={i} label={m.label as string} value={m.value as string} unit={m.unit as string | undefined} color={m.color as string | undefined} />
                                     ))}
                                 </div>
 
                                 {/* Panel specs */}
-                                {(data.solarData?.maxArrayPanelsCount != null || data.solarData?.panelCapacityWatts != null) && (
-                                    <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                {(sd.maxArrayPanelsCount != null || sd.panelCapacityWatts != null) && (
+                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12 }}>
                                         {[
-                                            data.solarData?.maxArrayPanelsCount != null && { label: 'Max Panels', value: `${data.solarData.maxArrayPanelsCount}`, unit: 'units' },
-                                            data.solarData?.panelCapacityWatts != null && { label: 'Panel Capacity', value: `${data.solarData.panelCapacityWatts}`, unit: 'W' },
-                                            data.solarData?.maxArrayAreaMeters2 != null && { label: 'Array Area', value: `${Math.round(data.solarData.maxArrayAreaMeters2)}`, unit: 'm²' },
-                                            data.solarData?.financialAnalysis?.cashPurchase?.savings?.savingsYear1 != null && {
-                                                label: 'Year 1 Savings',
-                                                value: `$${data.solarData.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}`,
-                                                unit: '',
+                                            sd.maxArrayPanelsCount != null && { label: 'Max Panels',    value: `${sd.maxArrayPanelsCount}`,                  unit: 'units' },
+                                            sd.panelCapacityWatts  != null && { label: 'Panel Capacity', value: `${sd.panelCapacityWatts}`,                    unit: 'W'     },
+                                            sd.maxArrayAreaMeters2 != null && { label: 'Array Area',     value: `${Math.round(sd.maxArrayAreaMeters2)}`,       unit: 'm²'    },
+                                            sd.financialAnalysis?.cashPurchase?.savings?.savingsYear1 != null && {
+                                                label: 'Year 1 Savings', value: `$${sd.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}`, unit: '',
                                             },
                                         ].filter(Boolean).map((m: any, i) => (
-                                            <div key={i} className="text-center">
-                                                <div className={`${T.label} mb-1`}>{m.label}</div>
-                                                <div className={T.metric}>{m.value} <span className={T.label}>{m.unit}</span></div>
+                                            <div key={i} style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 5 }}>{m.label}</div>
+                                                <div style={{ fontFamily: serif, fontSize: 20, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>
+                                                    {m.value} {m.unit && <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>{m.unit}</span>}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 )}
-                                <div className={`${T.attr} text-right mt-3`}>Google Solar API</div>
+                                <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right' }}>Google Solar API</div>
                             </>
                         )}
 
-                        {/* ── Divider between solar metrics and sun arc ── */}
-                        {!!data.solarData && !!data.coordinates && <Divider />}
-
-                        {/* ── Sun Arc by Season ── */}
+                        {/* Sun arc seasonal card */}
+                        {sd && data.coordinates && <div style={{ height: 1, background: '#f1f5f9' }} />}
                         {data.coordinates && (
-                            <div className={!!data.solarData ? 'pt-1' : ''}>
-                                <div className={`${T.label} mb-3`}>Sun Arc by Season</div>
+                            <div>
+                                <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 12 }}>Sun Arc by Season</div>
                                 <SeasonalSunCard
                                     lat={data.coordinates.latitude}
                                     lng={data.coordinates.longitude}
@@ -552,24 +581,24 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                             </div>
                         )}
                     </div>
-                )}
+                </section>
+            )}
 
-                {/* ── Footer ──────────────────────────────────────────────── */}
-                <div className="flex items-center justify-between px-1 pb-4">
-                    <div className="flex gap-6">
-                        <div>
-                            <div className={T.label}>Data Sources</div>
-                            <div className="text-[12px] font-bold text-slate-600 mt-0.5">First Street · FEMA · USGS · Drought Monitor</div>
-                        </div>
-                        <div>
-                            <div className={T.label}>Confidence</div>
-                            <div className="text-[12px] font-black text-emerald-600 mt-0.5">Verified</div>
-                        </div>
+            {/* ── Footer ───────────────────────────────────────────────────── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 16px' }}>
+                <div style={{ display: 'flex', gap: 24 }}>
+                    <div>
+                        <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Data Sources</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginTop: 3 }}>First Street · FEMA · USGS · Drought Monitor</div>
                     </div>
-                    <div className={T.attr}>Zyphe Property Intelligence</div>
+                    <div>
+                        <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Confidence</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginTop: 3 }}>Verified</div>
+                    </div>
                 </div>
+                <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Zyphe Property Intelligence</div>
+            </div>
 
         </div>
-
     );
 };

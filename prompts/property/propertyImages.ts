@@ -24,7 +24,25 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
     "lighting": "Analysis of natural and artificial lighting quality and placement.",
     "spatial_flow": "Description of the layout (open concept, defined spaces) and how it affects the home's flow.",
     "staging_and_furnishings": "How the furnishings support the scale, function, and appeal of the space.",
-    "condition_and_finish": "Expert opinion on the home's overall condition and finish quality (e.g., turnkey, dated, high-end)."
+    "condition_and_finish": "Expert opinion on the home's overall condition and finish quality (e.g., turnkey, dated, high-end).",
+    "hero_headline": "A punchy 4–7 word phrase capturing the interior's dominant character (e.g., 'Bright, open and move-in ready').",
+    "atmosphere_scores": {
+      "brightness": "Integer 0–100: overall natural and artificial light level. 90+ = flooded with light; 50 = average; <40 = dim.",
+      "warmth": "Integer 0–100: warmth of materials, palette, and furnishings. 90+ = very warm/cozy; 50 = neutral; <40 = cool/stark.",
+      "openness": "Integer 0–100: sense of spaciousness and flow. 90+ = open-plan, airy; 50 = mixed; <40 = compartmentalised."
+    },
+    "facet_tags": {
+      "colors_tag": "2–4 word tag describing the color palette (e.g., 'Warm neutrals', 'Cool minimalist', 'Bold & eclectic').",
+      "lighting_tag": "2–4 word tag for lighting character (e.g., 'Sun-drenched', 'Soft & ambient', 'Bright · Natural').",
+      "staging_tag": "2–4 word tag for staging style (e.g., 'Tasteful & curated', 'Minimal staging', 'Fully furnished')."
+    },
+    "material_palette": [
+      {
+        "name": "Descriptive material name (e.g., 'Hardwood floors', 'White quartz counters')",
+        "hex": "Best approximate hex color code (e.g., '#c8a87a')",
+        "location": "Where it appears in the home (e.g., 'Main level', 'Kitchen & baths')"
+      }
+    ]
   },
   "room_highlights": [
     {
@@ -172,9 +190,43 @@ export const propertyImagesSchema = {
         lighting: { type: Type.STRING, description: "Analysis of natural light quality and artificial fixture placement." },
         spatial_flow: { type: Type.STRING, description: "Layout description (open vs defined) and how it affects movement." },
         staging_and_furnishings: { type: Type.STRING, description: "How furnishings support scale and functional appeal." },
-        condition_and_finish: { type: Type.STRING, description: "Turnkey vs dated assessment and finish quality." }
+        condition_and_finish: { type: Type.STRING, description: "Turnkey vs dated assessment and finish quality." },
+        hero_headline: { type: Type.STRING, description: "4–7 word punchy headline capturing the interior's dominant character." },
+        atmosphere_scores: {
+          type: Type.OBJECT,
+          description: "Scores derived solely from visual image analysis.",
+          properties: {
+            brightness: { type: Type.INTEGER, description: "0–100 score for natural + artificial light level." },
+            warmth:     { type: Type.INTEGER, description: "0–100 score for warmth of palette and materials." },
+            openness:   { type: Type.INTEGER, description: "0–100 score for spaciousness and layout flow." },
+          },
+          required: ["brightness", "warmth", "openness"],
+        },
+        facet_tags: {
+          type: Type.OBJECT,
+          description: "Short visual descriptors derived from image analysis only.",
+          properties: {
+            colors_tag:   { type: Type.STRING, description: "2–4 word color palette descriptor." },
+            lighting_tag: { type: Type.STRING, description: "2–4 word lighting character descriptor." },
+            staging_tag:  { type: Type.STRING, description: "2–4 word staging style descriptor." },
+          },
+          required: ["colors_tag", "lighting_tag", "staging_tag"],
+        },
+        material_palette: {
+          type: Type.ARRAY,
+          description: "3–6 dominant materials/finishes with approximate hex colors and locations.",
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name:     { type: Type.STRING, description: "Descriptive material name (e.g. 'Dark hardwood floors')." },
+              hex:      { type: Type.STRING, description: "Approximate hex color (e.g. '#6b4c2a')." },
+              location: { type: Type.STRING, description: "Where it appears (e.g. 'Main level', 'Kitchen & baths')." },
+            },
+            required: ["name", "hex", "location"],
+          },
+        },
       },
-      required: ["overall_description", "design_style", "color_and_materials", "lighting", "spatial_flow", "staging_and_furnishings", "condition_and_finish"]
+      required: ["overall_description", "design_style", "color_and_materials", "lighting", "spatial_flow", "staging_and_furnishings", "condition_and_finish", "hero_headline", "atmosphere_scores", "facet_tags", "material_palette"]
     },
     room_highlights: {
       type: Type.ARRAY,

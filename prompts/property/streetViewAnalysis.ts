@@ -26,6 +26,21 @@ TASK: Analyze the provided Street View image and output a JSON object with the f
 12. neighborCondition: A sentence evaluating the upkeep of the surrounding houses and neighborhood.Identify any 'visual disorder' like litter, overgrown lots, or abandoned vehicles.
 
   IMPORTANT: Do NOT attempt to count or describe garage spaces, driveway capacity, or specific parking counts — this data is sourced from official MLS records and visual estimates are unreliable.
+
+13. observationPins: An array of exactly 6 objects. Each object marks where in the image the corresponding observation is best supported visually. The order is fixed:
+    Pin 1 → Front-Yard Privacy (point to the front yard, fence line, or privacy hedges)
+    Pin 2 → Safety & Access (point to the front gate, sidewalk entry, or driveway approach)
+    Pin 3 → Solar Potential (point to the rooftop or the tree canopy above/near the roof)
+    Pin 4 → Streetscape Quality (point to the neighboring homes or the street scene to the side)
+    Pin 5 → Utilities (point to where overhead lines would run, or the roofline if underground)
+    Pin 6 → Parking (point to the visible street parking lane or driveway apron)
+
+    For each pin return:
+      "num": integer 1–6
+      "xPct": a number 0–100 representing the horizontal position as a percentage of image width (0 = far left, 100 = far right)
+      "yPct": a number 0–100 representing the vertical position as a percentage of image height (0 = top, 100 = bottom)
+
+    Place each pin precisely on the visual element it describes — not just the center of the image. If a feature is not clearly visible, place the pin in the region where it would typically appear (e.g., rooftop area for solar, lower-left for front yard privacy).
 `;
 
 export const streetViewAnalysisSchema = {
@@ -43,7 +58,20 @@ export const streetViewAnalysisSchema = {
     familySafety: { type: Type.STRING },
     utilityAesthetic: { type: Type.STRING },
     isImageryAvailable: { type: Type.BOOLEAN },
-    neighborCondition: { type: Type.STRING }
+    neighborCondition: { type: Type.STRING },
+    observationPins: {
+      type: Type.ARRAY,
+      description: "Exactly 6 pins, one per observation, with pixel-accurate xPct/yPct coordinates pointing to the relevant visual feature in the image.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          num:  { type: Type.INTEGER, description: "Pin number 1–6 matching the fixed observation order." },
+          xPct: { type: Type.NUMBER,  description: "Horizontal position as % of image width (0=left, 100=right)." },
+          yPct: { type: Type.NUMBER,  description: "Vertical position as % of image height (0=top, 100=bottom)." },
+        },
+        required: ["num", "xPct", "yPct"],
+      },
+    },
   },
   required: [
     "curbAppealScore",
@@ -58,6 +86,7 @@ export const streetViewAnalysisSchema = {
     "familySafety",
     "utilityAesthetic",
     "isImageryAvailable",
-    "neighborCondition"
+    "neighborCondition",
+    "observationPins",
   ]
 };
