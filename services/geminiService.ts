@@ -653,13 +653,15 @@ export const analyzeLifestyleFit = async (
   property: PropertyData,
   visual: CustomAIAnalysisResult | null,
   streetView: any | null,
-  userId: string = "unknown"
-): Promise<AIResponseWithUsage<any>> => {
+  userId: string = "unknown",
+  comprehensiveSummary: string | null = null
+): Promise<{ data: any; usage?: any }> => {
   const { getLifestyleFitPrompt, lifestyleFitSchema } = await import("../prompts/property/lifestyleFit");
   const prompt = getLifestyleFitPrompt(
     optimizePropertyForAi(property) as PropertyData,
     visual ? optimizeVisualForAi(visual) as CustomAIAnalysisResult : null,
-    streetView
+    streetView,
+    comprehensiveSummary
   );
 
   console.log(`[Lifestyle Fit] Starting for ${property.address}...`);

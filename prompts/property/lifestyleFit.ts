@@ -75,6 +75,7 @@ function buildMLSContext(property: PropertyData): string {
 - Living area: ${property.livingAreaValue ? `${property.livingAreaValue.toLocaleString()} sqft` : 'N/A'}
 - Lot size: ${property.lotSize || 'N/A'}
 - Year built: ${property.yearBuilt || 'N/A'}
+- Stories: ${property.resoFacts?.stories ?? property.stories ?? 'N/A'}
 - Price: ${property.price ? `$${property.price.toLocaleString()}` : 'N/A'}`);
 
     const rf = property.resoFacts;
@@ -92,6 +93,7 @@ function buildMLSContext(property: PropertyData): string {
         if (rf.lotFeatures) features.push(`Lot features: ${rf.lotFeatures}`);
         if (rf.appliances) features.push(`Appliances: ${rf.appliances}`);
         if (rf.architecturalStyle) features.push(`Architectural style: ${rf.architecturalStyle}`);
+        if (rf.stories) features.push(`Total stories: ${rf.stories}`);
         if (features.length) parts.push(`HOME FEATURES:\n${features.map(f => `- ${f}`).join('\n')}`);
     }
 
@@ -120,9 +122,11 @@ function buildMLSContext(property: PropertyData): string {
 export const getLifestyleFitPrompt = (
     property: PropertyData,
     visual: CustomAIAnalysisResult | null,
-    streetView: StreetViewAnalysisResult | null
+    streetView: StreetViewAnalysisResult | null,
+    comprehensive: string | null = null
 ) => `
 You are an expert residential property analyst who specializes in matching homes to buyer lifestyles. You have been given detailed MLS listing data, AI analysis of the property's interior/exterior photos, and street view analysis.
+${comprehensive ? `\nADDITIONAL CONTEXT (Comprehensive Analysis Summary):\n${comprehensive}\n` : ''}
 
 Your task: evaluate how well this SPECIFIC PROPERTY fits each of the three lifestyle categories below. Consider BOTH the property itself (layout, features, condition, rooms) AND its location/neighborhood. Be honest — call out both strengths and deal-breakers.
 

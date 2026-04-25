@@ -160,7 +160,8 @@ export function useExploreTabData({
                 propertyData,
                 customAnalysis, // pass current visual analysis if any
                 (propertyData as any).streetViewAnalysis, // pass street view if any
-                uid
+                uid,
+                comprehensiveAnalysis?.summary || null
             );
             if (fitRes.data) {
                 setLifestyleFit(fitRes.data);
@@ -171,6 +172,14 @@ export function useExploreTabData({
         }
         setLifestyleLoading(false);
     };
+
+    // Auto-trigger lifestyle analysis if comprehensive is done but fit is missing
+    useEffect(() => {
+        if (comprehensiveAnalysis && !lifestyleFit && !lifestyleLoading && propertyData?.zpid) {
+            console.log(`[Lifestyle] Auto-triggering fit analysis for ${propertyData.zpid} using comprehensive context...`);
+            handleGenerateLifestyle();
+        }
+    }, [comprehensiveAnalysis, lifestyleFit, lifestyleLoading, propertyData?.zpid]);
 
     // ── Schools intelligence ─────────────────────────────────────
     const [schoolsIntelligence, setSchoolsIntelligence] = useState<any>(null);
