@@ -552,7 +552,7 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                 {/* Label row + palette */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: '#94a3b8', fontWeight: 600 }}>
-                        Compatibility & Education&nbsp;·&nbsp;Lifestyle, Schools & Vastu
+                        Compatibility & Education&nbsp;·&nbsp;Lifestyle
                     </div>
                     {/* {renderPalette && renderPalette()} */}
                 </div>
@@ -614,10 +614,37 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                     </div>
                 ) : fitData ? (
                     <div className="flex flex-col gap-4">
-                        {/* Narrative */}
+                        {/* Narrative - Post-it style */}
                         {fitData.summary && (
-                            <div style={{ background: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0', padding: '18px 22px' }}>
-                                <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.65 }}>{fitData.summary}</p>
+                            <div style={{ 
+                                background: '#fef3c7', 
+                                padding: '24px 28px', 
+                                borderRadius: '2px', 
+                                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                                transform: 'rotate(-0.8deg)',
+                                position: 'relative',
+                                borderLeft: '12px solid rgba(251,191,36,0.3)',
+                                marginBottom: 12,
+                                marginTop: 8
+                            }}>
+                                <div style={{ 
+                                    position: 'absolute', 
+                                    top: -12, 
+                                    left: '50%', 
+                                    transform: 'translateX(-50%)',
+                                    width: 90, 
+                                    height: 28, 
+                                    background: 'rgba(255,255,255,0.45)',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                                    zIndex: 1,
+                                    borderRadius: '1px'
+                                }} title="Tape effect" />
+                                <div style={{ fontSize: 9.5, letterSpacing: '0.18em', color: '#b45309', fontWeight: 800, textTransform: 'uppercase', marginBottom: 10 }}>
+                                    Executive Lifestyle Fit
+                                </div>
+                                <p style={{ fontSize: 15.5, color: '#78350f', lineHeight: 1.6, margin: 0, fontFamily: serif, fontStyle: 'italic' }}>
+                                    "{fitData.summary}"
+                                </p>
                             </div>
                         )}
 
@@ -659,17 +686,29 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                             </div>
                         )}
 
-                        {/* Tip */}
+                        {/* Tip - Post-it style (Blue) */}
                         {fitData.tip && (
                             <div style={{
-                                background: '#eef2ff', borderRadius: 12, padding: '14px 18px',
-                                display: 'flex', gap: 12, alignItems: 'flex-start',
-                                border: '1px solid rgba(79,70,229,0.15)',
+                                background: '#e0f2fe', 
+                                borderRadius: '2px', 
+                                padding: '20px 24px',
+                                display: 'flex', 
+                                gap: 14, 
+                                alignItems: 'flex-start',
+                                borderLeft: '10px solid rgba(14,165,233,0.2)',
+                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                                transform: 'rotate(0.5deg)',
+                                marginTop: 8
                             }}>
-                                <div style={{ width: 28, height: 28, borderRadius: 6, background: '#4f46e5', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#0ea5e9', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, boxShadow: '0 2px 4px rgba(14,165,233,0.2)' }}>
                                     <i className="fa-solid fa-lightbulb" />
                                 </div>
-                                <p style={{ fontSize: 13, color: '#3730a3', lineHeight: 1.55, margin: 0 }}>{fitData.tip}</p>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 9, letterSpacing: '0.12em', color: '#0369a1', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>
+                                        Concierge Strategy
+                                    </div>
+                                    <p style={{ fontSize: 13.5, color: '#0c4a6e', lineHeight: 1.55, margin: 0 }}>{fitData.tip}</p>
+                                </div>
                             </div>
                         )}
                     </div>
