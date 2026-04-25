@@ -544,27 +544,24 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
             {/* ── Editorial hero header ─────────────────────────────────────── */}
             <div style={{
                 background: `linear-gradient(180deg, ${activePersona.softBg} 0%, transparent 100%)`,
-                borderRadius: 24, border: '1px solid #e2e8f0', padding: '32px 36px 28px',
+                borderRadius: 24, border: '1px solid #e2e8f0', padding: '16px 24px 18px',
                 transition: 'background 0.4s ease',
             }}>
-                {renderPalette && (
-                    <div className="flex items-center justify-end gap-3 mb-4">
-                        <span className="text-[10px] text-slate-300 font-bold italic">Drag notes to page</span>
-                        {renderPalette()}
+                {/* Label row + palette */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: '#94a3b8', fontWeight: 600 }}>
+                        Compatibility & Education&nbsp;·&nbsp;Lifestyle, Schools & Vastu
                     </div>
-                )}
-
-                <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: '#94a3b8', fontWeight: 600, marginBottom: 8 }}>
-                    Compatibility & Education&nbsp;·&nbsp;Lifestyle, Schools & Vastu
+                    {renderPalette && renderPalette()}
                 </div>
 
-                <h1 style={{ fontFamily: serif, fontSize: 52, lineHeight: 1.02, margin: '4px 0 12px', fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                <h1 style={{ fontFamily: serif, fontSize: 36, lineHeight: 1.05, margin: '0 0 6px', fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
                     Will this home fit{' '}
                     <em style={{ fontStyle: 'italic', color: activePersona.accent }}>your</em>
                     {' '}life?
                 </h1>
 
-                <p style={{ fontSize: 14, color: '#64748b', maxWidth: 680, lineHeight: 1.55, marginBottom: 24 }}>
+                <p style={{ fontSize: 13, color: '#64748b', maxWidth: 680, lineHeight: 1.5, marginBottom: 14 }}>
                     Personalized fit analysis cross-referenced with neighborhood lifestyle, educational intelligence, and property orientation.
                 </p>
 

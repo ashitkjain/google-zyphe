@@ -180,32 +180,30 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
     };
 
     const palette = () => (
-        <div className="flex flex-col items-end gap-1.5 ml-auto">
-            <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 shadow-sm group/palette">
-                <div className="flex flex-col items-center mr-1 opacity-20 group-hover/palette:opacity-40 transition-opacity">
-                    <i className="fa-solid fa-palette text-[10px] text-slate-800"></i>
-                    <span className="text-[8px] font-black uppercase tracking-tighter text-slate-800">Notes</span>
-                </div>
-                <div className="relative group/palette-item">
-                    {/* Visual stack effect */}
-                    <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-sm bg-[#ffff88]/40 blur-[1px] border border-black/5"></div>
-                    <div className="absolute inset-0 translate-x-[1.5px] translate-y-[1.5px] rounded-sm bg-[#ffff88]/60 blur-[0.5px] border border-black/5"></div>
-                    
-                    <div
-                        onMouseDown={(e) => handlePaletteDragStart(e, 'yellow')}
-                        onTouchStart={(e) => handlePaletteDragStart(e, 'yellow')}
-                        onDragStart={(e) => e.preventDefault()}
-                        title="Drag focus note to page"
-                        className="relative z-10 w-11 h-11 rounded-[1px] bg-[#ffff88] cursor-grab active:cursor-grabbing flex flex-col items-center justify-center transition-all duration-200 hover:-translate-y-1 hover:rotate-3 hover:shadow-2xl shadow-md border border-white/30"
-                    >
-                        <div className="absolute top-0 left-0 right-0 h-[4px] bg-white/20 rounded-t-sm"></div>
-                        <i className="fa-solid fa-plus text-[10px] opacity-30 text-slate-800"></i>
+        <div className="flex items-center gap-3 flex-shrink-0">
+            <span className="text-[10px] font-semibold text-slate-400 tracking-wide">drag to add a note</span>
+            <div className="relative group/palette-item">
+                {/* Stack shadows */}
+                <div className="absolute inset-0 translate-x-[4px] translate-y-[4px] rounded-[2px] bg-[#e8e04a]/50 blur-[1px]"></div>
+                <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-[2px] bg-[#f5ef6a]/70"></div>
+                <div
+                    onMouseDown={(e) => handlePaletteDragStart(e, 'yellow')}
+                    onTouchStart={(e) => handlePaletteDragStart(e, 'yellow')}
+                    onDragStart={(e) => e.preventDefault()}
+                    title="Drag to add a note"
+                    className="relative z-10 w-14 h-14 rounded-[2px] bg-[#fef08a] cursor-grab active:cursor-grabbing flex flex-col justify-between p-1.5 transition-all duration-200 hover:-translate-y-1 hover:rotate-2 shadow-lg"
+                    style={{ boxShadow: '2px 3px 8px rgba(0,0,0,0.18)' }}
+                >
+                    {/* Tape strip at top */}
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-3.5 bg-yellow-100/80 rounded-sm border border-yellow-200/60" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }} />
+                    {/* Ruled lines */}
+                    <div className="flex flex-col gap-[5px] mt-2 px-0.5">
+                        <div className="h-[1px] bg-amber-300/50 rounded-full" />
+                        <div className="h-[1px] bg-amber-300/50 rounded-full" />
+                        <div className="h-[1px] bg-amber-300/50 rounded-full" />
                     </div>
+                    <i className="fa-solid fa-plus text-[11px] text-amber-600/50 self-center mb-0.5" />
                 </div>
-            </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 pr-2">
-                <i className="fa-solid fa-hand-pointer text-[8px] opacity-40 animate-bounce" />
-                drag to page to make notes
             </div>
         </div>
     );

@@ -130,49 +130,46 @@ const PageHeader: React.FC<{
     const accentHex = TAILWIND_TO_HEX[color] || '#4f46e5';
     return (
         <div style={{
-            background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0',
-            padding: 28, marginBottom: 24, position: 'relative', overflow: 'hidden',
+            background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0',
+            padding: '10px 16px', marginBottom: 24, position: 'relative', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', gap: 12,
         }}>
             {/* Gradient blob */}
             <div style={{
-                position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%',
-                background: `radial-gradient(circle, ${accentHex}20 0%, transparent 70%)`, pointerEvents: 'none',
+                position: 'absolute', top: -80, right: -80, width: 240, height: 240, borderRadius: '50%',
+                background: `radial-gradient(circle, ${accentHex}18 0%, transparent 70%)`, pointerEvents: 'none',
             }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <div style={{
-                    width: 40, height: 40, borderRadius: 10, display: 'grid', placeItems: 'center',
-                    background: `${accentHex}18`, color: accentHex, flexShrink: 0,
-                }}>
-                    <i className={`fa-solid ${icon} text-base`} />
-                </div>
+            {/* Icon */}
+            <div style={{
+                width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center',
+                background: `${accentHex}18`, color: accentHex, flexShrink: 0,
+            }}>
+                <i className={`fa-solid ${icon} text-sm`} />
+            </div>
+            {/* Text block */}
+            <div style={{ flex: 1, minWidth: 0 }}>
                 {label && (
-                    <div style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: 9.5, letterSpacing: '0.16em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 1 }}>
                         {label}
                     </div>
                 )}
-                <div style={{ flex: 1 }} />
-                {renderPalette && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px', border: '1px dashed #e2e8f0', borderRadius: 999, color: '#94a3b8', fontSize: 11, flexShrink: 0 }}>
-                        <span style={{ width: 20, height: 20, borderRadius: 5, background: '#f8fafc', display: 'inline-grid', placeItems: 'center', fontSize: 11 }}>◳</span>
-                        Drop notes to page
-                        {renderPalette()}
+                <h1 style={{
+                    fontFamily: _serif, fontSize: 26, lineHeight: 1.05, margin: 0,
+                    fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a',
+                }}>{title}</h1>
+                {(description || subtitle) && (
+                    <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.45, margin: '2px 0 0', maxWidth: 640 }}>
+                        {description || subtitle}
+                    </p>
+                )}
+                {attribution && (
+                    <div style={{ fontSize: 9, letterSpacing: '0.14em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginTop: 4 }}>
+                        {attribution}
                     </div>
                 )}
             </div>
-            <h1 style={{
-                fontFamily: _serif, fontSize: 40, lineHeight: 1.04, margin: '0 0 10px',
-                fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a',
-            }}>{title}</h1>
-            {(description || subtitle) && (
-                <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.55, margin: 0, maxWidth: 720 }}>
-                    {description || subtitle}
-                </p>
-            )}
-            {attribution && (
-                <div style={{ fontSize: 9, letterSpacing: '0.14em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginTop: 10, textAlign: 'right' }}>
-                    {attribution}
-                </div>
-            )}
+            {/* Palette */}
+            {renderPalette && renderPalette()}
         </div>
     );
 };
