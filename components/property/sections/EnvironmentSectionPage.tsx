@@ -309,7 +309,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Seismic Design Zone</span>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Earthquake Risk</span>
                                         <Pill
                                             label={`Category ${seismic.designCategory}`}
                                             style={
