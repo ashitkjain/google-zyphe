@@ -71,6 +71,16 @@ export interface ImageQualityAnalysisResult {
         label: string;
         justification: string;
     }>;
+    top_interior_photos?: Array<{
+        image_index: number;
+        label: string;
+        justification: string;
+    }>;
+    top_exterior_photos?: Array<{
+        image_index: number;
+        label: string;
+        justification: string;
+    }>;
     lighting_and_color: ImageQualityCategory;
     staging_and_clutter: ImageQualityCategory;
     composition: ImageQualityCategory;

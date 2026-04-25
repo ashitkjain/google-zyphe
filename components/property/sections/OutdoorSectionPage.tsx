@@ -286,40 +286,43 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
 
                 {/* Photo grid - Mosaic of top 5 exterior photos */}
                 {(() => {
-                    const analysisList = customAnalysis?.image_by_image_analysis || [];
-                    const topPhotos = customAnalysis?.image_quality_analysis?.top_photos || [];
+                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_exterior_photos 
+                        || customAnalysis?.image_quality_analysis?.top_photos 
+                        || [];
                     
-                    // 1. Try to find photos explicitly labeled as exterior in top_photos
-                    const topExtFromAI = topPhotos.filter(p => {
-                        const lbl = p.label.toLowerCase();
-                        return lbl.includes('exterior') || lbl.includes('outdoor') || lbl.includes('drone') || 
-                               lbl.includes('backyard') || lbl.includes('pool') || lbl.includes('aerial') || 
-                               lbl.includes('view') || lbl.includes('patio') || lbl.includes('landscape');
-                    }).map(p => ({ url: data.images?.[p.image_index], label: p.label }));
+                    let finalExtPhotos: Array<{ url: string; label: string }> = topPhotoData
+                        .map(p => ({ 
+                            url: data.images?.[p.image_index] as string, 
+                            label: p.label 
+                        }))
+                        .filter(p => !!p.url);
 
-                    // 2. Supplement with any photos whose analysis mentions outdoor keywords
-                    const otherExtFromAnalysis = analysisList.filter(a => {
-                        const txt = a.analysis.toLowerCase();
-                        return txt.includes('exterior') || txt.includes('outdoor') || txt.includes('drone') || 
-                               txt.includes('backyard') || txt.includes('pool') || txt.includes('aerial');
-                    }).map(a => ({ url: a.image_id, label: 'Exterior' }));
+                    const seen = new Set<string>(finalExtPhotos.map(p => p.url));
 
-                    // 3. Collate and uniqueify
-                    let finalExtPhotos: Array<{ url: string; label: string }> = [];
-                    const seen = new Set<string>();
-                    [...topExtFromAI, ...otherExtFromAnalysis].forEach(p => {
-                        if (p.url && !seen.has(p.url)) {
-                            seen.add(p.url);
-                            finalExtPhotos.push(p as any);
-                        }
-                    });
-
-                    // 4. Fallback to first few photos if needed (listing agents usually put exterior first)
+                    // Fallback: search analysis for exterior keywords
                     if (finalExtPhotos.length < 5) {
-                        (data.images || []).slice(0, 8).forEach(img => {
-                            if (!seen.has(img) && finalExtPhotos.length < 5) {
+                        const analysisList = customAnalysis?.image_by_image_analysis || [];
+                        analysisList.forEach(a => {
+                            if (finalExtPhotos.length >= 5) return;
+                            const txt = a.analysis.toLowerCase();
+                            const isExt = txt.includes('exterior') || txt.includes('outdoor') || txt.includes('drone') || 
+                                          txt.includes('backyard') || txt.includes('pool') || txt.includes('aerial') ||
+                                          txt.includes('street') || txt.includes('garden');
+                            
+                            if (isExt && a.image_id && !seen.has(a.image_id)) {
+                                seen.add(a.image_id);
+                                finalExtPhotos.push({ url: a.image_id, label: 'Exterior' });
+                            }
+                        });
+                    }
+
+                    // Final fallback: first 5 photos (usually exteriors)
+                    if (finalExtPhotos.length < 5) {
+                        (data.images || []).forEach(img => {
+                            if (finalExtPhotos.length >= 5) return;
+                            if (!seen.has(img)) {
                                 seen.add(img);
-                                finalExtPhotos.push({ url: img, label: 'Property Exterior' });
+                                finalExtPhotos.push({ url: img, label: 'Property' });
                             }
                         });
                     }

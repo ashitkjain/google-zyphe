@@ -304,15 +304,25 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
 
                 {/* Photo grid - Mosaic of top 5 photos */}
                 {(() => {
-                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_photos || [];
+                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_interior_photos 
+                        || customAnalysis?.image_quality_analysis?.top_photos 
+                        || [];
+                    
                     let topImages = topPhotoData
                         .map(p => data.images?.[p.image_index])
                         .filter(Boolean);
 
-                    // Fallback to first 5 images if AI top_photos missing or incomplete
+                    // Fallback: if we have no top interior photos yet, try to find some by keyword or index
                     if (topImages.length < 5) {
                         const existingSet = new Set(topImages);
-                        const fallbacks = (data.images || []).filter(img => !existingSet.has(img));
+                        // Often interior photos start after the first few exterior shots
+                        // We filter for images that are NOT in the existing set
+                        const fallbacks = (data.images || [])
+                            .filter(img => !existingSet.has(img))
+                            // Very basic heuristic: if we have no AI labels, we take images after index 5 (often where interiors start)
+                            // or just the rest of the stack
+                            .slice(0, 10); 
+                        
                         topImages = [...topImages, ...fallbacks].slice(0, 5);
                     }
 
