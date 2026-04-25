@@ -105,6 +105,7 @@ function ParcelStat({ icon, label, value, sub, badge }: {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) => {
+    const [selectedImage, setSelectedImage] = useState<{ url: string; label: string } | null>(null);
     const ext = customAnalysis?.exterior_and_neighborhood;
     const lotFeaturesRaw = data.resoFacts?.lotFeatures;
     const lotFeatures = Array.isArray(lotFeaturesRaw) ? lotFeaturesRaw.join(', ') : (lotFeaturesRaw || '');
@@ -286,78 +287,116 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
 
                 {/* Photo grid - Mosaic of top 5 exterior photos */}
                 {(() => {
-                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_exterior_photos 
-                        || customAnalysis?.image_quality_analysis?.top_photos 
-                        || [];
+                    const analysisList = customAnalysis?.image_by_image_analysis || [];
+                    const topPhotos = customAnalysis?.image_quality_analysis?.top_photos || [];
                     
-                    let finalExtPhotos: Array<{ url: string; label: string }> = topPhotoData
-                        .map(p => ({ 
-                            url: data.images?.[p.image_index] as string, 
-                            label: p.label 
-                        }))
-                        .filter(p => !!p.url);
+                    const outdoorKeywords = [
+                        'aerial', 'drone', 'exterior', 'outdoor', 'backyard', 'front yard', 'frontyard', 
+                        'pool', 'patio', 'deck', 'landscape', 'garden', 'driveway'
+                    ];
 
-                    const seen = new Set<string>(finalExtPhotos.map(p => p.url));
+                    let topImages: Array<{ url: string; label: string }> = [];
+                    const usedIndices = new Set<number>();
 
-                    // Fallback: search analysis for exterior keywords
-                    if (finalExtPhotos.length < 5) {
-                        const analysisList = customAnalysis?.image_by_image_analysis || [];
-                        analysisList.forEach(a => {
-                            if (finalExtPhotos.length >= 5) return;
-                            const txt = a.analysis.toLowerCase();
-                            const isExt = txt.includes('exterior') || txt.includes('outdoor') || txt.includes('drone') || 
-                                          txt.includes('backyard') || txt.includes('pool') || txt.includes('aerial') ||
-                                          txt.includes('street') || txt.includes('garden');
+                    // 1. Try to find photos explicitly labeled as exterior in top_photos
+                    topPhotos.forEach(p => {
+                        if (topImages.length >= 5) return;
+                        const lbl = p.label.toLowerCase();
+                        const isOutdoor = outdoorKeywords.some(kw => lbl.includes(kw));
+                        
+                        if (isOutdoor) {
+                            // Check if this image has an analysis entry that marks it as internal
+                            const analysisEntry = analysisList.find(a => a.image_id === `img_${p.image_index}.jpg`);
+                            if (analysisEntry) {
+                                const analysisText = analysisEntry.analysis.toLowerCase();
+                                const internalKeywords = [
+                                    'room', 'kitchen', 'bedroom', 'bathroom', 'living', 'dining', 
+                                    'office', 'entryway', 'foyer', 'hallway', 'interior', 'ceiling', 'floor'
+                                ];
+                                if (internalKeywords.some(kw => analysisText.includes(kw))) return;
+                            }
+
+                            const url = data.images?.[p.image_index];
+                            if (url && !usedIndices.has(p.image_index)) {
+                                topImages.push({ url: url as string, label: p.label });
+                                usedIndices.add(p.image_index);
+                            }
+                        }
+                    });
+
+                    // 2. Supplement with any photos whose analysis mentions outdoor keywords
+                    analysisList.forEach((entry) => {
+                        if (topImages.length >= 5) return;
+                        
+                        const analysisText = entry.analysis.toLowerCase();
+                        const imageId = entry.image_id;
+                        const match = imageId.match(/img_(\d+)/);
+                        const idx = match ? parseInt(match[1]) : -1;
+                        if (idx === -1 || usedIndices.has(idx)) return;
+
+                        // NEW: Ignore if it looks like an internal room (likely a view from a window)
+                        const internalKeywords = [
+                            'room', 'kitchen', 'bedroom', 'bathroom', 'living', 'dining', 
+                            'office', 'entryway', 'foyer', 'hallway', 'interior', 'ceiling', 'floor'
+                        ];
+                        const isInternal = internalKeywords.some(kw => analysisText.includes(kw));
+                        if (isInternal) return;
+
+                        for (const kw of outdoorKeywords) {
+                            if (analysisText.includes(kw)) {
+                                let label = kw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                if (kw === 'frontyard' || kw === 'front yard') label = 'Front';
+                                if (kw === 'exterior') label = 'Property Exterior';
+                                
+                                const url = data.images?.[idx];
+                                if (url) {
+                                    topImages.push({
+                                        url: url as string,
+                                        label: label
+                                    });
+                                    usedIndices.add(idx);
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    // 3. Fallback to first few photos (listing agents usually put exterior first)
+                    if (topImages.length < 5) {
+                        (data.images || []).forEach((img, idx) => {
+                            if (topImages.length >= 5) return;
+                            if (usedIndices.has(idx)) return;
+                            if (!img) return;
                             
-                            if (isExt && a.image_id && !seen.has(a.image_id)) {
-                                seen.add(a.image_id);
-                                finalExtPhotos.push({ url: a.image_id, label: 'Exterior' });
-                            }
+                            topImages.push({ url: img as string, label: 'Property Exterior' });
+                            usedIndices.add(idx);
                         });
                     }
 
-                    // Final fallback: first 5 photos (usually exteriors)
-                    if (finalExtPhotos.length < 5) {
-                        (data.images || []).forEach(img => {
-                            if (finalExtPhotos.length >= 5) return;
-                            if (!seen.has(img)) {
-                                seen.add(img);
-                                finalExtPhotos.push({ url: img, label: 'Property' });
-                            }
-                        });
-                    }
-
-                    finalExtPhotos = finalExtPhotos.slice(0, 5);
-                    const items = finalExtPhotos.length > 0 ? finalExtPhotos : Array.from({ length: 5 });
+                    const displayItems = topImages.slice(0, 3);
 
                     return (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                            {items.map((item: any, i) => {
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                            {displayItems.map((item: any, i) => {
                                 const isHero = i === 0;
                                 const img = item?.url;
                                 return (
                                     <div key={i} style={{ 
-                                        borderRadius: 10, 
+                                        borderRadius: 12, 
                                         overflow: 'hidden', 
-                                        height: isHero ? 180 : 120, 
+                                        height: isHero ? 320 : 220, 
                                         position: 'relative',
                                         gridColumn: isHero ? '1 / span 2' : 'auto',
-                                        background: !img ? `repeating-linear-gradient(135deg, ${ACCENT}0a 0 6px, transparent 6px 14px), #f8fafc` : 'none',
-                                        border: !img ? '1px dashed #e2e8f0' : 'none',
-                                        display: !img ? 'flex' : 'block',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        {img ? (
-                                            <>
-                                                <img src={img} alt={`Exterior ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', color: '#fff', padding: '3px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                                    {item.label}
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <span style={{ fontSize: 10, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Photo {i + 1}</span>
-                                        )}
+                                        background: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        cursor: 'zoom-in'
+                                    }}
+                                    onClick={() => setSelectedImage({ url: img, label: item.label })}
+                                    >
+                                        <img src={img} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                            {item.label}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -748,6 +787,27 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
                     </div>
                 </div>
             )}
+            {/* ── Image Modal ── */}
+            {selectedImage && (
+                <div 
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'grid', placeItems: 'center', padding: 40 }}
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+                        <img src={selectedImage.url} alt={selectedImage.label} style={{ width: '100%', height: 'auto', maxHeight: '80vh', borderRadius: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', objectFit: 'contain' }} />
+                        <div style={{ marginTop: 20, textAlign: 'center' }}>
+                            <h3 style={{ fontFamily: serif, fontSize: 28, color: '#fff', margin: 0 }}>{selectedImage.label}</h3>
+                        </div>
+                        <button 
+                            onClick={() => setSelectedImage(null)}
+                            style={{ position: 'absolute', top: -50, right: 0, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', fontFamily: mono }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+

@@ -116,10 +116,8 @@ ROOM ORDERING — output room_highlights in this exact logical walk-through sequ
 Skip any category with no images; keep the relative order of the remaining categories.
 
 Picture Quality Analysis
-    Identify exactly the TOP 5 strongest photos from the gallery overall.
-    Identify exactly the TOP 5 strongest INTERIOR photos (kitchen, living, bedroom, etc).
-    Identify exactly the TOP 5 strongest EXTERIOR/OUTDOOR photos (curb appeal, backyard, pool, views).
-    For each of these, provide a professional label (e.g., 'Gourmet Kitchen', 'Sun-Drenched Master') and a brief justification of why it is technically and aesthetically superior.
+For each observation or issue you note, you MUST specify the indices (starting from 0) of the specific images that demonstrate that point.
+Identify exactly the TOP 5 strongest photos from the gallery. For each of these 5 photos, provide a professional label (e.g., 'Gourmet Kitchen', 'Sun-Drenched Master') and a brief justification of why it is technically and aesthetically superior.
 Identify any photos that should be removed (due to blur, bad lighting, clutter, or poor composition).
 For technical red flags (the delete list), specify the indices of all photos that fall into this category.
 
@@ -199,8 +197,8 @@ export const propertyImagesSchema = {
           description: "Scores derived solely from visual image analysis.",
           properties: {
             brightness: { type: Type.INTEGER, description: "0–100 score for natural + artificial light level." },
-            warmth:     { type: Type.INTEGER, description: "0–100 score for warmth of palette and materials." },
-            openness:   { type: Type.INTEGER, description: "0–100 score for spaciousness and layout flow." },
+            warmth: { type: Type.INTEGER, description: "0–100 score for warmth of palette and materials." },
+            openness: { type: Type.INTEGER, description: "0–100 score for spaciousness and layout flow." },
           },
           required: ["brightness", "warmth", "openness"],
         },
@@ -208,9 +206,9 @@ export const propertyImagesSchema = {
           type: Type.OBJECT,
           description: "Short visual descriptors derived from image analysis only.",
           properties: {
-            colors_tag:   { type: Type.STRING, description: "2–4 word color palette descriptor." },
+            colors_tag: { type: Type.STRING, description: "2–4 word color palette descriptor." },
             lighting_tag: { type: Type.STRING, description: "2–4 word lighting character descriptor." },
-            staging_tag:  { type: Type.STRING, description: "2–4 word staging style descriptor." },
+            staging_tag: { type: Type.STRING, description: "2–4 word staging style descriptor." },
           },
           required: ["colors_tag", "lighting_tag", "staging_tag"],
         },
@@ -220,8 +218,8 @@ export const propertyImagesSchema = {
           items: {
             type: Type.OBJECT,
             properties: {
-              name:     { type: Type.STRING, description: "Descriptive material name (e.g. 'Dark hardwood floors')." },
-              hex:      { type: Type.STRING, description: "Approximate hex color (e.g. '#6b4c2a')." },
+              name: { type: Type.STRING, description: "Descriptive material name (e.g. 'Dark hardwood floors')." },
+              hex: { type: Type.STRING, description: "Approximate hex color (e.g. '#6b4c2a')." },
               location: { type: Type.STRING, description: "Where it appears (e.g. 'Main level', 'Kitchen & baths')." },
             },
             required: ["name", "hex", "location"],
@@ -293,33 +291,7 @@ export const propertyImagesSchema = {
             },
             required: ["image_index", "label", "justification"]
           },
-          description: "Exactly 5 strongest listing photos overall."
-        },
-        top_interior_photos: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              image_index: { type: Type.INTEGER },
-              label: { type: Type.STRING },
-              justification: { type: Type.STRING }
-            },
-            required: ["image_index", "label", "justification"]
-          },
-          description: "Exactly 5 strongest INTERIOR photos."
-        },
-        top_exterior_photos: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              image_index: { type: Type.INTEGER },
-              label: { type: Type.STRING },
-              justification: { type: Type.STRING }
-            },
-            required: ["image_index", "label", "justification"]
-          },
-          description: "Exactly 5 strongest EXTERIOR/OUTDOOR photos."
+          description: "Exactly 5 strongest listing photos with justifications."
         },
         lighting_and_color: categorySchema,
         staging_and_clutter: categorySchema,

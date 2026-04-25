@@ -3,7 +3,7 @@
  * Editorial redesign of the Interior / Indoor section.
  * Accent: teal (#0d9488)
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { PropertyData } from '../../../types';
 import { CustomAIAnalysisResult } from '../../../types/ai';
 
@@ -15,9 +15,9 @@ interface Props {
 }
 
 const serif = "'Instrument Serif', Georgia, serif";
-const mono  = "'JetBrains Mono', ui-monospace, monospace";
-const ACCENT     = '#0d9488';
-const ACCENT_BG  = '#ccfbf1';
+const mono = "'JetBrains Mono', ui-monospace, monospace";
+const ACCENT = '#0d9488';
+const ACCENT_BG = '#ccfbf1';
 const ACCENT_INK = '#115e59';
 
 // ── Primitives ────────────────────────────────────────────────────────────────
@@ -85,13 +85,13 @@ function deriveHeroTags(rf: any): string[] {
     const raw = rf?.interiorFeatures;
     if (raw) {
         const feat = parseMulti(raw).toLowerCase();
-        if (feat.includes('hardwood'))                                          tags.push('Hardwood floors');
+        if (feat.includes('hardwood')) tags.push('Hardwood floors');
         if (feat.includes('granite') || feat.includes('quartz') || feat.includes('marble')) tags.push('Stone counters');
-        if (feat.includes('crown') || feat.includes('molding'))                tags.push('Crown molding');
-        if (feat.includes('skylight'))                                         tags.push('Skylight');
-        if (feat.includes('fireplace'))                                        tags.push('Fireplace');
-        if (feat.includes('smart') || feat.includes('wired'))                  tags.push('Smart home');
-        if (feat.includes('open') || feat.includes('great room'))              tags.push('Open concept');
+        if (feat.includes('crown') || feat.includes('molding')) tags.push('Crown molding');
+        if (feat.includes('skylight')) tags.push('Skylight');
+        if (feat.includes('fireplace')) tags.push('Fireplace');
+        if (feat.includes('smart') || feat.includes('wired')) tags.push('Smart home');
+        if (feat.includes('open') || feat.includes('great room')) tags.push('Open concept');
     }
     // Flooring type if not already covered by interiorFeatures
     if (rf?.flooring && !tags.some(t => t.toLowerCase().includes('hardwood'))) {
@@ -106,18 +106,18 @@ function deriveConditionTag(rf: any): string {
     if (!raw) return '';
     const v = String(raw).toLowerCase();
     if (v.includes('new') || v.includes('excellent') || v.includes('updated') || v.includes('remodel')) return 'Move-in ready';
-    if (v.includes('good') || v.includes('well') || v.includes('maintain'))  return 'Well maintained';
-    if (v.includes('fair') || v.includes('average'))                          return 'Average condition';
+    if (v.includes('good') || v.includes('well') || v.includes('maintain')) return 'Well maintained';
+    if (v.includes('fair') || v.includes('average')) return 'Average condition';
     if (v.includes('fixer') || v.includes('tlc') || v.includes('needs') || v.includes('dated')) return 'Needs refreshing';
     return String(raw).split(',')[0].trim();
 }
 
 function deriveSpatialTag(rf: any): string {
     const feat = parseMulti(rf?.interiorFeatures).toLowerCase();
-    if (feat.includes('open') || feat.includes('great room'))                  return 'Open concept';
+    if (feat.includes('open') || feat.includes('great room')) return 'Open concept';
     const stories = rf?.stories;
-    if (stories === 1)  return 'Single-story flow';
-    if (stories === 2)  return 'Two-story layout';
+    if (stories === 1) return 'Single-story flow';
+    if (stories === 2) return 'Two-story layout';
     if (stories != null) return `${stories}-story layout`;
     return '';
 }
@@ -129,9 +129,9 @@ function deriveFinishScore(rf: any): number | null {
     let score = 60;
     const feat = parseMulti(rf.interiorFeatures).toLowerCase();
     if (feat.includes('granite') || feat.includes('quartz') || feat.includes('marble')) score += 12;
-    if (feat.includes('hardwood'))                  score += 8;
+    if (feat.includes('hardwood')) score += 8;
     if (feat.includes('crown') || feat.includes('molding')) score += 8;
-    if (feat.includes('skylight'))                  score += 5;
+    if (feat.includes('skylight')) score += 5;
     if (feat.includes('smart') || feat.includes('wired')) score += 5;
     const cond = String(rf.propertyCondition || '').toLowerCase();
     if (cond.includes('new') || cond.includes('remodel') || cond.includes('updated') || cond.includes('excellent')) score += 10;
@@ -169,30 +169,31 @@ function parseMulti(raw?: any): string {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, currentInteriorSummary, designStyle }) => {
-    const interior    = customAnalysis?.home_interior;
+    const [selectedImage, setSelectedImage] = useState<{ url: string; label: string } | null>(null);
+    const interior = customAnalysis?.home_interior;
     const roomHighlights = customAnalysis?.room_highlights || [];
-    const rf          = data.resoFacts;
+    const rf = data.resoFacts;
 
     // ── Derived values ────────────────────────────────────────────────────────
 
-    const styleTag   = interior?.design_style?.style || designStyle?.style || 'Transitional';
-    const overallP1  = interior?.overall_description
+    const styleTag = interior?.design_style?.style || designStyle?.style || 'Transitional';
+    const overallP1 = interior?.overall_description
         || currentInteriorSummary?.interior_summary
         || 'Interior analysis pending — run property analysis to generate AI-powered insights.';
-    const overallP2  = currentInteriorSummary?.vibe || '';
+    const overallP2 = currentInteriorSummary?.vibe || '';
     const roomsSummary = currentInteriorSummary?.rooms_summary || '';
     const objectiveTags: string[] = currentInteriorSummary?.objective_tags || [];
 
     // Image-analysis scores (from prompt)
-    const atmoScores    = interior?.atmosphere_scores;
-    const facetTags     = interior?.facet_tags;
-    const heroHeadline  = interior?.hero_headline || '';
+    const atmoScores = interior?.atmosphere_scores;
+    const facetTags = interior?.facet_tags;
+    const heroHeadline = interior?.hero_headline || '';
 
     // Context-graph derived values (from resoFacts — always available)
-    const heroTags      = deriveHeroTags(rf);
-    const conditionTag  = deriveConditionTag(rf);
-    const spatialTag    = deriveSpatialTag(rf);
-    const finishScore   = deriveFinishScore(rf);
+    const heroTags = deriveHeroTags(rf);
+    const conditionTag = deriveConditionTag(rf);
+    const spatialTag = deriveSpatialTag(rf);
+    const finishScore = deriveFinishScore(rf);
 
     // Show dials when image-analysis scores (brightness/warmth/openness) are available
     const hasAtmoScores = atmoScores?.brightness != null && atmoScores?.warmth != null && atmoScores?.openness != null;
@@ -201,8 +202,8 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
     const materialPalette: Array<{ name: string; hex: string; location: string }> =
         interior?.material_palette || [];
 
-    const hasInterior    = !!interior;
-    const hasRooms       = roomHighlights.length > 0;
+    const hasInterior = !!interior;
+    const hasRooms = roomHighlights.length > 0;
     const hasMlsInterior = !!(rf?.flooring || rf?.appliances || rf?.heating || rf?.cooling ||
         rf?.interiorFeatures?.length || rf?.fireplaceFeatures || rf?.rooms || rf?.roomTypes);
 
@@ -253,10 +254,10 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
             {/* ── At-a-glance stats strip ── */}
             {(data.bedrooms != null || data.bathrooms != null || data.livingAreaValue || data.yearBuilt) && (
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const }}>
-                    {data.bedrooms   != null && <StatPill label="Bedrooms"    value={data.bedrooms} />}
-                    {data.bathrooms  != null && <StatPill label="Bathrooms"   value={data.bathrooms} />}
-                    {data.livingAreaValue    && <StatPill label="Living Sqft" value={data.livingAreaValue.toLocaleString()} />}
-                    {data.yearBuilt          && <StatPill label="Year Built"  value={data.yearBuilt} />}
+                    {data.bedrooms != null && <StatPill label="Bedrooms" value={data.bedrooms} />}
+                    {data.bathrooms != null && <StatPill label="Bathrooms" value={data.bathrooms} />}
+                    {data.livingAreaValue && <StatPill label="Living Sqft" value={data.livingAreaValue.toLocaleString()} />}
+                    {data.yearBuilt && <StatPill label="Year Built" value={data.yearBuilt} />}
                 </div>
             )}
 
@@ -304,62 +305,106 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
 
                 {/* Photo grid - Mosaic of top 5 photos */}
                 {(() => {
-                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_interior_photos 
-                        || customAnalysis?.image_quality_analysis?.top_photos 
-                        || [];
+                    const topPhotoData = customAnalysis?.image_quality_analysis?.top_photos || [];
+                    const imageAnalysis = customAnalysis?.image_by_image_analysis || [];
                     
-                    let topImages = topPhotoData
-                        .map(p => data.images?.[p.image_index])
-                        .filter(Boolean);
+                    // 1. Try to find the first 5 internal spaces from image-by-image analysis
+                    // We look for keywords in the analysis text and map them to the corresponding image.
+                    const internalKeywords = [
+                        'entryway', 'foyer', 'hallway', 'living room', 'livingroom', 'great room', 
+                        'family room', 'kitchen', 'dining', 'bedroom', 'bathroom', 'office', 'den', 'laundry'
+                    ];
 
-                    // Fallback: if we have no top interior photos yet, try to find some by keyword or index
-                    if (topImages.length < 5) {
-                        const existingSet = new Set(topImages);
-                        // Often interior photos start after the first few exterior shots
-                        // We filter for images that are NOT in the existing set
-                        const fallbacks = (data.images || [])
-                            .filter(img => !existingSet.has(img))
-                            // Very basic heuristic: if we have no AI labels, we take images after index 5 (often where interiors start)
-                            // or just the rest of the stack
-                            .slice(0, 10); 
+                    let topImages: Array<{ url: string; label: string }> = [];
+                    const usedIndices = new Set<number>();
+
+                    // Process image analysis in order (they are likely already sorted by index)
+                    imageAnalysis.forEach((entry) => {
+                        if (topImages.length >= 5) return;
                         
-                        topImages = [...topImages, ...fallbacks].slice(0, 5);
+                        const analysisText = entry.analysis.toLowerCase();
+                        const imageId = entry.image_id;
+                        // Extract index from imageId (e.g., "img_5.jpg" -> 5)
+                        const match = imageId.match(/img_(\d+)/);
+                        const idx = match ? parseInt(match[1]) : -1;
+                        if (idx === -1 || usedIndices.has(idx)) return;
+
+                        // Check if this image analysis contains any of our target keywords
+                        for (const kw of internalKeywords) {
+                            if (analysisText.includes(kw)) {
+                                // Try to extract a clean label (e.g., "Living Room")
+                                let label = kw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                if (kw === 'livingroom') label = 'Living Room';
+                                
+                                const url = data.images?.[idx];
+                                if (url) {
+                                    topImages.push({
+                                        url: url as string,
+                                        label: label
+                                    });
+                                    usedIndices.add(idx);
+                                    break; // Found a keyword for this image
+                                }
+                            }
+                        }
+                    });
+
+                    // 2. Fallback to AI top_photos if we don't have 5 yet
+                    if (topImages.length < 5) {
+                        topPhotoData.forEach(p => {
+                            if (topImages.length >= 5) return;
+                            if (usedIndices.has(p.image_index)) return;
+                            
+                            const url = data.images?.[p.image_index];
+                            if (url) {
+                                topImages.push({
+                                    url: url as string,
+                                    label: p.label || 'AI Choice'
+                                });
+                                usedIndices.add(p.image_index);
+                            }
+                        });
                     }
 
-                    const hasImages = topImages.length > 0;
-                    const items = hasImages ? topImages : Array.from({ length: 5 });
+                    // 3. Ultimate fallback to first available images
+                    if (topImages.length < 5) {
+                        (data.images || []).forEach((url, idx) => {
+                            if (topImages.length >= 5) return;
+                            if (usedIndices.has(idx)) return;
+                            if (!url) return;
+                            
+                            topImages.push({
+                                url: url as string,
+                                label: `Photo ${idx + 1}`
+                            });
+                            usedIndices.add(idx);
+                        });
+                    }
+
+                    const items = topImages.slice(0, 3);
 
                     return (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                             {items.map((img, i) => {
                                 // First image is a hero spanning both columns
                                 const isHero = i === 0;
                                 return (
                                     <div key={i} style={{ 
-                                        borderRadius: 10, 
+                                        borderRadius: 12, 
                                         overflow: 'hidden', 
-                                        height: isHero ? 180 : 120, 
+                                        height: isHero ? 320 : 220, 
                                         position: 'relative',
                                         gridColumn: isHero ? '1 / span 2' : 'auto',
-                                        background: !img ? `repeating-linear-gradient(135deg, ${ACCENT}0a 0 6px, transparent 6px 14px), #f8fafc` : 'none',
-                                        border: !img ? '1px dashed #e2e8f0' : 'none',
-                                        display: !img ? 'flex' : 'block',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        {img ? (
-                                            <>
-                                                <img src={img as string} alt={`Top Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                {/* Badge for AI Top Photos */}
-                                                {i < topPhotoData.length && (
-                                                    <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', color: '#fff', padding: '3px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                                        {topPhotoData[i].label || 'AI Choice'}
-                                                    </div>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <span style={{ fontSize: 10, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Photo {i + 1}</span>
-                                        )}
+                                        background: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        cursor: 'zoom-in'
+                                    }}
+                                    onClick={() => setSelectedImage({ url: img.url, label: img.label })}
+                                    >
+                                        <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', color: '#fff', padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                            {img.label}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -374,9 +419,9 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
                     <SectionTitleBar num={nextSec()} kicker="Atmosphere Dials" title="How it feels inside" italicWord="feels" />
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
                         {hasAtmoScores && <>
-                            <DialCard label="Brightness"    value={atmoScores!.brightness} hint={interior?.lighting?.split('.')[0] || 'Natural light quality'}    color={ACCENT} />
-                            <DialCard label="Warmth"        value={atmoScores!.warmth}     hint={interior?.color_and_materials?.split('.')[0] || 'Palette warmth'} color="#d97706" />
-                            <DialCard label="Openness"      value={atmoScores!.openness}   hint={interior?.spatial_flow?.split('.')[0] || 'Layout & flow'}         color="#0ea5e9" />
+                            <DialCard label="Brightness" value={atmoScores!.brightness} hint={interior?.lighting?.split('.')[0] || 'Natural light quality'} color={ACCENT} />
+                            <DialCard label="Warmth" value={atmoScores!.warmth} hint={interior?.color_and_materials?.split('.')[0] || 'Palette warmth'} color="#d97706" />
+                            <DialCard label="Openness" value={atmoScores!.openness} hint={interior?.spatial_flow?.split('.')[0] || 'Layout & flow'} color="#0ea5e9" />
                         </>}
                         {finishScore != null && (
                             <DialCard label="Finish Quality" value={finishScore} hint={interior?.condition_and_finish?.split('.')[0] || conditionTag || 'Build quality'} color="#16a34a" />
@@ -455,17 +500,38 @@ export const IndoorSectionPage: React.FC<Props> = ({ data, customAnalysis, curre
                     <SectionTitleBar num={nextSec()} kicker="MLS Interior Facts" title="What the listing says" italicWord="listing" />
                     <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 22 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-                            {rf?.flooring         && <SpecRow label="Flooring"           value={parseMulti(rf.flooring)} />}
-                            {rf?.appliances       && <SpecRow label="Appliances"         value={parseMulti(rf.appliances)} />}
-                            {rf?.heating          && <SpecRow label="Heating"            value={parseMulti(rf.heating)} />}
-                            {rf?.cooling          && <SpecRow label="Cooling"            value={parseMulti(rf.cooling)} />}
-                            {rf?.fireplaceFeatures && <SpecRow label="Fireplace"         value={parseMulti(rf.fireplaceFeatures)} />}
-                            {(rf?.rooms || rf?.roomTypes) && <SpecRow label="Rooms"      value={parseMulti(rf.rooms || rf.roomTypes)} />}
-                            {rf?.interiorFeatures  && <SpecRow label="Interior Features" value={parseMulti(rf.interiorFeatures)} />}
-                            {rf?.laundryFeatures  && <SpecRow label="Laundry"            value={parseMulti(rf.laundryFeatures)} />}
-                            {rf?.windowFeatures   && <SpecRow label="Windows"            value={parseMulti(rf.windowFeatures)} />}
-                            {rf?.securityFeatures && <SpecRow label="Security"           value={parseMulti(rf.securityFeatures)} />}
+                            {rf?.flooring && <SpecRow label="Flooring" value={parseMulti(rf.flooring)} />}
+                            {rf?.appliances && <SpecRow label="Appliances" value={parseMulti(rf.appliances)} />}
+                            {rf?.heating && <SpecRow label="Heating" value={parseMulti(rf.heating)} />}
+                            {rf?.cooling && <SpecRow label="Cooling" value={parseMulti(rf.cooling)} />}
+                            {rf?.fireplaceFeatures && <SpecRow label="Fireplace" value={parseMulti(rf.fireplaceFeatures)} />}
+                            {(rf?.rooms || rf?.roomTypes) && <SpecRow label="Rooms" value={parseMulti(rf.rooms || rf.roomTypes)} />}
+                            {rf?.interiorFeatures && <SpecRow label="Interior Features" value={parseMulti(rf.interiorFeatures)} />}
+                            {rf?.laundryFeatures && <SpecRow label="Laundry" value={parseMulti(rf.laundryFeatures)} />}
+                            {rf?.windowFeatures && <SpecRow label="Windows" value={parseMulti(rf.windowFeatures)} />}
+                            {rf?.securityFeatures && <SpecRow label="Security" value={parseMulti(rf.securityFeatures)} />}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Image Modal ── */}
+            {selectedImage && (
+                <div 
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'grid', placeItems: 'center', padding: 40 }}
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+                        <img src={selectedImage.url} alt={selectedImage.label} style={{ width: '100%', height: 'auto', maxHeight: '80vh', borderRadius: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', objectFit: 'contain' }} />
+                        <div style={{ marginTop: 20, textAlign: 'center' }}>
+                            <h3 style={{ fontFamily: serif, fontSize: 28, color: '#fff', margin: 0 }}>{selectedImage.label}</h3>
+                        </div>
+                        <button 
+                            onClick={() => setSelectedImage(null)}
+                            style={{ position: 'absolute', top: -50, right: 0, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', fontFamily: mono }}
+                        >
+                            ×
+                        </button>
                     </div>
                 </div>
             )}
