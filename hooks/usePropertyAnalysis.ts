@@ -108,6 +108,27 @@ export function usePropertyAnalysis({
         addLog('Radar Geocode API', { type: 'request' }, { address: searchAddress });
         const radarResult = await normalizeAddress(searchAddress);
         addLog('Radar Geocode API', { type: 'response' }, radarResult);
+        
+        // Handle City/Zip search (Zillow-like)
+        if (radarResult.layer === 'locality' || radarResult.layer === 'postalCode') {
+          setLoading(false);
+          setImagesLoading(false);
+          const cityOrZip = radarResult.layer === 'locality' ? radarResult.components.city : radarResult.components.zipCode;
+          // Transition to home/browse view
+          transitionToView('main' as any);
+          // Wait for view to mount then trigger browse
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('browse-city', { 
+              detail: { 
+                city: cityOrZip,
+                zip: radarResult.layer === 'postalCode' ? cityOrZip : undefined,
+                viewMode: 'map' // Set to map as requested
+              } 
+            }));
+          }, 300);
+          return;
+        }
+
         finalAddress = radarResult.formattedAddress;
         coords = radarResult.coordinates;
         mapIn = radarResult.mapZoomIn;

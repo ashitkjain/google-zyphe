@@ -6,6 +6,7 @@ import '@radarlabs/plugin-maps/dist/radar-maps.css';
 import { APP_CONFIG } from '../../config';
 import { CityPropertySummary } from '../../services/firebase/properties';
 import PropertyCard from './PropertyCard';
+import { fetchCityBoundary } from '../../services/api/boundaries';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -69,25 +70,26 @@ const createPriceMarkerElement = (
         <div style="
             background: ${bgColor};
             color: ${textColor};
-            border: 2px solid ${borderColor};
-            border-radius: 8px;
-            padding: 3px 8px;
-            font-size: 11px;
-            font-weight: 900;
+            border: 1.5px solid ${borderColor};
+            border-radius: 5px;
+            padding: 2px 6px;
+            font-size: 9.5px;
+            font-weight: 800;
             white-space: nowrap;
             cursor: pointer;
             box-shadow: ${shadow};
             transition: transform 0.15s ease, box-shadow 0.15s ease;
             position: relative;
-            letter-spacing: -0.3px;
+            letter-spacing: -0.2px;
+            line-height: 1.4;
         ">
-            ${match ? `<span style="opacity:0.7;font-size:9px;margin-right:2px">#${match.rank}</span>` : ''}${label}
+            ${match ? `<span style="opacity:0.7;font-size:8px;margin-right:1px">#${match.rank}</span>` : ''}${label}
         </div>
         <div class="zyphe-marker-tip" style="
             width: 0; height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 6px solid ${bgColor};
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid ${bgColor};
             margin: 0 auto;
         "></div>
     `;
@@ -248,11 +250,74 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
         };
     }, []); // Only run once
 
-    // Update map center when city changes
+
+    // Update map center and draw boundaries when city changes
     useEffect(() => {
-        if (!mapRef.current || !selectedCity) return;
-        const center = CITY_CENTERS[selectedCity] || TRI_VALLEY_CENTER;
-        mapRef.current.flyTo({ center, zoom: 12, duration: 1200 });
+        if (!selectedCity) return;
+
+        // Capture city at effect-creation time so the inner helpers always
+        // reference the same value even after a re-render.
+        const city = selectedCity;
+
+        function applyBoundary(map: any, boundary: any) {
+            // Remove stale layers/source
+            try { if (map.getLayer('city-boundary-fill'))   map.removeLayer('city-boundary-fill');   } catch (_) {}
+            try { if (map.getLayer('city-boundary-stroke')) map.removeLayer('city-boundary-stroke'); } catch (_) {}
+            try { if (map.getSource('city-boundary'))       map.removeSource('city-boundary');       } catch (_) {}
+
+            if (!boundary) {
+                const center = CITY_CENTERS[city] || TRI_VALLEY_CENTER;
+                map.flyTo({ center, zoom: 12, duration: 1200 });
+                return;
+            }
+
+            try {
+                map.addSource('city-boundary', { type: 'geojson', data: boundary });
+
+                map.addLayer({
+                    id: 'city-boundary-fill',
+                    type: 'fill',
+                    source: 'city-boundary',
+                    paint: { 'fill-color': '#4f46e5', 'fill-opacity': 0.12 },
+                });
+
+                map.addLayer({
+                    id: 'city-boundary-stroke',
+                    type: 'line',
+                    source: 'city-boundary',
+                    paint: { 'line-color': '#4f46e5', 'line-width': 3, 'line-opacity': 0.7 },
+                });
+
+                if (boundary.bbox) {
+                    const [s, n, w, e] = boundary.bbox.map(Number);
+                    map.fitBounds([w, s, e, n], { padding: 40, duration: 1500, essential: true });
+                }
+
+                console.log('[Boundary] layers added for', city);
+            } catch (err) {
+                console.error('[Boundary] addLayer/addSource failed:', err);
+            }
+        }
+
+        let cancelled = false;
+
+        fetchCityBoundary(city).then(boundary => {
+            if (cancelled) return;
+            const map = mapRef.current;
+            if (!map) return;
+
+            if (map.isStyleLoaded()) {
+                applyBoundary(map, boundary);
+            } else {
+                map.once('load', () => {
+                    if (!cancelled && mapRef.current) applyBoundary(mapRef.current, boundary);
+                });
+            }
+        }).catch(err => {
+            console.error('[Boundary] fetch failed:', err);
+        });
+
+        return () => { cancelled = true; };
     }, [selectedCity]);
 
     // Add/update markers when properties change
@@ -361,7 +426,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             <div
                 ref={mapContainerRef}
                 className="w-full"
-                style={{ height: 'calc(100vh - 220px)', minHeight: '500px' }}
+                style={{ height: 'calc(100dvh - 310px)', minHeight: '480px' }}
             />
 
             {/* Overlay: No coordinates warning */}

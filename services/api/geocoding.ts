@@ -81,6 +81,8 @@ export const normalizeAddress = async (address: string, zpid?: string): Promise<
     return {
         coordinates,
         formattedAddress,
+        layer: selectedResult.layer,
+        confidence: selectedResult.confidence,
         components: {
             street: selectedResult.street,
             city: selectedResult.city,

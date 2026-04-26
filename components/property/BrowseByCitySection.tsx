@@ -11,6 +11,7 @@ import { auth, generateCityStateKey } from '../../services/firebase/config';
 
 import {
     getPropertiesByCity,
+    getPropertiesByZip,
     CityPropertySummary,
     queryContextGraphs,
     getCityContextGraphFromCloud,
@@ -43,21 +44,51 @@ import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 
 const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
 
-const BrowseHomeSection: React.FC<{ searchBar: React.ReactNode; setViewMode: any }> = ({ searchBar, setViewMode }) => {
+export default function ExplorePage({ searchBar }: { searchBar: React.ReactNode }) {
+    const [currentTab, setCurrentTab] = useState<'search' | 'story' | 'browse'>('search');
+    const [showMyStory, setShowMyStory] = useState(false);
+
     return (
-        <div className="w-full px-6 py-6 space-y-8">
-            {/* Browse + Search bar inline */}
-            <BrowseByCitySection
-                onPropertyClick={(addr) => {
-                    if (typeof (setViewMode as any) === 'function') {
-                        (setViewMode as any)('explore', addr);
-                    }
-                }}
-                searchBar={searchBar}
-            />
+        <div className="w-full">
+            {/* Compact Hero Landing */}
+            <div className="relative w-full flex flex-col items-center justify-center overflow-visible" style={{ minHeight: 90 }}>
+                <div className="absolute inset-0 z-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-slate-950/90"></div>
+                    <div className="absolute inset-0 bg-indigo-900/10 mix-blend-overlay"></div>
+                </div>
 
+                {/* Content Overlay */}
+                <div className="relative z-10 w-full max-w-6xl px-4 py-2">
+                    {React.cloneElement(searchBar as React.ReactElement, {
+                        activeTab: currentTab,
+                        onTabChange: (tab: any) => {
+                            if (tab === 'browse') {
+                                setCurrentTab('browse');
+                                setShowMyStory(false);
+                            } else if (tab === 'story') {
+                                setCurrentTab('story');
+                                setShowMyStory(true);
+                            } else {
+                                setCurrentTab('search');
+                                setShowMyStory(false);
+                            }
+                        },
+                    } as any)}
+                </div>
+            </div>
 
-
+            <div className="px-6 pb-2 space-y-2">
+                <BrowseByCitySection
+                    onPropertyClick={(addr) => {
+                        if (typeof (setViewMode as any) === 'function') {
+                            (setViewMode as any)('explore', addr);
+                        }
+                    }}
+                    onMyStory={setShowMyStory}
+                    activePath={currentTab}
+                    onPathChange={setCurrentTab}
+                />
+            </div>
         </div>
     );
 };
@@ -75,14 +106,26 @@ const BUYER_STORY_EXAMPLES = [
     { title: 'First-Time, Value', icon: 'fa-solid fa-piggy-bank', story: "First-time buyer, single income software engineer. Budget is tight: $800K-1.1M. Looking for best value — maybe a fixer with renovation upside. Townhomes OK. Need at least 2 beds. Close to BART or highway for commute to SF. Walkable to grocery and coffee shops. Low HOA preferred." },
 ];
 
-const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void; onHasResults?: (has: boolean) => void; onMyStory?: (open: boolean) => void; searchBar?: React.ReactNode }> = ({ onPropertyClick, onHasResults, onMyStory, searchBar }) => {
+const BrowseByCitySection: React.FC<{ 
+    onPropertyClick: (address: string) => void; 
+    onHasResults?: (has: boolean) => void; 
+    onMyStory?: (open: boolean) => void; 
+    searchBar?: React.ReactNode;
+    activePath?: 'browse' | 'story' | 'search';
+    onPathChange?: (path: 'browse' | 'story' | 'search') => void;
+    onRegisterSaveAction?: (handler: () => void) => void;
+    onRegisterSavedAction?: (handler: () => void) => void;
+}> = ({ onPropertyClick, onHasResults, onMyStory, searchBar, activePath: externalPath, onPathChange, onRegisterSaveAction, onRegisterSavedAction }) => {
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
     const [showMyStory, setShowMyStory] = useState(true);
     // Track which discovery path is active: browse (city), story (My Story), or search (address)
-    const [activePath, setActivePath] = useState<'browse' | 'story' | 'search'>('story');
+    const [internalPath, setInternalPath] = useState<'browse' | 'story' | 'search'>('story');
+
+    const activePath = externalPath || internalPath;
+    const setActivePath = onPathChange || setInternalPath;
 
     // Notify parent when My Story is toggled
     React.useEffect(() => { onMyStory?.(showMyStory); }, [showMyStory]);
@@ -138,9 +181,13 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     // Listen for browse-city events from the search bar Browse button
     useEffect(() => {
         const handler = (e: Event) => {
-            const city = (e as CustomEvent).detail?.city;
-            if (city && typeof city === 'string') {
-                setSelectedCity(city);
+            const detail = (e as CustomEvent).detail;
+            const city = detail?.city;
+            const zip = detail?.zip;
+            const requestedView = detail?.viewMode;
+
+            if ((city || zip) && typeof (city || zip) === 'string') {
+                setSelectedCity(city || zip);
                 // Auto-trigger browse after state update
                 setTimeout(async () => {
                     setBrowsing(true);
@@ -148,14 +195,16 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                     setPage(1);
                     setShowMyStory(false);
                     setShowBuyerSearch(false);
-                    setViewModeLocal('gallery');
+                    setViewModeLocal(requestedView || 'gallery');
                     setBuyerResults(null);
                     setBuyerExtracted(null);
                     try {
-                        const data = await getPropertiesByCity(city);
+                        const data = zip 
+                            ? await getPropertiesByZip(zip)
+                            : await getPropertiesByCity(city);
                         setResults(data);
                     } catch (err) {
-                        console.error('Browse by city failed:', err);
+                        console.error('Browse failed:', err);
                         setResults([]);
                     } finally {
                         setBrowsing(false);
@@ -389,9 +438,14 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
         price?: number;
     } | null>(null);
 
-    // ── Save Search Modal state ──
     const [showSaveSearch, setShowSaveSearch] = useState(false);
     const [showSavedSearches, setShowSavedSearches] = useState(false);
+
+    // Register actions with parent
+    useEffect(() => {
+        onRegisterSaveAction?.(() => setShowSaveSearch(true));
+        onRegisterSavedAction?.(() => setShowSavedSearches(true));
+    }, [onRegisterSaveAction, onRegisterSavedAction]);
 
     // ── Market Snapshot — computed from filtered list ──
     const snapshot = useMemo(() => {
@@ -687,67 +741,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     return (
         <div className="text-left">
             {/* Controls row + search bar */}
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Browse:</span>
-                    {BROWSE_CITIES.map((c, i) => (
-                        <span key={c} className="flex items-center gap-2">
-                            {i > 0 && <span className="text-slate-300">|</span>}
-                            <button
-                                onClick={() => { 
-                                    setPage(1); 
-                                    setActivePath('browse'); 
-                                    setShowMyStory(false); 
-                                    setShowBuyerSearch(false);
-                                    setViewModeLocal('gallery');
-                                    setBuyerResults(null); 
-                                    setBuyerExtracted(null); 
-                                    handleBrowse(c); 
-                                }}
-                                disabled={browsing}
-                                className={`text-sm font-bold transition-all ${browsing && selectedCity === c
-                                    ? 'text-indigo-400 cursor-wait'
-                                    : selectedCity === c && results.length > 0 && activePath === 'browse'
-                                        ? 'text-indigo-700 underline underline-offset-4'
-                                        : 'text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-4'
-                                    }`}
-                            >
-                                {browsing && selectedCity === c ? (
-                                    <><i className="fa-solid fa-spinner animate-spin mr-1"></i>{c}</>
-                                ) : c}
-                            </button>
-                        </span>
-                    ))}
-
-                    {/* Divider */}
-                    <span className="text-slate-200 mx-1">|</span>
-
-                    {/* My Story tab */}
-                    <button
-                        onClick={() => {
-                            if (activePath === 'story' && !showMyStory) {
-                                // Already in story mode, toggle the intake form
-                                setShowMyStory(true);
-                            } else if (activePath === 'story' && showMyStory) {
-                                setShowMyStory(false);
-                            } else {
-                                // Switch to story mode
-                                setActivePath('story');
-                                setShowMyStory(true);
-                            }
-                        }}
-                        className={`flex items-center gap-1.5 text-sm font-bold transition-all ${activePath === 'story'
-                            ? 'text-indigo-700 underline underline-offset-4'
-                            : 'text-indigo-500 hover:text-indigo-800 hover:underline underline-offset-4'
-                            }`}
-                    >
-                        <i className="fa-solid fa-book-open-reader text-[11px]"></i>
-                        My Story
-                        {activePath === 'story' && selectedCity && !showMyStory && (
-                            <span className="text-[9px] font-medium text-indigo-400 ml-0.5">({selectedCity})</span>
-                        )}
-                    </button>
-                </div>
+            <div className={`flex flex-col md:flex-row md:items-center gap-4 ${searchBar ? 'justify-end' : ''}`}>
                 {searchBar && (
                     <div className="flex-1 max-w-2xl">
                         {searchBar}
@@ -781,128 +775,48 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
             )}
 
             {!showMyStory && !browsing && results.length > 0 && (
-                <div className="mt-6 space-y-3">
-
-                    {/* ── MARKET SNAPSHOT BAR / STORY EDITOR ── */}
-                    {snapshot && (
-                        <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100/80 rounded-2xl px-4 py-2">
-                            {activePath === 'story' ? (
-                                <div className="flex-1 flex items-center gap-3">
-                                    <div className="flex items-center text-indigo-500">
-                                        <i className="fa-solid fa-sparkles text-xs"></i>
-                                    </div>
-                                    <div className="flex-1 relative group">
-                                        <textarea
-                                            value={buyerStory}
-                                            onChange={e => { setBuyerStory(e.target.value); setBuyerError(null); }}
-                                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleBuyerSearch(); } }}
-                                            rows={4}
-                                            className="w-full bg-white/60 hover:bg-white border border-indigo-100 rounded-lg px-3 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all placeholder:text-slate-400 resize-none leading-tight"
-                                            placeholder="Edit your story to refine results..."
-                                        />
-                                        <button 
-                                            onClick={handleBuyerSearch}
-                                            disabled={buyerSearching}
-                                            className="absolute right-1 top-1.5 bottom-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm transition-opacity flex items-center gap-1 z-10"
-                                        >
-                                            {buyerSearching ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-arrows-rotate"></i>}
-                                            Search
-                                        </button>
-                                        {/* Debug Indicator */}
-                                        {buyerResults && (
-                                            <div className="flex items-center gap-1.5 mt-1.5 mb-1 px-1">
-                                                <span className="flex w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                                                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{buyerResults.length} Matched</span>
-                                                <span className="text-[10px] text-slate-400 font-bold ml-1">— reasoning shown on cards below</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex items-center gap-1.5">
-                                        <i className="fa-solid fa-house-circle-check text-indigo-400 text-xs"></i>
-                                        <span className="text-[11px] font-black text-slate-700">{snapshot.count}</span>
-                                        <span className="text-[10px] font-bold text-slate-400">Active</span>
-                                    </div>
-                                    <div className="w-px h-4 bg-slate-200"></div>
-                                    {snapshot.avg && (
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-400">Avg</span>
-                                            <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.avg)}</span>
-                                        </div>
-                                    )}
-                                    {snapshot.median && (
-                                        <>
-                                            <div className="w-px h-4 bg-slate-200"></div>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-[10px] font-bold text-slate-400">Median</span>
-                                                <span className="text-[11px] font-black text-slate-700">{fmtShort(snapshot.median)}</span>
-                                            </div>
-                                        </>
-                                    )}
-                                </>
-                            )}
-                            <div className="ml-auto flex items-center gap-2">
-                                <button
-                                    onClick={() => setShowSavedSearches(true)}
-                                    className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-violet-600 bg-white border border-violet-200 hover:bg-violet-50 transition-all flex items-center gap-1"
-                                >
-                                    <i className="fa-solid fa-bell"></i> Saved
-                                </button>
-                                <button
-                                    onClick={() => setShowSaveSearch(true)}
-                                    className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white bg-violet-600 hover:bg-violet-700 transition-all shadow-sm shadow-violet-200 flex items-center gap-1"
-                                >
-                                    <i className="fa-solid fa-bell-plus"></i> Save Search
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Row 1: View toggle */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex bg-slate-100 rounded-xl p-1">
+                <div className="mt-4 flex flex-wrap items-center gap-2 p-1 bg-slate-50/50 rounded-xl border border-slate-100">
+                    {/* View Switcher */}
+                    <div className="flex bg-slate-200/50 rounded-lg p-1 shrink-0">
+                        <button
+                            onClick={() => setViewModeLocal('gallery')}
+                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-white text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
+                        >
+                            <i className="fa-solid fa-grid-2 mr-1"></i> Gallery
+                        </button>
+                        {activePath === 'story' && buyerResults && (
                             <button
-                                onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'gallery', resultCount: displayList.length }); setViewModeLocal('gallery'); }}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                onClick={() => setViewModeLocal('zypheai')}
+                                className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'zypheai' ? 'bg-indigo-600 text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
                             >
-                                <i className="fa-solid fa-grid-2 mr-1"></i> Gallery
+                                <i className="fa-solid fa-sparkles mr-1"></i> Pro List
                             </button>
-                            {activePath === 'story' && buyerResults && (
-                                <button
-                                    onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'zypheai', resultCount: displayList.length }); setViewModeLocal('zypheai'); }}
-                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'zypheai' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <i className="fa-solid fa-sparkles mr-1"></i> Pro List
-                                </button>
-                            )}
-                            <button
-                                onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'table', resultCount: displayList.length }); setViewModeLocal('table'); }}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <i className="fa-solid fa-table-list mr-1"></i> Table
-                            </button>
-                            <button
-                                onClick={() => { trackViewModeChanged({ city: selectedCity, fromMode: viewMode, toMode: 'map', resultCount: displayList.length }); setViewModeLocal('map'); }}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <i className="fa-solid fa-map-location-dot mr-1"></i> Map
-                            </button>
-                        </div>
-                    </div>
+                        )}
+                        <button
+                            onClick={() => setViewModeLocal('table')}
+                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'table' ? 'bg-white text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
+                        >
+                            <i className="fa-solid fa-table-list mr-1"></i> Table
+                        </button>
+                        <button
+                            onClick={() => setViewModeLocal('map')}
+                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-emerald-600 text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
+                        >
+                            <i className="fa-solid fa-map-location-dot mr-1"></i> Map
+                        </button>
+                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
 
-                    {/* Row 2: Filters, sort, count */}
-                    <div className="flex flex-wrap items-center gap-3">
+                    {/* Sorting & Filters */}
+                    <div className="flex flex-wrap items-center gap-2.5">
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Sort By</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Sort By</label>
                             <select
                                 value={`${sortField}-${sortDir}`}
                                 onChange={e => {
                                     const [f, d] = e.target.value.split('-') as [typeof sortField, 'asc' | 'desc'];
                                     setSortField(f); setSortDir(d); setPage(1);
                                 }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
                             >
                                 <option value="address-asc">Address A→Z</option>
                                 <option value="address-desc">Address Z→A</option>
@@ -921,7 +835,7 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
 
                         {/* Filters */}
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Min $</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Min $</label>
                             <input
                                 type="number"
                                 placeholder="..."
@@ -931,43 +845,43 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Max $</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Max $</label>
                             <input
                                 type="number"
                                 placeholder="..."
                                 value={filterMaxPrice}
                                 onChange={e => { setFilterMaxPrice(e.target.value); setPage(1); }}
-                                className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
+                                className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none placeholder:text-slate-300"
                             />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Beds</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Beds</label>
                             <select
                                 value={filterBeds}
                                 onChange={e => { setFilterBeds(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
                             >
                                 <option value="">Any</option>
                                 {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Baths</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Baths</label>
                             <select
                                 value={filterBaths}
                                 onChange={e => { setFilterBaths(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
                             >
                                 <option value="">Any</option>
                                 {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Type</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Type</label>
                             <select
                                 value={filterHomeType}
                                 onChange={e => { setFilterHomeType(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
                             >
                                 <option value="">Any</option>
                                 <option value="SINGLE_FAMILY">Single Family</option>
@@ -977,11 +891,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Stories</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Stories</label>
                             <select
                                 value={filterStories}
                                 onChange={e => { setFilterStories(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
                             >
                                 <option value="">Any</option>
                                 <option value="1">1</option>
@@ -990,11 +904,11 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Schools</label>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Schools</label>
                             <select
                                 value={filterMinSchoolRating}
                                 onChange={e => { setFilterMinSchoolRating(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
                             >
                                 <option value="">Any</option>
                                 <option value="5">5+</option>
@@ -1009,36 +923,34 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
                             <select
                                 value={filterNeighborhood}
                                 onChange={e => { setFilterNeighborhood(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer max-w-[160px]"
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer max-w-[160px]"
                             >
                                 <option value="">Neighborhood</option>
                                 {availableNeighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
                         )}
 
-                        {/* More Filters button */}
                         <button
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${advancedFilterCount > 0
-                                ? 'bg-indigo-100 border border-indigo-300 text-indigo-700'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+                            className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 self-end mb-0.5 h-7 ${advancedFilterCount > 0
+                                ? 'bg-indigo-600 text-black shadow-sm'
+                                : 'bg-white border border-slate-200 text-black/70 hover:text-black hover:bg-black/5'
                                 }`}
                         >
                             <i className="fa-solid fa-sliders text-[9px]"></i>
-                            More Filters
-                            {advancedFilterCount > 0 && (
-                                <span className="bg-indigo-600 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">{advancedFilterCount}</span>
-                            )}
+                            Filters
                         </button>
-
-                        {/* Count */}
-                        <span className="ml-auto text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            {displayList.length} {displayList.length === 1 ? 'property' : 'properties'}
-                            {displayList.length !== results.length && ` (of ${results.length})`}
-                        </span>
-
-
                     </div>
+
+                    {/* Results Count */}
+                    <div className="ml-auto flex items-center gap-1.5 pr-3">
+                        <span className="text-[11px] font-black text-black">{displayList.length}</span>
+                        <span className="text-[9px] font-black text-black/50 uppercase tracking-widest">Results</span>
+                    </div>
+                </div>
+
+                    {/* Advanced filters overlay will appear below the toolbar row */}
+
 
                     {/* ── ADVANCED FILTERS OVERLAY ── */}
                     {showAdvancedFilters && (
@@ -1398,4 +1310,4 @@ const BrowseByCitySection: React.FC<{ onPropertyClick: (address: string) => void
     );
 };
 
-export { BrowseHomeSection, BrowseByCitySection };
+export { BrowseByCitySection };

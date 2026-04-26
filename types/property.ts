@@ -35,6 +35,8 @@ export interface RadarGeocodeResponse {
         longitude: number;
     };
     formattedAddress: string;
+    layer?: string;
+    confidence?: string;
     components: {
         street: string;
         city: string;

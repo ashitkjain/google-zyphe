@@ -344,6 +344,66 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
         return [];
     }
 };
+/**
+ * Get lightweight property summaries for a given ZIP code.
+ */
+export const getPropertiesByZip = async (zip: string, maxResults: number = 200): Promise<CityPropertySummary[]> => {
+    if (!db) return [];
+    try {
+        const q = query(
+            collection(db, "properties"),
+            where("zipCode", "==", zip),
+            limit(maxResults)
+        );
+        logFirestoreQuery('getDocs', 'properties', { zip, maxResults, scope: 'browse_by_zip' });
+        const snapshot = await getDocs(q);
+        return snapshot.docs
+            .filter(d => !d.data().deprecated)
+            .map(d => {
+                const raw = d.data();
+                const data = normalizePropertyFields(raw);
+                const coords = data.coordinates ? { latitude: data.coordinates.latitude, longitude: data.coordinates.longitude } : undefined;
+                const resolvedNeighborhood = (data as any).neighborhood_identity?.resolved_name || '';
+                return {
+                    zpid: d.id,
+                    address: data.address || '',
+                    zipcode: data.zipCode || '',
+                    listPrice: data.price || 0,
+                    bedrooms: data.bedrooms || 0,
+                    bathrooms: data.bathrooms || 0,
+                    livingArea: data.livingAreaValue || 0,
+                    lotSize: data.lotSize || '',
+                    homeType: data.homeType || '',
+                    neighborhood: resolvedNeighborhood,
+                    coordinates: coords,
+                    images: data.images?.slice(0, 1) || [],
+                    yearBuilt: data.yearBuilt || undefined,
+                    stories: data.stories || data.resoFacts?.stories || undefined,
+                    garage: data.garageSpaces || data.resoFacts?.garageSpaces || undefined,
+                    pool: data.resoFacts?.hasPool === true || data.pool === true || false,
+                    homeStatus: data.homeStatus || '',
+                    daysOnZillow: data.timeOnZillow || undefined,
+                    listedDate: data.listedDate || undefined,
+                    hoa: data.monthlyHoaFee ?? data.hoaFee ?? undefined,
+                    city: data.city || '',
+                    maxSchoolRating: (() => {
+                        const schools = data.schools as { rating?: string | number }[] | undefined;
+                        if (!schools?.length) return undefined;
+                        let best = 0;
+                        for (const s of schools) {
+                            const r = parseFloat(String(s.rating).replace(/\/.*/, '')) || 0;
+                            if (r > best) best = r;
+                        }
+                        return best > 0 ? best : undefined;
+                    })(),
+                    orientation: data.orientation_ai?.final_orientation || '',
+                };
+            });
+    } catch (error: any) {
+        handleFirestoreError(error, "getPropertiesByZip");
+        return [];
+    }
+};
 
 
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {

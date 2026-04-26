@@ -26,7 +26,7 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogE
 import { hasEssentialData } from '../../utils/propertyPolicies';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 import { trackViewModeChanged } from '../../services/analytics/idxTracking';
-import { BrowseHomeSection } from './BrowseByCitySection';
+import ExplorePage from './BrowseByCitySection';
 import { useExploreTabData } from './hooks/useExploreTabData';
 import { isOrientationClear } from '../../utils/propertyPolicies';
 import { ExploreRow1Cards } from './ExploreRow1Cards';
@@ -64,6 +64,8 @@ interface ExploreTabProps {
     environmentRefreshing?: boolean;
     onRefreshCommunityPulse?: () => Promise<void>;
     onBack?: () => void;
+    onRegisterSaveAction?: (handler: () => void) => void;
+    onRegisterSavedAction?: (handler: () => void) => void;
 }
 
 const ExploreTab: React.FC<ExploreTabProps> = ({
@@ -93,6 +95,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     environmentRefreshing,
     onRefreshCommunityPulse,
     onBack,
+    onRegisterSaveAction,
+    onRegisterSavedAction,
 }) => {
     const {
         activeTab, setActiveTab,
@@ -449,7 +453,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 )}
 
                 {!propertyData && !loading && (
-                    <BrowseHomeSection searchBar={searchBar} setViewMode={setViewMode} />
+                    <ExplorePage 
+                        searchBar={searchBar} 
+                        onRegisterSaveAction={onRegisterSaveAction}
+                        onRegisterSavedAction={onRegisterSavedAction}
+                    />
                 )}
             </div>
 

@@ -56,9 +56,11 @@ import { useInactivitySignout } from './hooks/useInactivitySignout';
 import { usePropertyAnalysis } from './hooks/usePropertyAnalysis';
 import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
+import UniversalSearchBox from './components/shared/UniversalSearchBox';
+import IDXSearchTab from './components/client-hub/IDXSearchTab';
 const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe' | 'api_monitor';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe' | 'api_monitor' | 'idx_search';
 
 // Initialize PostHog immediately (synchronous) so it's ready before any events fire
 initPostHog();
@@ -141,6 +143,8 @@ const App: React.FC = () => {
     { label: 'currentUser', value: currentUser },
   ], [propertyData, customAnalysis, comprehensiveAnalysis, logs, cloudHistory, favorites, currentUser]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
+  const [onSaveHandler, setOnSaveHandler] = useState<(() => void) | null>(null);
+  const [onSavedHandler, setOnSavedHandler] = useState<(() => void) | null>(null);
   const [fromBrowse, setFromBrowse] = useState(false);
   const [contextGraphZpid, setContextGraphZpid] = useState<string>('');
   const [showPreload, setShowPreload] = useState(false);
@@ -556,188 +560,17 @@ const App: React.FC = () => {
 
   /* ---------------------- Render Helpers ---------------------- */
   const searchBar = (
-    <form onSubmit={(e) => { e.preventDefault(); setAutocompleteSuggestions([]); performSearch(address); }} className="flex-1 relative z-50 w-full">
-      <div className="relative group">
-        <input
-          type="text"
-          value={address}
-          onFocus={() => setShowHistory(true)}
-          onChange={(e) => {
-            const val = e.target.value;
-            setAddress(val);
-            // Autocomplete: filter address index
-            if (val.length >= 3 && addressIndex.length > 0) {
-              const q = val.toLowerCase();
-              const matches = addressIndex
-                .filter(entry => entry.a.toLowerCase().includes(q))
-                .slice(0, 8);
-              setAutocompleteSuggestions(matches);
-              if (matches.length > 0) setShowHistory(false);
-            } else {
-              setAutocompleteSuggestions([]);
-            }
-          }}
-          placeholder="Enter property address..."
-          className="w-full pl-12 pr-48 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
-        />
-        <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          {propertyData && (
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
-              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
-              title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
-            >
-              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-xs`}></i>
-            </button>
-          )}
-          <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-4 py-1.5 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-indigo-200">Search</button>
-          {propertyData?.city && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const city = propertyData.city;
-                // Clear property state so BrowseHomeSection mounts
-                setPropertyData(null);
-                setCustomAnalysis(null);
-                setComprehensiveAnalysis(null);
-                setAddress('');
-                transitionToView('main' as any);
-                // Dispatch after BrowseHomeSection has mounted
-                setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('browse-city', { detail: { city } }));
-                }, 300);
-              }}
-              className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all border border-emerald-200"
-              title={`Browse all properties in ${propertyData.city}`}
-            >
-              <i className="fa-solid fa-city mr-1 text-[8px]"></i>Browse
-            </button>
-          )}
-        </div>
-      </div>
-
-      {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
-        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
-          <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50 border-b border-slate-100">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Search History</span>
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHistory(false); }}
-              className="w-6 h-6 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center"
-            >
-              <i className="fa-solid fa-xmark text-xs"></i>
-            </button>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto p-2">
-            {favorites.length > 0 && (
-              <div className="mb-2">
-                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2">
-                  <i className="fa-solid fa-heart"></i>
-                  Favorites
-                </div>
-                {favorites.map((item: any, idx) => (
-                  <div key={`fav-wrapper-${idx}`} className="group relative">
-                    <button
-                      onClick={() => handleHistoryItemClick(item.address)}
-                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
-                    >
-                      <span className="truncate pr-8">{item.address}</span>
-                      <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
-                    </button>
-                    <button
-                      onClick={(e) => handleRemoveFavoriteItem(e, item)}
-                      className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
-                      title="Remove from favorites"
-                    >
-                      <i className="fa-solid fa-trash-can text-xs"></i>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {searchHistory.length > 0 && (
-              <div className="mb-2">
-                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4 first:border-t-0 first:mt-0 first:pt-2">
-                  <i className="fa-solid fa-clock-rotate-left"></i>
-                  Recent Searches
-                </div>
-                {searchHistory.map((item, idx) => (
-                  <button
-                    key={`local-${idx}`}
-                    onClick={() => handleHistoryItemClick(item.address)}
-                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-                  >
-                    <span className="truncate">{item.address}</span>
-                    <i className="fa-solid fa-arrow-right -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {cloudHistory.length > 0 && (
-              <div>
-                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
-                  <i className="fa-solid fa-cloud"></i>
-                  Saved History
-                </div>
-                {cloudHistory.map((item: any, idx) => (
-                  <button
-                    key={`cloud-${idx}`}
-                    onClick={() => handleHistoryItemClick(item.address)}
-                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-                  >
-                    <span className="truncate">{item.address}</span>
-                    <i className="fa-solid fa-cloud-arrow-down -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Autocomplete suggestions from address index */}
-      {autocompleteSuggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
-          <div className="flex items-center justify-between px-4 py-2 bg-indigo-50/50 border-b border-indigo-100">
-            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1.5">
-              <i className="fa-solid fa-bolt"></i>
-              Instant Match
-            </span>
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAutocompleteSuggestions([]); }}
-              className="w-6 h-6 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center"
-            >
-              <i className="fa-solid fa-xmark text-xs"></i>
-            </button>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto p-2">
-            {autocompleteSuggestions.map((entry, idx) => (
-              <button
-                key={`ac-${idx}`}
-                onClick={() => {
-                  setAddress(entry.a);
-                  setAutocompleteSuggestions([]);
-                  setShowHistory(false);
-                  // Search by ZPID → skips RapidAPI, hits Firestore cache directly
-                  performSearch(entry.z);
-                }}
-                className="w-full text-left px-4 py-3 rounded-xl hover:bg-indigo-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-              >
-                <span className="truncate">{entry.a}</span>
-                <span className="flex items-center gap-1 text-[9px] font-bold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <i className="fa-solid fa-bolt text-[8px]"></i>Cached
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </form>
+    <UniversalSearchBox
+      address={address}
+      setAddress={setAddress}
+      performSearch={performSearch}
+      addressIndex={addressIndex}
+      searchHistory={searchHistory}
+      favorites={favorites}
+      loading={loading}
+      onSaveSearch={onSaveHandler || undefined}
+      onViewSaved={onSavedHandler || undefined}
+    />
   );
 
   const exploreTab = (
@@ -769,6 +602,8 @@ const App: React.FC = () => {
       logs={logs}
       userRole={currentUser?.role}
       realtorId={currentUser?.role === 'buyer' ? currentUser?.realtorId : currentUser?.uid}
+      onRegisterSaveAction={setOnSaveHandler}
+      onRegisterSavedAction={setOnSavedHandler}
       onBack={fromBrowse ? () => {
           setFromBrowse(false);
           transitionToView('idx_search' as any);
@@ -899,6 +734,11 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Center: Search Bar */}
+            <div className="flex-1 max-w-2xl mx-12 hidden md:block">
+              {searchBar}
+            </div>
+
             {/* Right side: Navigation + Actions */}
             <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.2em]">
               {currentUser && (
@@ -990,6 +830,13 @@ const App: React.FC = () => {
         ) : viewMode === 'api_monitor' ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 rounded-[2.5rem]">
             <CostDashboardTab />
+          </div>
+        ) : viewMode === 'idx_search' ? (
+          <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 rounded-[2.5rem]">
+            <IDXSearchTab onNavigateToProperty={(zpid, addr) => {
+              setFromBrowse(true);
+              performSearch(zpid);
+            }} />
           </div>
         ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
