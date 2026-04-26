@@ -79,7 +79,11 @@ export function usePropertyAnalysis({
   }, [loading, propertyData]);
 
   const performSearch = async (searchAddress: string, forceRefresh: boolean = false, displayAddressOverride?: string) => {
-    if (!searchAddress.trim()) return;
+    console.log(`[performSearch] CALLED with: "${searchAddress}"`, { forceRefresh, displayAddressOverride });
+    if (!searchAddress.trim()) {
+      console.log(`[performSearch] ABORTING: empty address`);
+      return;
+    }
 
     const _t0 = performance.now();
     const _elapsed = () => `${(performance.now() - _t0).toFixed(0)}ms`;
@@ -110,24 +114,37 @@ export function usePropertyAnalysis({
         addLog('Radar Geocode API', { type: 'response' }, radarResult);
         
         // Handle City/Zip search (Zillow-like)
-        if (radarResult.layer === 'locality' || radarResult.layer === 'postalCode') {
+        // ── ROUTING LOGIC ──
+        // Determine if this is a City, Zip, or Address search
+        const isCity = radarResult.layer === 'locality' || radarResult.layer === 'neighborhood';
+        const isZip = radarResult.layer === 'postalCode';
+        
+        if (isCity || isZip) {
+          console.log(`[performSearch] ROUTING to Browse City:`, { layer: radarResult.layer, components: radarResult.components });
           setLoading(false);
           setImagesLoading(false);
-          const cityOrZip = radarResult.layer === 'locality' ? radarResult.components.city : radarResult.components.zipCode;
-          // Transition to home/browse view
+          
+          // For Zip searches, use the city containing that zip as the primary browse target
+          const targetCity = radarResult.components.city || searchAddress; 
+          const targetZip = isZip ? radarResult.components.zipCode : undefined;
+
           transitionToView('main' as any);
+          
           // Wait for view to mount then trigger browse
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent('browse-city', { 
               detail: { 
-                city: cityOrZip,
-                zip: radarResult.layer === 'postalCode' ? cityOrZip : undefined,
-                viewMode: 'map' // Set to map as requested
+                city: targetCity,
+                zip: targetZip,
+                viewMode: 'map' // Default to map view as requested
               } 
             }));
           }, 300);
           return;
         }
+
+        console.log(`[performSearch] ROUTING to Property Report (Address)`);
+        setLoadingSublabel("Fetching property data...");
 
         finalAddress = radarResult.formattedAddress;
         coords = radarResult.coordinates;

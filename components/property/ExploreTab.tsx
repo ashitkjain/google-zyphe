@@ -125,11 +125,17 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     } = useExploreTabData({ propertyData, viewMode, customAnalysis, comprehensiveAnalysis, onRunCustomAnalysis });
 
     // ── City browse via prop (event listener lives here so it survives loading spinner remounts) ──
-    const [pendingCityBrowse, setPendingCityBrowse] = React.useState<string | null>(null);
+    const [pendingBrowse, setPendingBrowse] = React.useState<{ city: string; zip?: string; viewMode?: string } | null>(null);
     React.useEffect(() => {
         const handler = (e: Event) => {
             const detail = (e as CustomEvent).detail;
-            if (detail?.city) setPendingCityBrowse(detail.city);
+            if (detail?.city) {
+                setPendingBrowse({
+                    city: detail.city,
+                    zip: detail.zip,
+                    viewMode: detail.viewMode
+                });
+            }
         };
         window.addEventListener('browse-city', handler);
         return () => window.removeEventListener('browse-city', handler);
@@ -385,7 +391,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     />
                                 </div>
                                 {searchBar && (
-                                    <div className="lg:w-[420px] xl:w-[500px] shrink-0">
+                                    <div className="lg:w-[560px] xl:w-[680px] shrink-0">
                                         {searchBar}
                                     </div>
                                 )}
@@ -466,8 +472,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 {!propertyData && !loading && (
                     <ExplorePage
                         searchBar={searchBar}
-                        pendingCityBrowse={pendingCityBrowse}
-                        onClearPendingCity={() => setPendingCityBrowse(null)}
+                        pendingBrowse={pendingBrowse}
+                        onClearPendingBrowse={() => setPendingBrowse(null)}
                     />
                 )}
             </div>

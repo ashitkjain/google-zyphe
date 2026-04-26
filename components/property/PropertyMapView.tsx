@@ -199,6 +199,9 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     const mapRef = useRef<any>(null);
     const initializedRef = useRef(false);
     const markerDataRef = useRef<MarkerEntry[]>([]);
+    // Only auto-fit the map viewport once per city load.
+    // Filter changes (price, beds, etc.) must NOT re-zoom the map.
+    const hasFitRef = useRef(false);
 
     // Stable ref so zoomend/moveend always call the latest version of the update function.
     // Re-assigned whenever properties/matchMap change (inside the markers effect).
@@ -341,7 +344,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             })
             .catch(err => console.error('[Boundary] fetch failed:', err));
 
-        return () => { cancelled = true; };
+        return () => { cancelled = true; hasFitRef.current = false; };
     }, [selectedCity]);
 
     // Add/update markers when properties or matchMap change
@@ -411,7 +414,9 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             // Compute initial dot/price layout at current zoom
             updateStylesRef.current();
 
-            if (withCoords.length > 1) {
+            // Only fit the viewport the very first time markers load for this city.
+            if (!hasFitRef.current && withCoords.length > 1) {
+                hasFitRef.current = true;
                 try { mapRef.current.fitToMarkers({ maxZoom: 15, padding: 80 }); } catch (_) {}
             }
         };
@@ -445,31 +450,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
                 </div>
             )}
 
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 z-10 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/50">
-                <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded bg-indigo-600"></div>
-                        <span className="text-slate-500">Property</span>
-                    </div>
-                    {matchMap && Object.keys(matchMap).length > 0 && (
-                        <>
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-3 h-3 rounded bg-emerald-600"></div>
-                                <span className="text-slate-500">80+ Match</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-3 h-3 rounded bg-amber-600"></div>
-                                <span className="text-slate-500">60+ Match</span>
-                            </div>
-                        </>
-                    )}
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                        <i className="fa-solid fa-location-dot text-[8px]"></i>
-                        <span>{properties.filter(p => p.coordinates?.latitude).length} pins</span>
-                    </div>
-                </div>
-            </div>
+
 
             <style>{`
                 .maplibregl-canvas { border-radius: 16px; }

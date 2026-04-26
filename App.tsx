@@ -143,6 +143,7 @@ const App: React.FC = () => {
     { label: 'currentUser', value: currentUser },
   ], [propertyData, customAnalysis, comprehensiveAnalysis, logs, cloudHistory, favorites, currentUser]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
+  const [activeSearchTab, setActiveSearchTab] = useState<'search' | 'story' | 'browse'>('search');
   const [onSaveHandler, setOnSaveHandler] = useState<(() => void) | null>(null);
   const [onSavedHandler, setOnSavedHandler] = useState<(() => void) | null>(null);
   const [fromBrowse, setFromBrowse] = useState(false);
@@ -570,6 +571,14 @@ const App: React.FC = () => {
       loading={loading}
       onSaveSearch={onSaveHandler || undefined}
       onViewSaved={onSavedHandler || undefined}
+      activeTab={activeSearchTab}
+      onTabChange={(tab) => {
+        setActiveSearchTab(tab);
+        if (tab === 'story' || tab === 'browse') {
+          setPropertyData(null);
+          transitionToView('main');
+        }
+      }}
     />
   );
 

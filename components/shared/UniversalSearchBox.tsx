@@ -66,6 +66,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        console.log(`[UniversalSearchBox] SUBMIT address: "${address}"`);
         setShowDropdown(false);
         performSearch(address);
     };
@@ -86,7 +87,6 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
             {/* 1. Left-aligned Navigation Tabs */}
             <div className="flex items-center gap-1 shrink-0">
                 {[
-                    { id: 'search', label: 'Search', icon: 'fa-magnifying-glass' },
                     { id: 'story', label: 'Story', icon: 'fa-book-open-reader' },
                     { id: 'browse', label: 'Browse', icon: 'fa-compass' }
                 ].map((tab) => (

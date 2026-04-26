@@ -416,8 +416,8 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                     {/* ── MAP VIEW (split: map left, property list right) ── */}
                     {viewMode === 'map' && (
                         <div className="flex w-full rounded-2xl border border-slate-200 shadow-sm">
-                            {/* Map — left ~60% */}
-                            <div className="flex-[3] min-w-0">
+                            {/* Map — left ~60%, relative for overlay */}
+                            <div className="flex-[3] min-w-0 relative">
                                 <PropertyMapView
                                     properties={displayList}
                                     onPropertyClick={(addr) => window.open(`/explore?q=${encodeURIComponent(addr)}`, '_blank')}
@@ -427,6 +427,25 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                                     ) : undefined}
                                     containerClassName="w-full h-full relative bg-white"
                                 />
+
+                                {/* View switcher — bottom-left overlay */}
+                                <div className="absolute bottom-4 left-4 z-20 flex items-stretch bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/80 overflow-hidden">
+                                    <button
+                                        onClick={() => setViewModeLocal('gallery')}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-colors border-r border-slate-200"
+                                    >
+                                        <i className="fa-solid fa-grid-2 text-[9px]"></i> Gallery
+                                    </button>
+                                    <button
+                                        onClick={() => setViewModeLocal('table')}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-colors border-r border-slate-200"
+                                    >
+                                        <i className="fa-solid fa-table-list text-[9px]"></i> Table
+                                    </button>
+                                    <button className="flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-black uppercase tracking-widest bg-emerald-600 text-white cursor-default">
+                                        <i className="fa-solid fa-map-location-dot text-[9px]"></i> Map
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Property list — right ~40% */}

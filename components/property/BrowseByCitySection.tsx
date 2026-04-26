@@ -4,7 +4,7 @@
  * Self-contained city browse + ZypheAI buyer-story matching UI.
  * Extracted from ExploreTab.tsx to keep that file manageable.
  */
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 
 
 import { auth, generateCityStateKey } from '../../services/firebase/config';
@@ -36,6 +36,7 @@ import { getDaysOnMarket } from '../../utils/property.ts';
 import LeadCaptureModal from './LeadCaptureModal';
 import { BrowseResultsPanel } from './BrowseResultsPanel';
 import StoryIntakeTab from '../client-hub/StoryIntakeTab';
+import { ORIENTATION_OPTIONS, matchesOrientation } from '../../constants/orientation';
 
 
 /* ══════════════════════════════════════════════════════════════════
@@ -44,42 +45,48 @@ import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 
 const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
 
-export default function ExplorePage({ searchBar, pendingCityBrowse, onClearPendingCity }: {
+export default function ExplorePage({ searchBar, pendingBrowse, onClearPendingBrowse }: {
     searchBar: React.ReactNode;
-    pendingCityBrowse?: string | null;
-    onClearPendingCity?: () => void;
+    pendingBrowse?: { city: string; zip?: string; viewMode?: string } | null;
+    onClearPendingBrowse?: () => void;
 }) {
-    const [currentTab, setCurrentTab] = useState<'search' | 'story' | 'browse'>('search');
-    const [showMyStory, setShowMyStory] = useState(false);
+    const initialTab = (searchBar as any)?.props?.activeTab || 'search';
+    const [currentTab, setCurrentTab] = useState<'search' | 'story' | 'browse'>(initialTab);
+    const [showMyStory, setShowMyStory] = useState(initialTab === 'story');
 
     return (
         <div className="w-full">
             {/* Compact Hero Landing */}
-            <div className="relative w-full flex flex-col items-center justify-center overflow-visible" style={{ minHeight: 90 }}>
-                <div className="absolute inset-0 z-0 overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-slate-950/90"></div>
-                    <div className="absolute inset-0 bg-indigo-900/10 mix-blend-overlay"></div>
-                </div>
+            {!showMyStory && (
+                <div className="relative w-full flex flex-col items-center justify-center overflow-visible" style={{ minHeight: 90 }}>
+                    <div className="absolute inset-0 z-0 overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-slate-950/90"></div>
+                        <div className="absolute inset-0 bg-indigo-900/10 mix-blend-overlay"></div>
+                    </div>
 
-                {/* Content Overlay */}
-                <div className="relative z-10 w-full max-w-6xl px-4 py-2">
-                    {React.cloneElement(searchBar as React.ReactElement, {
-                        activeTab: currentTab,
-                        onTabChange: (tab: any) => {
-                            if (tab === 'browse') {
-                                setCurrentTab('browse');
-                                setShowMyStory(false);
-                            } else if (tab === 'story') {
-                                setCurrentTab('story');
-                                setShowMyStory(true);
-                            } else {
-                                setCurrentTab('search');
-                                setShowMyStory(false);
-                            }
-                        },
-                    } as any)}
+                    {/* Content Overlay */}
+                    <div className="relative z-10 w-full max-w-6xl px-4 py-2">
+                        {React.isValidElement(searchBar) ? React.cloneElement(searchBar as React.ReactElement, {
+                            activeTab: currentTab,
+                            onTabChange: (tab: any) => {
+                                // Call original handler if it exists (e.g. from App.tsx)
+                                (searchBar as any)?.props?.onTabChange?.(tab);
+
+                                if (tab === 'browse') {
+                                    setCurrentTab('browse');
+                                    setShowMyStory(false);
+                                } else if (tab === 'story') {
+                                    setCurrentTab('story');
+                                    setShowMyStory(true);
+                                } else {
+                                    setCurrentTab('search');
+                                    setShowMyStory(false);
+                                }
+                            },
+                        } as any) : null}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="px-6 pb-2 space-y-2">
                 <BrowseByCitySection
@@ -91,8 +98,8 @@ export default function ExplorePage({ searchBar, pendingCityBrowse, onClearPendi
                     onMyStory={setShowMyStory}
                     activePath={currentTab}
                     onPathChange={setCurrentTab}
-                    pendingCityBrowse={pendingCityBrowse}
-                    onClearPendingCity={onClearPendingCity}
+                    pendingBrowse={pendingBrowse}
+                    onClearPendingBrowse={onClearPendingBrowse}
                 />
             </div>
         </div>
@@ -112,6 +119,244 @@ const BUYER_STORY_EXAMPLES = [
     { title: 'First-Time, Value', icon: 'fa-solid fa-piggy-bank', story: "First-time buyer, single income software engineer. Budget is tight: $800K-1.1M. Looking for best value — maybe a fixer with renovation upside. Townhomes OK. Need at least 2 beds. Close to BART or highway for commute to SF. Walkable to grocery and coffee shops. Low HOA preferred." },
 ];
 
+// Non-linear price tiers — fine steps at the low end, coarse at the high end.
+// Mirrors the Zillow/Redfin approach: slider position maps to tier index, not dollars.
+const PRICE_TIERS = [
+    0,
+    200_000, 250_000, 300_000, 350_000, 400_000, 450_000, 500_000,
+    550_000, 600_000, 650_000, 700_000, 750_000, 800_000, 850_000, 900_000, 950_000,
+    1_000_000, 1_050_000, 1_100_000, 1_150_000, 1_200_000, 1_250_000, 1_300_000,
+    1_350_000, 1_400_000, 1_450_000, 1_500_000,
+    1_600_000, 1_700_000, 1_800_000, 1_900_000, 2_000_000,
+    2_250_000, 2_500_000, 2_750_000, 3_000_000,
+    3_500_000, 4_000_000, 4_500_000, 5_000_000,
+    6_000_000, 7_000_000, 8_000_000, 10_000_000,
+] as const;
+
+const NUM_TIERS = PRICE_TIERS.length;
+
+/** Snap a dollar value to the nearest tier index */
+const valueToTierIdx = (v: number): number => {
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < NUM_TIERS; i++) {
+        const d = Math.abs(PRICE_TIERS[i] - v);
+        if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+};
+
+/** Dollar value from tier index */
+const tierIdxToValue = (i: number): number => PRICE_TIERS[Math.max(0, Math.min(i, NUM_TIERS - 1))];
+
+// ── Price Range Popup ────────────────────────────────────────────────────────
+const PriceRangePopup: React.FC<{
+    filterMinPrice: string;
+    filterMaxPrice: string;
+    setFilterMinPrice: (v: string) => void;
+    setFilterMaxPrice: (v: string) => void;
+    setPage: (v: number) => void;
+    results: CityPropertySummary[];
+    onClose: () => void;
+}> = ({ filterMinPrice, filterMaxPrice, setFilterMinPrice, setFilterMaxPrice, setPage, results, onClose }) => {
+    const prices = useMemo(() => results.map(p => p.listPrice).filter(Boolean), [results]);
+
+    // The slider min/max are tier indices (0 … NUM_TIERS-1)
+    const minIdx = filterMinPrice ? valueToTierIdx(Number(filterMinPrice)) : 0;
+    const maxIdx = filterMaxPrice ? valueToTierIdx(Number(filterMaxPrice)) : NUM_TIERS - 1;
+
+    const sliderMin = tierIdxToValue(minIdx);   // dollar value shown
+    const sliderMax = tierIdxToValue(maxIdx);
+
+    // Tier-based % position (linear in index space → non-linear in dollars)
+    const pct = (idx: number) => (idx / (NUM_TIERS - 1)) * 100;
+
+    const fmtPrice = (v: number) => {
+        if (v === 0) return 'No Min';
+        if (v >= 10_000_000) return 'No Max';
+        if (v >= 1_000_000) return `$${(v / 1_000_000 % 1 === 0 ? (v / 1_000_000).toFixed(0) : (v / 1_000_000).toFixed(2).replace(/\.?0+$/, ''))}M`;
+        return `$${(v / 1000).toFixed(0)}K`;
+    };
+
+    // Histogram: one bar per tier interval, colored by whether in selected range
+    const tierBins = useMemo(() => {
+        const bins = PRICE_TIERS.slice(0, -1).map((lo, i) => ({
+            lo,
+            hi: PRICE_TIERS[i + 1],
+            count: 0,
+        }));
+        prices.forEach(p => {
+            const idx = Math.min(valueToTierIdx(p), bins.length - 1);
+            bins[idx].count++;
+        });
+        return bins;
+    }, [prices]);
+    const maxCount = Math.max(...tierBins.map(b => b.count), 1);
+
+    // Custom dual-range slider via pointer events
+    const trackRef = useRef<HTMLDivElement>(null);
+    const draggingRef = useRef<'min' | 'max' | null>(null);
+    const minIdxRef = useRef(minIdx);
+    const maxIdxRef = useRef(maxIdx);
+    minIdxRef.current = minIdx;
+    maxIdxRef.current = maxIdx;
+
+    const getIdxFromX = useCallback((clientX: number): number => {
+        if (!trackRef.current) return 0;
+        const rect = trackRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        return Math.round(x * (NUM_TIERS - 1));
+    }, []);
+
+    const applyDrag = useCallback((clientX: number) => {
+        const idx = getIdxFromX(clientX);
+        if (draggingRef.current === 'min') {
+            const clamped = Math.min(idx, maxIdxRef.current - 1);
+            const val = tierIdxToValue(Math.max(0, clamped));
+            setFilterMinPrice(val === 0 ? '' : String(val));
+        } else {
+            const clamped = Math.max(idx, minIdxRef.current + 1);
+            const val = tierIdxToValue(Math.min(NUM_TIERS - 1, clamped));
+            setFilterMaxPrice(val >= 10_000_000 ? '' : String(val));
+        }
+        setPage(1);
+    }, [getIdxFromX, setFilterMinPrice, setFilterMaxPrice, setPage]);
+
+    const onTrackPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const clickedIdx = getIdxFromX(e.clientX);
+        const distMin = Math.abs(clickedIdx - minIdxRef.current);
+        const distMax = Math.abs(clickedIdx - maxIdxRef.current);
+        draggingRef.current = distMin <= distMax ? 'min' : 'max';
+        applyDrag(e.clientX);
+
+        const onMove = (ev: PointerEvent) => applyDrag(ev.clientX);
+        const onUp = () => {
+            draggingRef.current = null;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+    }, [getIdxFromX, applyDrag]);
+
+    const PRESETS = [
+        { label: 'Under $1M',  min: '',          max: '1000000' },
+        { label: '$1M–$1.5M',  min: '1000000',   max: '1500000' },
+        { label: '$1.5M–$2M',  min: '1500000',   max: '2000000' },
+        { label: '$2M+',       min: '2000000',   max: ''        },
+    ];
+
+    return (
+        <div className="absolute top-full left-0 mt-2 z-[200] bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 w-80 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-3">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Price Range</div>
+                <button
+                    onClick={() => { setFilterMinPrice(''); setFilterMaxPrice(''); setPage(1); }}
+                    disabled={!filterMinPrice && !filterMaxPrice}
+                    className={`text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        (filterMinPrice || filterMaxPrice)
+                            ? 'text-rose-500 hover:text-rose-700 cursor-pointer'
+                            : 'text-slate-300 cursor-not-allowed'
+                    }`}
+                >
+                    <i className="fa-solid fa-rotate-left text-[9px]"></i> Reset
+                </button>
+            </div>
+
+            {/* Histogram — bars align to tier intervals */}
+            {prices.length > 0 && (
+                <div className="flex items-end gap-px h-12 mb-1 px-0.5">
+                    {tierBins.map((bin, i) => {
+                        const inRange = i >= minIdx && i < maxIdx;
+                        return (
+                            <div
+                                key={i}
+                                className={`flex-1 rounded-t-sm transition-colors ${inRange ? 'bg-indigo-500' : 'bg-slate-200'}`}
+                                style={{ height: `${Math.max(3, (bin.count / maxCount) * 100)}%` }}
+                            />
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Non-linear dual-range slider */}
+            <div
+                ref={trackRef}
+                className="relative h-6 mb-1 cursor-pointer select-none"
+                onPointerDown={onTrackPointerDown}
+            >
+                <div className="absolute h-1.5 w-full bg-slate-200 rounded-full" style={{ top: '50%', transform: 'translateY(-50%)' }} />
+                <div
+                    className="absolute h-1.5 bg-indigo-500 rounded-full"
+                    style={{ top: '50%', transform: 'translateY(-50%)', left: `${pct(minIdx)}%`, right: `${100 - pct(maxIdx)}%` }}
+                />
+                {/* Min handle */}
+                <div
+                    className="absolute w-5 h-5 bg-white border-2 border-indigo-500 rounded-full shadow-md"
+                    style={{ top: '50%', transform: 'translate(-50%, -50%)', left: `${pct(minIdx)}%`, zIndex: 2 }}
+                />
+                {/* Max handle */}
+                <div
+                    className="absolute w-5 h-5 bg-white border-2 border-indigo-500 rounded-full shadow-md"
+                    style={{ top: '50%', transform: 'translate(-50%, -50%)', left: `${pct(maxIdx)}%`, zIndex: 2 }}
+                />
+            </div>
+
+            {/* Range labels below slider */}
+            <div className="flex items-center justify-between mb-3 text-[10px] font-bold text-slate-500">
+                <span className={minIdx === 0 ? 'text-slate-300' : 'text-indigo-600'}>{fmtPrice(sliderMin)}</span>
+                <span className={maxIdx === NUM_TIERS - 1 ? 'text-slate-300' : 'text-indigo-600'}>{fmtPrice(sliderMax)}</span>
+            </div>
+
+            {/* Text inputs */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Min $</label>
+                    <input
+                        type="number"
+                        placeholder="No Min"
+                        value={filterMinPrice}
+                        onChange={e => { setFilterMinPrice(e.target.value); setPage(1); }}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all placeholder:text-slate-300"
+                    />
+                </div>
+                <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Max $</label>
+                    <input
+                        type="number"
+                        placeholder="No Max"
+                        value={filterMaxPrice}
+                        onChange={e => { setFilterMaxPrice(e.target.value); setPage(1); }}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all placeholder:text-slate-300"
+                    />
+                </div>
+            </div>
+
+            {/* Presets */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+                {PRESETS.map(preset => (
+                    <button
+                        key={preset.label}
+                        onClick={() => { setFilterMinPrice(preset.min); setFilterMaxPrice(preset.max); setPage(1); }}
+                        className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors border ${
+                            filterMinPrice === preset.min && filterMaxPrice === preset.max
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                        }`}
+                    >
+                        {preset.label}
+                    </button>
+                ))}
+            </div>
+
+            <button onClick={onClose} className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors">
+                <i className="fa-solid fa-check mr-1"></i>Done
+            </button>
+        </div>
+    );
+};
+
 const BrowseByCitySection: React.FC<{
     onPropertyClick: (address: string) => void;
     onHasResults?: (has: boolean) => void;
@@ -121,16 +366,16 @@ const BrowseByCitySection: React.FC<{
     onPathChange?: (path: 'browse' | 'story' | 'search') => void;
     onRegisterSaveAction?: (handler: () => void) => void;
     onRegisterSavedAction?: (handler: () => void) => void;
-    pendingCityBrowse?: string | null;
-    onClearPendingCity?: () => void;
-}> = ({ onPropertyClick, onHasResults, onMyStory, searchBar, activePath: externalPath, onPathChange, onRegisterSaveAction, onRegisterSavedAction, pendingCityBrowse, onClearPendingCity }) => {
+    pendingBrowse?: { city: string; zip?: string; viewMode?: string } | null;
+    onClearPendingBrowse?: () => void;
+}> = ({ onPropertyClick, onHasResults, onMyStory, searchBar, activePath: externalPath, onPathChange, onRegisterSaveAction, onRegisterSavedAction, pendingBrowse, onClearPendingBrowse }) => {
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
-    const [showMyStory, setShowMyStory] = useState(true);
+    const [showMyStory, setShowMyStory] = useState(false);
     // Track which discovery path is active: browse (city), story (My Story), or search (address)
-    const [internalPath, setInternalPath] = useState<'browse' | 'story' | 'search'>('story');
+    const [internalPath, setInternalPath] = useState<'browse' | 'story' | 'search'>('search');
 
     const activePath = externalPath || internalPath;
     const setActivePath = onPathChange || setInternalPath;
@@ -149,6 +394,46 @@ const BrowseByCitySection: React.FC<{
     const [filterNeighborhood, setFilterNeighborhood] = useState('');
     const [page, setPage] = useState(1);
     const [showTimings, setShowTimings] = useState(false);
+    const [showPricePopup, setShowPricePopup] = useState(false);
+    const pricePopupRef = useRef<HTMLDivElement>(null);
+    // Close price popup when clicking outside
+    useEffect(() => {
+        if (!showPricePopup) return;
+        const handler = (e: MouseEvent) => {
+            if (pricePopupRef.current && !pricePopupRef.current.contains(e.target as Node)) {
+                setShowPricePopup(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showPricePopup]);
+
+    const [showBedsBathsPopup, setShowBedsBathsPopup] = useState(false);
+    const bedsBathsPopupRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!showBedsBathsPopup) return;
+        const handler = (e: MouseEvent) => {
+            if (bedsBathsPopupRef.current && !bedsBathsPopupRef.current.contains(e.target as Node)) {
+                setShowBedsBathsPopup(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showBedsBathsPopup]);
+
+    const [showVastuPopup, setShowVastuPopup] = useState(false);
+    const vastuPopupRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!showVastuPopup) return;
+        const handler = (e: MouseEvent) => {
+            if (vastuPopupRef.current && !vastuPopupRef.current.contains(e.target as Node)) {
+                setShowVastuPopup(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showVastuPopup]);
+
     const PER_PAGE = 20;
 
 
@@ -166,7 +451,8 @@ const BrowseByCitySection: React.FC<{
     const [filterMaxDom, setFilterMaxDom] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterMinSchoolRating, setFilterMinSchoolRating] = useState('');
-    const [filterOrientation, setFilterOrientation] = useState('');
+    const [filterZipCode, setFilterZipCode] = useState('');
+    const [filterOrientations, setFilterOrientations] = useState<string[]>([]);
 
     const advancedFilterCount = useMemo(() => {
         let count = 0;
@@ -175,38 +461,23 @@ const BrowseByCitySection: React.FC<{
         if (filterGarage) count++;
         if (filterMaxHoa) count++;
         if (filterMaxDom) count++;
-        if (filterOrientation) count++;
+        if (filterOrientations.length > 0) count++;
         return count;
-    }, [filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterGarage, filterMaxHoa, filterMaxDom, filterOrientation]);
+    }, [filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterGarage, filterMaxHoa, filterMaxDom, filterOrientations]);
 
     const clearAdvancedFilters = () => {
         setFilterHomeType(''); setFilterMinSqft(''); setFilterMaxSqft('');
         setFilterMinYear(''); setFilterMaxYear(''); setFilterStories('');
         setFilterGarage(''); setFilterMaxHoa('');
-        setFilterMaxDom(''); setPage(1);
+        setFilterMaxDom(''); setFilterOrientations([]); setPage(1);
     };
 
-    // Trigger city browse when parent signals a pending city (prop-based, no timing issues)
+    // Trigger city browse when parent signals a pending browse (city, zip, viewMode)
     useEffect(() => {
-        if (!pendingCityBrowse) return;
-        onClearPendingCity?.();
-        const city = pendingCityBrowse;
-        setSelectedCity(city);
-        setShowMyStory(false);
-        setShowBuyerSearch(false);
-        setBuyerResults(null);
-        setBuyerExtracted(null);
-        setViewModeLocal('map');
-        setSortField('daysOnZillow');
-        setSortDir('asc');
-        setBrowsing(true);
-        setHasSearched(true);
-        setPage(1);
-        getPropertiesByCity(city)
-            .then(data => setResults(data))
-            .catch(() => setResults([]))
-            .finally(() => setBrowsing(false));
-    }, [pendingCityBrowse]);
+        if (!pendingBrowse) return;
+        onClearPendingBrowse?.();
+        handleBrowse(pendingBrowse.city, pendingBrowse.zip, pendingBrowse.viewMode);
+    }, [pendingBrowse]);
 
     // Factor ID → Name lookup (shared constant — single source of truth)
     // Imported at file top level below
@@ -236,10 +507,19 @@ const BrowseByCitySection: React.FC<{
     const [cachedNeighborhoodCount, setCachedNeighborhoodCount] = useState<number | null>(null);
     const [cityGraphs, setCityGraphs] = useState<Map<string, any>>(new Map());
 
-    const handleBrowse = async (city?: string) => {
+    const handleBrowse = async (city?: string, zip?: string, initialViewMode?: string) => {
         const target = city || selectedCity;
         if (!target) return;
         if (city) setSelectedCity(city);
+        if (zip) setFilterZipCode(zip);
+        else setFilterZipCode('');
+
+        if (initialViewMode === 'map' || zip) {
+            setViewModeLocal('map');
+            setSortField('daysOnZillow');
+            setSortDir('asc');
+        }
+
         setBrowsing(true);
         setHasSearched(true);
         setPage(1);
@@ -380,7 +660,10 @@ const BrowseByCitySection: React.FC<{
         if (filterMaxDom) list = list.filter(p => (getDaysOnMarket(p.listedDate, p.daysOnZillow) || 0) <= parseInt(filterMaxDom));
         if (filterStatus) list = list.filter(p => (p.homeStatus || '').toUpperCase().includes(filterStatus.toUpperCase()));
         if (filterMinSchoolRating) list = list.filter(p => (p.maxSchoolRating || 0) >= parseInt(filterMinSchoolRating));
-        if (filterOrientation) list = list.filter(p => (p.orientation || '').toUpperCase() === filterOrientation.toUpperCase());
+        if (filterZipCode) list = list.filter(p => (p.zipcode || '').includes(filterZipCode));
+        if (filterOrientations.length > 0) {
+            list = list.filter(p => filterOrientations.some(val => matchesOrientation(p.orientation, val)));
+        }
         // Sort — nulls/undefineds always sink to end
         list.sort((a, b) => {
             const av = (a as any)[sortField];
@@ -392,7 +675,7 @@ const BrowseByCitySection: React.FC<{
             return sortDir === 'asc' ? (Number(av) - Number(bv)) : (Number(bv) - Number(av));
         });
         return list;
-    }, [results, sortField, sortDir, filterMinPrice, filterMaxPrice, filterBeds, filterBaths, filterNeighborhood, filterHomeType, filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterStories, filterGarage, filterPool, filterMaxHoa, filterMaxDom, filterStatus, filterMinSchoolRating]);
+    }, [results, sortField, sortDir, filterMinPrice, filterMaxPrice, filterBeds, filterBaths, filterNeighborhood, filterHomeType, filterMinSqft, filterMaxSqft, filterMinYear, filterMaxYear, filterStories, filterGarage, filterPool, filterMaxHoa, filterMaxDom, filterStatus, filterMinSchoolRating, filterZipCode, filterOrientations]);
 
     // Notify parent about results state
     useEffect(() => {
@@ -736,13 +1019,6 @@ const BrowseByCitySection: React.FC<{
     return (
         <div className="text-left">
             {/* Controls row + search bar */}
-            <div className={`flex flex-col md:flex-row md:items-center gap-4 ${searchBar ? 'justify-end' : ''}`}>
-                {searchBar && (
-                    <div className="flex-1 max-w-2xl">
-                        {searchBar}
-                    </div>
-                )}
-            </div>
 
             {/* My Story panel */}
             {showMyStory && (
@@ -764,6 +1040,20 @@ const BrowseByCitySection: React.FC<{
                         <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 mt-6">
                             <i className="fa-solid fa-house-circle-xmark text-4xl text-slate-200 mb-3"></i>
                             <p className="text-sm font-bold text-slate-400">No properties found in {selectedCity}</p>
+                        </div>
+                    )}
+
+                    {!browsing && !hasSearched && results.length === 0 && (
+                        <div className="text-center py-20 bg-white/50 backdrop-blur-sm rounded-3xl border border-slate-200/50 shadow-sm mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="max-w-md mx-auto">
+                                <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                    <i className="fa-solid fa-house-magnifying-glass text-2xl text-indigo-500"></i>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-800 mb-2">Ready to explore?</h3>
+                                <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                                    Search for a specific address above, or choose a city to browse active listings.
+                                </p>
+                            </div>
                         </div>
                     )}
                 </>
@@ -829,49 +1119,139 @@ const BrowseByCitySection: React.FC<{
                             </select>
                         </div>
 
-                        {/* Filters */}
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Min $</label>
-                            <input
-                                type="number"
-                                placeholder="..."
-                                value={filterMinPrice}
-                                onChange={e => { setFilterMinPrice(e.target.value); setPage(1); }}
-                                className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Max $</label>
-                            <input
-                                type="number"
-                                placeholder="..."
-                                value={filterMaxPrice}
-                                onChange={e => { setFilterMaxPrice(e.target.value); setPage(1); }}
-                                className="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Beds</label>
-                            <select
-                                value={filterBeds}
-                                onChange={e => { setFilterBeds(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
+                        {/* Combined Price Filter */}
+                        <div className="flex flex-col gap-1 relative" ref={pricePopupRef}>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Price</label>
+                            <button
+                                type="button"
+                                onClick={() => setShowPricePopup(p => !p)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold outline-none border transition-all flex items-center gap-1.5 ${
+                                    (filterMinPrice || filterMaxPrice)
+                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                        : 'bg-white border-slate-200 text-black'
+                                }`}
                             >
-                                <option value="">Any</option>
-                                {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+ bd</option>)}
-                            </select>
+                                {filterMinPrice || filterMaxPrice
+                                    ? `${filterMinPrice ? '$' + Number(filterMinPrice).toLocaleString() : 'Any'} – ${filterMaxPrice ? '$' + Number(filterMaxPrice).toLocaleString() : 'Any'}`
+                                    : 'Any Price'}
+                                {(filterMinPrice || filterMaxPrice) && (
+                                    <span
+                                        onClick={e => { e.stopPropagation(); setFilterMinPrice(''); setFilterMaxPrice(''); setPage(1); }}
+                                        className="ml-1 text-indigo-400 hover:text-indigo-700 cursor-pointer"
+                                    >✕</span>
+                                )}
+                                <i className="fa-solid fa-chevron-down text-[8px] opacity-50 ml-0.5"></i>
+                            </button>
+
+                            {showPricePopup && (
+                                <PriceRangePopup
+                                    filterMinPrice={filterMinPrice}
+                                    filterMaxPrice={filterMaxPrice}
+                                    setFilterMinPrice={setFilterMinPrice}
+                                    setFilterMaxPrice={setFilterMaxPrice}
+                                    setPage={setPage}
+                                    results={results}
+                                    onClose={() => setShowPricePopup(false)}
+                                />
+                            )}
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Baths</label>
-                            <select
-                                value={filterBaths}
-                                onChange={e => { setFilterBaths(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
+                        {/* Combined Beds / Baths filter */}
+                        <div className="flex flex-col gap-1 relative" ref={bedsBathsPopupRef}>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Beds/Baths</label>
+                            <button
+                                type="button"
+                                onClick={() => setShowBedsBathsPopup(p => !p)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold outline-none border transition-all flex items-center gap-1.5 ${
+                                    (filterBeds || filterBaths)
+                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                        : 'bg-white border-slate-200 text-black'
+                                }`}
                             >
-                                <option value="">Any</option>
-                                {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+ ba</option>)}
-                            </select>
+                                {filterBeds && filterBaths
+                                    ? `${filterBeds}+ bd · ${filterBaths}+ ba`
+                                    : filterBeds
+                                    ? `${filterBeds}+ bd · Any ba`
+                                    : filterBaths
+                                    ? `Any bd · ${filterBaths}+ ba`
+                                    : 'Any'}
+                                {(filterBeds || filterBaths) && (
+                                    <span
+                                        onClick={e => { e.stopPropagation(); setFilterBeds(''); setFilterBaths(''); setPage(1); }}
+                                        className="ml-1 text-indigo-400 hover:text-indigo-700 cursor-pointer"
+                                    >✕</span>
+                                )}
+                                <i className="fa-solid fa-chevron-down text-[8px] opacity-50 ml-0.5"></i>
+                            </button>
+
+                            {showBedsBathsPopup && (
+                                <div className="absolute top-full left-0 mt-2 z-[200] bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 w-72 animate-in fade-in zoom-in-95 duration-150">
+
+                                    {/* Beds section */}
+                                    <div className="mb-4">
+                                        <div className="flex items-baseline gap-2 mb-1">
+                                            <span className="text-sm font-black text-slate-800">Beds</span>
+                                            <span className="text-[10px] text-slate-400 font-medium">Tap to select minimum</span>
+                                        </div>
+                                        <div className="flex gap-1.5 flex-wrap mt-2">
+                                            {['', '1', '2', '3', '4', '5'].map((v, i) => (
+                                                <button
+                                                    key={v}
+                                                    onClick={() => { setFilterBeds(v); setPage(1); }}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                                        filterBeds === v
+                                                            ? 'bg-indigo-600 text-white border-indigo-600'
+                                                            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                                                    }`}
+                                                >
+                                                    {v === '' ? 'Any' : v === '5' ? '5+' : `${v}+`}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-100 mb-4" />
+
+                                    {/* Baths section */}
+                                    <div className="mb-4">
+                                        <div className="flex items-baseline gap-2 mb-1">
+                                            <span className="text-sm font-black text-slate-800">Baths</span>
+                                        </div>
+                                        <div className="flex gap-1.5 flex-wrap mt-2">
+                                            {[{ label: 'Any', value: '' }, { label: '1+', value: '1' }, { label: '1.5+', value: '1.5' }, { label: '2+', value: '2' }, { label: '2.5+', value: '2.5' }, { label: '3+', value: '3' }, { label: '4+', value: '4' }].map(opt => (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => { setFilterBaths(opt.value); setPage(1); }}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                                        filterBaths === opt.value
+                                                            ? 'bg-indigo-600 text-white border-indigo-600'
+                                                            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="flex items-center justify-between pt-1">
+                                        <button
+                                            onClick={() => { setFilterBeds(''); setFilterBaths(''); setPage(1); }}
+                                            className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors underline underline-offset-2"
+                                        >
+                                            Reset
+                                        </button>
+                                        <button
+                                            onClick={() => setShowBedsBathsPopup(false)}
+                                            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-black uppercase tracking-widest transition-colors"
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
+
                         <div className="flex flex-col gap-1">
                             <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Type</label>
                             <select
@@ -915,15 +1295,85 @@ const BrowseByCitySection: React.FC<{
                                 <option value="10">10</option>
                             </select>
                         </div>
-                        {availableNeighborhoods.length > 0 && (
-                            <select
-                                value={filterNeighborhood}
-                                onChange={e => { setFilterNeighborhood(e.target.value); setPage(1); }}
-                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer max-w-[160px]"
+                        {/* Vastu Orientation — custom popup for styled italic Vastu names */}
+                        <div className="flex flex-col gap-1 relative" ref={vastuPopupRef}>
+                            <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Vastu Orientation</label>
+                            <button
+                                type="button"
+                                onClick={() => setShowVastuPopup(p => !p)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold outline-none border transition-all flex items-center gap-1.5 ${
+                                    filterOrientations.length > 0
+                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                        : 'bg-white border-slate-200 text-black'
+                                }`}
                             >
-                                <option value="">Neighborhood</option>
-                                {availableNeighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
-                            </select>
+                                {filterOrientations.length === 0 ? 'Any' : filterOrientations.length === 1 ? filterOrientations[0] : `${filterOrientations.length} Selected`}
+                                {filterOrientations.length > 0 && (
+                                    <span
+                                        onClick={e => { e.stopPropagation(); setFilterOrientations([]); setPage(1); }}
+                                        className="ml-1 text-indigo-400 hover:text-indigo-700 cursor-pointer"
+                                    >✕</span>
+                                )}
+                                <i className="fa-solid fa-chevron-down text-[8px] opacity-50 ml-0.5"></i>
+                            </button>
+
+                            {showVastuPopup && (
+                                <div className="absolute top-full left-0 mt-2 z-[200] bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 w-64 animate-in fade-in zoom-in-95 duration-150">
+                                    <button
+                                        onClick={() => { setFilterOrientations([]); setPage(1); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors ${
+                                            filterOrientations.length === 0 ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                    >
+                                        Any
+                                    </button>
+                                    {ORIENTATION_OPTIONS.map(opt => {
+                                        const isSelected = filterOrientations.includes(opt.value);
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                onClick={() => {
+                                                    const next = isSelected 
+                                                        ? filterOrientations.filter(v => v !== opt.value)
+                                                        : [...filterOrientations, opt.value];
+                                                    setFilterOrientations(next);
+                                                    setPage(1);
+                                                }}
+                                                className={`w-full text-left px-4 py-2 flex items-center justify-between transition-colors ${
+                                                    isSelected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-700'
+                                                }`}
+                                            >
+                                                <span>
+                                                    <span className="text-xs font-bold">{opt.label}</span>
+                                                    <span className="text-[11px] text-slate-400 ml-1.5">– <em>{opt.vastuName}</em></span>
+                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    {opt.best && (
+                                                        <span className="bg-emerald-100 text-emerald-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Best</span>
+                                                    )}
+                                                    {isSelected && (
+                                                        <i className="fa-solid fa-check text-indigo-500 text-[10px]"></i>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {availableNeighborhoods.length > 0 && (
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-black text-black/60 uppercase tracking-wider ml-1">Neighborhood</label>
+                                <select
+                                    value={filterNeighborhood}
+                                    onChange={e => { setFilterNeighborhood(e.target.value); setPage(1); }}
+                                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer max-w-[160px]"
+                                >
+                                    <option value="">Any</option>
+                                    {availableNeighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            </div>
                         )}
 
                         <button
@@ -934,7 +1384,7 @@ const BrowseByCitySection: React.FC<{
                                 }`}
                         >
                             <i className="fa-solid fa-sliders text-[9px]"></i>
-                            Filters
+                            Other
                         </button>
                     </div>
 
@@ -945,110 +1395,98 @@ const BrowseByCitySection: React.FC<{
                     </div>
                 </div>
 
-                    {/* Advanced filters overlay will appear below the toolbar row */}
-
-
-                    {/* ── ADVANCED FILTERS OVERLAY ── */}
+                    {/* ── OTHER FILTERS MODAL ── */}
                     {showAdvancedFilters && (
-                        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-4 animate-in slide-in-from-top-2 duration-200">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <i className="fa-solid fa-sliders text-indigo-500"></i>
-                                    <span className="text-sm font-black text-slate-700">Advanced Filters</span>
-                                    {advancedFilterCount > 0 && (
-                                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-md">{advancedFilterCount} active</span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {advancedFilterCount > 0 && (
-                                        <button onClick={clearAdvancedFilters} className="text-[10px] font-bold text-rose-500 hover:text-rose-700 transition-colors">
-                                            <i className="fa-solid fa-xmark mr-1"></i>Clear All
+                        <div
+                            className="fixed inset-0 z-[999] flex items-center justify-center p-4"
+                            style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}
+                            onClick={(e) => { if (e.target === e.currentTarget) setShowAdvancedFilters(false); }}
+                        >
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in duration-200">
+
+                                {/* Modal Header */}
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                            <i className="fa-solid fa-sliders text-indigo-500 text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-black text-slate-800">Other Filters</div>
+                                            {advancedFilterCount > 0 && (
+                                                <div className="text-[10px] font-bold text-indigo-500">{advancedFilterCount} filter{advancedFilterCount > 1 ? 's' : ''} active</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {advancedFilterCount > 0 && (
+                                            <button onClick={clearAdvancedFilters} className="text-[11px] font-bold text-rose-500 hover:text-rose-700 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50">
+                                                <i className="fa-solid fa-xmark mr-1"></i>Clear All
+                                            </button>
+                                        )}
+                                        <button onClick={() => setShowAdvancedFilters(false)} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-500">
+                                            <i className="fa-solid fa-xmark text-xs"></i>
                                         </button>
-                                    )}
-                                    <button onClick={() => setShowAdvancedFilters(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                                        <i className="fa-solid fa-xmark"></i>
+                                    </div>
+                                </div>
+
+                                {/* Modal Body — scrollable */}
+                                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6" style={{ scrollbarWidth: 'thin' }}>
+
+                                    {/* Property Details */}
+                                    <div>
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <i className="fa-solid fa-house text-slate-300"></i> Property Details
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Garage</label>
+                                                <select value={filterGarage} onChange={e => { setFilterGarage(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all cursor-pointer">
+                                                    <option value="">Any</option>
+                                                    <option value="1">1+ car</option>
+                                                    <option value="2">2+ car</option>
+                                                    <option value="3">3+ car</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Max HOA $/mo</label>
+                                                <input value={filterMaxHoa} onChange={e => { setFilterMaxHoa(e.target.value); setPage(1); }} placeholder="e.g. 500" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all placeholder:text-slate-300" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Market & Timing */}
+                                    <div>
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <i className="fa-solid fa-chart-line text-slate-300"></i> Market &amp; Timing
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Max Days on Market</label>
+                                                <select value={filterMaxDom} onChange={e => { setFilterMaxDom(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all cursor-pointer">
+                                                    <option value="">Any</option>
+                                                    <option value="7">Under 1 week</option>
+                                                    <option value="14">Under 2 weeks</option>
+                                                    <option value="30">Under 30 days</option>
+                                                    <option value="60">Under 60 days</option>
+                                                    <option value="90">Under 90 days</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Modal Footer */}
+                                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl shrink-0">
+                                    <span className="text-[11px] font-bold text-slate-400">
+                                        {advancedFilterCount > 0 ? `${advancedFilterCount} filter${advancedFilterCount > 1 ? 's' : ''} applied` : 'No extra filters applied'}
+                                    </span>
+                                    <button
+                                        onClick={() => setShowAdvancedFilters(false)}
+                                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-black uppercase tracking-widest transition-colors shadow-sm"
+                                    >
+                                        <i className="fa-solid fa-check mr-1.5"></i>Apply Filters
                                     </button>
                                 </div>
-                            </div>
-
-                            {/* MLS Filters */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Property Details</div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Garage</label>
-                                            <select value={filterGarage} onChange={e => { setFilterGarage(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
-                                                <option value="">Any</option>
-                                                <option value="1">1+ car</option>
-                                                <option value="2">2+ car</option>
-                                                <option value="3">3+ car</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Max HOA $/mo</label>
-                                            <input value={filterMaxHoa} onChange={e => { setFilterMaxHoa(e.target.value); setPage(1); }} placeholder="e.g. 500" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Orientation & Vastu</div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Front Orientation</label>
-                                            <select 
-                                                value={filterOrientation} 
-                                                onChange={e => { setFilterOrientation(e.target.value); setPage(1); }} 
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none"
-                                            >
-                                                <option value="">Any Direction</option>
-                                                <option value="North">North</option>
-                                                <option value="South">South</option>
-                                                <option value="East">East (Vastu Friendly)</option>
-                                                <option value="West">West</option>
-                                                <option value="North-East">North-East</option>
-                                                <option value="North-West">North-West</option>
-                                                <option value="South-East">South-East</option>
-                                                <option value="South-West">South-West</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Max Days on Market</label>
-                                            <select value={filterMaxDom} onChange={e => { setFilterMaxDom(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
-                                                <option value="">Any</option>
-                                                <option value="7">Under 1 week</option>
-                                                <option value="14">Under 2 weeks</option>
-                                                <option value="30">Under 30 days</option>
-                                                <option value="60">Under 60 days</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Market Filters */}
-                            <div>
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Market & Timing</div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Max Days on Market</label>
-                                        <select value={filterMaxDom} onChange={e => { setFilterMaxDom(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none">
-                                            <option value="">Any</option>
-                                            <option value="7">Under 1 week</option>
-                                            <option value="14">Under 2 weeks</option>
-                                            <option value="30">Under 30 days</option>
-                                            <option value="60">Under 60 days</option>
-                                            <option value="90">Under 90 days</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end pt-1">
-                                <button onClick={() => setShowAdvancedFilters(false)} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors">
-                                    Apply Filters
-                                </button>
                             </div>
                         </div>
                     )}

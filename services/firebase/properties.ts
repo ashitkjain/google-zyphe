@@ -296,8 +296,18 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
             limit(maxResults)
         );
         logFirestoreQuery('getDocs', 'properties', { city, maxResults, scope: 'browse_by_city' });
-        const snapshot = await getDocs(q);
-        return snapshot.docs
+        // Fetch ground-truth orientations in parallel (single batch — small collection)
+        const [snapshot, gtSnap] = await Promise.all([
+            getDocs(q),
+            getDocs(collection(db, 'orientation_ground_truth')).catch(() => null),
+        ]);
+        // Build zpid → expected_orientation lookup from ground truth
+        const gtMap: Record<string, string> = {};
+        gtSnap?.docs.forEach(d => {
+            const gt = d.data().expected_orientation;
+            if (gt) gtMap[d.id] = gt;
+        });
+        const mapped = snapshot.docs
             .filter(d => !d.data().deprecated)
             .map(d => {
                 const raw = d.data();
@@ -336,14 +346,23 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                         }
                         return best > 0 ? best : undefined;
                     })(),
-                    orientation: data.orientation_ai?.final_orientation || '',
+                    // Prefer ground truth on doc > separate GT collection > AI result
+                    orientation: (data as any).orientation_ground_truth?.expected_orientation
+                        || gtMap[d.id]
+                        || data.orientation_ai?.final_orientation
+                        || '',
                 };
             });
+        const withOrientation = mapped.filter(p => p.orientation);
+        console.log(`[getPropertiesByCity] ${mapped.length} props, ${withOrientation.length} have orientation. Sample:`,
+            withOrientation.slice(0, 5).map(p => ({ zpid: p.zpid, orientation: p.orientation })));
+        return mapped;
     } catch (error: any) {
         handleFirestoreError(error, "getPropertiesByCity");
         return [];
     }
 };
+
 /**
  * Get lightweight property summaries for a given ZIP code.
  */
@@ -356,7 +375,15 @@ export const getPropertiesByZip = async (zip: string, maxResults: number = 200):
             limit(maxResults)
         );
         logFirestoreQuery('getDocs', 'properties', { zip, maxResults, scope: 'browse_by_zip' });
-        const snapshot = await getDocs(q);
+        const [snapshot, gtSnap] = await Promise.all([
+            getDocs(q),
+            getDocs(collection(db, 'orientation_ground_truth')).catch(() => null),
+        ]);
+        const gtMap: Record<string, string> = {};
+        gtSnap?.docs.forEach(d => {
+            const gt = d.data().expected_orientation;
+            if (gt) gtMap[d.id] = gt;
+        });
         return snapshot.docs
             .filter(d => !d.data().deprecated)
             .map(d => {
@@ -396,7 +423,11 @@ export const getPropertiesByZip = async (zip: string, maxResults: number = 200):
                         }
                         return best > 0 ? best : undefined;
                     })(),
-                    orientation: data.orientation_ai?.final_orientation || '',
+                    // Prefer ground truth on doc > separate GT collection > AI result
+                    orientation: (data as any).orientation_ground_truth?.expected_orientation
+                        || gtMap[d.id]
+                        || data.orientation_ai?.final_orientation
+                        || '',
                 };
             });
     } catch (error: any) {
@@ -404,6 +435,7 @@ export const getPropertiesByZip = async (zip: string, maxResults: number = 200):
         return [];
     }
 };
+
 
 
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {
