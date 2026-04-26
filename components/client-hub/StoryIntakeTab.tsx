@@ -60,35 +60,65 @@ const CHAPTERS = [
         num: '01', label: 'Who you are', icon: '◉',
         title: 'Tell us about your household, life stage, and what brought you here.',
         placeholder: 'A growing family with two young kids, in our late 30s, both working in tech and ready to leave our SF rental for a real backyard…',
-        examples: ['A growing family with two young children', 'Empty nesters ready to downsize', 'Tech couple in their 30s relocating from SF'],
+        examples: [
+            { label: 'Morning sunlight & quiet coffee', value: 'I love having morning sunlight in the kitchen and starting my day with a quiet cup of coffee.' },
+            { label: 'Relaxing while kids/pets play', value: 'I want a home where the kids or pets can play safely outside while I relax nearby.' },
+            { label: 'Hosting in open living space', value: 'Having an open living space is important for hosting friends and family for dinners and gatherings.' },
+            { label: 'Private area for work/hobbies', value: 'I need a calm, private area where I can focus on my work or enjoy my hobbies without distractions.' },
+            { label: 'Walkable cafes & parks', value: 'Easy access to local cafes, parks, and other walkable spots is essential for our daily lifestyle.' }
+        ],
         key: 'chapter01' as const,
     },
     {
         num: '02', label: 'Daily rituals & lifestyle', icon: '☼',
         title: 'Walk us through your day. Where do you drink your morning coffee? Do you need a dedicated workspace?',
         placeholder: 'I start my day with a quiet espresso looking over a garden… I work from home three days a week and need absolute silence for calls…',
-        examples: ['WFH with a closed-door office for video calls', 'Garden coffee in the morning, sunset porch in the evening', 'Open kitchen so I can cook while the kids do homework'],
+        examples: [
+            { label: 'WFH with a closed-door office for video calls', value: 'I work from home and need a quiet, closed-door office for daily video calls.' },
+            { label: 'Garden coffee in the morning, sunset porch in the evening', value: 'I love starting my mornings with coffee in a garden or on a sunset porch.' },
+            { label: 'Open kitchen so I can cook while the kids do homework', value: 'We need an open kitchen so I can cook while the kids finish their homework.' }
+        ],
         key: 'chapter02' as const,
     },
     {
         num: '03', label: 'Must-haves & deal-breakers', icon: '✓',
         title: 'What\'s non-negotiable, and what would absolutely disqualify a home for you?',
         placeholder: 'Must: 4+ beds, two-car garage, walk to top elementary. Avoid: north-facing backyards, busy roads, anything needing a major remodel…',
-        examples: ['10/10 schools within walking distance', 'Two home offices, both with doors', 'No HOAs above $300/mo, no flood zones'],
+        examples: [
+            { label: 'Needs major renovation', value: 'We want to avoid any homes that require major renovations or structural work.' },
+            { label: 'On a busy/noisy street', value: 'A home on a busy or noisy street is a deal-breaker for us; we need a quiet location.' },
+            { label: 'Long commute (over 45 mins)', value: 'We cannot accept a commute that is longer than 45 minutes each way.' },
+            { label: 'HOA restrictions', value: 'We are looking to avoid homes with restrictive HOAs or high monthly fees.' },
+            { label: 'Small kitchen or closed layout', value: 'A small kitchen or a closed-off layout is something we definitely want to avoid.' },
+            { label: 'Limited natural light', value: 'We will not consider homes that have limited natural light or feel dark inside.' }
+        ],
         key: 'chapter03' as const,
     },
     {
-        num: '04', label: 'Lifestyle priorities', icon: '✧',
-        title: 'What do weekends look like? What do you want your neighborhood to feel like?',
-        placeholder: 'Weekends are farmer\'s markets, a 5-mile run on a tree-lined trail, then a long brunch. We want neighbors who say hi but don\'t drop in unannounced…',
-        examples: ['Walkable downtown with cafes and a Saturday market', 'Quiet cul-de-sac, lots of kids on bikes', 'Vineyard country, an hour from a real airport'],
+        num: '04', label: 'Core priorities', icon: '✧',
+        title: 'If we can’t get everything, what are the top 2–3 things you really don’t want to compromise on?',
+        placeholder: 'School quality and a safe neighborhood are non-negotiable. I also need a dedicated office space for work…',
+        examples: [
+            { label: 'Smaller home, better neighborhood', value: 'I’d take a smaller home if it means being in the right neighborhood with great schools.' },
+            { label: 'Move-in ready > size', value: 'I care more about move-in ready than square footage—I don’t want a big renovation project.' },
+            { label: 'Commute over space', value: 'Commute matters most. I’d rather have less space than spend an extra hour driving every day.' },
+            { label: 'Outdoor space priority', value: 'Outdoor space is a priority—even if the house itself is a little smaller.' },
+            { label: 'Light & layout first', value: 'Natural light and layout matter more to me than fancy finishes or upgrades.' },
+            { label: 'Value & long-term fit', value: 'I’d compromise on location for better value and a home that feels like a long-term fit.' },
+            { label: 'Privacy & quiet', value: 'Privacy and a quiet street matter more than being close to shops and restaurants.' },
+            { label: 'Right home > temporary', value: 'I’d rather stretch the budget for the right home than settle for something that feels temporary.' }
+        ],
         key: 'chapter04' as const,
     },
     {
-        num: '05', label: 'The future you', icon: '↗',
-        title: 'How long do you plan to stay? What will life look like in five years?',
-        placeholder: 'Planning to be here 10+ years. Want one more kid. My parents may move in with us by 2030 — need a flexible floorplan or in-law potential…',
-        examples: ['Here 10+ years — want room to grow', '3-year hold, then trade up', 'Forever home — must work for aging in place'],
+        num: '05', label: 'Readiness', icon: '↗',
+        title: 'If you found the right home this week, what would you do? (Pick one)',
+        placeholder: 'Select your current readiness level...',
+        examples: [
+            { label: 'Ready to offer now', value: 'Make an offer immediately (financing ready)' },
+            { label: 'Ready in 1-2 months', value: 'Move forward within 1–2 months' },
+            { label: 'Just exploring', value: 'Still exploring, not ready yet' }
+        ],
         key: 'chapter05' as const,
     },
 ];
@@ -123,8 +153,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'We are a dual-income tech couple in our early 30s with two kids, ages 3 and 6. We\'re currently renting in Fremont but have outgrown the space and want to settle in a top school district before next year.',
             chapter02: 'Arjun commutes to Apple Park three days a week and I work remotely full-time. Our evenings revolve around the kids, and the backyard is their sanctuary.',
             chapter03: 'Must: 4+ bedrooms, dedicated home office, open kitchen into family room, big flat backyard, top elementary school (10/10 GreatSchools). Avoid: busy roads, north-facing backyards, HOAs over $300/mo, flood zones.',
-            chapter04: 'We love weekend farmers\' markets and the kids riding bikes in the neighborhood. We want neighbors who wave hello. A walkable park within 10 minutes matters.',
-            chapter05: 'Planning to stay 10+ years. We want a third child and my parents may visit for extended stays — a guest suite or in-law potential would be ideal.',
+            chapter04: 'We prioritize school quality and safety above all else. We’d take a slightly smaller backyard if it means being in the right neighborhood for our kids.',
+            chapter05: 'Make an offer immediately (financing ready)',
             selectedAnchors: ['Top-Rated Schools', 'Large Backyard', 'Home Office Ready', 'Natural Light / Open Plan', 'Tech Commute Access'],
         },
     },
@@ -140,8 +170,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'We are empty nesters in our early 60s. We\'ve lived in a four-bedroom colonial in Dublin for 22 years, and it\'s just too much house now. We\'d like to downsize to a single-story home where we can age in place.',
             chapter02: 'Robert walks three miles every morning, and we cook together daily. The Saturday farmers\' market is our ritual. We host our kids about four times a year, so a guest suite would be ideal.',
             chapter03: 'Must: single-story, modern kitchen with large island, covered patio, guest bedroom with en-suite. Avoid: large HOA fees, two-story homes, high-maintenance landscaping.',
-            chapter04: 'We want a quiet, established neighborhood with walking trails. Proximity to medical facilities and a golf course are a plus.',
-            chapter05: 'This is our forever home. Aging in place is the priority — wide hallways, step-free entry, and a master bath with a walk-in shower are essential.',
+            chapter04: 'Privacy and a quiet street are our top priorities. We would compromise on being close to shops if the home offers total peace and quiet.',
+            chapter05: 'Move forward within 1–2 months',
             selectedAnchors: ['Single Story', 'Quiet Streets', 'Modern Kitchen', 'Pet-Friendly Parks'],
         },
     },
@@ -157,8 +187,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'We\'re both 29 with no kids yet, but planning to start a family soon. We\'ve been renting a one-bedroom in the Mission for four years and are pre-approved and ready to go.',
             chapter02: 'I work from home Monday through Wednesday and commute to SF the rest of the week, so BART access is key. Evenings are cooking, friends, and the occasional hike.',
             chapter03: 'Must: 3 bedrooms, open kitchen, small yard, BART walkable. Avoid: high HOA fees, deferred maintenance, anything over 45 min to SF.',
-            chapter04: 'We love walkable downtown areas with restaurants and coffee shops. Mid-century modern aesthetic speaks to us strongly — natural light is everything.',
-            chapter05: 'We plan to be here 5–7 years, then trade up after starting a family. Good school district for when we have kids is already on our radar.',
+            chapter04: 'Commute and natural light are non-negotiable. I’d rather have less space than spend an extra hour driving every day.',
+            chapter05: 'Make an offer immediately (financing ready)',
             selectedAnchors: ['Walking Distance to Coffee', 'Home Office Ready', 'Mid-Century Aesthetic', 'Natural Light / Open Plan', 'Tech Commute Access'],
         },
     },
@@ -174,8 +204,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'I\'m a 42-year-old software architect building a rental portfolio. I already own two properties in the East Bay and I\'m looking for a third acquisition with ADU potential.',
             chapter02: 'This is a pure investment — I won\'t be living here. The property needs to be tenant-ready or close to it, with positive cash flow from day one.',
             chapter03: 'Must: lot 6,000+ sq ft for ADU, 3+ bed 2+ bath, functional kitchen and updated baths, single-story. Avoid: anything requiring major renovation or in flood zones.',
-            chapter04: 'Proximity to BART or the ACE train is a plus for rental demand. I want a city with straightforward ADU permitting.',
-            chapter05: '3–5 year hold, then reassess. Target cap rate above 5%. I can go all-cash under $1M, conventional financing above.',
+            chapter04: 'ROI and ADU potential are the only things that matter. I’d compromise on almost anything else for the right numbers.',
+            chapter05: 'Make an offer immediately (financing ready)',
             selectedAnchors: ['ADU Potential', 'High ROI Potential', 'Single Story', 'Large Backyard'],
         },
     },
@@ -191,8 +221,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'We are a multi-generational family — a couple in our late 40s with two teenagers, plus my elderly parents who are moving from India to live with us permanently.',
             chapter02: 'We share big family meals every Sunday. My parents need ground-floor living with easy access. I work from home as a consultant; my wife runs a catering business and needs a serious kitchen.',
             chapter03: 'Must: 5+ bedrooms, ground-floor in-law suite with private bath, large kitchen with commercial ventilation, 3-car garage. Avoid: stairs for elderly parents, newer build before 2000.',
-            chapter04: 'Good schools for our teenagers and Vastu-compliant orientation are important. We need open living areas for gatherings of 20 or more.',
-            chapter05: 'This is a forever home. We expect my parents to live with us indefinitely. Accessibility features and a separate living space for them are essential long-term.',
+            chapter04: 'Accessibility and the ground-floor suite are essential for my parents. We’d stretch the budget for a home that fits everyone safely.',
+            chapter05: 'Move forward within 1–2 months',
             selectedAnchors: ['Multi-Gen Living', 'Modern Kitchen', 'Top-Rated Schools', 'Vastu / Good Orientation', 'Large Backyard'],
         },
     },
@@ -208,8 +238,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'I\'m a 27-year-old product marketing manager at Google. I\'m single with a golden retriever, and this is my first time buying. Pre-approved with 15% down.',
             chapter02: 'Early bird — run with the dog, grab coffee at a café, head to Sunnyvale three days a week. Evenings are cooking, yoga, and friends nearby.',
             chapter03: 'Must: 2+ bedrooms, modern finishes, in-unit laundry, small patio or yard for the dog. Avoid: high HOAs (over $400/mo), unsafe streets at night, long commutes.',
-            chapter04: 'Walking distance to restaurants, coffee shops, and a dog park is essential. A strong sense of community matters — I want to know my neighbors.',
-            chapter05: 'Planning to stay 3–5 years, then reassess. This is my starter home, not forever. I want to build equity while I\'m young.',
+            chapter04: 'Walkability and being near a dog park are my top 2 priorities. I’d take a smaller condo to stay close to the action.',
+            chapter05: 'Make an offer immediately (financing ready)',
             selectedAnchors: ['Walking Distance to Coffee', 'Pet-Friendly Parks', 'Natural Light / Open Plan', 'Tech Commute Access'],
         },
     },
@@ -225,8 +255,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'We are a couple in our 50s with grown children. I\'m a retired CFO and Catherine runs a boutique interior design firm. We\'re ready for our forever home — architecturally significant, with a sense of arrival.',
             chapter02: 'Leisurely mornings on the terrace, golf twice a week, hosting monthly dinner parties for 8–12 guests. Wine is our passion — we have a 400-bottle collection that needs a proper home.',
             chapter03: 'Must: wine cellar, chef\'s kitchen with Wolf/Sub-Zero, infinity pool, 4,000+ sq ft, art studio. Avoid: McMansions, major renovations, lack of privacy.',
-            chapter04: 'Views are our top criterion — East Bay hills or Mt. Diablo. Privacy and a gated setting are essential. Close to a good golf course.',
-            chapter05: 'This is an all-cash forever purchase. We want turnkey luxury with room to entertain for decades. No major work — our next chapter starts the day we move in.',
+            chapter04: 'Privacy and the architectural significance are my non-negotiables. We’d compromise on location if the home itself is a true masterpiece.',
+            chapter05: 'Still exploring, not ready yet',
             selectedAnchors: ['Private / Gated', 'Pool Ready', 'Gourmet Grocery Access', 'Modern Kitchen', 'Sustainable Architecture'],
         },
     },
@@ -242,8 +272,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'Relocating from Seattle — both late 30s with a toddler. I\'m a climate scientist at Lawrence Livermore and Sunita is a sustainability consultant who works remotely.',
             chapter02: 'We bike commute when possible, keep a home office surrounded by plants, grow our own food in raised beds, and drive an EV needing Level 2 charging.',
             chapter03: 'Must: solar panels, energy-efficient HVAC, dual-pane windows, large yard for raised beds. Avoid: high wildfire risk zones, south-facing slopes, gas-only appliances.',
-            chapter04: 'Bikeable streets with trails nearby are important. We want daycare and good schools within the neighborhood. South-facing orientation ideal.',
-            chapter05: 'Planning to be here 10+ years as our daughter grows up. We want a neighborhood that values sustainability and where she can grow up outdoors.',
+            chapter04: 'Sustainability features and yard space for our garden are our core priorities. We’d compromise on finishes for a home with better energy efficiency.',
+            chapter05: 'Move forward within 1–2 months',
             selectedAnchors: ['Low Wildfire Risk', 'Sustainable Architecture', 'Large Backyard', 'Pet-Friendly Parks', 'Natural Light / Open Plan'],
         },
     },
@@ -259,8 +289,8 @@ const EXAMPLE_STORIES: ExampleStory[] = [
             chapter01: 'I\'m a 45-year-old VP of Engineering and I own a condo in San Jose. Looking for a weekend property in wine country close enough for every weekend.',
             chapter02: 'Friday evenings with wine on the porch at sunset, Saturday mornings exploring local wineries. Amateur winemaker — would love space for a small crush pad.',
             chapter03: 'Must: 2–3 bedrooms, outdoor living with pergola and fire pit, land with trees. Avoid: subdivision feel, HOA that restricts rentals.',
-            chapter04: 'Rustic-modern style with exposed beams, stone fireplace, wide plank floors. Real privacy — not a backyard neighbor situation. Wine-adjacent vibes essential.',
-            chapter05: 'Would consider using it as a short-term rental when not in use. If it performs well, I might hold it long-term. Within 90 minutes of San Jose is the hard limit.',
+            chapter04: 'Privacy and trees are what we need. I’d take a smaller house if it means having no backyard neighbors and a real sense of seclusion.',
+            chapter05: 'Still exploring, not ready yet',
             selectedAnchors: ['Quiet Streets', 'Private / Gated', 'Natural Light / Open Plan', 'High ROI Potential'],
         },
     },
@@ -290,7 +320,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
         name: '',
         email: '',
         phone: '',
-        preferredMethod: 'Email',
+        preferredMethod: 'Phone',
         budget: '',
         targetLocations: '',
         targetTimeline: '',
@@ -309,7 +339,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
     const [saved, setSaved] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [showExamples, setShowExamples] = useState(true);
-    const [showAnchors, setShowAnchors] = useState(false);
+    const [showAnchors, setShowAnchors] = useState(true);
     const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
     const [history, setHistory] = useState<{ story: string; timestamp: any }[]>([]);
     const [showHistory, setShowHistory] = useState(false);
@@ -582,7 +612,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                                     display: 'grid', placeItems: 'center', fontSize: 16,
                                 }}>◑</div>
                                 <div>
-                                    <div style={{ fontFamily: 'var(--font-serif, Georgia, serif)', fontSize: 18, color: '#1a1330', fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>Your profile</div>
+                                    <div style={{ fontFamily: 'var(--font-serif, Georgia, serif)', fontSize: 18, color: '#1a1330', fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>Profile.</div>
                                     <div style={{ fontSize: 10.5, letterSpacing: '0.14em', color: 'oklch(58% 0.015 260)', textTransform: 'uppercase', fontWeight: 700, marginTop: 2 }}>Step 1 · Contact</div>
                                 </div>
                             </div>
@@ -597,30 +627,6 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                                     value={data.name}
                                     onChange={e => update('name', e.target.value)}
                                     placeholder={isRealtor ? 'e.g. Eleanor & James Vance' : 'e.g. Alexander Sterling'}
-                                    style={{
-                                        width: '100%', padding: '9px 12px', background: 'oklch(96.5% 0.006 80)',
-                                        border: '1px solid oklch(91% 0.01 260)', borderRadius: 8,
-                                        fontSize: 13, color: '#1a1330', outline: 'none', boxSizing: 'border-box',
-                                        fontFamily: 'inherit',
-                                    }}
-                                />
-                            </div>
-
-                            {/* Email */}
-                            <div style={{ marginBottom: 14 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                                    <div style={{ fontSize: 9.5, letterSpacing: '0.16em', color: 'oklch(58% 0.015 260)', textTransform: 'uppercase', fontWeight: 700 }}>Email</div>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 9.5, letterSpacing: '0.12em', color: ACCENT, textTransform: 'uppercase', fontWeight: 700 }}>
-                                        <input type="checkbox" checked={data.preferredMethod === 'Email'} onChange={() => update('preferredMethod', 'Email')}
-                                            style={{ width: 11, height: 11, accentColor: ACCENT }} />
-                                        Preferred
-                                    </label>
-                                </div>
-                                <input
-                                    type="email"
-                                    value={data.email}
-                                    onChange={e => update('email', e.target.value)}
-                                    placeholder="e.g. alex@example.com"
                                     style={{
                                         width: '100%', padding: '9px 12px', background: 'oklch(96.5% 0.006 80)',
                                         border: '1px solid oklch(91% 0.01 260)', borderRadius: 8,
@@ -645,6 +651,30 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                                     value={data.phone}
                                     onChange={e => update('phone', e.target.value)}
                                     placeholder="e.g. (555) 000-0000"
+                                    style={{
+                                        width: '100%', padding: '9px 12px', background: 'oklch(96.5% 0.006 80)',
+                                        border: '1px solid oklch(91% 0.01 260)', borderRadius: 8,
+                                        fontSize: 13, color: '#1a1330', outline: 'none', boxSizing: 'border-box',
+                                        fontFamily: 'inherit',
+                                    }}
+                                />
+                            </div>
+
+                            {/* Email */}
+                            <div style={{ marginBottom: 14 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                                    <div style={{ fontSize: 9.5, letterSpacing: '0.16em', color: 'oklch(58% 0.015 260)', textTransform: 'uppercase', fontWeight: 700 }}>Email</div>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 9.5, letterSpacing: '0.12em', color: ACCENT, textTransform: 'uppercase', fontWeight: 700 }}>
+                                        <input type="checkbox" checked={data.preferredMethod === 'Email'} onChange={() => update('preferredMethod', 'Email')}
+                                            style={{ width: 11, height: 11, accentColor: ACCENT }} />
+                                        Preferred
+                                    </label>
+                                </div>
+                                <input
+                                    type="email"
+                                    value={data.email}
+                                    onChange={e => update('email', e.target.value)}
+                                    placeholder="e.g. alex@example.com"
                                     style={{
                                         width: '100%', padding: '9px 12px', background: 'oklch(96.5% 0.006 80)',
                                         border: '1px solid oklch(91% 0.01 260)', borderRadius: 8,
@@ -795,68 +825,106 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                                                 {ch.title}
                                             </div>
                                         </div>
-                                        <button style={{
-                                            background: ACCENT_SOFT, color: ACCENT, border: `1px solid ${ACCENT}40`, borderRadius: 999,
-                                            padding: '6px 12px', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em',
-                                            textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0,
-                                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                                        }}>✦ AI hint</button>
-                                    </div>
-
-                                    {/* Textarea */}
-                                    <div style={{ position: 'relative' }}>
-                                        <textarea
-                                            value={value}
-                                            onChange={e => update(ch.key, e.target.value)}
-                                            placeholder={ch.placeholder}
-                                            rows={4}
+                                        
+                                        {/* Clear Section Button */}
+                                        <button
+                                            onClick={() => update(ch.key, '')}
+                                            title="Clear section"
                                             style={{
-                                                width: '100%', padding: '14px 14px 32px', boxSizing: 'border-box',
-                                                background: hasContent ? '#fff' : 'oklch(96.5% 0.006 80)',
-                                                border: `1px solid ${atLimit ? '#f59e0b' : hasContent ? ACCENT + '40' : 'oklch(91% 0.01 260)'}`,
-                                                borderRadius: 10, resize: 'none',
-                                                fontSize: 13.5, lineHeight: 1.6,
-                                                color: hasContent ? '#1a1330' : 'oklch(72% 0.01 260)',
-                                                fontStyle: hasContent ? 'normal' : 'italic',
-                                                outline: 'none', fontFamily: 'inherit',
+                                                background: 'none', border: 'none', color: '#ef4444',
+                                                fontSize: 14, cursor: 'pointer', opacity: 0.4,
+                                                padding: '8px', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                transition: 'all 0.2s', alignSelf: 'flex-start', marginTop: -4
                                             }}
-                                        />
-                                        <div style={{
-                                            position: 'absolute', bottom: 8, right: 10,
-                                            fontSize: 9.5, letterSpacing: '0.12em',
-                                            color: atLimit ? '#ef4444' : nearLimit ? '#f59e0b' : 'oklch(58% 0.015 260)',
-                                            fontWeight: 700, textTransform: 'uppercase',
-                                            background: '#fff', padding: '2px 7px', borderRadius: 4,
-                                            border: '1px solid oklch(91% 0.01 260)',
-                                        }}>{wc}/50 words</div>
+                                            onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = '#fee2e2'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.background = 'none'; }}
+                                        >
+                                            <i className="fa-solid fa-trash-can"></i>
+                                        </button>
+
                                     </div>
 
-                                    {/* Inline example chips */}
-                                    <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: 9.5, letterSpacing: '0.16em', color: 'oklch(58% 0.015 260)', textTransform: 'uppercase', fontWeight: 700 }}>Try one:</span>
-                                        {ch.examples.map((ex, j) => (
-                                            <span
-                                                key={j}
-                                                onClick={() => update(ch.key, ex)}
-                                                style={{
-                                                    fontSize: 11, color: ACCENT, background: ACCENT_SOFT,
-                                                    padding: '4px 10px', borderRadius: 999, border: `1px solid ${ACCENT}20`,
-                                                    cursor: 'pointer', fontWeight: 600,
-                                                }}
-                                            >{ex}</span>
-                                        ))}
-                                    </div>
+                                    {ch.key === 'chapter05' ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                            {ch.examples.map((ex, j) => {
+                                                const isSelected = value === ex.value;
+                                                return (
+                                                    <label key={j} style={{
+                                                        display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+                                                        padding: '12px 16px', borderRadius: 10,
+                                                        background: isSelected ? ACCENT_SOFT : '#fff',
+                                                        border: `1px solid ${isSelected ? ACCENT + '40' : 'oklch(91% 0.01 260)'}`,
+                                                        transition: 'all 0.2s'
+                                                    }}>
+                                                        <input
+                                                            type="radio"
+                                                            name={ch.key}
+                                                            checked={isSelected}
+                                                            onChange={() => update(ch.key, ex.value)}
+                                                            style={{ width: 16, height: 16, accentColor: ACCENT, cursor: 'pointer' }}
+                                                        />
+                                                        <span style={{ fontSize: 13.5, color: '#1a1330', fontWeight: isSelected ? 600 : 400 }}>{ex.value}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Textarea */}
+                                            <div style={{ position: 'relative' }}>
+                                                <textarea
+                                                    value={value}
+                                                    onChange={e => update(ch.key, e.target.value)}
+                                                    placeholder={ch.placeholder}
+                                                    rows={4}
+                                                    style={{
+                                                        width: '100%', padding: '14px 14px 32px', boxSizing: 'border-box',
+                                                        background: '#fff',
+                                                        border: `1px solid ${atLimit ? '#f59e0b' : hasContent ? ACCENT + '40' : 'oklch(91% 0.01 260)'}`,
+                                                        borderRadius: 10, resize: 'none',
+                                                        fontSize: 13.5, lineHeight: 1.6,
+                                                        color: '#1a1330',
+                                                        fontStyle: 'normal',
+                                                        outline: 'none', fontFamily: 'inherit',
+                                                    }}
+                                                />
+                                                <div style={{
+                                                    position: 'absolute', bottom: 8, right: 10,
+                                                    fontSize: 9.5, letterSpacing: '0.12em',
+                                                    color: atLimit ? '#ef4444' : nearLimit ? '#f59e0b' : 'oklch(58% 0.015 260)',
+                                                    fontWeight: 700, textTransform: 'uppercase',
+                                                    background: '#fff', padding: '2px 7px', borderRadius: 4,
+                                                    border: '1px solid oklch(91% 0.01 260)',
+                                                }}>{wc}/50 words</div>
+                                            </div>
+
+                                            {/* Inline example chips */}
+                                            <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: 9.5, letterSpacing: '0.16em', color: 'oklch(58% 0.015 260)', textTransform: 'uppercase', fontWeight: 700 }}>Try one:</span>
+                                                {ch.examples.map((ex, j) => (
+                                                    <span
+                                                        key={j}
+                                                        onClick={() => update(ch.key, data[ch.key] ? `${data[ch.key]} ${ex.value}` : ex.value)}
+                                                        style={{
+                                                            fontSize: 11, color: ACCENT, background: ACCENT_SOFT,
+                                                            padding: '4px 10px', borderRadius: 999, border: `1px solid ${ACCENT}20`,
+                                                            cursor: 'pointer', fontWeight: 600,
+                                                        }}
+                                                    >{ex.label}</span>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             );
                         })}
 
                         {/* Atmospheric anchors (collapsible) */}
                         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid oklch(91% 0.01 260)', overflow: 'hidden' }}>
-                            <button
-                                onClick={() => setShowAnchors(s => !s)}
+                            <div
                                 style={{
                                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '16px 20px', background: 'none', border: 'none', cursor: 'pointer',
+                                    padding: '16px 20px', background: 'none', border: 'none',
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -865,8 +933,8 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                                         <span style={{ background: ACCENT, color: '#fff', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>{data.selectedAnchors.length}</span>
                                     )}
                                 </div>
-                                <span style={{ fontSize: 11, color: 'oklch(58% 0.015 260)', fontWeight: 600 }}>{showAnchors ? '▴ Collapse' : '▾ Add tags'}</span>
-                            </button>
+                                <span style={{ fontSize: 10.5, letterSpacing: '0.14em', color: 'oklch(58% 0.015 260)', textTransform: 'uppercase', fontWeight: 700 }}>Priority Order</span>
+                            </div>
 
                             {showAnchors && (
                                 <div style={{ padding: '0 20px 20px' }}>
@@ -875,7 +943,8 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                                     </p>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                                         {ATMOSPHERIC_ANCHORS.map(anchor => {
-                                            const sel = data.selectedAnchors.includes(anchor);
+                                            const selIndex = data.selectedAnchors.indexOf(anchor);
+                                            const sel = selIndex !== -1;
                                             return (
                                                 <button
                                                     key={anchor}
@@ -886,20 +955,31 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                                                         color: sel ? '#fff' : 'oklch(40% 0.02 260)',
                                                         border: `1px solid ${sel ? '#1a1330' : 'oklch(91% 0.01 260)'}`,
                                                         transition: 'all 0.12s',
+                                                        display: 'flex', alignItems: 'center', gap: 6
                                                     }}
-                                                >{anchor}</button>
+                                                >
+                                                    {sel && <span style={{ opacity: 0.6, fontSize: 9 }}>#{selIndex + 1}</span>}
+                                                    {anchor}
+                                                </button>
                                             );
                                         })}
-                                        {data.selectedAnchors.filter(a => !ATMOSPHERIC_ANCHORS.includes(a)).map(a => (
-                                            <button
-                                                key={a}
-                                                onClick={() => toggleAnchor(a)}
-                                                style={{
-                                                    padding: '6px 14px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                                                    background: ACCENT, color: '#fff', border: `1px solid ${ACCENT}`,
-                                                }}
-                                            >{a}</button>
-                                        ))}
+                                        {data.selectedAnchors.filter(a => !ATMOSPHERIC_ANCHORS.includes(a)).map(a => {
+                                            const selIndex = data.selectedAnchors.indexOf(a);
+                                            return (
+                                                <button
+                                                    key={a}
+                                                    onClick={() => toggleAnchor(a)}
+                                                    style={{
+                                                        padding: '6px 14px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                                                        background: ACCENT, color: '#fff', border: `1px solid ${ACCENT}`,
+                                                        display: 'flex', alignItems: 'center', gap: 6
+                                                    }}
+                                                >
+                                                    <span style={{ opacity: 0.8, fontSize: 9 }}>#{selIndex + 1}</span>
+                                                    {a}
+                                                </button>
+                                            );
+                                        })}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px dashed oklch(91% 0.01 260)', borderRadius: 999, padding: '5px 12px' }}>
                                             <input
                                                 type="text"
