@@ -428,24 +428,6 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                                     containerClassName="w-full h-full relative bg-white"
                                 />
 
-                                {/* View switcher — bottom-left overlay */}
-                                <div className="absolute bottom-4 left-4 z-20 flex items-stretch bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/80 overflow-hidden">
-                                    <button
-                                        onClick={() => setViewModeLocal('gallery')}
-                                        className="flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-colors border-r border-slate-200"
-                                    >
-                                        <i className="fa-solid fa-grid-2 text-[9px]"></i> Gallery
-                                    </button>
-                                    <button
-                                        onClick={() => setViewModeLocal('table')}
-                                        className="flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-colors border-r border-slate-200"
-                                    >
-                                        <i className="fa-solid fa-table-list text-[9px]"></i> Table
-                                    </button>
-                                    <button className="flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-black uppercase tracking-widest bg-emerald-600 text-white cursor-default">
-                                        <i className="fa-solid fa-map-location-dot text-[9px]"></i> Map
-                                    </button>
-                                </div>
                             </div>
 
                             {/* Property list — right ~40% */}

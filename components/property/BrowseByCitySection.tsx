@@ -114,7 +114,7 @@ export default function ExplorePage({ searchBar, pendingBrowse, onClearPendingBr
             </div>
         </div>
     );
-};
+}
 
 const BUYER_STORY_EXAMPLES = [
     { title: 'Tech Couple, First Home', icon: 'fa-solid fa-laptop-code', story: "We're a dual-income tech couple (Google + Apple) in our early 30s, no kids yet. Budget $1.2-1.6M. We both work from home 3 days a week so need fast internet and 2 separate office spaces. Love cooking — a great kitchen is a must. Walkable dining and nightlife are important. Low maintenance yard preferred." },
@@ -1080,34 +1080,11 @@ const BrowseByCitySection: React.FC<{
 
             {!showMyStory && !browsing && results.length > 0 && (
                 <div className="mt-4 flex flex-wrap items-center gap-2 p-1 bg-slate-50/50 rounded-xl border border-slate-100">
-                    {/* View Switcher */}
-                    <div className="flex bg-slate-200/50 rounded-lg p-1 shrink-0">
-                        <button
-                            onClick={() => setViewModeLocal('gallery')}
-                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-white text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
-                        >
-                            <i className="fa-solid fa-grid-2 mr-1"></i> Gallery
-                        </button>
-                        {activePath === 'story' && buyerResults && (
-                            <button
-                                onClick={() => setViewModeLocal('zypheai')}
-                                className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'zypheai' ? 'bg-indigo-600 text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
-                            >
-                                <i className="fa-solid fa-sparkles mr-1"></i> Pro List
-                            </button>
-                        )}
-                        <button
-                            onClick={() => setViewModeLocal('table')}
-                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'table' ? 'bg-white text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
-                        >
-                            <i className="fa-solid fa-table-list mr-1"></i> Table
-                        </button>
-                        <button
-                            onClick={() => { setViewModeLocal('map'); setSortField('daysOnZillow'); setSortDir('asc'); setPage(1); }}
-                            className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-emerald-600 text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
-                        >
-                            <i className="fa-solid fa-map-location-dot mr-1"></i> Map
-                        </button>
+                    {/* Results Count (Moved to far left) */}
+                    <div className="flex items-center gap-1.5 pl-3 pr-4 border-r border-slate-200">
+                        <span className="text-xs font-black text-black">{displayList.length}</span>
+                        <span className="text-[9px] font-black text-black/50 uppercase tracking-widest">Results</span>
+                    </div>
                     <div className="w-px h-6 bg-slate-200 mx-1"></div>
 
                     {/* Sorting & Filters */}
@@ -1407,12 +1384,44 @@ const BrowseByCitySection: React.FC<{
                         </button>
                     </div>
 
-                    {/* Results Count */}
-                    <div className="ml-auto flex items-center gap-1.5 pr-3">
-                        <span className="text-[11px] font-black text-black">{displayList.length}</span>
-                        <span className="text-[9px] font-black text-black/50 uppercase tracking-widest">Results</span>
-                    </div>
                 </div>
+            )}
+
+                    {/* Floating View Switcher (Fixed Bottom) */}
+                    {!browsing && results.length > 0 && (
+                        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[500] flex items-stretch bg-slate-900/90 backdrop-blur-xl rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 p-1.5 gap-1 animate-in slide-in-from-bottom-8 duration-500">
+                            <button
+                                onClick={() => setViewModeLocal('gallery')}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'gallery' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                            >
+                                <i className="fa-solid fa-grid-2 text-sm"></i> Gallery
+                            </button>
+                            {activePath === 'story' && buyerResults && (
+                                <button
+                                    onClick={() => setViewModeLocal('zypheai')}
+                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'zypheai' ? 'bg-indigo-500 text-white shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                                >
+                                    <i className="fa-solid fa-sparkles text-sm"></i> AI List
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setViewModeLocal('table')}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'table' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                            >
+                                <i className="fa-solid fa-table-list text-sm"></i> Table
+                            </button>
+                            <button
+                                onClick={() => { setViewModeLocal('map'); setSortField('daysOnZillow'); setSortDir('asc'); setPage(1); }}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'map' ? 'bg-emerald-500 text-white shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                            >
+                                <i className="fa-solid fa-map-location-dot text-sm"></i> Map
+                            </button>
+                        </div>
+                    )}
+
+
+            {!showMyStory && !browsing && results.length > 0 && (
+                <div>
 
                     {/* ── OTHER FILTERS MODAL ── */}
                     {showAdvancedFilters && (
@@ -1705,8 +1714,8 @@ const BrowseByCitySection: React.FC<{
                         onPropertyClick={onPropertyClick}
                         onLeadCapture={(type, address, zpid, price) => setLeadModal({ type, address, zpid, price })}
                     />
-                </div>
 
+                </div>
             )}
 
 
