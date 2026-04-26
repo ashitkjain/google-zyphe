@@ -71,41 +71,37 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
   const SectionTitleBar = ({ kicker, title, italicWord, color }: { kicker: string, title: string, italicWord?: string, color: string }) => {
     const parts = italicWord && title.includes(italicWord) ? title.split(italicWord) : null;
     return (
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="h-px w-6" style={{ background: color }}></div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ fontFamily: mono, color }}>{kicker}</span>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <span style={{ width: 24, height: 1, background: color, display: 'inline-block' }} />
+          <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', fontWeight: 700, color, textTransform: 'uppercase' as const }}>{kicker}</span>
         </div>
-        <h3 className="text-3xl font-normal text-gray-900 tracking-tight" style={{ fontFamily: serif }}>
+        <h2 style={{ fontFamily: serif, fontSize: 30, lineHeight: 1.05, margin: 0, fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
           {parts ? <>{parts[0]}<em style={{ color, fontStyle: 'italic' }}>{italicWord}</em>{parts[1]}</> : title}
-        </h3>
+        </h2>
       </div>
     );
   };
 
-  const SectionCard = ({ kicker, title, italicWord, icon, content, color, colorClass = "text-gray-700" }: { kicker: string, title: string, italicWord?: string, icon: string, content: string | undefined, color: string, colorClass?: string }) => {
+  const SectionCard = ({ kicker, title, italicWord, icon, content, color }: { kicker: string, title: string, italicWord?: string, icon: string, content: string | undefined, color: string, colorClass?: string }) => {
     if (!content) return null;
     return (
-      <div 
-        className="rounded-[2.5rem] pt-8 pb-10 px-10 md:pt-10 md:pb-12 md:px-12 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden group"
-        style={{ 
-          background: `linear-gradient(135deg, ${color}0d 0%, #fff 100%)`,
-          border: `1px solid ${color}15`,
-          boxShadow: `0 25px 50px -12px ${color}10`
-        }}
-      >
-        {/* Subtle corner accent */}
-        <div className="absolute top-0 right-0 w-64 h-64 opacity-[0.05] pointer-events-none group-hover:opacity-[0.08] transition-opacity duration-700" style={{ background: `radial-gradient(circle at top right, ${color}, transparent 70%)` }}></div>
-        
-        <div className="flex items-start gap-5 mb-6 relative z-10">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0" style={{ background: `${color}15`, color }}>
-            <i className={`fa-solid ${icon} text-lg`}></i>
+      <div style={{
+        background: `linear-gradient(180deg, ${color}12 0%, #fff 140px)`,
+        borderRadius: 14,
+        border: '1px solid #e2e8f0',
+        padding: 24,
+        marginBottom: 8,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}18`, color, display: 'grid', placeItems: 'center', fontSize: 15, flexShrink: 0 }}>
+            <i className={`fa-solid ${icon}`}></i>
           </div>
           <SectionTitleBar kicker={kicker} title={title} italicWord={italicWord} color={color} />
         </div>
-        <div className={`text-[15.33px] font-sans font-medium ${colorClass} leading-relaxed text-justify px-2 md:px-4 relative z-10`}>
+        <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.65, margin: 0 }}>
           {renderContent(content)}
-        </div>
+        </p>
       </div>
     );
   };
@@ -157,65 +153,50 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
         />
 
         {analysis.interior_summary && (
-          <div 
-            className="rounded-[2.5rem] p-8 md:p-10 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden group"
-            style={{ 
-              background: `linear-gradient(135deg, #0d94880d 0%, #fff 100%)`,
-              border: `1px solid #0d948815`,
-              boxShadow: `0 25px 50px -12px #0d948810`
-            }}
-          >
-            {/* Subtle corner accent */}
-            <div className="absolute top-0 right-0 w-64 h-64 opacity-[0.05] pointer-events-none group-hover:opacity-[0.08] transition-opacity duration-700" style={{ background: `radial-gradient(circle at top right, #0d9488, transparent 70%)` }}></div>
-            
-            <div className="flex items-start gap-5 mb-8 relative z-10">
-              <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0">
-                <i className="fa-solid fa-wand-magic-sparkles text-xl"></i>
+          <div style={{
+            background: 'linear-gradient(180deg, #ccfbf160 0%, #fff 140px)',
+            borderRadius: 14,
+            border: '1px solid #e2e8f0',
+            padding: 24,
+            marginBottom: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#0d948818', color: '#0d9488', display: 'grid', placeItems: 'center', fontSize: 15, flexShrink: 0 }}>
+                <i className="fa-solid fa-wand-magic-sparkles"></i>
               </div>
               <SectionTitleBar kicker="Interior Vibe" title="Atmosphere & spaces" italicWord="Atmosphere" color="#0d9488" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-8">
-                <div>
-                  <p className="text-[15.33px] text-gray-700 leading-relaxed font-medium">
-                    {analysis.interior_summary.interior_summary}
-                  </p>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.65, margin: 0 }}>
+                  {analysis.interior_summary.interior_summary}
+                </p>
                 {analysis.interior_summary.rooms_summary && (
                   <div>
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2" style={{ fontFamily: mono }}>
-                      <i className="fa-solid fa-door-open text-indigo-400"></i>
-                      Spaces
-                    </div>
-                    <p className="text-[15.33px] text-gray-700 leading-relaxed font-medium">
+                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.15em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, marginBottom: 6 }}>Spaces</div>
+                    <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.65, margin: 0 }}>
                       {analysis.interior_summary.rooms_summary}
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-8">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {analysis.interior_summary.vibe && (
-                  <div className="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
-                    <div className="text-[11px] font-bold text-indigo-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2" style={{ fontFamily: mono }}>
-                      <i className="fa-solid fa-palette"></i>
-                      Aesthetic Vibe
-                    </div>
-                    <div className="text-[17px] font-bold text-indigo-900 tracking-tight leading-snug" style={{ fontFamily: serif, fontStyle: 'italic' }}>
+                  <div style={{ padding: '14px 16px', background: '#f0fdfa', borderRadius: 10, border: '1px solid #ccfbf1' }}>
+                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.15em', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase' as const, marginBottom: 6 }}>Aesthetic Vibe</div>
+                    <div style={{ fontFamily: serif, fontSize: 18, color: '#115e59', lineHeight: 1.25, fontStyle: 'italic' }}>
                       {analysis.interior_summary.vibe}
                     </div>
                   </div>
                 )}
                 {analysis.interior_summary.objective_tags && analysis.interior_summary.objective_tags.length > 0 && (
                   <div>
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2" style={{ fontFamily: mono }}>
-                      <i className="fa-solid fa-tags"></i>
-                      Physical Attributes
-                    </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.15em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, marginBottom: 8 }}>Physical Attributes</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 6 }}>
                       {analysis.interior_summary.objective_tags.map((tag, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 shadow-sm" style={{ fontFamily: mono }}>
+                        <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 999, padding: '2px 9px', fontFamily: mono, fontSize: 10.5, fontWeight: 600, color: '#64748b' }}>
                           {tag}
                         </span>
                       ))}
@@ -285,49 +266,50 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
         />
 
         {analysis.strategic_insights && (
-          <div className="bg-indigo-900 rounded-[3rem] p-10 md:p-16 border border-indigo-950 shadow-2xl mb-12 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-slate-500/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
-
-            <div className="relative z-10">
-              <div className="flex items-center gap-6 mb-10">
-                <div className="w-16 h-16 bg-white/10 backdrop-blur-xl border border-white/20 text-white rounded-[1.5rem] flex items-center justify-center shadow-lg shadow-indigo-900/50">
-                  <i className="fa-solid fa-brain-circuit text-2xl"></i>
-                </div>
-                <div>
-                  <SectionTitleBar kicker="Senior Strategist" title="Strategic forensics" italicWord="forensics" color="#fcd34d" />
-                  <p className="text-indigo-300 text-[11px] font-bold uppercase tracking-[0.25em] -mt-4" style={{ fontFamily: mono }}>Investment Thesis</p>
-                </div>
+          <div style={{
+            background: 'linear-gradient(180deg, #1e1b4b 0%, #312e81 100%)',
+            borderRadius: 14,
+            border: '1px solid #3730a3',
+            padding: 28,
+            marginBottom: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.12)', color: '#fcd34d', display: 'grid', placeItems: 'center', fontSize: 15, flexShrink: 0 }}>
+                <i className="fa-solid fa-brain-circuit"></i>
               </div>
-
-              <div className="text-indigo-100 leading-relaxed text-[17px] font-medium text-justify px-2 md:px-6 italic">
-                {renderContent(analysis.strategic_insights)}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <span style={{ width: 24, height: 1, background: '#fcd34d', display: 'inline-block' }} />
+                  <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', fontWeight: 700, color: '#fcd34d', textTransform: 'uppercase' as const }}>Senior Strategist</span>
+                </div>
+                <h2 style={{ fontFamily: serif, fontSize: 30, lineHeight: 1.05, margin: 0, fontWeight: 400, letterSpacing: '-0.02em', color: '#fff' }}>
+                  Strategic <em style={{ color: '#fcd34d', fontStyle: 'italic' }}>forensics</em>
+                </h2>
               </div>
             </div>
+            <p style={{ fontSize: 13.5, color: '#c7d2fe', lineHeight: 1.65, margin: 0, fontStyle: 'italic' }}>
+              {renderContent(analysis.strategic_insights)}
+            </p>
           </div>
         )}
 
         {analysis.risks_considerations && (
-          <div 
-            className="rounded-[2.5rem] p-10 md:p-12 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden group"
-            style={{ 
-              background: `linear-gradient(135deg, #e11d480d 0%, #fff 100%)`,
-              border: `1px solid #e11d4815`,
-              boxShadow: `0 25px 50px -12px #e11d4810`
-            }}
-          >
-            {/* Subtle corner accent */}
-            <div className="absolute top-0 right-0 w-64 h-64 opacity-[0.05] pointer-events-none group-hover:opacity-[0.08] transition-opacity duration-700" style={{ background: `radial-gradient(circle at top right, #e11d48, transparent 70%)` }}></div>
-            
-            <div className="flex items-start gap-5 mb-6 relative z-10">
-              <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-200 flex-shrink-0">
-                <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+          <div style={{
+            background: 'linear-gradient(180deg, #e11d4812 0%, #fff 140px)',
+            borderRadius: 14,
+            border: '1px solid #e2e8f0',
+            padding: 24,
+            marginBottom: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e11d4818', color: '#e11d48', display: 'grid', placeItems: 'center', fontSize: 15, flexShrink: 0 }}>
+                <i className="fa-solid fa-triangle-exclamation"></i>
               </div>
               <SectionTitleBar kicker="Risk Advisory" title="Critical risks & considerations" italicWord="Critical" color="#e11d48" />
             </div>
-            <div className="text-rose-800 leading-relaxed text-[15.33px] font-sans font-medium text-justify px-2 md:px-4 relative z-10">
+            <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.65, margin: 0 }}>
               {renderContent(analysis.risks_considerations)}
-            </div>
+            </p>
           </div>
         )}
 

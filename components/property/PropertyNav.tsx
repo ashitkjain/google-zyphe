@@ -94,11 +94,11 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
         },
         {
             id: 'investment',
-            label: 'Investment Intelligence',
+            label: 'Investment Research',
             icon: 'fa-sack-dollar',
             isFlat: true,
             subItems: [
-                { id: 'intelligence', label: 'Intelligence', icon: 'fa-sack-dollar', visible: true },
+                { id: 'intelligence', label: 'Analysis', icon: 'fa-sack-dollar', visible: true },
             ],
         },
         {
@@ -112,7 +112,7 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
         },
         {
             id: 'context-graph',
-            label: 'Context Graph',
+            label: 'Factors - At A Glance',
             icon: 'fa-diagram-project',
             isFlat: true,
             subItems: [
@@ -121,23 +121,6 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
         },
     ];
 
-    if (userRole === 'admin') {
-        sections.push({
-            id: 'legacy',
-            label: 'Legacy',
-            icon: 'fa-box-archive',
-            subItems: [
-                { id: 'interior', label: 'Interior', icon: 'fa-couch', visible: true },
-                { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house', visible: true },
-                { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot', visible: true },
-                { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder', visible: true },
-                { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart', visible: true },
-                { id: 'city_neighborhoods', label: 'City Neighborhoods', icon: 'fa-mountain-city', visible: true },
-                { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie', visible: true },
-                { id: 'comprehensive', label: 'Comprehensive', icon: 'fa-book-open', visible: true },
-            ],
-        });
-    }
 
     return sections;
 }
@@ -156,7 +139,7 @@ const PropertyNav: React.FC<PropertyNavProps> = ({
 
     // Keep all sections expanded by default except Legacy
     const [expandedSections, setExpandedSections] = useState<Set<string>>(
-        new Set(sections.map(s => s.id).filter(id => id !== 'legacy'))
+        new Set(sections.map(s => s.id))
     );
 
     const toggleSection = (sectionId: string) => {

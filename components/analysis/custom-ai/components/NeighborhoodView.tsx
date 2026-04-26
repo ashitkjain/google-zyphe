@@ -253,7 +253,7 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                             <div className="flex flex-wrap items-center gap-3">
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Data Sources Queried:</span>
                                 <span className={`text-[10px] font-semibold ${surveyorTract?.tract_id ? 'text-violet-500' : 'text-slate-300'}`}><i className="fa-solid fa-map mr-1" />Surveyor Tract</span>
-                                <span className={`text-[10px] font-semibold ${gemini?.nextdoor?.found ? 'text-emerald-500' : 'text-slate-300'}`}><i className="fa-solid fa-people-group mr-1" />Community Intelligence</span>
+                                <span className={`text-[10px] font-semibold ${gemini?.nextdoor?.found ? 'text-emerald-500' : 'text-slate-300'}`}><i className="fa-solid fa-people-group mr-1" />Community Data</span>
                             </div>
 
                             {/* Data source detail cards */}
@@ -266,7 +266,7 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                                             <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-50">
                                                 <i className="fa-solid fa-people-group text-[11px] text-emerald-500" />
                                             </div>
-                                            <div className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Community Intelligence</div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Community Data</div>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="grid grid-cols-2 gap-2">

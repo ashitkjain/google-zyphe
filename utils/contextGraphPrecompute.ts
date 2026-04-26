@@ -396,9 +396,17 @@ function factor47_floodRisk(p: PropertyData): ExtractedFactor {
 
 function factor48_solarYield(p: PropertyData): ExtractedFactor {
     const solar = p.solarData;
-    if (!solar?.estimatedSolarProduction) return { id: 48, name: 'Solar Yield Potential', tags: [] };
+    if (!solar?.estimatedSolarProduction) return { id: 48, name: 'Solar Yield Potential', value: 'Unknown', tags: [] };
 
     const tags: string[] = [];
+    const cash = solar.financialAnalysis?.cashPurchase;
+    const payback = cash?.paybackYears;
+
+    let value = 'Unknown';
+    if (payback != null) {
+        value = payback < 10 ? 'Strong' : 'Weak';
+        value += ` (Payback in ${payback.toFixed(1)} years)`;
+    }
 
     // Sunshine hours
     if (solar.maxSunshineHoursPerYear) {
@@ -412,14 +420,13 @@ function factor48_solarYield(p: PropertyData): ExtractedFactor {
     }
 
     // System cost (upfront)
-    const cash = solar.financialAnalysis?.cashPurchase;
     if (cash?.outOfPocketCost) {
         tags.push(`Cost: $${Math.round(cash.outOfPocketCost).toLocaleString()}`);
     }
 
-    // Payback period
-    if (cash?.paybackYears) {
-        tags.push(`Payback: ${cash.paybackYears} yrs`);
+    // Payback period tag
+    if (payback) {
+        tags.push(`Payback: ${payback.toFixed(1)} yrs`);
     }
 
     // Year 1 savings
@@ -447,6 +454,7 @@ function factor48_solarYield(p: PropertyData): ExtractedFactor {
 
     return {
         id: 48, name: 'Solar Yield Potential',
+        value,
         tags: unique.slice(0, 12)
     };
 }
@@ -606,14 +614,14 @@ function factor79_disasterHistory(p: PropertyData): ExtractedFactor {
         tags.push('No FEMA Declarations');
     }
 
-    const parts: string[] = [];
-    if (events.length > 0) parts.push(`${events.length} events`);
-    if (femaDeclarations.length > 0) parts.push(`${femaDeclarations.length} FEMA`);
-    if (parts.length === 0) parts.push('Clean — no records');
-    const val = parts.join(' · ');
+    const types = [...new Set(femaDeclarations.map((d: any) => d.incidentType))].filter(Boolean);
+    const value = femaDeclarations.length > 0
+        ? `${femaDeclarations.length} FEMA declaration${femaDeclarations.length > 1 ? 's' : ''} found${types.length > 0 ? ` (primarily ${types.slice(0, 2).join(' and ').toLowerCase()})` : ''}.`
+        : 'No FEMA declarations on record for this location.';
 
     return {
         id: 79, name: 'Disaster History (FEMA)',
+        value,
         tags: [...new Set(tags)].slice(0, 8)
     };
 }
@@ -717,7 +725,16 @@ function factor86_evInfrastructure(p: PropertyData): ExtractedFactor {
         tags.push('No Public Charging Nearby');
     }
 
-    const value = tags.includes('EV Charger Installed') ? "EV charger is already installed on property." : (tags.includes('EV-Ready Garage') ? "Property is EV-ready with 240V infrastructure." : "No EV infrastructure detected on-property.");
+    let baseValue = tags.includes('EV Charger Installed') 
+        ? "EV charger is already installed on property." 
+        : (tags.includes('EV-Ready Garage') ? "Property is EV-ready with 240V infrastructure." : "No EV infrastructure detected on-property.");
+
+    let nearbyInfo = "";
+    if (ev && ev.totalStations > 0) {
+        nearbyInfo = ` ${ev.totalStations} stations nearby, with the closest just ${ev.closestDistanceMi != null ? `${ev.closestDistanceMi}mi` : 'a short distance'} away.`;
+    }
+
+    const value = `${baseValue}${nearbyInfo}`;
     return { id: 86, name: 'EV Infrastructure', value, tags: [...new Set(tags)].slice(0, 8) };
 }
 
@@ -836,13 +853,13 @@ function factor83_microNeighborhood(p: PropertyData, visual: CustomAIAnalysisRes
 }
 
 
-function factor65_upcomingDevImpact(p: PropertyData): ExtractedFactor {
+function factor65_anyNearbyDevelopment(p: PropertyData): ExtractedFactor {
     const upcoming = (p as any).neighborhood_identity?.gemini?.upcoming_changes;
     if (!upcoming || upcoming === 'None known' || upcoming === 'N/A') {
-        return { id: 65, name: 'Upcoming Dev Impact', tags: [] };
+        return { id: 65, name: 'Any nearby development', tags: [] };
     }
     const value = `There is potential impact from upcoming neighborhood development: ${upcoming}. These changes can significantly alter local traffic patterns, property values, and general resident experience.`;
-    return { id: 65, name: 'Upcoming Dev Impact', value, tags: [upcoming] };
+    return { id: 65, name: 'Any nearby development', value, tags: [upcoming] };
 }
 
 function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
@@ -855,36 +872,7 @@ function factor106_seismicRisk(p: PropertyData): ExtractedFactor {
     if (sz.pga) tags.push(`PGA ${sz.pga.toFixed(2)}g`);
     if (sz.designCategory === 'D' || sz.designCategory === 'E') tags.push('Seismic Retrofit May Apply');
 
-    // Earthquake counts from historical data
-    const quakes = hd?.earthquakes || [];
-    const currentYear = new Date().getFullYear();
-    const ytd = quakes.filter((q: any) => {
-        const yr = q.date ? new Date(q.date).getFullYear() : 0;
-        return yr === currentYear;
-    });
-    const total = quakes.length;
-
-    if (total > 0) {
-        tags.push(`${total} Quakes Recorded`);
-        if (ytd.length > 0) tags.push(`${ytd.length} YTD (${currentYear})`);
-
-        // Strongest quake
-        const strongest = quakes.reduce((max: any, q: any) => (q.magnitude || 0) > (max.magnitude || 0) ? q : max, quakes[0]);
-        if (strongest?.magnitude) tags.push(`Strongest: M${strongest.magnitude}`);
-
-        // Nearest quake
-        const nearest = quakes.reduce((min: any, q: any) => {
-            const d = q.distanceMi ?? Infinity;
-            return d < (min.distanceMi ?? Infinity) ? q : min;
-        }, quakes[0]);
-        if (nearest?.distanceMi != null && nearest.distanceMi < 50) {
-            tags.push(`Nearest: ${nearest.distanceMi.toFixed(1)}mi`);
-        }
-    } else {
-        tags.push('No Recent Quakes');
-    }
-
-    const value = `Property is in Zone ${sz.designCategory} with a ${sz.riskLevel?.replace('_', ' ')} risk rating (PGA ${sz.pga?.toFixed(2)}g). ${total > 0 ? `${total} historical quakes have been recorded in this region, necessitating careful attention to structural integrity.` : 'No significant historical quakes are recorded for the immediate area.'}`;
+    const value = `Property is in Zone ${sz.designCategory} with a ${sz.riskLevel?.replace('_', ' ')} risk rating (PGA ${sz.pga?.toFixed(2)}g). This indicates the seismic design requirements for the structure's location.`;
     return { id: 106, name: 'Seismic Risk', value, tags };
 }
 
@@ -913,7 +901,7 @@ function factor109_lotSizeVerification(p: PropertyData): ExtractedFactor {
     if (!listed || isNaN(listed)) return { id: 109, name: 'Lot Size Verification', tags: [] };
     const diff = Math.abs(listed - arcgis);
     const pct = Math.round((diff / arcgis) * 100);
-    if (pct <= 10) return { id: 109, name: 'Lot Size Verification', value: "Lot size is verified against official records.", tags: ['Verified', `${pct}% Diff`] };
+    if (pct <= 10) return { id: 109, name: 'Lot Size Verification', value: `Verified: Listed size matches official records within 10% (current diff: ${pct}%).`, tags: ['Verified', `${pct}% Diff`] };
     const value = `The listed lot size differs by ${pct}% (${diff.toLocaleString()} sqft) from official parcel records. Verifying the physical boundaries via a survey is recommended for accurate land utility planning.`;
     return { id: 109, name: 'Lot Size Verification', value, tags: [pct > 20 ? 'Lot Size Mismatch' : 'Minor Lot Diff', `${pct}% Diff`] };
 }
@@ -1049,9 +1037,9 @@ function factor121_microclimate(p: PropertyData): ExtractedFactor {
     return { id: 121, name: 'Microclimate (Thermal Fingerprint)', value, tags: tags.slice(0, 8) };
 }
 
-function factor122_censusDemographics(p: PropertyData): ExtractedFactor {
+function factor122_cityEconomicProfile(p: PropertyData): ExtractedFactor {
     const census = (p as any).censusDemographics;
-    if (!census) return { id: 122, name: 'Census Demographics', tags: [] };
+    if (!census) return { id: 122, name: 'City Economic Profile', tags: [] };
     const tags: string[] = [];
     if (census.medianHouseholdIncome) tags.push(`Median household income: $${census.medianHouseholdIncome.toLocaleString()}`);
     if (census.medianAge) tags.push(`Median age: ${census.medianAge}`);
@@ -1062,7 +1050,83 @@ function factor122_censusDemographics(p: PropertyData): ExtractedFactor {
     if (census.totalPopulation) tags.push(`Tract population: ${census.totalPopulation.toLocaleString()}`);
     if (census.tractLabel) tags.push(census.tractLabel);
     const value = `Located in a tract with a median household income of $${census.medianHouseholdIncome?.toLocaleString() || '?'}.`;
-    return { id: 122, name: 'Census Demographics', value, tags: tags.slice(0, 8) };
+    return { id: 122, name: 'City Economic Profile', value, tags: tags.slice(0, 8) };
+}
+
+function factor111_distressedSignals(p: PropertyData): ExtractedFactor {
+    const desc = p.description || '';
+    const markers = [
+        "Short sale", "REO", "Bank-owned", "Court approval", "Pre-foreclosure", "Auction",
+        "As-is", "Contractor special", "Handyman", "Mold", "Foundation", "Teardown", "Probate", "Deferred maintenance", "Cash-only",
+        "Must sell", "Relocating", "Quick sale", "Bring all offers", "Estate sale",
+        "Back on market", "Failed inspections"
+    ];
+
+    const found: string[] = [];
+    const lowerDesc = desc.toLowerCase();
+
+    for (const marker of markers) {
+        if (lowerDesc.includes(marker.toLowerCase())) {
+            found.push(marker);
+        }
+    }
+
+    if (found.length === 0) {
+        return {
+            id: 111,
+            name: 'Distressed Signal',
+            value: "No distress signals are present.",
+            tags: ["None"]
+        };
+    }
+
+    return {
+        id: 111,
+        name: 'Distressed Signal',
+        value: `${found.length} distress signals detected in listing description: ${found.join(", ")}.`,
+        tags: found
+    };
+}
+
+function factor51_orientationVastu(p: PropertyData): ExtractedFactor {
+    const ai = (p as any).orientation_ai;
+    if (!ai?.final_orientation) return { id: 51, name: 'Orientation/Vastu', tags: [] };
+
+    const direction = ai.final_orientation;
+    const vastu = ai.feng_shui_vastu || '';
+
+    const tags = [direction];
+    if (vastu) tags.push(vastu);
+
+    // Logic to determine "Good" or "Bad" Vastu for the value field
+    const lowerVastu = vastu.toLowerCase();
+    const isGood = lowerVastu.includes('good') || lowerVastu.includes('excellent') || lowerVastu.includes('positive') || lowerVastu.includes('auspicious');
+    const isBad = lowerVastu.includes('bad') || lowerVastu.includes('negative') || lowerVastu.includes('poor') || lowerVastu.includes('inauspicious');
+
+    let verdict = "Neutral";
+    if (isGood) verdict = "Good Vastu";
+    else if (isBad) verdict = "Bad Vastu";
+
+    const value = `The property is ${direction.toLowerCase()}-facing. Result: ${verdict} (${vastu}).`;
+
+    return { id: 51, name: 'Orientation/Vastu', value, tags };
+}
+
+function factor54_slopeAnalysis(p: PropertyData): ExtractedFactor {
+    const pv = (p as any).parcelValidation;
+    if (!pv) return { id: 54, name: 'Slope', tags: [] };
+
+    const pct = pv.slopePercent;
+    const category = pv.slopeCategory || 'Flat';
+    const dir = pv.uphillDir;
+
+    const tags = [`${category} Slope`];
+    if (pct != null) tags.push(`${pct}% Grade`);
+    if (dir) tags.push(`Uphill: ${dir}`);
+
+    const value = `The lot has a ${category.toLowerCase()} slope profile (${pct ?? 0}% grade). ${dir ? `The terrain rises towards the ${dir.toLowerCase()}.` : ''}`;
+
+    return { id: 54, name: 'Slope', value, tags };
 }
 
 /**
@@ -1102,7 +1166,9 @@ export function precomputeDataFactors(
         factor48_solarYield(property),
         factor49_pollenSafety(property),
         factor50_hvacQuality(property),
+        factor51_orientationVastu(property),
         factor52_airQuality(property),
+        factor54_slopeAnalysis(property),
 
         factor59_laundry(property),
 
@@ -1122,9 +1188,10 @@ export function precomputeDataFactors(
         factor106_seismicRisk(property),
         factor108_sqftDiscrepancy(property),
         factor109_lotSizeVerification(property),
-        factor65_upcomingDevImpact(property),
+        factor65_anyNearbyDevelopment(property),
         factor121_microclimate(property),
-        factor122_censusDemographics(property),
+        factor122_cityEconomicProfile(property),
+        factor111_distressedSignals(property),
 
 
     ];

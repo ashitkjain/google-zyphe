@@ -569,46 +569,35 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
 
     return (
         <div className="flex flex-col gap-12 w-full">
-            {/* ── Section Header — Lifestyle Hero ────────────────────────── */}
+            {/* ── Page heading ─────────────────────────────────────────────── */}
             <div style={{
-                background: '#fff9eb', 
-                borderRadius: '2px', 
-                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                padding: '32px 36px', 
-                position: 'relative',
-                transform: 'rotate(-0.4deg)',
-                borderLeft: '14px solid rgba(245,158,11,0.25)',
-                marginBottom: 20
+                background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0',
+                padding: '10px 16px', marginBottom: -16, position: 'relative', overflow: 'hidden',
+                display: 'flex', alignItems: 'center', gap: 12,
             }}>
-                {/* Large Tape effect */}
-                <div style={{ 
-                    position: 'absolute', 
-                    top: -12, 
-                    left: '50%', 
-                    transform: 'translateX(-50%) rotate(1deg)',
-                    width: 120, 
-                    height: 32, 
-                    background: 'rgba(255,255,255,0.5)',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
-                    zIndex: 1,
-                    borderRadius: '1px'
+                <div style={{
+                    position: 'absolute', top: -80, right: -80, width: 240, height: 240, borderRadius: '50%',
+                    background: 'radial-gradient(circle, #f59e0b18 0%, transparent 70%)', pointerEvents: 'none',
                 }} />
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: '#b45309', fontWeight: 800 }}>
-                        Compatibility & Education&nbsp;·&nbsp;Lifestyle
-                    </div>
+                <div style={{
+                    width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center',
+                    background: '#f59e0b18', color: '#f59e0b', flexShrink: 0,
+                }}>
+                    <i className="fa-solid fa-heart text-sm" />
                 </div>
-
-                <h1 style={{ fontFamily: serif, fontSize: 48, lineHeight: 1, margin: '0 0 12px', fontWeight: 400, letterSpacing: '-0.03em', color: '#0f172a' }}>
-                    Will this home fit{' '}
-                    <em style={{ fontStyle: 'italic', color: activePersona.accent }}>your</em>
-                    {' '}life?
-                </h1>
-
-                <p style={{ fontSize: 16, color: '#7c2d12', maxWidth: 680, lineHeight: 1.6, marginBottom: 0, fontFamily: serif, fontStyle: 'italic' }}>
-                    "Personalized fit analysis cross-referenced with neighborhood lifestyle, educational intelligence, and property orientation."
-                </p>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 9.5, letterSpacing: '0.16em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 1 }}>
+                        Lifestyle Fit
+                    </div>
+                    <h1 style={{
+                        fontFamily: serif, fontSize: 26, lineHeight: 1.05, margin: 0,
+                        fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a',
+                    }}>Will this home fit your life?</h1>
+                    <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.45, margin: '2px 0 0', maxWidth: 640 }}>
+                        Personalized fit analysis cross-referenced with neighborhood lifestyle, educational analysis, and property orientation.
+                    </p>
+                </div>
+                {renderPalette && renderPalette()}
             </div>
 
             {/* ── Section 01: Lifestyle Fit ─────────────────────────────────── */}
@@ -763,7 +752,7 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                             <i className={`fa-solid fa-people-arrows text-2xl text-indigo-300`} />
                         </div>
                         <div>
-                            <p className="text-slate-800 font-black text-lg tracking-tight">Intelligence Missing</p>
+                            <p className="text-slate-800 font-black text-lg tracking-tight">Data Missing</p>
                             <p className="text-slate-400 text-sm mt-1 max-w-xs mx-auto">
                                 No lifestyle analysis available for {activePersona.label.toLowerCase()}.
                             </p>

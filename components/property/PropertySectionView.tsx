@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../../types';
 import { DeepResearchInsights } from '../../types/ai';
-import { CensusDemographics } from '../../services/api/environmental';
+import { CensusDemographics, MicroclimateDelta } from '../../services/api/environmental';
 import { NeighborhoodAnalysis } from '../../types/ai';
 
 import { PropertyDashboardLeft } from './PropertyDashboardLeft';
@@ -51,7 +51,7 @@ interface PropertySectionViewProps {
     designStyle: any;
     currentInteriorSummary: any;
     census: CensusDemographics | null;
-    micro: { insight: string; fetchedAt: number } | null;
+    micro: MicroclimateDelta | null;
     lifestyleFit: any;
     lifestyleInsights: any;
     lifestyleLoading: boolean;
@@ -333,7 +333,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     if (subId === 'mls-data') return (
                         <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-table-cells-large" title="MLS Property Data"
-                                label="Listing Intelligence"
+                                label="Listing Data"
                                 description="Full technical specifications, listing remarks, and official property images from the Multiple Listing Service."
                                 color="text-indigo-500" {...headerProps} />
                             <MLSSectionPage data={data} />
@@ -343,7 +343,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     if (subId === 'indoor') return (
                         <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-couch" title="Indoor atmosphere"
-                                label="Interior Intelligence"
+                                label="Interior Overview"
                                 description="Room-by-room analysis, design style classification, and interior material quality assessments."
                                 color="text-teal-600" {...headerProps} />
                             <IndoorSectionPage
@@ -360,7 +360,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     if (subId === 'outdoor') return (
                         <div className="animate-in fade-in duration-200">
                             <PageHeader icon="fa-house-chimney" title="Outdoor &amp; curb appeal"
-                                label="Exterior Intelligence"
+                                label="Exterior Overview"
                                 description="Curb appeal, lot utility, street-view analysis, and satellite-based parcel characterization."
                                 color="text-emerald-500" {...headerProps} />
                             <OutdoorSectionPage data={data} customAnalysis={customAnalysis} />
@@ -377,7 +377,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                             <PageHeader icon="fa-leaf" title="Environmental Overview"
                                 description="Climate risk, seismic zone, air quality and solar"
                                 color="text-emerald-500" {...headerProps} />
-                            <EnvironmentSectionPage data={data} solarPotential={solarPotential} onRefreshEnvironment={onRefreshEnvironment} environmentRefreshing={environmentRefreshing} />
+                            <EnvironmentSectionPage data={data} solarPotential={solarPotential} micro={micro} onRefreshEnvironment={onRefreshEnvironment} environmentRefreshing={environmentRefreshing} />
                         </div>
                     );
                 }
@@ -426,7 +426,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                     </div>
                                     <div className="text-center">
                                         <p className="text-slate-900 font-black text-lg tracking-tight">Synthesizing Report...</p>
-                                        <p className="text-slate-400 text-sm mt-1">Zyphe AI is compiling multi-source property intelligence.</p>
+                                        <p className="text-slate-400 text-sm mt-1">Zyphe AI is compiling multi-source property data.</p>
                                     </div>
                                 </div>
                             ) : analysis ? (
@@ -445,7 +445,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                     </div>
                                     <div className="max-w-md">
                                         <p className="text-slate-900 font-black text-2xl tracking-tight">No Summary Available</p>
-                                        <p className="text-slate-500 text-base mt-2 font-medium">Generate a comprehensive intelligence report to see the deep-dive narrative for this property.</p>
+                                        <p className="text-slate-500 text-base mt-2 font-medium">Generate a comprehensive report to see the deep-dive narrative for this property.</p>
                                     </div>
                                     <button 
                                         onClick={() => onRunComprehensive?.(false)} 
@@ -508,7 +508,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 if (sectionId === 'investment') {
                     return (
                         <div className="animate-in fade-in duration-200 space-y-1">
-                            <PageHeader icon="fa-sack-dollar" title="Investment Intelligence"
+                            <PageHeader icon="fa-sack-dollar" title="Investment Research"
                                 label="Market Economics"
                                 description="Financial research, valuation average, and deep-dive investment analysis for high-conviction decision making."
                                 color="text-indigo-600" {...headerProps} />
@@ -517,7 +517,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                             {customAnalysisLoading ? (
                                 <div className="py-20 flex flex-col items-center justify-center gap-4 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
                                     <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
-                                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Assembling Intelligence...</p>
+                                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Assembling Analysis...</p>
                                 </div>
                             ) : customAnalysis?.deep_investment_research ? (
                                 <DeepInvestmentView data={customAnalysis.deep_investment_research} />
@@ -545,7 +545,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                 if (sectionId === 'context-graph') {
                     return (
                         <div className="animate-in fade-in duration-200 space-y-4">
-                            <PageHeader icon="fa-diagram-project" title="Context Graph"
+                            <PageHeader icon="fa-diagram-project" title="Factors - At A Glance"
                                 subtitle="Decision Factors · Semantic Extraction · Performance Graph" color="text-indigo-600" {...headerProps} />
                             <CustomAIAnalysis {...aiProps} activeSubTab="context_graph" />
                         </div>

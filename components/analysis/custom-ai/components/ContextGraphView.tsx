@@ -17,7 +17,7 @@ interface Props {
 const CATEGORY_MAP: Record<string, { label: string; icon: string; color: string; ranges: [number, number][] }> = {
     property: { label: 'Property & Financials', icon: 'fa-house', color: 'emerald', ranges: [[1, 30]] },
     location: { label: 'Location & Lifestyle', icon: 'fa-map-pin', color: 'rose', ranges: [[31, 50], [76, 88], [120, 122]] },
-    intelligence: { label: 'AI Intelligence', icon: 'fa-brain', color: 'violet', ranges: [[51, 75], [100, 105]] },
+    intelligence: { label: 'AI Factors', icon: 'fa-brain', color: 'violet', ranges: [[51, 75], [100, 105]] },
     visual: { label: 'Visual & Street View', icon: 'fa-street-view', color: 'cyan', ranges: [[94, 98], [108, 116]] },
     investment: { label: 'Investment & Risk', icon: 'fa-chart-line', color: 'amber', ranges: [[89, 93], [111, 111]] },
 };
@@ -126,9 +126,9 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                     <i className="fa-solid fa-diagram-project text-3xl text-indigo-500"></i>
                 </div>
                 <div className="text-center">
-                    <h3 className="text-xl font-black text-slate-800 mb-2">Context Graph Extraction</h3>
+                    <h3 className="text-xl font-black text-slate-800 mb-2">Factors Extraction</h3>
                     <p className="text-sm text-slate-500 max-w-md">
-                        Extract decision factors from this property's analyzed data to power the buyer context graph.
+                        Extract key decision factors and semantic analysis from this property's analyzed data for a high-density overview.
                     </p>
                 </div>
                 <button

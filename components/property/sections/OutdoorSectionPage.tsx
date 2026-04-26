@@ -261,7 +261,7 @@ export const OutdoorSectionPage: React.FC<Props> = ({ data, customAnalysis }) =>
                 <div>
                     {/* Dynamic exterior tags */}
                     <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' as const }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', background: `${ACCENT}18`, color: ACCENT, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>◈ Exterior Intelligence</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', background: `${ACCENT}18`, color: ACCENT, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>◈ Exterior Overview</span>
                         {ext?.exterior_and_lot_appeal?.architecture_style && (
                             <span style={{ display: 'inline-flex', alignItems: 'center', background: '#f8fafc', color: '#64748b', padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, border: '1px solid #e2e8f0' }}>
                                 {ext.exterior_and_lot_appeal.architecture_style.split(' ').slice(0, 3).join(' ')}

@@ -104,7 +104,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
         { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
         { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
-        { id: 'context_graph', label: 'Context Graph', icon: 'fa-diagram-project' },
+        { id: 'context_graph', label: 'Factors - At A Glance', icon: 'fa-diagram-project' },
     ].filter(tab => allowedTabs.includes(tab.id)), [allowedTabs]);
 
     // Initialize activeTab to the first TRULY available tab, fallback to 'interior'
@@ -366,7 +366,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             {activeTab === 'neighborhood' && (
                                 <section>
                                     {neighborhoodLoading ? (
-                                        <AnalysisLoading title="Spatial Intelligence..." subtitle="Decoding maps & local venues." timer={timer} address={propertyData?.address} icon="fa-map-location-dot" />
+                                        <AnalysisLoading title="Spatial Analysis..." subtitle="Decoding maps & local venues." timer={timer} address={propertyData?.address} icon="fa-map-location-dot" />
                                     ) : !analysis.neighborhood ? (
                                         <EmptyState section="Neighborhood" />
                                     ) : (

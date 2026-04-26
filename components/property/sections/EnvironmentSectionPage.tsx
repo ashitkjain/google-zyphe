@@ -9,10 +9,12 @@ import { calculateSolarPotential } from '../../../utils/solarCalculations';
 import SeasonalSunCard from '../SeasonalSunCard';
 import FaultMap from './FaultMap';
 import { FaultLine } from '../../../services/api/faults';
+import { MicroclimateDelta } from '../../../services/api/environmental';
 
 interface Props {
     data: PropertyData;
     solarPotential: ReturnType<typeof calculateSolarPotential> | null;
+    micro?: MicroclimateDelta | null;
     onRefreshEnvironment?: () => void;
     environmentRefreshing?: boolean;
 }
@@ -117,7 +119,7 @@ function InfoTip({ tip }: { tip: string }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }) => {
+export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, micro }) => {
 
     // ── Climate risk scores ───────────────────────────────────────────────────
     const windScore  = data.windRiskScore  ?? null;
@@ -179,7 +181,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
         heatScore  != null && heatScore  > 5 && { icon: 'fa-temperature-high',  title: 'Heat Mitigation',       desc: 'Cool roofing and improved insulation reduce cooling load during extreme heat events.' },
     ].filter(Boolean) as { icon: string; title: string; desc: string }[];
 
-    const sn = { environmental: '01', climate: '02', hazard: '03', solar: '04' };
+    const sn = { environmental: '01', climate: '02', hazard: '03', microclimate: '04', solar: '05' };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
@@ -571,8 +573,89 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                                 </p>
                             </div>
                         </div>
+                    </div>
+                </section>
+            )}
 
-                        <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right' }}>USGS · FEMA · Drought Monitor</div>
+            {/* ── Section 04 — Microclimate Delta ─────────────────────────── */}
+            {micro && (
+                <section>
+                    <SectionTitleBar num={sn.microclimate} kicker="Tomorrow.io · Thermal Fingerprint" title="Local Microclimate" italicWord="Microclimate" />
+
+                    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 20 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: micro.delta <= 0 ? 'rgba(14,165,233,0.1)' : 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <i className={micro.delta <= 0 ? "fa-solid fa-snowflake" : "fa-solid fa-fire-orange"} style={{ fontSize: 16, color: micro.delta <= 0 ? '#0ea5e9' : '#f59e0b' }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Thermal Fingerprint</div>
+                                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{micro.survivalRating.label} vs {micro.baselineLabel}</div>
+                                    </div>
+                                </div>
+
+                                <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
+                                    {micro.insight}
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                                    <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '12px 16px' }}>
+                                        <div style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Mechanism</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{micro.survivalRating.mechanism}</div>
+                                    </div>
+                                    <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '12px 16px' }}>
+                                        <div style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Survival Rating</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: micro.delta <= 0 ? '#059669' : '#ea580c' }}>{micro.survivalRating.score}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Temperature Delta</span>
+                                    <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: micro.delta <= 0 ? '#0ea5e9' : '#f59e0b', background: micro.delta <= 0 ? 'rgba(14,165,233,0.1)' : 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+                                        {micro.deltaF > 0 ? '+' : ''}{micro.deltaF}°F
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>This Property</span>
+                                        <span style={{ fontFamily: serif, fontSize: 20, color: '#0f172a' }}>{Math.round(micro.propertyApparentTemp * 9/5 + 32)}°F</span>
+                                    </div>
+                                    <div style={{ height: 4, background: '#e2e8f0', borderRadius: 99, position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '50%', top: -2, width: 2, height: 8, background: '#cbd5e1' }} />
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            left: `${50 + (micro.delta * 5)}%`, 
+                                            top: -4, 
+                                            width: 12, 
+                                            height: 12, 
+                                            borderRadius: '50%', 
+                                            background: micro.delta <= 0 ? '#0ea5e9' : '#f59e0b',
+                                            border: '2px solid #fff',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        }} />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{micro.baselineLabel}</span>
+                                        <span style={{ fontFamily: serif, fontSize: 20, color: '#64748b' }}>{Math.round(micro.baselineApparentTemp * 9/5 + 32)}°F</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                                    <div>
+                                        <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Humidity</div>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{Math.round(micro.humidity)}%</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Wind Speed</div>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{Math.round(micro.windSpeed * 2.237)} mph</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
             )}
@@ -659,7 +742,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential }
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginTop: 3 }}>First Street · FEMA · USGS · Drought Monitor</div>
                     </div>
                 </div>
-                <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Zyphe Property Intelligence</div>
+                <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Zyphe Property Analysis</div>
             </div>
 
         </div>

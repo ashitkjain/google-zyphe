@@ -102,7 +102,7 @@ export const PropertyInsightsPanel: React.FC<PropertyInsightsPanelProps> = ({
                                     <i className="fa-solid fa-shield-halved text-indigo-600 text-[11px]"></i>
                                 </div>
                                 <div className="min-w-0">
-                                    <h3 className="text-[20px] font-black text-slate-900 tracking-tight leading-tight">Lot Intelligence</h3>
+                                    <h3 className="text-[20px] font-black text-slate-900 tracking-tight leading-tight">Lot Analysis</h3>
                                 </div>
                             </div>
                             {/* Parcel Map + Validation */}

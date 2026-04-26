@@ -383,6 +383,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                     <PropertyNav
                                         activeSectionId={activeNavSection}
                                         activeSubId={activeNavSub}
+                                        cityName={propertyData?.city}
                                         onNavigate={handleNavNavigate}
                                         visibility={navVisibility}
                                         userRole={userRole}

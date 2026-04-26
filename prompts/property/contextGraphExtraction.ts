@@ -182,7 +182,7 @@ Given the property data below, extract structured decision factors. For each fac
 4. **Estimated Carrying Cost**: Total monthly cost (Mortgage + Tax + HOA + Ins) as a single tag (e.g. ~$8K/mo).
 5. **Seller Motivation**: Look for "motivated", "price cut", "back on market", or high days on market (DOM).
 6. **ADU / House-Hacking Potential**: Look for "ADU", "Guest House", "In-law suite", "Basement apartment", "Zoned for 2 units", "R-2", "Duplex potential", "Full bath in basement", "Second kitchen", "Large lot with side access" in listingDescription OR visualAnalysis.deep_investment_research. If the lot is >8000 sqft and zoning allows, tag as "High Potential".
-7. **STR Viability**: Analyze visualAnalysis.property_investment. Tags = "High Yield", "Strict HOA", "Zoned STR", "Primary Residence Only", "Seasonal Demand".
+7. **STR Viability**: Analyze visualAnalysis.property_investment. Tags = "High Yield", "Strict HOA", "Zoned STR", "Primary Residence Only", "Seasonal Demand". Value = Annual gross revenue estimate (e.g. "$45,000/yr") from visualAnalysis.property_investment.str_performance.annual_revenue_projection.
 8. **LTR Yield Potential**: Tags = "Cap Rate > 5%", "Cash Flow Positive", "Turnkey Rental". Value = Monthly rent estimate from visualAnalysis.property_investment or property.rentZestimate.
 9. **Appreciation Signal (City)**: From visualAnalysis.general_market_intelligence. Tags = "Historical 5%+", "New Dev Nearby", "Supply Constrained".
 10. **Market Momentum**: Identify if area is "Rising" or "Stable" from visualAnalysis.general_market_intelligence. Value = 1-sentence trend.
@@ -191,7 +191,7 @@ Given the property data below, extract structured decision factors. For each fac
 11. **Primary Bedroom Location**: "Ground Floor" vs "Upper Level".
 12. **Lot Size / Utility**: Usable yard space vs steep/oversized lots.
 13. **Parking Capacity**: Total spaces (Driveway + Street).
-14. **Usable Square Footage**: Categorize as "Compact", "Mid-Size", "Spacious", or "Estate".
+14. **Living Area Utility**: Categorize as "Compact", "Mid-Size", "Spacious", or "Estate".
 15. **Ceiling Height**: "High", "Vaulted", or "Standard".
 16. **Single-Story Flow**: One floor vs multi-story.
 17. **Dedicated Home Office**: Look for "Den", "Office", "Library", or "Study" in roomTypes or description.
@@ -200,7 +200,7 @@ Given the property data below, extract structured decision factors. For each fac
 20. **Construction Era**: "Pre-War", "Mid-Century", "80s-90s", "New Build".
 
 ### Interior Design & Visual (21-30)
-21. **Move-In Readiness**: "Turn-key" if renovated/new/updated, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned. From listingDescription or resoFacts.propertyCondition or visualAnalysis.condition_and_finish or room_highlights.
+21. **Move-In Readiness**: "Turn-key" if renovated/new/updated, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned. From listingDescription or resoFacts.propertyCondition or visualAnalysis.condition_and_finish or room_highlights. Value = "Move in ready" or "Not move in ready".
 22. **Renovation Upside**: High if condition is "Needs cosmetic updates" but structural era is good.
 23. **Architecture**: Mediterranean, Craftsman, Modern, Tudor, etc. (from visualAnalysis or architecturalStyle). Use only the specific style names as tags (e.g. "Modern", "Tudor") and do NOT include the word "Style" unless it is part of a standard name.
 24. **Natural Light / Brightness**: From visualAnalysis.interior_analysis or listingDescription ("Skylights", "Large windows", "South facing").
@@ -218,7 +218,6 @@ Given the property data below, extract structured decision factors. For each fac
 34. **Curb Appeal**: Synthesize from streetViewAnalysis, visual analysis exterior_and_lot_appeal, and listing description. Value = overall rating (e.g. "Excellent — 9/10", "Good — 7/10", "Average — 5/10"). Tags = descriptive concepts like "Well-Maintained", "Mature Landscaping", "Fresh Paint", "Dated Exterior", "Overgrown", "Attractive Entry". Generate 3-6 tags.
 35. **Topography**: "Flat" vs "Hillside" from neighborhood analysis or description.
 36. **View Quality**: Hills, City Lights, Water, or None.
-37. **Street Noise / Traffic**: "Quiet" if Cul-de-sac, "Moderate" if through street, "High" if arterial.
 38. **Visual Clutter**: Overhead wires, messy neighbors, or busy streetscape (from streetViewAnalysis).
 39. **Yard Space**: "Large Backyard", "Courtyard", "Zero Lot Line".
 40. **Xeriscape / Low Maintenance**: Drought-tolerant or synthetic turf mentioned.
@@ -249,7 +248,7 @@ Given the property data below, extract structured decision factors. For each fac
 59. **Laundry Logistics**: "Inside Laundry Room", "Hookups Only", or "Garage Shared".
 60. **Water / Air Systems**: Softeners, RO filters, or Zoned HVAC mentioned.
 61. **Security Infrastructure**: Gated, Security system, or Cameras.
-65. **Development Impact**: Nearby construction, new developments, or zoning changes.
+65. **Any nearby development**: Nearby construction, new developments, or zoning changes.
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
 68. **Backyard Potential**: Room for ADU or pool if not already present.
 70. **Market Velocity**: How fast homes are selling in this specific micro-market.
@@ -313,7 +312,7 @@ Given the property data below, extract structured decision factors. For each fac
 111. **Distressed Sale Signal**: Scan property.description for explicit distress markers.
    - Tags = return ONLY the markers semantically identified from this list: [${DISTRESS_MARKERS.join(", ")}].
    - Search for both literal keyword matches and semantic equivalents (e.g. "needs massive repair" = "Fixer-Upper", "bank owned" = "Bank-owned").
-   - If none are found, tags MUST be [].
+   - If none are found, tags MUST be ["None"].
    - Value = "true" if any distress signals are present, "false" if none are found.
 
 ### Interior Room Intelligence (113-116) — From visualAnalysis room_highlights. Tags are the primary output.
@@ -329,7 +328,7 @@ Given the property data below, extract structured decision factors. For each fac
 ### Location Logistics (120-122)
 120. **Nearby Places Profile**: Highlight specific key brands nearby (Costco, Target, Starbucks).
 121. **Microclimate Profile**: "Fog belt", "Sun-drenched", or "Windy ridge" details.
-122. **Demographic Snapshot**: Wealth, education, or age trends in the immediate tract.
+122. **City Economic Profile**: Wealth, education, or age trends in the immediate tract.
 
 ## PROPERTY DATA
 
