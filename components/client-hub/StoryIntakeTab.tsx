@@ -473,10 +473,10 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
 
     return (
         <>
-        <div style={{ fontFamily: 'var(--font-sans, Inter, -apple-system, sans-serif)', background: 'oklch(98.5% 0.004 80)', minHeight: '100vh', paddingBottom: 80 }}>
+        <div style={{ fontFamily: 'var(--font-sans, Inter, -apple-system, sans-serif)', maxWidth: '1200px', margin: '0 auto', padding: '0 32px 80px', width: '100%', boxSizing: 'border-box' }}>
 
             {/* ── Hero ── */}
-            <div style={{ padding: '32px 40px 0' }}>
+            <div style={{ paddingTop: 32 }}>
                 <div style={{
                     background: 'linear-gradient(135deg, #1a1330 0%, #2d1b5e 50%, #4338CA 100%)',
                     color: '#fff', borderRadius: 22, padding: '40px 44px', marginBottom: 28,
@@ -523,7 +523,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
             </div>
 
             {/* ── Persona starters ── */}
-            <div style={{ padding: '0 40px 28px' }}>
+            <div style={{ paddingBottom: 28 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 14 }}>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -580,7 +580,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
             </div>
 
             {/* ── Main grid ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, padding: '0 40px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
 
                 {/* Left column */}
                 <div style={{ position: 'sticky', top: 20, alignSelf: 'flex-start' }}>
@@ -991,7 +991,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
 
             {/* ── Story history ── */}
             {history.length > 0 && (
-                <div style={{ padding: '40px 40px 0', borderTop: '1px solid oklch(91% 0.01 260)', marginTop: 40 }}>
+                <div style={{ paddingTop: 40, borderTop: '1px solid oklch(91% 0.01 260)', marginTop: 40 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             <div style={{ width: 36, height: 36, borderRadius: 10, background: ACCENT_SOFT, display: 'grid', placeItems: 'center', color: ACCENT, fontSize: 14 }}>
@@ -1042,7 +1042,7 @@ const StoryIntakeTab: React.FC<Props> = ({ isRealtor = false, onMatchRequest, on
                     )}
                 </div>
             )}
-        </div>
+        </div>{/* max-width wrapper */}
 
         <ClientEditModal
             client={syntheticClient}
