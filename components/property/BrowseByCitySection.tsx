@@ -54,39 +54,49 @@ export default function ExplorePage({ searchBar, pendingBrowse, onClearPendingBr
     const [currentTab, setCurrentTab] = useState<'search' | 'story' | 'browse'>(initialTab);
     const [showMyStory, setShowMyStory] = useState(initialTab === 'story');
 
+    // Sync internal state with props if they change externally (e.g. from App.tsx)
+    useEffect(() => {
+        const activeTab = (searchBar as any)?.props?.activeTab;
+        if (activeTab === 'story') {
+            setShowMyStory(true);
+            setCurrentTab('story');
+        } else if (activeTab === 'search' || activeTab === 'browse') {
+            setShowMyStory(false);
+            setCurrentTab(activeTab);
+        }
+    }, [searchBar]);
+
     return (
         <div className="w-full">
             {/* Compact Hero Landing */}
-            {!showMyStory && (
-                <div className="relative w-full flex flex-col items-center justify-center overflow-visible" style={{ minHeight: 90 }}>
-                    <div className="absolute inset-0 z-0 overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-slate-950/90"></div>
-                        <div className="absolute inset-0 bg-indigo-900/10 mix-blend-overlay"></div>
-                    </div>
-
-                    {/* Content Overlay */}
-                    <div className="relative z-10 w-full max-w-6xl px-4 py-2">
-                        {React.isValidElement(searchBar) ? React.cloneElement(searchBar as React.ReactElement, {
-                            activeTab: currentTab,
-                            onTabChange: (tab: any) => {
-                                // Call original handler if it exists (e.g. from App.tsx)
-                                (searchBar as any)?.props?.onTabChange?.(tab);
-
-                                if (tab === 'browse') {
-                                    setCurrentTab('browse');
-                                    setShowMyStory(false);
-                                } else if (tab === 'story') {
-                                    setCurrentTab('story');
-                                    setShowMyStory(true);
-                                } else {
-                                    setCurrentTab('search');
-                                    setShowMyStory(false);
-                                }
-                            },
-                        } as any) : null}
-                    </div>
+            <div className="relative w-full flex flex-col items-center justify-center overflow-visible" style={{ minHeight: 90 }}>
+                <div className="absolute inset-0 z-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-slate-950/90"></div>
+                    <div className="absolute inset-0 bg-indigo-900/10 mix-blend-overlay"></div>
                 </div>
-            )}
+
+                {/* Content Overlay */}
+                <div className="relative z-10 w-full max-w-6xl px-4 py-2">
+                    {React.isValidElement(searchBar) ? React.cloneElement(searchBar as React.ReactElement, {
+                        activeTab: currentTab,
+                        onTabChange: (tab: any) => {
+                            // Call original handler if it exists (e.g. from App.tsx)
+                            (searchBar as any)?.props?.onTabChange?.(tab);
+
+                            if (tab === 'browse') {
+                                setCurrentTab('browse');
+                                setShowMyStory(false);
+                            } else if (tab === 'story') {
+                                setCurrentTab('story');
+                                setShowMyStory(true);
+                            } else {
+                                setCurrentTab('search');
+                                setShowMyStory(false);
+                            }
+                        },
+                    } as any) : null}
+                </div>
+            </div>
 
             <div className="px-6 pb-2 space-y-2">
                 <BrowseByCitySection
@@ -382,6 +392,15 @@ const BrowseByCitySection: React.FC<{
 
     // Notify parent when My Story is toggled
     React.useEffect(() => { onMyStory?.(showMyStory); }, [showMyStory]);
+
+    // Sync showMyStory with activePath prop from parent
+    React.useEffect(() => {
+        if (activePath === 'story') {
+            setShowMyStory(true);
+        } else if (activePath === 'search' || activePath === 'browse') {
+            setShowMyStory(false);
+        }
+    }, [activePath]);
 
     // View, sort, filter, pagination state
     const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table' | 'map'>('gallery');
