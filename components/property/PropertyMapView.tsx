@@ -193,6 +193,17 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
 
         mapRef.current = map;
 
+        // Force MapLibre to recalculate canvas size after layout stabilizes.
+        // Needed when initialized inside a flex container with deferred CSS application.
+        requestAnimationFrame(() => {
+            if (mapRef.current) {
+                try { mapRef.current.resize(); } catch (_) {}
+            }
+        });
+        map.once('load', () => {
+            try { map.resize(); } catch (_) {}
+        });
+
         // Suppress "Image X could not be loaded" warnings from MapLibre for
         // missing POI sprite icons in the radar-default-v1 style.
         // We inject a 1×1 transparent image so MapLibre stops trying to reload them.
@@ -421,7 +432,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     const hasCoords = properties.some(p => p.coordinates?.latitude && p.coordinates?.longitude);
 
     return (
-        <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+        <div className="w-full basis-full relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
             {/* Map Container */}
             <div
                 ref={mapContainerRef}

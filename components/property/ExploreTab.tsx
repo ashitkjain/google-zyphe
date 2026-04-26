@@ -124,6 +124,17 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         orientationGroundTruth,
     } = useExploreTabData({ propertyData, viewMode, customAnalysis, comprehensiveAnalysis, onRunCustomAnalysis });
 
+    // ── City browse via prop (event listener lives here so it survives loading spinner remounts) ──
+    const [pendingCityBrowse, setPendingCityBrowse] = React.useState<string | null>(null);
+    React.useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.city) setPendingCityBrowse(detail.city);
+        };
+        window.addEventListener('browse-city', handler);
+        return () => window.removeEventListener('browse-city', handler);
+    }, []);
+
     // ── New 2-level nav state ───────────────────────────────
     const [activeNavSection, setActiveNavSection] = React.useState('property');
     const [activeNavSub, setActiveNavSub] = React.useState('mls-data');
@@ -453,10 +464,10 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                 )}
 
                 {!propertyData && !loading && (
-                    <ExplorePage 
-                        searchBar={searchBar} 
-                        onRegisterSaveAction={onRegisterSaveAction}
-                        onRegisterSavedAction={onRegisterSavedAction}
+                    <ExplorePage
+                        searchBar={searchBar}
+                        pendingCityBrowse={pendingCityBrowse}
+                        onClearPendingCity={() => setPendingCityBrowse(null)}
                     />
                 )}
             </div>

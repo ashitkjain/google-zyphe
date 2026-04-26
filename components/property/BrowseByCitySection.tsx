@@ -44,7 +44,11 @@ import StoryIntakeTab from '../client-hub/StoryIntakeTab';
 
 const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
 
-export default function ExplorePage({ searchBar }: { searchBar: React.ReactNode }) {
+export default function ExplorePage({ searchBar, pendingCityBrowse, onClearPendingCity }: {
+    searchBar: React.ReactNode;
+    pendingCityBrowse?: string | null;
+    onClearPendingCity?: () => void;
+}) {
     const [currentTab, setCurrentTab] = useState<'search' | 'story' | 'browse'>('search');
     const [showMyStory, setShowMyStory] = useState(false);
 
@@ -87,6 +91,8 @@ export default function ExplorePage({ searchBar }: { searchBar: React.ReactNode 
                     onMyStory={setShowMyStory}
                     activePath={currentTab}
                     onPathChange={setCurrentTab}
+                    pendingCityBrowse={pendingCityBrowse}
+                    onClearPendingCity={onClearPendingCity}
                 />
             </div>
         </div>
@@ -106,16 +112,18 @@ const BUYER_STORY_EXAMPLES = [
     { title: 'First-Time, Value', icon: 'fa-solid fa-piggy-bank', story: "First-time buyer, single income software engineer. Budget is tight: $800K-1.1M. Looking for best value — maybe a fixer with renovation upside. Townhomes OK. Need at least 2 beds. Close to BART or highway for commute to SF. Walkable to grocery and coffee shops. Low HOA preferred." },
 ];
 
-const BrowseByCitySection: React.FC<{ 
-    onPropertyClick: (address: string) => void; 
-    onHasResults?: (has: boolean) => void; 
-    onMyStory?: (open: boolean) => void; 
+const BrowseByCitySection: React.FC<{
+    onPropertyClick: (address: string) => void;
+    onHasResults?: (has: boolean) => void;
+    onMyStory?: (open: boolean) => void;
     searchBar?: React.ReactNode;
     activePath?: 'browse' | 'story' | 'search';
     onPathChange?: (path: 'browse' | 'story' | 'search') => void;
     onRegisterSaveAction?: (handler: () => void) => void;
     onRegisterSavedAction?: (handler: () => void) => void;
-}> = ({ onPropertyClick, onHasResults, onMyStory, searchBar, activePath: externalPath, onPathChange, onRegisterSaveAction, onRegisterSavedAction }) => {
+    pendingCityBrowse?: string | null;
+    onClearPendingCity?: () => void;
+}> = ({ onPropertyClick, onHasResults, onMyStory, searchBar, activePath: externalPath, onPathChange, onRegisterSaveAction, onRegisterSavedAction, pendingCityBrowse, onClearPendingCity }) => {
     const [selectedCity, setSelectedCity] = useState<string>('');
     const [browsing, setBrowsing] = useState(false);
     const [results, setResults] = useState<CityPropertySummary[]>([]);
@@ -178,43 +186,25 @@ const BrowseByCitySection: React.FC<{
         setFilterMaxDom(''); setPage(1);
     };
 
-    // Listen for browse-city events from the search bar Browse button
+    // Trigger city browse when parent signals a pending city (prop-based, no timing issues)
     useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail;
-            const city = detail?.city;
-            const zip = detail?.zip;
-            const requestedView = detail?.viewMode;
-
-            if ((city || zip) && typeof (city || zip) === 'string') {
-                setSelectedCity(city || zip);
-                // Auto-trigger browse after state update
-                setTimeout(async () => {
-                    setBrowsing(true);
-                    setHasSearched(true);
-                    setPage(1);
-                    setShowMyStory(false);
-                    setShowBuyerSearch(false);
-                    setViewModeLocal(requestedView || 'gallery');
-                    setBuyerResults(null);
-                    setBuyerExtracted(null);
-                    try {
-                        const data = zip 
-                            ? await getPropertiesByZip(zip)
-                            : await getPropertiesByCity(city);
-                        setResults(data);
-                    } catch (err) {
-                        console.error('Browse failed:', err);
-                        setResults([]);
-                    } finally {
-                        setBrowsing(false);
-                    }
-                }, 100);
-            }
-        };
-        window.addEventListener('browse-city', handler);
-        return () => window.removeEventListener('browse-city', handler);
-    }, []);
+        if (!pendingCityBrowse) return;
+        onClearPendingCity?.();
+        const city = pendingCityBrowse;
+        setSelectedCity(city);
+        setShowMyStory(false);
+        setShowBuyerSearch(false);
+        setBuyerResults(null);
+        setBuyerExtracted(null);
+        setViewModeLocal('map');
+        setBrowsing(true);
+        setHasSearched(true);
+        setPage(1);
+        getPropertiesByCity(city)
+            .then(data => setResults(data))
+            .catch(() => setResults([]))
+            .finally(() => setBrowsing(false));
+    }, [pendingCityBrowse]);
 
     // Factor ID → Name lookup (shared constant — single source of truth)
     // Imported at file top level below
