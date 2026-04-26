@@ -406,9 +406,51 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     );
                 }
 
-                // ────────────────────────────────────────────────────────────────────────
-                // LOCATION
-                // ────────────────────────────────────────────────────────────────────────
+                if (sectionId === 'location') {
+                    if (subId === 'city-neighborhoods') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-mountain-city" title="City & Neighborhoods"
+                                label="Urban Geography"
+                                description="Comprehensive atlas of local districts, community tiers, and neighborhood character across the greater metropolitan area."
+                                color="text-indigo-600" {...headerProps} />
+                            <CityNeighborhoodsView propertyData={data} />
+                        </div>
+                    );
+
+                    if (subId === 'community-pulse') return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-users" title="Community Pulse"
+                                label="Resident Sentiment Report"
+                                description={`What residents actually say about living in ${data.city || 'this area'} — sourced from community forums, reviews, and local intelligence.`}
+                                attribution="Zyphe Ground Truth Unit · 2026"
+                                color="text-blue-600" {...headerProps} />
+                            <CommunityPulseSectionPage
+                                communityPulse={communityPulse}
+                                analysis={analysis}
+                                city={data.city}
+                            />
+                        </div>
+                    );
+
+                    return (
+                        <div className="animate-in fade-in duration-200">
+                            <PageHeader icon="fa-location-dot" title="Location Overview"
+                                label="Geographic Context"
+                                description="Neighborhood dynamics, area demographics, and key local amenities cross-referenced with lifestyle preferences."
+                                color="text-indigo-500" {...headerProps} />
+                            <LocationOverviewSectionPage
+                                data={data}
+                                neighborhoodOverview={neighborhoodOverview}
+                                census={census}
+                                lifestyleInsights={props.lifestyleInsights}
+                                visualPoi={visualPoi}
+                                mapLabels={mapLabels}
+                                cityNhEntryOverview={cityNhEntryOverview}
+                            />
+                        </div>
+                    );
+                }
+
                 // ────────────────────────────────────────────────────────────────────────
                 // EXECUTIVE SUMMARY
                 // ────────────────────────────────────────────────────────────────────────
@@ -455,49 +497,6 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                     </button>
                                 </div>
                             )}
-                        </div>
-                    );
-
-                    if (subId === 'city-neighborhoods') return (
-                        <div className="animate-in fade-in duration-200">
-                            <PageHeader icon="fa-mountain-city" title="City & Neighborhoods"
-                                label="Urban Geography"
-                                description="Comprehensive atlas of local districts, community tiers, and neighborhood character across the greater metropolitan area."
-                                color="text-indigo-600" {...headerProps} />
-                            <CityNeighborhoodsView propertyData={data} />
-                        </div>
-                    );
-
-                    if (subId === 'community-pulse') return (
-                        <div className="animate-in fade-in duration-200">
-                            <PageHeader icon="fa-users" title="Community Pulse"
-                                label="Resident Sentiment Report"
-                                description={`What residents actually say about living in ${data.city || 'this area'} — sourced from community forums, reviews, and local intelligence.`}
-                                attribution="Zyphe Ground Truth Unit · 2026"
-                                color="text-blue-600" {...headerProps} />
-                            <CommunityPulseSectionPage
-                                communityPulse={communityPulse}
-                                analysis={analysis}
-                                city={data.city}
-                            />
-                        </div>
-                    );
-
-                    return (
-                        <div className="animate-in fade-in duration-200">
-                            <PageHeader icon="fa-location-dot" title="Location Overview"
-                                label="Geographic Context"
-                                description="Neighborhood dynamics, area demographics, and key local amenities cross-referenced with lifestyle preferences."
-                                color="text-indigo-500" {...headerProps} />
-                            <LocationOverviewSectionPage
-                                data={data}
-                                neighborhoodOverview={neighborhoodOverview}
-                                census={census}
-                                lifestyleInsights={props.lifestyleInsights}
-                                visualPoi={visualPoi}
-                                mapLabels={mapLabels}
-                                cityNhEntryOverview={cityNhEntryOverview}
-                            />
                         </div>
                     );
                 }

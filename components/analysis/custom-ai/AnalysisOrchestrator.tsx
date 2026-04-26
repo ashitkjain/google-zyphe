@@ -348,6 +348,16 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         <div className="pb-20 relative">
             {/* Content Area */}
             <div className="min-h-[500px] relative max-w-6xl mx-auto">
+                {onFullRefresh && (
+                    <div className="flex justify-end mb-4 px-4">
+                        <button 
+                            onClick={onFullRefresh}
+                            className="flex items-center gap-2 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 bg-white/50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-95"
+                        >
+                            <i className="fa-solid fa-arrows-rotate" /> Force Full Analysis
+                        </button>
+                    </div>
+                )}
                 {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
                             {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
                             {activeTab === 'exterior_and_neighborhood' && (
