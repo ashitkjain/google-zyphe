@@ -413,16 +413,85 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                         </div>
                     )}
 
-                    {/* ── MAP VIEW ── */}
+                    {/* ── MAP VIEW (split: map left, property list right) ── */}
                     {viewMode === 'map' && (
-                        <PropertyMapView
-                            properties={displayList}
-                            onPropertyClick={(addr) => window.open(`/explore?q=${encodeURIComponent(addr)}`, '_blank')}
-                            selectedCity={selectedCity}
-                            matchMap={buyerResults ? Object.fromEntries(
-                                buyerResults.map((r, i) => [r.zpid, { score: r.score, rank: i + 1, highlight: r.matchWriteup?.split('.')[0] }])
-                            ) : undefined}
-                        />
+                        <div className="flex w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+                            {/* Map — left ~60% */}
+                            <div className="flex-[3] min-w-0">
+                                <PropertyMapView
+                                    properties={displayList}
+                                    onPropertyClick={(addr) => window.open(`/explore?q=${encodeURIComponent(addr)}`, '_blank')}
+                                    selectedCity={selectedCity}
+                                    matchMap={buyerResults ? Object.fromEntries(
+                                        buyerResults.map((r, i) => [r.zpid, { score: r.score, rank: i + 1, highlight: r.matchWriteup?.split('.')[0] }])
+                                    ) : undefined}
+                                    containerClassName="w-full h-full relative bg-white"
+                                />
+                            </div>
+
+                            {/* Property list — right ~40% */}
+                            <div
+                                className="flex-[2] min-w-0 flex flex-col bg-white border-l border-slate-200"
+                                style={{ height: 'calc(100dvh - 310px)', minHeight: '480px' }}
+                            >
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-white shrink-0">
+                                    <span className="text-xs font-black text-slate-700">{displayList.length} Results</span>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Recently Listed</span>
+                                </div>
+
+                                {/* Scrollable cards (2-col grid) */}
+                                <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin' }}>
+                                    <div className="grid grid-cols-2 gap-2 p-2">
+                                        {displayList.map(prop => {
+                                            const match = matchMap[String(prop.zpid)];
+                                            const img = prop.images?.[0] || '';
+                                            return (
+                                                <div
+                                                    key={prop.zpid}
+                                                    onClick={() => window.open(`/explore?q=${encodeURIComponent(prop.address)}`, '_blank')}
+                                                    className="bg-white border border-slate-200 rounded-xl overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all"
+                                                >
+                                                    {/* Image */}
+                                                    <div className="relative h-28 bg-slate-100">
+                                                        {img ? (
+                                                            <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center">
+                                                                <i className="fa-solid fa-house text-slate-300 text-2xl"></i>
+                                                            </div>
+                                                        )}
+                                                        {match && (
+                                                            <span className={`absolute top-1.5 left-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-sm ${match.score >= 80 ? 'bg-emerald-500 text-white' : match.score >= 60 ? 'bg-amber-500 text-white' : 'bg-white/90 text-slate-600'}`}>
+                                                                {match.score}
+                                                            </span>
+                                                        )}
+                                                        {prop.daysOnZillow !== undefined && (
+                                                            <span className="absolute top-1.5 right-1.5 text-[9px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded-md">
+                                                                {prop.daysOnZillow === 0 ? 'New' : `${prop.daysOnZillow}d`}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Details */}
+                                                    <div className="p-2 space-y-0.5">
+                                                        <div className="text-sm font-black text-slate-900">{fmt(prop.listPrice)}</div>
+                                                        <div className="text-[10px] text-slate-500 font-bold">
+                                                            {[
+                                                                prop.bedrooms && `${prop.bedrooms} bd`,
+                                                                prop.bathrooms && `${prop.bathrooms} ba`,
+                                                                prop.livingArea && `${prop.livingArea.toLocaleString()} sf`,
+                                                            ].filter(Boolean).join(' · ')}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 truncate">{prop.address}</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
                     {/* ── PAGINATION ── */}

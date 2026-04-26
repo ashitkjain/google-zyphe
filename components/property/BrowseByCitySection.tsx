@@ -140,7 +140,7 @@ const BrowseByCitySection: React.FC<{
 
     // View, sort, filter, pagination state
     const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table' | 'map'>('gallery');
-    const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea' | 'lotSize' | 'homeType' | 'neighborhood'>('address');
+    const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea' | 'lotSize' | 'homeType' | 'neighborhood' | 'daysOnZillow'>('address');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [filterMinPrice, setFilterMinPrice] = useState('');
     const [filterMaxPrice, setFilterMaxPrice] = useState('');
@@ -197,6 +197,8 @@ const BrowseByCitySection: React.FC<{
         setBuyerResults(null);
         setBuyerExtracted(null);
         setViewModeLocal('map');
+        setSortField('daysOnZillow');
+        setSortDir('asc');
         setBrowsing(true);
         setHasSearched(true);
         setPage(1);
@@ -379,10 +381,13 @@ const BrowseByCitySection: React.FC<{
         if (filterStatus) list = list.filter(p => (p.homeStatus || '').toUpperCase().includes(filterStatus.toUpperCase()));
         if (filterMinSchoolRating) list = list.filter(p => (p.maxSchoolRating || 0) >= parseInt(filterMinSchoolRating));
         if (filterOrientation) list = list.filter(p => (p.orientation || '').toUpperCase() === filterOrientation.toUpperCase());
-        // Sort
+        // Sort — nulls/undefineds always sink to end
         list.sort((a, b) => {
-            const av = a[sortField] ?? '';
-            const bv = b[sortField] ?? '';
+            const av = (a as any)[sortField];
+            const bv = (b as any)[sortField];
+            if (av == null && bv == null) return 0;
+            if (av == null) return 1;
+            if (bv == null) return -1;
             if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
             return sortDir === 'asc' ? (Number(av) - Number(bv)) : (Number(bv) - Number(av));
         });
@@ -789,7 +794,7 @@ const BrowseByCitySection: React.FC<{
                             <i className="fa-solid fa-table-list mr-1"></i> Table
                         </button>
                         <button
-                            onClick={() => setViewModeLocal('map')}
+                            onClick={() => { setViewModeLocal('map'); setSortField('daysOnZillow'); setSortDir('asc'); setPage(1); }}
                             className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-emerald-600 text-black shadow-sm' : 'text-black/70 hover:text-black hover:bg-black/5'}`}
                         >
                             <i className="fa-solid fa-map-location-dot mr-1"></i> Map
@@ -808,6 +813,7 @@ const BrowseByCitySection: React.FC<{
                                 }}
                                 className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black outline-none cursor-pointer"
                             >
+                                <option value="daysOnZillow-asc">Recently Listed</option>
                                 <option value="address-asc">Address A→Z</option>
                                 <option value="address-desc">Address Z→A</option>
                                 <option value="listPrice-asc">Price Low→High</option>

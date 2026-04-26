@@ -15,6 +15,7 @@ interface PropertyMapViewProps {
     onPropertyClick: (address: string) => void;
     selectedCity?: string;
     matchMap?: Record<string, { score: number; rank: number; matchWriteup: string }>;
+    containerClassName?: string;
 }
 
 type MarkerMode = 'price' | 'dot';
@@ -192,6 +193,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     onPropertyClick,
     selectedCity,
     matchMap,
+    containerClassName,
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
@@ -424,7 +426,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     const hasCoords = properties.some(p => p.coordinates?.latitude && p.coordinates?.longitude);
 
     return (
-        <div className="w-full basis-full relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+        <div className={containerClassName ?? 'w-full basis-full relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm'}>
             {/* Map canvas */}
             <div
                 ref={mapContainerRef}
