@@ -415,7 +415,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
 
                     {/* ── MAP VIEW (split: map left, property list right) ── */}
                     {viewMode === 'map' && (
-                        <div className="flex w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+                        <div className="flex w-full rounded-2xl border border-slate-200 shadow-sm">
                             {/* Map — left ~60% */}
                             <div className="flex-[3] min-w-0">
                                 <PropertyMapView
@@ -453,7 +453,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
                                                     className="bg-white border border-slate-200 rounded-xl overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all"
                                                 >
                                                     {/* Image */}
-                                                    <div className="relative h-28 bg-slate-100">
+                                                    <div className="relative h-40 bg-slate-100">
                                                         {img ? (
                                                             <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
                                                         ) : (

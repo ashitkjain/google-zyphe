@@ -412,7 +412,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             updateStylesRef.current();
 
             if (withCoords.length > 1) {
-                try { mapRef.current.fitToMarkers({ maxZoom: 15, padding: 60 }); } catch (_) {}
+                try { mapRef.current.fitToMarkers({ maxZoom: 15, padding: 80 }); } catch (_) {}
             }
         };
 
@@ -426,7 +426,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     const hasCoords = properties.some(p => p.coordinates?.latitude && p.coordinates?.longitude);
 
     return (
-        <div className={containerClassName ?? 'w-full basis-full relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm'}>
+        <div className={containerClassName ?? 'w-full basis-full relative rounded-2xl border border-slate-200 bg-white shadow-sm'}>
             {/* Map canvas */}
             <div
                 ref={mapContainerRef}
@@ -472,6 +472,7 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             </div>
 
             <style>{`
+                .maplibregl-canvas { border-radius: 16px; }
                 .maplibregl-popup { z-index: 500 !important; }
                 .maplibregl-popup-content {
                     border-radius: 16px !important;
