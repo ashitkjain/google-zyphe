@@ -1342,8 +1342,8 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
       {/* ── MAP VIEW ── */}
       {viewMode === 'map' && (
         <div className="flex w-full rounded-2xl border border-slate-200 shadow-sm animate-in fade-in duration-300" style={{ minHeight: 520 }}>
-          {/* Map left */}
-          <div className="flex-[3] min-w-0 relative">
+          {/* Map — left half */}
+          <div style={{ flex: '0 0 60%', width: '60%', minWidth: 0, position: 'relative' }}>
             <PropertyMapView
               properties={displayList}
               onPropertyClick={(addr) => onPropertyClick(addr)}
@@ -1355,54 +1355,102 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
             />
           </div>
 
-          {/* Right sidebar: ranked list with score colors */}
-          <div className="flex-[2] min-w-0 flex flex-col bg-white border-l border-slate-200" style={{ height: 'calc(100dvh - 310px)', minHeight: 480 }}>
+          {/* Gallery panel — right half */}
+          <div className="flex flex-col bg-slate-50 border-l border-slate-200" style={{ flex: '0 0 40%', width: '40%', height: 'calc(100dvh - 310px)', minHeight: 480, overflow: 'hidden' }}>
+            {/* Header */}
             <div style={{
-              padding: '12px 14px', borderBottom: '1px solid #F3F4F6', flexShrink: 0,
-              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+              padding: '11px 14px', borderBottom: '1px solid #E5E7EB', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff',
             }}>
-              <span style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 16, color: '#111827', letterSpacing: '-0.01em', fontWeight: 600 }}>
-                {buyerResults ? 'Ranked by fit' : 'Results'}
+              <span style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 15, color: '#111827', fontWeight: 600 }}>
+                {buyerResults ? 'Ranked by fit' : `${displayList.length} homes`}
               </span>
-              <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600 }}>{displayList.length} visible</span>
+              <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600 }}>{displayList.length} results</span>
             </div>
+
+            {/* 2-column card grid */}
             <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 8 }}>
                 {(buyerResults ? aiSorted : displayList).map((prop, i) => {
                   const match = matchMap[String(prop.zpid)];
                   const c = match ? scoreColor(match.score) : null;
                   const img = (prop as any).imgSrc || prop.images?.[0] || '';
+                  const dom = prop.daysOnZillow ?? getDaysOnMarket(prop.listedDate, prop.daysOnZillow) ?? null;
                   return (
-                    <div key={prop.zpid} onClick={() => onPropertyClick(prop.address)} style={{
-                      display: 'flex', gap: 9, padding: 9, borderRadius: 10, cursor: 'pointer',
-                      background: '#fff', border: `1px solid ${match && c ? c.ring + '30' : '#F3F4F6'}`,
-                      transition: 'border-color 0.12s, box-shadow 0.12s',
-                    }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(15,10,31,0.08)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
+                    <div
+                      key={prop.zpid}
+                      onClick={() => onPropertyClick(prop.address)}
+                      style={{
+                        borderRadius: 10, background: '#fff', border: '1px solid #E5E7EB',
+                        overflow: 'hidden', cursor: 'pointer',
+                        transition: 'box-shadow 0.15s, border-color 0.15s',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 16px rgba(15,10,31,0.12)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#C7D2FE'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#E5E7EB'; }}
                     >
-                      <div style={{ width: 52, height: 52, borderRadius: 7, background: '#F3F4F6', flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
-                        {img && <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />}
+                      {/* Image */}
+                      <div style={{ position: 'relative', width: '100%', paddingTop: '65%', background: '#F3F4F6', overflow: 'hidden' }}>
+                        {img
+                          ? <img src={img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                          : <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}><i className="fa-regular fa-image" style={{ fontSize: 20, color: '#D1D5DB' }} /></div>
+                        }
+                        {/* DOM badge */}
+                        {dom !== null && (
+                          <div style={{
+                            position: 'absolute', top: 6, left: 6,
+                            fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 9, fontWeight: 800,
+                            padding: '2px 6px', borderRadius: 99,
+                            background: dom > 30 ? '#FEF3C7' : '#fff',
+                            color: dom > 30 ? '#D97706' : '#374151',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                          }}>{dom === 0 ? 'New' : `${dom}d`}</div>
+                        )}
+                        {/* AI score badge */}
                         {match && c && (
-                          <div style={{ position: 'absolute', top: -3, left: -3, background: '#fff', borderRadius: 99, padding: 1.5, boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
-                            <div style={{ width: 17, height: 17, borderRadius: 99, background: c.ring, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 800, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>{i + 1}</div>
-                          </div>
+                          <div style={{
+                            position: 'absolute', top: 6, right: 6,
+                            fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 9, fontWeight: 800,
+                            padding: '2px 6px', borderRadius: 99, background: c.ring, color: '#fff',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                          }}>#{i + 1} · {match.score}</div>
                         )}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
+
+                      {/* Card body */}
+                      <div style={{ padding: '8px 9px' }}>
+                        {/* Price */}
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 2 }}>
-                          {match && c && (
-                            <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10, fontWeight: 800, color: c.fg, padding: '1px 5px', background: c.bg, borderRadius: 4 }}>{match.score}</span>
-                          )}
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prop.address}</span>
-                        </div>
-                        <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, marginBottom: 3 }}>{prop.neighborhood || prop.zipcode}</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 13, color: '#059669', fontWeight: 600 }}>{fmtPrice(prop.listPrice)}</span>
-                          <span style={{ fontSize: 9.5, color: '#9CA3AF', fontWeight: 600 }}>
-                            {[prop.bedrooms && `${prop.bedrooms}bd`, prop.bathrooms && `${prop.bathrooms}ba`].filter(Boolean).join(' · ')}
+                          <span style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 14, color: '#059669', fontWeight: 600, letterSpacing: '-0.01em' }}>
+                            {fmtPrice(prop.listPrice)}
                           </span>
+                          {prop.listPrice && prop.livingArea && (
+                            <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 8.5, color: '#9CA3AF', fontWeight: 600 }}>
+                              ${Math.round(prop.listPrice / prop.livingArea)}/sf
+                            </span>
+                          )}
                         </div>
+
+                        {/* Beds · baths · sqft */}
+                        <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 9.5, color: '#374151', fontWeight: 700, marginBottom: 3 }}>
+                          {[
+                            prop.bedrooms && `${prop.bedrooms} bd`,
+                            prop.bathrooms && `${prop.bathrooms} ba`,
+                            prop.livingArea && `${prop.livingArea.toLocaleString()} sf`,
+                          ].filter(Boolean).join(' · ')}
+                        </div>
+
+                        {/* Address */}
+                        <div style={{ fontSize: 10, color: '#6B7280', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
+                          {prop.address}
+                        </div>
+
+                        {/* Neighborhood */}
+                        {prop.neighborhood && (
+                          <div style={{ display: 'inline-block', fontSize: 8.5, color: '#059669', fontWeight: 700, background: '#F0FDF4', padding: '1px 5px', borderRadius: 4 }}>
+                            {prop.neighborhood}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1414,6 +1462,7 @@ export const BrowseResultsPanel: React.FC<BrowseResultsPanelProps> = ({
       )}
 
       {/* ── AI VERDICT VIEW ── */}
+
       {viewMode === 'verdict' && buyerResults && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-400" style={{ paddingBottom: 80 }}>
           {/* Hero */}

@@ -202,6 +202,8 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     // Only auto-fit the map viewport once per city load.
     // Filter changes (price, beds, etc.) must NOT re-zoom the map.
     const hasFitRef = useRef(false);
+    // Always reflects the latest selectedCity so the init effect can read it without re-running.
+    const selectedCityRef = useRef(selectedCity);
 
     // Stable ref so zoomend/moveend always call the latest version of the update function.
     // Re-assigned whenever properties/matchMap change (inside the markers effect).
@@ -254,7 +256,36 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
         requestAnimationFrame(() => {
             if (mapRef.current) { try { mapRef.current.resize(); } catch (_) {} }
         });
-        map.once('load', () => { try { map.resize(); } catch (_) {} });
+
+        // Apply the boundary for the initial city as soon as the map loads.
+        // This handles the Browse flow where selectedCity is already set when the map mounts,
+        // preventing a race between the boundary effect and the map 'load' event.
+        map.once('load', () => {
+            try { map.resize(); } catch (_) {}
+            const city = selectedCityRef.current;
+            if (city && mapRef.current) {
+                fetchCityBoundary(city).then(boundary => {
+                    const m = mapRef.current;
+                    if (!m) return;
+                    try {
+                        try { if (m.getLayer('city-boundary-fill'))   m.removeLayer('city-boundary-fill');   } catch (_) {}
+                        try { if (m.getLayer('city-boundary-stroke')) m.removeLayer('city-boundary-stroke'); } catch (_) {}
+                        try { if (m.getSource('city-boundary'))       m.removeSource('city-boundary');       } catch (_) {}
+                        if (boundary) {
+                            m.addSource('city-boundary', { type: 'geojson', data: boundary });
+                            m.addLayer({ id: 'city-boundary-fill', type: 'fill', source: 'city-boundary', paint: { 'fill-color': '#4f46e5', 'fill-opacity': 0.12 } });
+                            m.addLayer({ id: 'city-boundary-stroke', type: 'line', source: 'city-boundary', paint: { 'line-color': '#4f46e5', 'line-width': 3, 'line-opacity': 0.7 } });
+                            if (boundary.bbox) {
+                                const [s, n, w, e] = boundary.bbox.map(Number);
+                                m.fitBounds([w, s, e, n], { padding: 40, duration: 1500, essential: true });
+                            }
+                        }
+                    } catch (err) {
+                        console.error('[Boundary] init-time addLayer failed:', err);
+                    }
+                }).catch(() => {});
+            }
+        });
 
         // Re-evaluate dot vs price badge whenever the user zooms or pans.
         map.on('zoomend', () => updateStylesRef.current());
@@ -298,9 +329,14 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Update map center and draw city boundary when city changes
+    // Keep selectedCityRef in sync so the init effect can read the latest value.
+    useEffect(() => { selectedCityRef.current = selectedCity; }, [selectedCity]);
+
+    // Update map center and draw city boundary when city changes (handles city switches after mount).
     useEffect(() => {
         if (!selectedCity) return;
+        // If the map isn't initialized yet, the init effect will handle it via selectedCityRef.
+        if (!mapRef.current) return;
         const city = selectedCity;
 
         function applyBoundary(map: any, boundary: any) {

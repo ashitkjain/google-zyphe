@@ -161,6 +161,8 @@ async function runSmokeTest(zpid) {
         { label: 'Environmental (Solar/AQI)', pass: !!(env.solarData || env.airQuality) },
         { label: 'AI Visual (Interior)', pass: !!visual.home_interior?.overall_description },
         { label: 'AI Neighborhood', pass: !!(visual.exterior_and_neighborhood?.neighborhood_street_insights || compSnap.data()?.detailed_analysis?.location_neighborhood) },
+        { label: 'Lifestyle Insights', pass: !!(insightsSnap.exists && insightsSnap.data()?.outdoor) },
+        { label: 'Lifestyle Fit', pass: !!(fitSnap.exists && fitSnap.data()?.working_professionals) },
         { label: 'Orientation AI', pass: !!data.orientation_ai?.final_orientation }
     ];
 
