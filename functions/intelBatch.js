@@ -10,9 +10,22 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { _enrichProperty, _enrichEnvironmentalData } = require('./shared/propertyUtils');
 
-const INTEL_CONCURRENCY = 5; // Increased to 5 as requested
-const MODEL_NAME = 'gemini-2.5-flash'; 
+const INTEL_CONCURRENCY = 20; // Parallel processing for Gemini scaling
+const MODEL_NAME = 'gemini-2.5-flash';
+
+/**
+ * Optimizes property data for AI context, removing large technical noise.
+ */
+function _optimizeProperty(prop) {
+    if (!prop) return {};
+    const {
+        images, comps, nearbyHomes, neighborhoodPlaces, google_places,
+        parcelPolygon, __cachedEnvEarly, __pipeline_timings, ...kept
+    } = prop;
+    return kept;
+}
 
 // ─── AI Pipeline Helpers ─────────────────────────────────────────────────────
 
@@ -37,61 +50,39 @@ function _isVisualComplete(visual) {
     return hasInterior && hasExterior;
 }
 
-/**
- * Ported Prompt: Visual Analysis
- */
-function _getVisualPrompt(property) {
-    return `
-You are an expert real estate agent and interior design critic. Provide a comprehensive, detailed report on the property based on visual evidence.
-Property: ${JSON.stringify(property)}
-Narrative Style: Write in a flowing, descriptive paragraph style in a compelling tone. Avoid bullet points.
-Return a single JSON object matching this schema:
-{
-  "report_title": "string",
-  "home_interior": {
-    "overall_description": "Natural, emotionally resonant narrative",
-    "design_style": { "style": "modern/transitional/etc", "reasoning": "cues" },
-    "color_and_materials": "string",
-    "lighting": "string",
-    "spatial_flow": "string",
-    "staging_and_furnishings": "string",
-    "condition_and_finish": "string"
-  },
-  "room_highlights": [{ "room_name": "Kitchen", "description": "2-4 sentences", "potential_improvements": "string" }],
-  "exterior_and_neighborhood": {
-    "exterior_and_lot_appeal": { "architecture_style": "string", "curb_appeal": "string", "backyard_and_patio": "string" },
-    "views_privacy_orientation": { "views": "string", "privacy": "string" },
-    "neighborhood_street_insights": "string"
-  }
-}
-`;
-}
+// Prompts are now loaded dynamically from shared files in ./prompts/
 
-/**
- * Ported Prompt: Comprehensive Analysis
- */
-function _getComprehensivePrompt(property, visual) {
-    return `
-You are an AI-powered home buying assistant. Synthesize the provided facts and visual analysis into a compelling narrative report.
-Facts: ${JSON.stringify(property)}
-Visual: ${JSON.stringify(visual)}
-Return a single JSON matching this structure:
-{
-  "summary": "150-200 word summary with bold highlights",
-  "detailed_analysis": {
-    "visual_appeal_condition": "paragraph",
-    "outdoors_view_quality": "paragraph",
-    "community_pulse": "paragraph"
-  },
-  "risks_considerations": "paragraph on location/condition/financial risks",
-  "interior_summary": { "interior_summary": "neutral facts", "rooms_summary": "neutral facts", "vibe": "objective", "objective_tags": ["tag"] },
-  "schools_summary": "3-5 sentence summary"
-}
-`;
-}
+
 
 async function _fetchImageAsBase64(url) {
     try {
+        // Optimization: If it's a Firebase Storage URL, fetch directly from the bucket
+        if (url.startsWith('gs://') || url.includes('firebasestorage.googleapis.com')) {
+            try {
+                const bucket = admin.storage().bucket();
+                let filePath = '';
+                
+                if (url.startsWith('gs://')) {
+                    // gs://bucket-name/path/to/file
+                    filePath = url.split('/').slice(3).join('/');
+                } else {
+                    // Extract encoded path: .../o/path%2Fto%2Ffile?alt=media...
+                    const pathPart = url.split('/o/')[1].split('?')[0];
+                    filePath = decodeURIComponent(pathPart);
+                }
+                
+                const [buffer] = await bucket.file(filePath).download();
+                return {
+                    inlineData: {
+                        data: buffer.toString('base64'),
+                        mimeType: 'image/jpeg'
+                    }
+                };
+            } catch (e) {
+                console.warn(`[Intel] Direct bucket download failed for ${url}, falling back to fetch:`, e.message);
+            }
+        }
+
         const response = await fetch(url);
         if (!response.ok) return null;
         const arrayBuffer = await response.arrayBuffer();
@@ -139,7 +130,7 @@ function _extractJson(text) {
     };
 
     const cleaned = text.replace(/```json\s*|```/g, '').trim();
-    
+
     // 1. Try direct & repaired
     let res = tryParse(cleaned) || tryParse(repairJson(cleaned));
     if (res) return res;
@@ -159,45 +150,85 @@ function _extractJson(text) {
     throw new Error("Could not parse AI response as JSON");
 }
 
-async function _processOneIntel(zpid, db, genAI, force = false) {
+async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
     try {
         const propRef = db.collection('properties').doc(zpid);
         const analysisRef = propRef.collection('analysis');
         const envRef = propRef.collection('environmental').doc('thirdparty_data');
 
-        const [propSnap, visualSnap, compSnap, investSnap, envSnap] = await Promise.all([
+        const [propSnap, envSnap] = await Promise.all([
             propRef.get(),
-            analysisRef.doc('visual').get(),
-            analysisRef.doc('comprehensive').get(),
-            analysisRef.doc('investment').get(),
             envRef.get()
         ]);
 
-        if (!propSnap.exists) return { status: 'failed', message: 'Property not found' };
+        if (!propSnap.exists) return { status: 'failed', message: 'Property not found. Run "Full Property Data" first.' };
         const propData = propSnap.data();
         const envData = envSnap.exists ? envSnap.data() : null;
 
+        // ─── Phase 1: Refresh Analysis Snaps ─────────────────────────────────
+        const [visualSnap, compSnap, graphSnap, investSnap, assetsSnap, insightsSnap, fitSnap] = await Promise.all([
+            analysisRef.doc('visual').get(),
+            analysisRef.doc('comprehensive').get(),
+            analysisRef.doc('context_graph').get(),
+            analysisRef.doc('investment').get(),
+            analysisRef.doc('assets').get(),
+            analysisRef.doc('lifestyle_insights').get(),
+            analysisRef.doc('lifestyle_fit').get()
+        ]);
+
         // 1. Data Refresh (Healing)
         const needsEnvRefresh = !envData || _isStale(envData.lastUpdated);
-        const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data().lastUpdated);
+        const needsPropRefresh = !propData.apn || !propData.taxSqft;
 
-        console.log(`[Intel] Processing ${zpid}: needsEnv=${needsEnvRefresh}, needsVisual=${needsVisualRefresh}`);
+        console.log(`[Intel] Processing ${zpid}: needsEnv=${needsEnvRefresh}, needsProp=${needsPropRefresh}`);
+
+        if (needsEnvRefresh) {
+            console.log(`[Intel] Healing Environmental Data for ${zpid}...`);
+            await _enrichEnvironmentalData(zpid, propData.coordinates?.latitude, propData.coordinates?.longitude, apiKeys.maps_key, envRef);
+        }
+
+        if (needsPropRefresh) {
+            console.log(`[Intel] Healing Property Data (Tax/APN) for ${zpid}...`);
+            await _enrichProperty(zpid, db, apiKeys);
+        }
+
+        const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data().lastUpdated);
 
         let visualData = visualSnap.exists ? visualSnap.data() : null;
 
         // 2. AI Visual Pass
         if (needsVisualRefresh) {
             console.log(`[Intel] Running Visual Pass for ${zpid}...`);
-            const imageUrls = propData.images || [];
-            if (imageUrls.length > 0) {
-                // Limit to first 15 images for background performance
-                const targets = imageUrls.slice(0, 15);
-                const imageParts = await Promise.all(targets.map(url => _fetchImageAsBase64(url)));
-                const validParts = imageParts.filter(p => p !== null);
+            const assetData = assetsSnap.exists ? assetsSnap.data() : {};
+            const galleryImages = propData.images || [];
+
+            // Build the list of all targets: Maps first for context, then gallery
+            const contextImages = [
+                { url: assetData.streetView, label: 'Street View' },
+                { url: assetData.mapZoomIn, label: 'Close-up Parcel Map' },
+                { url: assetData.mapZoomOut, label: 'Neighborhood Context Map' },
+                { url: assetData.satelliteImageUrl, label: 'Satellite/Radar Imagery' }
+            ].filter(img => !!img.url);
+
+            const galleryTargets = galleryImages.map(url => ({ url, label: 'Gallery Photo' }));
+            const allTargets = [...contextImages, ...galleryTargets];
+
+            if (allTargets.length > 0) {
+                const imageParts = await Promise.all(allTargets.map(async (target) => {
+                    const base64 = await _fetchImageAsBase64(target.url);
+                    if (!base64) return null;
+                    return [
+                        { text: `--- ${target.label} ---` },
+                        base64
+                    ];
+                }));
+
+                const validParts = imageParts.filter(p => p !== null).flat();
 
                 if (validParts.length > 0) {
+                    const { getPropertyImagesPrompt } = await import('./prompts/property/propertyImages.js');
                     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-                    const prompt = _getVisualPrompt(propData);
+                    const prompt = getPropertyImagesPrompt(propData);
 
                     const result = await model.generateContent([
                         { text: prompt },
@@ -205,7 +236,12 @@ async function _processOneIntel(zpid, db, genAI, force = false) {
                     ]);
 
                     const text = result.response.text();
-                    visualData = _extractJson(text);
+                    try {
+                        visualData = _extractJson(text);
+                    } catch (err) {
+                        console.error(`[Intel JSON Error] Visual Pass malformed for ${zpid}. Raw text:`, text);
+                        throw err;
+                    }
                     await analysisRef.doc('visual').set({
                         ...visualData,
                         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
@@ -215,18 +251,120 @@ async function _processOneIntel(zpid, db, genAI, force = false) {
             }
         }
 
-        // 3. Comprehensive Pass (Synthesis)
+        // 3. Parallel Pass (Comprehensive + Lifestyle Insights + Lifestyle Fit)
+        // We run these in parallel after Visual Pass is complete.
+        const tasks = [];
+
+        // 3a. Comprehensive Synthesis
         if (force || !compSnap.exists || _isStale(compSnap.data().lastUpdated)) {
-            console.log(`[Intel] Running Comprehensive Pass for ${zpid}...`);
+            tasks.push((async () => {
+                console.log(`[Intel] Running Comprehensive Pass for ${zpid}...`);
+                const { getComprehensiveAnalysisPrompt } = await import('./prompts/property/comprehensiveAnalysis.js');
+                const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+                const prompt = getComprehensiveAnalysisPrompt(propData, visualData || {});
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                try {
+                    const compData = _extractJson(text);
+                    await analysisRef.doc('comprehensive').set({
+                        ...compData,
+                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (err) {
+                    console.error(`[Intel JSON Error] Comprehensive Pass malformed for ${zpid}. Raw text:`, text);
+                }
+            })());
+        }
+
+        // 3b. Lifestyle Insights (Neighborhood focus)
+        if (force || !insightsSnap.exists || _isStale(insightsSnap.data().lastUpdated)) {
+            tasks.push((async () => {
+                console.log(`[Intel] Running Lifestyle Insights for ${zpid}...`);
+                const { getLifestyleInsightsPrompt } = await import('./prompts/property/lifestyleInsights.js');
+                const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+                const prompt = getLifestyleInsightsPrompt(propData);
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                try {
+                    const insightsData = _extractJson(text);
+                    await analysisRef.doc('lifestyle_insights').set({
+                        ...insightsData,
+                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (err) {
+                    console.error(`[Intel JSON Error] Lifestyle Insights malformed for ${zpid}. Raw text:`, text);
+                }
+            })());
+        }
+
+        // 3c. Lifestyle Fit (Property focus)
+        if (force || !fitSnap.exists || _isStale(fitSnap.data().lastUpdated)) {
+            tasks.push((async () => {
+                console.log(`[Intel] Running Lifestyle Fit for ${zpid}...`);
+                const { getLifestyleFitPrompt } = await import('./prompts/property/lifestyleFit.js');
+                const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+                // Note: Running in parallel means we don't have the fresh compData yet,
+                // but we pass visualData and property basics which is the core of the fit.
+                const prompt = getLifestyleFitPrompt(propData, visualData || {}, (envData?.streetViewAnalysis || null));
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                try {
+                    const fitData = _extractJson(text);
+                    await analysisRef.doc('lifestyle_fit').set({
+                        ...fitData,
+                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (err) {
+                    console.error(`[Intel JSON Error] Lifestyle Fit malformed for ${zpid}. Raw text:`, text);
+                }
+            })());
+        }
+
+        if (tasks.length > 0) {
+            await Promise.all(tasks);
+        }
+
+        const compData = (await analysisRef.doc('comprehensive').get()).data();
+
+        // 4. Context Graph Pass
+        if (force || !graphSnap.exists || _isStale(graphSnap.data().lastUpdated)) {
+            console.log(`[Intel] Running Context Graph Pass for ${zpid}...`);
+            const { getContextGraphExtractionPrompt, buildGraphExtractionContext } = await import('./prompts/property/contextGraphExtraction.js');
             const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-            const prompt = _getComprehensivePrompt(propData, visualData || {});
+            const optProp = _optimizeProperty(propData);
+            const context = buildGraphExtractionContext(optProp, visualData || {}, compData || {});
+            const prompt = getContextGraphExtractionPrompt(context, []);
             const result = await model.generateContent(prompt);
             const text = result.response.text();
-            const compData = _extractJson(text);
-            await analysisRef.doc('comprehensive').set({
-                ...compData,
-                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-            });
+            try {
+                const graphData = _extractJson(text);
+                await analysisRef.doc('context_graph').set({
+                    ...graphData,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {
+                console.error(`[Intel JSON Error] Context Graph Pass malformed for ${zpid}. Raw text:`, text);
+            }
+        }
+
+        // 5. Investment Pass
+        if (force || !investSnap.exists || _isStale(investSnap.data().lastUpdated)) {
+            console.log(`[Intel] Running Investment Pass for ${zpid}...`);
+            const { getInvestmentResearchPrompt } = await import('./prompts/property/investmentResearch.js');
+            const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+            const optProp = _optimizeProperty(propData);
+            const prompt = getInvestmentResearchPrompt(optProp);
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+            try {
+                const investmentData = _extractJson(text);
+                await analysisRef.doc('investment').set({
+                    ...investmentData,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {
+                console.error(`[Intel JSON Error] Investment Pass malformed for ${zpid}. Raw text:`, text);
+            }
         }
 
         return {
@@ -261,14 +399,21 @@ exports.runFullIntelBatchOnCreate = functions
         // Fetch API Keys
         const keysSnap = await db.collection('app_config').doc('api_keys').get();
         const keys = keysSnap.exists ? keysSnap.data() : {};
-        const apiKey = keys.gemini_key || process.env.GEMINI_API_KEY;
+        const apiKeys = {
+            rapidapi_key: keys.rapidapi_key || process.env.RAPIDAPI_KEY,
+            rapidapi_host: keys.rapidapi_host || 'us-housing-market-data1.p.rapidapi.com',
+            radar_key: keys.radar_key || process.env.RADAR_KEY,
+            gemini_key: keys.gemini_key || process.env.GEMINI_API_KEY,
+            maps_key: keys.google_maps_key || keys.maps_key || process.env.MAPS_API_KEY,
+            howloud_key: keys.howloud_key || process.env.HOWLOUD_KEY
+        };
 
-        if (!apiKey) {
+        if (!apiKeys.gemini_key) {
             console.error('Missing Gemini API Key');
             return snap.ref.update({ status: 'failed', error: 'Missing API Key' });
         }
 
-        const genAI = new GoogleGenerativeAI(apiKey);
+        const genAI = new GoogleGenerativeAI(apiKeys.gemini_key);
         await snap.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
         // 1. Prioritization & Resumability Check
@@ -291,7 +436,7 @@ exports.runFullIntelBatchOnCreate = functions
                 needsWorkMap.set(zpid, isNew ? 2 : (isStale ? 1 : 0));
             });
             sortedZpids.sort((a, b) => needsWorkMap.get(b) - needsWorkMap.get(a));
-            console.log(`[Intel Batch] Prioritization complete.`);
+            console.log(`[Intel Batch] Prioritization complete. Processing ${sortedZpids.length} properties.`);
         } catch (e) {
             console.warn('[Intel Batch] Prioritization failed:', e.message);
         }
@@ -299,20 +444,21 @@ exports.runFullIntelBatchOnCreate = functions
         // 2. Process in waves
         for (let i = 0; i < sortedZpids.length; i += INTEL_CONCURRENCY) {
             const chunk = sortedZpids.slice(i, i + INTEL_CONCURRENCY);
-            
+
             // Resume Check: Filter out zpids that were already processed in a previous (timed-out) run
             const workChunk = chunk.filter(zpid => !results[zpid]);
-            
+
             if (workChunk.length === 0) {
                 // If the entire chunk is already done, just update the total 'done' count if it's missing from the snap
-                continue; 
+                continue;
             }
 
-            console.log(`[Intel Batch] Processing chunk: ${workChunk.join(', ')}`);
+            console.log(`[Intel Batch] Processing chunk of ${workChunk.length} properties...`);
             const batchResults = await Promise.allSettled(workChunk.map(async (zpid) => {
-                const res = await _processOneIntel(zpid, db, genAI, !!jobData.force);
+                const res = await _processOneIntel(zpid, db, genAI, !!jobData.force, apiKeys);
                 return { zpid, ...res };
             }));
+
 
             batchResults.forEach(res => {
                 if (res.status === 'fulfilled') {
@@ -333,10 +479,10 @@ exports.runFullIntelBatchOnCreate = functions
             const newFailed = currentResults.filter(r => r.status === 'failed').length;
 
             // Update progress in Firestore
-            await snap.ref.update({ 
-                done: newDone, 
-                failed: newFailed, 
-                results 
+            await snap.ref.update({
+                done: newDone,
+                failed: newFailed,
+                results
             });
 
             // 3. 2-Second Gap between chunks
@@ -352,3 +498,5 @@ exports.runFullIntelBatchOnCreate = functions
 
         return null;
     });
+
+exports._processOneIntel = _processOneIntel;

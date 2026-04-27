@@ -42,7 +42,7 @@ export const securePropertyAssets = async (
     // For maps, we will proceed to the specific securing block to allow physical verification.
     const cached = await getPropertyAssetsFromCloud(zpid);
     if (cached && cached.images?.length > 0) {
-        const allStored = cached.images.every(url => url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE'));
+        const allStored = cached.images.every(url => url.startsWith('https://firebasestorage') || url.includes('FAILED_TO_SECURE'));
         // If images are secure, we still proceed to check maps if they are provided,
         // but if no maps were provided and images are done, we can return.
         if (allStored && !maps?.zoomIn && !maps?.zoomOut && !maps?.streetView) return cached;
@@ -97,20 +97,20 @@ export const securePropertyAssets = async (
         const { ref, getDownloadURL } = await import('firebase/storage');
         const { storage } = await import('./firebase/config');
         if (storage) {
-            if (!persistentStreetView || !persistentStreetView.includes('firebasestorage')) {
+            if (!persistentStreetView || !persistentStreetView.startsWith('https://firebasestorage')) {
                 const svRef = ref(storage, `properties/${zpid}/maps/street_view.jpg`);
                 await getDownloadURL(svRef).then(url => {
                     persistentStreetView = url;
                     console.log(`[AssetService] Recovered existing street view from storage for ${zpid}`);
                 }).catch(() => {});
             }
-            if (!persistentMapZoomIn || !persistentMapZoomIn.includes('firebasestorage')) {
+            if (!persistentMapZoomIn || !persistentMapZoomIn.startsWith('https://firebasestorage')) {
                 const ziRef = ref(storage, `properties/${zpid}/maps/zoom_in.png`);
                 await getDownloadURL(ziRef).then(url => {
                     persistentMapZoomIn = url;
                 }).catch(() => {});
             }
-            if (!persistentMapZoomOut || !persistentMapZoomOut.includes('firebasestorage')) {
+            if (!persistentMapZoomOut || !persistentMapZoomOut.startsWith('https://firebasestorage')) {
                 const zoRef = ref(storage, `properties/${zpid}/maps/location_context.png`);
                 await getDownloadURL(zoRef).then(url => {
                     persistentMapZoomOut = url;
@@ -134,8 +134,8 @@ export const securePropertyAssets = async (
 
         const chunkPromises = chunk.map(async (url, chunkIndex) => {
             const index = i + chunkIndex;
-            // Skip if already in firebase storage or already a failure placeholder
-            if (url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE')) return url;
+            // Skip if already in firebase storage (proper HTTPS URL) or already a failure placeholder
+            if (url.startsWith('https://firebasestorage') || url.includes('FAILED_TO_SECURE')) return url;
 
             return await uploadWithRetry(
                 url,

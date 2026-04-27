@@ -176,10 +176,10 @@ ${propertyBlocks}
 - Use the CITY & AREA CONTEXT section for city-wide facts like commute times, school quality, and walkability — these apply equally to all properties.
 - You MAY use your general knowledge to supplement further if needed.
 - However, do NOT fabricate property-specific details that are not in the context data. If the context data says nothing about a property's kitchen, do not assume it has a modern kitchen.
-- match_writeup: a SHORT paragraph (3-5 sentences) that naturally blends what this property offers and where it falls short for THIS buyer. Use ✅ inline before each pro and ❌ inline before each con to make them scannable. DO NOT list items separately — weave them into flowing prose. Be specific.
-  IMPORTANT: Include at least ONE observation about persona/lifestyle fit using a 👤 marker, drawn from the buyer story and persona context. For example: "👤 As active empty nesters, this single-story layout with walking trails nearby aligns perfectly with their daily routine" or "👤 The 45-min commute to Apple Park may not work for the buyer's 3-day office schedule."
-  Example: "✅ This single-story home perfectly matches the buyer's age-in-place needs, with ✅ an open floor plan and ✅ proximity to medical facilities (1.4mi). 👤 As retired empty nesters who walk daily, the nearby trails and low-maintenance lot are ideal. However, ❌ the standard kitchen lacks the modern finishes they want, ❌ there's no covered patio, and ❌ moderate street noise may not suit their preference for a quiet home."
-  Cover ALL relevant pros and cons — do not duplicate information. Every fact should appear exactly once.
+- pros: array of 3–5 concrete strings, each one specific why-it-fits point for THIS buyer. No ✅ prefix needed — just the text. Example: ["Single-story layout matches age-in-place needs", "Proximity to medical facilities (1.4mi)", "Low-maintenance lot suits retired lifestyle"]
+- cons: array of 2–3 concrete strings, each one specific where-it-falls-short point. Example: ["Standard kitchen lacks modern finishes buyer wants", "No covered patio", "Moderate street noise may not suit quiet preference"]
+- persona_note: ONE sentence about lifestyle/persona fit drawn from the buyer story. Example: "As retired empty nesters who walk daily, the nearby trails align perfectly with their routine."
+- match_writeup: a SHORT paragraph (2-3 sentences) synthesizing the overall fit — tone, feel, and decision-framing. Do NOT repeat the pros/cons verbatim. This is the "editorial voice" summary. Be specific and conversational.
 - score: 0-100 match quality
 - Neutral tone. Return ALL ${summaries.length} properties.`;
 };

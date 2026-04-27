@@ -45,10 +45,11 @@ import { ORIENTATION_OPTIONS, matchesOrientation } from '../../constants/orienta
 
 const BROWSE_CITIES = ['Pleasanton', 'Dublin'] as const;
 
-export default function ExplorePage({ searchBar, pendingBrowse, onClearPendingBrowse }: {
+export default function ExplorePage({ searchBar, pendingBrowse, onClearPendingBrowse, onPropertyClick }: {
     searchBar: React.ReactNode;
     pendingBrowse?: { city: string; zip?: string; viewMode?: string } | null;
     onClearPendingBrowse?: () => void;
+    onPropertyClick: (address: string) => void;
 }) {
     const initialTab = (searchBar as any)?.props?.activeTab || 'search';
     const [currentTab, setCurrentTab] = useState<'search' | 'story' | 'browse'>(initialTab);
@@ -100,11 +101,7 @@ export default function ExplorePage({ searchBar, pendingBrowse, onClearPendingBr
 
             <div className="px-6 pb-2 space-y-2">
                 <BrowseByCitySection
-                    onPropertyClick={(addr) => {
-                        if (typeof (setViewMode as any) === 'function') {
-                            (setViewMode as any)('explore', addr);
-                        }
-                    }}
+                    onPropertyClick={onPropertyClick}
                     onMyStory={setShowMyStory}
                     activePath={currentTab}
                     onPathChange={setCurrentTab}
@@ -403,7 +400,7 @@ const BrowseByCitySection: React.FC<{
     }, [activePath]);
 
     // View, sort, filter, pagination state
-    const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table' | 'map'>('gallery');
+    const [viewMode, setViewModeLocal] = useState<'zypheai' | 'gallery' | 'table' | 'map' | 'verdict'>('gallery');
     const [sortField, setSortField] = useState<'address' | 'listPrice' | 'bedrooms' | 'bathrooms' | 'livingArea' | 'lotSize' | 'homeType' | 'neighborhood' | 'daysOnZillow'>('address');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [filterMinPrice, setFilterMinPrice] = useState('');
@@ -963,9 +960,12 @@ const BrowseByCitySection: React.FC<{
                             properties: {
                                 zpid: { type: Type.STRING },
                                 score: { type: Type.NUMBER },
+                                pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                persona_note: { type: Type.STRING },
                                 match_writeup: { type: Type.STRING },
                             },
-                            required: ['zpid', 'score', 'match_writeup']
+                            required: ['zpid', 'score', 'pros', 'cons', 'match_writeup']
                         }
                     }
                 },
@@ -989,10 +989,10 @@ const BrowseByCitySection: React.FC<{
                 });
 
                 const prompt = buildMatchingPrompt(buyerStory, extracted, summaries, buyerPersonaRef.current);
-                return executeGeminiRequest<{ matches: { zpid: string; score: number; match_writeup: string }[] }>({
+                return executeGeminiRequest<{ matches: { zpid: string; score: number; pros: string[]; cons: string[]; persona_note?: string; match_writeup: string }[] }>({
                     model: FLASH_MODEL,
                     contents: prompt,
-                    config: { temperature: 0.3, maxOutputTokens: 4096 },
+                    config: { temperature: 0.3, maxOutputTokens: 8192, thinkingConfig: { thinkingBudget: 0 } },
                     userId: auth.currentUser?.uid || 'anon',
                     promptFilename: 'buyerStorySearch',
                     extractResultJson: true,
@@ -1007,9 +1007,12 @@ const BrowseByCitySection: React.FC<{
                 .flatMap(r => r.data?.matches || [])
                 .map(m => {
                     const candidate = graphsArr.find(g => String(g.zpid) === String(m.zpid));
-                    return { 
-                        ...m, 
+                    return {
+                        ...m,
                         zpid: String(m.zpid),
+                        pros: m.pros || [],
+                        cons: m.cons || [],
+                        personaNote: m.persona_note || '',
                         matchWriteup: m.match_writeup || (m as any).matchWriteup,
                         factors: candidate?.factors || []
                     };
@@ -1023,7 +1026,7 @@ const BrowseByCitySection: React.FC<{
             if (allMatches.length > 0) {
                 setBuyerResults(allMatches);
                 setSliderIdx(0);
-                if (viewMode !== 'zypheai') setViewModeLocal('zypheai');
+                setViewModeLocal('gallery');
             } else {
                 setBuyerError("No strong AI matches found. Try refining your story.");
             }
@@ -1396,14 +1399,6 @@ const BrowseByCitySection: React.FC<{
                             >
                                 <i className="fa-solid fa-grid-2 text-sm"></i> Gallery
                             </button>
-                            {activePath === 'story' && buyerResults && (
-                                <button
-                                    onClick={() => setViewModeLocal('zypheai')}
-                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'zypheai' ? 'bg-indigo-500 text-white shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                                >
-                                    <i className="fa-solid fa-sparkles text-sm"></i> AI List
-                                </button>
-                            )}
                             <button
                                 onClick={() => setViewModeLocal('table')}
                                 className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'table' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
@@ -1412,10 +1407,19 @@ const BrowseByCitySection: React.FC<{
                             </button>
                             <button
                                 onClick={() => { setViewModeLocal('map'); setSortField('daysOnZillow'); setSortDir('asc'); setPage(1); }}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'map' ? 'bg-emerald-500 text-white shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'map' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
                             >
                                 <i className="fa-solid fa-map-location-dot text-sm"></i> Map
                             </button>
+                            {activePath === 'story' && buyerResults && (
+                                <button
+                                    onClick={() => setViewModeLocal('verdict')}
+                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'verdict' ? 'shadow-xl scale-105' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                                    style={viewMode === 'verdict' ? { background: 'linear-gradient(135deg, #a78bfa, #4F46E5)', color: '#fff' } : {}}
+                                >
+                                    <i className="fa-solid fa-sparkles text-sm"></i> AI Verdict
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -1688,6 +1692,7 @@ const BrowseByCitySection: React.FC<{
                         buyerSearching={buyerSearching}
                         buyerResults={buyerResults}
                         buyerExtracted={buyerExtracted}
+                        buyerStory={buyerStory}
                         buyerError={buyerError}
                         showTimings={showTimings}
                         activePath={activePath}

@@ -68,6 +68,7 @@ export interface ContextGraphExtractionResult {
         topConcerns: string[];
         propertyHighlight: string;
     };
+    buyerDna?: Record<string, { score: number; summary: string }>;
     keyMetrics?: any;
     extractedAt: string;
 }

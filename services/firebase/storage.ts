@@ -129,16 +129,42 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
 
     try {
         const storageRef = ref(storage, path);
+        
+        // 1. Check if file already exists to avoid redundant downloads/uploads
+        try {
+            const { getMetadata } = await import('firebase/storage');
+            await getMetadata(storageRef);
+            const existingUrl = await getDownloadURL(storageRef);
+            console.log(`[Storage] File already exists at ${path}, skipping download.`);
+            if (logId) {
+                updateAPICall(logId, {
+                    status: 'completed',
+                    response_time_ms: Date.now() - start,
+                    note: 'Skipped: File already exists'
+                });
+            }
+            return existingUrl;
+        } catch (e: any) {
+            // storage/object-not-found is expected if it hasn't been secured yet
+            if (e.code !== 'storage/object-not-found') {
+                console.warn(`[Storage] Metadata check failed for ${path}:`, e.message);
+            }
+        }
 
-        // Upload directly — the caller (runImageOnlyPipeline) already checks whether
-        // the property has secured images before calling this, so no storage pre-check needed.
-
-        // Fetch the image (with proxy fallback if direct fetch fails due to CORS/etc)
+        // 2. Fetch the image (with gs:// support and proxy fallback)
         let blob: Blob;
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Status ${response.status}`);
-            blob = await response.blob();
+            if (url.startsWith('gs://')) {
+                // Fetch directly from storage bucket if it's a gs:// URL
+                const { getBytes } = await import('firebase/storage');
+                const sourceRef = ref(storage, url);
+                const buffer = await getBytes(sourceRef);
+                blob = new Blob([buffer]);
+            } else {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Status ${response.status}`);
+                blob = await response.blob();
+            }
         } catch (e: any) {
             console.log(`[Storage] Direct fetch failed for ${url}: ${e.message}. Attempting proxy...`);
             try {

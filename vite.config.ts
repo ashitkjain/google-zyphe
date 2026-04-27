@@ -56,7 +56,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-      }
+      },
+      extensions: ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.json'],
     },
     optimizeDeps: {
       include: ['@google/genai']

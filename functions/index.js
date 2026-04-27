@@ -3,6 +3,7 @@ const admin = require("firebase-admin");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { DocumentProcessorServiceClient } = require("@google-cloud/documentai").v1;
 admin.initializeApp();
+admin.firestore().settings({ ignoreUndefinedProperties: true });
 
 // ─── Lazy key loader from Firestore (app_config/api_keys) ─────────────────────
 let _cachedKeys = null;

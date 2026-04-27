@@ -118,6 +118,7 @@ const CategorySection: React.FC<{ categoryKey: string; factors: ExtractedFactor[
 export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) => {
     const [activeFilter, setActiveFilter] = useState<string>('all');
     const [showJson, setShowJson] = useState(false);
+    const [activeTab, setActiveTab] = useState<'factors' | 'buyerDna'>('factors');
 
     if (!data && !loading) {
         return (
@@ -253,51 +254,110 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                 </div>
             )}
 
-            {/* Category Filter */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <button
-                    onClick={() => setActiveFilter('all')}
-                    className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap ${activeFilter === 'all'
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
+                    onClick={() => setActiveTab('factors')}
+                    className={`px-4 py-2 text-sm font-black transition-all border-b-2 ${activeTab === 'factors' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                 >
-                    All Factors
+                    <i className="fa-solid fa-list mr-2"></i> Granular Factors
                 </button>
-                {Object.entries(CATEGORY_MAP).map(([key, cat]) => (
-                    <button
-                        key={key}
-                        onClick={() => setActiveFilter(key)}
-                        className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeFilter === key
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                            }`}
-                    >
-                        <i className={`fa-solid ${cat.icon} text-[10px]`}></i>
-                        {cat.label}
-                    </button>
-                ))}
+                <button
+                    onClick={() => setActiveTab('buyerDna')}
+                    className={`px-4 py-2 text-sm font-black transition-all border-b-2 ${activeTab === 'buyerDna' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    <i className="fa-solid fa-dna mr-2"></i> Buyer DNA
+                </button>
             </div>
 
-            {/* Factors Table */}
-            <table className="w-full border-collapse bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <thead>
-                    <tr className="bg-slate-100 border-b border-slate-200">
-                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[20%]">Factor</th>
-                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[45%]">Insight</th>
-                        <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[35%]">Semantic Tags</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filteredCategories.map(catKey => (
-                        <CategorySection
-                            key={catKey}
-                            categoryKey={catKey}
-                            factors={grouped[catKey] || []}
-                        />
-                    ))}
-                </tbody>
-            </table>
+            {activeTab === 'factors' ? (
+                <>
+                    {/* Category Filter */}
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                        <button
+                            onClick={() => setActiveFilter('all')}
+                            className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap ${activeFilter === 'all'
+                                ? 'bg-indigo-600 text-white shadow-md'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                        >
+                            All Factors
+                        </button>
+                        {Object.entries(CATEGORY_MAP).map(([key, cat]) => (
+                            <button
+                                key={key}
+                                onClick={() => setActiveFilter(key)}
+                                className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeFilter === key
+                                    ? 'bg-indigo-600 text-white shadow-md'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <i className={`fa-solid ${cat.icon} text-[10px]`}></i>
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Factors Table */}
+                    <table className="w-full border-collapse bg-white border border-slate-200 rounded-xl overflow-hidden">
+                        <thead>
+                            <tr className="bg-slate-100 border-b border-slate-200">
+                                <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[20%]">Factor</th>
+                                <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[45%]">Insight</th>
+                                <th className="py-2.5 px-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[35%]">Semantic Tags</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredCategories.map(catKey => (
+                                <CategorySection
+                                    key={catKey}
+                                    categoryKey={catKey}
+                                    factors={grouped[catKey] || []}
+                                />
+                            ))}
+                        </tbody>
+                    </table>
+                </>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {data.buyerDna ? (
+                        Object.entries(data.buyerDna).map(([key, info]: [string, any]) => {
+                            const score = info.score || 0;
+                            // Color logic based on score
+                            let color = 'bg-slate-100 text-slate-600 border-slate-200';
+                            let barColor = 'bg-slate-300';
+                            if (score >= 90) { color = 'bg-emerald-50 text-emerald-700 border-emerald-200'; barColor = 'bg-emerald-500'; }
+                            else if (score >= 70) { color = 'bg-cyan-50 text-cyan-700 border-cyan-200'; barColor = 'bg-cyan-500'; }
+                            else if (score >= 50) { color = 'bg-indigo-50 text-indigo-700 border-indigo-200'; barColor = 'bg-indigo-400'; }
+                            else if (score >= 30) { color = 'bg-amber-50 text-amber-700 border-amber-200'; barColor = 'bg-amber-400'; }
+                            else { color = 'bg-rose-50 text-rose-700 border-rose-200'; barColor = 'bg-rose-500'; }
+
+                            // Format key (e.g. "turnkeyVsProject" -> "Turnkey Vs Project")
+                            const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+
+                            return (
+                                <div key={key} className={`border rounded-xl p-4 flex flex-col justify-between ${color}`}>
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className="text-[11px] font-black uppercase tracking-wider">{displayKey}</h4>
+                                            <span className="text-sm font-black">{score}</span>
+                                        </div>
+                                        <div className="w-full bg-black/5 rounded-full h-1.5 mb-3">
+                                            <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${score}%` }}></div>
+                                        </div>
+                                        <p className="text-xs leading-relaxed opacity-90">{info.summary}</p>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="col-span-full py-10 flex flex-col items-center justify-center text-slate-400">
+                            <i className="fa-solid fa-dna text-3xl mb-3 text-slate-300"></i>
+                            <p>No Buyer DNA compressed data found. Run the extraction pipeline or use the Bootstrap button in City Data.</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* JSON Preview */}
             {showJson && (

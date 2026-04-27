@@ -32,6 +32,7 @@ import { getInteriorSummaryPrompt, interiorSummarySchema } from "../prompts/prop
 import { getCommuteDestinationsPrompt, commuteDestinationsSchema, CommuteDestinationsResult } from "../prompts/property/commuteDestinations";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
 import { buildCityContextGraphContext, getCityContextGraphPrompt, cityContextGraphSchema, CityContextGraphResult } from "../prompts/property/cityContextGraphExtraction";
+import { getBuyerDnaCompressionPrompt, buyerDnaCompressionSchema } from "../prompts/property/buyerDnaCompression";
 import { precomputeDataFactors } from "../utils/contextGraphPrecompute";
 import { DELETED_FACTOR_IDS, PRECOMPUTED_FACTOR_IDS } from "../constants/contextGraphFactors";
 
@@ -854,11 +855,45 @@ export const extractContextGraphFactors = async (
     t: f.tags ?? []
   })) as any[];
 
+  // 8. PASS 2: Compress the granular factors into the 16 "Buyer DNA" buckets
+  console.log(`[Context Graph] Pass 2: Compressing ${compactFactors.length} factors into 16 Buyer DNA dimensions for ${property.address}...`);
+  let buyerDna: any = null;
+  let usage = aiResult.usage;
+  try {
+    const dnaPrompt = getBuyerDnaCompressionPrompt(compactFactors);
+    const dnaResult = await executeGeminiRequest<any>({
+      model: FLASH_MODEL,
+      contents: dnaPrompt,
+      config: { temperature: 0.2, maxOutputTokens: 2048 },
+      userId,
+      zpid: property.zpid,
+      address: property.address,
+      promptFilename: "buyerDnaCompression.ts",
+      extractResultJson: true,
+      schema: buyerDnaCompressionSchema
+    });
+    buyerDna = dnaResult.data;
+    // Accumulate token usage
+    if (dnaResult.usage && usage) {
+      usage = {
+        ...usage,
+        promptTokens: (usage.promptTokens || 0) + (dnaResult.usage.promptTokens || 0),
+        candidatesTokens: (usage.candidatesTokens || 0) + (dnaResult.usage.candidatesTokens || 0),
+        totalTokens: (usage.totalTokens || 0) + (dnaResult.usage.totalTokens || 0)
+      };
+    }
+  } catch (dnaError) {
+    console.error("[Context Graph] Pass 2 (Buyer DNA Compression) Failed:", dnaError);
+    // Proceed without it so we don't crash the whole pipeline, but log the error.
+  }
+
   return {
     ...aiResult,
+    usage,
     data: {
       ...aiResult.data,
       factors: compactFactors,
+      buyerDna: buyerDna ?? undefined,
       keyMetrics,
       lastUpdated: new Date()
     }

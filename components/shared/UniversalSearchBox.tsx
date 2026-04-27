@@ -58,6 +58,8 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
         }
     };
 
+    const [showBrowseModal, setShowBrowseModal] = useState(false);
+
     const handleSelect = (addr: string) => {
         setAddress(addr);
         setShowDropdown(false);
@@ -93,10 +95,16 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                     <button
                         type="button"
                         key={tab.id}
-                        onClick={() => onTabChange?.(tab.id as any)}
+                        onClick={() => {
+                            if (tab.id === 'browse') {
+                                setShowBrowseModal(true);
+                            } else {
+                                onTabChange?.(tab.id as any);
+                            }
+                        }}
                         className={`
                             px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2
-                            ${activeTab === tab.id 
+                            ${(activeTab === tab.id && tab.id !== 'browse') 
                                 ? 'bg-white/40 text-black shadow-md' 
                                 : 'text-black/70 hover:text-black hover:bg-black/5'}
                         `}
@@ -180,25 +188,6 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                     </button>
 
                     <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                        {/* Browse Options (Specific to Browse Tab) */}
-                        {activeTab === 'browse' && (
-                            <div className="py-2">
-                                <div className="px-6 py-2">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quick Browse</span>
-                                </div>
-                                {['Pleasanton', 'Dublin'].map((city) => (
-                                    <button
-                                        key={city}
-                                        onClick={() => handleSelect(city)}
-                                        className="w-full px-6 py-3 flex items-center gap-4 hover:bg-indigo-50 text-indigo-600 transition-colors group"
-                                    >
-                                        <i className="fa-solid fa-city text-xs group-hover:scale-110 transition-transform"></i>
-                                        <span className="text-sm font-bold">{city}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
                         {/* Instant Matches (Autocomplete) */}
                         {suggestions.length > 0 && (
                             <div className="py-2">
@@ -255,6 +244,37 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                                 ))}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Browse Modal */}
+            {showBrowseModal && (
+                <div className="fixed inset-0 z-[200] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowBrowseModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-black text-slate-800">Browse by City</h3>
+                            <button onClick={() => setShowBrowseModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors">
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            {['Pleasanton', 'Dublin'].map((city) => (
+                                <button
+                                    key={city}
+                                    onClick={() => {
+                                        setShowBrowseModal(false);
+                                        performSearch(city);
+                                    }}
+                                    className="flex flex-col items-center gap-3 p-5 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group shadow-sm hover:shadow-md"
+                                >
+                                    <div className="w-14 h-14 rounded-full bg-slate-100 group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-colors shadow-sm group-hover:shadow">
+                                        <i className="fa-solid fa-city text-2xl"></i>
+                                    </div>
+                                    <span className="font-bold text-slate-700 group-hover:text-indigo-700">{city}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}

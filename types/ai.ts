@@ -285,6 +285,7 @@ export interface ContextGraphExtractionResult {
         topConcerns: string[];
         buyerProfile: string;
     };
+    buyerDna?: Record<string, { score: number; summary: string }>;
 }
 
 // Removed InvestmentResearchResult aggregation to avoid redundancy

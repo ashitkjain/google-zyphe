@@ -101,6 +101,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [forceGraphRegen, setForceGraphRegen] = useState(false);
     const [cityGraphRunning, setCityGraphRunning] = useState(false);
 
+    // Bootstrap Buyer DNA
+    const [dnaBootstrapRunning, setDnaBootstrapRunning] = useState(false);
+    const [dnaBootstrapProgress, setDnaBootstrapProgress] = useState<{ done: number; skipped: number; failed: number; total: number } | null>(null);
+
     // Backfill Context Graph Metadata
     const [backfillRunning, setBackfillRunning] = useState(false);
     const [backfillProgress, setBackfillProgress] = useState<{ done: number; skipped: number; total: number } | null>(null);
@@ -1604,6 +1608,103 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setGraphBatchRunning(false);
     };
 
+    // ── Bootstrap Buyer DNA ───────────────────────────────────────────────
+    const handleBootstrapBuyerDna = async () => {
+        const targetIds = selectedIds.size > 0
+            ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
+            : cachedPropertyIds;
+        if (targetIds.size === 0) {
+            addLog('Load listings and check cache first before running DNA bootstrap.');
+            return;
+        }
+
+        setDnaBootstrapRunning(true);
+        setDnaBootstrapProgress({ done: 0, skipped: 0, failed: 0, total: targetIds.size });
+        addLog(`[Buyer DNA] Bootstrapping for ${targetIds.size} properties...`);
+
+        const zpids = Array.from(targetIds) as string[];
+        let done = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        const { db: firestoreDb } = await import('../../services/firebase/config');
+        const { getDoc, doc, updateDoc } = await import('firebase/firestore');
+        const { executeGeminiRequest, FLASH_MODEL } = await import('../../services/geminiService');
+        const { getBuyerDnaCompressionPrompt, buyerDnaCompressionSchema } = await import('../../prompts/property/buyerDnaCompression');
+
+        const CHUNK_SIZE = 5;
+
+        for (let i = 0; i < zpids.length; i += CHUNK_SIZE) {
+            const chunk = zpids.slice(i, i + CHUNK_SIZE);
+
+            await Promise.allSettled(chunk.map(async (zpid) => {
+                const addr = zpidToAddressMap[zpid] || zpid;
+                try {
+                    const ref = doc(firestoreDb!, 'properties', zpid, 'index', 'context_graph');
+                    const snap = await getDoc(ref);
+                    
+                    if (!snap.exists()) {
+                        skipped++;
+                        addLog(`[Buyer DNA] ⊘ Skip ${addr} — no context graph`);
+                        return;
+                    }
+
+                    const data = snap.data();
+                    if (!data.data || !data.data.factors || data.data.factors.length === 0) {
+                        skipped++;
+                        addLog(`[Buyer DNA] ⊘ Skip ${addr} — no factors in graph`);
+                        return;
+                    }
+
+                    if (data.data.buyerDna && !forceGraphRegen) {
+                        skipped++;
+                        addLog(`[Buyer DNA] ⊘ Skip ${addr} — already has Buyer DNA`);
+                        return;
+                    }
+
+                    const factors = data.data.factors;
+                    const prompt = getBuyerDnaCompressionPrompt(factors);
+                    
+                    const dnaResult = await executeGeminiRequest<any>({
+                        model: FLASH_MODEL,
+                        contents: prompt,
+                        config: { temperature: 0.2, maxOutputTokens: 2048 },
+                        userId: auth?.currentUser?.uid,
+                        zpid,
+                        address: addr,
+                        promptFilename: "buyerDnaCompression.ts",
+                        extractResultJson: true,
+                        schema: buyerDnaCompressionSchema
+                    });
+
+                    if (dnaResult.data) {
+                        await updateDoc(ref, {
+                            'data.buyerDna': dnaResult.data,
+                            'data.lastUpdated': new Date()
+                        });
+                        done++;
+                        addLog(`[Buyer DNA] ✓ Generated and saved for ${addr}`);
+                    } else {
+                        failed++;
+                        addLog(`[Buyer DNA] ✗ No data returned for ${addr}`);
+                    }
+                } catch (e: any) {
+                    failed++;
+                    addLog(`[Buyer DNA] ✗ Failed for ${addr}: ${e.message}`);
+                }
+            }));
+            
+            setDnaBootstrapProgress({ done, skipped, failed, total: zpids.length });
+            // Add a small delay between chunks to avoid rate limits
+            if (i + CHUNK_SIZE < zpids.length) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+
+        setDnaBootstrapRunning(false);
+        addLog(`[Buyer DNA] Bootstrap complete: ${done} done, ${skipped} skipped, ${failed} failed out of ${zpids.length}.`);
+    };
+
     // ── Backfill Context Graph Metadata ───────────────────────────────────
     const handleBackfillMetadata = async () => {
         if (cachedPropertyIds.size === 0) {
@@ -2352,6 +2453,26 @@ ${JSON.stringify(propertySummaries)}
                                                 className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center text-xs transition-all ${forceGraphRegen ? 'bg-orange-100 border-orange-400 text-orange-600' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}
                                             >
                                                 <i className="fa-solid fa-bolt"></i>
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {cachedPropertyIds.size > 0 && (
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => handleBootstrapBuyerDna()}
+                                                disabled={dnaBootstrapRunning || loading}
+                                                className="px-6 py-3 bg-white border-2 border-fuchsia-200 hover:border-fuchsia-400 hover:bg-fuchsia-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                                title="Run Pass 2: Compress Granular Factors into 16 Buyer DNA dimensions for all cached properties"
+                                            >
+                                                {dnaBootstrapRunning ? (
+                                                    <>
+                                                        <i className="fa-solid fa-spinner animate-spin text-fuchsia-400"></i>
+                                                        {dnaBootstrapProgress ? `${dnaBootstrapProgress.done + dnaBootstrapProgress.skipped}/${dnaBootstrapProgress.total}` : 'Checking...'}
+                                                    </>
+                                                ) : (
+                                                    <><i className="fa-solid fa-dna text-fuchsia-500 group-hover:scale-110 transition-transform"></i>Bootstrap DNA</>
+                                                )}
                                             </button>
                                         </div>
                                     )}
@@ -3416,9 +3537,10 @@ ${JSON.stringify(propertySummaries)}
                             <div className="p-8 bg-white">
                                 <div className="space-y-3 max-h-[400px] overflow-y-auto px-2 custom-scrollbar">
                                     {/* Flattened results from all active batches */}
-                                    {[...(intelBatchProgress?.results ? Object.entries(intelBatchProgress.results) : []),
-                                    ...(propBatchProgress?.results ? Object.entries(propBatchProgress.results) : [])]
-                                        .sort((a, b) => 0) // Keep order or sort by timestamp if available
+                                    {Object.entries({
+                                        ...(propBatchProgress?.results || {}),
+                                        ...(intelBatchProgress?.results || {})
+                                    })
                                         .reverse()
                                         .map(([zpid, result]: [string, any]) => (
                                             <div key={zpid} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl animate-in fade-in slide-in-from-left-4 duration-300">

@@ -1,5 +1,5 @@
 
-import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService.ts';
+import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService';
 import { fetchPropertySpecs } from './api/property';
 import {
   analyzePropertyImages,
@@ -14,7 +14,7 @@ import {
   analyzeNeighborhoodIdentity,
   runBackgroundCityResearch,
   AiResponseError
-} from './geminiService.ts';
+} from './geminiService';
 import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
@@ -35,9 +35,9 @@ import {
   getCommunityPulseFromCloud,
   generateCityStateKey,
   getPropertyFromCloud
-} from './firebaseService.ts';
+} from './firebaseService';
 import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, AIUsage } from '../types';
-import { uploadRemoteImageToStorage } from './firebase/storage.ts';
+import { uploadRemoteImageToStorage } from './firebase/storage';
 import { securePropertyAssets } from './assetService';
 import { fetchCensusDemographics } from './api/environmental';
 import { VISUAL_CHECK_IDS, NARRATIVE_CHECK_IDS } from '../utils/pipelineCheckConfig';
@@ -889,7 +889,7 @@ export const runFullIntelligencePipeline = async (
 
     const livingWageTask = async () => {
       try {
-        const { fetchMitLivingWage } = await import('./geminiService.ts');
+        const { fetchMitLivingWage } = await import('./geminiService');
         const census = (enrichedData as any).census_demographics || {};
         const metroCode = census.metroCbsaCode || (enrichedData as any).metroCbsaCode;
         const countyFips = census.countyFips || (enrichedData as any).countyFips;
@@ -1220,7 +1220,7 @@ export const runCityDeepResearch = async (
 ): Promise<void> => {
   // Proactive log archival trigger
 
-  const { analyzeDeepInvestmentResearch } = await import('./geminiService.ts');
+  const { analyzeDeepInvestmentResearch } = await import('./geminiService');
   const cityStateKey = generateCityStateKey(city, state);
   if (!cityStateKey) {
     onLog?.(`[Deep Research] Cannot determine city key for ${city}, ${state}`);
@@ -1253,7 +1253,7 @@ export const runCityDeepResearch = async (
 
     // Extract key insights from the report using Flash
     try {
-      const { extractDeepResearchInsights } = await import('./geminiService.ts');
+      const { extractDeepResearchInsights } = await import('./geminiService');
       const reportContent = res.data?.content || '';
       if (reportContent.length > 200) {
         const insightsRes = await extractDeepResearchInsights(reportContent, userId, cityStateKey);

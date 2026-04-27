@@ -330,8 +330,10 @@ export async function runChecks(
     chk(checks, 'privacyVisual', 'AI Visual — Privacy', 'error', 'ai_visual', !!(ext?.views_privacy_orientation?.privacy),
         ext?.views_privacy_orientation?.privacy || 'missing');
 
-    // Neighborhood spatial analysis
-    const hasNeighborhood = !!(visual?.neighborhood?.overview && visual.neighborhood.overview.length > 30);
+    // Neighborhood spatial analysis - check both visual and comprehensive outputs
+    const neighborhoodInsights = visual?.exterior_and_neighborhood?.neighborhood_street_insights;
+    const comprehensiveNeighborhood = comprehensive?.detailed_analysis?.location_neighborhood;
+    const hasNeighborhood = !!((neighborhoodInsights && neighborhoodInsights.length > 30) || (comprehensiveNeighborhood && comprehensiveNeighborhood.length > 30));
     chk(checks, 'aiNeighborhood', 'AI Neighborhood/Spatial', 'error', 'ai_visual', hasNeighborhood,
         hasNeighborhood ? 'analysis present' : 'missing');
 
@@ -711,7 +713,9 @@ export const runCitySmokeTest = async (
     for (const zpid of resolvedZpids) {
         const prop = allProps[zpid];
         if (Array.isArray(prop?.schools) && prop?.city) {
+            for (const school of prop.schools) {
                 schoolCacheKeys.add(_getSchoolCacheKey(school.name, prop.city || '', prop.state || ''));
+            }
         }
     }
 

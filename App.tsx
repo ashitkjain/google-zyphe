@@ -624,6 +624,7 @@ const App: React.FC = () => {
       onRefreshOrientation={handleRefreshOrientation}
       orientationRefreshing={envRefreshing}
       onRefreshCommunityPulse={handleRefreshCommunityPulse}
+      onPropertyClick={performSearch}
     />
   );
 

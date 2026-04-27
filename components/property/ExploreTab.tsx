@@ -66,6 +66,7 @@ interface ExploreTabProps {
     onBack?: () => void;
     onRegisterSaveAction?: (handler: () => void) => void;
     onRegisterSavedAction?: (handler: () => void) => void;
+    onPropertyClick?: (address: string) => void;
 }
 
 const ExploreTab: React.FC<ExploreTabProps> = ({
@@ -97,6 +98,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     onBack,
     onRegisterSaveAction,
     onRegisterSavedAction,
+    onPropertyClick,
 }) => {
     const {
         activeTab, setActiveTab,
@@ -474,6 +476,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                         searchBar={searchBar}
                         pendingBrowse={pendingBrowse}
                         onClearPendingBrowse={() => setPendingBrowse(null)}
+                        onPropertyClick={onPropertyClick || (() => {})}
                     />
                 )}
             </div>

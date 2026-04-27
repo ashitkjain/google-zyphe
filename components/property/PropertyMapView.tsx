@@ -267,32 +267,28 @@ const PropertyMapView: React.FC<PropertyMapViewProps> = ({
             }
         });
 
-        // MutationObserver: bind click handlers to popup "View Property" links.
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                for (const node of mutation.addedNodes) {
-                    if (!(node instanceof HTMLElement)) continue;
-                    node.querySelectorAll?.('.zyphe-popup').forEach((popup) => {
-                        const address = (popup as HTMLElement).dataset.address;
-                        if (address && !(popup as any).__zyphe_bound) {
-                            (popup as any).__zyphe_bound = true;
-                            popup.addEventListener('click', () => onPropertyClickRef.current(address));
-                        }
-                    });
-                    if (node.classList?.contains('maplibregl-popup')) {
-                        const popup = node.querySelector('.zyphe-popup') as HTMLElement;
-                        if (popup?.dataset.address && !(popup as any).__zyphe_bound) {
-                            (popup as any).__zyphe_bound = true;
-                            popup.addEventListener('click', () => onPropertyClickRef.current(popup.dataset.address!));
-                        }
-                    }
+        const handleGlobalClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            const popup = target.closest('.zyphe-popup');
+            if (popup) {
+                const address = (popup as HTMLElement).dataset.address;
+                if (address) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onPropertyClickRef.current(address);
                 }
             }
-        });
-        observer.observe(mapContainerRef.current, { childList: true, subtree: true });
+        };
+
+        const container = mapContainerRef.current;
+        if (container) {
+            container.addEventListener('click', handleGlobalClick, true);
+        }
 
         return () => {
-            observer.disconnect();
+            if (container) {
+                container.removeEventListener('click', handleGlobalClick, true);
+            }
             clearMarkers();
             if (mapRef.current) {
                 try { mapRef.current.remove(); } catch (_) {}

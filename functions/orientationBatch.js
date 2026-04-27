@@ -284,10 +284,23 @@ function _findBestExteriorPhotos(imageByImageAnalysis, maxCount = 3) {
 // ─── Image utilities ──────────────────────────────────────────────────────────
 
 async function _downloadImageBase64(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Image download HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    return { data: Buffer.from(buf).toString('base64'), mimeType: res.headers.get('content-type') || 'image/jpeg' };
+    if (!url) return null;
+    try {
+        if (url.startsWith('gs://')) {
+            const bucketName = url.split('/')[2];
+            const filePath = url.split('/').slice(3).join('/');
+            const [buffer] = await admin.storage().bucket(bucketName).file(filePath).download();
+            const mimeType = filePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+            return { data: Buffer.from(buffer).toString('base64'), mimeType };
+        }
+        
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const buf = await res.arrayBuffer();
+        return { data: Buffer.from(buf).toString('base64'), mimeType: res.headers.get('content-type') || 'image/jpeg' };
+    } catch (e) {
+        throw new Error(`Image download ${e.message}`);
+    }
 }
 
 /**
@@ -1270,7 +1283,7 @@ exports.runOrientationBatchOnCreate = functions
         const keysSnap = await db.collection('app_config').doc('api_keys').get();
         const keys = keysSnap.exists ? keysSnap.data() : {};
         const geminiKey = keys.gemini_key || process.env.GEMINI_API_KEY || '';
-        const mapsKey = keys.maps_key || process.env.MAPS_API_KEY || '';
+        const mapsKey = keys.google_maps_key || keys.maps_key || process.env.MAPS_API_KEY || '';
         const radarKey = keys.radar_key || keys.radar_publishable_key || process.env.RADAR_API_KEY || '';
 
         let done = 0, failed = 0;
