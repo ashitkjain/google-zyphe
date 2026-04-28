@@ -393,23 +393,7 @@ export interface CustomAIAnalysisResult {
 
 export interface ComprehensiveAnalysisResult {
     summary: string;
-    detailed_analysis: {
-        visual_appeal_condition: string;
-        privacy_layout: string;
-        outdoors_view_quality: string;
-        location_neighborhood: string;
-        community_pulse: string;
-        additional_considerations: string;
-        climate_resilience: string;
-    };
-    strategic_insights: string;
     risks_considerations: string;
-    interior_summary?: {
-        interior_summary: string;
-        rooms_summary: string;
-        vibe: string;
-        objective_tags: string[];
-    };
     lifestyle_insights?: {
         outdoor: string;
         family: string;
@@ -418,7 +402,6 @@ export interface ComprehensiveAnalysisResult {
         food: string;
         professionals: string;
     };
-    schools_summary?: string;
     lifestyle_fit?: {
         working_professionals?: LifestyleFitCategory;
         families_with_kids?: LifestyleFitCategory;

@@ -123,6 +123,11 @@ export function normalizePropertyFields(doc: Record<string, any>): Record<string
         delete out.home_type;
     }
 
+    // ── Address Normalization ──────────────────────────────────────────────────
+    if (out.address) {
+        out.address = normalizeAddressString(out.address);
+    }
+
     // ── Cleanup Moved Collections ──────────────────────────────────────────────
     delete out.google_places;
     delete out.airQuality;
@@ -211,6 +216,22 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
 };
 
 /**
+ * Standardizes an address string for consistent Firestore lookups.
+ * Removes Radar's " US" suffix and ensures a consistent comma/space pattern 
+ * between State and Zip.
+ */
+export const normalizeAddressString = (address: string): string => {
+    if (!address) return '';
+    return address
+        .replace(/, US$/i, '')           // Remove Radar's ", US"
+        .replace(/\sUS$/i, '')           // Remove Radar's " US"
+        .replace(/,?\s?([A-Z]{2}),?\s?(\d{5})/, ', $1 $2') // Ensure "State Zip" format
+        .replace(/,\s*,/g, ',')          // Fix double commas
+        .replace(/\s+/g, ' ')            // Collapse whitespace
+        .trim();
+};
+
+/**
  * Lookup a property by its address string.
  * Used to resolve address→ZPID without calling RapidAPI.
  * Returns the first matching property or null.
@@ -218,15 +239,28 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
 export const getPropertyByAddress = async (address: string): Promise<PropertyData | null> => {
     if (!db || !address) return null;
     try {
-        const q = query(
-            collection(db, "properties"),
-            where("address", "==", address),
-            limit(1)
-        );
-        logFirestoreQuery('getDocs', 'properties', { address, scope: 'address_lookup' });
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-            return snapshot.docs[0].data() as PropertyData;
+        const normalized = normalizeAddressString(address);
+        const variants = [
+            address,
+            normalized,
+            // Format: "Street, City, State, Zip" (Commas everywhere)
+            normalized.replace(/,?\s?([A-Z]{2})\s(\d{5})/, ', $1, $2')
+        ];
+
+        // Unique set of variants to try
+        const uniqueVariants = Array.from(new Set(variants.filter(Boolean)));
+
+        for (const variant of uniqueVariants) {
+            const q = query(
+                collection(db, "properties"),
+                where("address", "==", variant),
+                limit(1)
+            );
+            logFirestoreQuery('getDocs', 'properties', { variant, scope: 'address_lookup' });
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+                return snapshot.docs[0].data() as PropertyData;
+            }
         }
         return null;
     } catch (error: any) {

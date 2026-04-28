@@ -73,8 +73,19 @@ export const formatAddress = (addr: any): string => {
             }
         }
 
-        const parts = [street, resolvedCity, resolvedState, resolvedZip].filter(Boolean);
-        return parts.length > 0 ? parts.join(', ') : '';
+        const parts = [street, resolvedCity].filter(Boolean);
+        let base = parts.join(', ');
+
+        if (resolvedState) {
+            base += (base ? ', ' : '') + resolvedState;
+            if (resolvedZip) {
+                base += ' ' + resolvedZip;
+            }
+        } else if (resolvedZip) {
+            base += (base ? ', ' : '') + resolvedZip;
+        }
+
+        return base.replace(/,\s*,/g, ',').trim();
     }
     return '';
 };

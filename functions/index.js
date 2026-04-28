@@ -819,29 +819,57 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
         // 1. Research destinations via Gemini
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash-lite",
-            tools: [{ googleSearch: {} }]
+            model: "gemini-2.0-flash-lite",
+            tools: [{ googleSearch: {} }],
+            generationConfig: { responseMimeType: "application/json" }
         });
 
         const prompt = `You are a local transit and economic researcher.
-TASK: Identify the top 4 primary commute or high-traffic destinations for residents of ${city}, ${state}.
+Identify the top 4 primary commute or high-traffic destinations for residents of ${city}, ${state}.
 CONTEXT: Potential homebuyers need to know where people in this specific city typically commute to for work, major shopping, or regional airports.
-FOR EACH DESTINATION:
-- Name: Human-readable name (e.g., "Downtown San Francisco").
-- Why: 1-sentence reason why it's a top destination.
-- search_query: A specific string to use for Google Maps Place search to get exact coordinates.
-Return valid JSON matching this structure: { "destinations": [ { "name": "...", "description": "...", "search_query": "..." } ] } with EXACTLY 4 items.`;
+REQUIREMENT: Return ONLY a JSON object. No markdown formatting, no conversational text.
+JSON Structure: 
+{ 
+  "destinations": [ 
+    { "name": "Name of destination", "description": "1-sentence reason why it's a top destination", "search_query": "specific string for Google Maps search" } 
+  ] 
+}
+Include EXACTLY 4 items.`;
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
+        console.log("[getCommuteDestinations] AI Response:", responseText);
         
-        // Simple JSON extraction
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("AI failed to return valid JSON");
-        const aiData = JSON.parse(jsonMatch[0]);
+        if (!responseText) {
+            throw new Error("AI returned an empty response");
+        }
+
+        // Robust JSON extraction
+        let aiData;
+        try {
+            // Clean up any markdown blocks if the AI ignored the 'only JSON' rule
+            const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            aiData = JSON.parse(cleanedText);
+        } catch (e) {
+            console.warn("[getCommuteDestinations] Standard JSON parse failed, trying regex extraction...");
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                console.error("[getCommuteDestinations] Failed to find JSON in response:", responseText);
+                throw new Error("AI failed to return valid JSON");
+            }
+            try {
+                aiData = JSON.parse(jsonMatch[0]);
+            } catch (e2) {
+                console.error("[getCommuteDestinations] Regex match JSON parse failed:", e2);
+                throw new Error("AI failed to return valid JSON after regex match");
+            }
+        }
         const destinations = aiData.destinations || [];
 
-        if (destinations.length === 0) return null;
+        if (!Array.isArray(destinations) || destinations.length === 0) {
+            console.error("[getCommuteDestinations] No destinations found in AI data:", aiData);
+            return null;
+        }
 
         // 2. Calculate real-time drive times via Distance Matrix
         const origins = [`${lat},${lng}`];
@@ -1258,3 +1286,4 @@ exports.savedSearchAlerts = functions.pubsub
 Object.assign(exports, require('./orientationBatch'));
 Object.assign(exports, require('./propertyBatch'));
 Object.assign(exports, require('./intelBatch'));
+Object.assign(exports, require('./assetBatch'));

@@ -142,6 +142,9 @@ export async function runChecks(
     env: any | null,
     comprehensive: any | null,
     investment: any | null,
+    lifestyleInsights: any | null,
+    lifestyleFit: any | null,
+    contextGraph: any | null,
     schoolAnalyses: Record<string, any>,
     addressHint?: string,
     cityData?: { communityPulse?: any; deepInvestmentResearch?: any; livingWage?: any; livingWageGeo?: string }
@@ -149,6 +152,7 @@ export async function runChecks(
     const checks: SmokeCheck[] = [];
     const rapidapiMeta = prop?._fetchMeta?.rapidapi;
     const envMeta = env?._fetchMeta?.environmental;
+    let liveSvExists: boolean | null = null; // cached metadata result
 
     // ── 0. Property Type Validation ──────────────────────────────────────────
     // Determine if this is a supported property type (Single Family, Townhouse, Condo).
@@ -195,11 +199,17 @@ export async function runChecks(
     const downloadedImgCount = (assets?.images?.length || 0);
     const sourceImgCount = (prop?.images?.length || 0);
     const expectedImgCount = (prop?.photoCount || sourceImgCount || 0);
-    const imgOk = expectedImgCount === 0 || downloadedImgCount >= expectedImgCount;
+    
+    // Flag as shallow if we only have 1 image but the record (or common sense) suggests more.
+    // 1 image is almost always a search result placeholder.
+    const isShallow = downloadedImgCount === 1 && expectedImgCount <= 1; 
+    const isMissing = expectedImgCount > 0 && downloadedImgCount < expectedImgCount;
+    const imgOk = !isMissing && !isShallow;
+
     chk(checks, 'images', 'Property Images', 'error', 'assets', imgOk,
-        expectedImgCount === 0
-            ? 'no images listed'
-            : `${downloadedImgCount}/${expectedImgCount} downloaded`);
+        isShallow ? 'Shallow ingestion (1 image) \u2014 needs Detail Sync' :
+        isMissing ? `${downloadedImgCount}/${expectedImgCount} downloaded` :
+        expectedImgCount === 0 ? 'no images listed' : 'present');
 
     // ── 4. Firebase Storage assets ───────────────────────────────────────────
     chk(checks, 'mapZoomIn', 'Map Zoom-In (Storage)', 'error', 'assets', isFirebaseStorageUrl(assets?.mapZoomIn || prop?.mapZoomIn),
@@ -207,8 +217,22 @@ export async function runChecks(
     chk(checks, 'mapZoomOut', 'Map Zoom-Out (Storage)', 'error', 'assets', isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut),
         isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut) ? 'present' : 'missing/not in Storage');
     const svImgUrl = assets?.streetView || env?.streetViewAnalysis?.imageUrl;
-    chk(checks, 'streetView', 'Street View (Storage)', 'error', 'assets', isFirebaseStorageUrl(svImgUrl),
-        isFirebaseStorageUrl(svImgUrl) ? 'present' : 'missing');
+    const hasSvStorage = isFirebaseStorageUrl(svImgUrl);
+    
+    // Perform live metadata check if missing from storage to see if it's a pipeline gap or source gap
+    if (liveSvExists === null && !hasSvStorage && prop?.coordinates?.latitude) {
+        liveSvExists = await checkStreetViewExists(prop.coordinates.latitude, prop.coordinates.longitude);
+    }
+
+    if (hasSvStorage) {
+        chk(checks, 'streetView', 'Street View (Storage)', 'error', 'assets', true, 'present');
+    } else if (!liveSvExists && prop?.coordinates?.latitude) {
+        // Confirmed missing at source via free Metadata API
+        chk(checks, 'streetView', 'Street View (Storage)', 'warn', 'assets', true, 'unavailable at source (confirmed via API)', true);
+    } else {
+        // Exists at source but not in our storage
+        chk(checks, 'streetView', 'Street View (Storage)', 'error', 'assets', false, 'missing (exists at source \u2014 needs download)');
+    }
     const satUrl = assets?.satelliteImageUrl || assets?.satellite || prop?.satelliteImageUrl;
     chk(checks, 'satellite', 'Satellite Image (Storage)', 'error', 'assets', isFirebaseStorageUrl(satUrl),
         isFirebaseStorageUrl(satUrl) ? 'present' : (satUrl ? 'present (not in Storage)' : 'missing'));
@@ -332,7 +356,7 @@ export async function runChecks(
 
     // Neighborhood spatial analysis - check both visual and comprehensive outputs
     const neighborhoodInsights = visual?.exterior_and_neighborhood?.neighborhood_street_insights;
-    const comprehensiveNeighborhood = comprehensive?.detailed_analysis?.location_neighborhood;
+    const comprehensiveNeighborhood = comprehensive?.detailed_analysis?.community_pulse;
     const hasNeighborhood = !!((neighborhoodInsights && neighborhoodInsights.length > 30) || (comprehensiveNeighborhood && comprehensiveNeighborhood.length > 30));
     chk(checks, 'aiNeighborhood', 'AI Neighborhood/Spatial', 'error', 'ai_visual', hasNeighborhood,
         hasNeighborhood ? 'analysis present' : 'missing');
@@ -342,38 +366,39 @@ export async function runChecks(
     const orientationVal = orientationAi?.final_orientation;
     const isUnclear = orientationVal === 'UNCLEAR';
     const hasOrientation = !!orientationVal && !isUnclear;
-    const isV29 = orientationAi?.batch_version === 'v29' || orientationAi?.orientation_version === 'v29';
+    const isV30 = orientationAi?.batch_version === 'v30' || orientationAi?.orientation_version === 'v30';
 
-    chk(checks, 'orientationAi', 'Front Orientation AI', 'error', 'ai_visual', hasOrientation,
+    chk(checks, 'orientationAi', 'Front Orientation AI', 'warn', 'ai_visual', hasOrientation,
         isUnclear ? 'UNCLEAR (ambiguous)' : (hasOrientation ? orientationVal : 'missing'));
 
     if (hasOrientation) {
         chk(checks, 'orientationConfidence', 'Orientation Confidence', 'warn', 'ai_visual', orientationAi.confidence === 'high',
             orientationAi.confidence || 'unknown');
-        chk(checks, 'orientationVersion', 'Orientation Version (v29)', 'error', 'ai_visual', isV29,
-            isV29 ? 'v29' : (orientationAi?.batch_version || orientationAi?.orientation_version || 'old version'));
+        chk(checks, 'orientationVersion', 'Orientation Version (v30)', 'warn', 'ai_visual', isV30,
+            isV30 ? 'v30' : (orientationAi?.batch_version || orientationAi?.orientation_version || 'old version'));
     }
 
-    // Street view AI (lives on google_environmental_data)
+    // ── 3. Street View AI (environmental.streetViewAnalysis or fallback to visual) ──
     const svAnalysis = env?.streetViewAnalysis;
-    const hasStreetViewAi = !!(svAnalysis?.privacyRating || svAnalysis?.curbAppealScore || svAnalysis?.neighborhoodVibe);
+    const aiCurbAppeal = visual?.exterior_and_neighborhood?.exterior_and_lot_appeal?.curb_appeal;
+    const hasStreetViewAi = !!(svAnalysis || (aiCurbAppeal && aiCurbAppeal.length > 20));
     
     // Check if it's confirmed missing at source in cache
     const svSourceNull = !!(envMeta?.fieldsNull?.includes('streetViewAnalysis'));
     
     // If it's missing but not confirmed missing, perform a live check to determine severity
-    let liveSvExists = false;
-    if (!hasStreetViewAi && !svSourceNull && prop?.coordinates?.latitude) {
+    if (liveSvExists === null && !hasStreetViewAi && !svSourceNull && prop?.coordinates?.latitude) {
         liveSvExists = await checkStreetViewExists(prop.coordinates.latitude, prop.coordinates.longitude);
     }
 
     if (hasStreetViewAi) {
-        chk(checks, 'streetViewAi', 'Street View AI', 'warn', 'environmental', true, `curb appeal: ${svAnalysis.curbAppealScore ?? '?'}/10`);
+        const detail = svAnalysis 
+            ? `curb appeal: ${svAnalysis.curbAppealScore ?? '?'}/10` 
+            : `AI detected: ${aiCurbAppeal?.substring(0, 30)}...`;
+        chk(checks, 'streetViewAi', 'Street View AI', 'warn', 'environmental', true, detail);
     } else if (svSourceNull || ( !hasStreetViewAi && !liveSvExists && prop?.coordinates?.latitude)) {
-        // Confirmed missing at source (cached or live check) -> downgrade to warning and mark passed
         chk(checks, 'streetViewAi', 'Street View AI', 'warn', 'environmental', true, 'unavailable at source', true);
     } else {
-        // Analysis is missing, and imagery DOES exist (or we couldn't confirm it doesn't) -> ERROR
         chk(checks, 'streetViewAi', 'Street View AI', 'error', 'environmental', false, 'missing (imagery exists — needs analysis)');
     }
 
@@ -429,24 +454,27 @@ export async function runChecks(
     chk(checks, 'compRisks', 'Risks & Considerations', 'error', 'ai_comprehensive', !!(comprehensive?.risks_considerations),
         comprehensive?.risks_considerations ? 'present' : 'missing');
 
-    // ── 10. Interior Summary (inside property_analyses_comprehensive) ─────────
-    const intSum = comprehensive?.interior_summary;
+    // ── 10. Interior Summary (now inside property_analyses_visual) ───────────
+    const intSum = visual?.home_interior;
     const hasIntSummary = !!(intSum?.interior_summary && intSum.interior_summary.length > 20);
     const hasRoomsSummary = !!(intSum?.rooms_summary && intSum.rooms_summary.length > 20);
     const hasVibe = !!(intSum?.vibe);
     const hasTags = Array.isArray(intSum?.objective_tags) && intSum.objective_tags.length > 0;
-    chk(checks, 'intSummary', 'Interior Summary', 'error', 'ai_comprehensive', hasIntSummary,
+    chk(checks, 'intSummary', 'Interior Summary', 'error', 'ai_visual', hasIntSummary,
         hasIntSummary ? `${intSum.interior_summary.length} chars` : 'missing');
-    chk(checks, 'intRooms', 'Rooms Summary', 'error', 'ai_comprehensive', hasRoomsSummary,
+    chk(checks, 'intRooms', 'Rooms Summary', 'error', 'ai_visual', hasRoomsSummary,
         hasRoomsSummary ? `${intSum.rooms_summary.length} chars` : 'missing');
-    chk(checks, 'intVibe', 'Interior Vibe', 'warn', 'ai_comprehensive', hasVibe,
+    chk(checks, 'intVibe', 'Interior Vibe', 'warn', 'ai_visual', hasVibe,
         hasVibe ? intSum.vibe : 'missing');
-    chk(checks, 'intTags', 'Interior Tags', 'warn', 'ai_comprehensive', hasTags,
+    chk(checks, 'intTags', 'Interior Tags', 'warn', 'ai_visual', hasTags,
         hasTags ? `${intSum.objective_tags.length} tags` : 'missing');
 
-    // ── 11. Schools Summary (inside property_analyses_comprehensive) ──────────
-    chk(checks, 'schoolsSummary', 'Schools Summary (Narrative)', 'warn', 'ai_comprehensive', !!(comprehensive?.schools_summary),
-        comprehensive?.schools_summary ? 'present' : 'missing');
+    // ── 11. Graph & Schools ──────────────────────────────────────────────────
+    const graph = contextGraph;
+    const factors = graph?.factors || graph?.entities || [];
+    const hasGraph = Array.isArray(factors) && factors.length > 0;
+    chk(checks, 'contextGraph', 'AI Context Graph', 'warn', 'ai_graph', hasGraph,
+        hasGraph ? `${factors.length} factors identified` : 'missing');
 
     // Schools data on the property (from RapidAPI)
     const schoolCount = Array.isArray(prop?.schools) ? prop.schools.length : 0;
@@ -501,11 +529,17 @@ export async function runChecks(
 
     }
 
-    // ── 12. Lifestyle Insights (inside property_analyses_comprehensive) ────────
-    const life = comprehensive?.lifestyle_insights;
-    const hasLifestyle = !!(life?.outdoor && life?.family);
-    chk(checks, 'lifestyleInsights', 'Lifestyle Insights', 'error', 'ai_comprehensive', hasLifestyle,
-        hasLifestyle ? 'present (outdoor, family, etc.)' : 'missing');
+    // ── 12. Lifestyle Insights (property_analyses_lifestyle_insights) ─────────
+    const life = lifestyleInsights;
+    const hasLifestyle = !!(life?.outdoor && life?.family && life?.senior && life?.pets && life?.food && life?.professionals);
+    chk(checks, 'lifestyleInsights', 'Lifestyle Insights', 'error', 'ai_lifestyle_insights', hasLifestyle,
+        hasLifestyle ? `present (${Object.keys(life).length} sections)` : 'missing — run intel batch');
+
+    // ── 12b. Lifestyle Fit (property_analyses_lifestyle_fit) ──────────────────
+    const fit = lifestyleFit;
+    const fitComplete = !!(fit?.working_professionals?.verdict && fit?.families_with_kids?.verdict && fit?.seniors?.verdict);
+    chk(checks, 'lifestyleFit', 'Lifestyle Fit Analysis', 'error', 'ai_lifestyle_fit', fitComplete,
+        fitComplete ? `WP: ${fit.working_professionals.verdict}, Fam: ${fit.families_with_kids.verdict}, Sr: ${fit.seniors.verdict}` : 'missing or incomplete — run intel batch');
 
     // ── 13. Property Investment Research (property_investment_research) ───────
     const hasSTR = !!(investment?.str_performance?.adr);
@@ -602,11 +636,7 @@ export async function runChecks(
     chk(checks, 'neighborhoodIdentity', 'Neighborhood Identity', 'warn', 'ai_comprehensive', !!(nid?.resolved_name),
         nid?.resolved_name ? `${nid.resolved_name}${nid.city_plan_data?.specific_plan ? ` (${nid.city_plan_data.specific_plan})` : ''}` : 'not resolved');
 
-    // ── 24. Lifestyle Fit (3 persona verdicts) ────────────────────────────────
-    const lf = comprehensive?.lifestyle_fit;
-    const lfComplete = !!(lf?.working_professionals?.verdict && lf?.families_with_kids?.verdict && lf?.seniors?.verdict);
-    chk(checks, 'lifestyleFit', 'Lifestyle Fit Analysis', 'warn', 'ai_comprehensive', lfComplete,
-        lfComplete ? `WP: ${lf.working_professionals.verdict}, Fam: ${lf.families_with_kids.verdict}, Sr: ${lf.seniors.verdict}` : 'missing or incomplete');
+    // Lifestyle Fit check moved up to 12b for clarity
 
     // ── 25. Attribution (Agent / Brokerage) ───────────────────────────────────
     const attr = prop?.attribution;
@@ -664,6 +694,9 @@ export const runCitySmokeTest = async (
     const allAssets: Record<string, any> = {};
     const allVisual: Record<string, any> = {};
     const allEnv: Record<string, any> = {};
+    const allInsights: Record<string, any> = {};
+    const allFit: Record<string, any> = {};
+    const allGraph: Record<string, any> = {};
     const allComp: Record<string, any> = {};
     const allInvest: Record<string, any> = {};
     const allSchoolAnalyses: Record<string, any> = {};
@@ -681,11 +714,14 @@ export const runCitySmokeTest = async (
         // Migrated analyses: now at properties/{zpid}/analysis/{type}
         // Env data: now at properties/{zpid}/environmental/thirdparty_data
         await Promise.all(chunk.map(async (zpid) => {
-            const [assetSnap, visualSnap, compSnap, investSnap, envSnap, envLegacySnap] = await Promise.all([
+            const [assetSnap, visualSnap, compSnap, investSnap, insightsSnap, fitSnap, graphSnap, envSnap, envLegacySnap] = await Promise.all([
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'assets')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'visual')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'comprehensive')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'investment')),
+                getDoc(doc(db!, 'properties', zpid, 'analysis', 'lifestyle_insights')),
+                getDoc(doc(db!, 'properties', zpid, 'analysis', 'lifestyle_fit')),
+                getDoc(doc(db!, 'properties', zpid, 'analysis', 'context_graph')),
                 getDoc(doc(db!, 'properties', zpid, 'environmental', 'thirdparty_data')),
                 getDoc(doc(db!, 'properties', zpid, 'environmental', 'google_data')), // legacy fallback
             ]);
@@ -693,6 +729,9 @@ export const runCitySmokeTest = async (
             if (visualSnap.exists()) allVisual[zpid] = visualSnap.data();
             if (compSnap.exists()) allComp[zpid] = compSnap.data();
             if (investSnap.exists()) allInvest[zpid] = investSnap.data();
+            if (insightsSnap.exists()) allInsights[zpid] = insightsSnap.data();
+            if (fitSnap.exists()) allFit[zpid] = fitSnap.data();
+            if (graphSnap.exists()) allGraph[zpid] = graphSnap.data();
             const envData = envSnap.exists() ? envSnap.data() : (envLegacySnap.exists() ? envLegacySnap.data() : null);
             if (envData) allEnv[zpid] = normalizeEnvDoc(envData as Record<string, any>);
         }));
@@ -812,6 +851,9 @@ export const runCitySmokeTest = async (
             allEnv[zpid] || null,
             allComp[zpid] || null,
             allInvest[zpid] || null,
+            allInsights[zpid] || null,
+            allFit[zpid] || null,
+            allGraph[zpid] || null,
             allSchoolAnalyses,
             addressMap?.[zpid],
             cityDataMap[cityKey] || undefined

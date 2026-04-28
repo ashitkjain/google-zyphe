@@ -27,33 +27,15 @@ export const getComprehensiveAnalysisPrompt = (property, visual) => {
   - Infrastructure Reality: Correlate Walk/Transit scores with Community Pulse.
   - Wellness & Flow: Correlate Air Quality, home orientation, and internal spatial lighting.
   - Asset Resilience: Cross-reference Climate Risk levels with visual observations of the home's exterior.
+  - visual_appeal_condition: Visual appeal, finishes, condition.
+  - outdoors_view_quality: paragraph on views, privacy, backyard, patio,
 
   **CRITICAL: You MUST respond with a valid JSON object only. No markdown, no code fences, no additional text.**
 
   Return your response as a JSON object:
   {
     "summary": "150-200 word summary with key highlights. Use **bold** for critical decision factors.",
-    "detailed_analysis": {
-      "visual_appeal_condition": "paragraph on visual appeal, finishes, condition",
-      "outdoors_view_quality": "paragraph on views, privacy, backyard, patio",
-      "community_pulse": "paragraph on local sentiment, vibe, residents' likes/complaints"
-    },
-    "risks_considerations": "paragraph on location, condition, financial, infrastructure, legal risks",
-    "interior_summary": {
-      "interior_summary": "Neutral, factual 4-5 sentence summary of interior layout and materials",
-      "rooms_summary": "Neutral, factual 4-5 sentence summary of identifiable rooms",
-      "vibe": "Objective aesthetic atmosphere description",
-      "objective_tags": ["hardwood-floors", "recessed-lighting", "etc"]
-    },
-    "property_fit_scores": {
-      "entertain": 0,
-      "commute": 0,
-      "schools": 0,
-      "walkability": 0,
-      "quiet": 0,
-      "tech": 0
-    },
-    "schools_summary": "3-5 sentence summary of nearby schools landscape"
+    "risks_considerations": "paragraph on location, condition, financial, infrastructure, legal risks"
   }
   `;
 };

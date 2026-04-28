@@ -428,6 +428,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                 communityPulse={communityPulse}
                                 analysis={analysis}
                                 city={data.city}
+                                propertyData={data}
                             />
                         </div>
                     );

@@ -80,44 +80,50 @@ const EnvironmentResilienceSection: React.FC<Props> = ({ data, disasterData, onR
                                         <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
                                             <i className="fa-solid fa-volume-xmark text-purple-600 text-[13px]"></i>
                                         </div>
-                                        <span className="text-[16px] font-black text-slate-700 tracking-tight">Noise</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-[16px] font-black text-slate-700 tracking-tight leading-none">Noise Profile</span>
+                                            <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-1">Zyphe Verified</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-3 text-[13px]">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Score</span>
-                                            <span className={`font-black ${data.noiseScore! >= 80 ? 'text-emerald-500' : data.noiseScore! >= 65 ? 'text-amber-500' : 'text-orange-500'}`}>
-                                                {data.noiseScore}/100
-                                            </span>
-                                        </div>
-                                        <div className="w-px h-6 bg-slate-200"></div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Level</span>
-                                            <span className="font-black text-slate-700">{data.noiseScoreDesc ?? 'N/A'}</span>
-                                        </div>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Score</span>
+                                        <span className={`text-xl font-black ${(data.zypheNoiseScore ?? data.noiseScore!) >= 85 ? 'text-emerald-500' : (data.zypheNoiseScore ?? data.noiseScore!) >= 70 ? 'text-amber-500' : 'text-orange-500'}`}>
+                                            {data.zypheNoiseScore ?? data.noiseScore}/100
+                                        </span>
                                     </div>
                                 </div>
-                                {/* Bars */}
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(data.noiseScore!)}%`, background: getNoiseColor(data.noiseScore!) }} />
+
+                                {/* Characterization Badge */}
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${(data.zypheNoiseScore ?? data.noiseScore!) >= 85 ? 'bg-emerald-100 text-emerald-700' : (data.zypheNoiseScore ?? data.noiseScore!) >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        {data.noiseCharacterization ?? data.noiseScoreDesc ?? 'Moderate'}
+                                    </div>
+                                </div>
+
+                                {/* Source & Bars */}
+                                <div className="space-y-3">
+                                    <div className="bg-white/60 rounded-lg p-2 border border-slate-100">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Primary Sound Source</div>
+                                        <div className="flex items-center gap-2">
+                                            <i className={`fa-solid ${data.primaryNoiseSource?.includes('Motorway') ? 'fa-road' : data.primaryNoiseSource?.includes('Rail') ? 'fa-train' : 'fa-house-chimney-window'} text-slate-400 text-[10px]`}></i>
+                                            <span className="text-[13px] font-bold text-slate-700 truncate">{data.primaryNoiseSource ?? 'Ambient Neighborhood'}</span>
                                         </div>
                                     </div>
-                                    {[
-                                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
-                                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
-                                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
-                                    ].filter(s => s.score != null).map(({ label, score, desc }) => (
-                                        <div key={label} className="flex items-center gap-1.5">
-                                            <span className="text-[11px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
-                                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full transition-all" style={{ width: `${noisePct(score!)}%`, background: getNoiseColor(score!) }} />
-                                            </div>
-                                            <span className="text-[12px] text-slate-500 w-10 text-right flex-shrink-0">{desc ?? score}</span>
+
+                                    {/* Main Progress Bar */}
+                                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(34,197,94,0.2)]" style={{ width: `${noisePct(data.zypheNoiseScore ?? data.noiseScore!)}%`, background: getNoiseColor(data.zypheNoiseScore ?? data.noiseScore!) }} />
+                                    </div>
+
+                                    {/* Comparison with Legacy if available */}
+                                    {data.zypheNoiseScore != null && data.noiseScore != null && (
+                                        <div className="pt-2 border-t border-slate-100/50 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry Benchmark</span>
+                                            <span className="text-[11px] font-black text-slate-500">HowLoud: {data.noiseScore}</span>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                                <div className="text-[8px] text-slate-700 mt-2 text-right">HowLoud</div>
+                                <div className="text-[8px] text-slate-400 mt-3 text-right italic">Acoustic Simulation (OSM v3)</div>
                             </div>
                         </div>
                     )}

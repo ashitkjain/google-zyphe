@@ -16,6 +16,7 @@ import { fetchNearbyFaults } from './faults';
 import { fetchCommuteDestinations } from './commute';
 import { logAPICall, updateAPICall } from '../firebase/api_logs';
 import { getPropertyGroundTruth } from '../firebase/orientation_history';
+import { calculateZypheNoiseScore } from './osmNoise';
 
 const MAPS_API_KEY = APP_CONFIG.maps.key;
 
@@ -218,8 +219,9 @@ export const fetchPropertyDataFull = async (
             const needsFaults = !cachedEnvData?.faults || forceEnvironment || isCacheExpired(cachedEnvData?.faults?.fetchedAt, TTL_ENV);
             const needsEV = !cachedEnvData?.evChargers || forceEnvironment || isCacheExpired(cachedEnvData?.evChargers?.fetchedAt, TTL_EV);
             const needsCommute = !cachedEnvData?.commuteDestinations || forceEnvironment || isCacheExpired(cachedEnvData?.lastUpdated, TTL_ENV);
+            const needsZypheNoise = !cachedEnvData?.noiseSimulationFetchedAt || forceEnvironment || isCacheExpired(cachedEnvData?.lastUpdated, TTL_NOISE);
 
-            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsFaults || needsEV || needsCommute;
+            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsFaults || needsEV || needsCommute || needsZypheNoise;
             let streetViewDirty = false;
 
             if (envDirty) {
@@ -227,8 +229,8 @@ export const fetchPropertyDataFull = async (
             }
 
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} faults=${needsFaults} ev=${needsEV} commute=${needsCommute})`);
-            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsFaults && 'faults', needsEV && 'ev', needsCommute && 'commute'].filter(Boolean).join(', ') || 'all cached'})`);
-            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshCommute] = await Promise.all([
+            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsFaults && 'faults', needsEV && 'ev', needsCommute && 'commute', needsZypheNoise && 'zypheNoise'].filter(Boolean).join(', ') || 'all cached'})`);
+            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshCommute, freshZypheNoise] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
@@ -239,6 +241,7 @@ export const fetchPropertyDataFull = async (
                 needsFaults ? fetchNearbyFaults(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsEV ? fetchNearbyEVChargers(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsCommute ? fetchCommuteDestinations(mappedData, auth?.currentUser?.uid || 'unknown') : Promise.resolve(null),
+                needsZypheNoise ? calculateZypheNoiseScore(lat, lng) : Promise.resolve(null),
             ]);
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch done`);
             _mark('Environmental done');
@@ -276,14 +279,19 @@ export const fetchPropertyDataFull = async (
                 mappedData.noiseAirportScore = freshNoise.airportScore;
                 mappedData.noiseAirportDesc = freshNoise.airportDesc ?? undefined;
             } else if (!needsNoise) {
-                mappedData.noiseScore = cachedEnvData.noiseScore;
-                mappedData.noiseScoreDesc = cachedEnvData.noiseScoreDesc;
-                mappedData.noiseTrafficScore = cachedEnvData.noiseTrafficScore;
-                mappedData.noiseTrafficDesc = cachedEnvData.noiseTrafficDesc;
-                mappedData.noiseLocalScore = cachedEnvData.noiseLocalScore;
-                mappedData.noiseLocalDesc = cachedEnvData.noiseLocalDesc;
                 mappedData.noiseAirportScore = cachedEnvData.noiseAirportScore;
                 mappedData.noiseAirportDesc = cachedEnvData.noiseAirportDesc;
+            }
+
+            // 4b. Zyphe Proprietary Noise Simulation
+            if (needsZypheNoise && freshZypheNoise) {
+                mappedData.zypheNoiseScore = freshZypheNoise.score;
+                mappedData.noiseCharacterization = freshZypheNoise.characterization;
+                mappedData.primaryNoiseSource = freshZypheNoise.primarySource;
+            } else if (!needsZypheNoise) {
+                mappedData.zypheNoiseScore = cachedEnvData.zypheNoiseScore;
+                mappedData.noiseCharacterization = cachedEnvData.noiseCharacterization;
+                mappedData.primaryNoiseSource = cachedEnvData.primaryNoiseSource;
             }
 
             // 5. Historical Disasters
@@ -452,6 +460,10 @@ export const fetchPropertyDataFull = async (
                     drought: mappedData.drought ?? null,
                     broadband: (mappedData as any).broadband ?? null,
                     commuteDestinations: (mappedData as any).commuteDestinations ?? null,
+                    zypheNoiseScore: mappedData.zypheNoiseScore ?? null,
+                    noiseCharacterization: mappedData.noiseCharacterization ?? null,
+                    primaryNoiseSource: mappedData.primaryNoiseSource ?? null,
+                    noiseSimulationFetchedAt: needsZypheNoise ? new Date().toISOString() : (cachedEnvData?.noiseSimulationFetchedAt ?? null),
                 };
 
                 // Generic field-level audit: only mark a field as source-null if the API

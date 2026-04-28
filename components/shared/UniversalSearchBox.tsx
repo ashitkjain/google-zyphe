@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { AddressIndexEntry } from '../services/firebase/properties';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { SearchTrie, SearchResult } from '../services/api/trie';
 
 interface UniversalSearchBoxProps {
     address: string;
     setAddress: (addr: string) => void;
     performSearch: (addr: string) => void;
-    addressIndex: AddressIndexEntry[];
+    searchTrie: SearchTrie | null;
     searchHistory: { address: string; timestamp: number }[];
     favorites: any[];
     loading?: boolean;
@@ -19,7 +19,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
     address,
     setAddress,
     performSearch,
-    addressIndex,
+    searchTrie,
     searchHistory,
     favorites,
     loading,
@@ -29,7 +29,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
     onViewSaved
 }) => {
     const [showDropdown, setShowDropdown] = useState(false);
-    const [suggestions, setSuggestions] = useState<AddressIndexEntry[]>([]);
+    const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,33 +44,62 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const isPrefixValid = useMemo(() => {
+        if (!address || activeTab !== 'search') return true;
+        if (/^\d+$/.test(address.trim())) return true; // Allow numeric ZPID input
+        return searchTrie?.isValidPrefix(address) ?? true;
+    }, [address, searchTrie, activeTab]);
+
+    const completeMatch = useMemo(() => {
+        if (!address || activeTab !== 'search') return null;
+        return searchTrie?.isCompleteMatch(address) ?? null;
+    }, [address, searchTrie, activeTab]);
+
     const handleInputChange = (val: string) => {
         setAddress(val);
-        if (val.length >= 2) {
-            const q = val.toLowerCase();
-            const matches = addressIndex
-                .filter(entry => entry.a.toLowerCase().includes(q))
-                .slice(0, 6);
-            setSuggestions(matches);
-            setShowDropdown(true);
-        } else {
-            setSuggestions([]);
+        if (activeTab === 'search' && searchTrie) {
+            if (val.length >= 1) {
+                const matches = searchTrie.search(val, 8);
+                setSuggestions(matches);
+                setShowDropdown(true);
+            } else {
+                setSuggestions([]);
+            }
         }
     };
 
     const [showBrowseModal, setShowBrowseModal] = useState(false);
 
-    const handleSelect = (addr: string) => {
-        setAddress(addr);
+    const handleSelect = (result: SearchResult) => {
+        setAddress(result.label);
         setShowDropdown(false);
-        performSearch(addr);
+        performSearch(result.zpid || result.label);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log(`[UniversalSearchBox] SUBMIT address: "${address}"`);
-        setShowDropdown(false);
-        performSearch(address);
+        if (activeTab === 'story') {
+            performSearch(address);
+            return;
+        }
+
+        // Detect ZPID
+        if (/^\d{7,12}$/.test(address.trim())) {
+            setShowDropdown(false);
+            performSearch(address.trim());
+            return;
+        }
+
+        // Strict Enforcement: Only allow search if it's a complete match in the Trie
+        if (completeMatch) {
+            setShowDropdown(false);
+            performSearch(completeMatch.zpid || completeMatch.label);
+        } else {
+            // If user just pressed enter on a partial string, try the first suggestion
+            if (suggestions.length > 0) {
+                handleSelect(suggestions[0]);
+            }
+        }
     };
 
     const useCurrentLocation = () => {
@@ -81,6 +110,15 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                 // Transition to a search using coordinates
                 performSearch(`${latitude},${longitude}`);
             });
+        }
+    };
+
+    const getIconForType = (type: string) => {
+        switch (type) {
+            case 'city': return <i className="fa-solid fa-city text-indigo-400"></i>;
+            case 'zip': return <i className="fa-solid fa-map-pin text-emerald-400"></i>;
+            case 'address': return <i className="fa-solid fa-house text-slate-400"></i>;
+            default: return <i className="fa-solid fa-location-dot"></i>;
         }
     };
 
@@ -119,7 +157,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
             <form onSubmit={handleSubmit} className="flex-1 relative z-[70]">
                 <div className={`
                     relative flex items-center bg-white rounded-xl shadow-xl transition-all duration-300 border-2 overflow-hidden
-                    ${showDropdown ? 'border-indigo-500 shadow-indigo-100/50' : 'border-transparent focus-within:border-indigo-500'}
+                    ${!isPrefixValid ? 'border-rose-400 bg-rose-50/30' : (showDropdown ? 'border-indigo-500 shadow-indigo-100/50' : 'border-transparent focus-within:border-indigo-500')}
                 `}>
                     <input
                         ref={inputRef}
@@ -128,21 +166,26 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                         onFocus={() => setShowDropdown(true)}
                         onChange={(e) => handleInputChange(e.target.value)}
                         placeholder={activeTab === 'story' ? "Describe your dream lifestyle..." : "Search address or city..."}
-                        className="w-full pl-4 pr-10 py-2 bg-transparent outline-none text-slate-800 font-bold placeholder:text-slate-400 text-sm"
+                        className={`w-full pl-4 pr-10 py-2 bg-transparent outline-none font-bold text-sm ${!isPrefixValid ? 'text-rose-600' : 'text-slate-800'} placeholder:text-slate-400`}
                     />
                     
                     <button 
                         type="submit"
-                        disabled={loading}
-                        className="absolute right-1 w-7 h-7 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                        disabled={loading || (!isPrefixValid && activeTab !== 'story')}
+                        className={`absolute right-1 w-7 h-7 rounded-lg flex items-center justify-center transition-all shadow-sm active:scale-95 disabled:opacity-50 ${!isPrefixValid ? 'bg-rose-400' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}
                     >
                         {loading ? (
                             <i className="fa-solid fa-circle-notch animate-spin text-[10px]"></i>
                         ) : (
-                            <i className="fa-solid fa-magnifying-glass text-[10px]"></i>
+                            <i className={`fa-solid ${!isPrefixValid ? 'fa-triangle-exclamation' : 'fa-magnifying-glass'} text-[10px]`}></i>
                         )}
                     </button>
                 </div>
+                {!isPrefixValid && activeTab === 'search' && (
+                    <div className="absolute top-full left-0 mt-1 px-2 py-1 bg-rose-500 text-white text-[9px] font-black uppercase tracking-tighter rounded-md shadow-lg animate-in slide-in-from-top-1">
+                        Unsupported Area
+                    </div>
+                )}
             </form>
 
             {/* 3. Right-aligned Saved Actions */}
@@ -188,27 +231,29 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                     </button>
 
                     <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                        {/* Instant Matches (Autocomplete) */}
+                        {/* Instant Matches (Trie results) */}
                         {suggestions.length > 0 && (
                             <div className="py-2">
-                                <div className="px-6 py-2">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Instant Match</span>
-                                </div>
-                                {suggestions.map((entry, i) => (
+
+                                {suggestions.map((result, i) => (
                                     <button
                                         key={`match-${i}`}
-                                        onClick={() => handleSelect(entry.a)}
+                                        onClick={() => handleSelect(result)}
                                         className="w-full px-6 py-3 flex items-center gap-4 hover:bg-slate-50 text-slate-700 transition-colors"
                                     >
-                                        <i className="fa-solid fa-bolt text-amber-400 text-xs"></i>
-                                        <span className="text-sm font-medium">{entry.a}</span>
+                                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-xs">
+                                            {getIconForType(result.type)}
+                                        </div>
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-sm font-bold">{result.label}</span>
+                                        </div>
                                     </button>
                                 ))}
                             </div>
                         )}
 
-                        {/* Recent History */}
-                        {searchHistory.length > 0 && (
+                        {/* Recent History (Filtered to supported area) */}
+                        {searchHistory.length > 0 && suggestions.length === 0 && (
                             <div className="py-2 border-t border-slate-50">
                                 <div className="px-6 py-2">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Search History</span>
@@ -216,7 +261,11 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                                 {searchHistory.slice(0, 5).map((hist, i) => (
                                     <button
                                         key={`hist-${i}`}
-                                        onClick={() => handleSelect(hist.address)}
+                                        onClick={() => {
+                                            const res = searchTrie?.isCompleteMatch(hist.address);
+                                            if (res) handleSelect(res);
+                                            else setAddress(hist.address);
+                                        }}
                                         className="w-full px-6 py-3 flex items-center gap-4 hover:bg-slate-50 text-slate-600 transition-colors"
                                     >
                                         <i className="fa-regular fa-clock text-slate-300 text-xs"></i>
@@ -227,7 +276,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                         )}
 
                         {/* Favorites */}
-                        {favorites.length > 0 && (
+                        {favorites.length > 0 && suggestions.length === 0 && (
                             <div className="py-2 border-t border-slate-50">
                                 <div className="px-6 py-2">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Favorites</span>
@@ -235,7 +284,11 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                                 {favorites.slice(0, 3).map((fav, i) => (
                                     <button
                                         key={`fav-${i}`}
-                                        onClick={() => handleSelect(fav.address)}
+                                        onClick={() => {
+                                            const res = searchTrie?.isCompleteMatch(fav.address);
+                                            if (res) handleSelect(res);
+                                            else setAddress(fav.address);
+                                        }}
                                         className="w-full px-6 py-3 flex items-center gap-4 hover:bg-slate-50 text-slate-600 transition-colors"
                                     >
                                         <i className="fa-solid fa-heart text-rose-400 text-xs"></i>
@@ -264,7 +317,9 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
                                     key={city}
                                     onClick={() => {
                                         setShowBrowseModal(false);
-                                        performSearch(city);
+                                        const res = searchTrie?.isCompleteMatch(city);
+                                        if (res) handleSelect(res);
+                                        else performSearch(city);
                                     }}
                                     className="flex flex-col items-center gap-3 p-5 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group shadow-sm hover:shadow-md"
                                 >

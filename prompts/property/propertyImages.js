@@ -35,7 +35,11 @@ export const getPropertyImagesPrompt = (property) => `
     },
     "material_palette": [
       { "name": "Material name", "hex": "#c8a87a", "location": "Where it appears" }
-    ]
+    ],
+    "interior_summary": "Neutral, factual 4-5 sentence summary of interior layout and materials",
+    "rooms_summary": "Neutral, factual 4-5 sentence summary of identifiable rooms",
+    "vibe": "Objective aesthetic atmosphere description",
+    "objective_tags": ["hardwood-floors", "recessed-lighting", "etc"]
   },
   "room_highlights": [
     {

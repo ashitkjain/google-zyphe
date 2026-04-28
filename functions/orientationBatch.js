@@ -293,7 +293,7 @@ async function _downloadImageBase64(url) {
             const mimeType = filePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
             return { data: Buffer.from(buffer).toString('base64'), mimeType };
         }
-        
+
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const buf = await res.arrayBuffer();
@@ -325,7 +325,7 @@ async function _fetchRoadmapImage(lat, lng, radarKey) {
     if (!radarKey) throw new Error("Radar API key missing for roadmap fetch");
     // Radar zoom 19 is a cross-over: shows parcel/building detail + enough street context for labels.
     const url = `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=19&width=800&height=800&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`;
-    
+
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Radar Roadmap fetch HTTP ${res.status}`);
     const buf = await res.arrayBuffer();
@@ -466,15 +466,15 @@ function _buildOrientationPrompt(usesDualImage, address, description, streetBear
     const streetName2 = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : 'the address street';
     const roadmapStep = roadmapLabel
         ? `\nSTREET DIRECTION — PARCEL MAP FIRST (Image ${roadmapLabel}):\n` +
-          `  Image ${roadmapLabel} is a labeled Radar parcel map (North-up, zoom 19) centered on the property.\n` +
-          `  1. Find "${streetName2}" on Image ${roadmapLabel} by reading the street name labels.\n` +
-          `     → If the label is clearly readable: read the bearing the road travels (0°=N, 90°=E, 180°=S, 270°=W) and set street_bearing_from_map to this value. This is more reliable than estimating from satellite texture.\n` +
-          `     → If the label is NOT visible or the street cannot be identified on the map: set street_bearing_from_map=null and estimate the bearing from Image A (satellite) as a fallback.\n` +
-          `  2. PERPENDICULAR RULE: your final azimuth_degrees must be ~perpendicular (±45°) to street_bearing_from_map (or your satellite estimate if map was unclear).\n` +
-          `     If your azimuth is within 15° of the road bearing (road-parallel), you have made the most common error — correct to the nearest perpendicular.\n` +
-          `     → TIE-BREAKER: a road has two perpendiculars (e.g. NE and SW). If a GPS TIE-BREAKER is stated in the PROPERTY ADDRESS section above, use it to pick the correct perpendicular.\n` +
-          `  ⚠️ CORNER LOT / BEND EXCEPTION: On curved streets or at road bends, the local road segment may run roughly TOWARD the property — in that case the front faces the road directly (not perpendicular to it). If a GPS TIE-BREAKER gives a direction that is approximately PARALLEL to the local road bearing (within 45°), trust the GPS direction — it is telling you the road arrives at your face, so face it directly.\n` +
-          `  ⚠️ CUL-DE-SAC EXCEPTION: if the map shows "${streetName2}" terminates in a circular dead-end, IGNORE the perpendicular rule — derive direction from aerial (property center → cul-de-sac center).`
+        `  Image ${roadmapLabel} is a labeled Radar parcel map (North-up, zoom 19) centered on the property.\n` +
+        `  1. Find "${streetName2}" on Image ${roadmapLabel} by reading the street name labels.\n` +
+        `     → If the label is clearly readable: read the bearing the road travels (0°=N, 90°=E, 180°=S, 270°=W) and set street_bearing_from_map to this value. This is more reliable than estimating from satellite texture.\n` +
+        `     → If the label is NOT visible or the street cannot be identified on the map: set street_bearing_from_map=null and estimate the bearing from Image A (satellite) as a fallback.\n` +
+        `  2. PERPENDICULAR RULE: your final azimuth_degrees must be ~perpendicular (±45°) to street_bearing_from_map (or your satellite estimate if map was unclear).\n` +
+        `     If your azimuth is within 15° of the road bearing (road-parallel), you have made the most common error — correct to the nearest perpendicular.\n` +
+        `     → TIE-BREAKER: a road has two perpendiculars (e.g. NE and SW). If a GPS TIE-BREAKER is stated in the PROPERTY ADDRESS section above, use it to pick the correct perpendicular.\n` +
+        `  ⚠️ CORNER LOT / BEND EXCEPTION: On curved streets or at road bends, the local road segment may run roughly TOWARD the property — in that case the front faces the road directly (not perpendicular to it). If a GPS TIE-BREAKER gives a direction that is approximately PARALLEL to the local road bearing (within 45°), trust the GPS direction — it is telling you the road arrives at your face, so face it directly.\n` +
+        `  ⚠️ CUL-DE-SAC EXCEPTION: if the map shows "${streetName2}" terminates in a circular dead-end, IGNORE the perpendicular rule — derive direction from aerial (property center → cul-de-sac center).`
         : '';
 
     if (usesDualImage) {
@@ -610,10 +610,10 @@ function _buildListingPhotoPrompt(address, description, streetBearing, streetSid
 
     const roadmapStep = roadmapLabel
         ? `\nSTREET DIRECTION — PARCEL MAP FIRST (Image ${roadmapLabel}):\n` +
-          `  Image ${roadmapLabel} is a labeled Radar parcel map (North-up, zoom 19) centered on the property.\n` +
-          `  1. Find "${streetName}" on Image ${roadmapLabel} by reading the street name labels.\n` +
-          `  2. PERPENDICULAR RULE: your final azimuth_degrees must be ~perpendicular (±45°) to the road bearing read from the map.\n` +
-          `  ⚠️ CUL-DE-SAC EXCEPTION: if the map shows "${streetName}" terminates in a circular dead-end, IGNORE the perpendicular rule — derive direction from aerial (property center → cul-de-sac center).`
+        `  Image ${roadmapLabel} is a labeled Radar parcel map (North-up, zoom 19) centered on the property.\n` +
+        `  1. Find "${streetName}" on Image ${roadmapLabel} by reading the street name labels.\n` +
+        `  2. PERPENDICULAR RULE: your final azimuth_degrees must be ~perpendicular (±45°) to the road bearing read from the map.\n` +
+        `  ⚠️ CUL-DE-SAC EXCEPTION: if the map shows "${streetName}" terminates in a circular dead-end, IGNORE the perpendicular rule — derive direction from aerial (property center → cul-de-sac center).`
         : '';
 
     return [
@@ -1071,15 +1071,15 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
         const frontDoorMissing = data.front_door_clearly_visible === false;
         const nonStandardStreet = data.standard_street_layout === false;
         const explanationLower = (data.explanation || '').toLowerCase();
-        const facesInternal = explanationLower.includes('internal street') || 
-                              explanationLower.includes('internal road') ||
-                              explanationLower.includes('common area') ||
-                              explanationLower.includes('greenbelt') ||
-                              explanationLower.includes('walkway') ||
-                              explanationLower.includes('shared driveway') ||
-                              explanationLower.includes('private road') ||
-                              explanationLower.includes('widened curve') ||
-                              explanationLower.includes('eyebrow');
+        const facesInternal = explanationLower.includes('internal street') ||
+            explanationLower.includes('internal road') ||
+            explanationLower.includes('common area') ||
+            explanationLower.includes('greenbelt') ||
+            explanationLower.includes('walkway') ||
+            explanationLower.includes('shared driveway') ||
+            explanationLower.includes('private road') ||
+            explanationLower.includes('widened curve') ||
+            explanationLower.includes('eyebrow');
         const hasUnitNumber = address.includes('#') || /\b(UNIT|APT|STE)\b/i.test(address);
 
         if (aerialOnlyMode) {
@@ -1088,11 +1088,11 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
             finalOrientation = 'UNCLEAR';
             finalAzimuth = null;
         } else if (complexLayout || nonStandardStreet || frontDoorMissing || facesInternal || hasUnitNumber) {
-            const reason = frontDoorMissing   ? 'front door not clearly visible'
-                         : facesInternal      ? 'faces internal street/common area/shared driveway'
-                         : hasUnitNumber      ? 'has unit number (complex multi-unit logic)'
-                         : nonStandardStreet  ? 'non-standard street layout (internal access road)'
-                         : `complex lot layout (${layoutType})`;
+            const reason = frontDoorMissing ? 'front door not clearly visible'
+                : facesInternal ? 'faces internal street/common area/shared driveway'
+                    : hasUnitNumber ? 'has unit number (complex multi-unit logic)'
+                        : nonStandardStreet ? 'non-standard street layout (internal access road)'
+                            : `complex lot layout (${layoutType})`;
             console.log(`[Batch] Override ${zpid}: townhouse/multi-unit + ${reason} \u2192 UNCLEAR`);
             finalOrientation = 'UNCLEAR';
             finalAzimuth = null;
@@ -1315,3 +1315,5 @@ exports.runOrientationBatchOnCreate = functions
         console.log(`[Batch] Job ${context.params.jobId} complete — ${done} ok, ${failed} failed / ${zpids.length} total`);
         return null;
     });
+
+exports._analyzeOneProperty = _analyzeOneProperty;

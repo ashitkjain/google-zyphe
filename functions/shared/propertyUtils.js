@@ -282,5 +282,6 @@ async function _enrichProperty(zpid, db, keys) {
 
 module.exports = {
     _enrichProperty,
+    _enrichEnvironmentalData,
     extractNumericValue
 };

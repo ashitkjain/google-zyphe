@@ -178,7 +178,9 @@ export const runFullIntelligencePipeline = async (
     // Try to load existing property from Firestore first
     if (zpid) {
       const cached = await getPropertyFromCloud(zpid);
-      if (cached && cached.address && cached.images?.length && cached.coordinates && cached.mapZoomIn) {
+      // Require at least 2 images to consider it a "full" cache hit, 
+      // otherwise it's likely a shallow ingestion from a search result that needs enrichment.
+      if (cached && cached.address && (cached.images?.length || 0) > 1 && cached.coordinates && cached.mapZoomIn) {
         onLog?.(`[Discovery] Cache hit — loaded ${cached.address} from database (${cached.images?.length || 0} images, maps present).`);
         enrichedData = cached;
 
@@ -291,23 +293,13 @@ export const runFullIntelligencePipeline = async (
       if (!zpid) throw new Error("Could not resolve ZPID for property.");
       onProgress({ step: 'Discovery', status: 'completed', message: `Found ${address}` });
 
-      // 4. Gallery Fetch
-      onProgress({ step: 'Gallery', status: 'running', message: 'Syncing complete photo gallery...' });
-      try {
-        const fullImages = await fetchPropertyImages(zpid);
-        if (fullImages && fullImages.length > (propData.images?.length || 0)) {
-          onLog?.(`[Gallery] Discovered ${fullImages.length} images.`);
-          propData.images = fullImages;
-        }
-      } catch (e) {
-        console.warn("[Gallery] Gallery sync failed, using summary photos:", e);
-      }
-
       // --- ASSET PERSISTENCE ---
+      // ⚠️ ENHANCEMENT: securePropertyAssets now internally handles the /images reconciliation 
+      // ensuring we always get the full gallery even if the initial specs only showed 1 image.
       onProgress({ step: 'Cloud Storage', status: 'running', message: 'Securing imagery and maps...' });
       const assets = await securePropertyAssets(
         zpid,
-        propData.images || [],
+        propData.images || [], // provide existing images as a hint
         { 
           zoomIn: radar.mapZoomIn, 
           zoomOut: radar.mapZoomOut,

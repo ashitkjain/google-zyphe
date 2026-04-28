@@ -186,6 +186,9 @@ export interface PropertyData {
     noiseLocalDesc?: string;
     noiseAirportScore?: number | null;     // Airport noise contribution (0–100)
     noiseAirportDesc?: string;
+    zypheNoiseScore?: number | null;       // Zyphe v3 Proprietary Simulation: 0-100 (high is better)
+    noiseCharacterization?: string;        // e.g. "Loud / Impacted", "Suburban Quiet"
+    primaryNoiseSource?: string;           // e.g. "Motorway: I-680", "Rail: Union Pacific"
     schools?: School[];
     nearbyHomes?: any[];
     homeInsights?: any;
@@ -375,6 +378,7 @@ export interface Tour {
 export interface PropertyAssets {
     zpid: string;
     images: string[];
+    imageMetadata?: Record<string, { originalUrl: string }>; // Maps storageUrl -> metadata
     mapZoomIn?: string;          // Radar close-up road map (Firebase Storage)
     mapZoomOut?: string;         // Radar wider-area road map (Firebase Storage)
     streetView?: string;         // Google Street View (Firebase Storage)

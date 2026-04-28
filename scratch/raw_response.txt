@@ -1,0 +1,73 @@
+
+--- Diagnostic Test for ZPID: 25064628 ---
+Trying model: gemini-2.5-flash...
+Successfully connected with: gemini-2.5-flash
+Property Address: 8617 Briarwood Ln, Dublin, CA 94568 US
+Visual Data Present: true
+Loading prompt from: /Users/ashitjain/colorado/zyphe/google-zyphe/functions/prompts/property/comprehensiveAnalysis.js
+Prompt length: 39915
+Sending to Gemini...
+FULL Gemini Response:
+```json
+{
+  "summary": "Welcome to 8617 Briarwood Ln, a beautifully transformed ranch-style home in Dublin's desirable Glenoaks neighborhood. Priced at **$1,299,998**, this 4-bedroom, 2-bathroom residence offers 1,850 sq ft of modern living on a 6,969 sq ft lot. Built in 1963, it boasts a top-to-bottom renovation, featuring Tesla solar, an updated roof, and remodeled interiors including a chef's kitchen and elegant bathrooms. The private, East-facing backyard oasis, complete with a sparkling pool and high-end pavers, is perfect for entertaining. Its prime location offers **walkability to top-rated schools (Dublin High School is 10/10)**, parks, and easy access to major freeways, BART, and tech bus stops, making it a commuter's dream. Recent **price adjustments signal potential seller motivation**, presenting a competitive opportunity. However, prospective buyers should note the **SEVERE fire risk** and **EXTREME air quality** ratings, which may impact insurance and long-term planning, and the presence of third-party owned solar.",
+  "detailed_analysis": {
+    "visual_appeal_condition": "This classic California Ranch home has been meticulously updated, exuding standout curb appeal with its freshly painted sophisticated gray stucco exterior, crisp white trim, and a welcoming dark red front door. The recently updated roof, now featuring Tesla solar panels, not only enhances efficiency but also contributes to a modern aesthetic. Inside, the transformation is complete, offering a bright and airy ambiance with an open layout, rich laminate flooring, and contemporary finishes throughout. The property is in exceptional condition, from the updated kitchen with granite counters and stainless appliances to the remodeled bathrooms with quartz and subway tile, ensuring a truly move-in ready experience where every detail has been thoughtfully addressed.",
+    "outdoors_view_quality": "The private, East-facing backyard is a genuine oasis, designed for both vibrant entertaining and serene relaxation. It features extensive, high-end custom pavers forming a spacious patio area, ideal for dining al fresco or lounging by the sparkling updated pool, framed by mature palms and a lush lawn. A dedicated large play area ensures plenty of space for activity, all enclosed by a sturdy wooden fence for ultimate privacy from neighboring properties. While distant scenic vistas are not a feature, the property offers pleasant, private views of its meticulously landscaped backyard. The West-facing front, situated on a curved street, provides typical residential privacy and showcases well-maintained homes and mature trees.",
+    "community_pulse": "Nestled in Glenoaks, an established residential neighborhood in West Dublin, this home benefits from a quiet suburban atmosphere. The area is characterized by mature landscaping, level lots, wide, tree-lined streets, and a clear sense of pride in ownership among its long-term residents. Infrastructure is well-maintained, with asphalt roads, concrete sidewalks, and standard municipal street lighting. While local traffic volumes are low, ambient noise from the nearby I-680 corridor is present. Glenoaks is known as a mid-range Dublin neighborhood, offering larger lots and more established single-family homes compared to newer developments. Residents enjoy unique features such as walking distance to the Iron Horse Regional Trail, proximity to the West Dublin/Pleasanton BART station, easy access to tech bus pick-up locations, and close proximity to Dublin High School and Shannon Community Park."
+  },
+  "risks_considerations": "Prospective buyers should be aware of several considerations. Financially, while the current list price of $1,299,998 represents a recent adjustment from previous listings, which may indicate increased seller motivation, the annual homeowner's insurance is notably high at $5,460. The Tesla solar system is third-party owned, meaning a lease or PPA agreement will need careful review and potential transfer fees. Environmentally, the property is rated with a **SEVERE fire risk** and **EXTREME air quality**, with the fire probability increasing over time, making a separate fire insurance policy likely required. The heat risk is moderate, with increasing hot days. Location-wise, despite walkability to specific amenities like schools and parks, the overall Walk Score of 43 indicates a car-dependent area. Additionally, overhead power lines run directly across the front yard, which some buyers may find aesthetically undesirable, and ambient noise from I-680 is present. The West-facing front can also lead to intense afternoon sun, potentially impacting cooling costs.",
+  "interior_summary": {
+    "interior_summary": "This single-story home presents a thoughtfully designed layout featuring a distinctive double living room concept, seamlessly connecting an elegant sitting area with a stone fireplace to a vaulted family room. The open kitchen, equipped with granite counters, stainless appliances, and a three-seat breakfast bar, acts as the central hub. Flooring throughout the home consists of a harmonious blend of durable laminate, practical tile, and plush carpeting in bedrooms. The primary suite offers a spacious walk-in closet, while both remodeled bathrooms feature contemporary quartz counters and clean subway tile finishes, enhancing the home's modern appeal.",
+    "rooms_summary": "The home encompasses four bedrooms and two updated bathrooms, alongside its dual living spaces. The formal sitting area provides an intimate retreat, while the vaulted family room boasts a dramatic built-in entertainment center, ideal for gatherings. The bright, open kitchen is complemented by a dining area perfect for meals. One bedroom is currently configured as a functional home office, showcasing the home's versatility, while the primary suite offers a private sanctuary with direct backyard access. Laundry facilities are conveniently located in the attached two-car garage.",
+    "vibe": "The overall vibe of this home is one of modern elegance and seamless comfort, achieved through a Modern Transitional design style with subtle Contemporary Organic touches. Crisp white walls and abundant natural light, supplemented by solar tubes and recessed lighting, create a bright and airy ambiance. The thoughtful staging with neutral-toned furnishings and earthy accents evokes a sophisticated yet inviting atmosphere, designed for effortless living and entertaining.",
+    "objective_tags": [
+      "Updated Kitchen",
+      "Remodeled Bathrooms",
+      "Laminate Flooring",
+      "Tile Flooring",
+      "Carpet Flooring",
+      "Recessed Lighting",
+      "Solar Tubes",
+      "Plantation Shutters",
+      "Stone Fireplace",
+      "Built-in Entertainment Center",
+      "Vaulted Ceilings",
+      "Granite Countertops",
+      "Stainless Steel Appliances",
+      "Breakfast Bar",
+      "Walk-in Closet",
+      "Dual Vanity",
+      "Walk-in Shower",
+      "Central Air",
+      "Forced Air Heating",
+      "Double Pane Windows",
+      "In Garage Laundry"
+    ]
+  },
+  "property_fit_scores": {
+    "entertain": 9,
+    "commute": 9,
+    "schools": 9,
+    "walkability": 5,
+    "quiet": 6,
+    "tech": 8
+  },
+  "schools_summary": "This property is ideally situated within close proximity to top-rated schools, making it a highly desirable location for families. Murray Elementary School, an excellent institution rated 8/10, is just 0.2 miles away. For middle schoolers, Wells Middle School holds a respectable 7/10 rating and is located 1.1 miles from the home. High school students benefit immensely from Dublin High School, which boasts an outstanding 10/10 rating and is only 0.3 miles away, easily accessible by foot. This educational landscape ensures access to quality education at every level, with many options within comfortable walking or biking distance."
+}
+```
+Successfully parsed JSON keys: [
+  'summary',
+  'detailed_analysis',
+  'risks_considerations',
+  'interior_summary',
+  'property_fit_scores',
+  'schools_summary'
+]
+--- Smoke Test Simulation ---
+Narrative Summary: ✅
+Risks: ✅
+Interior Summary: ✅
+
+Writing to Firestore properties/25064628/analysis/comprehensive ...
+Write successful.

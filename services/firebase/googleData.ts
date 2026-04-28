@@ -29,6 +29,11 @@ export interface ThirdPartyData {
     drought?: any;
     /** FCC Broadband data. 90-day TTL. */
     broadband?: any;
+    /** Zyphe Proprietary Noise Simulation data (OSM-based) */
+    zypheNoiseScore?: number | null;
+    noiseCharacterization?: string | null;
+    primaryNoiseSource?: string | null;
+    noiseSimulationFetchedAt?: string | null;
     lastUpdated?: any;
 }
 

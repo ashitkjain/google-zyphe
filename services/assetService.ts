@@ -1,6 +1,6 @@
-
 import { uploadRemoteImageToStorage } from './firebase/storage';
 import { getPropertyAssetsFromCloud, savePropertyAssetsToCloud } from './firebase/properties';
+import { fetchPropertyImages } from './api/property';
 import { PropertyAssets } from '../types';
 
 export interface AssetProgress {
@@ -33,22 +33,20 @@ const uploadWithRetry = async (url: string, path: string, index: number, maxRetr
  */
 export const securePropertyAssets = async (
     zpid: string,
-    imageUrls: string[],
+    providedImageUrls?: string[],
     maps?: { zoomIn?: string; zoomOut?: string; streetView?: string; satelliteImageUrl?: string },
     onProgress?: (p: AssetProgress) => void
 ): Promise<PropertyAssets> => {
 
-    // 1. Check if we already have the gallery registered and stored.
-    // For maps, we will proceed to the specific securing block to allow physical verification.
+    // 1. Fetch Ground Truth: Always reconcile against the live list from the source.
+    // This ensures we never have a shallow ingestion, even if the caller only provided 1 photo.
+    onProgress?.({ total: 100, completed: 0, message: "Fetching source image list..." });
+    const imageUrls = await fetchPropertyImages(zpid);
+
     const cached = await getPropertyAssetsFromCloud(zpid);
-    if (cached && cached.images?.length > 0) {
-        const allStored = cached.images.every(url => url.startsWith('https://firebasestorage') || url.includes('FAILED_TO_SECURE'));
-        // If images are secure, we still proceed to check maps if they are provided,
-        // but if no maps were provided and images are done, we can return.
-        if (allStored && !maps?.zoomIn && !maps?.zoomOut && !maps?.streetView) return cached;
-    }
 
     const persistentImages: string[] = [];
+    const newMetadata: Record<string, { originalUrl: string }> = { ...(cached?.imageMetadata || {}) };
     let persistentMapZoomIn = maps?.zoomIn;
     let persistentMapZoomOut = maps?.zoomOut;
     let persistentStreetView = maps?.streetView;
@@ -102,19 +100,19 @@ export const securePropertyAssets = async (
                 await getDownloadURL(svRef).then(url => {
                     persistentStreetView = url;
                     console.log(`[AssetService] Recovered existing street view from storage for ${zpid}`);
-                }).catch(() => {});
+                }).catch(() => { });
             }
             if (!persistentMapZoomIn || !persistentMapZoomIn.startsWith('https://firebasestorage')) {
                 const ziRef = ref(storage, `properties/${zpid}/maps/zoom_in.png`);
                 await getDownloadURL(ziRef).then(url => {
                     persistentMapZoomIn = url;
-                }).catch(() => {});
+                }).catch(() => { });
             }
             if (!persistentMapZoomOut || !persistentMapZoomOut.startsWith('https://firebasestorage')) {
                 const zoRef = ref(storage, `properties/${zpid}/maps/location_context.png`);
                 await getDownloadURL(zoRef).then(url => {
                     persistentMapZoomOut = url;
-                }).catch(() => {});
+                }).catch(() => { });
             }
         }
     } catch (e) { /* ignore discovery errors */ }
@@ -125,23 +123,40 @@ export const securePropertyAssets = async (
 
     for (let i = 0; i < imageUrls.length; i += CHUNK_SIZE) {
         const chunk = imageUrls.slice(i, i + CHUNK_SIZE);
-
-        onProgress?.({
-            total,
-            completed: i,
-            message: `Persisting gallery images ${i + 1} to ${Math.min(i + CHUNK_SIZE, total)}...`
+        onProgress?.({ 
+            total, 
+            completed: i, 
+            message: `Persisting gallery images ${i + 1} to ${Math.min(i + CHUNK_SIZE, total)}...` 
         });
 
         const chunkPromises = chunk.map(async (url, chunkIndex) => {
             const index = i + chunkIndex;
-            // Skip if already in firebase storage (proper HTTPS URL) or already a failure placeholder
-            if (url.startsWith('https://firebasestorage') || url.includes('FAILED_TO_SECURE')) return url;
+            
+            // Skip if already a failure placeholder
+            if (url.includes('FAILED_TO_SECURE')) return url;
 
-            return await uploadWithRetry(
+            const cachedUrl = cached?.images?.[index];
+            const cachedMeta = cachedUrl ? cached?.imageMetadata?.[cachedUrl] : null;
+
+            // IDENTITY-BASED HEALING:
+            // Check if our cached img_N.jpg actually contains the same photo as the API's current index N.
+            if (cachedUrl?.startsWith('https://firebasestorage') && cachedMeta?.originalUrl === url) {
+                return cachedUrl;
+            }
+
+            // If identity mismatch or missing, download fresh.
+            const securedUrl = await uploadWithRetry(
                 url,
                 `properties/${zpid}/gallery/img_${index + 1}.jpg`,
                 index
             );
+
+            // Record metadata for future identity-based reconciliation
+            if (securedUrl.startsWith('https://firebasestorage')) {
+                newMetadata[securedUrl] = { originalUrl: url };
+            }
+
+            return securedUrl;
         });
 
         const chunkResults = await Promise.all(chunkPromises);
@@ -157,6 +172,7 @@ export const securePropertyAssets = async (
     const assets: PropertyAssets = {
         zpid,
         images: persistentImages,
+        imageMetadata: newMetadata,
         mapZoomIn: persistentMapZoomIn || null,
         mapZoomOut: persistentMapZoomOut || null,
         streetView: persistentStreetView || null,

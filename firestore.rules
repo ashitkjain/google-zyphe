@@ -514,11 +514,19 @@ service cloud.firestore {
       allow create: if request.auth != null && jobCollection in [
         'orientation_batch_jobs', 
         'full_intel_batch_jobs', 
-        'property_data_batch_jobs'
+        'property_data_batch_jobs',
+        'narrative_batch_jobs',
+        'asset_secure_batch_jobs'
       ];
       // Users can read their own job documents for progress polling
       allow read: if request.auth != null && (
-        jobCollection in ['orientation_batch_jobs', 'full_intel_batch_jobs', 'property_data_batch_jobs']
+        jobCollection in [
+          'orientation_batch_jobs', 
+          'full_intel_batch_jobs', 
+          'property_data_batch_jobs',
+          'narrative_batch_jobs',
+          'asset_secure_batch_jobs'
+        ]
         // Relaxing userId check for local dev/simplicity, but ideally:
         // && resource.data.userId == request.auth.uid
       );

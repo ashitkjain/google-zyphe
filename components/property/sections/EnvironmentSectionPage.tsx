@@ -134,8 +134,8 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
     ].filter(Boolean) as { icon: string; label: string; score: number }[];
 
     // ── Noise helpers ─────────────────────────────────────────────────────────
-    // HowLoud SoundScore: 100 is quietest, 0 is loudest.
-    const noiseScore   = data.noiseScore ?? null;
+    // Priority: Zyphe Noise Score (v3) -> HowLoud SoundScore (v1)
+    const noiseScore   = data.zypheNoiseScore ?? data.noiseScore ?? null;
     const noiseLabel   = noiseScore == null ? null
         : noiseScore >= 85 ? 'Pristine' : noiseScore >= 70 ? 'Quiet' : noiseScore >= 50 ? 'Moderate' : 'Loud';
     const noiseColor   = noiseScore == null ? '#10b981'
@@ -200,7 +200,15 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                         <i className="fa-solid fa-volume-high" style={{ fontSize: 10, color: '#7c3aed' }} />
                                     </div>
-                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Noise</span>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Noise Profile</span>
+                                    {data.zypheNoiseScore != null && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div style={{ padding: '2px 6px', borderRadius: 4, background: '#f5f3ff', border: '1px solid #ddd6fe', fontSize: 8, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Zyphe Verified
+                                            </div>
+                                            <InfoTip tip="Zyphe Acoustic Model: Calculates logarithmic sound summation from local geographic vectors and infrastructure, accounting for building diffraction, distance decay, and ISO 9613-2 standards." />
+                                        </div>
+                                    )}
                                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
                                         <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{noiseScore}</span>
                                         <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>/100</span>
@@ -210,7 +218,16 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     <div style={{ width: `${noiseScore}%`, height: '100%', background: noiseColor, borderRadius: 99 }} />
                                 </div>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: noiseColor }}>{noiseLabel}</span>
-                                {noiseSubs.length > 0 && (
+                                {data.primaryNoiseSource && (
+                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Primary Source</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <i className={`fa-solid ${data.primaryNoiseSource.includes('Motorway') ? 'fa-road' : data.primaryNoiseSource.includes('Rail') ? 'fa-train' : 'fa-house-chimney-window'} text-slate-400 text-[10px]`} />
+                                            <span style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>{data.primaryNoiseSource}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {noiseSubs.length > 0 && data.zypheNoiseScore == null && (
                                     <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         {noiseSubs.map((n, i) => (
                                             <div key={i}>
@@ -225,6 +242,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                         ))}
                                     </div>
                                 )}
+                                <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>
+                                    Zyphe Proprietary Simulation
+                                </div>
                             </div>
                         )}
 

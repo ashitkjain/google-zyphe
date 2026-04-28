@@ -119,7 +119,7 @@ export const fetchFloodZone = async (
     const geometry = encodeURIComponent(JSON.stringify({ x: lng, y: lat }));
     // FEMA doesn't support CORS — use the Vite dev proxy; in production this will
     // gracefully fail and return null (data is cached from ingestion runs).
-    const baseUrl = '/fema-flood-proxy/gis/nfhl/rest/services/public/NFHL/MapServer/28/query';
+    const baseUrl = '/fema-flood-proxy/arcgis/rest/services/public/NFHL/MapServer/28/query';
     const url = `${baseUrl}` +
         `?geometry=${geometry}` +
         `&geometryType=esriGeometryPoint` +

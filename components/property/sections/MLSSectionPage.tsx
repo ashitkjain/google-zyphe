@@ -92,9 +92,27 @@ function fmt(n?: number | null, prefix = '$'): string {
     return `${prefix}${n.toLocaleString()}`;
 }
 
-function parseMulti(raw?: string | string[] | null): string {
+function parseMulti(raw?: any): string {
     if (!raw) return '';
-    if (Array.isArray(raw)) return raw.join(', ');
+    if (typeof raw === 'string') return raw;
+    if (typeof raw === 'number') return String(raw);
+    if (Array.isArray(raw)) {
+        return raw.map(item => {
+            if (!item) return '';
+            if (typeof item === 'string') return item;
+            if (typeof item === 'object') {
+                const o = item as Record<string, any>;
+                return o.roomType || o.description || o.name || o.type ||
+                    Object.values(o).find(v => typeof v === 'string') || '';
+            }
+            return String(item);
+        }).filter(Boolean).join(', ');
+    }
+    if (typeof raw === 'object') {
+        const o = raw as Record<string, any>;
+        return o.roomType || o.description || o.name || o.type ||
+            Object.values(o).find(v => typeof v === 'string') || JSON.stringify(raw);
+    }
     return String(raw);
 }
 
@@ -197,14 +215,14 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
     // ── Spec rows ────────────────────────────────────────────────────────────
 
     const structureRows = [
-        { k: 'Style',        v: rf?.architecturalStyle || '—' },
+        { k: 'Style',        v: parseMulti(rf?.architecturalStyle) || '—' },
         { k: 'Stories',      v: rf?.stories != null ? String(rf.stories) : '—' },
-        { k: 'Construction', v: rf?.constructionMaterials || '—' },
-        { k: 'Flooring',     v: rf?.flooring || '—' },
-        { k: 'Roof',         v: rf?.roofType || '—' },
-        { k: 'Foundation',   v: rf?.foundationDetails || '—' },
-        { k: 'Basement',     v: rf?.basement || '—' },
-        { k: 'Condition',    v: rf?.propertyCondition || '—' },
+        { k: 'Construction', v: parseMulti(rf?.constructionMaterials) || '—' },
+        { k: 'Flooring',     v: parseMulti(rf?.flooring) || '—' },
+        { k: 'Roof',         v: parseMulti(rf?.roofType) || '—' },
+        { k: 'Foundation',   v: parseMulti(rf?.foundationDetails) || '—' },
+        { k: 'Basement',     v: parseMulti(rf?.basement) || '—' },
+        { k: 'Condition',    v: parseMulti(rf?.propertyCondition) || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const parkingRows = [
@@ -213,30 +231,30 @@ export const MLSSectionPage: React.FC<Props> = ({ data }) => {
     ].filter(r => r.v && r.v !== '—');
 
     const interiorRows = [
-        { k: 'Heating',    v: rf?.heating || '—' },
-        { k: 'Cooling',    v: rf?.cooling || '—' },
-        { k: 'Appliances', v: rf?.appliances || '—' },
+        { k: 'Heating',    v: parseMulti(rf?.heating) || '—' },
+        { k: 'Cooling',    v: parseMulti(rf?.cooling) || '—' },
+        { k: 'Appliances', v: parseMulti(rf?.appliances) || '—' },
         { k: 'Features',   v: parseMulti(rf?.interiorFeatures) || '—' },
-        { k: 'Rooms',      v: rf?.roomTypes || rf?.rooms || '—' },
-        { k: 'Laundry',    v: rf?.laundryFeatures || '—' },
-        { k: 'Fireplace',  v: rf?.fireplaceFeatures || '—' },
-        { k: 'Windows',    v: rf?.windowFeatures || '—' },
-        { k: 'Security',   v: rf?.securityFeatures || '—' },
+        { k: 'Rooms',      v: parseMulti(rf?.roomTypes || rf?.rooms) || '—' },
+        { k: 'Laundry',    v: parseMulti(rf?.laundryFeatures) || '—' },
+        { k: 'Fireplace',  v: parseMulti(rf?.fireplaceFeatures) || '—' },
+        { k: 'Windows',    v: parseMulti(rf?.windowFeatures) || '—' },
+        { k: 'Security',   v: parseMulti(rf?.securityFeatures) || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const utilityRows = [
-        { k: 'Utilities', v: rf?.utilities || '—' },
+        { k: 'Utilities', v: parseMulti(rf?.utilities) || '—' },
         { k: 'Electric',  v: parseMulti(rf?.electric) || '—' },
-        { k: 'Sewer',     v: rf?.sewer || '—' },
-        { k: 'Water',     v: rf?.waterSource || '—' },
+        { k: 'Sewer',     v: parseMulti(rf?.sewer) || '—' },
+        { k: 'Water',     v: parseMulti(rf?.waterSource) || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const lotRows = [
         { k: 'Lot Size',    v: data.lotSize || (data.lotAreaValue ? `${data.lotAreaValue.toLocaleString()} sqft` : '—') },
-        { k: 'Lot Features', v: rf?.lotFeatures || '—' },
-        { k: 'Exterior',    v: rf?.exteriorFeatures || '—' },
-        { k: 'Fencing',     v: rf?.fencing || '—' },
-        { k: 'Zoning',      v: rf?.zoningDescription || '—' },
+        { k: 'Lot Features', v: parseMulti(rf?.lotFeatures) || '—' },
+        { k: 'Exterior',    v: parseMulti(rf?.exteriorFeatures) || '—' },
+        { k: 'Fencing',     v: parseMulti(rf?.fencing) || '—' },
+        { k: 'Zoning',      v: parseMulti(rf?.zoningDescription) || '—' },
     ].filter(r => r.v && r.v !== '—');
 
     const financialRows = [

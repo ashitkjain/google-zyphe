@@ -10,9 +10,11 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { _enrichProperty, _enrichEnvironmentalData } = require('./shared/propertyUtils');
+const { _enrichEnvironmentalData } = require('./shared/propertyUtils');
+const { _analyzeOneProperty } = require('./orientationBatch.js');
 
-const INTEL_CONCURRENCY = 20; // Parallel processing for Gemini scaling
+const INTEL_CONCURRENCY = 10;
+const MAX_GALLERY_IMAGES = 15;
 const MODEL_NAME = 'gemini-2.5-flash';
 
 /**
@@ -22,8 +24,14 @@ function _optimizeProperty(prop) {
     if (!prop) return {};
     const {
         images, comps, nearbyHomes, neighborhoodPlaces, google_places,
-        parcelPolygon, __cachedEnvEarly, __pipeline_timings, ...kept
+        parcelPolygon, __cachedEnvEarly, __pipeline_timings, _fetchMeta, ...kept
     } = prop;
+    return kept;
+}
+
+function _optimizeVisual(visual) {
+    if (!visual) return {};
+    const { image_by_image_analysis, ...kept } = visual;
     return kept;
 }
 
@@ -40,14 +48,59 @@ function _isStale(timestamp) {
     return (now - updatedMs) > TTL;
 }
 
-/**
- * Checks if a visual analysis object is reasonably complete.
- */
 function _isVisualComplete(visual) {
     if (!visual) return false;
-    const hasInterior = !!(visual.home_interior?.overall_description && visual.home_interior.overall_description.length > 50);
+    const interior = visual.home_interior || {};
+    const hasDescription = !!(interior.overall_description && interior.overall_description.length > 50);
+    const hasInteriorSummary = !!(interior.interior_summary && interior.interior_summary.length > 20);
     const hasExterior = !!(visual.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
-    return hasInterior && hasExterior;
+    return hasDescription && hasInteriorSummary && hasExterior;
+}
+
+function _isCompComplete(comp) {
+    if (!comp) return false;
+    const hasSummary = !!(comp.summary && comp.summary.length > 50);
+    const hasRisks = !!(comp.risks_considerations && comp.risks_considerations.length > 20);
+    return hasSummary && hasRisks;
+}
+
+exports._isCompComplete = _isCompComplete;
+
+function _isFitComplete(fit) {
+    if (!fit) return false;
+    return !!(fit.working_professionals?.verdict && fit.families_with_kids?.verdict && fit.seniors?.verdict);
+}
+
+function _normalizeVisualData(data) {
+    if (!data) return {};
+    const d = data || {};
+    const interior = d.home_interior || {};
+    
+    // Ensure the new summary fields are at the root of home_interior
+    return {
+        ...d,
+        home_interior: {
+            ...interior,
+            interior_summary: interior.interior_summary || '',
+            rooms_summary: interior.rooms_summary || '',
+            vibe: interior.vibe || '',
+            objective_tags: interior.objective_tags || []
+        }
+    };
+}
+
+/**
+ * Normalizes field names for the Comprehensive Analysis pass to handle AI drift.
+ */
+function _normalizeComprehensiveData(data) {
+    if (!data) return {};
+    const d = data || {};
+    
+    // The schema is now just summary and risks_considerations
+    return {
+        summary: d.summary || '',
+        risks_considerations: d.risks_considerations || d.risks || d.risksAndConsiderations || ''
+    };
 }
 
 // Prompts are now loaded dynamically from shared files in ./prompts/
@@ -61,7 +114,7 @@ async function _fetchImageAsBase64(url) {
             try {
                 const bucket = admin.storage().bucket();
                 let filePath = '';
-                
+
                 if (url.startsWith('gs://')) {
                     // gs://bucket-name/path/to/file
                     filePath = url.split('/').slice(3).join('/');
@@ -70,7 +123,7 @@ async function _fetchImageAsBase64(url) {
                     const pathPart = url.split('/o/')[1].split('?')[0];
                     filePath = decodeURIComponent(pathPart);
                 }
-                
+
                 const [buffer] = await bucket.file(filePath).download();
                 return {
                     inlineData: {
@@ -103,51 +156,63 @@ async function _fetchImageAsBase64(url) {
  * Robust JSON extraction with structural repair
  */
 function _extractJson(text) {
+    if (!text) throw new Error("Empty AI response");
+
     const tryParse = (str) => {
         try { return JSON.parse(str); } catch { return null; }
     };
 
-    const repairJson = (str) => {
-        let result = '';
-        let inString = false;
-        let escaped = false;
-        for (let i = 0; i < str.length; i++) {
-            const ch = str[i];
-            if (escaped) { result += ch; escaped = false; continue; }
-            if (ch === '\\' && inString) { result += ch; escaped = true; continue; }
-            if (ch === '"') { inString = !inString; result += ch; continue; }
-            if (inString && (ch === '\n' || ch === '\r')) { result += '\\n'; continue; }
-            result += ch;
-        }
-        result = result.replace(/,\s*([}\]])/g, '$1');
-        result = result.replace(/("|\d|true|false|null|\]|\})\s*\n?\s*"/g, '$1,\n"');
-        result = result.replace(/,+/g, ',');
-        result = result.replace(/\{,/g, '{');
-        result = result.replace(/\[,/g, '[');
-        result = result.replace(/,}/g, '}');
-        result = result.replace(/,]/g, ']');
-        return result;
-    };
-
-    const cleaned = text.replace(/```json\s*|```/g, '').trim();
-
-    // 1. Try direct & repaired
-    let res = tryParse(cleaned) || tryParse(repairJson(cleaned));
+    // 1. Direct Clean
+    let cleaned = text.replace(/```json\s*|```/g, '').trim();
+    let res = tryParse(cleaned);
     if (res) return res;
 
-    // 2. Greedy Extraction
+    // 2. Greedy Extraction for { ... }
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace > firstBrace) {
-        for (let end = lastBrace; end > firstBrace; end--) {
-            if (cleaned[end] === '}') {
-                const cand = cleaned.substring(firstBrace, end + 1);
-                res = tryParse(cand) || tryParse(repairJson(cand));
+        const cand = cleaned.substring(firstBrace, lastBrace + 1);
+        res = tryParse(cand);
+        if (res) return res;
+
+        // 3. Structural Repair (Fixing missing quotes, trailing commas, common AI errors)
+        const repairJson = (str) => {
+            let fixed = str
+                .replace(/,\s*([}\]])/g, '$1') // Trailing commas
+                .replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3') // Missing quotes on keys
+                .replace(/:(\s*)'([^']*)'/g, ':$1"$2"') // Single quotes to double quotes
+                .replace(/\n/g, ' ') // Remove newlines inside strings (simplified)
+                .replace(/\r/g, ' ');
+            return fixed;
+        };
+        
+        res = tryParse(repairJson(cand));
+        if (res) return res;
+        
+        // 4. Extreme: Balancing braces (if truncated)
+        let balance = 0;
+        let truncated = '';
+        for (let i = firstBrace; i < cleaned.length; i++) {
+            const ch = cleaned[i];
+            truncated += ch;
+            if (ch === '{') balance++;
+            if (ch === '}') balance--;
+            if (balance === 0 && truncated.length > 1) {
+                res = tryParse(truncated) || tryParse(repairJson(truncated));
                 if (res) return res;
             }
         }
+        
+        // Final attempt: manual closure of the last seen object
+        if (balance > 0) {
+            let closure = truncated.trim();
+            for(let j=0; j<balance; j++) closure += '}';
+            res = tryParse(closure) || tryParse(repairJson(closure));
+            if (res) return res;
+        }
     }
-    throw new Error("Could not parse AI response as JSON");
+
+    throw new Error("Could not parse AI response as JSON even after repair attempts");
 }
 
 async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
@@ -176,23 +241,35 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
             analysisRef.doc('lifestyle_fit').get()
         ]);
 
-        // 1. Data Refresh (Healing)
+        // ── Environmental Data Healing (Google APIs only, no RapidAPI) ────────
+        // RapidAPI property data fetching belongs in propertyBatch.js, NOT here.
+        // If property data is missing, the user should run "Get Property Data" first.
         const needsEnvRefresh = !envData || _isStale(envData.lastUpdated);
-        const needsPropRefresh = !propData.apn || !propData.taxSqft;
 
-        console.log(`[Intel] Processing ${zpid}: needsEnv=${needsEnvRefresh}, needsProp=${needsPropRefresh}`);
+        console.log(`[Intel] Processing ${zpid}: needsEnv=${needsEnvRefresh}`);
 
         if (needsEnvRefresh) {
             console.log(`[Intel] Healing Environmental Data for ${zpid}...`);
-            await _enrichEnvironmentalData(zpid, propData.coordinates?.latitude, propData.coordinates?.longitude, apiKeys.maps_key, envRef);
+            // Correct signature: _enrichEnvironmentalData(zpid, db, keys, lat, lng)
+            await _enrichEnvironmentalData(
+                zpid,
+                db,
+                apiKeys,
+                propData.coordinates?.latitude,
+                propData.coordinates?.longitude
+            );
         }
 
-        if (needsPropRefresh) {
-            console.log(`[Intel] Healing Property Data (Tax/APN) for ${zpid}...`);
-            await _enrichProperty(zpid, db, apiKeys);
-        }
+        const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data()?.lastUpdated);
+        const needsInsightsRefresh = force || !insightsSnap.exists || _isStale(insightsSnap.data()?.lastUpdated);
+        const needsFitRefresh = force || !fitSnap.exists || !_isFitComplete(fitSnap.data()) || _isStale(fitSnap.data()?.lastUpdated);
+        const needsGraphRefresh = force || !graphSnap.exists || _isStale(graphSnap.data()?.lastUpdated);
+        const needsInvestRefresh = force || !investSnap.exists || _isStale(investSnap.data()?.lastUpdated);
+        const orientationAi = propData?.orientation_ai;
+        const needsOrientationRefresh = force || !orientationAi || (orientationAi.batch_version !== 'v30' && orientationAi.orientation_version !== 'v30') || _isStale(propData.orientation_calculated_at);
 
-        const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data().lastUpdated);
+        if (needsVisualRefresh) console.log(`[Intel] Refreshing Visual data for ${zpid} (force=${force}, exists=${visualSnap.exists}, stale=${_isStale(visualSnap.data()?.lastUpdated)}, incomplete=${!_isVisualComplete(visualSnap.data())})`);
+        if (needsFitRefresh) console.log(`[Intel] Refreshing Fit data for ${zpid} (force=${force}, exists=${fitSnap.exists}, stale=${_isStale(fitSnap.data()?.lastUpdated)}, incomplete=${!_isFitComplete(fitSnap.data())})`);
 
         let visualData = visualSnap.exists ? visualSnap.data() : null;
 
@@ -200,7 +277,10 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
         if (needsVisualRefresh) {
             console.log(`[Intel] Running Visual Pass for ${zpid}...`);
             const assetData = assetsSnap.exists ? assetsSnap.data() : {};
-            const galleryImages = propData.images || [];
+            const galleryImages = assetData.images || [];
+
+            // Limit gallery images to prevent memory crashes (191 props * 50 images = OOM)
+            const limitedGallery = galleryImages.slice(0, MAX_GALLERY_IMAGES);
 
             // Build the list of all targets: Maps first for context, then gallery
             const contextImages = [
@@ -210,7 +290,7 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
                 { url: assetData.satelliteImageUrl, label: 'Satellite/Radar Imagery' }
             ].filter(img => !!img.url);
 
-            const galleryTargets = galleryImages.map(url => ({ url, label: 'Gallery Photo' }));
+            const galleryTargets = limitedGallery.map(url => ({ url, label: 'Gallery Photo' }));
             const allTargets = [...contextImages, ...galleryTargets];
 
             if (allTargets.length > 0) {
@@ -237,7 +317,7 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
 
                     const text = result.response.text();
                     try {
-                        visualData = _extractJson(text);
+                        visualData = _normalizeVisualData(_extractJson(text));
                     } catch (err) {
                         console.error(`[Intel JSON Error] Visual Pass malformed for ${zpid}. Raw text:`, text);
                         throw err;
@@ -251,30 +331,10 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
             }
         }
 
-        // 3. Parallel Pass (Comprehensive + Lifestyle Insights + Lifestyle Fit)
+        // 3. Parallel Pass (Lifestyle Insights + Lifestyle Fit)
         // We run these in parallel after Visual Pass is complete.
+        // Comprehensive Synthesis is now a separate pass.
         const tasks = [];
-
-        // 3a. Comprehensive Synthesis
-        if (force || !compSnap.exists || _isStale(compSnap.data().lastUpdated)) {
-            tasks.push((async () => {
-                console.log(`[Intel] Running Comprehensive Pass for ${zpid}...`);
-                const { getComprehensiveAnalysisPrompt } = await import('./prompts/property/comprehensiveAnalysis.js');
-                const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-                const prompt = getComprehensiveAnalysisPrompt(propData, visualData || {});
-                const result = await model.generateContent(prompt);
-                const text = result.response.text();
-                try {
-                    const compData = _extractJson(text);
-                    await analysisRef.doc('comprehensive').set({
-                        ...compData,
-                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                } catch (err) {
-                    console.error(`[Intel JSON Error] Comprehensive Pass malformed for ${zpid}. Raw text:`, text);
-                }
-            })());
-        }
 
         // 3b. Lifestyle Insights (Neighborhood focus)
         if (force || !insightsSnap.exists || _isStale(insightsSnap.data().lastUpdated)) {
@@ -305,7 +365,7 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
                 const model = genAI.getGenerativeModel({ model: MODEL_NAME });
                 // Note: Running in parallel means we don't have the fresh compData yet,
                 // but we pass visualData and property basics which is the core of the fit.
-                const prompt = getLifestyleFitPrompt(propData, visualData || {}, (envData?.streetViewAnalysis || null));
+                const prompt = getLifestyleFitPrompt(_optimizeProperty(propData), _optimizeVisual(visualData || {}), (envData?.streetViewAnalysis || null));
                 const result = await model.generateContent(prompt);
                 const text = result.response.text();
                 try {
@@ -322,6 +382,19 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
 
         if (tasks.length > 0) {
             await Promise.all(tasks);
+        }
+
+        // 3d. Orientation Pass (Runs independently, uses own image fetching)
+        if (needsOrientationRefresh) {
+            console.log(`[Intel] Running Orientation Pass for ${zpid}...`);
+            try {
+                const geminiKey = apiKeys.gemini_key || process.env.GEMINI_API_KEY || '';
+                const mapsKey = apiKeys.maps_key || process.env.MAPS_API_KEY || '';
+                const radarKey = apiKeys.radar_key || process.env.RADAR_API_KEY || '';
+                await _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey);
+            } catch (err) {
+                console.error(`[Intel Error] Orientation Pass failed for ${zpid}:`, err.message);
+            }
         }
 
         const compData = (await analysisRef.doc('comprehensive').get()).data();
@@ -384,12 +457,22 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}) {
 
 // ─── Cloud Function ──────────────────────────────────────────────────────────
 
-exports.runFullIntelBatchOnCreate = functions
-    .runWith({ timeoutSeconds: 540, memory: '2GB' })
+exports.runFullIntelBatchOnWrite = functions
+    .runWith({ timeoutSeconds: 540, memory: '4GB' })
     .firestore
     .document('full_intel_batch_jobs/{jobId}')
-    .onCreate(async (snap, context) => {
-        const jobData = snap.data();
+    .onWrite(async (change, context) => {
+        const before = change.before.exists ? change.before.data() : null;
+        const after = change.after.exists ? change.after.data() : null;
+
+        if (!after) return null; // Deleted
+        if (after.status !== 'queued') return null; // Only run when status is queued
+
+        const startTime = Date.now();
+        const TIMEOUT_SAFETY_MARGIN_MS = 90000; // 90 seconds safety margin
+        const MAX_EXECUTION_TIME_MS = 540000; // 9 minutes
+
+        const jobData = after;
         if (jobData.status !== 'queued') return null;
 
         const jobId = context.params.jobId;
@@ -414,7 +497,8 @@ exports.runFullIntelBatchOnCreate = functions
         }
 
         const genAI = new GoogleGenerativeAI(apiKeys.gemini_key);
-        await snap.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+        // Using change.after.ref instead of snap.ref
+        await change.after.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
         // 1. Prioritization & Resumability Check
         // We load existing progress to support resumption after timeouts
@@ -424,40 +508,54 @@ exports.runFullIntelBatchOnCreate = functions
 
         let sortedZpids = [...zpids];
         try {
-            console.log(`[Intel Batch] Pre-scanning ${zpids.length} properties for prioritization...`);
-            const statusSnaps = await Promise.all(zpids.map(zpid => db.collection('properties').doc(zpid).collection('analysis').doc('visual').get()));
+            console.log(`[Intel Batch] Pre-scanning ${zpids.length} properties for prioritization in chunks...`);
             const needsWorkMap = new Map();
-            statusSnaps.forEach((s, idx) => {
-                const zpid = zpids[idx];
-                const data = s.exists ? s.data() : null;
-                const isNew = !s.exists || !_isVisualComplete(data);
-                const isStale = data && _isStale(data.lastUpdated);
-                // Priority Weight: New (2) > Stale (1) > Fresh (0)
-                needsWorkMap.set(zpid, isNew ? 2 : (isStale ? 1 : 0));
-            });
+            const PRESCAN_CHUNK_SIZE = 50;
+
+            for (let i = 0; i < zpids.length; i += PRESCAN_CHUNK_SIZE) {
+                const chunk = zpids.slice(i, i + PRESCAN_CHUNK_SIZE);
+                const statusSnaps = await Promise.all(chunk.map(zpid =>
+                    db.collection('properties').doc(zpid).collection('analysis').doc('visual').get()
+                ));
+
+                statusSnaps.forEach((s, idx) => {
+                    const zpid = chunk[idx];
+                    const data = s.exists ? s.data() : null;
+                    const isNew = !s.exists || !_isVisualComplete(data);
+                    const isStale = data && _isStale(data.lastUpdated);
+                    // Priority Weight: New (2) > Stale (1) > Fresh (0)
+                    needsWorkMap.set(zpid, isNew ? 2 : (isStale ? 1 : 0));
+                });
+            }
+
             sortedZpids.sort((a, b) => needsWorkMap.get(b) - needsWorkMap.get(a));
-            console.log(`[Intel Batch] Prioritization complete. Processing ${sortedZpids.length} properties.`);
+            console.log(`[Intel Batch] Prioritization complete. Top 5 ZPIDs to process: ${sortedZpids.slice(0, 5).join(', ')}`);
+            console.log(`[Intel Batch] ${sortedZpids.filter(z => needsWorkMap.get(z) > 0).length} properties need refresh/healing.`);
         } catch (e) {
             console.warn('[Intel Batch] Prioritization failed:', e.message);
         }
 
         // 2. Process in waves
         for (let i = 0; i < sortedZpids.length; i += INTEL_CONCURRENCY) {
-            const chunk = sortedZpids.slice(i, i + INTEL_CONCURRENCY);
+            const waveNum = Math.floor(i / INTEL_CONCURRENCY) + 1;
+            const wave = sortedZpids.slice(i, i + INTEL_CONCURRENCY);
 
-            // Resume Check: Filter out zpids that were already processed in a previous (timed-out) run
-            const workChunk = chunk.filter(zpid => !results[zpid]);
+            // Skip ZPIDs already in jobData.results
+            const workChunk = wave.filter(zpid => !results[zpid]);
+            const totalWaves = Math.ceil(sortedZpids.length / INTEL_CONCURRENCY);
 
             if (workChunk.length === 0) {
-                // If the entire chunk is already done, just update the total 'done' count if it's missing from the snap
+                console.log(`[Intel Batch] Wave ${waveNum}/${totalWaves}: Skipping (already in results).`);
                 continue;
             }
 
-            console.log(`[Intel Batch] Processing chunk of ${workChunk.length} properties...`);
+            console.log(`[Intel Batch] Wave ${waveNum}/${totalWaves}: Starting processing for ${workChunk.length} properties...`);
             const batchResults = await Promise.allSettled(workChunk.map(async (zpid) => {
                 const res = await _processOneIntel(zpid, db, genAI, !!jobData.force, apiKeys);
                 return { zpid, ...res };
             }));
+
+            console.log(`[Intel Batch] Wave ${waveNum}/${totalWaves}: Completed. Updating Firestore...`);
 
 
             batchResults.forEach(res => {
@@ -479,11 +577,22 @@ exports.runFullIntelBatchOnCreate = functions
             const newFailed = currentResults.filter(r => r.status === 'failed').length;
 
             // Update progress in Firestore
-            await snap.ref.update({
+            await change.after.ref.update({
                 done: newDone,
                 failed: newFailed,
                 results
             });
+
+            // ─── TIMEOUT SAFETY CHECK ───
+            const elapsed = Date.now() - startTime;
+            if (elapsed > (MAX_EXECUTION_TIME_MS - TIMEOUT_SAFETY_MARGIN_MS)) {
+                console.warn(`[Intel Batch] Approaching timeout (${Math.round(elapsed / 1000)}s). Exiting wave loop to allow resumption.`);
+                await change.after.ref.update({
+                    status: 'queued', // Set back to queued to trigger a new run
+                    lastWaveAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                return null;
+            }
 
             // 3. 2-Second Gap between chunks
             if (i + INTEL_CONCURRENCY < sortedZpids.length) {
@@ -491,11 +600,81 @@ exports.runFullIntelBatchOnCreate = functions
             }
         }
 
-        await snap.ref.update({
+        await change.after.ref.update({
             status: 'completed',
             completedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
+        return null;
+    });
+
+/**
+ * ─── Narrative (Comprehensive Analysis) Batch ──────────────────────────────
+ * Triggered by narrative_batch_jobs/{jobId}.
+ * Specialized pass for text synthesis and narrative analysis.
+ */
+exports.runNarrativeBatchOnWrite = functions
+    .runWith({ timeoutSeconds: 540, memory: '2GB' })
+    .firestore
+    .document('narrative_batch_jobs/{jobId}')
+    .onWrite(async (change, context) => {
+        const after = change.after.exists ? change.after.data() : null;
+        if (!after || after.status !== 'queued') return null;
+
+        const db = admin.firestore();
+        const zpids = after.zpids || [];
+        const keysSnap = await db.collection('app_config').doc('api_keys').get();
+        const keys = keysSnap.exists ? keysSnap.data() : {};
+        const genAI = new GoogleGenerativeAI(keys.gemini_key || process.env.GEMINI_API_KEY);
+
+        await change.after.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+        let results = after.results || {};
+        for (let i = 0; i < zpids.length; i += 10) {
+            const wave = zpids.slice(i, i + 10);
+            await Promise.all(wave.map(async (zpid) => {
+                try {
+                    const propRef = db.collection('properties').doc(zpid);
+                    const [propSnap, visualSnap] = await Promise.all([
+                        propRef.get(),
+                        propRef.collection('analysis').doc('visual').get()
+                    ]);
+
+                    if (!propSnap.exists) return;
+                    const propData = propSnap.data();
+                    const visualData = visualSnap.exists ? visualSnap.data() : null;
+
+                    console.log(`[Narrative] Processing ${zpid}...`);
+                    const { getComprehensiveAnalysisPrompt } = await import('./prompts/property/comprehensiveAnalysis.js');
+                    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+                    const prompt = getComprehensiveAnalysisPrompt(_optimizeProperty(propData), _optimizeVisual(visualData || {}));
+                    const result = await model.generateContent(prompt);
+                    const text = result.response.text();
+
+                    let compData = _extractJson(text);
+                    compData = _normalizeComprehensiveData(compData);
+                    await propRef.collection('analysis').doc('comprehensive').set({
+                        ...compData,
+                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                    results[zpid] = { status: 'success' };
+                } catch (e) {
+                    console.error(`[Narrative Error] ${zpid}:`, e.message);
+                    results[zpid] = { status: 'failed', message: e.message };
+                }
+            }));
+
+            await change.after.ref.update({
+                done: Object.values(results).filter(r => r.status === 'success').length,
+                failed: Object.values(results).filter(r => r.status === 'failed').length,
+                results
+            });
+        }
+
+        await change.after.ref.update({
+            status: 'completed',
+            completedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
         return null;
     });
 

@@ -58,6 +58,7 @@ import { initClarity } from './services/analytics/clarity';
 import { initPostHog } from './services/analytics/posthog';
 import UniversalSearchBox from './components/shared/UniversalSearchBox';
 import IDXSearchTab from './components/client-hub/IDXSearchTab';
+import { useSearchTrie } from './hooks/useSearchTrie';
 const KnowledgeCenterTab = React.lazy(() => import('./components/client-hub/KnowledgeCenterTab'));
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'ai_validation' | 'my_zyphe' | 'api_monitor' | 'idx_search';
@@ -104,33 +105,35 @@ const App: React.FC = () => {
     });
   };
 
-  const {
-    propertyData, setPropertyData,
-    loading, setLoading,
-    loadingSublabel, setLoadingSublabel,
-    loadingTimer,
-    imagesLoading,
-    error, setError,
-    customAnalysis, setCustomAnalysis,
-    customAnalysisLoading,
-    comprehensiveAnalysis, setComprehensiveAnalysis,
-    comprehensiveLoading,
-    logs, setLogs,
-    envRefreshing,
-    addLog,
-    performSearch,
-    handleRunCustomAnalysis,
-    handleRunComprehensive,
-    handleRefreshCommunityPulse,
-    handleRefreshEnvironment: handleRefreshEnvironmentBase,
-    handleRefreshOrientation: handleRefreshOrientationBase
-  } = usePropertyAnalysis({
-    currentUser,
-    transitionToView: (view, addr) => transitionToView(view as ViewMode, addr),
-    addToHistory,
-    setAddress,
-    setAddressIndex
-  });
+    const { trie, isBuilding: trieLoading } = useSearchTrie();
+
+    const {
+        propertyData, setPropertyData,
+        loading, setLoading,
+        loadingSublabel, setLoadingSublabel,
+        loadingTimer,
+        imagesLoading,
+        error, setError,
+        customAnalysis, setCustomAnalysis,
+        customAnalysisLoading,
+        comprehensiveAnalysis, setComprehensiveAnalysis,
+        comprehensiveLoading,
+        logs, setLogs,
+        envRefreshing,
+        addLog,
+        performSearch,
+        handleRunCustomAnalysis,
+        handleRunComprehensive,
+        handleRefreshCommunityPulse,
+        handleRefreshEnvironment: handleRefreshEnvironmentBase,
+        handleRefreshOrientation: handleRefreshOrientationBase
+    } = usePropertyAnalysis({
+        currentUser,
+        transitionToView: (view, addr) => transitionToView(view as ViewMode, addr),
+        addToHistory,
+        setAddress,
+        setAddressIndex: () => {} // Legacy, trie handles this now
+    });
 
   // Dev memory monitor — tracks the heaviest React state for debugging
   const trackedState = useMemo(() => [
@@ -565,10 +568,10 @@ const App: React.FC = () => {
       address={address}
       setAddress={setAddress}
       performSearch={performSearch}
-      addressIndex={addressIndex}
+      searchTrie={trie}
       searchHistory={searchHistory}
       favorites={favorites}
-      loading={loading}
+      loading={loading || trieLoading}
       onSaveSearch={onSaveHandler || undefined}
       onViewSaved={onSavedHandler || undefined}
       activeTab={activeSearchTab}

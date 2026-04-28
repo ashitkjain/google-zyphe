@@ -29,10 +29,17 @@ async function _processOneProperty(zpid, db, keys) {
 
 // ─── Exported Function ───────────────────────────────────────────────────────
 
-exports.runPropertyDataBatchOnCreate = functions.firestore
+exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, memory: '1GB' }).firestore
     .document('property_data_batch_jobs/{jobId}')
-    .onCreate(async (snap, context) => {
-        const jobData = snap.data();
+    .onWrite(async (change, context) => {
+        const after = change.after.exists ? change.after.data() : null;
+        if (!after || after.status !== 'queued') return null;
+
+        const startTime = Date.now();
+        const TIMEOUT_SAFETY_MARGIN_MS = 60000; // 60 seconds safety margin
+        const MAX_EXECUTION_TIME_MS = 540000; // 9 minutes
+
+        const jobData = after;
         if (jobData.status !== 'queued') return null;
 
         const zpids = jobData.zpids || [];
@@ -40,7 +47,7 @@ exports.runPropertyDataBatchOnCreate = functions.firestore
             return snap.ref.update({ status: 'completed', completedAt: admin.firestore.FieldValue.serverTimestamp() });
         }
 
-        await snap.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+        await change.after.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
         const db = admin.firestore();
         const keysSnap = await db.collection('app_config').doc('api_keys').get();
@@ -55,17 +62,22 @@ exports.runPropertyDataBatchOnCreate = functions.firestore
             howloud_key: keys.howloud_key || process.env.HOWLOUD_KEY
         };
 
-        let done = 0, failed = 0;
-        const results = {};
+        let done = jobData.done || 0;
+        let failed = jobData.failed || 0;
+        const results = jobData.results || {};
 
         for (let i = 0; i < zpids.length; i += BATCH_CONCURRENCY) {
             const wave = zpids.slice(i, i + BATCH_CONCURRENCY);
             
+            // Skip ZPIDs already in results
+            const workChunk = wave.filter(zpid => !results[zpid]);
+            if (workChunk.length === 0) continue;
+
             await Promise.allSettled(
-                wave.map(async (zpid, index) => {
+                workChunk.map(async (zpid, index) => {
                     try {
-                        // Stagger starts by 5s for RapidAPI safety
-                        if (index > 0) await new Promise(resolve => setTimeout(resolve, 5000));
+                        // Stagger starts for RapidAPI safety (staggered by 1s for better throughput)
+                        if (index > 0) await new Promise(resolve => setTimeout(resolve, index * 1000));
                         
                         const res = await _processOneProperty(zpid, db, apiKeys);
                         done++;
@@ -79,15 +91,26 @@ exports.runPropertyDataBatchOnCreate = functions.firestore
             );
 
             // Update progress after each wave
-            await snap.ref.update({ 
+            await change.after.ref.update({ 
                 done, 
                 failed, 
                 results, 
                 updatedAt: admin.firestore.FieldValue.serverTimestamp() 
             });
+
+            // ─── TIMEOUT SAFETY CHECK ───
+            const elapsed = Date.now() - startTime;
+            if (elapsed > (MAX_EXECUTION_TIME_MS - TIMEOUT_SAFETY_MARGIN_MS)) {
+                console.warn(`[Property Batch] Approaching timeout (${Math.round(elapsed / 1000)}s). Exiting to allow resumption.`);
+                await change.after.ref.update({
+                    status: 'queued',
+                    lastWaveAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                return null;
+            }
         }
 
-        await snap.ref.update({
+        await change.after.ref.update({
             status: 'completed',
             done,
             failed,

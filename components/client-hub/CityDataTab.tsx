@@ -141,6 +141,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [propertyTypeFilter, setPropertyTypeFilter] = useState<string>('ALL');
     const [missingStreetViewOnly, setMissingStreetViewOnly] = useState<boolean>(false);
 
+    // Batch Narrative
+    const [narrativeBatchRunning, setNarrativeBatchRunning] = useState(false);
+    const [narrativeBatchProgress, setNarrativeBatchProgress] = useState<{ done: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
+
+    // Batch Asset Secure
+    const [assetBatchRunning, setAssetBatchRunning] = useState(false);
+    const [assetBatchProgress, setAssetBatchProgress] = useState<{ done: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
+
     // Load available cities from the cities collection on mount
     useEffect(() => {
         getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
@@ -160,7 +168,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             // Determine collection based on ID prefix
             const collection = activeBatchId.startsWith('intel_') ? 'full_intel_batch_jobs'
                 : activeBatchId.startsWith('orient_') ? 'orientation_batch_jobs'
-                    : 'property_data_batch_jobs';
+                    : activeBatchId.startsWith('narrative_') ? 'narrative_batch_jobs'
+                        : activeBatchId.startsWith('asset_') ? 'asset_secure_batch_jobs'
+                            : 'property_data_batch_jobs';
 
             unsubscribe = onSnapshot(doc(db, collection, activeBatchId), (snap) => {
                 const data = snap.data();
@@ -179,6 +189,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 } else if (activeBatchId.startsWith('orient_')) {
                     setOrientBatchProgress({ ...progress, computed: data.done || 0, cached: 0 });
                     if (data.status === 'completed') setOrientBatchRunning(false);
+                } else if (activeBatchId.startsWith('narrative_')) {
+                    setNarrativeBatchProgress(progress);
+                    if (data.status === 'completed') setNarrativeBatchRunning(false);
+                } else if (activeBatchId.startsWith('asset_')) {
+                    setAssetBatchProgress(progress);
+                    if (data.status === 'completed') setAssetBatchRunning(false);
                 } else {
                     setPropBatchProgress(progress);
                     if (data.status === 'completed') setPropBatchRunning(false);
@@ -510,89 +526,37 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setError(null);
         setViewMode('ingestion');
         setPipelineType('images');
-        setIngestionReport(null);
-        const batchStartTime = Date.now();
-        addLog(`Starting Bulk Image Secure pipeline...`);
-        const targets = sourceList.filter(l => {
-            const id = String(l.zpid);
-            return selectedIds.has(id);
-        });
+        addLog(`Queueing Secure Images Batch for ${selectedIds.size} properties (Background/Cloud Reconciliation)...`);
 
+        const targets = sourceList.filter(l => selectedIds.has(String(l.zpid)));
+        const zpids = targets.map(t => String(t.zpid));
+        const batchId = `asset_batch_${Date.now()}`;
 
-        addLog(`Processing ${targets.length} properties...`);
+        try {
+            const { db } = await import('../../services/firebase/config');
+            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+            if (!db) throw new Error('Firestore not initialized');
 
-        // Initialize Queue
-        const newJobs: IngestionJob[] = targets.map(item => {
-            const id = String(item.zpid);
-            const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
-            return {
-                zpid: id,
-                address: fullAddress,
-                status: 'pending',
-                progress: null
-            };
-        });
-        setIngestionQueue(newJobs);
-
-        const CHUNK_SIZE = 1;
-        let successCount = 0;
-
-        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
-            const chunk = targets.slice(i, i + CHUNK_SIZE);
-            addLog(`Phase: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
-
-            const chunkPromises = chunk.map(async (item) => {
-                const zpid = String(item.zpid);
-                const addrObj = item.location?.address;
-                const builtAddress = addrObj
-                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                    : (item.location?.address?.line || zpid);
-
-                const startTime = Date.now();
-                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
-
-                // If property doesn't have a real ZPID, it's a "ghost" listing that will fail downstream.
-                // We should remove it from the zip cache so it doesn't reappear in future scans.
-                const hasRealZpid = item.zpid || (item.property_id && !String(item.property_id).includes('.')); // Math.random often has decimals
-                if (!hasRealZpid) {
-                    const zip = item.location?.address?.postal_code;
-                    if (zip) {
-                        addLog(`[System] Removing ghost listing with no ZPID from cache: ${builtAddress}`);
-                        await removePropertyFromZipCache(zip, zpid);
-                        // Refresh local state by removing it from listings
-                        setListings(prev => prev.filter(l => String(l.zpid) !== zpid));
-                    }
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: 'No valid ZPID found. Listing removed from cache.' } : j));
-                    return false;
-                }
-
-                try {
-                    await runImageOnlyPipeline(builtAddress, (progress) => {
-                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                    }, zpid, (msg) => addLog(`[${builtAddress}] ${msg}`));
-
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                    return true;
-                } catch (e: any) {
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                    return false;
-                }
+            await setDoc(doc(db, 'asset_secure_batch_jobs', batchId), {
+                zpids,
+                status: 'queued',
+                total: zpids.length,
+                done: 0,
+                failed: 0,
+                results: {},
+                userId: auth?.currentUser?.uid || 'anonymous',
+                createdAt: serverTimestamp(),
             });
 
-            const results = await Promise.all(chunkPromises);
-            successCount += results.filter(r => r === true).length;
-
-            // Short rest between chunks to stabilize Firebase storage and APIs
-            if (i + CHUNK_SIZE < targets.length) {
-                await new Promise(r => setTimeout(r, 1000));
-            }
+            setAssetBatchRunning(true);
+            setAssetBatchProgress({ done: 0, failed: 0, total: zpids.length });
+            setActiveBatchId(batchId);
+            setLoading(false);
+            addLog(`Asset Secure Batch queued. Reconciliation will continue in the cloud.`);
+        } catch (e: any) {
+            setError(`Failed to queue asset batch: ${e.message}`);
+            setLoading(false);
         }
-
-        addLog(`Image Bulk Secure Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
-        const duration = Date.now() - batchStartTime;
-        logPipelineAudit('Secure Images', `${targets.length} properties`, successCount === targets.length ? 'success' : 'partial', `${successCount}/${targets.length} succeeded`, duration, { successCount, total: targets.length });
-        setLoading(false);
-        if (successCount === targets.length) setSelectedIds(new Set());
     };
 
     const handleBulkPropertyData = async () => {
@@ -681,6 +645,46 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             addLog(`Full Intel Batch queued. You can safely close this tab or navigate away.`);
         } catch (e: any) {
             setError(`Failed to queue intel batch: ${e.message}`);
+            setLoading(false);
+        }
+    };
+
+    const handleBulkNarrative = async () => {
+        if (selectedIds.size === 0) return;
+
+        setLoading(true);
+        setError(null);
+        setPipelineType('full');
+        setViewMode('ingestion');
+        addLog(`Queueing Narrative Synthesis Batch for ${selectedIds.size} properties...`);
+
+        const targets = sourceList.filter(l => selectedIds.has(String(l.zpid)));
+        const zpids = targets.map(t => String(t.zpid));
+        const batchId = `narrative_batch_${Date.now()}`;
+
+        try {
+            const { db } = await import('../../services/firebase/config');
+            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+            if (!db) throw new Error('Firestore not initialized');
+
+            await setDoc(doc(db, 'narrative_batch_jobs', batchId), {
+                zpids,
+                status: 'queued',
+                total: zpids.length,
+                done: 0,
+                failed: 0,
+                results: {},
+                userId: auth?.currentUser?.uid || 'anonymous',
+                createdAt: serverTimestamp(),
+            });
+
+            setNarrativeBatchRunning(true);
+            setNarrativeBatchProgress({ done: 0, failed: 0, total: zpids.length });
+            setActiveBatchId(batchId);
+            setLoading(false);
+            addLog(`Narrative Batch queued successfully.`);
+        } catch (e: any) {
+            setError(`Failed to queue narrative batch: ${e.message}`);
             setLoading(false);
         }
     };
@@ -903,6 +907,17 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const handleSearch = async (forceRefresh = true) => {
         if (!city) {
             setError('Please provide a City or Postal Code.');
+            return;
+        }
+
+        // 1. Detect if input is a ZPID (7-12 digits)
+        const isZpidInput = /^\d{7,12}$/.test(city.trim());
+        if (isZpidInput) {
+            const zpid = city.trim();
+            addLog(`Detected ZPID search: ${zpid}`);
+            // Route to property page
+            window.open(`${window.location.origin}/?zpid=${zpid}`, '_blank');
+            setLoading(false);
             return;
         }
 
@@ -2381,6 +2396,16 @@ ${JSON.stringify(propertySummaries)}
                                         <i className="fa-solid fa-bolt-lightning group-hover:scale-125 transition-transform"></i>
                                         Full Intel Suite ({visibleSelectedCount})
                                     </button>
+
+                                    <button
+                                        onClick={handleBulkNarrative}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-white border-2 border-fuchsia-200 hover:border-fuchsia-400 hover:bg-fuchsia-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                        title="Generate AI Comprehensive Analysis (Narrative, Risks, Interior/Rooms Summaries)"
+                                    >
+                                        <i className="fa-solid fa-pen-nib text-fuchsia-500 group-hover:scale-110 transition-transform"></i>
+                                        Narrative Synthesis ({visibleSelectedCount})
+                                    </button>
                                 </div>
                             )}
                             {/* Action Buttons — always visible if we have data or selection */}
@@ -3118,6 +3143,7 @@ ${JSON.stringify(propertySummaries)}
                                                     </div>
                                                     <div className="text-left">
                                                         <span className="text-[11px] font-black text-slate-800 block leading-tight">{res.address}</span>
+                                                        <span className="text-[9px] font-bold text-slate-400 font-mono">ZPID: {res.zpid}</span>
                                                         <div className="flex items-center gap-2 mt-0.5">
                                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{res.homeType}</span>
                                                             <span className="w-1 h-1 rounded-full bg-slate-200"></span>
@@ -3531,6 +3557,44 @@ ${JSON.stringify(propertySummaries)}
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Narrative Card */}
+                                    {narrativeBatchProgress && (
+                                        <div className={`p-6 rounded-2xl border-2 transition-all ${narrativeBatchRunning ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-100 bg-white'}`}>
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${narrativeBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <i className="fa-solid fa-file-signature text-xs"></i>
+                                                </div>
+                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Narrative</span>
+                                            </div>
+                                            <div className="flex items-end justify-between mb-2">
+                                                <span className="text-2xl font-black tabular-nums">{narrativeBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {narrativeBatchProgress.total}</span></span>
+                                                {narrativeBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{narrativeBatchProgress.failed} Failed</span>}
+                                            </div>
+                                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${(narrativeBatchProgress.done / narrativeBatchProgress.total) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Asset Secure Card */}
+                                    {assetBatchProgress && (
+                                        <div className={`p-6 rounded-2xl border-2 transition-all ${assetBatchRunning ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100 bg-white'}`}>
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${assetBatchRunning ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <i className="fa-solid fa-shield-halved text-xs"></i>
+                                                </div>
+                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Security</span>
+                                            </div>
+                                            <div className="flex items-end justify-between mb-2">
+                                                <span className="text-2xl font-black tabular-nums">{assetBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {assetBatchProgress.total}</span></span>
+                                                {assetBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{assetBatchProgress.failed} Failed</span>}
+                                            </div>
+                                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${(assetBatchProgress.done / assetBatchProgress.total) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -3539,7 +3603,9 @@ ${JSON.stringify(propertySummaries)}
                                     {/* Flattened results from all active batches */}
                                     {Object.entries({
                                         ...(propBatchProgress?.results || {}),
-                                        ...(intelBatchProgress?.results || {})
+                                        ...(intelBatchProgress?.results || {}),
+                                        ...(narrativeBatchProgress?.results || {}),
+                                        ...(assetBatchProgress?.results || {})
                                     })
                                         .reverse()
                                         .map(([zpid, result]: [string, any]) => (
@@ -3561,7 +3627,9 @@ ${JSON.stringify(propertySummaries)}
                                 </div>
 
                                 {((propBatchRunning && propBatchProgress && propBatchProgress.done + propBatchProgress.failed < propBatchProgress.total) ||
-                                    (intelBatchRunning && intelBatchProgress && intelBatchProgress.done + intelBatchProgress.failed < intelBatchProgress.total)) && (
+                                    (intelBatchRunning && intelBatchProgress && intelBatchProgress.done + intelBatchProgress.failed < intelBatchProgress.total) ||
+                                    (narrativeBatchRunning && narrativeBatchProgress && narrativeBatchProgress.done + narrativeBatchProgress.failed < narrativeBatchProgress.total) ||
+                                    (assetBatchRunning && assetBatchProgress && assetBatchProgress.done + assetBatchProgress.failed < assetBatchProgress.total)) && (
                                         <div className="mt-8 flex items-center justify-center gap-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
                                             <i className="fa-solid fa-circle-notch animate-spin text-indigo-500"></i>
                                             <p className="text-[11px] font-black uppercase tracking-widest text-indigo-600">Processing wave in parallel on cloud functions...</p>
