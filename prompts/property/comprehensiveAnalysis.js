@@ -30,7 +30,7 @@ export const getComprehensiveAnalysisPrompt = (property, visual) => {
   - visual_appeal_condition: Visual appeal, finishes, condition.
   - outdoors_view_quality: paragraph on views, privacy, backyard, patio,
 
-  **CRITICAL: You MUST respond with a valid JSON object only. No markdown, no code fences, no additional text.**
+  **Respond as a JSON object matching the requested schema.**
 
   Return your response as a JSON object:
   {

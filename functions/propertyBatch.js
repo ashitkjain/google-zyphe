@@ -5,26 +5,22 @@
  * Triggered by document creation in property_data_batch_jobs/{jobId}.
  * Fetches property specs (RapidAPI), scores, and Gemini tax fallbacks server-side
  * with 20-way concurrency.
- *
- * Client writes:
- *   { zpids: string[], status: 'queued', total: N, done: 0, failed: 0, userId: string, batchId: string }
- *
- * CF updates:
- *   { status: 'running' | 'completed', done: N, failed: N, results: { [zpid]: { status, message } } }
  */
 
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
+const UsageLogger = require('./shared/usageLogger');
 
-const BATCH_CONCURRENCY = 20;
+const BATCH_CONCURRENCY = 2;
 
 const { _enrichProperty } = require('./shared/propertyUtils');
 
 /**
  * Core: process one property
  */
-async function _processOneProperty(zpid, db, keys) {
-    return await _enrichProperty(zpid, db, keys);
+async function _processOneProperty(zpid, db, keys, logger = null) {
+    if (logger) logger.logTask('property_enrichment');
+    return await _enrichProperty(zpid, db, keys, logger);
 }
 
 // ─── Exported Function ───────────────────────────────────────────────────────
@@ -36,15 +32,15 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
         if (!after || after.status !== 'queued') return null;
 
         const startTime = Date.now();
-        const TIMEOUT_SAFETY_MARGIN_MS = 60000; // 60 seconds safety margin
-        const MAX_EXECUTION_TIME_MS = 540000; // 9 minutes
+        const TIMEOUT_SAFETY_MARGIN_MS = 60000;
+        const MAX_EXECUTION_TIME_MS = 540000;
 
         const jobData = after;
         if (jobData.status !== 'queued') return null;
 
         const zpids = jobData.zpids || [];
         if (zpids.length === 0) {
-            return snap.ref.update({ status: 'completed', completedAt: admin.firestore.FieldValue.serverTimestamp() });
+            return change.after.ref.update({ status: 'completed', completedAt: admin.firestore.FieldValue.serverTimestamp() });
         }
 
         await change.after.ref.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
@@ -52,13 +48,15 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
         const db = admin.firestore();
         const keysSnap = await db.collection('app_config').doc('api_keys').get();
         const keys = keysSnap.exists ? keysSnap.data() : {};
+        const logger = new UsageLogger(change.after.ref);
+        await logger.initialize();
         
         const apiKeys = {
             rapidapi_key: keys.rapidapi_key || process.env.RAPIDAPI_KEY,
             rapidapi_host: keys.rapidapi_host || 'us-housing-market-data1.p.rapidapi.com',
             radar_key: keys.radar_key || process.env.RADAR_KEY,
             gemini_key: keys.gemini_key || process.env.GEMINI_API_KEY,
-            maps_key: keys.google_maps_key || keys.maps_key || process.env.MAPS_API_KEY,
+            google_maps_key: keys.google_maps_key || process.env.MAPS_API_KEY,
             howloud_key: keys.howloud_key || process.env.HOWLOUD_KEY
         };
 
@@ -67,6 +65,12 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
         const results = jobData.results || {};
 
         for (let i = 0; i < zpids.length; i += BATCH_CONCURRENCY) {
+            // Check for cancellation before each wave
+            const freshJob = await change.after.ref.get();
+            if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
+                console.log(`[Property Batch] ${context.params.jobId} cancelled. Terminating.`);
+                return null;
+            }
             const wave = zpids.slice(i, i + BATCH_CONCURRENCY);
             
             // Skip ZPIDs already in results
@@ -75,11 +79,16 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
 
             await Promise.allSettled(
                 workChunk.map(async (zpid, index) => {
+                    // Check for cancellation before processing each property
+                    const freshJob = await change.after.ref.get();
+                    if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
+                        return; 
+                    }
+
                     try {
-                        // Stagger starts for RapidAPI safety (staggered by 1s for better throughput)
                         if (index > 0) await new Promise(resolve => setTimeout(resolve, index * 1000));
                         
-                        const res = await _processOneProperty(zpid, db, apiKeys);
+                        const res = await _processOneProperty(zpid, db, apiKeys, logger);
                         done++;
                         results[zpid] = { status: 'success', message: `Saved: ${res.address}` };
                     } catch (e) {
@@ -97,6 +106,8 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
                 results, 
                 updatedAt: admin.firestore.FieldValue.serverTimestamp() 
             });
+
+            await logger.flush();
 
             // ─── TIMEOUT SAFETY CHECK ───
             const elapsed = Date.now() - startTime;
@@ -118,5 +129,6 @@ exports.runPropertyDataBatchOnWrite = functions.runWith({ timeoutSeconds: 540, m
             completedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
+        await logger.flush();
         return null;
     });

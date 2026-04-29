@@ -1,3 +1,5 @@
+import { logAPICall } from '../firebase/api_logs';
+
 const boundaryCache: Record<string, any> = {};
 
 /**
@@ -10,13 +12,13 @@ export async function fetchCityBoundary(city: string, state: string = 'Californi
     }
 
     try {
-        // Using 'q' instead of 'city' is often more robust for various locality types
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ', ' + state)}&format=json&polygon_geojson=1&limit=1`;
-        
+        logAPICall({ user_id: 'unknown', api_name: 'osm_nominatim', endpoint: 'city_boundary', params: { city, state }, status: 'completed' });
+
         const response = await fetch(url, {
             headers: {
                 'Accept': 'application/json',
-                'User-Agent': 'Zyphe-Real-Estate-App' // Nominatim requires a user agent
+                'User-Agent': 'Zyphe-Real-Estate-App'
             }
         });
 

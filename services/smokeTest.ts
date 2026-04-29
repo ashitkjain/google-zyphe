@@ -273,7 +273,8 @@ export async function runChecks(
     const solar = env?.solarData;
     const aqi = env?.airQuality;
     const pollen = env?.pollen;
-    const noise = env?.noiseScore;
+    // Zyphe proprietary noise (OSM simulation) — falls back to legacy HowLoud score for old docs
+    const zypheNoise = env?.zypheNoiseScore ?? env?.noiseScore ?? null;
     const places = env?.google_places;
 
     // Solar: check both maxSunshineHoursPerYear and solarPotential as indicators
@@ -283,18 +284,22 @@ export async function runChecks(
 
     // Solar financial data (panels, system capacity, 20yr savings)
     const solarProd = solar?.estimatedSolarProduction;
-    const hasSolarFinancial = !!(solarProd?.annualKwh && solarProd?.estimatedPanels);
+    const hasSolarFinancial = !!(solarProd?.annualKwh && solarProd?.estimatedPanels) || !!(solar?.maxArrayPanelsCount && solar?.maxSunshineHoursPerYear);
     chkWithMeta(checks, 'solarFinancial', 'Solar — Panels & Production', 'warn', 'environmental', hasSolarFinancial,
-        hasSolarFinancial
+        solarProd?.annualKwh
             ? `${solarProd.estimatedPanels} panels, ${solarProd.annualKwh.toLocaleString()} kWh/yr`
-            : 'missing (no panel/kWh data)', envMeta, 'solarData');
+            : solar?.maxArrayPanelsCount
+                ? `${solar.maxArrayPanelsCount} panels, ${solar.maxSunshineHoursPerYear?.toLocaleString() ?? '?'} hrs/yr`
+                : 'missing (no panel/kWh data)', envMeta, 'solarData');
 
     chkWithMeta(checks, 'airQuality', 'Air Quality API', 'warn', 'environmental', !!(aqi?.aqi != null),
         aqi ? `AQI ${aqi.aqi} (${aqi.category})` : 'not fetched', envMeta, 'airQuality');
     chkWithMeta(checks, 'pollen', 'Pollen API', 'warn', 'environmental', !!(pollen?.grass || pollen?.score != null),
         pollen ? `Fetched (${pollen.category || 'present'})` : 'not fetched', envMeta, 'pollen');
-    chkWithMeta(checks, 'noiseScore', 'Noise Score API', 'warn', 'environmental', noise != null,
-        noise != null ? `${noise} (${env?.noiseScoreDesc || '?'})` : 'not fetched', envMeta, 'noiseScore');
+    chkWithMeta(checks, 'noiseScore', 'Noise Score', 'warn', 'environmental', zypheNoise != null,
+        zypheNoise != null
+            ? `${zypheNoise} (${env?.noiseCharacterization || env?.noiseScoreDesc || '?'})`
+            : 'not fetched', envMeta, 'zypheNoiseScore');
     chkWithMeta(checks, 'googlePlaces', 'Nearby Places (POI)', 'warn', 'environmental', !!places,
         places ? 'cached' : 'not fetched', envMeta, 'google_places');
 

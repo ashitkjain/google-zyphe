@@ -60,6 +60,7 @@ export const getPropertyImagesPrompt = (property) => `
       "views": "Description of any scenic views.",
       "privacy": "Degree of privacy from neighbors and the street."
     },
+    "neighborhood_street_insights": "Narrative on street condition, safety, upkeep of nearby homes, and proximity to visible amenities or noise sources.",
     "objective_tags": ["e.g., Resort Pool, Gated Community, Panoramic Views"],
     "outdoor_highlights": [
       {

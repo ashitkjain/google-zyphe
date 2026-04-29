@@ -34,14 +34,88 @@ interface AgentRun {
     logs: string[];
 }
 
+interface SystemFunction {
+    id: string;
+    name: string;
+    collection: string;
+    icon: string;
+    status: 'idle' | 'running' | 'cancelled' | 'failed' | 'completed';
+    activeBatchId?: string;
+    progress?: { done: number; total: number };
+}
+
 const AgentManagerTab: React.FC = () => {
     const [runs, setRuns] = useState<AgentRun[]>([]);
+    const [systemFunctions, setSystemFunctions] = useState<SystemFunction[]>([
+        { id: 'intel', name: 'Full Intel Processor', collection: 'full_intel_batch_jobs', icon: 'fa-brain', status: 'idle' },
+        { id: 'narrative', name: 'Narrative Engine', collection: 'narrative_batch_jobs', icon: 'fa-file-signature', status: 'idle' },
+        { id: 'orientation', name: 'Orientation Analyzer', collection: 'orientation_batch_jobs', icon: 'fa-compass', status: 'idle' },
+        { id: 'security', name: 'Asset Security Vault', collection: 'asset_secure_batch_jobs', icon: 'fa-shield-halved', status: 'idle' },
+        { id: 'property', name: 'Property Data Miner', collection: 'property_data_batch_jobs', icon: 'fa-database', status: 'idle' }
+    ]);
+    const [loadingSystem, setLoadingSystem] = useState(false);
     const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
     const logEndRef = useRef<HTMLDivElement>(null);
 
     const isRunning = useCallback((agentId: string) => {
         return runs.some(r => r.agentId === agentId && r.status === 'running');
     }, [runs]);
+
+    const fetchSystemStatus = useCallback(async () => {
+        setLoadingSystem(true);
+        try {
+            const { getFirestore, collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+            const db = getFirestore();
+            
+            const updatedFunctions = [...systemFunctions];
+            for (let i = 0; i < updatedFunctions.length; i++) {
+                const func = updatedFunctions[i];
+                const q = query(collection(db, func.collection), orderBy('createdAt', 'desc'), limit(1));
+                const snap = await getDocs(q);
+                
+                if (!snap.empty) {
+                    const doc = snap.docs[0];
+                    const data = doc.data();
+                    const status = (data.status === 'running' || data.status === 'queued') ? 'running' : data.status;
+                    
+                    updatedFunctions[i] = {
+                        ...func,
+                        status: status as any,
+                        activeBatchId: doc.id,
+                        progress: { done: data.done || 0, total: data.total || 0 }
+                    };
+                }
+            }
+            setSystemFunctions(updatedFunctions);
+        } catch (e) {
+            console.error('Failed to fetch system status:', e);
+        } finally {
+            setLoadingSystem(false);
+        }
+    }, [systemFunctions]);
+
+    React.useEffect(() => {
+        fetchSystemStatus();
+        const interval = setInterval(fetchSystemStatus, 15000); // Check every 15s
+        return () => clearInterval(interval);
+    }, []);
+
+    const stopFunction = async (func: SystemFunction) => {
+        if (!func.activeBatchId) return;
+        if (!window.confirm(`Stop ${func.name} immediately?`)) return;
+
+        try {
+            const { getFirestore, doc, updateDoc } = await import('firebase/firestore');
+            const db = getFirestore();
+            await updateDoc(doc(db, func.collection, func.activeBatchId), {
+                status: 'cancelled',
+                updatedAt: new Date()
+            });
+            fetchSystemStatus();
+        } catch (e: any) {
+            alert(`Failed to stop: ${e.message}`);
+        }
+    };
 
     const triggerAgent = async (agent: AgentDefinition) => {
         if (isRunning(agent.id)) return;
@@ -106,6 +180,78 @@ const AgentManagerTab: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-black text-slate-800 tracking-tight">Agent Manager</h1>
                     <p className="text-sm text-slate-400 font-medium">Trigger and monitor autonomous pipeline agents</p>
+                </div>
+            </div>
+
+            {/* System Functions Table */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                    <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">Active Pipeline Processors</h2>
+                    <button onClick={fetchSystemStatus} className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700">
+                        <i className={`fa-solid fa-rotate-right mr-1 ${loadingSystem ? 'fa-spin' : ''}`}></i> Refresh
+                    </button>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-slate-100">
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Function</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {systemFunctions.map(func => (
+                                <tr key={func.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${func.status === 'running' ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                <i className={`fa-solid ${func.icon} text-xs`}></i>
+                                            </div>
+                                            <div>
+                                                <span className="text-sm font-black text-slate-800">{func.name}</span>
+                                                <span className="text-[10px] text-slate-400 block font-mono">{func.activeBatchId?.slice(-8) || 'No recent job'}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                                            func.status === 'running' ? 'bg-indigo-100 text-indigo-600' :
+                                            func.status === 'cancelled' ? 'bg-rose-100 text-rose-600' :
+                                            func.status === 'completed' ? 'bg-emerald-100 text-emerald-600' :
+                                            'bg-slate-100 text-slate-500'
+                                        }`}>
+                                            {func.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {func.progress && (
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden min-w-[80px]">
+                                                    <div 
+                                                        className={`h-full ${func.status === 'running' ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                                                        style={{ width: `${(func.progress.done / (func.progress.total || 1)) * 100}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="text-[10px] font-black text-slate-400">{func.progress.done}/{func.progress.total}</span>
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        {func.status === 'running' && (
+                                            <button 
+                                                onClick={() => stopFunction(func)}
+                                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-lg border border-rose-200 transition-all shadow-sm"
+                                            >
+                                                Stop Function
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

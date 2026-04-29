@@ -78,6 +78,9 @@ export const fetchAuditAggregations = async (timeframe: 'weekly' | 'monthly' = '
 
     // Process APIs
     apiLogs.forEach(log => {
+        // Skip Gemini calls here, as they will be handled in the Gemini/LLM section below
+        if (log.api_name === 'gemini') return;
+
         const key = log.api_name || 'Unknown API';
         if (!serviceMap.has(key)) {
             serviceMap.set(key, {
@@ -108,28 +111,61 @@ export const fetchAuditAggregations = async (timeframe: 'weekly' | 'monthly' = '
             geminiDetails: {
                 totalTokens: 0,
                 models: {},
-                promptFiles: {}
+                promptFiles: {} as Record<string, { count: number; tokens: number }>
             }
         });
     }
     const gs = serviceMap.get(geminiKey)!;
 
+    // Process Gemini (Combined new llm_call_events and legacy api_call_events)
     llmLogs.forEach(log => {
         gs.totalCalls++;
         const status = log.status || 'unknown';
         gs.statusBreakdown[status] = (gs.statusBreakdown[status] || 0) + 1;
         
-        const tokens = (log as any).total_tokens || 0;
+        const tokens = log.usage_metadata?.totalTokenCount || (log as any).total_tokens || 0;
         totalTokens += tokens;
         gs.geminiDetails!.totalTokens += tokens;
         
-        const model = log.model || 'Unknown';
+        const model = log.llm_name || (log as any).model || 'Unknown';
         gs.geminiDetails!.models[model] = (gs.geminiDetails!.models[model] || 0) + 1;
         
-        const pFile = (log as any).promptFilename || 'Unknown';
-        gs.geminiDetails!.promptFiles[pFile] = (gs.geminiDetails!.promptFiles[pFile] || 0) + 1;
+        const pFile = log.prompt_filename || (log as any).promptFilename || 'Unknown';
+        if (!gs.geminiDetails!.promptFiles[pFile]) {
+            gs.geminiDetails!.promptFiles[pFile] = { count: 0, tokens: 0 };
+        }
+        gs.geminiDetails!.promptFiles[pFile].count++;
+        gs.geminiDetails!.promptFiles[pFile].tokens += tokens;
         
         if (gs.recentCalls.length < 5) gs.recentCalls.push(log);
+    });
+
+    // Harvest legacy gemini calls from api_call_events
+    apiLogs.forEach(log => {
+        if (log.api_name === 'gemini') {
+            gs.totalCalls++;
+            const status = log.status || 'unknown';
+            gs.statusBreakdown[status] = (gs.statusBreakdown[status] || 0) + 1;
+            
+            // Legacy logs stored tokens in params: { inputTokens, outputTokens }
+            const params = (log as any).params || {};
+            const tokens = (params.inputTokens || 0) + (params.outputTokens || 0);
+            totalTokens += tokens;
+            gs.geminiDetails!.totalTokens += tokens;
+            
+            const model = (log as any).endpoint || 'Unknown';
+            gs.geminiDetails!.models[model] = (gs.geminiDetails!.models[model] || 0) + 1;
+            
+            const pFile = 'legacy_background_job';
+            if (!gs.geminiDetails!.promptFiles[pFile]) {
+                gs.geminiDetails!.promptFiles[pFile] = { count: 0, tokens: 0 };
+            }
+            gs.geminiDetails!.promptFiles[pFile].count++;
+            gs.geminiDetails!.promptFiles[pFile].tokens += tokens;
+            
+            // Limit recent calls for the dashboard UI
+            if (gs.recentCalls.length < 10) gs.recentCalls.push(log as any);
+        }
     });
 
     // 3. Time Series (Daily buckets for the selected timeframe)
@@ -148,7 +184,15 @@ export const fetchAuditAggregations = async (timeframe: 'weekly' | 'monthly' = '
     apiLogs.forEach(log => {
         const d = log.timestamp?.toDate ? log.timestamp.toDate() : new Date(log.timestamp);
         const key = getBucketKey(d);
-        if (timePoints[key]) timePoints[key].apiCalls++;
+        if (timePoints[key]) {
+            if (log.api_name === 'gemini') {
+                timePoints[key].geminiCalls++;
+                const params = (log as any).params || {};
+                timePoints[key].tokens += (params.inputTokens || 0) + (params.outputTokens || 0);
+            } else {
+                timePoints[key].apiCalls++;
+            }
+        }
     });
 
     llmLogs.forEach(log => {
@@ -156,14 +200,16 @@ export const fetchAuditAggregations = async (timeframe: 'weekly' | 'monthly' = '
         const key = getBucketKey(d);
         if (timePoints[key]) {
             timePoints[key].geminiCalls++;
-            timePoints[key].tokens += (log as any).total_tokens || 0;
+            timePoints[key].tokens += log.usage_metadata?.totalTokenCount || (log as any).total_tokens || 0;
         }
     });
 
+    const legacyGeminiCount = apiLogs.filter(l => l.api_name === 'gemini').length;
+
     return {
         summary: {
-            totalApi: apiLogs.length,
-            totalGemini: llmLogs.length,
+            totalApi: apiLogs.length - legacyGeminiCount,
+            totalGemini: llmLogs.length + legacyGeminiCount,
             totalTokens
         },
         services: Array.from(serviceMap.values()),

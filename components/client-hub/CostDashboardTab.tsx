@@ -160,15 +160,26 @@ const CostDashboardTab: React.FC = () => {
                     </div>
 
                     <div style={{ background: 'white', borderRadius: '28px', border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 4px 25px rgba(0,0,0,0.03)' }}>
-                        <h2 style={{ fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', color: '#ec4899', marginBottom: '24px', letterSpacing: '0.1em' }}>Intelligence Prompts</h2>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <h2 style={{ fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', color: '#ec4899', marginBottom: '24px', letterSpacing: '0.1em' }}>Prompt Cost Breakdown</h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {geminiService?.geminiDetails ? (
-                                Object.entries(geminiService.geminiDetails.promptFiles).sort((a:any,b:any) => b[1]-a[1]).slice(0, 5).map(([type, count]: [string, any]) => (
-                                    <div key={type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>{friendlyName(type)}</span>
-                                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{count}</span>
-                                    </div>
-                                ))
+                                Object.entries(geminiService.geminiDetails.promptFiles)
+                                    .sort((a: any, b: any) => b[1].tokens - a[1].tokens)
+                                    .map(([type, data]: [string, any]) => {
+                                        const cost = getEstimatedCost(data.tokens, 'gemini-2.5-flash').toFixed(3);
+                                        return (
+                                            <div key={type} style={{ padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>{friendlyName(type)}</span>
+                                                    <span style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b' }}>${cost}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>{data.count} calls</span>
+                                                    <span style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>{data.tokens.toLocaleString()} tokens</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
                             ) : null}
                         </div>
                     </div>

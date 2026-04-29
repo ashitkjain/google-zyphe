@@ -1,4 +1,5 @@
 import * as turf from '@turf/turf';
+import { logAPICall } from '../firebase/api_logs';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export async function calculateZypheNoiseScore(lat: number, lng: number): Promis
             out skel qt;
         `;
         
+        logAPICall({ user_id: 'unknown', api_name: 'osm_overpass', endpoint: 'noise_simulation', params: { lat, lng }, status: 'completed' });
         const response = await fetch('https://overpass-api.de/api/interpreter', {
             method: 'POST',
             body: `data=${encodeURIComponent(query)}`,

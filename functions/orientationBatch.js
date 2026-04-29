@@ -16,6 +16,8 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { _extractJson, _enrichStreetInsights } = require('./shared/propertyUtils');
+const UsageLogger = require('./shared/usageLogger');
 
 const BATCH_CONCURRENCY = 20;
 const ORIENTATION_MODEL_CF = 'gemini-2.5-flash';
@@ -132,12 +134,13 @@ const _dir8 = (az) => ['North', 'Northeast', 'East', 'Southeast', 'South', 'Sout
  * Geocodes address + neighbour 50/100 numbers away to compute the street's bearing.
  * Returns { bearing, streetSide } or null.
  */
-async function _getStreetBearing(address, mapsKey, propLat = null, propLng = null) {
+async function _getStreetBearing(address, mapsKey, propLat = null, propLng = null, logger = null) {
     const match = address.match(/^(\d+)/);
     if (!match || !mapsKey) return null;
     const houseNum = parseInt(match[1], 10);
 
     const geocode = async (addr) => {
+        if (logger) logger.logAPICall('google_maps', 'geocoding', null);
         const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${mapsKey}`;
         const res = await fetch(url).then(r => r.json());
         const result = res.results?.[0];
@@ -321,8 +324,9 @@ async function _isUrlAlive(url) {
  * Returns base64 image data for inclusion in the Gemini prompt.
  * Zoom 16 gives ~400m field of view — enough to see street names and road geometry.
  */
-async function _fetchRoadmapImage(lat, lng, radarKey) {
+async function _fetchRoadmapImage(lat, lng, radarKey, logger = null) {
     if (!radarKey) throw new Error("Radar API key missing for roadmap fetch");
+    if (logger) logger.logAPICall('radar', 'static_map', null);
     // Radar zoom 19 is a cross-over: shows parcel/building detail + enough street context for labels.
     const url = `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=19&width=800&height=800&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`;
 
@@ -337,7 +341,7 @@ async function _fetchRoadmapImage(lat, lng, radarKey) {
  * uploads it to Firebase Storage, and persists the fresh URL to Firestore.
  * Mirrors client-side getOrCacheAerialSatelliteUrl (Admin SDK equivalent).
  */
-async function _refreshAerialUrl(zpid, lat, lng, mapsKey, db, bucket) {
+async function _refreshAerialUrl(zpid, lat, lng, mapsKey, db, bucket, logger = null) {
     const googleUrl =
         `https://maps.googleapis.com/maps/api/staticmap` +
         `?center=${lat},${lng}` +
@@ -346,6 +350,7 @@ async function _refreshAerialUrl(zpid, lat, lng, mapsKey, db, bucket) {
         `&markers=color:blue%7Csize:tiny%7Clabel:N%7C${Math.round((lat + 0.00027) * 1e7) / 1e7},${lng}` +
         `&key=${mapsKey}`;
 
+    if (logger) logger.logAPICall('google_maps', 'static_map_aerial', zpid);
     const storagePath = `properties/${zpid}/maps/aerial_satellite_scale2.jpg`;
     const file = bucket.file(storagePath);
 
@@ -372,7 +377,7 @@ async function _refreshAerialUrl(zpid, lat, lng, mapsKey, db, bucket) {
  * Mirrors client-side forceRefreshStreetViewUrl (Admin SDK equivalent).
  * Returns '' if Street View is unavailable at this location.
  */
-async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, address = null) {
+async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, address = null, logger = null) {
     const storagePath = `properties/${zpid}/maps/street_view.jpg`;
 
     // Step 1: Metadata call to verify SV availability and get heading
@@ -397,6 +402,7 @@ async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, addres
         `&fov=90&radius=100&source=outdoor&return_error_code=true` +
         `&heading=${heading}&key=${mapsKey}`;
 
+    if (logger) logger.logAPICall('google_maps', 'street_view', zpid);
     console.log(`[Batch] Re-fetching street view for ${zpid} (heading=${heading}°)...`);
     const res = await fetch(svApiUrl);
     if (!res.ok) {
@@ -412,11 +418,17 @@ async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, addres
     const freshUrl = fileMetadata.mediaLink ||
         `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
 
-    // Persist fresh URL + heading to Firestore
-    await db.collection('properties').doc(zpid).update({
-        streetView: freshUrl,
-        streetViewHeadingDeg: heading,
-    });
+    // Persist fresh URL + heading to root doc AND mirror to analysis/assets so Intel Batch visual pass can use it.
+    await Promise.all([
+        db.collection('properties').doc(zpid).update({
+            streetView: freshUrl,
+            streetViewHeadingDeg: heading,
+        }),
+        db.collection('properties').doc(zpid).collection('analysis').doc('assets').set(
+            { streetView: freshUrl },
+            { merge: true }
+        )
+    ]);
     console.log(`[Batch] Street view re-cached for ${zpid} (heading=${heading}°): ${freshUrl.slice(0, 80)}...`);
     return freshUrl;
 }
@@ -680,7 +692,7 @@ function _buildListingPhotoPrompt(address, description, streetBearing, streetSid
 // ─── Core: analyze a single property ─────────────────────────────────────────
 
 
-async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
+async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logger = null) {
     // 1. Read property from Firestore (Admin SDK)
     const propSnap = await db.collection('properties').doc(zpid).get();
     if (!propSnap.exists) throw new Error(`Property ${zpid} not found`);
@@ -706,7 +718,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
 
     let streetBearing = null, streetSide = null;
     try {
-        const br = await _getStreetBearing(address, mapsKey, propLat, propLng);
+        const br = await _getStreetBearing(address, mapsKey, propLat, propLng, logger);
         streetBearing = br?.bearing ?? null;
         streetSide = br?.streetSide ?? null;
     } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
@@ -723,7 +735,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
 
     if (!aerialAlive && propLat != null) {
         console.warn(`[Batch] ${zpid}: Aerial URL expired/dead — re-fetching from Google Maps Static API.`);
-        try { aerialUrl = await _refreshAerialUrl(zpid, propLat, propLng, mapsKey, db, bucket); }
+        try { aerialUrl = await _refreshAerialUrl(zpid, propLat, propLng, mapsKey, db, bucket, logger); }
         catch (e) { console.warn(`[Batch] ${zpid}: Aerial re-fetch failed:`, e.message); }
     } else if (!aerialAlive) {
         console.warn(`[Batch] ${zpid}: Aerial URL dead but no coordinates available — cannot refresh.`);
@@ -732,7 +744,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
     if (svUrl && !svAlive && propLat != null) {
         console.warn(`[Batch] ${zpid}: Street view URL expired/dead — re-fetching from Street View API.`);
         try {
-            const freshSv = await _refreshStreetViewUrl(zpid, propLat, propLng, mapsKey, db, bucket, address);
+            const freshSv = await _refreshStreetViewUrl(zpid, propLat, propLng, mapsKey, db, bucket, address, logger);
             svUrl = freshSv || null;
         } catch (e) { console.warn(`[Batch] ${zpid}: Street view re-fetch failed:`, e.message); svUrl = null; }
     } else if (!svAlive) {
@@ -836,7 +848,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
     let roadmapImg = null;
     if (propLat != null && propLng != null && radarKey) {
         try {
-            roadmapImg = await _fetchRoadmapImage(propLat, propLng, radarKey);
+            roadmapImg = await _fetchRoadmapImage(propLat, propLng, radarKey, logger);
             console.log(`[Batch] ${zpid}: Radar Roadmap image fetched.`);
         } catch (e) {
             console.warn(`[Batch] ${zpid}: Radar Roadmap fetch failed (non-blocking):`, e.message);
@@ -885,11 +897,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
     });
 
     const geminiResult = await model.generateContent({ contents: [{ role: 'user', parts }] });
+    if (logger) logger.logLLMCall(ORIENTATION_MODEL_CF, geminiResult.response.usageMetadata?.promptTokenCount, geminiResult.response.usageMetadata?.candidatesTokenCount, zpid, 'orientation.js');
     let data;
     let responseText = '';
     try {
         responseText = geminiResult.response.text();
-        data = JSON.parse(responseText);
+        data = _extractJson(responseText);
         if (usesListingPhotos) {
             const confirmedLabels = Array.isArray(data.listing_photos_showing_front) ? data.listing_photos_showing_front : [];
             listingPhotosUsed = listingPhotosUsed.map((photo, i) => ({
@@ -1148,6 +1161,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
                 ...listingPhotoImgs.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
             ];
             const retryResult = await model.generateContent({ contents: [{ role: 'user', parts: retryParts }] });
+            if (logger) logger.logLLMCall(ORIENTATION_MODEL_CF, retryResult.response.usageMetadata?.promptTokenCount, retryResult.response.usageMetadata?.candidatesTokenCount, zpid, 'orientation.js');
             const retryData = JSON.parse(retryResult.response.text());
             // Annotate each sent photo with whether Gemini confirmed it showed the exterior/front.
             // Image labels: aerial = A, listing photos = B, C, D…
@@ -1224,6 +1238,19 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey) {
         { merge: true },
     );
 
+    // 9a. Street Insights: run targeted Gemini on the street view while it's already downloaded
+    if (svUrl && svImg && geminiKey) {
+        try {
+            const visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
+            const hasInsights = !!(visualSnap.data()?.exterior_and_neighborhood?.neighborhood_street_insights?.length > 20);
+            if (!hasInsights) {
+                await _enrichStreetInsights(zpid, db, geminiKey, svUrl, { inlineData: { data: svImg.data, mimeType: svImg.mimeType } });
+            }
+        } catch (e) {
+            console.warn(`[Batch] Street insights failed for ${zpid}:`, e.message);
+        }
+    }
+
     // 9. Log orientation version (port of browser-side logOrientationVersion)
     const city = (prop.city || 'Unknown').trim();
     const zip = (prop.zipCode || prop.zip || 'Unknown').trim();
@@ -1283,19 +1310,33 @@ exports.runOrientationBatchOnCreate = functions
         const keysSnap = await db.collection('app_config').doc('api_keys').get();
         const keys = keysSnap.exists ? keysSnap.data() : {};
         const geminiKey = keys.gemini_key || process.env.GEMINI_API_KEY || '';
-        const mapsKey = keys.google_maps_key || keys.maps_key || process.env.MAPS_API_KEY || '';
+        const mapsKey = keys.google_maps_key || process.env.MAPS_API_KEY || '';
         const radarKey = keys.radar_key || keys.radar_publishable_key || process.env.RADAR_API_KEY || '';
+        const logger = new UsageLogger(snap.ref);
+        await logger.initialize();
 
         let done = 0, failed = 0;
 
         // Process zpids in waves of BATCH_CONCURRENCY (20).
         // Promise.allSettled ensures one failure doesn't cancel the rest of the wave.
         for (let i = 0; i < zpids.length; i += BATCH_CONCURRENCY) {
+            // Check for cancellation before each wave
+            const freshJob = await snap.ref.get();
+            if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
+                console.log(`[Orientation Batch] ${context.params.jobId} cancelled. Terminating.`);
+                return null;
+            }
             const wave = zpids.slice(i, i + BATCH_CONCURRENCY);
             await Promise.allSettled(
                 wave.map(async (zpid) => {
+                    // Check for cancellation before processing each property
+                    const freshJob = await snap.ref.get();
+                    if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
+                        return;
+                    }
+
                     try {
-                        await _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey);
+                        await _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logger);
                         done++;
                     } catch (e) {
                         console.error(`[Batch] ✗ ${zpid}:`, e.message);
@@ -1303,6 +1344,7 @@ exports.runOrientationBatchOnCreate = functions
                     }
                     // Real-time progress update after each property completes
                     await snap.ref.update({ done, failed, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+                    await logger.flush();
                 }),
             );
         }

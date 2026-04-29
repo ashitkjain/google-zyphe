@@ -88,8 +88,15 @@ exports.runSecureImagesBatchOnCreate = functions
         let failed = 0;
 
         for (const zpid of zpids) {
+            // Check for cancellation
+            const freshJob = await snap.ref.get();
+            if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
+                console.log(`[Asset Batch] ${context.params.jobId} cancelled. Terminating.`);
+                return null;
+            }
             try {
                 console.log(`[Asset Batch] Securing ${zpid}...`);
+                await snap.ref.update({ workingCount: 1 });
                 
                 const imageUrls = await _fetchPropertyImages(zpid);
                 const assetsRef = db.collection('properties').doc(zpid).collection('analysis').doc('assets');
@@ -131,11 +138,14 @@ exports.runSecureImagesBatchOnCreate = functions
             }
 
             // Real-time update
-            await snap.ref.update({ done, failed, results, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+            await snap.ref.update({ done, failed, results, workingCount: 0, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
         }
 
         await snap.ref.update({
             status: 'completed',
+            done,
+            failed,
+            workingCount: 0,
             completedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 

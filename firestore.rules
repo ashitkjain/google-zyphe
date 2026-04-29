@@ -161,6 +161,12 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.realtorId == realtorId;
     }
 
+    // Helper: Is the authenticated user an admin?
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     match /realtors/{realtorId} {
       // Allow realtor to read/write their own tenant root doc (if it exists)
       allow read, write: if isRealtorOwner(realtorId);
@@ -428,7 +434,7 @@ service cloud.firestore {
       allow create: if (request.auth != null && request.resource.data.user_id == request.auth.uid) || 
                        (request.resource.data.user_id == 'unknown');
       allow read, update: if (request.auth != null && resource.data.user_id == request.auth.uid) ||
-                             (resource.data.user_id == 'unknown');
+                             (resource.data.user_id == 'unknown') || isAdmin();
       allow delete: if false;
     }
 
@@ -436,7 +442,7 @@ service cloud.firestore {
       allow create: if (request.auth != null && request.resource.data.user_id == request.auth.uid) || 
                        (request.resource.data.user_id == 'unknown');
       allow read, update: if (request.auth != null && resource.data.user_id == request.auth.uid) ||
-                             (resource.data.user_id == 'unknown');
+                             (resource.data.user_id == 'unknown') || isAdmin();
       allow delete: if false;
     }
 
@@ -530,8 +536,12 @@ service cloud.firestore {
         // Relaxing userId check for local dev/simplicity, but ideally:
         // && resource.data.userId == request.auth.uid
       );
-      // Updates (progress) are written by the Cloud Function via Admin SDK — never from client
-      allow update, delete: if false;
+      // Clients can only update status to 'cancelled' (Stop Run feature)
+      // Actual progress updates happen via Admin SDK (bypassing rules)
+      allow update: if request.auth != null && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+                    request.resource.data.status == 'cancelled';
+      allow delete: if false;
     }
   }
 }

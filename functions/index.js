@@ -741,7 +741,7 @@ exports.proxyDistanceMatrix = functions.https.onRequest(async (req, res) => {
     }
 
     const keys = await getApiKeys();
-    const MAPS_KEY = keys.maps_key || process.env.GOOGLE_MAPS_KEY || '';
+    const MAPS_KEY = keys.google_maps_key || process.env.GOOGLE_MAPS_KEY || '';
     
     // origins/destinations can be strings (lat,lng or address) or arrays
     const originsStr = Array.isArray(origins) ? origins.join('|') : origins;
@@ -814,7 +814,7 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
     try {
         const keys = await getApiKeys();
         const geminiKey = keys.gemini_key || process.env.GEMINI_API_KEY || '';
-        const mapsKey = keys.maps_key || process.env.GOOGLE_MAPS_KEY || '';
+        const mapsKey = keys.google_maps_key || process.env.GOOGLE_MAPS_KEY || '';
 
         // 1. Research destinations via Gemini
         const genAI = new GoogleGenerativeAI(geminiKey);
@@ -837,6 +837,29 @@ JSON Structure:
 Include EXACTLY 4 items.`;
 
         const result = await model.generateContent(prompt);
+        const usage = result.response.usageMetadata;
+        
+        // Log to llm_call_events
+        try {
+            await db.collection('llm_call_events').add({
+                user_id: context.auth.uid,
+                city,
+                state,
+                prompt_filename: 'commuteDestinationsAI',
+                llm_name: 'gemini-2.0-flash-lite',
+                usage_metadata: {
+                    promptTokenCount: usage?.promptTokenCount || 0,
+                    candidatesTokenCount: usage?.candidatesTokenCount || 0,
+                    totalTokenCount: usage?.totalTokenCount || 0
+                },
+                status: 'completed',
+                source: 'cloud_function',
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        } catch (logErr) {
+            console.warn("[getCommuteDestinations] Logging failed:", logErr.message);
+        }
+
         const responseText = result.response.text();
         console.log("[getCommuteDestinations] AI Response:", responseText);
         
@@ -1287,3 +1310,4 @@ Object.assign(exports, require('./orientationBatch'));
 Object.assign(exports, require('./propertyBatch'));
 Object.assign(exports, require('./intelBatch'));
 Object.assign(exports, require('./assetBatch'));
+Object.assign(exports, require('./purgeLogs'));

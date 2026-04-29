@@ -68,8 +68,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [ingestionReport, setIngestionReport] = useState<{
         llmLogs: LLMCallEvent[];
         apiLogs: APICallEvent[];
+        errorSummary?: { message: string; count: number; type: 'error' | 'warning' }[];
     } | null>(null);
-    const [viewMode, setViewMode] = useState<'table' | 'ingestion' | 'audit'>('table');
+    const [viewMode, setViewMode] = useState<'table' | 'ingestion' | 'audit' | 'monitoring'>('table');
     const [auditEntries, setAuditEntries] = useState<PipelineAuditEntry[]>([]);
     const [auditLoading, setAuditLoading] = useState(false);
     const [activeReportTab, setActiveReportTab] = useState<'ai' | 'api'>('ai');
@@ -148,11 +149,65 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     // Batch Asset Secure
     const [assetBatchRunning, setAssetBatchRunning] = useState(false);
     const [assetBatchProgress, setAssetBatchProgress] = useState<{ done: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
+    const [runResultsFilter, setRunResultsFilter] = useState<'all' | 'failed'>('all');
+
+    // Run Summary Modal State
+    const [showSummaryModal, setShowSummaryModal] = useState(false);
+    const [lastRunStats, setLastRunStats] = useState<any>(null);
+    const [isLoadingStats, setIsLoadingStats] = useState(false);
+    const [batchStartTime, setBatchStartTime] = useState<number | null>(null);
+
+    const [allJobs, setAllJobs] = useState<any[]>([]);
+    const [loadingJobs, setLoadingJobs] = useState(false);
 
     // Load available cities from the cities collection on mount
     useEffect(() => {
         getCachedCities(SUPPORTED_STATES).then(setAvailableCities).catch(() => { });
     }, []);
+
+    const fetchAllRecentJobs = useCallback(async () => {
+        setLoadingJobs(true);
+        try {
+            const { getFirestore, collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+            const db = getFirestore();
+            const collections = [
+                { id: 'full_intel_batch_jobs', label: 'Full Intel' },
+                { id: 'narrative_batch_jobs', label: 'Narrative' },
+                { id: 'orientation_batch_jobs', label: 'Orientation' },
+                { id: 'asset_secure_batch_jobs', label: 'Security' },
+                { id: 'property_data_batch_jobs', label: 'Property Data' }
+            ];
+            
+            const results: any[] = [];
+            for (const col of collections) {
+                const q = query(collection(db, col.id), orderBy('createdAt', 'desc'), limit(10));
+                const snap = await getDocs(q);
+                snap.forEach(doc => {
+                    results.push({
+                        ...doc.data(),
+                        id: doc.id,
+                        collectionId: col.id,
+                        typeLabel: col.label
+                    });
+                });
+            }
+            
+            // Sort by createdAt desc
+            setAllJobs(results.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
+        } catch (e) {
+            console.error('Failed to fetch jobs:', e);
+        } finally {
+            setLoadingJobs(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (viewMode === 'monitoring') {
+            fetchAllRecentJobs();
+            const interval = setInterval(fetchAllRecentJobs, 30000); // Refresh every 30s
+            return () => clearInterval(interval);
+        }
+    }, [viewMode, fetchAllRecentJobs]);
 
     // ─── Universal Batch Job Listener ─────────────────────────────────────────
     useEffect(() => {
@@ -180,6 +235,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     done: data.done || 0,
                     failed: data.failed || 0,
                     total: data.total || 0,
+                    workingCount: data.workingCount || 0,
                     results: data.results || {}
                 };
 
@@ -209,6 +265,26 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setupListener();
         return () => { if (unsubscribe) unsubscribe(); };
     }, [activeBatchId]);
+
+    const fetchLatestBatchJob = async () => {
+        const { getFirestore, collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+        const db = getFirestore();
+        // Put Full Intel first to prioritize it if timestamps are identical
+        const collections = ['full_intel_batch_jobs', 'narrative_batch_jobs', 'orientation_batch_jobs', 'asset_secure_batch_jobs', 'property_data_batch_jobs'];
+        let latestJob: any = null;
+
+        for (const col of collections) {
+            const q = query(collection(db, col), orderBy('createdAt', 'desc'), limit(1));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                const docData = snap.docs[0].data();
+                if (!latestJob || (docData.createdAt?.toMillis() > latestJob.createdAt?.toMillis())) {
+                    latestJob = { ...docData, id: snap.docs[0].id, type: col };
+                }
+            }
+        }
+        return latestJob;
+    };
 
     // Dev-only: expose one-time key migration to browser console.
     // Run: window.__migrateCityKeys() — moves hyphen-keyed docs (e.g. pleasanton-ca)
@@ -429,6 +505,33 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         fetchStatuses(sourceList);
     }, [sourceList]);
 
+    const requestStop = async (batchId: string) => {
+        if (!window.confirm('Are you sure you want to stop this batch? Current progress will be saved but no new properties will be processed.')) return;
+        
+        try {
+            const { db } = await import('../../services/firebase/config');
+            const { doc, updateDoc } = await import('firebase/firestore');
+            if (!db) return;
+
+            const collection = batchId.startsWith('intel_') ? 'full_intel_batch_jobs'
+                : batchId.startsWith('orient_') ? 'orientation_batch_jobs'
+                    : batchId.startsWith('narrative_') ? 'narrative_batch_jobs'
+                        : batchId.startsWith('asset_') ? 'asset_secure_batch_jobs'
+                            : 'property_data_batch_jobs';
+
+            await updateDoc(doc(db, collection, batchId), {
+                status: 'cancelled',
+                updatedAt: new Date()
+            });
+            
+            addLog(`Stop requested for batch ${batchId}.`);
+            if (viewMode === 'monitoring') fetchAllRecentJobs();
+        } catch (e: any) {
+            console.error('Failed to stop batch:', e);
+            alert(`Failed to stop batch: ${e.message}`);
+        }
+    };
+
     // Load all cached cities for suggestion list
     React.useEffect(() => {
         const loadAvailableCities = async () => {
@@ -519,16 +622,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setSelectedIds(new Set(targetIds));
     };
 
-    const handleBulkSecureImages = async () => {
-        if (selectedIds.size === 0) return;
+    const handleBulkSecureImages = async (manualZpids?: string[]) => {
+        const targetIds = manualZpids ? new Set(manualZpids) : selectedIds;
+        if (targetIds.size === 0) return;
+        setBatchStartTime(Date.now());
 
         setLoading(true);
         setError(null);
         setViewMode('ingestion');
         setPipelineType('images');
-        addLog(`Queueing Secure Images Batch for ${selectedIds.size} properties (Background/Cloud Reconciliation)...`);
+        addLog(`Queueing Secure Images Batch for ${targetIds.size} properties (Background/Cloud Reconciliation)...`);
 
-        const targets = sourceList.filter(l => selectedIds.has(String(l.zpid)));
+        const targets = sourceList.filter(l => targetIds.has(String(l.zpid)));
         const zpids = targets.map(t => String(t.zpid));
         const batchId = `asset_batch_${Date.now()}`;
 
@@ -559,18 +664,20 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
-    const handleBulkPropertyData = async () => {
-        if (selectedIds.size === 0) return;
+    const handleBulkPropertyData = async (manualZpids?: string[]) => {
+        const targetIds = manualZpids ? new Set(manualZpids) : selectedIds;
+        if (targetIds.size === 0) return;
+        setBatchStartTime(Date.now());
 
         setLoading(true);
         setError(null);
         setViewMode('ingestion');
         setPipelineType('images'); // reuse ingestion view
-        addLog(`Queueing Property Data Batch for ${selectedIds.size} properties (Background/20x Concurrency)...`);
+        addLog(`Queueing Property Data Batch for ${targetIds.size} properties (Background/20x Concurrency)...`);
 
         const targets = sourceList.filter(l => {
             const id = String(l.zpid);
-            return selectedIds.has(id);
+            return targetIds.has(id);
         });
 
         const zpids = targets.map(t => String(t.zpid));
@@ -605,18 +712,20 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
 
 
-    const handleBulkIngest = async () => {
-        if (selectedIds.size === 0) return;
+    const handleBulkIngest = async (manualZpids?: string[]) => {
+        const targetIds = manualZpids ? new Set(manualZpids) : selectedIds;
+        if (targetIds.size === 0) return;
 
+        setBatchStartTime(Date.now());
         setLoading(true);
         setError(null);
         setPipelineType('full');
         setViewMode('ingestion');
-        addLog(`Queueing Full Intel Batch for ${selectedIds.size} properties (Background/5x Concurrency)...`);
+        addLog(`Queueing Full Intel Batch for ${targetIds.size} properties (Background/5x Concurrency)...`);
 
         const targets = sourceList.filter(l => {
             const id = String(l.zpid);
-            return selectedIds.has(id);
+            return targetIds.has(id);
         });
 
         const zpids = targets.map(t => String(t.zpid));
@@ -649,16 +758,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
-    const handleBulkNarrative = async () => {
-        if (selectedIds.size === 0) return;
+    const handleBulkNarrative = async (manualZpids?: string[]) => {
+        const targetIds = manualZpids ? new Set(manualZpids) : selectedIds;
+        if (targetIds.size === 0) return;
 
+        setBatchStartTime(Date.now());
         setLoading(true);
         setError(null);
         setPipelineType('full');
         setViewMode('ingestion');
-        addLog(`Queueing Narrative Synthesis Batch for ${selectedIds.size} properties...`);
+        addLog(`Queueing Narrative Synthesis Batch for ${targetIds.size} properties...`);
 
-        const targets = sourceList.filter(l => selectedIds.has(String(l.zpid)));
+        const targets = sourceList.filter(l => targetIds.has(String(l.zpid)));
         const zpids = targets.map(t => String(t.zpid));
         const batchId = `narrative_batch_${Date.now()}`;
 
@@ -697,13 +808,75 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         if (failedZpids.length === 0) return;
         
         setSelectedIds(new Set(failedZpids));
+
+        // Short timeout to let state update, then trigger ingest
+        setTimeout(() => {
+            if (pipelineType === 'images') {
+                handleBulkSecureImages(failedZpids);
+            } else {
+                handleBulkIngest(failedZpids);
+            }
+        }, 100);
+    };
+
+    const handleRetryJobZPIDs = async (job: any) => {
+        if (!job || !job.results) return;
+        const failedZpids = Object.entries(job.results)
+            .filter(([_, res]: [string, any]) => res.status === 'failed' || res.status === 'error')
+            .map(([zpid]) => zpid);
         
-        if (pipelineType === 'images') {
-            await handleBulkSecureImages();
-        } else {
-            await handleBulkIngest();
+        if (failedZpids.length === 0) {
+            alert('No failed properties to retry.');
+            return;
+        }
+
+        if (confirm(`Retry ${failedZpids.length} failed properties from this run?`)) {
+            setSelectedIds(new Set(failedZpids));
+            setShowSummaryModal(false);
+            
+            // Map job type to bulk handler
+            setTimeout(() => {
+                const type = job.type || '';
+                if (type.includes('intel')) handleBulkIngest(failedZpids);
+                else if (type.includes('property')) handleBulkPropertyData(failedZpids);
+                else if (type.includes('narrative')) handleBulkNarrative(failedZpids);
+                else if (type.includes('asset')) handleBulkSecureImages(failedZpids);
+            }, 100);
         }
     };
+    const handleRetryFailedBatch = async (batchType: 'property' | 'intel' | 'narrative' | 'asset') => {
+        let progress = null;
+        if (batchType === 'property') progress = propBatchProgress;
+        else if (batchType === 'intel') progress = intelBatchProgress;
+        else if (batchType === 'narrative') progress = narrativeBatchProgress;
+        else if (batchType === 'asset') progress = assetBatchProgress;
+
+        if (!progress || !progress.results) return;
+
+        const failedZpids = Object.entries(progress.results)
+            .filter(([_, res]: [string, any]) => res.status === 'failed' || res.status === 'error')
+            .map(([zpid]) => zpid);
+
+        if (failedZpids.length === 0) {
+            alert('No failed properties to retry.');
+            return;
+        }
+
+        if (confirm(`Retry ${failedZpids.length} failed properties?`)) {
+            // Set these IDs as selected and trigger the appropriate bulk handler
+            setSelectedIds(new Set(failedZpids));
+            
+            // Short timeout to let state update
+            setTimeout(() => {
+                if (batchType === 'property') handleBulkPropertyData(failedZpids);
+                else if (batchType === 'intel') handleBulkIngest(failedZpids);
+                else if (batchType === 'narrative') handleBulkNarrative(failedZpids);
+                else if (batchType === 'asset') handleBulkSecureImages(failedZpids);
+                else if (batchType === 'orientation') handleBatchOrientation(failedZpids);
+            }, 100);
+        }
+    };
+    
 
 
     // Property validation — imported from central utility (see top-level imports)
@@ -1926,13 +2099,27 @@ ${JSON.stringify(propertySummaries)}
     };
 
     // ── Batch Orientation Analysis ─────────────────────────────────────────
-    const handleBatchOrientation = async () => {
-        const targetIds = selectedIds.size > 0
-            ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
-            : cachedPropertyIds;
+    const handleBatchOrientation = async (manualZpids?: string[] | React.MouseEvent) => {
+        // If manualZpids is provided as an array, use it. 
+        // If it's a MouseEvent or undefined, fall back to selectedIds or cachedPropertyIds.
+        let targetIds: Set<string>;
+        if (Array.isArray(manualZpids)) {
+            targetIds = new Set(manualZpids);
+        } else {
+            targetIds = selectedIds.size > 0
+                ? new Set(Array.from(selectedIds).filter(id => cachedPropertyIds.has(id)))
+                : cachedPropertyIds;
+        }
+
         if (targetIds.size === 0) return;
 
+        setBatchStartTime(Date.now());
         setLoading(true);
+        setError(null);
+        setPipelineType('orientation');
+        setViewMode('ingestion');
+        addLog(`Queueing Orientation Batch for ${targetIds.size} properties...`);
+
         const zpids = Array.from(targetIds) as string[];
         const batchId = `orient_batch_${Date.now()}`;
 
@@ -1947,6 +2134,7 @@ ${JSON.stringify(propertySummaries)}
                 total: zpids.length,
                 done: 0,
                 failed: 0,
+                results: {},
                 userId: auth?.currentUser?.uid || 'anonymous',
                 createdAt: serverTimestamp(),
             });
@@ -1955,6 +2143,7 @@ ${JSON.stringify(propertySummaries)}
             setOrientBatchProgress({ computed: 0, cached: 0, failed: 0, total: zpids.length });
             setActiveBatchId(batchId);
             setLoading(false);
+            addLog(`Orientation Batch queued successfully.`);
         } catch (e: any) {
             setError(`Failed to queue orientation: ${e.message}`);
             setLoading(false);
@@ -2329,6 +2518,71 @@ ${JSON.stringify(propertySummaries)}
                     Sold & Unlisted
                     {activeTableTab === 'sold' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-600 rounded-full"></div>}
                 </button>
+
+                <div className="flex-1"></div>
+
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setViewMode(viewMode === 'monitoring' ? 'table' : 'monitoring')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'monitoring' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-50 text-slate-400 hover:text-indigo-600 border border-slate-100 hover:border-indigo-100'}`}
+                        title="View real-time pipeline status"
+                    >
+                        <i className="fa-solid fa-tower-broadcast"></i>
+                        Pipeline
+                    </button>
+                    <button
+                        onClick={() => setViewMode(viewMode === 'audit' ? 'table' : 'audit')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'audit' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-slate-50 text-slate-400 hover:text-slate-900 border border-slate-100 hover:border-slate-300'}`}
+                        title="View pipeline audit logs"
+                    >
+                        <i className="fa-solid fa-list-check"></i>
+                        Audit
+                    </button>
+                    
+                    <div className="w-px h-6 bg-slate-100"></div>
+
+                    <button
+                        onClick={async () => {
+                            setIsLoadingStats(true);
+                            try {
+                                let latestJob = null;
+                                if (activeBatchId) {
+                                    const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+                                    const db = getFirestore();
+                                    const collection = activeBatchId.startsWith('intel_') ? 'full_intel_batch_jobs'
+                                        : activeBatchId.startsWith('orient_') ? 'orientation_batch_jobs'
+                                            : activeBatchId.startsWith('narrative_') ? 'narrative_batch_jobs'
+                                                : activeBatchId.startsWith('asset_') ? 'asset_secure_batch_jobs'
+                                                    : 'property_data_batch_jobs';
+                                    const snap = await getDoc(doc(db, collection, activeBatchId));
+                                    if (snap.exists()) latestJob = { ...snap.data(), id: snap.id, type: collection };
+                                }
+                                if (!latestJob) latestJob = await fetchLatestBatchJob();
+                                if (latestJob) {
+                                    setLastRunStats(latestJob);
+                                    setShowSummaryModal(true);
+                                } else {
+                                    addLog("No batch jobs found.");
+                                }
+                            } catch (err: any) {
+                                console.error("Failed to fetch run summary:", err);
+                                addLog(`Error: ${err.message}`);
+                            } finally {
+                                setIsLoadingStats(false);
+                            }
+                        }}
+                        disabled={isLoadingStats}
+                        className="px-5 py-2.5 bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                        title="View the status and cost summary of the most recent batch run"
+                    >
+                        {isLoadingStats ? (
+                            <i className="fa-solid fa-spinner animate-spin"></i>
+                        ) : (
+                            <i className="fa-solid fa-chart-pie text-indigo-500"></i>
+                        )}
+                        Run Summary
+                    </button>
+                </div>
             </div>
 
             <div className="mb-6 items-center justify-between flex">
@@ -2369,42 +2623,55 @@ ${JSON.stringify(propertySummaries)}
                                 </div>
                             )}
 
-                            {visibleSelectedCount > 0 && (
-                                <div className="flex items-center gap-3">
+                            {selectedIds.size > 0 && (
+                                <div className="flex items-center gap-3 animate-in slide-in-from-top-4">
                                     <button
-                                        onClick={handleBulkSecureImages}
-                                        className="px-6 py-3 bg-white border-2 border-slate-200 hover:border-indigo-400 hover:bg-slate-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                        onClick={() => handleBulkSecureImages()}
+                                        disabled={assetBatchRunning || loading}
+                                        className="px-4 py-2.5 bg-white border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-2 group disabled:opacity-50"
+                                        title="Reconcile and secure property images in background"
                                     >
-                                        <i className="fa-solid fa-cloud-arrow-down text-indigo-500 group-hover:bounce"></i>
-                                        Secure Images ({visibleSelectedCount})
-                                    </button>
-                                    <button
-                                        onClick={handleBulkPropertyData}
-                                        disabled={loading}
-                                        className="px-6 py-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
-                                        title="Fetch property specs & scores from RapidAPI only — no images, no AI"
-                                    >
-                                        <i className="fa-solid fa-database text-emerald-500 group-hover:scale-110 transition-transform"></i>
-                                        Full Property Data ({visibleSelectedCount})
+                                        <i className="fa-solid fa-shield-halved text-blue-500 group-hover:scale-110 transition-transform"></i>
+                                        Secure Assets
                                     </button>
 
                                     <button
-                                        onClick={handleBulkIngest}
+                                        onClick={() => handleBulkPropertyData()}
+                                        disabled={propBatchRunning || loading}
+                                        className="px-4 py-2.5 bg-white border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-2 group disabled:opacity-50"
+                                        title="Fetch Zillow specs & environmental data for selected properties"
+                                    >
+                                        <i className="fa-solid fa-database text-emerald-500 group-hover:scale-110 transition-transform"></i>
+                                        Property Data
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleBulkIngest()}
                                         disabled={loading}
-                                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-[1.2rem] text-[10px] font-black shadow-lg shadow-indigo-200 transition-all flex items-center gap-3 group"
                                     >
                                         <i className="fa-solid fa-bolt-lightning group-hover:scale-125 transition-transform"></i>
                                         Full Intel Suite ({visibleSelectedCount})
                                     </button>
 
                                     <button
-                                        onClick={handleBulkNarrative}
+                                        onClick={() => handleBulkNarrative()}
                                         disabled={loading}
                                         className="px-6 py-3 bg-white border-2 border-fuchsia-200 hover:border-fuchsia-400 hover:bg-fuchsia-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
                                         title="Generate AI Comprehensive Analysis (Narrative, Risks, Interior/Rooms Summaries)"
                                     >
                                         <i className="fa-solid fa-pen-nib text-fuchsia-500 group-hover:scale-110 transition-transform"></i>
                                         Narrative Synthesis ({visibleSelectedCount})
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleBatchOrientation()}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-white border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                        title="Run Orientation & Compass analysis for selected properties"
+                                    >
+                                        <i className="fa-solid fa-compass text-amber-500 group-hover:scale-110 transition-transform"></i>
+                                        Orientation ({visibleSelectedCount})
                                     </button>
                                 </div>
                             )}
@@ -2530,7 +2797,7 @@ ${JSON.stringify(propertySummaries)}
                                     )}
                                     {cachedPropertyIds.size > 0 && (
                                         <button
-                                            onClick={handleBatchOrientation}
+                                            onClick={(e) => handleBatchOrientation(e)}
                                             disabled={orientBatchRunning || loading}
                                             className="px-6 py-3 bg-white border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
                                             title="Calculate front orientation for all cached properties (skips already-analyzed)"
@@ -2544,6 +2811,7 @@ ${JSON.stringify(propertySummaries)}
                                             )}
                                         </button>
                                     )}
+
                                     {orientBatchProgress && !orientBatchRunning && (
                                         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl animate-in fade-in">
                                             <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Orient:</span>
@@ -3198,7 +3466,94 @@ ${JSON.stringify(propertySummaries)}
                                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Live Process Log</h3>
                             </div>
-                            <span className="text-[9px] font-mono text-slate-600">{statusLog.length} events</span>
+                            <div className="flex items-center gap-4">
+                                <span className="text-[9px] font-mono text-slate-600">{statusLog.length} events</span>
+                                <button
+                                    onClick={async () => {
+                                    setIsLoadingStats(true);
+                                    addLog("Identifying relevant run for log analysis...");
+                                    try {
+                                        let start: number;
+                                        let end = Date.now();
+
+                                        if (batchStartTime) {
+                                            start = batchStartTime;
+                                            addLog(`Analyzing active session logs (started ${new Date(start).toLocaleTimeString()})...`);
+                                        } else {
+                                            const latest = await fetchLatestBatchJob();
+                                            if (latest) {
+                                                // Buffer by 2 mins on each side to catch edge calls
+                                                start = (latest.createdAt?.toMillis() || (end - 60 * 60 * 1000)) - (2 * 60 * 1000);
+                                                end = (latest.completedAt?.toMillis() || latest.lastUpdated?.toMillis() || end) + (2 * 60 * 1000);
+                                                addLog(`Analyzing last run: ${latest.type?.replace(/_/g, ' ')} (${new Date(start).toLocaleTimeString()})...`);
+                                            } else {
+                                                start = end - 60 * 60 * 1000;
+                                                addLog("No previous runs found. Analyzing last hour of activity...");
+                                            }
+                                        }
+
+                                        const userId = auth?.currentUser?.uid || 'unknown';
+                                        const [llmLogs, apiLogs] = await Promise.all([
+                                            getLLMLogsForTimeRange(userId, start, end),
+                                            getAPILogsForTimeRange(userId, start, end)
+                                        ]);
+
+                                        // --- Compute Error & Warning Summary ---
+                                        const errors: Record<string, { count: number; type: 'error' | 'warning' }> = {};
+                                        
+                                        // 1. Process LLM Failures
+                                        llmLogs.forEach(log => {
+                                            if (log.status === 'failed' || log.error) {
+                                                const msg = log.error?.split('\n')[0].substring(0, 100) || 'Unknown AI Error';
+                                                if (!errors[msg]) errors[msg] = { count: 0, type: 'error' };
+                                                errors[msg].count++;
+                                            }
+                                            // Look for "Warning" in prompt or response if needed, but status is more reliable
+                                        });
+
+                                        // 2. Process API Failures
+                                        apiLogs.forEach(log => {
+                                            if (log.status === 'failed' || log.error) {
+                                                const msg = log.error?.split('\n')[0].substring(0, 100) || `API Failure: ${log.api_name}`;
+                                                if (!errors[msg]) errors[msg] = { count: 0, type: 'error' };
+                                                errors[msg].count++;
+                                            }
+                                            // Check for high latency warnings (> 5s)
+                                            if (log.response_time_ms && log.response_time_ms > 5000) {
+                                                const msg = `High Latency: ${log.api_name} (>5s)`;
+                                                if (!errors[msg]) errors[msg] = { count: 0, type: 'warning' };
+                                                errors[msg].count++;
+                                            }
+                                        });
+
+                                        const errorSummary = Object.entries(errors).map(([message, data]) => ({
+                                            message,
+                                            count: data.count,
+                                            type: data.type
+                                        })).sort((a, b) => b.count - a.count);
+
+                                        setIngestionReport({ llmLogs, apiLogs, errorSummary });
+                                        addLog(`Report generated: ${llmLogs.length} AI calls, ${apiLogs.length} API calls, ${errorSummary.length} unique faults identified.`);
+                                        // Scroll to report
+                                        setTimeout(() => {
+                                            const reportEl = document.getElementById('ingestion-usage-report');
+                                            if (reportEl) reportEl.scrollIntoView({ behavior: 'smooth' });
+                                        }, 100);
+                                    } catch (reportErr: any) {
+                                        console.error("Failed to generate report:", reportErr);
+                                        addLog(`Report failed: ${reportErr.message}`);
+                                    } finally {
+                                        setIsLoadingStats(false);
+                                    }
+                                }}
+                                    disabled={isLoadingStats}
+                                    className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest flex items-center gap-2 transition-colors disabled:opacity-50"
+                                    title="Analyze recent LLM and API logs to calculate costs and performance"
+                                >
+                                    {isLoadingStats ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-chart-bar"></i>}
+                                    Analyze
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto space-y-3 font-mono text-[10px] text-slate-300 custom-scrollbar pr-2">
                             {statusLog.length === 0 ? (
@@ -3486,11 +3841,28 @@ ${JSON.stringify(propertySummaries)}
                         <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-100/50 overflow-hidden mb-12 animate-in slide-in-from-top-4 duration-500">
                             <div className="p-8 border-b border-slate-100 bg-slate-50/30">
                                 <div className="flex items-center justify-between mb-8">
-                                    <div>
-                                        <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1 uppercase">Cloud Batch Dashboard</h3>
-                                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
-                                            Server-side parallel execution active. You can safely navigate away.
-                                        </p>
+                                    <div className="flex items-center gap-6">
+                                        <div>
+                                            <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1 uppercase">Cloud Batch Dashboard</h3>
+                                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
+                                                Server-side parallel execution active. You can safely navigate away.
+                                            </p>
+                                        </div>
+                                        <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setViewMode('audit')}
+                                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'audit' ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                            >
+                                                Audit Trail
+                                            </button>
+                                            <button
+                                                onClick={() => setViewMode('monitoring')}
+                                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'monitoring' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'}`}
+                                            >
+                                                Pipeline Monitor
+                                            </button>
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => { setViewMode('table'); setIngestionReport(null); }}
@@ -3523,14 +3895,32 @@ ${JSON.stringify(propertySummaries)}
                                     {/* Intelligence Card */}
                                     {intelBatchProgress && (
                                         <div className={`p-6 rounded-2xl border-2 transition-all ${intelBatchRunning ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-100 bg-white'}`}>
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${intelBatchRunning ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                                    <i className="fa-solid fa-brain text-xs"></i>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${intelBatchRunning ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                        <i className="fa-solid fa-brain text-xs"></i>
+                                                    </div>
+                                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Full Intel</span>
                                                 </div>
-                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Full Intel</span>
+                                                {intelBatchRunning && (
+                                                    <button 
+                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
+                                                    >
+                                                        Stop Run
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="flex items-end justify-between mb-2">
-                                                <span className="text-2xl font-black tabular-nums">{intelBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {intelBatchProgress.total}</span></span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-2xl font-black tabular-nums">{intelBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {intelBatchProgress.total}</span></span>
+                                                    {intelBatchRunning && intelBatchProgress.workingCount > 0 && (
+                                                        <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                                                            <i className="fa-solid fa-spinner fa-spin text-[8px]"></i>
+                                                            Working on {intelBatchProgress.workingCount}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {intelBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{intelBatchProgress.failed} Failed</span>}
                                             </div>
                                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -3542,14 +3932,32 @@ ${JSON.stringify(propertySummaries)}
                                     {/* Orientation Card */}
                                     {orientBatchProgress && (
                                         <div className={`p-6 rounded-2xl border-2 transition-all ${orientBatchRunning ? 'border-amber-200 bg-amber-50/30' : 'border-slate-100 bg-white'}`}>
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${orientBatchRunning ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                                    <i className="fa-solid fa-compass text-xs"></i>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${orientBatchRunning ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                        <i className="fa-solid fa-compass text-xs"></i>
+                                                    </div>
+                                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Orientation</span>
                                                 </div>
-                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Orientation</span>
+                                                {orientBatchRunning && (
+                                                    <button 
+                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
+                                                    >
+                                                        Stop Run
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="flex items-end justify-between mb-2">
-                                                <span className="text-2xl font-black tabular-nums">{orientBatchProgress.computed + orientBatchProgress.cached} <span className="text-xs text-slate-400 uppercase">/ {orientBatchProgress.total}</span></span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-2xl font-black tabular-nums">{orientBatchProgress.computed + orientBatchProgress.cached} <span className="text-xs text-slate-400 uppercase">/ {orientBatchProgress.total}</span></span>
+                                                    {orientBatchRunning && (orientBatchProgress as any).workingCount > 0 && (
+                                                        <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                                                            <i className="fa-solid fa-spinner fa-spin text-[8px]"></i>
+                                                            Working on {(orientBatchProgress as any).workingCount}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {orientBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{orientBatchProgress.failed} Failed</span>}
                                             </div>
                                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -3561,14 +3969,32 @@ ${JSON.stringify(propertySummaries)}
                                     {/* Narrative Card */}
                                     {narrativeBatchProgress && (
                                         <div className={`p-6 rounded-2xl border-2 transition-all ${narrativeBatchRunning ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-100 bg-white'}`}>
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${narrativeBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                                    <i className="fa-solid fa-file-signature text-xs"></i>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${narrativeBatchRunning ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                        <i className="fa-solid fa-file-signature text-xs"></i>
+                                                    </div>
+                                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Narrative</span>
                                                 </div>
-                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Narrative</span>
+                                                {narrativeBatchRunning && (
+                                                    <button 
+                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
+                                                    >
+                                                        Stop Run
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="flex items-end justify-between mb-2">
-                                                <span className="text-2xl font-black tabular-nums">{narrativeBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {narrativeBatchProgress.total}</span></span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-2xl font-black tabular-nums">{narrativeBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {narrativeBatchProgress.total}</span></span>
+                                                    {narrativeBatchRunning && (narrativeBatchProgress as any).workingCount > 0 && (
+                                                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                                                            <i className="fa-solid fa-spinner fa-spin text-[8px]"></i>
+                                                            Working on {(narrativeBatchProgress as any).workingCount}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {narrativeBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{narrativeBatchProgress.failed} Failed</span>}
                                             </div>
                                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -3580,14 +4006,32 @@ ${JSON.stringify(propertySummaries)}
                                     {/* Asset Secure Card */}
                                     {assetBatchProgress && (
                                         <div className={`p-6 rounded-2xl border-2 transition-all ${assetBatchRunning ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100 bg-white'}`}>
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${assetBatchRunning ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                                    <i className="fa-solid fa-shield-halved text-xs"></i>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${assetBatchRunning ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                        <i className="fa-solid fa-shield-halved text-xs"></i>
+                                                    </div>
+                                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Security</span>
                                                 </div>
-                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Security</span>
+                                                {assetBatchRunning && (
+                                                    <button 
+                                                        onClick={() => requestStop(activeBatchId!)}
+                                                        className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
+                                                    >
+                                                        Stop Run
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="flex items-end justify-between mb-2">
-                                                <span className="text-2xl font-black tabular-nums">{assetBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {assetBatchProgress.total}</span></span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-2xl font-black tabular-nums">{assetBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {assetBatchProgress.total}</span></span>
+                                                    {assetBatchRunning && (assetBatchProgress as any).workingCount > 0 && (
+                                                        <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                                                            <i className="fa-solid fa-spinner fa-spin text-[8px]"></i>
+                                                            Working on {(assetBatchProgress as any).workingCount}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {assetBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{assetBatchProgress.failed} Failed</span>}
                                             </div>
                                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -3599,6 +4043,40 @@ ${JSON.stringify(propertySummaries)}
                             </div>
 
                             <div className="p-8 bg-white">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-4">
+                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Processing Results</h4>
+                                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                                            <button 
+                                                onClick={() => setRunResultsFilter('all')}
+                                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${runResultsFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                All
+                                            </button>
+                                            <button 
+                                                onClick={() => setRunResultsFilter('failed')}
+                                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${runResultsFilter === 'failed' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                Failed Only
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {(propBatchProgress?.failed || 0) + (intelBatchProgress?.failed || 0) + (narrativeBatchProgress?.failed || 0) + (assetBatchProgress?.failed || 0) > 0 && (
+                                        <button 
+                                            onClick={() => {
+                                                if (propBatchProgress?.failed) handleRetryFailedBatch('property');
+                                                else if (intelBatchProgress?.failed) handleRetryFailedBatch('intel');
+                                                else if (narrativeBatchProgress?.failed) handleRetryFailedBatch('narrative');
+                                                else if (assetBatchProgress?.failed) handleRetryFailedBatch('asset');
+                                            }}
+                                            className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                                        >
+                                            <i className="fa-solid fa-rotate-right"></i>
+                                            Retry Failed
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="space-y-3 max-h-[400px] overflow-y-auto px-2 custom-scrollbar">
                                     {/* Flattened results from all active batches */}
                                     {Object.entries({
@@ -3607,6 +4085,7 @@ ${JSON.stringify(propertySummaries)}
                                         ...(narrativeBatchProgress?.results || {}),
                                         ...(assetBatchProgress?.results || {})
                                     })
+                                        .filter(([_, result]: [string, any]) => runResultsFilter === 'all' || result.status === 'failed' || result.status === 'error')
                                         .reverse()
                                         .map(([zpid, result]: [string, any]) => (
                                             <div key={zpid} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl animate-in fade-in slide-in-from-left-4 duration-300">
@@ -3861,7 +4340,7 @@ ${JSON.stringify(propertySummaries)}
 
                     {/* Ingestion Usage Report */}
                     {ingestionReport && (
-                        <div className="mt-20 border-t border-slate-100 pt-20 animate-in slide-in-from-bottom-8">
+                        <div id="ingestion-usage-report" className="mt-20 border-t border-slate-100 pt-20 animate-in slide-in-from-bottom-8">
                     <div className="flex items-end justify-between mb-12">
                         <div>
                             <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Post-Analysis Intelligence</div>
@@ -3877,11 +4356,47 @@ ${JSON.stringify(propertySummaries)}
                             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-right">
                                 <div className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Success Rate</div>
                                 <div className="text-xl font-mono font-black text-emerald-700">
-                                    {ingestionQueue.length > 0 ? Math.round((ingestionQueue.filter(q => q.status === 'completed').length / ingestionQueue.length) * 100) : 0}%
+                                    {ingestionReport.llmLogs.length + ingestionReport.apiLogs.length > 0 
+                                        ? Math.round(((ingestionReport.llmLogs.filter(l => l.status === 'completed').length + ingestionReport.apiLogs.filter(l => l.status === 'completed').length) / (ingestionReport.llmLogs.length + ingestionReport.apiLogs.length)) * 100) 
+                                        : 0}%
                                 </div>
                             </div>
+                            {(ingestionReport.errorSummary?.length || 0) > 0 && (
+                                <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100 text-right">
+                                    <div className="text-[9px] font-black text-rose-600 uppercase tracking-widest mb-1">Faults Detected</div>
+                                    <div className="text-xl font-mono font-black text-rose-700">
+                                        {ingestionReport.errorSummary?.reduce((acc, e) => acc + e.count, 0)}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
+
+                    {/* Diagnostic Summary */}
+                    {ingestionReport.errorSummary && ingestionReport.errorSummary.length > 0 && (
+                        <div className="mb-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {ingestionReport.errorSummary.map((err, i) => (
+                                <div key={i} className={`p-4 rounded-2xl border ${err.type === 'error' ? 'bg-rose-50/30 border-rose-100' : 'bg-amber-50/30 border-amber-100'} animate-in fade-in slide-in-from-left duration-300`} style={{ animationDelay: `${i * 100}ms` }}>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className={`mt-1 w-2 h-2 rounded-full ${err.type === 'error' ? 'bg-rose-500' : 'bg-amber-500'}`}></div>
+                                            <div>
+                                                <div className={`text-[10px] font-black uppercase tracking-tight ${err.type === 'error' ? 'text-rose-600' : 'text-amber-600'}`}>
+                                                    {err.type === 'error' ? 'System Error' : 'System Warning'}
+                                                </div>
+                                                <p className="text-xs font-bold text-slate-700 mt-1 line-clamp-2" title={err.message}>
+                                                    {err.message}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className={`px-2 py-1 rounded-lg text-[10px] font-black ${err.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                            {err.count}x
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     <div className="flex items-center gap-6 mb-12 border-b border-slate-100">
                         <button
@@ -4027,6 +4542,124 @@ ${JSON.stringify(propertySummaries)}
                     </div>
                     )}
                 </>
+            )}
+
+            {/* ── Pipeline Monitor View ────────────────────────────────────────── */}
+            {viewMode === 'monitoring' && (
+                <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-arrow-left"></i>
+                                Back to City Data
+                            </button>
+                            <div>
+                                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">System Pipeline Monitor</h2>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time status of all batch processing jobs</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={fetchAllRecentJobs}
+                            disabled={loadingJobs}
+                            className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 transition-all flex items-center justify-center shadow-sm disabled:opacity-50"
+                        >
+                            <i className={`fa-solid fa-rotate-right ${loadingJobs ? 'fa-spin' : ''}`}></i>
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                        {allJobs.map((job) => {
+                            const isRunning = job.status === 'running' || job.status === 'queued';
+                            const progress = Math.round(((job.done || 0) / (job.total || 1)) * 100);
+                            
+                            return (
+                                <div key={job.id} className={`bg-white border rounded-[2.5rem] p-6 shadow-sm hover:shadow-md transition-all ${isRunning ? 'border-indigo-100 ring-4 ring-indigo-50/30' : 'border-slate-100'}`}>
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                        <div className="flex items-center gap-5">
+                                            <div className={`w-14 h-14 rounded-3xl flex items-center justify-center text-xl ${
+                                                job.status === 'completed' ? 'bg-emerald-50 text-emerald-500' :
+                                                job.status === 'cancelled' ? 'bg-slate-100 text-slate-400' :
+                                                job.status === 'failed' ? 'bg-rose-50 text-rose-500' :
+                                                'bg-indigo-50 text-indigo-500 animate-pulse'
+                                            }`}>
+                                                <i className={`fa-solid ${
+                                                    job.typeLabel === 'Full Intel' ? 'fa-brain' :
+                                                    job.typeLabel === 'Orientation' ? 'fa-compass' :
+                                                    job.typeLabel === 'Narrative' ? 'fa-file-signature' :
+                                                    job.typeLabel === 'Security' ? 'fa-shield-halved' : 'fa-database'
+                                                }`}></i>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{job.typeLabel}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                                        job.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                        job.status === 'cancelled' ? 'bg-slate-200 text-slate-600' :
+                                                        job.status === 'failed' ? 'bg-rose-100 text-rose-700' :
+                                                        'bg-indigo-100 text-indigo-700'
+                                                    }`}>
+                                                        {job.status}
+                                                    </span>
+                                                </div>
+                                                <h3 className="text-lg font-black text-slate-900 leading-none mb-1">
+                                                    {job.city || 'Global Batch'} <span className="text-slate-300 font-mono text-sm ml-2">{job.id.slice(-6)}</span>
+                                                </h3>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                                    Started {job.createdAt?.toDate().toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 max-w-md">
+                                            <div className="flex items-end justify-between mb-2">
+                                                <span className="text-sm font-black text-slate-900">{job.done || 0} <span className="text-[10px] text-slate-400 uppercase">/ {job.total || 0} Processed</span></span>
+                                                <span className="text-xs font-black text-slate-400">{progress}%</span>
+                                            </div>
+                                            <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                                                <div 
+                                                    className={`h-full transition-all duration-1000 ${
+                                                        job.status === 'completed' ? 'bg-emerald-500' :
+                                                        job.status === 'failed' ? 'bg-rose-500' :
+                                                        'bg-indigo-500'
+                                                    }`} 
+                                                    style={{ width: `${progress}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                            {isRunning && (
+                                                <button 
+                                                    onClick={() => requestStop(job.id)}
+                                                    className="px-6 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-black uppercase tracking-widest rounded-2xl transition-all border border-rose-100"
+                                                >
+                                                    Stop Run
+                                                </button>
+                                            )}
+                                            {job.status === 'completed' && (
+                                                <div className="px-6 py-3 bg-emerald-50 text-emerald-600 text-xs font-black uppercase tracking-widest rounded-2xl border border-emerald-100">
+                                                    Complete
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        
+                        {allJobs.length === 0 && !loadingJobs && (
+                            <div className="py-20 text-center">
+                                <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4 text-slate-200 text-2xl">
+                                    <i className="fa-solid fa-ghost"></i>
+                                </div>
+                                <p className="text-sm font-bold text-slate-400">No recent batch jobs found.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             )}
 
             {/* ── Audit Trail View ────────────────────────────────────────────── */}
@@ -4318,9 +4951,15 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                         <i className="fa-solid fa-compass text-indigo-500 text-sm"></i>
                                         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Buyer&apos;s Guide — {selectedCity?.city || 'City'}</h4>
                                     </div>
-                                    <div className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line max-h-[200px] overflow-y-auto pr-2">
-                                        {neighborhoodData.city_summary}
-                                    </div>
+                                    {viewMode === 'audit' ? (
+                                        <div className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line max-h-[200px] overflow-y-auto pr-2">
+                                            {neighborhoodData.city_summary}
+                                        </div>
+                                    ) : (
+                                        <div className="py-4 text-center">
+                                            <p className="text-xs font-bold text-indigo-600">Pipeline Monitoring View Active</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             {/* Filter + Search bar */}
@@ -4552,6 +5191,230 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                             </div>
                         </>
                     )}
+                </div>
+            )}
+
+            {/* Run Summary Modal */}
+            {showSummaryModal && lastRunStats && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-slate-200">
+                        {/* Header */}
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <div className="flex items-center gap-3 mb-1">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center">
+                                        <i className="fa-solid fa-chart-line text-xs"></i>
+                                    </div>
+                                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Last Run Summary</h2>
+                                </div>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-11">
+                                    {lastRunStats.type?.replace(/_/g, ' ')} • {(() => {
+                                        if (!lastRunStats.completedAt) return 'In Progress';
+                                        if (typeof lastRunStats.completedAt?.toDate === 'function') return lastRunStats.completedAt.toDate().toLocaleString();
+                                        if (lastRunStats.completedAt instanceof Date) return lastRunStats.completedAt.toLocaleString();
+                                        return String(lastRunStats.completedAt);
+                                    })()}
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => setShowSummaryModal(false)}
+                                className="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-all flex items-center justify-center"
+                            >
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-8 overflow-y-auto custom-scrollbar bg-white">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                {/* Total Processed */}
+                                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Properties</span>
+                                    <div className="text-3xl font-black text-slate-900">
+                                        {lastRunStats.done || 0}
+                                        <span className="text-sm text-slate-300 ml-2 italic">/ {lastRunStats.total || 0}</span>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">Success</span>
+                                        {lastRunStats.failed > 0 && (
+                                            <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full uppercase">{lastRunStats.failed} Failed</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Estimated Cost */}
+                                <div className="p-6 rounded-2xl bg-indigo-50 border border-indigo-100">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block mb-2">Estimated AI Cost</span>
+                                    <div className="text-3xl font-black text-indigo-600">
+                                        ${Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.estimatedCost || 0) : 0), 0).toFixed(2)}
+                                    </div>
+                                    <div className="mt-2 text-[10px] font-bold text-indigo-400 uppercase tracking-tight">
+                                        Based on Flash Pricing
+                                    </div>
+                                </div>
+
+                                {/* Total LLM Calls */}
+                                <div className="p-6 rounded-2xl bg-amber-50 border border-amber-100">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block mb-2">Total AI Calls</span>
+                                    <div className="text-3xl font-black text-amber-600">
+                                        {Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.calls || 0) : 0), 0)}
+                                    </div>
+                                    <div className="mt-2 text-[10px] font-bold text-amber-500 uppercase tracking-tight">
+                                        {Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.inputTokens || 0) : 0), 0).toLocaleString()} Total Tokens
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-8">
+                                {/* Task Breakdown */}
+                                <div>
+                                    <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                                        <i className="fa-solid fa-list-check"></i>
+                                        Task Breakdown
+                                    </h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        {Object.entries(lastRunStats.stats?.tasks || {}).map(([task, count]) => (
+                                            <div key={task} className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter block mb-1">{task.replace(/_/g, ' ')}</span>
+                                                <span className="text-lg font-black text-slate-900">{count as number}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* AI Model Usage */}
+                                <div>
+                                    <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                                        <i className="fa-solid fa-microchip"></i>
+                                        Gemini Usage
+                                    </h3>
+                                    <div className="overflow-hidden rounded-2xl border border-slate-100">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50">
+                                                    <th className="p-4 text-[10px] font-black text-slate-400 uppercase">Model</th>
+                                                    <th className="p-4 text-[10px] font-black text-slate-400 uppercase text-right">Calls</th>
+                                                    <th className="p-4 text-[10px] font-black text-slate-400 uppercase text-right">Input Tokens</th>
+                                                    <th className="p-4 text-[10px] font-black text-slate-400 uppercase text-right">Output Tokens</th>
+                                                    <th className="p-4 text-[10px] font-black text-slate-400 uppercase text-right text-indigo-600">Est. Cost</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {Object.entries(lastRunStats.stats?.gemini || {}).map(([model, data]: [string, any]) => (
+                                                    <tr key={model} className="border-t border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                                        <td className="p-4 text-xs font-bold text-slate-700">{model}</td>
+                                                        <td className="p-4 text-xs font-medium text-slate-600 text-right">{data.calls || 0}</td>
+                                                        <td className="p-4 text-xs font-medium text-slate-600 text-right">{data.inputTokens?.toLocaleString() || 0}</td>
+                                                        <td className="p-4 text-xs font-medium text-slate-600 text-right">{data.outputTokens?.toLocaleString() || 0}</td>
+                                                        <td className="p-4 text-xs font-black text-indigo-600 text-right">${(data.estimatedCost || 0).toFixed(4)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* API Usage */}
+                                <div>
+                                    <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                                        <i className="fa-solid fa-cloud"></i>
+                                        External API Calls
+                                    </h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        {Object.entries(lastRunStats.stats?.apis || {}).map(([api, count]) => (
+                                            <div key={api} className="p-4 rounded-xl border border-slate-100 bg-slate-50/30">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter block mb-1 truncate" title={api}>{api.split(':')[1]?.replace(/_/g, ' ') || api}</span>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-lg font-black text-slate-900">{count as number}</span>
+                                                    <span className="text-[9px] font-bold text-slate-300 uppercase">{api.split(':')[0]}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Property Results */}
+                                {lastRunStats.results && Object.keys(lastRunStats.results).length > 0 && (
+                                    <div className="mt-8 border-t border-slate-100 pt-8">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                                    <i className="fa-solid fa-house-circle-check"></i>
+                                                    Property Results
+                                                </h3>
+                                                <div className="flex bg-slate-100 p-1 rounded-xl">
+                                                    <button 
+                                                        onClick={() => setRunResultsFilter('all')}
+                                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${runResultsFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    >
+                                                        All
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setRunResultsFilter('failed')}
+                                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${runResultsFilter === 'failed' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    >
+                                                        Failed Only
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        <div className="grid gap-2">
+                                            {Object.entries(lastRunStats.results)
+                                                .filter(([_, res]: [string, any]) => runResultsFilter === 'all' || res.status === 'failed' || res.status === 'error')
+                                                .map(([zpid, res]: [string, any]) => (
+                                                <div key={zpid} className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
+                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                        <i className={`fa-solid ${res.status === 'success' || res.status === 'cached' ? 'fa-check-circle text-emerald-400' : 'fa-times-circle text-rose-400'} text-sm flex-shrink-0`}></i>
+                                                        <div className="truncate">
+                                                            <span className="text-[11px] font-black text-slate-700 block truncate">{res.message || zpid}</span>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">ZPID: {zpid}</span>
+                                                                {res.healed && (
+                                                                    <div className="flex gap-1">
+                                                                        {Object.entries(res.healed).map(([key, healed]) => healed ? (
+                                                                            <span key={key} className="text-[8px] font-black px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded uppercase">{key}</span>
+                                                                        ) : null)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-shrink-0">
+                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                                            res.status === 'success' ? 'bg-emerald-50 text-emerald-600' :
+                                                            res.status === 'cached' ? 'bg-indigo-50 text-indigo-600' :
+                                                            'bg-rose-50 text-rose-600'
+                                                        }`}>
+                                                            {res.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                            <div>
+                                {lastRunStats.failed > 0 && (
+                                    <button 
+                                        onClick={() => handleRetryJobZPIDs(lastRunStats)}
+                                        className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-200 flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-rotate-right"></i>
+                                        Retry {lastRunStats.failed} Failed
+                                    </button>
+                                )}
+                            </div>
+                            <button 
+                                onClick={() => setShowSummaryModal(false)}
+                                className="px-8 py-3 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
