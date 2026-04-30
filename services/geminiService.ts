@@ -58,6 +58,7 @@ import { Lead, CRMTask, CalendarEvent } from "../types";
 import { executePythonDeepResearch } from "./pythonResearchService";
 import { DailyPulseResult, PollenAnalysisResult } from "../types/ai";
 import { getPollenAnalysisPrompt, pollenAnalysisSchema } from "../prompts/property/pollenAnalysis";
+import { getNeighborhoodNarrativePrompt, neighborhoodNarrativeSchema } from "../prompts/property/neighborhoodNarrative";
 import { getMitLivingWagePrompt, mitLivingWageSchema, MitLivingWageResult, MitLivingWageParams } from "../prompts/property/mitLivingWage";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
@@ -598,6 +599,24 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
     extractResultJson: true,
     schema: neighborhoodAnalysisSchema,
     imageUrls: [mapZoomIn, mapZoomOut]
+  });
+};
+
+export const analyzeNeighborhoodNarrative = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<{ narrative: string }>> => {
+  const prompt = getNeighborhoodNarrativePrompt(property, (property as any).google_places);
+
+  console.log(`[Neighborhood Narrative] Starting for ${property.address}...`);
+
+  return executeGeminiRequest<{ narrative: string }>({
+    model: FLASH_LITE_MODEL,
+    contents: prompt,
+    config: { temperature: 0.7 },
+    userId,
+    zpid: property.zpid,
+    address: property.address,
+    promptFilename: "neighborhoodNarrative.ts",
+    extractResultJson: true,
+    schema: neighborhoodNarrativeSchema
   });
 };
 

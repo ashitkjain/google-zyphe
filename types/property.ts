@@ -192,6 +192,7 @@ export interface PropertyData {
             sourceUrl?: string;
         };
     } | null;
+    neighborhood_narrative?: string | null;
     walkScore?: number | null;
     walkScoreDesc?: string;
     transitScore?: number | null;

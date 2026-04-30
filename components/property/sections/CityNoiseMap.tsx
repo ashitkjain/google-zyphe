@@ -15,7 +15,7 @@ interface CityNoiseMapProps {
 
 const PLEASANTON_DEFAULT = { lat: 37.6604, lng: -121.8747 };
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const CACHE_SCHEMA_VERSION = 5;
+const CACHE_SCHEMA_VERSION = 6;
 
 // 4-bin colour ramp: quiet (green) → moderate (yellow) → loud (orange) → very loud (red)
 const RAMP: [number, [number, number, number]][] = [
@@ -102,7 +102,6 @@ const CityNoiseMap: React.FC<CityNoiseMapProps> = ({ center, city }) => {
     const mapRef = useRef<any>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [roadPoints, setRoadPoints] = useState<number | null>(null);
     const [fromCache, setFromCache] = useState(false);
 
     const mapCenter = center || PLEASANTON_DEFAULT;
@@ -152,22 +151,35 @@ const CityNoiseMap: React.FC<CityNoiseMapProps> = ({ center, city }) => {
             boundaryGeoJSON: any,
             roadCount: number,
         ) => {
-            setRoadPoints(roadCount);
+            void roadCount; // count is no longer displayed
 
             // City boundary outline
             if (boundaryGeoJSON) {
                 if (m.getLayer('city-boundary-line')) m.removeLayer('city-boundary-line');
+                if (m.getLayer('city-boundary-glow')) m.removeLayer('city-boundary-glow');
                 if (m.getSource('city-boundary')) m.removeSource('city-boundary');
                 m.addSource('city-boundary', { type: 'geojson', data: boundaryGeoJSON });
+                // Outer glow
+                m.addLayer({
+                    id: 'city-boundary-glow',
+                    type: 'line',
+                    source: 'city-boundary',
+                    paint: {
+                        'line-color': '#ffffff',
+                        'line-width': 6,
+                        'line-opacity': 0.18,
+                        'line-blur': 4,
+                    },
+                });
+                // Solid inner line
                 m.addLayer({
                     id: 'city-boundary-line',
                     type: 'line',
                     source: 'city-boundary',
                     paint: {
                         'line-color': '#ffffff',
-                        'line-width': 1.5,
-                        'line-opacity': 0.7,
-                        'line-dasharray': [4, 3],
+                        'line-width': 2,
+                        'line-opacity': 0.85,
                     },
                 });
             }
@@ -189,6 +201,26 @@ const CityNoiseMap: React.FC<CityNoiseMapProps> = ({ center, city }) => {
                     'raster-resampling': 'linear',
                 },
             });
+
+            // Resize first so the canvas matches the (possibly aspect-ratio-sized) container
+            m.resize();
+
+            // Center on the polygon centroid rather than the bbox center — the bbox often
+            // extends into uninhabited hills, skewing the center away from the actual city.
+            const geom = boundaryGeoJSON?.geometry ?? boundaryGeoJSON;
+            if (geom) {
+                const ring: number[][] = geom.type === 'Polygon'
+                    ? geom.coordinates[0]
+                    : geom.coordinates.map((p: number[][][]) => p[0]).flat();
+                const avgLng = ring.reduce((s: number, c: number[]) => s + c[0], 0) / ring.length;
+                const avgLat = ring.reduce((s: number, c: number[]) => s + c[1], 0) / ring.length;
+                // Derive zoom from the bbox span so the full city fits in view
+                const span = Math.max(north - south, (east - west) * Math.cos(avgLat * Math.PI / 180));
+                const zoom = Math.min(13, Math.max(10, Math.log2(0.35 / span) + 10));
+                m.flyTo({ center: [avgLng, avgLat], zoom, duration: 600 });
+            } else {
+                m.fitBounds([[west, south], [east, north]], { padding: 40, duration: 600 });
+            }
         };
 
         const loadAcousticLayer = async () => {
@@ -280,11 +312,7 @@ const CityNoiseMap: React.FC<CityNoiseMapProps> = ({ center, city }) => {
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    useEffect(() => {
-        const m = mapRef.current;
-        if (!m || !center) return;
-        m.flyTo({ center: [center.lng, center.lat], zoom: 13, speed: 0.8 });
-    }, [center?.lat, center?.lng]);
+    // center prop intentionally not used for flyTo — city bounds drive the viewport via fitBounds in addLayersToMap
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -313,14 +341,9 @@ const CityNoiseMap: React.FC<CityNoiseMapProps> = ({ center, city }) => {
                 </div>
             )}
 
-            {roadPoints !== null && !isLoading && (
-                <div className="absolute top-3 left-3 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-lg z-10 flex items-center gap-2">
-                    <span className="text-[9px] font-black text-white/90 uppercase tracking-widest">
-                        {roadPoints.toLocaleString()} road segments · 120m grid
-                    </span>
-                    {fromCache && (
-                        <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">· cached</span>
-                    )}
+            {fromCache && !isLoading && (
+                <div className="absolute top-3 left-3 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg z-10">
+                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">cached</span>
                 </div>
             )}
         </div>

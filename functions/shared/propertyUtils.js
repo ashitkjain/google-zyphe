@@ -57,7 +57,7 @@ function extractNumericValue(val) {
 /**
  * Fetches environmental data (Solar, Air Quality, Pollen, Noise)
  */
-async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null) {
+async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null, city = null, state = null) {
     const MAPS_API_KEY = keys.google_maps_key;
     const envRef = db.collection('properties').doc(zpid).collection('environmental').doc('thirdparty_data');
     const envSnap = await envRef.get();
@@ -223,6 +223,43 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null)
             results.noiseSimulationFetchedAt = new Date().toISOString();
         }
     } catch (e) { console.warn(`[Enrichment] Noise simulation failed for ${zpid}:`, e.message); }
+
+    // Commute Destinations (Gemini + Google Maps Distance Matrix)
+    if (city && state && keys.gemini_key && keys.google_maps_key) {
+        try {
+            if (logger) logger.logAPICall('gemini', 'commute_destinations', zpid);
+            const { getCommuteDestinationsPrompt, commuteDestinationsSchema } = await import('../prompts/property/commuteDestinations.js');
+            const genAI = new GoogleGenerativeAI(keys.gemini_key);
+            const commuteModel = genAI.getGenerativeModel({
+                model: 'gemini-2.0-flash-lite',
+                generationConfig: { responseMimeType: 'application/json', responseSchema: commuteDestinationsSchema }
+            });
+            const commuteResult = await commuteModel.generateContent(getCommuteDestinationsPrompt({ city, state }));
+            if (logger) logger.logLLMCall('gemini-2.0-flash-lite', commuteResult.response.usageMetadata?.promptTokenCount, commuteResult.response.usageMetadata?.candidatesTokenCount, zpid, 'commuteDestinations.js');
+            const commuteData = _extractJson(commuteResult.response.text());
+            const destinations = commuteData?.destinations || [];
+            if (destinations.length > 0) {
+                const destStrings = destinations.map(d => d.search_query).join('|');
+                const dmUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(`${lat},${lng}`)}&destinations=${encodeURIComponent(destStrings)}&departure_time=now&traffic_model=best_guess&key=${keys.google_maps_key}`;
+                const dmRes = await fetch(dmUrl);
+                const dmData = await dmRes.json();
+                const COLORS = ['#0ea5e9', '#16a34a', '#d97706', '#6366f1'];
+                results.commuteDestinations = destinations.map((d, i) => {
+                    const element = dmData.rows?.[0]?.elements?.[i];
+                    const timeSec = element?.duration_in_traffic?.value || element?.duration?.value;
+                    const distMeters = element?.distance?.value;
+                    return {
+                        name: d.name,
+                        description: d.description,
+                        timeMin: timeSec ? Math.round(timeSec / 60) : null,
+                        distanceMi: distMeters ? Math.round((distMeters / 1609.34) * 10) / 10 : null,
+                        color: COLORS[i % COLORS.length],
+                    };
+                });
+                results.commuteFetchedAt = new Date().toISOString();
+            }
+        } catch (e) { console.warn(`[Enrichment] Commute destinations failed for ${zpid}:`, e.message); }
+    }
 
     console.log(`  ✅ Environmental saved for ${zpid}: ${Object.keys(results).join(', ')}`);
     await envRef.set(results, { merge: true });
@@ -1001,7 +1038,7 @@ Return ONLY valid JSON matching the schema.`.trim();
 }
 
 const CITY_ACOUSTIC_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const CITY_ACOUSTIC_SCHEMA_VERSION = 5;
+const CITY_ACOUSTIC_SCHEMA_VERSION = 6;
 
 async function _prefetchCityAcousticCache(city, state, lat, lng, db) {
     if (!city || !lat || !lng) return;
@@ -1153,7 +1190,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         const needsNeighborhoodId = !existingNeighborhoodId?.resolved_name || existingNeighborhoodId.resolved_name === 'Unknown';
 
         const [envRes] = await Promise.allSettled([
-            _enrichEnvironmentalData(zpid, db, keys, coordinates.latitude, coordinates.longitude, logger).catch(e => {
+            _enrichEnvironmentalData(zpid, db, keys, coordinates.latitude, coordinates.longitude, logger, root.address?.city, root.address?.state).catch(e => {
                 console.warn(`[Enrichment] Environmental step failed for ${zpid}:`, e.message);
                 return null;
             }),

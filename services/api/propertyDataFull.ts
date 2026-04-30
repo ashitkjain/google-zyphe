@@ -13,7 +13,6 @@ import { fetchHistoricalDisasters } from './disasters';
 import { fetchBroadbandData } from './broadband';
 import { fetchDroughtData } from './drought';
 import { fetchNearbyFaults } from './faults';
-import { fetchCommuteDestinations } from './commute';
 import { logAPICall, updateAPICall } from '../firebase/api_logs';
 import { getPropertyGroundTruth } from '../firebase/orientation_history';
 import { calculateZypheNoiseScore } from './osmNoise';
@@ -218,19 +217,18 @@ export const fetchPropertyDataFull = async (
             const needsDrought = !cachedEnvData?.drought || forceEnvironment || isCacheExpired(cachedEnvData?.drought?.fetchedAt, TTL_DROUGHT);
             const needsFaults = !cachedEnvData?.faults || forceEnvironment || isCacheExpired(cachedEnvData?.faults?.fetchedAt, TTL_ENV);
             const needsEV = !cachedEnvData?.evChargers || forceEnvironment || isCacheExpired(cachedEnvData?.evChargers?.fetchedAt, TTL_EV);
-            const needsCommute = !cachedEnvData?.commuteDestinations || forceEnvironment || isCacheExpired(cachedEnvData?.lastUpdated, TTL_ENV);
             const needsZypheNoise = !cachedEnvData?.noiseSimulationFetchedAt || forceEnvironment || isCacheExpired(cachedEnvData?.lastUpdated, TTL_NOISE);
 
-            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsFaults || needsEV || needsCommute || needsZypheNoise;
+            const envDirty = needsSolar || needsAirQual || needsPollen || needsNoise || needsDisasters || needsBroadband || needsDrought || needsFaults || needsEV || needsZypheNoise;
             let streetViewDirty = false;
 
             if (envDirty) {
                 onStep?.('Fetching environmental data...');
             }
 
-            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} faults=${needsFaults} ev=${needsEV} commute=${needsCommute})`);
-            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsFaults && 'faults', needsEV && 'ev', needsCommute && 'commute', needsZypheNoise && 'zypheNoise'].filter(Boolean).join(', ') || 'all cached'})`);
-            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshCommute, freshZypheNoise] = await Promise.all([
+            console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch start (solar=${needsSolar} air=${needsAirQual} pollen=${needsPollen} noise=${needsNoise} disasters=${needsDisasters} broadband=${needsBroadband} drought=${needsDrought} faults=${needsFaults} ev=${needsEV})`);
+            _mark(`Environmental start (${[needsSolar && 'solar', needsAirQual && 'air', needsPollen && 'pollen', needsNoise && 'noise', needsDisasters && 'disasters', needsBroadband && 'broadband', needsDrought && 'drought', needsFaults && 'faults', needsEV && 'ev', needsZypheNoise && 'zypheNoise'].filter(Boolean).join(', ') || 'all cached'})`);
+            const [freshSolar, freshAirQual, freshPollenRaw, freshNoise, freshDisasters, freshBroadband, freshDrought, freshFaults, freshEV, freshZypheNoise] = await Promise.all([
                 needsSolar ? fetchSolarData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsAirQual ? fetchAirQuality(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsPollen ? fetchPollenData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
@@ -240,7 +238,6 @@ export const fetchPropertyDataFull = async (
                 needsDrought ? fetchDroughtData(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsFaults ? fetchNearbyFaults(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
                 needsEV ? fetchNearbyEVChargers(lat, lng, mappedData.zpid, mappedData.address) : Promise.resolve(null),
-                needsCommute ? fetchCommuteDestinations(mappedData, auth?.currentUser?.uid || 'unknown') : Promise.resolve(null),
                 needsZypheNoise ? calculateZypheNoiseScore(lat, lng) : Promise.resolve(null),
             ]);
             console.log(`[⏱ DataPipeline] +${_elapsed()} — environmental parallel fetch done`);
@@ -329,10 +326,8 @@ export const fetchPropertyDataFull = async (
                 (mappedData as any).evChargers = cachedEnvData.evChargers;
             }
             
-            // 9. Commute Destinations
-            if (needsCommute && freshCommute) {
-                (mappedData as any).commuteDestinations = freshCommute;
-            } else if (!needsCommute && cachedEnvData?.commuteDestinations) {
+            // 9. Commute Destinations — read from batch-pre-generated cache only (no browser fetch)
+            if (cachedEnvData?.commuteDestinations) {
                 (mappedData as any).commuteDestinations = cachedEnvData.commuteDestinations;
             }
 
@@ -480,7 +475,7 @@ export const fetchPropertyDataFull = async (
                     evChargers:             { wasFetched: needsEV,        value: freshEV },
                     drought:                { wasFetched: needsDrought,   value: freshDrought },
                     broadband:              { wasFetched: needsBroadband, value: freshBroadband },
-                    commuteDestinations:    { wasFetched: needsCommute,   value: freshCommute },
+                    commuteDestinations:    { wasFetched: false,          value: null },
                 };
                 for (const [key, { wasFetched, value }] of Object.entries(envFetchedFields)) {
                     if (!wasFetched) continue; // Not fetched this run → don't record opinion

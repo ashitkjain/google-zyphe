@@ -133,10 +133,30 @@ export const LocationOverviewSectionPage: React.FC<Props> = ({
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            {/* Section 01 — Neighborhood + Affordability */}
+            {/* Section 01 — Interests */}
+            <div>
+                <SectionTitleBar num="01" kicker="Interests" title="What is here for you" italicWord="you" accent={MINT} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                    {INTEREST_ITEMS.map(item => {
+                        const text = lifestyleInsights?.[item.key] || item.fallback;
+                        return (
+                            <div key={item.t} style={{ background: `linear-gradient(180deg, ${item.c}08 0%, #fff 120px)`, borderRadius: 12, border: '1px solid #e2e8f0', padding: 18 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: 8, background: `${item.c}18`, color: item.c, display: 'grid', placeItems: 'center', fontSize: 17 }}>{item.i}</div>
+                                    <div style={{ fontFamily: serif, fontSize: 24, color: '#0f172a', letterSpacing: '-0.01em' }}>{item.t}</div>
+                                </div>
+                                <p style={{ fontSize: 14.5, color: '#64748b', lineHeight: 1.6, margin: 0, textWrap: 'pretty' as any }}>{text}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Section 02 — Neighborhood + Affordability */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14 }}>
                 {/* Neighborhood card */}
                 <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 22 }}>
+                    <SectionTitleBar num="02" kicker="Profile" title="Neighborhood" accent={ACCENT} />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ width: 34, height: 34, borderRadius: 10, background: ACCENT, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 16 }}>
@@ -298,28 +318,23 @@ export const LocationOverviewSectionPage: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* Section 02 — Interests */}
-            <div>
-                <SectionTitleBar num="02" kicker="Interests" title="What is here for you" italicWord="you" accent={MINT} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-                    {INTEREST_ITEMS.map(item => {
-                        const text = lifestyleInsights?.[item.key] || item.fallback;
-                        return (
-                            <div key={item.t} style={{ background: `linear-gradient(180deg, ${item.c}08 0%, #fff 120px)`, borderRadius: 12, border: '1px solid #e2e8f0', padding: 18 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                                    <div style={{ width: 34, height: 34, borderRadius: 8, background: `${item.c}18`, color: item.c, display: 'grid', placeItems: 'center', fontSize: 17 }}>{item.i}</div>
-                                    <div style={{ fontFamily: serif, fontSize: 20, color: '#0f172a', letterSpacing: '-0.01em' }}>{item.t}</div>
-                                </div>
-                                <p style={{ fontSize: 12.5, color: '#64748b', lineHeight: 1.6, margin: 0, textWrap: 'pretty' as any }}>{text}</p>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
             {/* Section 03 — What's Nearby */}
             <div>
                 <SectionTitleBar num="03" kicker="What's Nearby" title="Pick a category, find a spot" italicWord="spot" />
+
+                {neighborhoodOverview && (
+                    <div style={{ marginBottom: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: 16, background: 'rgba(79, 70, 229, 0.04)', padding: 20, borderRadius: 24, border: '1px solid rgba(79, 70, 229, 0.1)' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', shrink: 0, boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid rgba(79, 70, 229, 0.1)' }}>
+                                <i className="fa-solid fa-wand-magic-sparkles" style={{ color: ACCENT, fontSize: 11 }} />
+                            </div>
+                            <p style={{ fontSize: 13.5, color: '#475569', leading: 1.6, fontStyle: 'italic', margin: 0, fontWeight: 500 }}>
+                                "{neighborhoodOverview}"
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 22, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 22 }}>
                     <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

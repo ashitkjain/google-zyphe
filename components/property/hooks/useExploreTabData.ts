@@ -431,7 +431,7 @@ export function useExploreTabData({
     const marketDynamics = customAnalysis?.deep_investment_research?.structured_report?.market_dynamics || cachedMarketDynamics || null;
     const ltrAnalysis = customAnalysis?.property_investment?.ltr_analysis || cachedLtrAnalysis || null;
     const keyInsights = cachedKeyInsights || null;
-    const neighborhoodOverview = customAnalysis?.neighborhood?.overview || cachedNeighborhoodOverview || null;
+    const neighborhoodOverview = propertyData?.neighborhood_narrative || customAnalysis?.neighborhood?.overview || cachedNeighborhoodOverview || null;
     const communityPulse = customAnalysis?.community_pulse || cachedCommunityPulse || null;
     const visualPoi = customAnalysis?.neighborhood?.visual_poi || cachedVisualPoi || undefined;
     const mapLabels = customAnalysis?.neighborhood?.map_labels || cachedMapLabels || undefined;

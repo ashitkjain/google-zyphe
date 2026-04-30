@@ -12,6 +12,7 @@ import {
   analyzeNeighborhood, 
   analyzeCommunityPulse, 
   analyzeComprehensive, 
+  analyzeNeighborhoodNarrative,
   AiResponseError 
 } from '../services/geminiService';
 import { 
@@ -179,6 +180,21 @@ export function usePropertyAnalysis({
         mapZoomOut: mapOut || fullData.mapZoomOut,
         address: resolvedAddress
       };
+
+      // ── Neighborhood Narrative Trigger ──
+      if (!mergedData.neighborhood_narrative && mergedData.address) {
+        console.log(`[performSearch] Triggering background neighborhood narrative generation...`);
+        analyzeNeighborhoodNarrative(mergedData, currentUser?.uid || "unknown")
+          .then(res => {
+            if (res.data?.narrative) {
+              console.log(`[performSearch] Neighborhood narrative generated successfully.`);
+              const updated = { ...mergedData, neighborhood_narrative: res.data.narrative };
+              setPropertyData(updated);
+              if (updated.zpid) savePropertyToCloud(updated.zpid, updated).catch(() => {});
+            }
+          })
+          .catch(e => console.warn(`[performSearch] Neighborhood narrative failed:`, e));
+      }
 
       addLog('Zyphe Data Layer', { type: 'response' }, mergedData);
 

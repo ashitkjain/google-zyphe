@@ -87,7 +87,7 @@ const PlaceRow: React.FC<{ place: NearbyPlace }> = ({ place }) => {
     );
 };
 
-const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels, mapZoomOut, isEmbeddedCard }) => {
+const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels, mapZoomOut, isEmbeddedCard, neighborhoodOverview }) => {
     const [viewMode, setViewMode] = useState<'places' | 'map'>('places');
     const [activeCategory, setActiveCategory] = useState<string>(CATEGORY_CONFIG[0].key);
     const [showAll, setShowAll] = useState(false);
@@ -150,6 +150,18 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
                     </div>
                     {/* Content */}
                     <div className="p-4 flex flex-col gap-4">
+                        {neighborhoodOverview && (
+                            <div className="px-1 mb-1">
+                                <div className="flex items-start gap-3 bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100/50">
+                                    <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm border border-indigo-100/30">
+                                        <i className="fa-solid fa-wand-magic-sparkles text-indigo-500 text-[10px]" />
+                                    </div>
+                                    <p className="text-[12.5px] text-slate-600 leading-relaxed font-sans font-medium italic">
+                                        "{neighborhoodOverview}"
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex flex-wrap gap-2">
                             {categoriesWithData.map(cat => {
                                 const isActive = activeCategory === cat.key;
@@ -258,6 +270,18 @@ const NeighborhoodPlacesSection: React.FC<Props> = ({ data, visualPoi, mapLabels
 
             {/* Content: places list */}
             <div className="flex flex-col gap-8">
+                {neighborhoodOverview && (
+                    <div className="px-1 -mb-4">
+                        <div className="flex items-start gap-4 bg-indigo-50/40 p-5 rounded-[2rem] border border-indigo-100/50 shadow-sm">
+                            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shrink-0 shadow-md border border-indigo-100/30">
+                                <i className="fa-solid fa-wand-magic-sparkles text-indigo-500 text-sm" />
+                            </div>
+                            <p className="text-[14px] text-slate-600 leading-relaxed font-sans font-medium italic">
+                                "{neighborhoodOverview}"
+                            </p>
+                        </div>
+                    </div>
+                )}
                 <div className="flex flex-wrap gap-2.5 mb-8">
                     {categoriesWithData.map(cat => {
                         const isActive = activeCategory === cat.key;
