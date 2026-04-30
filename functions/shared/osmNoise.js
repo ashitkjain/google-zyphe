@@ -183,4 +183,144 @@ async function calculateZypheNoiseScore(lat, lng) {
     }
 }
 
-module.exports = { calculateZypheNoiseScore };
+// ─── City Boundary (Nominatim) ────────────────────────────────────────────────
+
+function _bboxFromGeom(geom) {
+    const flat = geom.type === 'Polygon'
+        ? geom.coordinates.flat()
+        : geom.coordinates.flat(2);
+    const lngs = flat.map(c => c[0]);
+    const lats = flat.map(c => c[1]);
+    return {
+        west: Math.min(...lngs), east: Math.max(...lngs),
+        south: Math.min(...lats), north: Math.max(...lats),
+    };
+}
+
+async function fetchCityBoundary(city, state = 'CA') {
+    const params = new URLSearchParams({
+        city, state, country: 'US',
+        polygon_geojson: '1', format: 'geojson', limit: '1',
+    });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+        headers: { 'User-Agent': 'Zyphe-Noise-Simulation/1.0 (https://zyphe.ai)' },
+    });
+    if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+    const data = await res.json();
+    if (!data.features?.length) return null;
+    const feature = data.features[0];
+    if (!feature.geometry || !['Polygon', 'MultiPolygon'].includes(feature.geometry.type)) return null;
+    return { geojson: feature, bbox: _bboxFromGeom(feature.geometry) };
+}
+
+// ─── City-Wide Acoustic Grid (returns raw Float32Array as base64) ─────────────
+
+async function computeCityNoiseGridRaw(centerLat, centerLng, radiusKm = 4, gridSpacingMeters = 120, boundary = null) {
+    let minLng, minLat, maxLng, maxLat;
+    if (boundary) {
+        ({ west: minLng, south: minLat, east: maxLng, north: maxLat } = boundary.bbox);
+    } else {
+        const dLat = (radiusKm * 1000) / 111320;
+        const dLng = dLat / Math.cos(centerLat * Math.PI / 180);
+        minLat = centerLat - dLat; maxLat = centerLat + dLat;
+        minLng = centerLng - dLng; maxLng = centerLng + dLng;
+    }
+
+    const query = `
+        [out:json][timeout:60];
+        (
+          way["highway"~"motorway|trunk|primary|secondary|tertiary"](${minLat},${minLng},${maxLat},${maxLng});
+          way["railway"="rail"](${minLat},${minLng},${maxLat},${maxLng});
+          way["aeroway"="runway"](${minLat},${minLng},${maxLat},${maxLng});
+        );
+        out body;>;out skel qt;
+    `;
+
+    const OVERPASS_MIRRORS = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://overpass.private.coffee/api/interpreter',
+    ];
+    const body = `data=${encodeURIComponent(query)}`;
+    const headers = {
+        'User-Agent': 'Zyphe-Noise-Simulation/1.0 (https://zyphe.ai)',
+        'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    let res = null;
+    for (const mirror of OVERPASS_MIRRORS) {
+        try {
+            res = await fetch(mirror, { method: 'POST', body, headers });
+            if (res.ok) break;
+            console.warn(`[CityNoiseGrid] Mirror ${mirror} returned ${res.status}, trying next...`);
+        } catch (e) {
+            console.warn(`[CityNoiseGrid] Mirror ${mirror} failed: ${e.message}, trying next...`);
+        }
+    }
+    if (!res || !res.ok) throw new Error(`Overpass API error: all mirrors failed (last: ${res?.status ?? 'no response'})`);
+    const osmData = await res.json();
+
+    const nodes = new Map();
+    osmData.elements.filter(e => e.type === 'node').forEach(n => nodes.set(n.id, [n.lon, n.lat]));
+
+    const ATTENUATION = { motorway: 28, trunk: 28, rail: 16, runway: 16 };
+    const roadLines = [];
+    const tolDeg = NOISE_RADIUS_METERS / 111320;
+
+    osmData.elements.filter(e => e.type === 'way').forEach(w => {
+        const coords = (w.nodes || []).map(id => nodes.get(id)).filter(Boolean);
+        if (coords.length < 2) return;
+        const tags = w.tags || {};
+        const roadType = tags.highway || (tags.railway === 'rail' ? 'rail' : null) || (tags.aeroway === 'runway' ? 'runway' : null);
+        if (!roadType || !BASE_DB[roadType]) return;
+        const lngs = coords.map(c => c[0]);
+        const lats = coords.map(c => c[1]);
+        roadLines.push({
+            coords,
+            baseDb: BASE_DB[roadType],
+            attenFactor: ATTENUATION[roadType] || 22,
+            bboxMinLat: Math.min(...lats) - tolDeg,
+            bboxMaxLat: Math.max(...lats) + tolDeg,
+            bboxMinLng: Math.min(...lngs) - tolDeg * 1.4,
+            bboxMaxLng: Math.max(...lngs) + tolDeg * 1.4,
+        });
+    });
+
+    const stepLat = gridSpacingMeters / 111320;
+    const stepLng = gridSpacingMeters / (111320 * Math.cos(centerLat * Math.PI / 180));
+    const gridRows = Math.ceil((maxLat - minLat) / stepLat);
+    const gridCols = Math.ceil((maxLng - minLng) / stepLng);
+    const dbGrid = new Float32Array(gridRows * gridCols);
+    const ambientEnergy = Math.pow(10, AMBIENT_FLOOR_DB / 10);
+
+    for (let row = 0; row < gridRows; row++) {
+        const lat = maxLat - row * stepLat;
+        for (let col = 0; col < gridCols; col++) {
+            const lng = minLng + col * stepLng;
+            let totalEnergy = ambientEnergy;
+
+            for (const road of roadLines) {
+                if (lat < road.bboxMinLat || lat > road.bboxMaxLat) continue;
+                if (lng < road.bboxMinLng || lng > road.bboxMaxLng) continue;
+                const { distMeters } = _nearestOnPolyline(lat, lng, road.coords);
+                if (distMeters > NOISE_RADIUS_METERS) continue;
+                const attenuation = road.attenFactor * Math.log10(Math.max(distMeters, 10) / 10);
+                const finalDb = road.baseDb - attenuation;
+                if (finalDb > 20) totalEnergy += Math.pow(10, finalDb / 10);
+            }
+
+            dbGrid[row * gridCols + col] = 10 * Math.log10(totalEnergy);
+        }
+    }
+
+    const gridDataB64 = Buffer.from(dbGrid.buffer).toString('base64');
+    return {
+        gridDataB64,
+        gridCols,
+        gridRows,
+        bounds: { north: maxLat, south: minLat, east: maxLng, west: minLng },
+        roadCount: roadLines.length,
+    };
+}
+
+module.exports = { calculateZypheNoiseScore, fetchCityBoundary, computeCityNoiseGridRaw };

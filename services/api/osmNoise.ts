@@ -140,8 +140,11 @@ export async function calculateZypheNoiseScore(lat: number, lng: number): Promis
             }
             barrierReduction = Math.min(25, barrierReduction);
             
-            // Logarithmic Distance Decay (reference 10m)
-            const distAttenuation = 20 * Math.log10(Math.max(distanceMeters, 10) / 10);
+            // Rail/runway carry far; highways drop off fast (barriers implicit at city scale)
+            const attenFactor = (highwayType === 'rail' || highwayType === 'runway') ? 16
+                : (highwayType === 'motorway' || highwayType === 'trunk') ? 28
+                : 22;
+            const distAttenuation = attenFactor * Math.log10(Math.max(distanceMeters, 10) / 10);
             
             const finalDb = baseDb - distAttenuation - barrierReduction;
             
@@ -259,7 +262,7 @@ export async function computeCityNoiseGrid(
     }
 
     const query = `
-        [out:json][timeout:30];
+        [out:json][timeout:60];
         (
           way["highway"~"motorway|trunk|primary|secondary|tertiary"](${minLat},${minLng},${maxLat},${maxLng});
           way["railway"="rail"](${minLat},${minLng},${maxLat},${maxLng});
@@ -268,15 +271,28 @@ export async function computeCityNoiseGrid(
         out body;>;out skel qt;
     `;
 
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: `data=${encodeURIComponent(query)}`,
-        headers: {
-            'User-Agent': 'Zyphe-Noise-Simulation/1.0 (https://zyphe.ai)',
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-    });
-    if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
+    const OVERPASS_MIRRORS = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://overpass.private.coffee/api/interpreter',
+    ];
+    const body = `data=${encodeURIComponent(query)}`;
+    const headers = {
+        'User-Agent': 'Zyphe-Noise-Simulation/1.0 (https://zyphe.ai)',
+        'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    let res: Response | null = null;
+    for (const mirror of OVERPASS_MIRRORS) {
+        try {
+            res = await fetch(mirror, { method: 'POST', body, headers });
+            if (res.ok) break;
+            console.warn(`[CityNoiseGrid] Overpass mirror ${mirror} returned ${res.status}, trying next...`);
+        } catch (e: any) {
+            console.warn(`[CityNoiseGrid] Overpass mirror ${mirror} failed: ${e.message}, trying next...`);
+        }
+    }
+    if (!res || !res.ok) throw new Error(`Overpass API error: all mirrors failed (last status: ${res?.status ?? 'no response'})`);
     const osmData = await res.json();
 
     // 2. Build road LINE geometries (not sample points — avoids double-counting)

@@ -15,7 +15,7 @@ interface CityNoiseMapProps {
 
 const PLEASANTON_DEFAULT = { lat: 37.6604, lng: -121.8747 };
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const CACHE_SCHEMA_VERSION = 4;
+const CACHE_SCHEMA_VERSION = 5;
 
 // 4-bin colour ramp: quiet (green) → moderate (yellow) → loud (orange) → very loud (red)
 const RAMP: [number, [number, number, number]][] = [
@@ -207,7 +207,16 @@ const CityNoiseMap: React.FC<CityNoiseMapProps> = ({ center, city }) => {
                             const d = snap.data();
                             const age = Date.now() - (d.cachedAt?.toMillis?.() ?? 0);
                             if (age < CACHE_TTL_MS && d.schemaVersion === CACHE_SCHEMA_VERSION) {
-                                addLayersToMap(m, d.dataUrl, d.bounds, d.boundaryGeoJSON ?? null, d.roadCount ?? 0);
+                                let dataUrl: string;
+                                if (d.gridDataB64) {
+                                    // Batch-prefetched format: decode base64 → Float32Array → canvas
+                                    const buf = Uint8Array.from(atob(d.gridDataB64), c => c.charCodeAt(0)).buffer;
+                                    const grid = new Float32Array(buf);
+                                    dataUrl = buildRasterDataUrl(grid, d.gridCols, d.gridRows, d.bounds, d.boundaryGeoJSON ?? null);
+                                } else {
+                                    dataUrl = d.dataUrl;
+                                }
+                                addLayersToMap(m, dataUrl, d.bounds, d.boundaryGeoJSON ?? null, d.roadCount ?? 0);
                                 setFromCache(true);
                                 return;
                             }
@@ -294,6 +303,13 @@ const CityNoiseMap: React.FC<CityNoiseMapProps> = ({ center, city }) => {
             {error && !isLoading && (
                 <div className="absolute top-4 left-4 right-20 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 z-10">
                     <p className="text-[11px] font-bold text-rose-600">{error}</p>
+                </div>
+            )}
+
+            {city && !isLoading && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm px-4 py-1.5 rounded-full z-10 flex items-center gap-2 whitespace-nowrap">
+                    <span className="text-[11px] font-black text-white uppercase tracking-widest">{city}</span>
+                    <span className="text-[10px] text-white/55">City Acoustic Map</span>
                 </div>
             )}
 

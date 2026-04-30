@@ -3,7 +3,7 @@ const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { fetchScores } = require('./walkscore');
 const { fetchParcelFromCounty } = require('./arcgisParcels');
-const { calculateZypheNoiseScore } = require('./osmNoise');
+const { calculateZypheNoiseScore, fetchCityBoundary, computeCityNoiseGridRaw } = require('./osmNoise');
 const { isSupportedState } = require('./config');
 
 // ─── Gemini tax record schema ────────────────────────────────────────────────
@@ -1000,6 +1000,42 @@ Return ONLY valid JSON matching the schema.`.trim();
     }
 }
 
+const CITY_ACOUSTIC_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const CITY_ACOUSTIC_SCHEMA_VERSION = 5;
+
+async function _prefetchCityAcousticCache(city, state, lat, lng, db) {
+    if (!city || !lat || !lng) return;
+    const citySlug = city.toLowerCase().replace(/\s+/g, '_');
+    try {
+        const cacheRef = db.collection('city_noise_cache').doc(citySlug);
+        const snap = await cacheRef.get();
+        if (snap.exists) {
+            const d = snap.data();
+            const age = Date.now() - (d.cachedAt?.toMillis?.() ?? 0);
+            if (age < CITY_ACOUSTIC_CACHE_TTL_MS && d.schemaVersion === CITY_ACOUSTIC_SCHEMA_VERSION) {
+                console.log(`[CityAcoustic] Cache fresh for ${citySlug}, skipping prefetch`);
+                return;
+            }
+        }
+        console.log(`[CityAcoustic] Pre-generating acoustic grid for ${city}...`);
+        const boundary = await fetchCityBoundary(city, state || 'CA');
+        const result = await computeCityNoiseGridRaw(lat, lng, 4, 120, boundary);
+        await cacheRef.set({
+            gridDataB64: result.gridDataB64,
+            gridCols: result.gridCols,
+            gridRows: result.gridRows,
+            bounds: result.bounds,
+            boundaryGeoJSON: boundary?.geojson ?? null,
+            roadCount: result.roadCount,
+            cachedAt: admin.firestore.Timestamp.now(),
+            schemaVersion: CITY_ACOUSTIC_SCHEMA_VERSION,
+        });
+        console.log(`[CityAcoustic] Cached ${citySlug}: ${result.gridCols}x${result.gridRows}, ${result.roadCount} roads`);
+    } catch (e) {
+        console.warn(`[CityAcoustic] Prefetch failed for ${city}:`, e.message);
+    }
+}
+
 /**
  * Core: process one property (Enrichment)
  * Fetches specs from RapidAPI, geocodes with Radar, and does Gemini Tax Lookup.
@@ -1254,6 +1290,15 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             console.warn(`[Enrichment] Final image heal failed for ${zpid}:`, e.message);
         }
     }
+
+    // Pre-generate city acoustic grid cache (fire-and-forget — doesn't block batch)
+    _prefetchCityAcousticCache(
+        root.address?.city,
+        root.address?.state,
+        coordinates?.latitude,
+        coordinates?.longitude,
+        db,
+    ).catch(() => {});
 
     return { status: 'success', address: formattedAddress, data: mapped };
 }

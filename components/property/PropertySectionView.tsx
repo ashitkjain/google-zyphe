@@ -430,7 +430,6 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                             <PageHeader icon="fa-users" title="Community Pulse"
                                 label="Resident Sentiment Report"
                                 description={`What residents actually say about living in ${data.city || 'this area'} — sourced from community forums, reviews, and local intelligence.`}
-                                attribution="Zyphe Ground Truth Unit · 2026"
                                 color="text-blue-600" {...headerProps} />
                             <CommunityPulseSectionPage
                                 communityPulse={communityPulse}

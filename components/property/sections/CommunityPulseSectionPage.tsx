@@ -217,7 +217,7 @@ export const CommunityPulseSectionPage: React.FC<Props> = ({ communityPulse: cp,
                         </p>
                     </div>
 
-                    <div className="h-[420px] rounded-2xl overflow-hidden border border-slate-200 relative">
+                    <div className="aspect-square max-h-[640px] rounded-2xl overflow-hidden border border-slate-200 relative">
                         <CityNoiseMap
                             center={(typeof data?.coordinates?.latitude === 'number' && typeof data?.coordinates?.longitude === 'number')
                                 ? { lat: data.coordinates.latitude, lng: data.coordinates.longitude }
@@ -230,13 +230,10 @@ export const CommunityPulseSectionPage: React.FC<Props> = ({ communityPulse: cp,
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Noise Level (dB)</div>
                             <div className="space-y-1.5">
                                 {[
-                                    { hex: '#880000', label: '> 64 dB', desc: 'Highway / Rail' },
-                                    { hex: '#cc0000', label: '60–64 dB', desc: 'Near Highway' },
-                                    { hex: '#ff3300', label: '57–60 dB', desc: 'Major Road' },
-                                    { hex: '#ff7800', label: '54–57 dB', desc: 'Arterial' },
-                                    { hex: '#ffb300', label: '50–54 dB', desc: 'Collector' },
-                                    { hex: '#c8e600', label: '46–50 dB', desc: 'Local Street' },
-                                    { hex: '#1a7a00', label: '< 46 dB',  desc: 'Quiet' },
+                                    { hex: '#b40000', label: '> 68 dB',  desc: 'Very Loud' },
+                                    { hex: '#ff5a00', label: '60–68 dB', desc: 'Loud' },
+                                    { hex: '#ffd200', label: '52–60 dB', desc: 'Moderate' },
+                                    { hex: '#228b22', label: '< 52 dB',  desc: 'Quiet' },
                                 ].map(({ hex, label, desc }) => (
                                     <div key={label} className="flex items-center gap-2">
                                         <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: hex }} />
