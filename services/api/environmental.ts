@@ -655,45 +655,36 @@ export interface MicroclimateDelta {
     humidity: number;            // % relative humidity at property
     windSpeed: number;           // m/s at property
     windGust: number;            // m/s at property
-    survivalRating: { score: string; label: string; tip: string; color: string; mechanism: string };
+    label: string;
+    mechanism: string;
     insight: string;
     fetchedAt: string;
 }
 
-function getSurvivalRating(delta: number, windSpeed: number, humidity: number): { score: string; label: string; tip: string; color: string; mechanism: string } {
+function getMicroclimateProfile(delta: number, windSpeed: number, humidity: number): { label: string; mechanism: string } {
     if (delta <= -3.0) return {
-        score: '10/10', label: 'Cool Pocket', color: 'blue',
-        mechanism: 'Thermal Buffering + Elevation',
-        tip: 'Hill breezes and tree canopy create a natural cooling zone — perfect for summer dinners without the valley heat.'
+        label: 'Cool Pocket',
+        mechanism: 'Thermal Buffering + Elevation'
     };
     if (delta <= -1.5) return {
-        score: '8/10', label: 'Cool Retreat', color: 'emerald',
-        mechanism: windSpeed > 3 ? 'Gap Wind Cooling' : 'Canopy Shade',
-        tip: windSpeed > 3
-            ? 'Canyon breezes reach this lot before the rest of the city — a natural AC.'
-            : 'Dense vegetation and shade lower the effective temperature.'
+        label: 'Cool Retreat',
+        mechanism: windSpeed > 3 ? 'Gap Wind Cooling' : 'Canopy Shade'
     };
     if (delta <= -0.5) return {
-        score: '7/10', label: 'Slightly Cooler', color: 'emerald',
-        mechanism: 'Mild Elevation Benefit',
-        tip: 'A subtle but real cooling effect — every degree counts on 100°F days.'
+        label: 'Slightly Cooler',
+        mechanism: 'Mild Elevation Benefit'
     };
     if (delta <= 0.5) return {
-        score: '6/10', label: 'Typical Valley', color: 'slate',
-        mechanism: 'Valley Floor Baseline',
-        tip: 'Standard microclimate — matches the official weather station.'
+        label: 'Typical Valley',
+        mechanism: 'Valley Floor Baseline'
     };
     if (delta <= 1.5) return {
-        score: '5/10', label: 'Warm Pocket', color: 'amber',
-        mechanism: humidity > 50 ? 'Humidity Trap' : 'Surface Albedo',
-        tip: humidity > 50
-            ? 'Higher humidity makes this lot feel warmer than official readings.'
-            : 'Concrete and dark roofing absorb extra solar radiation.'
+        label: 'Warm Pocket',
+        mechanism: humidity > 50 ? 'Humidity Trap' : 'Surface Albedo'
     };
     return {
-        score: '4/10', label: 'Heat Island', color: 'orange',
-        mechanism: 'Urban Heat Island',
-        tip: 'Dense paving and low vegetation trap heat — budget for higher AC costs.'
+        label: 'Heat Island',
+        mechanism: 'Urban Heat Island'
     };
 }
 
@@ -766,7 +757,7 @@ export const fetchMicroclimateDelta = async (
         // 3. Compute delta (using RealFeel/apparent temp)
         const delta = parseFloat((propApparent - baseApparent).toFixed(1));
         const deltaF = parseFloat((delta * 9 / 5).toFixed(1));
-        const survivalRating = getSurvivalRating(delta, propWindSpeed, propHumidity);
+        const profile = getMicroclimateProfile(delta, propWindSpeed, propHumidity);
 
         // 4. Generate "Thermal Fingerprint" insight
         const absDeltaF = Math.abs(deltaF);
@@ -774,9 +765,9 @@ export const fetchMicroclimateDelta = async (
         const actualFeelF = Math.round(propApparent * 9 / 5 + 32);
         let insight: string;
         if (delta <= -1.5) {
-            insight = `Every home has a unique thermal fingerprint. While the official temperature at ${baseline.label} is ${officialF}°F, this specific lot actually feels like ${actualFeelF}°F — a ${absDeltaF}°F "Summer Survival Gap." ${survivalRating.mechanism === 'Gap Wind Cooling' ? 'Canyon breezes reach this location before the rest of town.' : 'Elevation and tree canopy create a natural cooling buffer.'}`;
+            insight = `Every home has a unique thermal fingerprint. While the official temperature at ${baseline.label} is ${officialF}°F, this specific lot actually feels like ${actualFeelF}°F — a ${absDeltaF}°F "Summer Survival Gap." ${profile.mechanism === 'Gap Wind Cooling' ? 'Canyon breezes reach this location before the rest of town.' : 'Elevation and tree canopy create a natural cooling buffer.'}`;
         } else if (delta >= 1.5) {
-            insight = `This lot's thermal fingerprint runs ${absDeltaF}°F warmer than ${baseline.label} (${officialF}°F vs ${actualFeelF}°F here). ${survivalRating.mechanism === 'Humidity Trap' ? 'Higher local humidity amplifies the warmth.' : 'Dark roofing and paved surroundings absorb extra solar radiation.'}`;
+            insight = `This lot's thermal fingerprint runs ${absDeltaF}°F warmer than ${baseline.label} (${officialF}°F vs ${actualFeelF}°F here). ${profile.mechanism === 'Humidity Trap' ? 'Higher local humidity amplifies the warmth.' : 'Dark roofing and paved surroundings absorb extra solar radiation.'}`;
         } else {
             insight = `This property's thermal fingerprint closely matches ${baseline.label} (${officialF}°F official vs ${actualFeelF}°F here). No significant microclimate variation detected at this time.`;
         }
@@ -796,7 +787,8 @@ export const fetchMicroclimateDelta = async (
             humidity: propHumidity,
             windSpeed: propWindSpeed,
             windGust: propWindGust,
-            survivalRating,
+            label: profile.label,
+            mechanism: profile.mechanism,
             insight,
             fetchedAt: new Date().toISOString(),
         };

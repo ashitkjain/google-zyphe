@@ -727,7 +727,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     </div>
                                     <div>
                                         <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Thermal Fingerprint</div>
-                                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{micro.survivalRating.label} vs {micro.baselineLabel}</div>
+                                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{micro.label || (micro.delta <= 0 ? 'Slightly Cooler' : 'Slightly Warmer')} vs {micro.baselineLabel}</div>
                                     </div>
                                 </div>
 
@@ -735,17 +735,15 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     {micro.insight}
                                 </p>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                                    <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '12px 16px' }}>
-                                        <div style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Mechanism</div>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{micro.survivalRating.mechanism}</div>
+                                {micro.mechanism && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '10px 14px', width: 'fit-content' }}>
+                                        <div style={{ fontSize: 10, letterSpacing: '0.05em', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Mechanism:</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{micro.mechanism}</div>
                                     </div>
-                                    <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '12px 16px' }}>
-                                        <div style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Survival Rating</div>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: micro.delta <= 0 ? '#059669' : '#ea580c' }}>{micro.survivalRating.score}</div>
-                                    </div>
-                                </div>
+                                )}
                             </div>
+
+
 
                             <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

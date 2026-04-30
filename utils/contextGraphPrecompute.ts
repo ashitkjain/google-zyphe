@@ -1027,13 +1027,13 @@ function factor121_microclimate(p: PropertyData): ExtractedFactor {
     const cToF = (c: number) => Math.round(c * 9 / 5 + 32);
     tags.push(`RealFeel: ${cToF(micro.propertyApparentTemp)}°F vs ${micro.baselineLabel} ${cToF(micro.baselineApparentTemp)}°F`);
     tags.push(`Delta: ${micro.deltaF > 0 ? '+' : ''}${micro.deltaF}°F`);
-    tags.push(`${micro.survivalRating.score} — ${micro.survivalRating.label}`);
-    tags.push(`Mechanism: ${micro.survivalRating.mechanism}`);
+    tags.push(micro.label);
+    tags.push(`Mechanism: ${micro.mechanism}`);
     if (micro.windSpeed > 3) tags.push(`Canyon/Gap wind effect (${Math.round(micro.windSpeed * 2.237)} mph)`);
     if (micro.humidity > 60) tags.push(`High humidity (${Math.round(micro.humidity)}%)`);
     if (micro.delta <= -1.5) tags.push('Summer Survival Property — cooler than city baseline');
     if (micro.delta >= 1.5) tags.push('Heat pocket — higher AC costs expected');
-    const value = `Property is ${micro.deltaF > 0 ? micro.deltaF : Math.abs(micro.deltaF)}°F ${micro.deltaF > 0 ? 'warmer' : 'cooler'} than the city baseline (${micro.survivalRating.label}).`;
+    const value = `Property is ${micro.deltaF > 0 ? micro.deltaF : Math.abs(micro.deltaF)}°F ${micro.deltaF > 0 ? 'warmer' : 'cooler'} than the city baseline (${micro.label}).`;
     return { id: 121, name: 'Microclimate (Thermal Fingerprint)', value, tags: tags.slice(0, 8) };
 }
 
