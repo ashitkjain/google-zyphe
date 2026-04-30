@@ -1391,7 +1391,7 @@ const BrowseByCitySection: React.FC<{
             )}
 
                     {/* Floating View Switcher (Fixed Bottom) */}
-                    {!browsing && results.length > 0 && (
+                    {!browsing && results.length > 0 && !showMyStory && (
                         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[500] flex items-stretch bg-slate-900/90 backdrop-blur-xl rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 p-1.5 gap-1 animate-in slide-in-from-bottom-8 duration-500">
                             <button
                                 onClick={() => setViewModeLocal('gallery')}

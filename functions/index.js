@@ -804,12 +804,35 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
         throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
     }
 
-    const { city, state, lat, lng } = data;
+    const { city, state, lat, lng, zpid } = data;
     if (!city || !state || lat == null || lng == null) {
         throw new functions.https.HttpsError("invalid-argument", "Missing required parameters (city, state, lat, lng).");
     }
 
-    console.log(`[getCommuteDestinations] Orchestrating for ${city}, ${state} from (${lat}, ${lng})`);
+    const db = admin.firestore();
+    console.log(`[getCommuteDestinations] Orchestrating for ${city}, ${state} from (${lat}, ${lng})${zpid ? ` for zpid=${zpid}` : ''}`);
+
+    // 0. Check cache if zpid is provided
+    if (zpid) {
+        try {
+            const cacheRef = db.collection('properties').doc(String(zpid)).collection('environmental').doc('thirdparty_data');
+            const cacheSnap = await cacheRef.get();
+            if (cacheSnap.exists) {
+                const cacheData = cacheSnap.data();
+                // TTL check: 30 days
+                const lastFetched = cacheData.commuteFetchedAt ? new Date(cacheData.commuteFetchedAt) : null;
+                const isFresh = lastFetched && (Date.now() - lastFetched.getTime()) < (30 * 24 * 60 * 60 * 1000);
+                const hasValidTimes = cacheData.commuteDestinations?.every(d => d.timeMin != null);
+                
+                if (isFresh && cacheData.commuteDestinations?.length > 0 && hasValidTimes) {
+                    console.log(`[getCommuteDestinations] Returning cached data for ${zpid} (fetched ${cacheData.commuteFetchedAt})`);
+                    return cacheData.commuteDestinations;
+                }
+            }
+        } catch (cacheErr) {
+            console.warn(`[getCommuteDestinations] Cache read failed for ${zpid}:`, cacheErr.message);
+        }
+    }
 
     try {
         const keys = await getApiKeys();
@@ -820,8 +843,7 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash-lite",
-            tools: [{ googleSearch: {} }],
-            generationConfig: { responseMimeType: "application/json" }
+            tools: [{ googleSearch: {} }]
         });
 
         const { getCommuteDestinationsPrompt } = await import('./prompts/property/commuteDestinations.js');
@@ -899,7 +921,7 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
 
         // 3. Assemble final results
         const COLORS = ['#0ea5e9', '#16a34a', '#d97706', '#6366f1'];
-        return destinations.map((d, i) => {
+        const results = destinations.map((d, i) => {
             const element = dmData.rows?.[0]?.elements?.[i];
             const timeSec = element?.duration_in_traffic?.value || element?.duration?.value;
             const distMeters = element?.distance?.value;
@@ -912,6 +934,22 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
                 color: COLORS[i % COLORS.length]
             };
         });
+
+        // 4. Cache results back to Firestore if zpid is provided
+        if (zpid) {
+            try {
+                const cacheRef = db.collection('properties').doc(String(zpid)).collection('environmental').doc('thirdparty_data');
+                await cacheRef.set({
+                    commuteDestinations: results,
+                    commuteFetchedAt: new Date().toISOString()
+                }, { merge: true });
+                console.log(`[getCommuteDestinations] Cached results for ${zpid}`);
+            } catch (cacheErr) {
+                console.warn(`[getCommuteDestinations] Cache write failed for ${zpid}:`, cacheErr.message);
+            }
+        }
+
+        return results;
 
     } catch (error) {
         console.error("[getCommuteDestinations] Error:", error);

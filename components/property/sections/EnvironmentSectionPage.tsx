@@ -103,9 +103,6 @@ const RiskTile: React.FC<{ icon: string; label: string; score?: number; rating?:
                     </span>
                     <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{isNRI ? 'Score' : '/10'}</span>
                 </div>
-                <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: -2 }}>
-                    {isFallback ? 'Market Average' : 'FEMA NRI Index'}
-                </div>
                 <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
                     <div style={{ width: `${pct * 100}%`, height: '100%', background: pal.bar, borderRadius: 99 }} />
                 </div>
@@ -139,7 +136,7 @@ function InfoTip({ tip }: { tip: string }) {
 export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, micro, isHealingFema }) => {
 
     // ── Climate risk scores (Prefer FEMA NRI) ────────────────────────────────
-    const [allHazardsExpanded, setAllHazardsExpanded] = React.useState(false);
+    // ── Climate risk scores (Prefer FEMA NRI) ────────────────────────────────
     const nri = data.historical_disasters?.femaRiskIndex;
 
     // Helper to get score: either already mapped 1-10 on root, or derived from NRI percentiles
@@ -875,51 +872,6 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                             </div>
                         )}
 
-                        {nri?.hazards && (
-                            <div style={{ marginTop: 16 }}>
-                                <button 
-                                    onClick={() => setAllHazardsExpanded(!allHazardsExpanded)}
-                                    style={{ 
-                                        background: 'none', border: 'none', padding: 0, 
-                                        fontSize: 10, fontWeight: 700, color: ACCENT, 
-                                        textTransform: 'uppercase', letterSpacing: '0.05em',
-                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
-                                    }}
-                                >
-                                    <i className={`fa-solid ${allHazardsExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ fontSize: 9 }} />
-                                    {allHazardsExpanded ? 'Hide Detailed Hazards' : `View All 18 Natural Hazards`}
-                                </button>
-
-                                {allHazardsExpanded && (
-                                    <div style={{ marginTop: 16 }}>
-                                        <div style={{ 
-                                            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-                                            gap: 10, padding: 16, background: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' 
-                                        }}>
-                                            {secondaryHazards.map((h) => {
-                                                const pal = riskPalette(h.score ?? 0, h.rating, 100);
-                                                return (
-                                                    <div key={h.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                        <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{h.label}</div>
-                                                        <div style={{ fontSize: 13, fontWeight: 700, color: pal.text }}>{h.rating || 'No Rating'}</div>
-                                                        <div style={{ height: 3, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
-                                                            <div style={{ width: `${Math.min(h.score ?? 0, 100)}%`, height: '100%', background: pal.bar }} />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        
-                                        {omittedHazards.length > 0 && (
-                                            <div style={{ marginTop: 12, padding: '0 8px', fontSize: 10, color: '#94a3b8', fontWeight: 500, lineHeight: 1.5 }}>
-                                                <i className="fa-solid fa-circle-info" style={{ marginRight: 6, fontSize: 9 }} />
-                                                The following hazards were flagged as <span style={{ fontWeight: 700 }}>Not Applicable</span> or have <span style={{ fontWeight: 700 }}>No Official Rating</span> for this location: {omittedHazards.map(h => h.label).join(', ')}.
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
                 </section>
             )}

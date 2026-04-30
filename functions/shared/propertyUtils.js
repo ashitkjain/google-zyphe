@@ -1190,7 +1190,7 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         const needsNeighborhoodId = !existingNeighborhoodId?.resolved_name || existingNeighborhoodId.resolved_name === 'Unknown';
 
         const [envRes] = await Promise.allSettled([
-            _enrichEnvironmentalData(zpid, db, keys, coordinates.latitude, coordinates.longitude, logger, root.address?.city, root.address?.state).catch(e => {
+            _enrichEnvironmentalData(zpid, db, keys, coordinates.latitude, coordinates.longitude, logger, cityPart, statePart).catch(e => {
                 console.warn(`[Enrichment] Environmental step failed for ${zpid}:`, e.message);
                 return null;
             }),

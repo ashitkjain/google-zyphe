@@ -21,6 +21,7 @@ FOR EACH DESTINATION:
 - Name: Human-readable name (e.g., "Downtown San Francisco", "SJC Airport", "Apple Park").
 - Why: 1-sentence reason why it's a top destination for ${city} residents.
 - Typical Route: Mention the primary highway or transit line used (e.g., "via I-580", "via BART Blue Line").
+- search_query: A PRECISE string for Google Maps (e.g., "Salesforce Tower, San Francisco, CA" instead of "Downtown SF", or "Googleplex, Mountain View, CA" instead of "Silicon Valley"). This MUST be a specific location or well-known landmark to ensure Distance Matrix works correctly.
 
 RULES:
 - Return EXACTLY 4 destinations.

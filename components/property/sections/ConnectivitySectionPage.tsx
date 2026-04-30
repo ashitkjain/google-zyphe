@@ -3,8 +3,9 @@
  * Editorial redesign of the Connectivity section.
  * Accent: electric blue (#0ea5e9)
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PropertyData } from '../../../types';
+import { fetchCommuteDestinations, CommuteDestinationResult } from '../../../services/api/commute';
 
 interface Props {
     data: PropertyData;
@@ -84,6 +85,24 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 }
 
 export const ConnectivitySectionPage: React.FC<Props> = ({ data }) => {
+    const [localCommute, setLocalCommute] = useState<CommuteDestinationResult[] | null>((data as any).commuteDestinations || null);
+    const [loadingCommute, setLoadingCommute] = useState(false);
+    const [hasAttempted, setHasAttempted] = useState(false);
+
+    useEffect(() => {
+        // Only fetch if missing, not already loading, and we haven't tried yet this session
+        if (!localCommute && !loadingCommute && !hasAttempted && data.city && data.state && data.coordinates) {
+            setLoadingCommute(true);
+            setHasAttempted(true);
+            fetchCommuteDestinations(data)
+                .then(res => {
+                    if (res) setLocalCommute(res);
+                })
+                .catch(err => console.error("[ConnectivitySectionPage] Fetch failed:", err))
+                .finally(() => setLoadingCommute(false));
+        }
+    }, [data.zpid, data.city, data.state, data.coordinates, localCommute, loadingCommute, hasAttempted]);
+
     const broadband = (data as any).broadband;
     const evChargers = (data as any).evChargers;
 
@@ -230,34 +249,43 @@ export const ConnectivitySectionPage: React.FC<Props> = ({ data }) => {
             </div>
 
             {/* Section 02 — Commute Destinations */}
-            {(data as any).commuteDestinations && (
+            {(localCommute || loadingCommute) && (
                 <div className="space-y-4">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <SectionTitleBar num="02" kicker="Commute" title="Plan your daily drive" italicWord="drive" />
                         <div style={{ fontSize: 9, fontWeight: 800, color: ACCENT, textTransform: 'uppercase', letterSpacing: '0.1em', background: `${ACCENT}10`, padding: '4px 10px', borderRadius: 20, border: `1px solid ${ACCENT}20` }}>
                             <i className="fa-solid fa-sparkles" style={{ marginRight: 5 }}></i>
-                            Researched via Gemini
+                            {loadingCommute ? 'Calculating Routes...' : 'Researched via Gemini'}
                         </div>
                     </div>
-                    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 22 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                            {(data as any).commuteDestinations.map((d: any) => (
-                                <div key={d.name} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, borderColor: `${d.color}25` }}>
-                                    <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' as const, marginBottom: 4 }}>{d.name}</div>
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                                        <span style={{ fontFamily: serif, fontSize: 32, color: d.color, fontWeight: 400, lineHeight: 1 }}>{d.timeMin ? `~${d.timeMin}` : '--'}</span>
-                                        <span style={{ fontSize: 11, color: '#94a3b8' }}>min</span>
-                                    </div>
-                                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                        {d.description}
-                                    </div>
+                    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 22, minHeight: 120, position: 'relative' }}>
+                        {loadingCommute && !localCommute ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, padding: '20px 0' }}>
+                                <div style={{ width: 24, height: 24, border: `2px solid ${ACCENT}20`, borderTopColor: ACCENT, borderRadius: '50%' }} className="animate-spin" />
+                                <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Analyzing Metro Traffic Patterns...</div>
+                            </div>
+                        ) : localCommute && (
+                            <>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                                    {localCommute.map((d: any) => (
+                                        <div key={d.name} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, borderColor: `${d.color}25` }}>
+                                            <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' as const, marginBottom: 4 }}>{d.name}</div>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                                                <span style={{ fontFamily: serif, fontSize: 32, color: d.color, fontWeight: 400, lineHeight: 1 }}>{d.timeMin ? `~${d.timeMin}` : '--'}</span>
+                                                <span style={{ fontSize: 11, color: '#94a3b8' }}>min</span>
+                                            </div>
+                                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                {d.description}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                        <div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'right' as const, marginTop: 12, fontWeight: 500 }}>
-                            <i className="fa-solid fa-clock-rotate-left" style={{ marginRight: 6, fontSize: 10 }}></i>
-                            Dynamic precalculation via Google Distance Matrix · peak hour estimates
-                        </div>
+                                <div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'right' as const, marginTop: 12, fontWeight: 500 }}>
+                                    <i className="fa-solid fa-clock-rotate-left" style={{ marginRight: 6, fontSize: 10 }}></i>
+                                    Dynamic precalculation via Google Distance Matrix · peak hour estimates
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

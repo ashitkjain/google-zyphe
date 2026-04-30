@@ -25,6 +25,7 @@ export const fetchCommuteDestinations = async (
 
         const getCommute = httpsCallable(functions, 'getCommuteDestinations');
         const result = await getCommute({
+            zpid: property.zpid,
             city: property.city,
             state: property.state,
             lat: property.coordinates.latitude,

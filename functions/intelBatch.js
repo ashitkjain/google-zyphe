@@ -173,12 +173,13 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         const envData = envSnap.exists ? envSnap.data() : null;
 
         // ─── Phase 1: Refresh Analysis Snaps ─────────────────────────────────
-        const [visualSnap, investSnap, assetsSnap, insightsSnap, fitSnap] = await Promise.all([
+        const [visualSnap, investSnap, assetsSnap, insightsSnap, fitSnap, contextGraphSnap] = await Promise.all([
             analysisRef.doc('visual').get(),
             analysisRef.doc('investment').get(),
             analysisRef.doc('assets').get(),
             analysisRef.doc('lifestyle_insights').get(),
-            analysisRef.doc('lifestyle_fit').get()
+            analysisRef.doc('lifestyle_fit').get(),
+            analysisRef.doc('context_graph').get(),
         ]);
 
         // ── Environmental Data Healing (Google APIs only, no RapidAPI) ────────
@@ -332,9 +333,14 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                         model: MODEL_NAME,
                         generationConfig: { responseMimeType: "application/json" }
                     });
-                // Note: Running in parallel means we don't have the fresh compData yet,
-                // but we pass visualData and property basics which is the core of the fit.
-                const prompt = getLifestyleFitPrompt(_optimizeProperty(propData), _optimizeVisual(visualData || {}), (envData?.streetViewAnalysis || null));
+                const contextGraphFactors = contextGraphSnap.exists ? contextGraphSnap.data()?.factors : null;
+                const prompt = getLifestyleFitPrompt(
+                    _optimizeProperty(propData),
+                    _optimizeVisual(visualData || {}),
+                    envData?.streetViewAnalysis || null,
+                    envData || null,
+                    contextGraphFactors || null,
+                );
                 const result = await model.generateContent(prompt);
                 const text = result.response.text();
                 try {
