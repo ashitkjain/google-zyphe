@@ -165,7 +165,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
         fireData && { icon: 'fa-fire', label: 'Fire', ...fireData },
     ].filter(Boolean) as { icon: string; label: string; score: number; rating?: string; isLegacyNRI?: boolean; isFallback?: boolean }[];
 
-    const secondaryHazards = [
+    const allHazardsRaw = [
         { key: 'earthquake', label: 'Earthquake', icon: 'fa-house-chimney-crack' },
         { key: 'tornado', label: 'Tornado', icon: 'fa-tornado' },
         { key: 'strongwind', label: 'Strong Wind', icon: 'fa-wind' },
@@ -195,16 +195,23 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                 rating = hazard.rating;
             }
         } else if (hasAnyNri) {
-            // If we have NRI data for the property but not this hazard, it's effectively 0
             score = 0;
         }
 
         return { ...h, score, rating };
-    }).filter(h => {
-        if (!h.rating) return true; // Keep if no rating but has score
+    });
+
+    const secondaryHazards = allHazardsRaw.filter(h => {
+        if (!h.rating) return true;
         const r = h.rating.toLowerCase();
         return !r.includes('not applicable') && !r.includes('no rating');
-    }) as { label: string; icon: string; score: number | null; rating?: string }[];
+    });
+
+    const omittedHazards = allHazardsRaw.filter(h => {
+        if (!h.rating) return false;
+        const r = h.rating.toLowerCase();
+        return r.includes('not applicable') || r.includes('no rating');
+    });
 
     // ── Noise helpers ─────────────────────────────────────────────────────────
     // Priority: Zyphe Noise Score (v3) -> HowLoud SoundScore (v1)
@@ -882,24 +889,31 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                 </button>
 
                                 {allHazardsExpanded && (
-                                    <div style={{ 
-                                        marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-                                        gap: 10, padding: 16, background: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' 
-                                    }}>
-                                        {Object.entries(nri.hazards).map(([key, h]: [string, any]) => {
-                                            // Skip the 4 main ones if already shown? No, show all for completeness in the list.
-                                            const label = key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
-                                            const pal = riskPalette(h.score, h.rating, 100);
-                                            return (
-                                                <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{label}</div>
-                                                    <div style={{ fontSize: 13, fontWeight: 700, color: pal.text }}>{h.rating || 'No Rating'}</div>
-                                                    <div style={{ height: 3, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
-                                                        <div style={{ width: `${Math.min(h.score, 100)}%`, height: '100%', background: pal.bar }} />
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ 
+                                            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+                                            gap: 10, padding: 16, background: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' 
+                                        }}>
+                                            {secondaryHazards.map((h) => {
+                                                const pal = riskPalette(h.score ?? 0, h.rating, 100);
+                                                return (
+                                                    <div key={h.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                        <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{h.label}</div>
+                                                        <div style={{ fontSize: 13, fontWeight: 700, color: pal.text }}>{h.rating || 'No Rating'}</div>
+                                                        <div style={{ height: 3, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
+                                                            <div style={{ width: `${Math.min(h.score ?? 0, 100)}%`, height: '100%', background: pal.bar }} />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
+                                        
+                                        {omittedHazards.length > 0 && (
+                                            <div style={{ marginTop: 12, padding: '0 8px', fontSize: 10, color: '#94a3b8', fontWeight: 500, lineHeight: 1.5 }}>
+                                                <i className="fa-solid fa-circle-info" style={{ marginRight: 6, fontSize: 9 }} />
+                                                The following hazards were flagged as <span style={{ fontWeight: 700 }}>Not Applicable</span> or have <span style={{ fontWeight: 700 }}>No Official Rating</span> for this location: {omittedHazards.map(h => h.label).join(', ')}.
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

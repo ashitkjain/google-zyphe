@@ -350,7 +350,11 @@ export async function computeCityNoiseGrid(
 
                 if (distM > NOISE_RADIUS_METERS) continue;
 
-                const attenuation = 20 * Math.log10(Math.max(distM, 10) / 10);
+                // Rail/runway carry far; highways drop off fast (barriers implicit at city scale)
+                const attenFactor = (road.type === 'rail' || road.type === 'runway') ? 16
+                    : (road.type === 'motorway' || road.type === 'trunk') ? 28
+                    : 22;
+                const attenuation = attenFactor * Math.log10(Math.max(distM, 10) / 10);
                 const finalDb = road.baseDb - attenuation;
                 if (finalDb > 20) totalEnergy += Math.pow(10, finalDb / 10);
             }

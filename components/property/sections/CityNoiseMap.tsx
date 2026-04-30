@@ -15,22 +15,14 @@ interface CityNoiseMapProps {
 
 const PLEASANTON_DEFAULT = { lat: 37.6604, lng: -121.8747 };
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const CACHE_SCHEMA_VERSION = 3;
+const CACHE_SCHEMA_VERSION = 4;
 
-// Interpolated colour ramp: dB → [R, G, B]
-// Matches acoustic map convention: dark-green (quiet) → yellow → red (loud)
+// 4-bin colour ramp: quiet (green) → moderate (yellow) → loud (orange) → very loud (red)
 const RAMP: [number, [number, number, number]][] = [
-    [42, [0,   100,   0]],
-    [44, [20,  140,   0]],
-    [46, [55,  180,   0]],
-    [48, [130, 210,   0]],
-    [50, [210, 235,   0]],
-    [52, [255, 220,   0]],
-    [54, [255, 170,   0]],
-    [57, [255, 100,   0]],
-    [60, [255,  30,   0]],
-    [64, [200,   0,   0]],
-    [68, [130,   0,   0]],
+    [42, [34,  139,  34]],
+    [52, [255, 210,   0]],
+    [60, [255,  90,   0]],
+    [68, [180,   0,   0]],
 ];
 
 function dbToRgb(db: number): [number, number, number] {
