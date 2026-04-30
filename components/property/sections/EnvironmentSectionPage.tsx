@@ -247,7 +247,6 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
         fireData?.score != null && fireData.score > (fireData.rating ? 50 : 5) && { icon: 'fa-fire-extinguisher', title: 'Fire Mitigation', desc: 'Install ember-resistant vents and maintain a defensible space perimeter to reduce wildfire exposure.' },
         windData?.score != null && windData.score > (windData.rating ? 50 : 5) && { icon: 'fa-house-chimney', title: 'Roof Tie-Downs', desc: 'Secondary water resistance and hurricane clips can reduce annual insurance premiums significantly.' },
         floodData?.score != null && floodData.score > (floodData.rating ? 50 : 5) && { icon: 'fa-droplet', title: 'Smart Leak Sensors', desc: 'IoT sensors in mechanical rooms can mitigate internal flooding and reduce water damage claims.' },
-        heatData?.score != null && heatData.score > (heatData.rating ? 50 : 5) && { icon: 'fa-temperature-high', title: 'Heat Mitigation', desc: 'Cool roofing and improved insulation reduce cooling load during extreme heat events.' },
     ].filter(Boolean) as { icon: string; title: string; desc: string }[];
 
     const sn = { environmental: '01', climate: '02', hazard: '03', microclimate: '04', solar: '05' };
@@ -860,8 +859,6 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     lng={data.coordinates.longitude}
                                     orientation={data.orientation_ai?.final_orientation}
                                 />
-                                <RiskTile icon="fa-fire" label="Wildfire" {...fireData} />
-                                <RiskTile icon="fa-temperature-high" label="Heat" {...heatData} />
                             </div>
                         )}
 
