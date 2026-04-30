@@ -158,13 +158,11 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
     const windData = getHazardData(data.windRiskScore, nri?.hazards?.hurricane);
     const floodData = getHazardData(data.floodRiskScore, nri?.hazards?.flood);
     const fireData = getHazardData(data.fireRiskScore, nri?.hazards?.wildfire);
-    const heatData = getHazardData(data.heatRiskScore, nri?.hazards?.heatwave);
 
     const riskTiles = [
         windData && { icon: 'fa-wind', label: 'Wind', ...windData },
         floodData && { icon: 'fa-water', label: 'Inland Flood', ...floodData },
         fireData && { icon: 'fa-fire', label: 'Fire', ...fireData },
-        heatData && { icon: 'fa-temperature-high', label: 'Heat', ...heatData },
     ].filter(Boolean) as { icon: string; label: string; score: number; rating?: string; isLegacyNRI?: boolean; isFallback?: boolean }[];
 
     const secondaryHazards = [
