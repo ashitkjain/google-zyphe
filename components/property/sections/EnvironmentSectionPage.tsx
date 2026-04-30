@@ -180,26 +180,10 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
         { key: 'volcano', label: 'Volcano', icon: 'fa-volcano' },
         { key: 'winterweather', label: 'Winter Weather', icon: 'fa-cloud-showers-heavy' },
         { key: 'coastal_flood', label: 'Coastal Flood', icon: 'fa-house-flood-water' }
-    ].map(h => {
-        const hazard = nri?.hazards?.[h.key];
-        const hasAnyNri = !!nri;
-
-        let score: number | null = null;
-        let rating: string | undefined = undefined;
-
-        if (hazard != null) {
-            if (typeof hazard === 'number') {
-                score = hazard;
-            } else {
-                score = hazard.score ?? 0;
-                rating = hazard.rating;
-            }
-        } else if (hasAnyNri) {
-            // If we have NRI data for the property but not this hazard, it's effectively 0
-            score = 0;
-        }
-
-        return { ...h, score, rating };
+    }).filter(h => {
+        if (!h.rating) return true; // Keep if no rating but has score
+        const r = h.rating.toLowerCase();
+        return !r.includes('not applicable') && !r.includes('no rating');
     }) as { label: string; icon: string; score: number | null; rating?: string }[];
 
     // ── Noise helpers ─────────────────────────────────────────────────────────
