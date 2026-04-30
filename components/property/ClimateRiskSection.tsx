@@ -10,7 +10,7 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
   const getScore = (type: string) => {
     if (!data.femaScores) {
       if (type === 'Wind') return data.windRiskScore;
-      if (type === 'Flood') return data.floodRiskScore;
+      if (type === 'Inland Flood') return data.floodRiskScore;
       if (type === 'Fire') return data.fireRiskScore;
       if (type === 'Heat') return data.heatRiskScore;
       return null;
@@ -19,7 +19,7 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
     const hazards = data.femaScores.hazards;
     let rawScore = 0;
     if (type === 'Wind') rawScore = Math.max(hazards.hurricane, hazards.tornado, hazards.strongwind);
-    if (type === 'Flood') rawScore = hazards.flood;
+    if (type === 'Inland Flood') rawScore = hazards.flood;
     if (type === 'Fire') rawScore = hazards.wildfire;
     if (type === 'Heat') rawScore = hazards.heatwave;
 
@@ -30,7 +30,7 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
 
   const risks = [
     { type: 'Wind', score: getScore('Wind'), icon: 'fa-wind' },
-    { type: 'Flood', score: getScore('Flood'), icon: 'fa-droplet' },
+    { type: 'Inland Flood', score: getScore('Inland Flood'), icon: 'fa-droplet' },
     { type: 'Fire', score: getScore('Fire'), icon: 'fa-fire' },
     { type: 'Heat', score: getScore('Heat'), icon: 'fa-temperature-high' },
   ];

@@ -264,8 +264,6 @@ export async function computeCityNoiseGrid(
           way["highway"~"motorway|trunk|primary|secondary|tertiary"](${minLat},${minLng},${maxLat},${maxLng});
           way["railway"="rail"](${minLat},${minLng},${maxLat},${maxLng});
           way["aeroway"="runway"](${minLat},${minLng},${maxLat},${maxLng});
-          way["barrier"~"wall|fence|noise_barrier"](${minLat},${minLng},${maxLat},${maxLng});
-          way["building"](${minLat},${minLng},${maxLat},${maxLng});
         );
         out body;>;out skel qt;
     `;
@@ -288,7 +286,6 @@ export async function computeCityNoiseGrid(
         .forEach((n: any) => nodes.set(n.id, [n.lon, n.lat]));
 
     const roadLines: RoadLine[] = [];
-    const barrierFeatures: any[] = [];
 
     osmData.elements
         .filter((e: any) => e.type === 'way')
@@ -303,8 +300,8 @@ export async function computeCityNoiseGrid(
                 tags.highway ||
                 (tags.railway === 'rail' ? 'rail' : null) ||
                 (tags.aeroway === 'runway' ? 'runway' : null);
-            
-            if (roadType && !tags.barrier && !tags.building) {
+
+            if (roadType) {
                 const baseDb = BASE_DB[roadType] ?? 55;
                 const line = turf.lineString(coords);
                 const [rMinLng, rMinLat, rMaxLng, rMaxLat] = turf.bbox(line);
@@ -318,8 +315,6 @@ export async function computeCityNoiseGrid(
                     bboxMinLng: rMinLng - tolDeg * 1.4,
                     bboxMaxLng: rMaxLng + tolDeg * 1.4,
                 });
-            } else if (tags.barrier || tags.building) {
-                barrierFeatures.push(turf.lineString(coords));
             }
         });
 
@@ -333,6 +328,9 @@ export async function computeCityNoiseGrid(
     const ambientEnergy = Math.pow(10, AMBIENT_FLOOR_DB / 10);
 
     for (let row = 0; row < gridRows; row++) {
+        // Yield to event loop every 5 rows so the browser stays responsive
+        if (row > 0 && row % 5 === 0) await new Promise(r => setTimeout(r, 0));
+
         const lat = maxLat - row * stepLat;
 
         for (let col = 0; col < gridCols; col++) {
@@ -352,20 +350,8 @@ export async function computeCityNoiseGrid(
 
                 if (distM > NOISE_RADIUS_METERS) continue;
 
-                // Barrier Check
-                let numBarriers = 0;
-                const los = turf.lineString([[lng, lat], nearest.geometry.coordinates]);
-                for (const barrier of barrierFeatures) {
-                    if (turf.booleanIntersects(los, barrier)) numBarriers++;
-                }
-
-                let barrierReduction = 0;
-                const reductionPerObj = (road.type === 'motorway' || road.type === 'trunk') ? 12 : 8;
-                if (numBarriers >= 1) barrierReduction = reductionPerObj + (numBarriers - 1) * 3;
-                barrierReduction = Math.min(25, barrierReduction);
-
                 const attenuation = 20 * Math.log10(Math.max(distM, 10) / 10);
-                const finalDb = road.baseDb - attenuation - barrierReduction;
+                const finalDb = road.baseDb - attenuation;
                 if (finalDb > 20) totalEnergy += Math.pow(10, finalDb / 10);
             }
 

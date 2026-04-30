@@ -470,7 +470,7 @@ export const fetchFemaRiskIndex = async (
             overall: attrs.RISK_SCORE || 0,
             rating: attrs.RISK_RATNG,
             hazards: {
-                flood: { score: attrs.RFLD_RISKS || 0, rating: attrs.RFLD_RISKR },
+                flood: { score: attrs.IFLD_RISKS || 0, rating: attrs.IFLD_RISKR },
                 coastal_flood: { score: attrs.CFLD_RISKS || 0, rating: attrs.CFLD_RISKR },
                 wildfire: { score: attrs.WFIR_RISKS || 0, rating: attrs.WFIR_RISKR },
                 heatwave: { score: attrs.HWAV_RISKS || 0, rating: attrs.HWAV_RISKR },

@@ -1,6 +1,5 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import * as turf from '@turf/turf';
 import Radar from 'radar-sdk-js';
 import { createMapsPlugin } from '@radarlabs/plugin-maps';
 import '@radarlabs/plugin-maps/dist/radar-maps.css';
@@ -16,7 +15,7 @@ interface CityNoiseMapProps {
 
 const PLEASANTON_DEFAULT = { lat: 37.6604, lng: -121.8747 };
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const CACHE_SCHEMA_VERSION = 2;
+const CACHE_SCHEMA_VERSION = 3;
 
 // Interpolated colour ramp: dB → [R, G, B]
 // Matches acoustic map convention: dark-green (quiet) → yellow → red (loud)
@@ -66,29 +65,43 @@ function buildRasterDataUrl(
     const imgData = ctx.createImageData(gridCols, gridRows);
     const px = imgData.data;
 
-    const latStep = (bounds.north - bounds.south) / gridRows;
-    const lngStep = (bounds.east - bounds.west) / gridCols;
-
-    for (let row = 0; row < gridRows; row++) {
-        const lat = bounds.north - row * latStep;
-        for (let col = 0; col < gridCols; col++) {
-            const i = row * gridCols + col;
-            const lng = bounds.west + col * lngStep;
-
-            if (boundaryGeoJSON && !turf.booleanPointInPolygon([lng, lat], boundaryGeoJSON)) {
-                px[i * 4 + 3] = 0;
-                continue;
-            }
-
-            const [r, g, b] = dbToRgb(dbGrid[i]);
-            px[i * 4]     = r;
-            px[i * 4 + 1] = g;
-            px[i * 4 + 2] = b;
-            px[i * 4 + 3] = 255;
-        }
+    for (let i = 0; i < gridRows * gridCols; i++) {
+        const [r, g, b] = dbToRgb(dbGrid[i]);
+        px[i * 4]     = r;
+        px[i * 4 + 1] = g;
+        px[i * 4 + 2] = b;
+        px[i * 4 + 3] = 255;
     }
 
     ctx.putImageData(imgData, 0, 0);
+
+    // Mask pixels outside city boundary using canvas clip — single GPU operation,
+    // eliminates ~6000 per-pixel turf.booleanPointInPolygon calls.
+    if (boundaryGeoJSON) {
+        const project = (lng: number, lat: number): [number, number] => [
+            (lng - bounds.west) / (bounds.east - bounds.west) * gridCols,
+            (bounds.north - lat) / (bounds.north - bounds.south) * gridRows,
+        ];
+        const drawRing = (ring: number[][]) => {
+            ring.forEach(([lng, lat], idx) => {
+                const [x, y] = project(lng, lat);
+                idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.closePath();
+        };
+
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.beginPath();
+        const geom = boundaryGeoJSON.geometry ?? boundaryGeoJSON;
+        if (geom.type === 'Polygon') {
+            geom.coordinates.forEach(drawRing);
+        } else if (geom.type === 'MultiPolygon') {
+            geom.coordinates.forEach((poly: number[][][]) => poly.forEach(drawRing));
+        }
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
     return canvas.toDataURL('image/png');
 }
 
