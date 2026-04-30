@@ -31,9 +31,18 @@ export interface FloodZone {
     insuranceRequired: boolean;     // True for special flood hazard areas (A/V zones)
 }
 
+export interface FemaRiskIndex {
+    overall: number;                 // National Risk Index Score (0-100)
+    rating?: string;                 // Overall rating string
+    hazards: Record<string, { score: number; rating: string }>;
+    censusTract: string;
+    source?: string;
+}
+
 export interface HistoricalDisasterData {
     seismicZone?: SeismicZone | null;
     floodZone?: FloodZone | null;
+    femaRiskIndex?: FemaRiskIndex | null;
     earthquakes: DisasterEvent[];
     femaDeclarations: DisasterEvent[];
     fetchedAt: number;              // Date.now() timestamp
@@ -373,6 +382,113 @@ export const fetchFemaDisasterHistory = async (
     }
 };
 
+// ─── FEMA National Risk Index (NRI) ───────────────────────────────────────────
+// Free, no API key. Queries by Census Tract.
+// Data covers 18 natural hazards.
+
+export const fetchFemaRiskIndex = async (
+    lat: number,
+    lng: number,
+    zpid?: string,
+    address?: string
+): Promise<FemaRiskIndex | null> => {
+    try {
+        const baseUrl = 'https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/National_Risk_Index_Census_Tracts/FeatureServer/0/query';
+        const cleanLat = Number(lat.toFixed(6));
+        const cleanLng = Number(lng.toFixed(6));
+
+        const getQueryParams = (withBuffer = false) => {
+            const geometry = withBuffer 
+                ? {
+                    xmin: cleanLng - 0.0001, ymin: cleanLat - 0.0001,
+                    xmax: cleanLng + 0.0001, ymax: cleanLat + 0.0001,
+                    spatialReference: { wkid: 4326 }
+                  }
+                : { x: cleanLng, y: cleanLat, spatialReference: { wkid: 4326 } };
+
+            return new URLSearchParams({
+                geometry: JSON.stringify(geometry),
+                geometryType: withBuffer ? 'esriGeometryEnvelope' : 'esriGeometryPoint',
+                inSR: '4326',
+                outSR: '4326',
+                spatialRel: 'esriSpatialRelIntersects',
+                outFields: 'RISK_SCORE,RISK_RATNG,CFLD_RISKS,CFLD_RISKR,IFLD_RISKS,IFLD_RISKR,RFLD_RISKS,RFLD_RISKR,WFIR_RISKS,WFIR_RISKR,HWAV_RISKS,HWAV_RISKR,HRCN_RISKS,HRCN_RISKR,TRND_RISKS,TRND_RISKR,SWND_RISKS,SWND_RISKR,ERQK_RISKS,ERQK_RISKR,DRGT_RISKS,DRGT_RISKR,HAIL_RISKS,HAIL_RISKR,LTNG_RISKS,LTNG_RISKR,LNDS_RISKS,LNDS_RISKR,TSUN_RISKS,TSUN_RISKR,AVLN_RISKS,AVLN_RISKR,CWAV_RISKS,CWAV_RISKR,ISTM_RISKS,ISTM_RISKR,VLCN_RISKS,VLCN_RISKR,WNTW_RISKS,WNTW_RISKR,TRACTFIPS',
+                f: 'json',
+                returnGeometry: 'false'
+            });
+        };
+
+        const logId = await logAPICall({
+            user_id: auth?.currentUser?.uid || 'unknown',
+            zpid, address,
+            api_name: 'FEMA NRI',
+            endpoint: 'NRI_CensusTracts/FeatureServer/0',
+            params: { lat: cleanLat, lng: cleanLng },
+            status: 'pending'
+        });
+        const start = Date.now();
+        let response = await fetch(`${baseUrl}?${getQueryParams(false).toString()}`);
+        let data = await response.json();
+
+        // FALLBACK: Try with a small buffer if point intersection yields no features
+        if (!data.features?.length) {
+            console.log(`[FEMA NRI] No point data for ${cleanLat},${cleanLng}. Retrying with buffer...`);
+            response = await fetch(`${baseUrl}?${getQueryParams(true).toString()}`);
+            data = await response.json();
+        }
+
+        if (logId) {
+            updateAPICall(logId, {
+                status: response.ok ? 'completed' : 'failed',
+                response_time_ms: Date.now() - start,
+                error: response.ok ? undefined : `Status ${response.status}`
+            });
+        }
+
+        if (!response.ok) {
+            console.warn(`[FEMA NRI] Error: ${response.status}`);
+            return null;
+        }
+
+        const attrs = data.features?.[0]?.attributes;
+
+        if (!attrs) {
+            console.warn(`[FEMA NRI] No data found for location ${cleanLat}, ${cleanLng} even after buffer.`);
+            return null;
+        }
+
+        return {
+            overall: attrs.RISK_SCORE || 0,
+            rating: attrs.RISK_RATNG,
+            hazards: {
+                flood: { score: attrs.RFLD_RISKS || 0, rating: attrs.RFLD_RISKR },
+                coastal_flood: { score: attrs.CFLD_RISKS || 0, rating: attrs.CFLD_RISKR },
+                wildfire: { score: attrs.WFIR_RISKS || 0, rating: attrs.WFIR_RISKR },
+                heatwave: { score: attrs.HWAV_RISKS || 0, rating: attrs.HWAV_RISKR },
+                hurricane: { score: attrs.HRCN_RISKS || 0, rating: attrs.HRCN_RISKR },
+                tornado: { score: attrs.TRND_RISKS || 0, rating: attrs.TRND_RISKR },
+                strongwind: { score: attrs.SWND_RISKS || 0, rating: attrs.SWND_RISKR },
+                earthquake: { score: attrs.ERQK_RISKS || 0, rating: attrs.ERQK_RISKR },
+                drought: { score: attrs.DRGT_RISKS || 0, rating: attrs.DRGT_RISKR },
+                hail: { score: attrs.HAIL_RISKS || 0, rating: attrs.HAIL_RISKR },
+                lightning: { score: attrs.LTNG_RISKS || 0, rating: attrs.LTNG_RISKR },
+                landslide: { score: attrs.LNDS_RISKS || 0, rating: attrs.LNDS_RISKR },
+                tsunami: { score: attrs.TSUN_RISKS || 0, rating: attrs.TSUN_RISKR },
+                avalanche: { score: attrs.AVLN_RISKS || 0, rating: attrs.AVLN_RISKR },
+                coldwave: { score: attrs.CWAV_RISKS || 0, rating: attrs.CWAV_RISKR },
+                icestorm: { score: attrs.ISTM_RISKS || 0, rating: attrs.ISTM_RISKR },
+                volcano: { score: attrs.VLCN_RISKS || 0, rating: attrs.VLCN_RISKR },
+                winterweather: { score: attrs.WNTW_RISKS || 0, rating: attrs.WNTW_RISKR }
+            },
+            censusTract: attrs.TRACTFIPS,
+            source: 'FEMA NRI'
+        };
+    } catch (e) {
+        console.error('[FEMA NRI] Failed to fetch risk index:', e);
+        return null;
+    }
+};
+
 // ─── Combined Fetcher ─────────────────────────────────────────────────────────
 
 export const fetchHistoricalDisasters = async (
@@ -383,9 +499,10 @@ export const fetchHistoricalDisasters = async (
     zpid?: string,
     address?: string
 ): Promise<HistoricalDisasterData> => {
-    const [seismicZone, floodZone, earthquakes, femaDeclarations] = await Promise.all([
+    const [seismicZone, floodZone, femaRiskIndex, earthquakes, femaDeclarations] = await Promise.all([
         fetchSeismicZone(lat, lng, zpid, address),
         fetchFloodZone(lat, lng, zpid, address),
+        fetchFemaRiskIndex(lat, lng, zpid, address),
         fetchEarthquakeHistory(lat, lng, zpid, address),
         state ? fetchFemaDisasterHistory(state, county, zpid, address) : Promise.resolve([]),
     ]);
@@ -393,6 +510,7 @@ export const fetchHistoricalDisasters = async (
     return {
         seismicZone,
         floodZone,
+        femaRiskIndex,
         earthquakes,
         femaDeclarations,
         fetchedAt: Date.now(),

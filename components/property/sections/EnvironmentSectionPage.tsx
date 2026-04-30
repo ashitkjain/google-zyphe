@@ -21,21 +21,30 @@ interface Props {
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const serif = "'Instrument Serif', Georgia, 'Times New Roman', serif";
-const mono  = "'JetBrains Mono', ui-monospace, monospace";
+const mono = "'JetBrains Mono', ui-monospace, monospace";
 
-const ACCENT     = '#0ea5e9';
-const ACCENT_BG  = 'rgba(14,165,233,0.10)';
+const ACCENT = '#0ea5e9';
+const ACCENT_BG = 'rgba(14,165,233,0.10)';
 
 // ── Risk colour palettes ──────────────────────────────────────────────────────
 interface RiskPalette {
     bar: string; text: string; bg: string; border: string; label: string; topStrip: string;
 }
 
-function riskPalette(score: number, max = 10): RiskPalette {
+function riskPalette(score: number, rating?: string, max = 100): RiskPalette {
+    if (rating) {
+        const r = rating.toLowerCase();
+        if (r.includes('very high')) return { bar: '#ef4444', text: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Very High', topStrip: '#ef4444' };
+        if (r.includes('relatively high')) return { bar: '#f97316', text: '#ea580c', bg: '#fff7ed', border: '#ffedd5', label: 'Relatively High', topStrip: '#f97316' };
+        if (r.includes('moderate')) return { bar: '#f59e0b', text: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Moderate', topStrip: '#f59e0b' };
+        if (r.includes('relatively low')) return { bar: '#10b981', text: '#059669', bg: '#ecfdf5', border: '#a7f3d0', label: 'Relatively Low', topStrip: '#10b981' };
+        if (r.includes('very low')) return { bar: '#22c55e', text: '#16a34a', bg: '#f0fdf4', border: '#dcfce7', label: 'Very Low', topStrip: '#22c55e' };
+        if (r.includes('no rating')) return { bar: '#94a3b8', text: '#64748b', bg: '#f8fafc', border: '#e2e8f0', label: 'No Rating', topStrip: '#94a3b8' };
+    }
     const p = score / max;
-    if (p <= 0.3) return { bar: '#10b981', text: '#059669', bg: '#ecfdf5', border: '#a7f3d0', label: 'Minimal Risk',  topStrip: '#10b981' };
-    if (p <= 0.6) return { bar: '#f59e0b', text: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Moderate',      topStrip: '#f59e0b' };
-    return             { bar: '#ef4444', text: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'High Risk',      topStrip: '#ef4444' };
+    if (p <= 0.3) return { bar: '#10b981', text: '#059669', bg: '#ecfdf5', border: '#a7f3d0', label: 'Minimal Risk', topStrip: '#10b981' };
+    if (p <= 0.6) return { bar: '#f59e0b', text: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Moderate', topStrip: '#f59e0b' };
+    return { bar: '#ef4444', text: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'High Risk', topStrip: '#ef4444' };
 }
 
 // ── Primitives ────────────────────────────────────────────────────────────────
@@ -70,9 +79,11 @@ const MiniStatTile: React.FC<{ label: string; value: string; unit?: string; colo
     );
 };
 
-const RiskTile: React.FC<{ icon: string; label: string; score: number }> = ({ icon, label, score }) => {
-    const pal = riskPalette(score);
-    const pct = Math.min(score / 10, 1);
+const RiskTile: React.FC<{ icon: string; label: string; score?: number; rating?: string; isLegacyNRI?: boolean; isFallback?: boolean }> = ({ icon, label, score = 0, rating, isLegacyNRI, isFallback }) => {
+    // It's NRI if it's NOT a fallback, OR if it has a rating/legacy flag/high score
+    const isNRI = !isFallback || !!rating || isLegacyNRI || score > 10.1;
+    const pal = riskPalette(score, rating, isNRI ? 100 : 10);
+    const pct = Math.min(score / (isNRI ? 100 : 10), 1);
     return (
         <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${pal.border}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ height: 4, background: pal.topStrip }} />
@@ -86,8 +97,13 @@ const RiskTile: React.FC<{ icon: string; label: string; score: number }> = ({ ic
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                    <span style={{ fontFamily: serif, fontSize: 34, color: pal.text, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em' }}>{score}</span>
-                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>/10</span>
+                    <span style={{ fontFamily: serif, fontSize: 34, color: pal.text, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                        {isNRI ? (score > 0 ? score.toFixed(1) : '0') : score}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{isNRI ? 'Score' : '/10'}</span>
+                </div>
+                <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: -2 }}>
+                    {isFallback ? 'Market Average' : 'FEMA NRI Index'}
                 </div>
                 <div style={{ width: '100%', height: 3, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
                     <div style={{ width: `${pct * 100}%`, height: '100%', background: pal.bar, borderRadius: 99 }} />
@@ -121,49 +137,111 @@ function InfoTip({ tip }: { tip: string }) {
 
 export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, micro }) => {
 
-    // ── Climate risk scores ───────────────────────────────────────────────────
-    const windScore  = data.windRiskScore  ?? null;
-    const floodScore = data.floodRiskScore ?? null;
-    const fireScore  = data.fireRiskScore  ?? null;
-    const heatScore  = data.heatRiskScore  ?? null;
-    const riskTiles  = [
-        windScore  != null && { icon: 'fa-wind',             label: 'Wind',  score: windScore  },
-        floodScore != null && { icon: 'fa-water',            label: 'Flood', score: floodScore },
-        fireScore  != null && { icon: 'fa-fire',             label: 'Fire',  score: fireScore  },
-        heatScore  != null && { icon: 'fa-temperature-high', label: 'Heat',  score: heatScore  },
-    ].filter(Boolean) as { icon: string; label: string; score: number }[];
+    // ── Climate risk scores (Prefer FEMA NRI) ────────────────────────────────
+    const [allHazardsExpanded, setAllHazardsExpanded] = React.useState(false);
+    const nri = data.historical_disasters?.femaRiskIndex;
+
+    // DEBUG: Remove before prod
+    console.log('[Climate] EnvironmentSectionPage data:', {
+        zpid: data.zpid,
+        hasNri: !!nri,
+        nriHazards: nri?.hazards,
+        rootWind: data.windRiskScore
+    });
+
+    // Helper to get score: either already mapped 1-10 on root, or derived from NRI percentiles
+    // Helper to get raw data
+    const getHazardData = (rootVal: number | undefined, nriVal: any | undefined) => {
+        if (nriVal != null) {
+            // Handle legacy schema where nriVal was just a numeric score
+            if (typeof nriVal === 'number') {
+                return { score: nriVal, rating: undefined, isLegacyNRI: true, isFallback: false };
+            }
+            return { score: nriVal.score ?? 0, rating: nriVal.rating, isLegacyNRI: false, isFallback: false };
+        }
+        return rootVal != null ? { score: rootVal, rating: undefined, isLegacyNRI: false, isFallback: true } : null;
+    };
+
+    const windData = getHazardData(data.windRiskScore, nri?.hazards?.hurricane);
+    const floodData = getHazardData(data.floodRiskScore, nri?.hazards?.flood);
+    const fireData = getHazardData(data.fireRiskScore, nri?.hazards?.wildfire);
+    const heatData = getHazardData(data.heatRiskScore, nri?.hazards?.heatwave);
+
+    const riskTiles = [
+        windData && { icon: 'fa-wind', label: 'Wind', ...windData },
+        floodData && { icon: 'fa-water', label: 'Flood', ...floodData },
+        fireData && { icon: 'fa-fire', label: 'Fire', ...fireData },
+        heatData && { icon: 'fa-temperature-high', label: 'Heat', ...heatData },
+    ].filter(Boolean) as { icon: string; label: string; score: number; rating?: string; isLegacyNRI?: boolean; isFallback?: boolean }[];
+
+    const secondaryHazards = [
+        { key: 'earthquake', label: 'Earthquake', icon: 'fa-house-chimney-crack' },
+        { key: 'tornado', label: 'Tornado', icon: 'fa-tornado' },
+        { key: 'strongwind', label: 'Strong Wind', icon: 'fa-wind' },
+        { key: 'hail', label: 'Hail', icon: 'fa-cloud-meatball' },
+        { key: 'lightning', label: 'Lightning', icon: 'fa-bolt' },
+        { key: 'drought', label: 'Drought', icon: 'fa-sun-plant-wilt' },
+        { key: 'landslide', label: 'Landslide', icon: 'fa-mountain' },
+        { key: 'tsunami', label: 'Tsunami', icon: 'fa-house-tsunami' },
+        { key: 'avalanche', label: 'Avalanche', icon: 'fa-mountain-sun' },
+        { key: 'coldwave', label: 'Cold Wave', icon: 'fa-snowflake' },
+        { key: 'icestorm', label: 'Ice Storm', icon: 'fa-icicles' },
+        { key: 'volcano', label: 'Volcano', icon: 'fa-volcano' },
+        { key: 'winterweather', label: 'Winter Weather', icon: 'fa-cloud-showers-heavy' },
+        { key: 'coastal_flood', label: 'Coastal Flood', icon: 'fa-house-flood-water' }
+    ].map(h => {
+        const hazard = nri?.hazards?.[h.key];
+        const hasAnyNri = !!nri;
+
+        let score: number | null = null;
+        let rating: string | undefined = undefined;
+
+        if (hazard != null) {
+            if (typeof hazard === 'number') {
+                score = hazard;
+            } else {
+                score = hazard.score ?? 0;
+                rating = hazard.rating;
+            }
+        } else if (hasAnyNri) {
+            // If we have NRI data for the property but not this hazard, it's effectively 0
+            score = 0;
+        }
+
+        return { ...h, score, rating };
+    }) as { label: string; icon: string; score: number | null; rating?: string }[];
 
     // ── Noise helpers ─────────────────────────────────────────────────────────
     // Priority: Zyphe Noise Score (v3) -> HowLoud SoundScore (v1)
-    const noiseScore   = data.zypheNoiseScore ?? data.noiseScore ?? null;
-    const noiseLabel   = noiseScore == null ? null
+    const noiseScore = data.zypheNoiseScore ?? data.noiseScore ?? null;
+    const noiseLabel = noiseScore == null ? null
         : noiseScore >= 85 ? 'Pristine' : noiseScore >= 70 ? 'Quiet' : noiseScore >= 50 ? 'Moderate' : 'Loud';
-    const noiseColor   = noiseScore == null ? '#10b981'
+    const noiseColor = noiseScore == null ? '#10b981'
         : noiseScore >= 70 ? '#10b981' : noiseScore >= 50 ? '#f59e0b' : '#ef4444';
 
     const noiseSubs = [
         { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
-        { label: 'Local',   score: data.noiseLocalScore,   desc: data.noiseLocalDesc   },
+        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
         { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
     ].filter(n => n.score != null) as { label: string; score: number; desc?: string }[];
 
     // ── Air quality helpers ───────────────────────────────────────────────────
-    const aqi      = data.airQuality?.aqi ?? null;
+    const aqi = data.airQuality?.aqi ?? null;
     const aqiLabel = aqi == null ? null : aqi <= 50 ? 'Good' : aqi <= 100 ? 'Moderate' : aqi <= 150 ? 'Sensitive' : 'Unhealthy';
     const aqiColor = aqi == null ? '#10b981' : aqi <= 50 ? '#10b981' : aqi <= 100 ? '#f59e0b' : '#ef4444';
 
     // ── Pollen helpers ────────────────────────────────────────────────────────
     const pollenCat = data.pollen?.category ?? null;
-    const pollenPct = pollenCat ? ({ High: 0.85, Moderate: 0.5, Low: 0.15, VeryHigh: 1.0 } as Record<string,number>)[pollenCat] ?? 0.2 : 0;
+    const pollenPct = pollenCat ? ({ High: 0.85, Moderate: 0.5, Low: 0.15, VeryHigh: 1.0 } as Record<string, number>)[pollenCat] ?? 0.2 : 0;
     const pollenColor = pollenCat === 'Low' ? '#10b981' : pollenCat === 'Moderate' ? '#f59e0b' : '#ef4444';
 
     // ── Hazard data ───────────────────────────────────────────────────────────
-    const seismic      = data.historical_disasters?.seismicZone ?? null;
-    const floodZone    = data.historical_disasters?.floodZone ?? null;
+    const seismic = data.historical_disasters?.seismicZone ?? null;
+    const floodZone = data.historical_disasters?.floodZone ?? null;
     const recentQuakes = data.historical_disasters?.earthquakes ?? [];
-    const femaEvents   = data.historical_disasters?.femaDeclarations ?? [];
-    const drought      = data.drought;
-    const hasHazards   = !!(data.coordinates);
+    const femaEvents = data.historical_disasters?.femaDeclarations ?? [];
+    const drought = data.drought;
+    const hasHazards = !!(data.coordinates);
 
     const [quakesOpen, setQuakesOpen] = React.useState(false);
     const QUAKE_PREVIEW = 3;
@@ -171,14 +249,14 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
 
     // ── Solar ─────────────────────────────────────────────────────────────────
     const hasSolar = !!(data.solarData || data.coordinates);
-    const sd       = data.solarData;
+    const sd = data.solarData;
 
     // ── Conditional action items ──────────────────────────────────────────────
     const actions = [
-        fireScore  != null && fireScore  > 5 && { icon: 'fa-fire-extinguisher', title: 'Fire Mitigation',      desc: 'Install ember-resistant vents and maintain a defensible space perimeter to reduce wildfire exposure.' },
-        windScore  != null && windScore  > 5 && { icon: 'fa-house-chimney',     title: 'Roof Tie-Downs',        desc: 'Secondary water resistance and hurricane clips can reduce annual insurance premiums significantly.' },
-        floodScore != null && floodScore > 5 && { icon: 'fa-droplet',           title: 'Smart Leak Sensors',    desc: 'IoT sensors in mechanical rooms can mitigate internal flooding and reduce water damage claims.' },
-        heatScore  != null && heatScore  > 5 && { icon: 'fa-temperature-high',  title: 'Heat Mitigation',       desc: 'Cool roofing and improved insulation reduce cooling load during extreme heat events.' },
+        fireData?.score != null && fireData.score > (fireData.rating ? 50 : 5) && { icon: 'fa-fire-extinguisher', title: 'Fire Mitigation', desc: 'Install ember-resistant vents and maintain a defensible space perimeter to reduce wildfire exposure.' },
+        windData?.score != null && windData.score > (windData.rating ? 50 : 5) && { icon: 'fa-house-chimney', title: 'Roof Tie-Downs', desc: 'Secondary water resistance and hurricane clips can reduce annual insurance premiums significantly.' },
+        floodData?.score != null && floodData.score > (floodData.rating ? 50 : 5) && { icon: 'fa-droplet', title: 'Smart Leak Sensors', desc: 'IoT sensors in mechanical rooms can mitigate internal flooding and reduce water damage claims.' },
+        heatData?.score != null && heatData.score > (heatData.rating ? 50 : 5) && { icon: 'fa-temperature-high', title: 'Heat Mitigation', desc: 'Cool roofing and improved insulation reduce cooling load during extreme heat events.' },
     ].filter(Boolean) as { icon: string; title: string; desc: string }[];
 
     const sn = { environmental: '01', climate: '02', hazard: '03', microclimate: '04', solar: '05' };
@@ -191,7 +269,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
             {(noiseScore != null || aqi != null || pollenCat) && (
                 <section>
                     <SectionTitleBar num={sn.environmental} kicker="Air · Acoustic · Pollen" title="Environmental Quality" italicWord="Quality" />
-                    
+
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
                         {/* Noise */}
                         {noiseScore != null && (
@@ -201,14 +279,6 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                         <i className="fa-solid fa-volume-high" style={{ fontSize: 10, color: '#7c3aed' }} />
                                     </div>
                                     <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Noise Profile</span>
-                                    {data.zypheNoiseScore != null && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <div style={{ padding: '2px 6px', borderRadius: 4, background: '#f5f3ff', border: '1px solid #ddd6fe', fontSize: 8, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                Zyphe Verified
-                                            </div>
-                                            <InfoTip tip="Zyphe Acoustic Model: Calculates logarithmic sound summation from local geographic vectors and infrastructure, accounting for building diffraction, distance decay, and ISO 9613-2 standards." />
-                                        </div>
-                                    )}
                                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 2 }}>
                                         <span style={{ fontFamily: serif, fontSize: 22, color: '#0f172a', fontWeight: 400, lineHeight: 1 }}>{noiseScore}</span>
                                         <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>/100</span>
@@ -243,7 +313,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     </div>
                                 )}
                                 <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', marginTop: 'auto' }}>
-                                    Zyphe Proprietary Simulation
+                                    OpenStreetMap · Acoustic Model
                                 </div>
                             </div>
                         )}
@@ -313,11 +383,18 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
             {/* ── Section 02 — Climate Risk ─────────────────────────────────── */}
             {riskTiles.length > 0 && (
                 <section>
-                    <SectionTitleBar num={sn.climate} kicker="First Street Foundation" title="Climate Risk Overview" italicWord="Risk" />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <SectionTitleBar num={sn.climate} kicker="FEMA National Risk Index" title="Climate Risk Overview" italicWord="Risk" />
+                        {nri?.lastUpdated && (
+                            <div style={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Updated {new Date(nri.lastUpdated).toLocaleDateString()}
+                            </div>
+                        )}
+                    </div>
 
                     {/* 4 risk tiles */}
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${riskTiles.length}, 1fr)`, gap: 14, marginBottom: 20 }}>
-                        {riskTiles.map(t => <RiskTile key={t.label} icon={t.icon} label={t.label} score={t.score} />)}
+                        {riskTiles.map(t => <RiskTile key={t.label} icon={t.icon} label={t.label} score={t.score} rating={t.rating} />)}
                     </div>
 
                     {/* Resilience Actions Integrated here */}
@@ -336,6 +413,35 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                         <div>
                                             <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>{a.title}</div>
                                             <p style={{ fontSize: 11.5, color: '#64748b', margin: 0, lineHeight: 1.5 }}>{a.desc}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Secondary Hazards Grid */}
+                    {secondaryHazards.length > 0 && (
+                        <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20 }}>
+                            <div style={{ fontSize: 9.5, letterSpacing: '0.13em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <i className="fa-solid fa-shield-halved" style={{ fontSize: 10 }} />
+                                Full Natural Hazard Risk Matrix
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                                {secondaryHazards.map((h, i) => (
+                                    <div key={i} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <i className={`fa-solid ${h.icon}`} style={{ fontSize: 10, color: '#64748b' }} />
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>{h.label}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                                            <span style={{
+                                                fontFamily: serif,
+                                                fontSize: 13,
+                                                fontWeight: 700,
+                                                color: h.score == null ? '#94a3b8' : riskPalette(h.score, h.rating).text
+                                            }}>{h.rating || (h.score != null ? h.score : '—')}</span>
+                                            {!h.rating && h.score != null && <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 600 }}>/10</span>}
                                         </div>
                                     </div>
                                 ))}
@@ -365,9 +471,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                             label={`Category ${seismic.designCategory}`}
                                             style={
                                                 seismic.riskLevel === 'very_high' ? { background: '#ef4444', color: '#fff', border: '1px solid #ef4444' }
-                                                : seismic.riskLevel === 'high'     ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
-                                                : seismic.riskLevel === 'moderate' ? { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }
-                                                : { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }
+                                                    : seismic.riskLevel === 'high' ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
+                                                        : seismic.riskLevel === 'moderate' ? { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }
+                                                            : { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }
                                             }
                                         />
                                     </div>
@@ -376,8 +482,8 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
                                         {[
                                             { label: 'Peak Ground Accel.', abbr: 'PGA', value: `${seismic.pga}g`, tip: 'Peak Ground Acceleration — the maximum force (in g) the earthquake exerts on a structure. Higher values mean stronger shaking.' },
-                                            { label: 'Short-Period Accel.', abbr: 'Ss',  value: `${seismic.ss}g`,  tip: 'Spectral Response at 0.2s — measures shaking force on short, stiff buildings like 1–2 story homes. Used in structural design codes (ASCE 7-22).' },
-                                            { label: '1-Second Accel.',     abbr: 'S1',  value: `${seismic.s1}g`,  tip: 'Spectral Response at 1.0s — measures shaking force on taller or more flexible structures. Important for multi-story buildings and soft soils.' },
+                                            { label: 'Short-Period Accel.', abbr: 'Ss', value: `${seismic.ss}g`, tip: 'Spectral Response at 0.2s — measures shaking force on short, stiff buildings like 1–2 story homes. Used in structural design codes (ASCE 7-22).' },
+                                            { label: '1-Second Accel.', abbr: 'S1', value: `${seismic.s1}g`, tip: 'Spectral Response at 1.0s — measures shaking force on taller or more flexible structures. Important for multi-story buildings and soft soils.' },
                                         ].map(({ label, abbr, value, tip }) => (
                                             <div key={abbr} style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 8px', textAlign: 'center' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -412,10 +518,10 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                                 Nearby Geological Faults
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
-                                                <FaultMap 
-                                                    lat={data.coordinates.latitude} 
-                                                    lng={data.coordinates.longitude} 
-                                                    faults={(data as any).faults.faults} 
+                                                <FaultMap
+                                                    lat={data.coordinates.latitude}
+                                                    lng={data.coordinates.longitude}
+                                                    faults={(data as any).faults.faults}
                                                 />
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
                                                     {(() => {
@@ -436,14 +542,14 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                                                         {fault.activityStatus && (
-                                                                            <Pill 
-                                                                                label={fault.activityStatus} 
-                                                                                style={{ 
-                                                                                    background: fault.activityStatus === 'High Activity' ? '#fef2f2' : fault.activityStatus === 'Historically Active' ? '#fffbeb' : '#f1f5f9', 
+                                                                            <Pill
+                                                                                label={fault.activityStatus}
+                                                                                style={{
+                                                                                    background: fault.activityStatus === 'High Activity' ? '#fef2f2' : fault.activityStatus === 'Historically Active' ? '#fffbeb' : '#f1f5f9',
                                                                                     color: fault.activityStatus === 'High Activity' ? '#ef4444' : fault.activityStatus === 'Historically Active' ? '#d97706' : '#64748b',
                                                                                     border: 'none',
                                                                                     fontSize: 9
-                                                                                }} 
+                                                                                }}
                                                                             />
                                                                         )}
                                                                         <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8' }}>{fault.lastActive}</span>
@@ -526,7 +632,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
 
                         {/* Hazards Grid (Flood, FEMA, Drought) */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                            
+
                             {/* FEMA Flood Zone Box */}
                             <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -539,9 +645,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
                                         {floodZone ? `Zone ${floodZone.zone}` : 'Minimal Risk'}
                                     </div>
-                                    <Pill 
-                                        label={floodZone ? `${floodZone.riskLevel} risk` : 'Inland / Low'} 
-                                        style={floodZone?.riskLevel === 'high' ? { background: '#fef2f2', color: '#dc2626' } : { background: '#ecfdf5', color: '#059669' }} 
+                                    <Pill
+                                        label={floodZone ? `${floodZone.riskLevel} risk` : 'Inland / Low'}
+                                        style={floodZone?.riskLevel === 'high' ? { background: '#fef2f2', color: '#dc2626' } : { background: '#ecfdf5', color: '#059669' }}
                                     />
                                 </div>
                                 <p style={{ fontSize: 10, color: '#64748b', margin: 0, lineHeight: 1.4 }}>
@@ -561,9 +667,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
                                         {femaEvents.length > 0 ? `${femaEvents.length} Recent Events` : 'No Recent Events'}
                                     </div>
-                                    <Pill 
-                                        label={femaEvents.length > 0 ? 'Federal Record' : 'Clean History'} 
-                                        style={femaEvents.length > 0 ? { background: '#fffbeb', color: '#d97706' } : { background: '#ecfdf5', color: '#059669' }} 
+                                    <Pill
+                                        label={femaEvents.length > 0 ? 'Federal Record' : 'Clean History'}
+                                        style={femaEvents.length > 0 ? { background: '#fffbeb', color: '#d97706' } : { background: '#ecfdf5', color: '#059669' }}
                                     />
                                 </div>
                                 <p style={{ fontSize: 10, color: '#64748b', margin: 0, lineHeight: 1.4 }}>
@@ -583,9 +689,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
                                         {drought?.drought_level?.toUpperCase() || 'NORMAL'}
                                     </div>
-                                    <Pill 
-                                        label={drought?.drought_level ? 'Active Monitor' : 'Stable Levels'} 
-                                        style={drought?.drought_level && drought.drought_level !== 'None' ? { background: '#fffbeb', color: '#d97706' } : { background: '#ecfdf5', color: '#059669' }} 
+                                    <Pill
+                                        label={drought?.drought_level ? 'Active Monitor' : 'Stable Levels'}
+                                        style={drought?.drought_level && drought.drought_level !== 'None' ? { background: '#fffbeb', color: '#d97706' } : { background: '#ecfdf5', color: '#059669' }}
                                     />
                                 </div>
                                 <p style={{ fontSize: 10, color: '#64748b', margin: 0, lineHeight: 1.4 }}>
@@ -642,17 +748,17 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>This Property</span>
-                                        <span style={{ fontFamily: serif, fontSize: 20, color: '#0f172a' }}>{Math.round(micro.propertyApparentTemp * 9/5 + 32)}°F</span>
+                                        <span style={{ fontFamily: serif, fontSize: 20, color: '#0f172a' }}>{Math.round(micro.propertyApparentTemp * 9 / 5 + 32)}°F</span>
                                     </div>
                                     <div style={{ height: 4, background: '#e2e8f0', borderRadius: 99, position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '50%', top: -2, width: 2, height: 8, background: '#cbd5e1' }} />
-                                        <div style={{ 
-                                            position: 'absolute', 
-                                            left: `${50 + (micro.delta * 5)}%`, 
-                                            top: -4, 
-                                            width: 12, 
-                                            height: 12, 
-                                            borderRadius: '50%', 
+                                        <div style={{
+                                            position: 'absolute',
+                                            left: `${50 + (micro.delta * 5)}%`,
+                                            top: -4,
+                                            width: 12,
+                                            height: 12,
+                                            borderRadius: '50%',
                                             background: micro.delta <= 0 ? '#0ea5e9' : '#f59e0b',
                                             border: '2px solid #fff',
                                             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
@@ -660,7 +766,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{micro.baselineLabel}</span>
-                                        <span style={{ fontFamily: serif, fontSize: 20, color: '#64748b' }}>{Math.round(micro.baselineApparentTemp * 9/5 + 32)}°F</span>
+                                        <span style={{ fontFamily: serif, fontSize: 20, color: '#64748b' }}>{Math.round(micro.baselineApparentTemp * 9 / 5 + 32)}°F</span>
                                     </div>
                                 </div>
 
@@ -718,9 +824,9 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                 {(sd.maxArrayPanelsCount != null || sd.panelCapacityWatts != null) && (
                                     <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12 }}>
                                         {[
-                                            sd.maxArrayPanelsCount != null && { label: 'Max Panels',    value: `${sd.maxArrayPanelsCount}`,                  unit: 'units' },
-                                            sd.panelCapacityWatts  != null && { label: 'Panel Capacity', value: `${sd.panelCapacityWatts}`,                    unit: 'W'     },
-                                            sd.maxArrayAreaMeters2 != null && { label: 'Array Area',     value: `${Math.round(sd.maxArrayAreaMeters2)}`,       unit: 'm²'    },
+                                            sd.maxArrayPanelsCount != null && { label: 'Max Panels', value: `${sd.maxArrayPanelsCount}`, unit: 'units' },
+                                            sd.panelCapacityWatts != null && { label: 'Panel Capacity', value: `${sd.panelCapacityWatts}`, unit: 'W' },
+                                            sd.maxArrayAreaMeters2 != null && { label: 'Array Area', value: `${Math.round(sd.maxArrayAreaMeters2)}`, unit: 'm²' },
                                             sd.financialAnalysis?.cashPurchase?.savings?.savingsYear1 != null && {
                                                 label: 'Year 1 Savings', value: `$${sd.financialAnalysis.cashPurchase.savings.savingsYear1.toLocaleString()}`, unit: '',
                                             },
@@ -748,6 +854,47 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                                     lng={data.coordinates.longitude}
                                     orientation={data.orientation_ai?.final_orientation}
                                 />
+                                <RiskTile icon="fa-fire" label="Wildfire" {...fireData} />
+                                <RiskTile icon="fa-temperature-high" label="Heat" {...heatData} />
+                            </div>
+                        )}
+
+                        {nri?.hazards && (
+                            <div style={{ marginTop: 16 }}>
+                                <button 
+                                    onClick={() => setAllHazardsExpanded(!allHazardsExpanded)}
+                                    style={{ 
+                                        background: 'none', border: 'none', padding: 0, 
+                                        fontSize: 10, fontWeight: 700, color: ACCENT, 
+                                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+                                    }}
+                                >
+                                    <i className={`fa-solid ${allHazardsExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ fontSize: 9 }} />
+                                    {allHazardsExpanded ? 'Hide Detailed Hazards' : `View All 18 Natural Hazards`}
+                                </button>
+
+                                {allHazardsExpanded && (
+                                    <div style={{ 
+                                        marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+                                        gap: 10, padding: 16, background: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' 
+                                    }}>
+                                        {Object.entries(nri.hazards).map(([key, h]: [string, any]) => {
+                                            // Skip the 4 main ones if already shown? No, show all for completeness in the list.
+                                            const label = key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
+                                            const pal = riskPalette(h.score, h.rating, 100);
+                                            return (
+                                                <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{label}</div>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: pal.text }}>{h.rating || 'No Rating'}</div>
+                                                    <div style={{ height: 3, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
+                                                        <div style={{ width: `${Math.min(h.score, 100)}%`, height: '100%', background: pal.bar }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -759,7 +906,7 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
                 <div style={{ display: 'flex', gap: 24 }}>
                     <div>
                         <div style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Data Sources</div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginTop: 3 }}>First Street · FEMA · USGS · Drought Monitor</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginTop: 3 }}>FEMA National Risk Index · USGS · Drought Monitor</div>
                     </div>
                 </div>
                 <div style={{ fontSize: 9.5, color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Zyphe Property Analysis</div>

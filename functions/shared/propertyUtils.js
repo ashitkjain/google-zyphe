@@ -4,6 +4,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { fetchScores } = require('./walkscore');
 const { fetchParcelFromCounty } = require('./arcgisParcels');
 const { calculateZypheNoiseScore } = require('./osmNoise');
+const { isSupportedState } = require('./config');
 
 // ─── Gemini tax record schema ────────────────────────────────────────────────
 const TAX_RECORD_LOOKUP_SCHEMA = {
@@ -61,9 +62,10 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null)
     const envRef = db.collection('properties').doc(zpid).collection('environmental').doc('thirdparty_data');
     const envSnap = await envRef.get();
     const existing = envSnap.exists ? envSnap.data() : null;
+    const force = keys?.bypassCache === true;
     
     // Check TTL (30 days)
-    if (existing && existing.lastUpdated) {
+    if (!force && existing && existing.lastUpdated) {
         const ms = existing.lastUpdated.toMillis ? existing.lastUpdated.toMillis() : new Date(existing.lastUpdated).getTime();
         const ageDays = (Date.now() - ms) / (24 * 60 * 60 * 1000);
         if (ageDays < 30) {
@@ -77,6 +79,13 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null)
                         model: 'gemini-2.5-flash',
                         generationConfig: { responseMimeType: 'application/json', responseSchema: POLLEN_ANALYSIS_SCHEMA }
                     });
+                    const pollenContext = {
+                        dominantPollenType: existing.pollen.dominantPollenType,
+                        overallScore: existing.pollen.score,
+                        category: existing.pollen.category,
+                        pollenTypes: existing.pollen.pollenTypes || []
+                    };
+                    const pollenResult = await pollenModel.generateContent(getPollenAnalysisPrompt(pollenContext));
                     if (logger) {
                         logger.logTask('pollen_ai_heal');
                         logger.logLLMCall('gemini-2.5-flash', pollenResult.response.usageMetadata?.promptTokenCount, pollenResult.response.usageMetadata?.candidatesTokenCount, zpid, 'pollenAnalysis.js');
@@ -223,7 +232,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null)
         const existingEnv = await envRef.get();
         const envData = existingEnv.exists ? existingEnv.data() : {};
         await Promise.all([
-            !envData.historical_disasters ? _enrichHistoricalDisasters(zpid, db, lat, lng) : Promise.resolve(),
+            (force || !envData.historical_disasters || !envData.historical_disasters.femaRiskIndex || envData.historical_disasters.femaRiskIndex.overall === undefined) ? _enrichHistoricalDisasters(zpid, db, lat, lng) : Promise.resolve(),
             !envData.google_places       ? _enrichNearbyPlaces(zpid, db, lat, lng, MAPS_API_KEY) : Promise.resolve(),
             !envData.broadband           ? _enrichBroadband(zpid, db, lat, lng) : Promise.resolve(),
             !envData.drought             ? _enrichDrought(zpid, db, lat, lng) : Promise.resolve(),
@@ -274,7 +283,8 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null)
         console.warn(`[Enrichment] Healing step failed for ${zpid}:`, e.message);
     }
 
-    return { ...results, __healed: healed };
+    const finalSnap = await envRef.get();
+    return { ...finalSnap.data(), __healed: healed };
 }
 
 /**
@@ -448,9 +458,10 @@ async function _enrichHistoricalDisasters(zpid, db, lat, lng) {
         const now = new Date();
         const startDate = `${now.getFullYear() - 2}-01-01`;
 
-        const [seismicRes, quakeRes] = await Promise.all([
+        const [seismicRes, quakeRes, nriData] = await Promise.all([
             fetch(`https://earthquake.usgs.gov/ws/designmaps/asce7-22.json?latitude=${lat}&longitude=${lng}&riskCategory=II&siteClass=D&title=query`),
-            fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lng}&maxradiuskm=8&minmagnitude=3.0&starttime=${startDate}&orderby=time&limit=50`)
+            fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lng}&maxradiuskm=8&minmagnitude=3.0&starttime=${startDate}&orderby=time&limit=50`),
+            _fetchFemaRiskIndex(lat, lng)
         ]);
 
         let seismicZone = null;
@@ -497,12 +508,81 @@ async function _enrichHistoricalDisasters(zpid, db, lat, lng) {
             });
         }
 
-        const payload = { seismicZone, earthquakes, fetchedAt: new Date().toISOString() };
+        const seismicPayload = { seismicZone, earthquakes, fetchedAt: new Date().toISOString() };
         await db.collection('properties').doc(zpid).collection('environmental').doc('thirdparty_data')
-            .set({ historical_disasters: payload }, { merge: true });
-        return payload;
+            .set({ historical_disasters: seismicPayload }, { merge: true });
+
+        if (nriData) {
+            await db.collection('properties').doc(zpid).collection('environmental').doc('fema_nri')
+                .set(nriData, { merge: true });
+        }
+
+        return { ...seismicPayload, femaRiskIndex: nriData };
     } catch (e) {
         console.warn(`[Enrichment] Historical disasters failed for ${zpid}:`, e.message);
+        return null;
+    }
+}
+
+/**
+ * Fetches FEMA National Risk Index (NRI) by Spatial Intersection.
+ */
+async function _fetchFemaRiskIndex(lat, lng) {
+    try {
+        const baseUrl = 'https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/National_Risk_Index_Census_Tracts/FeatureServer/0/query';
+        const params = new URLSearchParams({
+            geometry: JSON.stringify({ x: lng, y: lat, spatialReference: { wkid: 4326 } }),
+            geometryType: 'esriGeometryPoint',
+            spatialRel: 'esriSpatialRelIntersects',
+            outFields: 'RISK_SCORE,RISK_RATNG,CFLD_RISKS,CFLD_RISKR,IFLD_RISKS,IFLD_RISKR,RFLD_RISKS,RFLD_RISKR,WFIR_RISKS,WFIR_RISKR,HWAV_RISKS,HWAV_RISKR,HRCN_RISKS,HRCN_RISKR,TRND_RISKS,TRND_RISKR,SWND_RISKS,SWND_RISKR,ERQK_RISKS,ERQK_RISKR,DRGT_RISKS,DRGT_RISKR,HAIL_RISKS,HAIL_RISKR,LTNG_RISKS,LTNG_RISKR,LNDS_RISKS,LNDS_RISKR,TSUN_RISKS,TSUN_RISKR,AVLN_RISKS,AVLN_RISKR,CWAV_RISKS,CWAV_RISKR,ISTM_RISKS,ISTM_RISKR,VLCN_RISKS,VLCN_RISKR,WNTW_RISKS,WNTW_RISKR,TRACTFIPS',
+            f: 'json',
+            returnGeometry: 'false'
+        });
+
+        console.log(`   [FEMA NRI] Spatial Query for ${lat},${lng}`);
+        
+        const fullUrl = `${baseUrl}?${params.toString()}`;
+        const res = await fetch(fullUrl, {
+            headers: { 'User-Agent': 'curl/8.7.1' }
+        });
+        if (!res.ok) {
+            console.warn(`   [FEMA NRI] API Error: ${res.status}`);
+            return null;
+        }
+        const data = await res.json();
+        const attrs = data.features?.[0]?.attributes;
+        console.log(`   [FEMA NRI] Attributes Found: ${!!attrs}`);
+        if (!attrs) return null;
+        console.log(`   [FEMA NRI] Raw Data: ${JSON.stringify(attrs)}`);
+
+        return {
+            overall: attrs.RISK_SCORE,
+            rating: attrs.RISK_RATNG,
+            hazards: {
+                flood: { score: attrs.RFLD_RISKS, rating: attrs.RFLD_RISKR },
+                coastal_flood: { score: attrs.CFLD_RISKS, rating: attrs.CFLD_RISKR },
+                wildfire: { score: attrs.WFIR_RISKS, rating: attrs.WFIR_RISKR },
+                heatwave: { score: attrs.HWAV_RISKS, rating: attrs.HWAV_RISKR },
+                hurricane: { score: attrs.HRCN_RISKS, rating: attrs.HRCN_RISKR },
+                tornado: { score: attrs.TRND_RISKS, rating: attrs.TRND_RISKR },
+                strongwind: { score: attrs.SWND_RISKS, rating: attrs.SWND_RISKR },
+                earthquake: { score: attrs.ERQK_RISKS, rating: attrs.ERQK_RISKR },
+                drought: { score: attrs.DRGT_RISKS, rating: attrs.DRGT_RISKR },
+                hail: { score: attrs.HAIL_RISKS, rating: attrs.HAIL_RISKR },
+                lightning: { score: attrs.LTNG_RISKS, rating: attrs.LTNG_RISKR },
+                landslide: { score: attrs.LNDS_RISKS, rating: attrs.LNDS_RISKR },
+                tsunami: { score: attrs.TSUN_RISKS, rating: attrs.TSUN_RISKR },
+                avalanche: { score: attrs.AVLN_RISKS, rating: attrs.AVLN_RISKR },
+                coldwave: { score: attrs.CWAV_RISKS, rating: attrs.CWAV_RISKR },
+                icestorm: { score: attrs.ISTM_RISKS, rating: attrs.ISTM_RISKR },
+                volcano: { score: attrs.VLCN_RISKS, rating: attrs.VLCN_RISKR },
+                winterweather: { score: attrs.WNTW_RISKS, rating: attrs.WNTW_RISKR }
+            },
+            censusTract: attrs.TRACTFIPS,
+            source: 'FEMA NRI'
+        };
+    } catch (e) {
+        console.warn(`[Enrichment] FEMA NRI fetch failed:`, e.message);
         return null;
     }
 }
@@ -947,28 +1027,42 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
         console.log(`[Enrichment] Fetched fresh RapidAPI specs for ${zpid}`);
     }
 
-    // 2. Normalize Address (Radar)
-    // When isFresh, root.address is a stored string; root.address?.line is undefined. Use string directly.
-    const rawAddress = root.address?.line || root.address?.streetAddress ||
-        (typeof root.address === 'string' ? root.address : null) || zpid;
-    if (logger) logger.logAPICall('radar', 'geocoding', zpid);
-    const radarUrl = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(rawAddress)}`;
-    const radarRes = await fetch(radarUrl, { headers: { 'Authorization': RADAR_API_KEY } });
-    let coordinates = root.longitude && root.latitude ? { latitude: root.latitude, longitude: root.longitude } : null;
-    let formattedAddress = root.address?.line || (typeof root.address === 'string' ? root.address : null) || zpid;
+    // 2. Address & Coordinates
+    // RapidAPI lat/lng is the authoritative source — use it directly when present.
+    // Fall back to stored coordinates (isFresh path) rather than re-deriving from geocoding.
+    let coordinates = (root.latitude && root.longitude)
+        ? { latitude: root.latitude, longitude: root.longitude }
+        : (root.coordinates?.latitude ? { latitude: root.coordinates.latitude, longitude: root.coordinates.longitude } : null);
 
-    if (radarRes.ok) {
-        const radarData = await radarRes.json();
-        if (radarData.addresses && radarData.addresses.length > 0) {
-            const first = radarData.addresses[0];
-            coordinates = { latitude: first.latitude, longitude: first.longitude };
-            formattedAddress = first.formattedAddress;
-        }
+    // Build formattedAddress from RapidAPI components directly — no Radar needed for address.
+    const streetPart = root.address?.line || root.address?.streetAddress ||
+        (typeof root.address === 'string' && root.address !== zpid ? root.address : null);
+    const cityPart = root.address?.city || root.city;
+    const statePart = root.address?.state || root.state;
+    const rawZip = root.address?.zipcode || root.address?.zipCode || root.zipCode;
+    // Strip zip if the state isn't one we support — avoids carrying over stale/wrong zip codes
+    // from properties that were misrouted or have bad RapidAPI address data.
+    const zipPart = isSupportedState(statePart) ? rawZip : null;
+    if (rawZip && !zipPart) {
+        console.warn(`[Enrichment] Dropping zip ${rawZip} for ${zpid}: state '${statePart}' not in supported states`);
     }
+    let formattedAddress = streetPart
+        ? [streetPart, cityPart, statePart, zipPart].filter(Boolean).join(', ')
+        : zpid;
 
-    // Fall back to stored coordinates if Radar failed (e.g. when isFresh and address string is ambiguous)
-    if (!coordinates && root?.coordinates?.latitude) {
-        coordinates = { latitude: root.coordinates.latitude, longitude: root.coordinates.longitude };
+    // If RapidAPI didn't return lat/lng, forward geocode the full address with Radar to get coordinates.
+    if (!coordinates && streetPart) {
+        if (logger) logger.logAPICall('radar', 'geocoding', zpid);
+        const fullAddress = [streetPart, cityPart, statePart, zipPart].filter(Boolean).join(', ');
+        const radarUrl = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(fullAddress)}`;
+        const radarRes = await fetch(radarUrl, { headers: { 'Authorization': RADAR_API_KEY } });
+        if (radarRes.ok) {
+            const radarData = await radarRes.json();
+            if (radarData.addresses && radarData.addresses.length > 0) {
+                const first = radarData.addresses[0];
+                coordinates = { latitude: first.latitude, longitude: first.longitude };
+            }
+        }
     }
 
     // 3. Gemini Tax Lookup — always fetch for comparison against listing sqft,
@@ -1041,7 +1135,8 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
             rating: s.rating ?? 'N/A',
             distance: s.distance ? `${s.distance} mi` : 'N/A',
         })),
-        // Climate risk scores (First Street Foundation via RapidAPI)
+        // Climate risk scores (Side-by-Side Comparison Mode)
+        // First Street (Paid)
         floodRiskScore: extractNumericValue(root.floodRiskScore ?? root.climate?.floodSources?.primary?.riskScore?.value),
         fireRiskScore: extractNumericValue(root.fireRiskScore ?? root.climate?.fireSources?.primary?.riskScore?.value),
         heatRiskScore: extractNumericValue(root.heatRiskScore ?? root.climate?.heatSources?.primary?.riskScore?.value),

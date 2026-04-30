@@ -216,6 +216,36 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
 };
 
 /**
+ * Fetches the environmental subcollection document which contains FEMA NRI,
+ * seismic zones, and historical disaster data.
+ */
+export const getEnvironmentalDataFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db || !zpid) return null;
+    try {
+        const nestedRef = doc(db, "properties", String(zpid), "environmental", "thirdparty_data");
+        logFirestoreQuery('getDoc', 'properties/environmental', { zpid, type: 'thirdparty_data' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? nestedSnap.data() : null;
+    } catch (error) {
+        handleFirestoreError(error, "getEnvironmentalDataFromCloud");
+        return null;
+    }
+};
+
+export const getFemaNriFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db || !zpid) return null;
+    try {
+        const nestedRef = doc(db, "properties", String(zpid), "environmental", "fema_nri");
+        logFirestoreQuery('getDoc', 'properties/environmental', { zpid, type: 'fema_nri' });
+        const nestedSnap = await getDoc(nestedRef);
+        return nestedSnap.exists() ? nestedSnap.data() : null;
+    } catch (error) {
+        handleFirestoreError(error, "getFemaNriFromCloud");
+        return null;
+    }
+};
+
+/**
  * Standardizes an address string for consistent Firestore lookups.
  * Removes Radar's " US" suffix and ensures a consistent comma/space pattern 
  * between State and Zip.
@@ -315,6 +345,7 @@ export interface CityPropertySummary {
     maxSchoolRating?: number;  // Best nearby school rating (1-10)
     orientation?: string;     // Front orientation (AI resolved)
     listedDate?: string | number;
+    zypheNoiseScore?: number | null;  // Zyphe proprietary noise score 0-100
 }
 
 /**
@@ -385,6 +416,7 @@ export const getPropertiesByCity = async (city: string, maxResults: number = 200
                         || gtMap[d.id]
                         || data.orientation_ai?.final_orientation
                         || '',
+                    zypheNoiseScore: raw.zypheNoiseScore ?? null,
                 };
             });
         const withOrientation = mapped.filter(p => p.orientation);
@@ -462,6 +494,7 @@ export const getPropertiesByZip = async (zip: string, maxResults: number = 200):
                         || gtMap[d.id]
                         || data.orientation_ai?.final_orientation
                         || '',
+                    zypheNoiseScore: raw.zypheNoiseScore ?? null,
                 };
             });
     } catch (error: any) {

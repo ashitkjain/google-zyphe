@@ -9,6 +9,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, db, generateCityStateKey } from '../../../services/firebase/config';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, DeepResearchInsights } from '../../../types';
 import { NeighborhoodAnalysis } from '../../../types/ai';
+import { fetchFemaRiskIndex } from '../../../services/api/disasters';
 import {
     getCityNeighborhoodsFromCloud,
     getComprehensiveAnalysisFromCloud,
@@ -23,6 +24,8 @@ import {
     saveLifestyleInsightsToCloud,
     saveLifestyleFitToCloud,
     saveSchoolAnalysisToCloud,
+    getEnvironmentalDataFromCloud,
+    getFemaNriFromCloud,
 } from '../../../services/firebase/properties';
 import { getPropertyGroundTruth } from '../../../services/firebase/orientation_history';
 import { getSchoolCacheKey } from '../../../prompts/property/schoolsAnalysis';
@@ -76,6 +79,7 @@ export function useExploreTabData({
     // ── Environmental data ──────────────────────────────────────
     const [census, setCensus] = useState<CensusDemographics | null>(null);
     const [micro, setMicro] = useState<MicroclimateDelta | null>(null);
+    const [isHealingFema, setIsHealingFema] = useState(false);
 
     useEffect(() => {
         if (propertyData?.coordinates) {
@@ -260,6 +264,7 @@ export function useExploreTabData({
     const [cachedCommunityPulse, setCachedCommunityPulse] = useState<any | null>(null);
     const [interiorSummary, setInteriorSummary] = useState<any | null>(null);
     const [orientationGroundTruth, setOrientationGroundTruth] = useState<{ expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null>(null);
+    const [environmentalData, setEnvironmentalData] = useState<any | null>(null);
 
     // Guard: track which zpids have already had a Gemini backfill attempted
     // so we never fire a live AI call more than once per property per session.
@@ -274,19 +279,27 @@ export function useExploreTabData({
 
         let cancelled = false;
         (async () => {
+            const zpid = propertyData.zpid ? String(propertyData.zpid) : null;
+            if (!zpid || zpid === 'undefined') {
+                console.warn('[ExploreTab Cache] Aborting fetch: Invalid ZPID');
+                return;
+            }
+
             try {
                 const cityStateKey = generateCityStateKey(propertyData.city, propertyData.state);
-                console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read start`);
+                console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read start for zpid=${zpid}`);
 
-                const [visualCache, investmentCache, deepResearchCache, communityPulseCache, interiorCache, orientationGTCache] = await Promise.all([
-                    getVisualAnalysisFromCloud(String(propertyData.zpid)),
-                    getPropertyInvestmentFromCloud(String(propertyData.zpid)),
+                const [visualCache, investmentCache, deepResearchCache, communityPulseCache, interiorCache, orientationGTCache, envCache, femaNriCache] = await Promise.all([
+                    getVisualAnalysisFromCloud(zpid),
+                    getPropertyInvestmentFromCloud(zpid),
                     cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
                     cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
-                    getInteriorSummaryFromCloud(String(propertyData.zpid)),
-                    getPropertyGroundTruth(String(propertyData.zpid)),
+                    getInteriorSummaryFromCloud(zpid),
+                    getPropertyGroundTruth(zpid),
+                    getEnvironmentalDataFromCloud(zpid),
+                    getFemaNriFromCloud(zpid),
                 ]);
-                console.log(`[⏱ ExploreTab] +${_elapsed()} — parallel cache read done`);
+                console.log(`[⏱ ExploreTab] +${_elapsed()} — cache read done. Env: ${!!envCache ? 'Found' : 'Missing'}, FEMA: ${!!femaNriCache ? 'Found' : 'Missing'}`);
 
                 if (cancelled) return;
 
@@ -303,6 +316,53 @@ export function useExploreTabData({
                 if (investmentCache?.ltr_analysis) setCachedLtrAnalysis(investmentCache.ltr_analysis);
                 if (interiorCache) setInteriorSummary(interiorCache);
                 if (orientationGTCache) setOrientationGroundTruth(orientationGTCache);
+
+                // ── SELF-HEALING: Legacy FEMA NRI Data ────────────────────────
+                // Detect if FEMA data is missing or in the old format.
+                let activeNri = femaNriCache;
+                const fema = activeNri || envCache?.historical_disasters?.femaRiskIndex;
+                const isLegacy = fema && (
+                    typeof fema.hazards?.flood === 'number' ||
+                    !fema.hazards?.earthquake ||
+                    !fema.hazards?.tornado
+                );
+
+                if (isLegacy || !fema) {
+                    if (propertyData.coordinates) {
+                        console.log(`[ExploreTab] 🩹 Healing legacy FEMA NRI data for ${zpid}...`);
+                        setIsHealingFema(true);
+                        try {
+                            const freshFema = await fetchFemaRiskIndex(
+                                propertyData.coordinates.latitude, 
+                                propertyData.coordinates.longitude,
+                                zpid, 
+                                propertyData.address
+                            );
+                            if (freshFema) {
+                                console.log(`[ExploreTab] ✓ FEMA NRI healed and saved to dedicated doc`);
+                                activeNri = freshFema;
+                                if (db) {
+                                    const nriRef = doc(db, "properties", zpid, "environmental", "fema_nri");
+                                    await setDoc(nriRef, freshFema, { merge: true });
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('[ExploreTab] FEMA healing failed:', err);
+                        } finally {
+                            setIsHealingFema(false);
+                        }
+                    }
+                }
+
+                // Merge seismic + healed FEMA NRI
+                const mergedEnv = {
+                    ...envCache,
+                    historical_disasters: {
+                        ...(envCache?.historical_disasters || {}),
+                        femaRiskIndex: activeNri
+                    }
+                };
+                setEnvironmentalData(mergedEnv);
 
                 // Comprehensive analysis
                 try {
@@ -342,10 +402,10 @@ export function useExploreTabData({
             console.log(`%c[⏱ ExploreTab] +${_elapsed()} — ALL cache fetches COMPLETE`, 'color: #22c55e; font-weight: bold;');
         })();
         return () => { cancelled = true; };
-    // NOTE: customAnalysis is intentionally excluded from deps.
-    // Adding it would re-trigger this effect every time analysis loads,
-    // causing duplicate API calls and potential Gemini re-runs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // NOTE: customAnalysis is intentionally excluded from deps.
+        // Adding it would re-trigger this effect every time analysis loads,
+        // causing duplicate API calls and potential Gemini re-runs.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [propertyData?.zpid]);
 
     // ── Handlers ────────────────────────────────────────────────
@@ -364,6 +424,15 @@ export function useExploreTabData({
     const mapLabels = customAnalysis?.neighborhood?.map_labels || cachedMapLabels || undefined;
     const currentInteriorSummary = interiorSummary || comprehensiveAnalysis?.interior_summary || cachedComprehensiveAnalysis?.interior_summary;
     const analysis = comprehensiveAnalysis || cachedComprehensiveAnalysis;
+
+    // Merge environmental data (FEMA NRI, etc.) into a synthetic property object for child components
+    const mergedPropertyData = useMemo(() => {
+        if (!propertyData) return null;
+        return {
+            ...propertyData,
+            ...environmentalData, // Includes historical_disasters, etc.
+        };
+    }, [propertyData, environmentalData]);
 
     return {
         // Tab state
@@ -396,6 +465,8 @@ export function useExploreTabData({
         neighborhoodOverview, communityPulse, visualPoi, mapLabels,
         currentInteriorSummary, analysis,
         orientationGroundTruth,
+        mergedPropertyData,
+        isHealingFema,
         // Actions
         handleFullRefresh,
     };

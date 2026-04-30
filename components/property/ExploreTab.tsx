@@ -124,6 +124,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         currentInteriorSummary, analysis,
         handleFullRefresh,
         orientationGroundTruth,
+        mergedPropertyData,
+        isHealingFema,
     } = useExploreTabData({ propertyData, viewMode, customAnalysis, comprehensiveAnalysis, onRunCustomAnalysis });
 
     // ── City browse via prop (event listener lives here so it survives loading spinner remounts) ──
@@ -189,12 +191,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         hasLifestyle: !!(lifestyleFit || lifestyleInsights),
         hasSchools: !!(schoolsIntelligence?.schools?.length),
         hasOrientation: !!(propertyData as any)?.orientation_ai && isOrientationClear((propertyData as any).orientation_ai),
-        hasEnvironment: !!(propertyData?.windRiskScore || propertyData?.floodRiskScore || propertyData?.fireRiskScore || propertyData?.pollen || propertyData?.airQuality || (propertyData as any)?.historical_disasters),
-        hasSolar: !!propertyData?.coordinates,
-        hasWalkData: !!(propertyData?.walkScore || propertyData?.transitScore || propertyData?.bikeScore),
-        hasBroadband: !!(propertyData as any)?.broadband,
-        hasNeighborhood: !!propertyData?.neighborhood_identity,
-        hasNearby: !!(propertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)),
+        hasEnvironment: !!(mergedPropertyData?.windRiskScore || mergedPropertyData?.floodRiskScore || mergedPropertyData?.fireRiskScore || mergedPropertyData?.pollen || mergedPropertyData?.airQuality || (mergedPropertyData as any)?.historical_disasters),
+        hasSolar: !!mergedPropertyData?.coordinates,
+        hasWalkData: !!(mergedPropertyData?.walkScore || mergedPropertyData?.transitScore || mergedPropertyData?.bikeScore),
+        hasBroadband: !!(mergedPropertyData as any)?.broadband,
+        hasNeighborhood: !!mergedPropertyData?.neighborhood_identity,
+        hasNearby: !!(mergedPropertyData?.google_places || visualPoi || (mapLabels && mapLabels.length > 0)),
         hasCommunityPulse: !!(communityPulse || customAnalysis?.community_pulse),
         hasLtrAnalysis: !!ltrAnalysis,
         hasDeepResearch: !!keyInsights,
@@ -415,7 +417,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                         <PropertySectionView
                                             sectionId={activeNavSection}
                                             subId={activeNavSub}
-                                            propertyData={propertyData}
+                                            propertyData={mergedPropertyData || propertyData}
                                             customAnalysis={customAnalysis}
                                             comprehensiveAnalysis={analysis}
                                             communityPulse={communityPulse}
@@ -447,6 +449,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             setIsSatelliteExpanded={setIsSatelliteExpanded}
                                             groundTruthMapTab={groundTruthMapTab}
                                             setGroundTruthMapTab={setGroundTruthMapTab}
+                                            isHealingFema={isHealingFema}
                                             onRunAnalysis={() => onRunCustomAnalysis(false)}
                                             onRefreshAnalysis={() => onRunCustomAnalysis(true)}
                                             onFullRefresh={handleFullRefresh}

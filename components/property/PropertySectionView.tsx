@@ -76,6 +76,7 @@ interface PropertySectionViewProps {
     onRefreshCommunityPulse?: () => Promise<void>;
     userRole?: string;
     addLog: (service: string, meta: any, content: any) => void;
+    isHealingFema?: boolean;
     // ── CustomAIAnalysis passthrough ────────────────────────────────────────
     customAnalysisLoading?: boolean;
     comprehensiveLoading?: boolean;
@@ -190,7 +191,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
         pulseExpanded, setPulseExpanded, isRefreshingPulse, setIsRefreshingPulse,
         isSatelliteExpanded, setIsSatelliteExpanded,
         groundTruthMapTab, setGroundTruthMapTab,
-        onRunAnalysis, onRefreshEnvironment, environmentRefreshing,
+        onRunAnalysis, onRefreshEnvironment, environmentRefreshing, isHealingFema,
         onRefreshCommunityPulse, userRole,
         customAnalysisLoading,
         onRefreshAnalysis, onFullRefresh, onRunComprehensive,
@@ -377,7 +378,14 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                             <PageHeader icon="fa-leaf" title="Environmental Overview"
                                 description="Climate risk, seismic zone, air quality and solar"
                                 color="text-emerald-500" {...headerProps} />
-                            <EnvironmentSectionPage data={data} solarPotential={solarPotential} micro={micro} onRefreshEnvironment={onRefreshEnvironment} environmentRefreshing={environmentRefreshing} />
+                            <EnvironmentSectionPage 
+                                data={data} 
+                                solarPotential={solarPotential} 
+                                micro={micro} 
+                                onRefreshEnvironment={onRefreshEnvironment} 
+                                environmentRefreshing={environmentRefreshing} 
+                                isHealingFema={isHealingFema}
+                            />
                         </div>
                     );
                 }
