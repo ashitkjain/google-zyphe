@@ -840,6 +840,44 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                             Orientation and Vastu patterns are AI-inferred from aerial imagery and parcel data. Please verify on-site for absolute accuracy.
                         </p>
                     )}
+
+                    {/* Technical Trace Dropdown */}
+                    {(sat.steps?.length > 0 || sat.apis?.length > 0) && (
+                        <details className="mt-6 group border-t border-slate-100 pt-4">
+                            <summary className="list-none cursor-pointer flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">
+                                <i className="fa-solid fa-chevron-right text-[8px] transition-transform group-open:rotate-90" />
+                                <i className="fa-solid fa-microchip" />
+                                Intelligence Execution Trace
+                            </summary>
+                            <div className="mt-4 pl-4 border-l-2 border-slate-50 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                {sat.steps && (
+                                    <div>
+                                        <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wider mb-2">Pipeline Steps</div>
+                                        <div className="space-y-1.5">
+                                            {sat.steps.map((step: string, i: number) => (
+                                                <div key={i} className="flex gap-2 text-[11px] text-slate-500 font-medium">
+                                                    <span className="text-slate-300">0{i + 1}</span>
+                                                    <span>{step}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {sat.apis && (
+                                    <div>
+                                        <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wider mb-2">Engaged APIs</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {sat.apis.map((api: string, i: number) => (
+                                                <span key={i} className="px-2 py-0.5 bg-slate-50 text-slate-400 rounded border border-slate-100 text-[10px] font-bold">
+                                                    {api}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </details>
+                    )}
                 </div>
             )}
 

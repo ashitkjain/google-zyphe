@@ -53,44 +53,7 @@ const ORIENTATION_MODEL_CF = 'gemini-2.5-flash';
 // v28: CUL-DE-SAC PROXIMITY TRAP — Added strict 'Straight Line Verification' to prevent cul-de-sac hallucinations on straight road segments leading to bulbs.
 // v29: FENCE = SIDE & CARDINAL EXCLUSION — Mandates rejection of road frontages separated by fences/lawns; forces check of all cardinal directions for better driveway connections.
 // v30: TOWNHOUSE/CONDO HARD STOP — Forces UNCLEAR when street view shows only a garage for multi-unit properties to prevent hallucinating ambiguous aerial pathways.
-const BATCH_VERSION = 'v30';
-
-// ─── Gemini response schema ───────────────────────────────────────────────────
-// Uses plain string type names (compatible with all @google/generative-ai versions).
-
-const ORIENTATION_SCHEMA = {
-    type: 'object',
-    properties: {
-        image_quality: { type: 'string', enum: ['clear', 'acceptable', 'blurry'] },
-        final_orientation: { type: 'string' },
-        azimuth_degrees: { type: 'number', nullable: true },
-        property_layout_type: { type: 'string', enum: ['corner_lot', 'cul_de_sac', 'flag_lot', 'irregular_lot', 'standard', 'other'] },
-        confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
-        is_under_construction: { type: 'boolean' },
-        standard_street_layout: { type: 'boolean', nullable: true },
-        explanation: { type: 'string' },
-        front_door_clearly_visible: { type: 'boolean', nullable: true },
-        feng_shui_vastu: { type: 'string', nullable: true },
-        privacy_insight: { type: 'string' },
-        lot_coverage_hardscape: { type: 'number', nullable: true },
-        lot_coverage_pervious: { type: 'number', nullable: true },
-        buyer_pro: { type: 'string' },
-        buyer_con: { type: 'string' },
-        orientation_highlights: { type: 'string' },
-        street_view_shows_front: { type: 'boolean', nullable: true },
-        pool_visible: { type: 'boolean', nullable: true },
-        pool_direction: { type: 'string', nullable: true },
-        garage_direction: { type: 'string', nullable: true },
-        open_sky_direction: { type: 'string', nullable: true },
-        listing_photos_showing_front: { type: 'array', items: { type: 'string' }, nullable: true },
-        street_bearing_from_map: { type: 'number', nullable: true },
-        street_bearing_visual_degrees: { type: 'number', nullable: true },
-    },
-    required: [
-        'property_layout_type', 'image_quality', 'final_orientation', 'confidence',
-        'explanation', 'privacy_insight', 'buyer_pro', 'buyer_con', 'orientation_highlights',
-    ],
-};
+const BATCH_VERSION = 'v31'; // Modularized prompts
 
 // ─── Pure-math helpers ────────────────────────────────────────────────────────
 
@@ -433,261 +396,7 @@ async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, addres
     return freshUrl;
 }
 
-// ─── Prompt builder ───────────────────────────────────────────────────────────
-
-function _buildOrientationPrompt(usesDualImage, address, description, streetBearing, streetSide, svHeading, roadmapLabel, homeType = null) {
-    const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
-    const sideLabel = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
-    // GPS direct azimuth suggestion — only fires when streetSide is non-null.
-    // Curve detection suppresses it for curved roads; this is safe for short straight streets.
-    // Gives Gemini an actual degree value so it works even when the roadmap reads an inconsistent bearing.
-    const SIDE_AZ_MAP = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
-    const sideAzimuth = streetSide ? SIDE_AZ_MAP[streetSide] : null;
-    const sideFact = (streetBearing == null && sideLabel && sideAzimuth != null)
-        ? ` ⚠️ GPS DIRECT ANSWER (override roadmap perpendicular rule): GPS road-offset geometry confirms "${streetName || address}" is to the ${sideLabel} of this property. Set azimuth_degrees ≈ ${sideAzimuth}° (${sideLabel}). Only override this if the aerial driveway/walkway CLEARLY exits toward a completely different direction — otherwise trust the GPS.`
-        : '';
-    // Streets ending in Ct/Court/Cir/Circle are almost always dead-end or cul-de-sac — pre-alert Gemini.
-    const lastWord = (streetName || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
-    const culDeSacSuffix = /^(ct|court|cir|circle|pl|place)$/.test(lastWord);
-    const culDeSacSuffixHint = culDeSacSuffix
-        ? `\n⚠️ CUL-DE-SAC / DEAD-END ALERT: "${streetName}" ends in "${lastWord.charAt(0).toUpperCase() + lastWord.slice(1)}" — streets with this suffix are almost always cul-de-sacs or dead-end courts. On the road map image, look for a circular loop or dead-end terminus for "${streetName}". If found (even if not a perfect circle): classify as cul_de_sac, SKIP the perpendicular rule, and derive the front direction by drawing a vector from the property center toward the dead-end/loop center.
-           ⚠️ THROUGH-STREET TRAP: If "${streetName}" clearly continues in both directions past the property (not a dead end), it is NOT a cul-de-sac, even if there is a widened circular area (an "eyebrow"). In that case, classify as "standard" and use the perpendicular rule.`
-        : '';
-    const typeLabel = homeType ? `\n\nPROPERTY TYPE: ${homeType}` : '';
-    const addressClue = address
-        ? `\nPROPERTY ADDRESS: "${address}"${typeLabel}\nThe front entrance usually faces "${streetName || address}". However, for townhouses or multi-unit complexes, the pedestrian entry may face an internal courtyard or shared walkway instead.${sideFact}${culDeSacSuffixHint}\n• DRIVEWAY CONNECTION REQUIRED: A road is only a valid front street if a driveway or walkway directly connects the property to it with no barrier. If a road is separated by a green belt, tree row, or park strip with NO driveway crossing, it is NOT the front street.\n• Do NOT default to the largest or nearest road — look for where the driveway actually exits.` : '';
-    const descHint = (() => {
-        if (!description) return '';
-        const text = Array.isArray(description) ? description.join(' ') : description;
-        return `\n\n🏷️ LISTING DESCRIPTION (seller-provided — highest-priority signal):\n"${text}"\nIf it states a cardinal facing direction, treat as ground truth.`;
-    })();
-    const bearingHint = streetBearing != null ? (() => {
-        const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
-        const p3 = (streetBearing + 180) % 360;
-        return `\nGPS STREET BEARING ADVISORY — READ BEFORE USING:\n`
-            + `⛔ CUL-DE-SAC / DEAD-END COURT OVERRIDE (MANDATORY — check FIRST):\n`
-            + `   Before using this bearing, look at Image A: is this a cul-de-sac (circular dead-end) or dead-end court?\n`
-            + `   YES → DISCARD this GPS bearing completely. Do NOT use it AT ALL. Derive the front direction\n`
-            + `          purely from aerial: draw a vector from the property center to the cul-de-sac circle center\n`
-            + `          — that direction is the front. The GPS bearing is from the approach road, NOT the circle.\n`
-            + `   NO  → Street runs at ~${Math.round(streetBearing)}°. Front most likely faces `
-            + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°) — perpendicular to road.\n`
-            + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel. Do NOT output these unless the visual override applies.`;
-    })() : '';
-
-    const streetName2 = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : 'the address street';
-    const roadmapStep = roadmapLabel
-        ? `\nSTREET DIRECTION — PARCEL MAP FIRST (Image ${roadmapLabel}):\n` +
-        `  Image ${roadmapLabel} is a labeled Radar parcel map (North-up, zoom 19) centered on the property.\n` +
-        `  1. Find "${streetName2}" on Image ${roadmapLabel} by reading the street name labels.\n` +
-        `     → If the label is clearly readable: read the bearing the road travels (0°=N, 90°=E, 180°=S, 270°=W) and set street_bearing_from_map to this value. This is more reliable than estimating from satellite texture.\n` +
-        `     → If the label is NOT visible or the street cannot be identified on the map: set street_bearing_from_map=null and estimate the bearing from Image A (satellite) as a fallback.\n` +
-        `  2. PERPENDICULAR RULE: your final azimuth_degrees must be ~perpendicular (±45°) to street_bearing_from_map (or your satellite estimate if map was unclear).\n` +
-        `     If your azimuth is within 15° of the road bearing (road-parallel), you have made the most common error — correct to the nearest perpendicular.\n` +
-        `     → TIE-BREAKER: a road has two perpendiculars (e.g. NE and SW). If a GPS TIE-BREAKER is stated in the PROPERTY ADDRESS section above, use it to pick the correct perpendicular.\n` +
-        `  ⚠️ CORNER LOT / BEND EXCEPTION: On curved streets or at road bends, the local road segment may run roughly TOWARD the property — in that case the front faces the road directly (not perpendicular to it). If a GPS TIE-BREAKER gives a direction that is approximately PARALLEL to the local road bearing (within 45°), trust the GPS direction — it is telling you the road arrives at your face, so face it directly.\n` +
-        `  ⚠️ CUL-DE-SAC EXCEPTION: if the map shows "${streetName2}" terminates in a circular dead-end, IGNORE the perpendicular rule — derive direction from aerial (property center → cul-de-sac center).`
-        : '';
-
-    if (usesDualImage) {
-        return [
-            `You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up), a Street View image (Image B)${roadmapLabel ? `, and a labeled Road Map (Image ${roadmapLabel}, North-up)` : ''} of a property.`,
-            svHeading != null ? `\n\nCAMERA HEADING: ${Math.round(svHeading)}\u00b0 (0\u00b0=North, 90\u00b0=East, 180\u00b0=South, 270\u00b0=West)\nThe camera was pointing in direction ${Math.round(svHeading)}\u00b0 when it captured Image B.` : '',
-            addressClue, descHint, bearingHint,
-            roadmapStep,
-            `\nGUIDING PRINCIPLES:`,
-            `1. NORTH IS UP: The top of Image A is strictly 0° North.`,
-            `2. THE WALKWAY RULE: Trace the pedestrian walkway from the public sidewalk to the main door. The wall it leads to is the architectural FRONT.`,
-            `3. GARAGE IS NOT A DOOR (MANDATORY): A garage/roller door is a vehicular access point, NOT a residential entry. You are strictly FORBIDDEN from setting street_view_shows_front=true if the only visible entry is a garage. You MUST set it to false to trigger a listing photo fallback.`,
-            `4. DRIVEWAY & GARAGE (supporting): In typical single-family homes, the garage and front door are on the SAME wall. However, for townhouses, they are often on opposite sides.`,
-            `5. SCREEN-TO-COMPASS MAPPING (AERIAL):`,
-            `   • Toward TOP of screen    = NORTH (0°)`,
-            `   • Toward BOTTOM of screen = SOUTH (180°)`,
-            `   • Toward RIGHT of screen  = EAST (90°)`,
-            `   • Toward LEFT of screen   = WEST (270°)`,
-            `   • Toward TOP-RIGHT        = NORTHEAST (45°)`,
-            `   • Toward BOTTOM-RIGHT     = SOUTHEAST (135°)`,
-            `   • Toward BOTTOM-LEFT      = SOUTHWEST (225°)`,
-            `   • Toward TOP-LEFT         = NORTHWEST (315°)`,
-            `6. TOWARD RULE: The front faces TOWARD the road \u2014 in the direction FROM house center TO the road.`,
-            `   \u2022 Road BELOW house (bottom) \u2192 faces SOUTH (180\u00b0).`,
-            `   \u2022 Road ABOVE house (top)    \u2192 faces NORTH (0\u00b0).`,
-            `   \u2022 Road to the RIGHT of house \u2192 faces EAST (90\u00b0).`,
-            `   \u2022 Road to the LEFT of house  \u2192 faces WEST (270\u00b0).`,
-            `   IMPORTANT: The orientation is ALWAYS the vector from house center TOWARD the specific road. If the house is Southeast of a Northwest-running road, it faces Northwest. Never assume diagonal roads forbid diagonal orientations. Use Image A cardinal axes strictly.`,
-            `7. NEW CONSTRUCTION / STALE SATELLITE: If Image A shows a dirt lot or foundation, but listing photos (if provided) or Image B show a finished exterior, the property is a newly completed home. Set is_under_construction=false. Only set is_under_construction=true if BOTH the aerial and street/listing photos show an unfinished state (dirt, foundation, or framing).`,
-            `8. SLANTED ROAD PRECISION: If the road is slanted (not perfectly N/E/S/W), the front azimuth MUST also be slanted. Do NOT round to the nearest cardinal direction (N/E/S/W) if it means sacrificing more than 10° of accuracy. If a road is at 165° (SSE), the perpendicular is 255° (WSW), NOT 270° (West). Use the lot lines in the Road Map (if provided) as a high-precision reference for perpendicularity.`,
-            `\nLAYOUT CLASSIFICATION (do FIRST):`,
-            `CORNER LOT: Two named public roads meeting at an intersection adjacent to the lot \u2192 corner_lot.`,
-            `CORNER LOT FACING: If a property is at an intersection, it has two potential frontages. Identify the main pedestrian entrance/walkway. The orientation is the vector from that entrance TOWARD the street it faces. Do NOT average the two street bearings or use the bearing of the secondary street.`,
-            `CUL-DE-SAC: Circular dead-end street; driveway connects to the circle \u2192 cul_de_sac.`,
-            `Set standard_street_layout=FALSE for: corner lot, flag lot, curved/loop street, cul-de-sac.`,
-            `\nTASK:`,
-            `Step 0: Quality/Construction check. Blurry → image_quality="blurry", UNCLEAR_IMAGE. Under construction → is_under_construction=true, UNDER_CONSTRUCTION.`,
-            `Step 0b: Street View Usability. Mark street_view_shows_front=null (rely on aerial only) if Image B is: privacy blurred, solid wall/fence, OR house is too far away / obstructed by trees/vegetation. Do NOT apply heading math when street_view_shows_front=null.`,
-            `  TOWNHOUSE/CONDO EXTRA GATE: set front_door_clearly_visible=true ONLY if ALL are true: (a) clearly distinct residential PEDESTRIAN door visible — a walk-through door with a handle. A GARAGE DOOR (vehicle roller/sectional door) is NEVER a front door even if it faces the main road. (b) direct pedestrian path from sidewalk to THAT door. (c) not a garage roller door, shared lobby, or rear gate. (d) close enough to identify as THIS unit.\n  GARAGE-ONLY TRAP (most common failure for modern townhouses): If Image B shows only garage/roller doors filling the ground floor with NO walk-through pedestrian door visible — even if the garage faces the main road — set front_door_clearly_visible=false IMMEDIATELY. Do not look for workarounds.\n  DISTANCE/AMBIGUITY TRAP: if doors are far or multiple identical unit doors visible with no way to tell which is this address → front_door_clearly_visible=false.`,
-            `Step 1: Layout detection — classify as standard, cul_de_sac, corner_lot, flag_lot, or other.\n   CORNER LOT (look carefully — this is the most commonly mis-classified type):\n     A property is a corner lot when TWO named public roads form its boundary, meeting at an intersection adjacent to the lot.\n     HOW TO IDENTIFY (use traffic-lane signals, NOT curb corner geometry):\n       (a) Can you see two distinct traffic lanes (lane markings, consistent road width, curbs/sidewalks along each) meeting at a junction or T-intersection?\n       (b) Does one edge of the property border each of these two roads?\n       ⚠️ CURVED CURBS DO NOT DISQUALIFY: Modern intersections have CURVED corner curbs (rounded radius turns) — the curbs do NOT meet at a sharp right angle. A rounded corner curve at the lot corner is NORMAL for corner lots, NOT evidence it is standard. Look for TWO road surfaces forming a junction — not for sharp perpendicular curb lines.\n     NOT a corner lot: private internal roads, parking aisles, alleys, shared courtyards — even if road-like.\n     KEY TEST: Are there two distinct public road surfaces forming a junction that is adjacent to or touches this lot? If yes → corner_lot.\n     CUL-DE-SAC PRECEDENCE: if one of the two streets terminates as a circular dead-end (cul-de-sac circle) AND the property driveway directly connects to that circle, classify as cul_de_sac — NOT corner_lot. ⚠️ EYEBROW TRAP: If the street continues in both directions past the circular area, it is a widened curve (an "eyebrow"), NOT a cul-de-sac.\n   CUL-DE-SAC DIRECTION: draw a vector from property center (P) → cul-de-sac center (C). Use BOTH axes: upper-left=NW, upper-right=NE, lower-left=SW, lower-right=SE. Do NOT collapse a diagonal to a cardinal (e.g. upper-left is NW ~315°, NOT west 270° or southwest 225°).`,
-            `Step 2: Aerial front-wall identification. FACING CONVENTION (CRITICAL — all 8 directions valid): front faces TOWARD the street. South=180°, SE=135°, SW=225°, N=0°, NE=45°, NW=315°, E=90°, W=270°. NEVER collapse diagonal to cardinal (if street is lower-right=SE, face SE not south). NEVER invert (street south=face south, not north). DIRECTION PRECISION: trace driveway toward street using BOTH axes — upper-left=NW, upper-right=NE, lower-left=SW, lower-right=SE. Only use N/E/S/W when movement is almost entirely one-axis. DRIVEWAY CONNECTION RULE: only count a road as the front street if a driveway physically connects to it — a road blocked by a green belt, tree row, or barrier with no driveway crossing is NOT the front street.`,
-            `Step 3: Image B judgment ONLY. Look at Image B — does it show the FRONT (door, porch, entry) or BACK (blank wall, fence)? Judge from the image alone, NOT from your Step 2 aerial conclusion. Set street_view_shows_front = true (front visible) or false (back/side visible) or null (obstructed/blurred/too far). The system computes the final azimuth from GPS heading + your answer. Do NOT compute azimuth yourself or adjust this field to match your Step 2 guess.`,
-            `Step 4: Finalize — output final_orientation, azimuth_degrees, confidence, property_layout_type.\n   IF street_view_shows_front = FALSE (set in Step 3): ⚠️ GARAGE-SIDE CORRECTION. The camera confirmed it was NOT seeing the front. This means the driveway you traced in Step 2 connects to the GARAGE, NOT the front entrance. The Step 2 azimuth is the GARAGE direction — do NOT use it as the final answer. Re-examine Image A: (a) ⚠️ TOWNHOUSE/CONDO HARD STOP: If the property is a townhouse or condo (check PROPERTY TYPE), do NOT try to guess the front door from the aerial image. Aerial pathways in multi-unit complexes are too ambiguous. IMMEDIATELY set final_orientation='UNCLEAR', azimuth_degrees=null, confidence='low'. (b) For single-family standard homes ONLY, look for a pedestrian walkway on any OTHER face of the house. (c) If a clear pedestrian path is visible on another face, set azimuth_degrees to THAT face. (d) If no other face shows a clear walkway, set final_orientation='UNCLEAR', azimuth_degrees=null, confidence='low'.`,
-            `ADDITIONAL: Assess privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.`,
-            `EXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: layout type and one visual reason.\n(2) STREET CONTEXT: name the address street, its bearing as read from the road map (Image C/B), and which edge of the property it runs along.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows, which road edge it connects to, and the raw aerial azimuth estimate.\n(4) IMAGE B EVIDENCE: state the camera heading in degrees, what Image B shows (front/back/uninformative), and how street_view_shows_front was set.\n(5) FINAL: final azimuth in degrees and compass label, confidence.`,
-        ].join('\n').trim();
-    }
-
-    return [
-        `You are a spatial analysis expert. I am providing one aerial satellite image (Image A, North-up)${roadmapLabel ? ` and a labeled Road Map (Image ${roadmapLabel}, North-up)` : ''}.`,
-        addressClue, bearingHint, descHint,
-        roadmapStep,
-        `\nGUIDING PRINCIPLES:`,
-        `1. NORTH IS UP: Use the top of the frame as 0° North.`,
-        `2. WALKWAY RULE (MANDATORY): Front of property = where the pedestrian path from the public sidewalk leads to the main door.`,
-        `3. ADDRESS STREET PRIORITY: When multiple streets are visible, give strong priority to the address street.`,
-        `4. TOWARD RULE: The front faces TOWARD the road \u2014 in the direction FROM the lot center TO the road. The direction the road TRAVELS is irrelevant. Road on the NE edge \u2192 front faces NE (~45\u00b0), NOT NW or SE. Road on N edge \u2192 front faces N (~0\u00b0).`,
-        `   IMPORTANT: The orientation is ALWAYS the vector from house center TOWARD the specific road. If the house is Southeast of a Northwest-running road, it faces Northwest. Use Image A cardinal axes strictly.`,
-        roadmapLabel ? `5. STREET DIRECTION: prefer Image ${roadmapLabel} (road map labels) for road bearing — only fall back to satellite texture in Image A if the street label is not clearly readable on the map.` : '',
-        `8. SLANTED ROAD PRECISION: If the road is slanted (not perfectly N/E/S/W), the front azimuth MUST also be slanted. Do NOT round to the nearest cardinal direction (N/E/S/W) if it means sacrificing more than 10° of accuracy. If a road is at 165° (SSE), the perpendicular is 255° (WSW), NOT 270° (West). Use the lot lines in the Road Map (if provided) as a high-precision reference for perpendicularity.`,
-        `\nLAYOUT CLASSIFICATION (do FIRST):`,
-        `CORNER LOT: A property is a corner lot when TWO named public roads form its boundary, meeting at an intersection adjacent to the lot.\n  HOW TO IDENTIFY — use traffic-lane signals, NOT curb corner geometry:\n  (a) Can you see two distinct traffic lanes (lane markings, consistent road width, curbs/sidewalks) meeting at a junction or T-intersection?\n  (b) Does one edge of the property border each of these two roads?\n  ⚠️ CURVED CURBS DO NOT DISQUALIFY: Modern intersections have CURVED corner curbs (rounded radius turns). A rounded corner curve at the lot corner is NORMAL for corner lots — do not read it as evidence the lot is standard.\n  KEY TEST: Two distinct public road surfaces forming a junction adjacent to this lot? If yes → corner_lot.\n  NOT a corner lot: private internal roads, parking aisles, alleys, shared courtyards.`,
-        `Set standard_street_layout = FALSE if: corner lot, flag lot, curved/loop street (CT, CIR, LOOP, COURT in name), side-loading entry, or rural acreage.`,
-        `Set standard_street_layout = TRUE only for simple rectangular lots on straight non-looping streets.`,
-
-        `\nCONFIDENCE GATE (MANDATORY): If you cannot clearly identify driveway apron OR pedestrian walkway with HIGH confidence:`,
-        `→ confidence='low', final_orientation='UNCLEAR', azimuth_degrees=null.`,
-        `\nTASK:`,
-        `Step 1 — Layout: classify lot type using the CORNER LOT criteria above.`,
-        `Step 2 — Driveway Apron: verify curb cut (driveway connects to public road with no gap or fence interruption).`,
-        `Step 3 — Front Walk: look for pedestrian path to main door.`,
-        `Step 4 — State compass direction the front wall faces (0°=N, 90°=E, 180°=S, 270°=W). PERPENDICULAR RULE (MANDATORY): azimuth must be ~perpendicular (±45°) to street_bearing_from_map (read from the road map) — never parallel to it. If street_bearing_from_map≈315°, valid azimuths are ~45° or ~225°. If street_bearing_from_map≈90°, valid azimuths are ~0° or ~180°. If your azimuth is within 15° of street_bearing_from_map you have made an error — correct to the nearest perpendicular.`,
-        `Step 5 — Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage/yard directions, buyer pro/con.`,
-        `Step 6 — GPS Self-Check (only if bearing prior given): verify azimuth is within 45° of a perpendicular. Correct if ≥45° off; note if corrected. PARALLEL CHECK (always run): if your azimuth is within 15° of the road bearing itself (not the perpendicular), you have made the most common error — correct to the nearest perpendicular or set UNCLEAR.`,
-        `\nEXPLANATION FORMAT — use this EXACT structure:\n(1) LAYOUT: standard_street_layout=true/false and one specific visual reason.\n(2) STREET CONTEXT: name the address street, its bearing as read from the road map, and which edge of the property it runs along.\n(3) AERIAL EVIDENCE: what the driveway/walkway shows and which road edge it connects to; include the raw aerial azimuth estimate.\n(4) GPS SELF-CHECK: whether a correction was applied; if yes: "GPS self-check: adjusted from X° to Y°"; if no: "No correction needed".\n(5) FINAL: final orientation and confidence.`,
-
-
-    ].join('\n').trim();
-}
-
-/**
- * Prompt for the listing-photos fallback mode.
- * Called when no usable street view is available but we found exterior/aerial listing photos.
- * Image order sent to Gemini:
- *   Image A = aerial satellite (cached, North-up)
- *   Image B..D = listing gallery photos (exterior / aerial, from image_by_image_analysis)
- *
- * @param photoMeta - metadata for selected photos [{index, url, score, analysisSnippet}]
- */
-function _buildListingPhotoPrompt(address, description, streetBearing, streetSide, photoCount, photoMeta = [], roadmapLabel = null, homeType = null) {
-    const streetName = address ? (address.split(',')[0] || '').replace(/^\d+[A-Za-z]?\s+/, '').trim() : null;
-    const sideLabel = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NE: 'NORTHEAST', NW: 'NORTHWEST', SE: 'SOUTHEAST', SW: 'SOUTHWEST' }[streetSide] || null;
-    const SIDE_AZ_MAP2 = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
-    const sideAzimuth2 = streetSide ? SIDE_AZ_MAP2[streetSide] : null;
-    const sideFact = (streetBearing == null && sideLabel && sideAzimuth2 != null)
-        ? ` \u26a0\ufe0f GPS DIRECT ANSWER (override roadmap perpendicular rule): GPS road-offset geometry confirms "${streetName || address}" is to the ${sideLabel} of this property. Set azimuth_degrees \u2248 ${sideAzimuth2}\u00b0 (${sideLabel}). Only override if the aerial driveway/walkway CLEARLY exits in a completely different direction.`
-        : '';
-    const lastWord2 = (streetName || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
-    const culDeSacSuffix2 = /^(ct|court|cir|circle|pl|place)$/.test(lastWord2);
-    const culDeSacSuffixHint2 = culDeSacSuffix2
-        ? `\n⚠️ CUL-DE-SAC / DEAD-END ALERT: "${streetName}" ends in "${lastWord2.charAt(0).toUpperCase() + lastWord2.slice(1)}" — streets with this suffix are almost always cul-de-sacs or dead-end courts. Look for a circular loop or dead-end terminus for "${streetName}". If found: classify as cul_de_sac and derive the front direction by drawing a vector from property center toward the dead-end/loop center.
-           ⚠️ THROUGH-STREET TRAP: If the street continues in both directions past the circular area, it is a widened curve (an "eyebrow"), NOT a cul-de-sac.`
-        : '';
-    const typeLabel = homeType ? `\n\nPROPERTY_TYPE: ${homeType}` : '';
-    const addressClue = address
-        ? `\nPROPERTY ADDRESS: "${address}"${typeLabel}\nThe front entrance usually faces "${streetName || address}". However, for townhouses or multi-unit complexes, the pedestrian entry may face an internal courtyard or shared walkway instead.${sideFact}${culDeSacSuffixHint2}\n\u2022 DRIVEWAY CONNECTION: While a driveway usually connects to the front street, townhomes often have rear-loading or side-loading garages. Locate the PEDESTRIAN entry first.` : '';
-    const descHint = (() => {
-        if (!description) return '';
-        const text = Array.isArray(description) ? description.join(' ') : description;
-        return `\n\n\uD83C\uDFF7\uFE0F LISTING DESCRIPTION (seller-provided \u2014 highest-priority signal):\n"${text}"\nIf it states a cardinal facing direction, treat as ground truth.`;
-    })();
-    const bearingHint = streetBearing != null ? (() => {
-        const p1 = (streetBearing + 90) % 360, p2 = (streetBearing - 90 + 360) % 360;
-        const p3 = (streetBearing + 180) % 360;
-        return `\nGPS STREET BEARING ADVISORY — READ BEFORE USING:\n`
-            + `⛔ CUL-DE-SAC / DEAD-END COURT OVERRIDE (MANDATORY — check FIRST):\n`
-            + `   Before using this bearing, look at Image A: is this a cul-de-sac (circular dead-end) or dead-end court?\n`
-            + `   YES → DISCARD this GPS bearing completely. Do NOT use it AT ALL. Derive the front direction\n`
-            + `          purely from aerial: draw a vector from property center to cul-de-sac circle center.\n`
-            + `   NO  → Street runs at ~${Math.round(streetBearing)}°. Front most likely faces `
-            + `${_dir8(p1)} (~${Math.round(p1)}°) or ${_dir8(p2)} (~${Math.round(p2)}°).\n`
-            + `⛔ FORBIDDEN (straight standard lot only): ~${Math.round(streetBearing)}° and ~${Math.round(p3)}° are road-parallel.`;
-    })() : '';
-
-    const photoLabels = photoMeta.map((p, i) => {
-        const isAerial = /aerial|drone|bird|overhead|top.?down|from above/i.test(p.analysisSnippet || '');
-        const imgLetter = String.fromCharCode(66 + i); // B, C, D...
-        const typeLabel = isAerial
-            ? 'AERIAL/DRONE listing photo \u2014 shows building footprint from above (different angle than Image A)'
-            : 'exterior/ground-level listing photo';
-        return `  Image ${imgLetter} = Listing photo #${p.index + 1} (${typeLabel}): "${(p.analysisSnippet || '').trim()}"`;
-    }).join('\n');
-
-    const roadmapStep = roadmapLabel
-        ? `\nSTREET DIRECTION — PARCEL MAP FIRST (Image ${roadmapLabel}):\n` +
-        `  Image ${roadmapLabel} is a labeled Radar parcel map (North-up, zoom 19) centered on the property.\n` +
-        `  1. Find "${streetName}" on Image ${roadmapLabel} by reading the street name labels.\n` +
-        `  2. PERPENDICULAR RULE: your final azimuth_degrees must be ~perpendicular (±45°) to the road bearing read from the map.\n` +
-        `  ⚠️ CUL-DE-SAC EXCEPTION: if the map shows "${streetName}" terminates in a circular dead-end, IGNORE the perpendicular rule — derive direction from aerial (property center → cul-de-sac center).`
-        : '';
-
-    return [
-        `You are a spatial analysis expert. I am providing an Aerial Satellite image (Image A, North-up)${roadmapLabel ? `, a labeled Road Map (Image ${roadmapLabel}, North-up)` : ''}, and ${photoCount} listing photo(s) from the property gallery.`,
-        `\nIMAGE GUIDE:\n  Image A = cached satellite aerial \u2014 North is UP. Use as authoritative layout reference.`,
-        roadmapLabel ? `  Image ${roadmapLabel} = labeled Radar parcel map \u2014 use for road bearing.` : '',
-        photoLabels ? photoLabels : '',
-        `\n\u26A0\uFE0F LISTING PHOTOS KEY RULES:`,
-        `  \u2022 AERIAL/DRONE listing photos: compare with Image A to confirm which face of the building has the main entry/driveway toward the address street. They may show the property at a different zoom/angle than the cached satellite.`,
-        `  \u2022 GROUND-LEVEL exterior photos: look for front door, porch, entryway, or driveway apron. Set street_view_shows_front=true if the main entry is clearly visible; false if only garage/side/back; null if inconclusive.`,
-        `  \u2022 Do NOT set street_view_shows_front=true unless you can clearly see the front door or main pedestrian entry.`,
-        addressClue, descHint, bearingHint,
-        `\nGUIDING PRINCIPLES:`,
-        `1. NORTH IS UP: The top of Image A is strictly 0\u00b0 North. Identify the building footprint, street, and driveway.`,
-        `2. SCREEN-TO-COMPASS MAPPING:
-           \u2022 Toward TOP of screen    = NORTH (0\u00b0)
-           \u2022 Toward BOTTOM of screen = SOUTH (180\u00b0)
-           \u2022 Toward RIGHT of screen  = EAST (90\u00b0)
-           \u2022 Toward LEFT of screen   = WEST (270\u00b0)
-           \u2022 Toward TOP-RIGHT        = NORTHEAST (45\u00b0)
-           \u2022 Toward BOTTOM-RIGHT     = SOUTHEAST (135\u00b0)
-           \u2022 Toward BOTTOM-LEFT      = SOUTHWEST (225\u00b0)
-           \u2022 Toward TOP-LEFT         = NORTHWEST (315\u00b0)`,
-        `3. WALKWAY RULE (MANDATORY): Trace the pedestrian walkway (including stairs, steps, or tiered paths) from the public sidewalk to the main door. That wall is the architectural FRONT. Priority: Pedestrian Entry > Garage Direction.`,
-        `4. GARAGE IS NOT A DOOR (MANDATORY): A garage/roller door is a vehicular access point, NOT a residential entry. You are strictly FORBIDDEN from setting street_view_shows_front=true if the only visible entry is a garage. You MUST set it to false to trigger a listing photo fallback.`,
-        `4. UNIT-SPECIFIC ACCURACY: In rows of townhouses or condos, identify the specific unit (marked by the red pin). Do not simply state the building's overall orientation. Verify that the door you see in the listing photos actually belongs to the unit at the pin location by matching features (walkway shapes, window patterns, balconies) between the photos and Image A.`,
-        `5. FRONT DOOR VS BUILDING FACE: The front orientation is the direction the FRONT DOOR itself faces. If the door is in an alcove, side-entry, or recessed area, the azimuth must reflect the direction you face when walking out the door, NOT necessarily the building's main street-facing facade.`,
-        `6. SIDE-LOADING GARAGE TRAP (CRITICAL): In corner-lot townhouses, the GARAGE and DRIVEWAY may be on one street (side) while the FRONT DOOR and WALKWAY are on the other street (front).
-           \u2192 DRIVEWAY RECONCILIATION: If Image B shows a porch but NO driveway, and Image A shows a driveway on the South side, the front is NOT the South side. You must find the porch on the aerial and orient to THAT wall.
-           \u2192 Always prioritize the WALKWAY/FRONT DOOR direction for the orientation. Match the corner unit's frontage to its neighbors in the same row if possible.
-           \u2192 RECTANGULAR FOOTPRINT RULE: Most houses are rectangular. You should generally NOT use diagonal azimuths (45, 135, 225, 315) for standard houses just because they are on a corner; identify the specific wall the door is on. If the door is on the East wall, the orientation is 90\u00b0, even if the house sits near a curved Southeast corner.`,
-        `7. ELIMINATION LOGIC: Use Image B to validate your assumptions. If Image B shows a back patio, side wall, or garage-only facade, then the direction that camera is looking is highly unlikely to be the correct final_orientation. Use this to cross-check and re-evaluate aerial assumptions.`,
-        `8. LISTING PHOTOS supplement the aerial by confirming which face of the building matches the front entry.`,
-        `9. TOWARD RULE: The front faces TOWARD the road \u2014 in the direction FROM house center TO the road.
-           \u2022 Road BELOW house (bottom) \u2192 faces SOUTH (180\u00b0).
-           \u2022 Road ABOVE house (top)    \u2192 faces NORTH (0\u00b0).
-           \u2022 Road to the RIGHT of house \u2192 faces EAST (90\u00b0).
-           \u2022 Road to the LEFT of house  \u2192 faces WEST (270\u00b0).
-           IMPORTANT: The orientation is ALWAYS the vector from house center TOWARD the specific road. If the house is Southeast of a Northwest-running road, it faces Northwest. Use Image A cardinal axes strictly.`,
-        `10. SLANTED ROAD PRECISION: If the road is slanted (not perfectly N/E/S/W), the front azimuth MUST also be slanted. Do NOT round to the nearest cardinal direction (N/E/S/W) if it means sacrificing more than 10\u00b0 of accuracy. If a road is at 165\u00b0 (SSE), the perpendicular is 255\u00b0 (WSW), NOT 270\u00b0 (West). Use the lot lines in the Road Map (if provided) as a high-precision reference for perpendicularity.`,
-        `11. TOWNHOUSE COMPLEX LAYOUT RULE: If the property is a townhouse/condo (shared walls) AND the layout is complex (corner lot, cul-de-sac, internal shared driveway, or eyebrow/widened curve) \u2192 You should default to 'UNCLEAR' unless the front door and orientation are indisputable based on high-confidence visual evidence.`,
-        `12. STALE AERIAL / NEW CONSTRUCTION RULE: Listing photos are the GROUND TRUTH for current state. 
-           \u2192 If listing photos show a finished exterior (windows, roof, siding complete), set is_under_construction=false (even if aerial shows dirt).
-           \u2192 If listing photos show an unfinished state (exposed framing, scaffolding, foundation, or active construction site), set is_under_construction=true.
-           \u2192 If NO listing photos are available, use Image A (aerial) to decide.
-           \u2192 If is_under_construction=true and the footprint is not yet defined, you may set final_orientation="UNDER_CONSTRUCTION".`,
-        `\nLAYOUT CLASSIFICATION (do FIRST):`,
-        `CORNER LOT: Two named public roads meeting at an intersection adjacent to the lot \u2192 corner_lot.`,
-        `CORNER LOT FACING: If a property is at an intersection, it has two potential frontages. Identify the main pedestrian entrance/walkway. The orientation is the vector from that entrance TOWARD the street it faces. Do NOT average the two street bearings or use the bearing of the secondary street.`,
-        `CUL-DE-SAC: Circular dead-end street; driveway connects to the circle \u2192 cul_de_sac.`,
-        `Set standard_street_layout=FALSE for: corner lot, flag lot, curved/loop street, cul-de-sac.`,
-        `\nCONFIDENCE GATE (MANDATORY): If you cannot clearly identify driveway apron OR pedestrian walkway from aerial + listing photos combined:`,
-        `\u2192 confidence='low', final_orientation='UNCLEAR', azimuth_degrees=null.`,
-        `\nTASK:`,
-        `Step 1 \u2014 Layout: classify lot type.`,
-        `Step 2 \u2014 Aerial analysis: identify building footprint, driveway, and candidate front wall from Image A.`,
-        `Step 3 \u2014 Listing photo confirmation: for each listing photo (Images B, C, D…), decide if it shows the building exterior or front door \u2014 NOT an interior room (kitchen, bedroom, bathroom, living area, etc.). Set street_view_shows_front based on the best exterior photo found. Set listing_photos_showing_front to an array of image labels (e.g. [\"B\",\"C\"]) for every photo that showed the exterior or front door; use an empty array if none did.`,
-        `Step 4 \u2014 Front wall compass direction (0\u00b0=N, 90\u00b0=E, 180\u00b0=S, 270\u00b0=W). PERPENDICULAR RULE: azimuth must be ~perpendicular (\u00b145\u00b0) to the road bearing. If parallel \u2192 correct or set UNCLEAR.`,
-        `Step 5 \u2014 Assess: privacy sightlines, lot coverage (hardscape/pervious %), pool/garage directions, buyer pro/con.`,
-        `\nEXPLANATION FORMAT \u2014 use this EXACT structure:\n(1) LAYOUT: type and one visual reason.\n(2) STREET CONTEXT: address street, which edge, approximate bearing.\n(3) AERIAL EVIDENCE: driveway/walkway on Image A, which road edge it connects to, raw aerial azimuth.\n(4) LISTING PHOTO EVIDENCE: what each listing photo shows, whether aerial vs ground-level, and how street_view_shows_front was set.\n(5) FINAL: final orientation and confidence.`,
-    ].join('\n').trim();
-}
+// ─── Prompt builder (Now using modular prompts from ./prompts) ────────────────
 
 // ─── Core: analyze a single property ─────────────────────────────────────────
 
@@ -697,13 +406,28 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     const propSnap = await db.collection('properties').doc(zpid).get();
     if (!propSnap.exists) throw new Error(`Property ${zpid} not found`);
     const prop = propSnap.data();
-
     const address = prop.address || '';
     const homeType = (prop.homeType || '').toUpperCase();
+
+    // Cache check: skip if we already have any orientation result from this version
+    const existingAi = prop.orientation_ai || {};
+    if (existingAi.final_orientation && existingAi.batch_version === BATCH_VERSION) {
+        console.log(`[Batch] Skipping ${zpid}: ${BATCH_VERSION} result already exists (${existingAi.final_orientation}).`);
+        return {
+            status: 'cached',
+            orientation: existingAi.final_orientation,
+            steps: ['Cache Check: Previous result found (Skipping regardless of confidence)'],
+            apis: []
+        };
+    }
+
     let aerialUrl = prop.satelliteImageUrl || null;
     let svUrl = prop.streetView || prop.streetViewAnalysis?.imageUrl || null;
 
     if (!aerialUrl) throw new Error(`No cached aerial image for ${zpid}`);
+
+    const steps = [];
+    const apis = [];
 
     // 2. Street bearing via Maps Geocoding API
     // Extract property centroid from satelliteImageUrl (center=lat,lng param) or Firestore fields.
@@ -718,9 +442,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
 
     let streetBearing = null, streetSide = null;
     try {
+        steps.push('Maps Geocoding: Fetching street bearing');
+        apis.push('Google Maps Geocoding');
         const br = await _getStreetBearing(address, mapsKey, propLat, propLng, logger);
         streetBearing = br?.bearing ?? null;
         streetSide = br?.streetSide ?? null;
+        if (streetBearing !== null) steps.push(`Street bearing resolved: ${Math.round(streetBearing)}°`);
     } catch (e) { console.warn(`[Batch] Street bearing failed for ${zpid}:`, e.message); }
 
     // 2b. Resolve storage bucket for image re-caching
@@ -734,6 +461,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     ]);
 
     if (!aerialAlive && propLat != null) {
+        steps.push('Aerial Image: Refreshing dead URL');
+        apis.push('Google Maps Static (Aerial)');
         console.warn(`[Batch] ${zpid}: Aerial URL expired/dead — re-fetching from Google Maps Static API.`);
         try { aerialUrl = await _refreshAerialUrl(zpid, propLat, propLng, mapsKey, db, bucket, logger); }
         catch (e) { console.warn(`[Batch] ${zpid}: Aerial re-fetch failed:`, e.message); }
@@ -742,6 +471,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     }
 
     if (svUrl && !svAlive && propLat != null) {
+        steps.push('Street View: Refreshing dead URL');
+        apis.push('Google Street View (Metadata/Static)');
         console.warn(`[Batch] ${zpid}: Street view URL expired/dead — re-fetching from Street View API.`);
         try {
             const freshSv = await _refreshStreetViewUrl(zpid, propLat, propLng, mapsKey, db, bucket, address, logger);
@@ -848,6 +579,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     let roadmapImg = null;
     if (propLat != null && propLng != null && radarKey) {
         try {
+            steps.push('Radar Maps: Fetching roadmap context');
+            apis.push('Radar Static Maps');
             roadmapImg = await _fetchRoadmapImage(propLat, propLng, radarKey, logger);
             console.log(`[Batch] ${zpid}: Radar Roadmap image fetched.`);
         } catch (e) {
@@ -867,12 +600,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     }
 
     // 5. Build prompt and call Gemini 2.5 Flash
-    // If SV is missing but we have listing photos, use them in the primary call.
-    // Otherwise, use standard prompt (and fallback to photos only if result is UNCLEAR).
+    const { getOrientationPrompt, getListingPhotoPrompt, satellitarySchema } = await import('./prompts/property/satellitaryAnalysis.js');
+    
     let usesListingPhotos = !usesDualImage && listingPhotoImgs.length > 0;
     const prompt = usesListingPhotos
-        ? _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed, roadmapLabel, homeType)
-        : _buildOrientationPrompt(usesDualImage, address, prop.description || null, streetBearing, streetSide, svHeading, roadmapLabel, homeType);
+        ? getListingPhotoPrompt({ address, description: prop.description || null, streetBearing, streetSide, photoCount: listingPhotoImgs.length, photoMeta: listingPhotosUsed, roadmapLabel, homeType })
+        : getOrientationPrompt({ usesDualImage, address, description: prop.description || null, streetBearing, streetSide, svHeading, roadmapLabel, homeType });
 
     const parts = [
         { text: prompt },
@@ -893,9 +626,11 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
 
     const model = new GoogleGenerativeAI(geminiKey).getGenerativeModel({
         model: ORIENTATION_MODEL_CF,
-        generationConfig: { responseMimeType: 'application/json', responseSchema: ORIENTATION_SCHEMA },
+        generationConfig: { responseMimeType: 'application/json', responseSchema: satellitarySchema },
     });
 
+    steps.push(`Gemini Pass 1: ${usesListingPhotos ? 'Aerial + Listing Photos' : usesDualImage ? 'Aerial + Street View' : 'Aerial Only'}`);
+    apis.push(`Gemini (${ORIENTATION_MODEL_CF})`);
     const geminiResult = await model.generateContent({ contents: [{ role: 'user', parts }] });
     if (logger) logger.logLLMCall(ORIENTATION_MODEL_CF, geminiResult.response.usageMetadata?.promptTokenCount, geminiResult.response.usageMetadata?.candidatesTokenCount, zpid, 'orientation.js');
     let data;
@@ -1154,7 +889,10 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     if (finalOrientation === 'UNCLEAR' && (!usesDualImage || svWasUninformative || complexLayoutForcedUnclear) && !isMultiUnit && !usesListingPhotos && listingPhotoImgs.length > 0) {
         console.log(`[Batch] ${zpid}: UNCLEAR (shows_front=${data.street_view_shows_front}, complexLayout=${complexLayoutForcedUnclear}) — Pass 2 with ${listingPhotoImgs.length} listing photo(s).`);
         try {
-            const retryPrompt = _buildListingPhotoPrompt(address, prop.description || null, streetBearing, streetSide, listingPhotoImgs.length, listingPhotosUsed);
+            steps.push(`Gemini Pass 2: Listing Photo Retry (${listingPhotoImgs.length} photos)`);
+            apis.push(`Gemini (${ORIENTATION_MODEL_CF})`);
+            const { getListingPhotoPrompt } = await import('./prompts/property/satellitaryAnalysis.js');
+            const retryPrompt = getListingPhotoPrompt({ address, description: prop.description || null, streetBearing, streetSide, photoCount: listingPhotoImgs.length, photoMeta: listingPhotosUsed });
             const retryParts = [
                 { text: retryPrompt },
                 { inlineData: { mimeType: aerialImg.mimeType, data: aerialImg.data } },
@@ -1218,6 +956,9 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
         property_layout_type: data.property_layout_type ?? null,
         explanation: data.explanation ?? null,
         is_under_construction: data.is_under_construction ?? false,
+        steps: steps || [],
+        apis: Array.from(new Set(apis || [])),
+        batch_version: BATCH_VERSION,
         // Listing photo provenance — which image_by_image_analysis entries were sent to Gemini.
         // null when street view was used; [] when aerial-only with no exterior photos found.
         listing_photos_used: usesListingPhotos ? listingPhotosUsed : null,
@@ -1228,7 +969,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
         smoke_test_results: {
             has_orientation: finalOrientation !== 'UNCLEAR',
             confidence_high: finalConfidence === 'high',
-            is_v21: true,
+            version: BATCH_VERSION,
+            is_v30: true, // Legacy flag support
             is_under_construction: !!data.is_under_construction
         }
     };
@@ -1244,7 +986,7 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
             const visualSnap = await db.collection('properties').doc(zpid).collection('analysis').doc('visual').get();
             const hasInsights = !!(visualSnap.data()?.exterior_and_neighborhood?.neighborhood_street_insights?.length > 20);
             if (!hasInsights) {
-                await _enrichStreetInsights(zpid, db, geminiKey, svUrl, { inlineData: { data: svImg.data, mimeType: svImg.mimeType } });
+                await _enrichStreetInsights(zpid, db, geminiKey, svUrl, logger, { inlineData: { data: svImg.data, mimeType: svImg.mimeType } });
             }
         } catch (e) {
             console.warn(`[Batch] Street insights failed for ${zpid}:`, e.message);
@@ -1270,7 +1012,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     }
 
     console.log(`[Batch] ✓ ${zpid} → ${finalOrientation}`);
-    return finalOrientation;
+    return {
+        status: 'success',
+        orientation: finalOrientation,
+        steps,
+        apis: Array.from(new Set(apis))
+    };
 }
 
 // ─── Exported Cloud Function ──────────────────────────────────────────────────
@@ -1315,7 +1062,7 @@ exports.runOrientationBatchOnCreate = functions
         const logger = new UsageLogger(snap.ref);
         await logger.initialize();
 
-        let done = 0, failed = 0;
+        let done = 0, failed = 0, cached = 0;
 
         // Process zpids in waves of BATCH_CONCURRENCY (20).
         // Promise.allSettled ensures one failure doesn't cancel the rest of the wave.
@@ -1336,25 +1083,42 @@ exports.runOrientationBatchOnCreate = functions
                     }
 
                     try {
-                        await _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logger);
-                        done++;
+                        const result = await _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logger);
+                        if (result.status === 'cached') cached++;
+                        else done++;
+
+                        const updateData = {
+                            done,
+                            failed,
+                            cached,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                        };
+                        updateData[`results.${zpid}`] = result;
+                        await snap.ref.update(updateData);
                     } catch (e) {
                         console.error(`[Batch] ✗ ${zpid}:`, e.message);
                         failed++;
+                        const failResult = { status: 'failed', error: e.message, steps: ['Execution failed'], apis: [] };
+                        const updateData = {
+                            done,
+                            failed,
+                            cached,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                        };
+                        updateData[`results.${zpid}`] = failResult;
+                        await snap.ref.update(updateData);
                     }
-                    // Real-time progress update after each property completes
-                    await snap.ref.update({ done, failed, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
                     await logger.flush();
                 }),
             );
         }
 
         await snap.ref.update({
-            status: 'completed', done, failed,
+            status: 'completed', done, failed, cached,
             completedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        console.log(`[Batch] Job ${context.params.jobId} complete — ${done} ok, ${failed} failed / ${zpids.length} total`);
+        console.log(`[Batch] Job ${context.params.jobId} complete — ${done} ok, ${cached} cached, ${failed} failed / ${zpids.length} total`);
         return null;
     });
 

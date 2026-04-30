@@ -326,6 +326,7 @@ export function useExploreTabData({
                     !fema.hazards?.earthquake ||
                     !fema.hazards?.tornado
                 );
+                console.log(`[FEMA Debug] zpid=${zpid} femaNriCache=${JSON.stringify(femaNriCache)?.substring(0, 80)} envFema=${JSON.stringify(envCache?.historical_disasters?.femaRiskIndex)?.substring(0, 80)} isLegacy=${isLegacy} hasCoords=${!!propertyData?.coordinates}`);
 
                 if (isLegacy || !fema) {
                     if (propertyData.coordinates) {
@@ -333,11 +334,12 @@ export function useExploreTabData({
                         setIsHealingFema(true);
                         try {
                             const freshFema = await fetchFemaRiskIndex(
-                                propertyData.coordinates.latitude, 
+                                propertyData.coordinates.latitude,
                                 propertyData.coordinates.longitude,
-                                zpid, 
+                                zpid,
                                 propertyData.address
                             );
+                            console.log(`[FEMA Debug] freshFema=${JSON.stringify(freshFema)?.substring(0, 100)}`);
                             if (freshFema) {
                                 console.log(`[ExploreTab] ✓ FEMA NRI healed and saved to dedicated doc`);
                                 activeNri = freshFema;
@@ -345,21 +347,32 @@ export function useExploreTabData({
                                     const nriRef = doc(db, "properties", zpid, "environmental", "fema_nri");
                                     await setDoc(nriRef, freshFema, { merge: true });
                                 }
+                            } else {
+                                // Healing failed — keep whatever partial data we had rather than regressing to null
+                                activeNri = activeNri ?? fema ?? null;
+                                console.warn(`[ExploreTab] FEMA NRI fetch returned null, retaining existing data`);
                             }
                         } catch (err) {
+                            activeNri = activeNri ?? fema ?? null;
                             console.warn('[ExploreTab] FEMA healing failed:', err);
                         } finally {
                             setIsHealingFema(false);
                         }
+                    } else {
+                        console.warn(`[FEMA Debug] Skipping heal — no coordinates for zpid=${zpid}`);
                     }
+                } else {
+                    console.log(`[FEMA Debug] No healing needed — using existing fema data, hazards keys: ${Object.keys(fema?.hazards || {}).join(',')}`);
                 }
 
                 // Merge seismic + healed FEMA NRI
+                // activeNri may still be null if fema_nri doc doesn't exist yet but
+                // thirdparty_data already has valid non-legacy data — fall back to fema.
                 const mergedEnv = {
                     ...envCache,
                     historical_disasters: {
                         ...(envCache?.historical_disasters || {}),
-                        femaRiskIndex: activeNri
+                        femaRiskIndex: activeNri ?? fema
                     }
                 };
                 setEnvironmentalData(mergedEnv);

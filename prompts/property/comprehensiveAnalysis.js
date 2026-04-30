@@ -30,12 +30,12 @@ export const getComprehensiveAnalysisPrompt = (property, visual) => {
   - visual_appeal_condition: Visual appeal, finishes, condition.
   - outdoors_view_quality: paragraph on views, privacy, backyard, patio,
 
-  **Respond as a JSON object matching the requested schema.**
+  **CRITICAL: You MUST respond with a valid JSON object only. No markdown, no code fences, no additional text.**
 
   Return your response as a JSON object:
   {
     "summary": "150-200 word summary with key highlights. Use **bold** for critical decision factors.",
-    "risks_considerations": "paragraph on location, condition, financial, infrastructure, legal risks"
+    "risks_considerations": "paragraph on location, condition, financial, infrastructure, legal risks etc"
   }
   `;
 };

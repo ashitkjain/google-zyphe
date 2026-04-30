@@ -38,7 +38,7 @@ export interface TimeSeriesPoint {
  * High-performance log fetcher and aggregator for Admin Audits.
  * Aggregates both API calls (Radar, Google Maps, RapidAPI) and LLM calls (Gemini).
  */
-export const fetchAuditAggregations = async (timeframe: 'weekly' | 'monthly' = 'weekly'): Promise<{
+export const fetchAuditAggregations = async (timeframe: 'daily' | 'weekly' | 'monthly' = 'weekly'): Promise<{
     summary: {
         totalApi: number;
         totalGemini: number;
@@ -50,7 +50,7 @@ export const fetchAuditAggregations = async (timeframe: 'weekly' | 'monthly' = '
     if (!db) throw new Error("Firestore not initialized");
 
     const now = Date.now();
-    const lookbackDays = timeframe === 'weekly' ? 7 : 30;
+    const lookbackDays = timeframe === 'daily' ? 1 : timeframe === 'weekly' ? 7 : 30;
     const startTime = now - (lookbackDays * 24 * 60 * 60 * 1000);
     const startTimestamp = Timestamp.fromMillis(startTime);
 
@@ -168,15 +168,21 @@ export const fetchAuditAggregations = async (timeframe: 'weekly' | 'monthly' = '
         }
     });
 
-    // 3. Time Series (Daily buckets for the selected timeframe)
+    // 3. Time Series (Daily or Hourly buckets for the selected timeframe)
     const timePoints: Record<string, TimeSeriesPoint> = {};
     const getBucketKey = (date: Date) => {
+        if (timeframe === 'daily') {
+            return `${date.getHours().toString().padStart(2, '0')}:00`;
+        }
         return date.toISOString().split('T')[0]; // YYYY-MM-DD
     };
 
     // Initialize buckets
-    for (let i = 0; i < lookbackDays; i++) {
-        const d = new Date(now - (i * 24 * 60 * 60 * 1000));
+    const bucketCount = timeframe === 'daily' ? 24 : lookbackDays;
+    const stepMs = timeframe === 'daily' ? (60 * 60 * 1000) : (24 * 60 * 60 * 1000);
+    
+    for (let i = 0; i < bucketCount; i++) {
+        const d = new Date(now - (i * stepMs));
         const key = getBucketKey(d);
         timePoints[key] = { label: key, date: d, apiCalls: 0, geminiCalls: 0, tokens: 0 };
     }

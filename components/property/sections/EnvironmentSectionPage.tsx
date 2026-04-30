@@ -17,6 +17,7 @@ interface Props {
     micro?: MicroclimateDelta | null;
     onRefreshEnvironment?: () => void;
     environmentRefreshing?: boolean;
+    isHealingFema?: boolean;
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -135,19 +136,11 @@ function InfoTip({ tip }: { tip: string }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, micro }) => {
+export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, micro, isHealingFema }) => {
 
     // ── Climate risk scores (Prefer FEMA NRI) ────────────────────────────────
     const [allHazardsExpanded, setAllHazardsExpanded] = React.useState(false);
     const nri = data.historical_disasters?.femaRiskIndex;
-
-    // DEBUG: Remove before prod
-    console.log('[Climate] EnvironmentSectionPage data:', {
-        zpid: data.zpid,
-        hasNri: !!nri,
-        nriHazards: nri?.hazards,
-        rootWind: data.windRiskScore
-    });
 
     // Helper to get score: either already mapped 1-10 on root, or derived from NRI percentiles
     // Helper to get raw data
@@ -394,8 +387,25 @@ export const EnvironmentSectionPage: React.FC<Props> = ({ data, solarPotential, 
 
                     {/* 4 risk tiles */}
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${riskTiles.length}, 1fr)`, gap: 14, marginBottom: 20 }}>
-                        {riskTiles.map(t => <RiskTile key={t.label} icon={t.icon} label={t.label} score={t.score} rating={t.rating} />)}
+                        {riskTiles.map(t => (
+                            <RiskTile
+                                key={t.label}
+                                icon={t.icon}
+                                label={t.label}
+                                score={t.score}
+                                rating={t.rating}
+                                isLegacyNRI={t.isLegacyNRI}
+                                isFallback={t.isFallback}
+                            />
+                        ))}
                     </div>
+
+                    {isHealingFema && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#eff6ff', borderRadius: 10, border: '1px solid #bfdbfe', marginBottom: 16 }}>
+                            <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: 10, color: '#3b82f6' }} />
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#1d4ed8' }}>Fetching FEMA National Risk Index scores…</span>
+                        </div>
+                    )}
 
                     {/* Resilience Actions Integrated here */}
                     {actions.length > 0 && (

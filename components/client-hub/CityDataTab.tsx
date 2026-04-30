@@ -54,6 +54,44 @@ function parseCityInput(input: string): { cityName: string; stateCode?: string }
     return { cityName: input.trim() };
 }
 
+const JobTimer: React.FC<{ createdAt: any, status: string, updatedAt?: any }> = ({ createdAt, status, updatedAt }) => {
+    const [elapsed, setElapsed] = React.useState<string>('--:--');
+    
+    const calculate = React.useCallback(() => {
+        const start = createdAt?.toMillis?.() || createdAt?.toDate?.()?.getTime() || (typeof createdAt === 'number' ? createdAt : 0);
+        if (!start) return '--:--';
+
+        const end = ['running', 'queued'].includes(status) 
+            ? Date.now() 
+            : (updatedAt?.toMillis?.() || updatedAt?.toDate?.()?.getTime() || (typeof updatedAt === 'number' ? updatedAt : Date.now()));
+            
+        const diff = Math.max(0, end - start);
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }, [createdAt, status, updatedAt]);
+
+    React.useEffect(() => {
+        setElapsed(calculate());
+        if (!['running', 'queued'].includes(status)) return;
+
+        const interval = setInterval(() => {
+            setElapsed(calculate());
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [status, calculate]);
+
+    return (
+        <span className={`inline-flex items-center gap-1.5 font-mono text-[9px] px-2 py-0.5 rounded-lg ${
+            ['running', 'queued'].includes(status) ? 'bg-slate-900 text-white animate-in fade-in' : 'bg-slate-100 text-slate-500'
+        }`}>
+            <i className={`fa-solid fa-clock text-[8px] ${['running', 'queued'].includes(status) ? 'animate-pulse text-indigo-400' : ''}`}></i>
+            {elapsed}
+        </span>
+    );
+};
+
 const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => void }> = ({ onNavigate }) => {
     const [city, setCity] = useState('');
     // State removed as per new API requirements
@@ -125,7 +163,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     // Batch Orientation
     const [orientBatchRunning, setOrientBatchRunning] = useState(false);
-    const [orientBatchProgress, setOrientBatchProgress] = useState<{ computed: number; cached: number; failed: number; total: number } | null>(null);
+    const [orientBatchProgress, setOrientBatchProgress] = useState<{ computed: number; cached: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
 
     // Active Batch tracking
     const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
@@ -149,6 +187,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     // Batch Asset Secure
     const [assetBatchRunning, setAssetBatchRunning] = useState(false);
     const [assetBatchProgress, setAssetBatchProgress] = useState<{ done: number; failed: number; total: number; results?: Record<string, any> } | null>(null);
+    const [assetBatchTimedOut, setAssetBatchTimedOut] = useState<{ remainingZpids: string[] } | null>(null);
     const [runResultsFilter, setRunResultsFilter] = useState<'all' | 'failed'>('all');
 
     // Run Summary Modal State
@@ -213,6 +252,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     useEffect(() => {
         if (!activeBatchId) return;
 
+        // Clear running flags for batch types we're no longer tracking
+        if (!activeBatchId.startsWith('asset_')) { setAssetBatchRunning(false); setAssetBatchTimedOut(null); }
+        if (!activeBatchId.startsWith('intel_')) setIntelBatchRunning(false);
+        if (!activeBatchId.startsWith('narrative_')) setNarrativeBatchRunning(false);
+        if (!activeBatchId.startsWith('orient_')) setOrientBatchRunning(false);
+        if (!activeBatchId.startsWith('prop_')) setPropBatchRunning(false);
+
         let unsubscribe: (() => void) | undefined;
 
         const setupListener = async () => {
@@ -239,21 +285,30 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     results: data.results || {}
                 };
 
+                const isFinished = ['completed', 'failed', 'cancelled', 'timeout'].includes(data.status);
+
                 if (activeBatchId.startsWith('intel_')) {
                     setIntelBatchProgress(progress);
-                    if (data.status === 'completed') setIntelBatchRunning(false);
+                    if (isFinished) setIntelBatchRunning(false);
                 } else if (activeBatchId.startsWith('orient_')) {
-                    setOrientBatchProgress({ ...progress, computed: data.done || 0, cached: 0 });
-                    if (data.status === 'completed') setOrientBatchRunning(false);
+                    setOrientBatchProgress({ ...progress, computed: data.done || 0, cached: data.cached || 0, results: data.results || {} });
+                    if (isFinished) setOrientBatchRunning(false);
                 } else if (activeBatchId.startsWith('narrative_')) {
                     setNarrativeBatchProgress(progress);
-                    if (data.status === 'completed') setNarrativeBatchRunning(false);
+                    if (isFinished) setNarrativeBatchRunning(false);
                 } else if (activeBatchId.startsWith('asset_')) {
                     setAssetBatchProgress(progress);
-                    if (data.status === 'completed') setAssetBatchRunning(false);
+                    if (isFinished) {
+                        setAssetBatchRunning(false);
+                        if (data.status === 'timeout' && data.remainingZpids?.length > 0) {
+                            setAssetBatchTimedOut({ remainingZpids: data.remainingZpids });
+                        } else {
+                            setAssetBatchTimedOut(null);
+                        }
+                    }
                 } else {
                     setPropBatchProgress(progress);
-                    if (data.status === 'completed') setPropBatchRunning(false);
+                    if (isFinished) setPropBatchRunning(false);
                 }
 
                 if (data.status === 'completed') {
@@ -3881,6 +3936,9 @@ ${JSON.stringify(propertySummaries)}
                                                     <i className="fa-solid fa-database text-xs"></i>
                                                 </div>
                                                 <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Property Data</span>
+                                                {propBatchRunning && activeBatchId?.startsWith('prop_') && (
+                                                    <JobTimer createdAt={parseInt(activeBatchId.split('_').pop() || '0')} status="running" />
+                                                )}
                                             </div>
                                             <div className="flex items-end justify-between mb-2">
                                                 <span className="text-2xl font-black tabular-nums">{propBatchProgress.done} <span className="text-xs text-slate-400 uppercase">/ {propBatchProgress.total}</span></span>
@@ -3901,6 +3959,9 @@ ${JSON.stringify(propertySummaries)}
                                                         <i className="fa-solid fa-brain text-xs"></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Full Intel</span>
+                                                    {intelBatchRunning && activeBatchId?.startsWith('intel_') && (
+                                                        <JobTimer createdAt={parseInt(activeBatchId.split('_').pop() || '0')} status="running" />
+                                                    )}
                                                 </div>
                                                 {intelBatchRunning && (
                                                     <button 
@@ -3938,6 +3999,9 @@ ${JSON.stringify(propertySummaries)}
                                                         <i className="fa-solid fa-compass text-xs"></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Orientation</span>
+                                                    {orientBatchRunning && activeBatchId?.startsWith('orient_') && (
+                                                        <JobTimer createdAt={parseInt(activeBatchId.split('_').pop() || '0')} status="running" />
+                                                    )}
                                                 </div>
                                                 {orientBatchRunning && (
                                                     <button 
@@ -3975,6 +4039,9 @@ ${JSON.stringify(propertySummaries)}
                                                         <i className="fa-solid fa-file-signature text-xs"></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Narrative</span>
+                                                    {narrativeBatchRunning && activeBatchId?.startsWith('narrative_') && (
+                                                        <JobTimer createdAt={parseInt(activeBatchId.split('_').pop() || '0')} status="running" />
+                                                    )}
                                                 </div>
                                                 {narrativeBatchRunning && (
                                                     <button 
@@ -4005,20 +4072,38 @@ ${JSON.stringify(propertySummaries)}
 
                                     {/* Asset Secure Card */}
                                     {assetBatchProgress && (
-                                        <div className={`p-6 rounded-2xl border-2 transition-all ${assetBatchRunning ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100 bg-white'}`}>
+                                        <div className={`p-6 rounded-2xl border-2 transition-all ${assetBatchRunning ? 'border-rose-200 bg-rose-50/30' : assetBatchTimedOut ? 'border-amber-200 bg-amber-50/30' : 'border-slate-100 bg-white'}`}>
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${assetBatchRunning ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                                        <i className="fa-solid fa-shield-halved text-xs"></i>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${assetBatchRunning ? 'bg-rose-500 text-white animate-pulse' : assetBatchTimedOut ? 'bg-amber-400 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                        <i className={`fa-solid ${assetBatchTimedOut ? 'fa-clock' : 'fa-shield-halved'} text-xs`}></i>
                                                     </div>
                                                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Security</span>
+                                                    {assetBatchRunning && activeBatchId?.startsWith('asset_') && (
+                                                        <JobTimer createdAt={parseInt(activeBatchId.split('_').pop() || '0')} status="running" />
+                                                    )}
+                                                    {assetBatchTimedOut && (
+                                                        <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded-md">Timed Out</span>
+                                                    )}
                                                 </div>
                                                 {assetBatchRunning && (
-                                                    <button 
+                                                    <button
                                                         onClick={() => requestStop(activeBatchId!)}
                                                         className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all"
                                                     >
                                                         Stop Run
+                                                    </button>
+                                                )}
+                                                {assetBatchTimedOut && (
+                                                    <button
+                                                        onClick={() => {
+                                                            handleBulkSecureImages(assetBatchTimedOut.remainingZpids);
+                                                            setAssetBatchTimedOut(null);
+                                                        }}
+                                                        className="text-[9px] font-black text-amber-600 hover:text-amber-700 uppercase tracking-widest bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+                                                    >
+                                                        <i className="fa-solid fa-rotate-right text-[8px]"></i>
+                                                        Resume ({assetBatchTimedOut.remainingZpids.length} left)
                                                     </button>
                                                 )}
                                             </div>
@@ -4035,7 +4120,7 @@ ${JSON.stringify(propertySummaries)}
                                                 {assetBatchProgress.failed > 0 && <span className="text-[10px] font-black text-rose-500 uppercase tracking-tighter">{assetBatchProgress.failed} Failed</span>}
                                             </div>
                                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${(assetBatchProgress.done / assetBatchProgress.total) * 100}%` }}></div>
+                                                <div className={`h-full transition-all duration-500 ${assetBatchTimedOut ? 'bg-amber-400' : 'bg-rose-500'}`} style={{ width: `${(assetBatchProgress.done / assetBatchProgress.total) * 100}%` }}></div>
                                             </div>
                                         </div>
                                     )}
@@ -4082,25 +4167,52 @@ ${JSON.stringify(propertySummaries)}
                                     {Object.entries({
                                         ...(propBatchProgress?.results || {}),
                                         ...(intelBatchProgress?.results || {}),
+                                        ...(orientBatchProgress?.results || {}),
                                         ...(narrativeBatchProgress?.results || {}),
                                         ...(assetBatchProgress?.results || {})
                                     })
                                         .filter(([_, result]: [string, any]) => runResultsFilter === 'all' || result.status === 'failed' || result.status === 'error')
                                         .reverse()
                                         .map(([zpid, result]: [string, any]) => (
-                                            <div key={zpid} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl animate-in fade-in slide-in-from-left-4 duration-300">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-2 h-2 rounded-full ${result.status === 'success' || result.status === 'cached' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500'}`}></div>
-                                                    <div>
-                                                        <p className="text-[11px] font-black text-slate-900 tabular-nums uppercase tracking-widest">{zpid}</p>
-                                                        <p className="text-[10px] font-bold text-slate-500 uppercase">{result.message || 'Processing complete'}</p>
+                                            <div key={zpid} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl animate-in fade-in slide-in-from-left-4 duration-300">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-2 h-2 rounded-full ${result.status === 'success' || result.status === 'cached' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500'}`}></div>
+                                                        <div>
+                                                            <p className="text-[11px] font-black text-slate-900 tabular-nums uppercase tracking-widest">{zpid}</p>
+                                                            <p className="text-[10px] font-bold text-slate-500 uppercase">{result.message || (result.status === 'cached' ? 'Pulled from cache' : 'Processing complete')}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${result.status === 'success' || result.status === 'cached' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                            {result.status}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${result.status === 'success' || result.status === 'cached' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                                        {result.status}
-                                                    </span>
-                                                </div>
+
+                                                {(result.steps || result.apis) && (
+                                                    <div className="mt-3 pt-3 border-t border-slate-200/50">
+                                                        {result.steps && result.steps.length > 0 && (
+                                                            <div className="space-y-1 mb-2">
+                                                                {result.steps.map((step: string, i: number) => (
+                                                                    <p key={i} className="text-[9px] text-slate-500 font-medium flex items-start gap-2">
+                                                                        <i className="fa-solid fa-angle-right mt-0.5 opacity-30"></i>
+                                                                        {step}
+                                                                    </p>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {result.apis && result.apis.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {result.apis.map((api: string, i: number) => (
+                                                                    <span key={i} className="text-[8px] px-1.5 py-0.5 bg-slate-200/60 text-slate-500 rounded font-black uppercase tracking-tighter border border-slate-300/30">
+                                                                        {api}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                 </div>
@@ -4221,9 +4333,7 @@ ${JSON.stringify(propertySummaries)}
                                                     <div className="flex items-center gap-2">
                                                         <span>{item.progress.step}</span>
                                                         <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                                        <span className="font-mono text-indigo-500">
-                                                            {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
-                                                        </span>
+                                                        <JobTimer createdAt={item.startTime} status={item.status} updatedAt={item.endTime} />
                                                     </div>
                                                     <span className="text-indigo-600">Active</span>
                                                 </div>
@@ -4323,9 +4433,7 @@ ${JSON.stringify(propertySummaries)}
                                                         <i className="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition-transform"></i>
                                                     </button>
                                                     {item.startTime && item.endTime && (
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                            Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
-                                                        </span>
+                                                        <JobTimer createdAt={item.startTime} status={item.status} updatedAt={item.endTime} />
                                                     )}
                                                 </div>
                                             </div>
@@ -4603,6 +4711,7 @@ ${JSON.stringify(propertySummaries)}
                                                     }`}>
                                                         {job.status}
                                                     </span>
+                                                    <JobTimer createdAt={job.createdAt} status={job.status} updatedAt={job.updatedAt} />
                                                 </div>
                                                 <h3 className="text-lg font-black text-slate-900 leading-none mb-1">
                                                     {job.city || 'Global Batch'} <span className="text-slate-300 font-mono text-sm ml-2">{job.id.slice(-6)}</span>

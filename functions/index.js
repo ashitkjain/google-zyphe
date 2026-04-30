@@ -824,17 +824,8 @@ exports.getCommuteDestinations = functions.https.onCall(async (data, context) =>
             generationConfig: { responseMimeType: "application/json" }
         });
 
-        const prompt = `You are a local transit and economic researcher.
-Identify the top 4 primary commute or high-traffic destinations for residents of ${city}, ${state}.
-CONTEXT: Potential homebuyers need to know where people in this specific city typically commute to for work, major shopping, or regional airports.
-REQUIREMENT: Return ONLY a JSON object. No markdown formatting, no conversational text.
-JSON Structure: 
-{ 
-  "destinations": [ 
-    { "name": "Name of destination", "description": "1-sentence reason why it's a top destination", "search_query": "specific string for Google Maps search" } 
-  ] 
-}
-Include EXACTLY 4 items.`;
+        const { getCommuteDestinationsPrompt } = await import('./prompts/property/commuteDestinations.js');
+        const prompt = getCommuteDestinationsPrompt({ city, state });
 
         const result = await model.generateContent(prompt);
         const usage = result.response.usageMetadata;

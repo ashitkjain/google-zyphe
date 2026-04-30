@@ -397,26 +397,33 @@ export const fetchFemaRiskIndex = async (
         const cleanLat = Number(lat.toFixed(6));
         const cleanLng = Number(lng.toFixed(6));
 
-        const getQueryParams = (withBuffer = false) => {
-            const geometry = withBuffer 
-                ? {
-                    xmin: cleanLng - 0.0001, ymin: cleanLat - 0.0001,
-                    xmax: cleanLng + 0.0001, ymax: cleanLat + 0.0001,
-                    spatialReference: { wkid: 4326 }
-                  }
-                : { x: cleanLng, y: cleanLat, spatialReference: { wkid: 4326 } };
+        // Use outFields=* — listing all 41 field names makes the URL too long and
+        // causes "Invalid query parameters" from ArcGIS for some census tracts.
+        const sharedParams = {
+            inSR: '4326',
+            spatialRel: 'esriSpatialRelIntersects',
+            outFields: '*',
+            f: 'json',
+            returnGeometry: 'false',
+        };
 
+        const buildEnvelopeParams = (bufferDeg: number) => {
             return new URLSearchParams({
-                geometry: JSON.stringify(geometry),
-                geometryType: withBuffer ? 'esriGeometryEnvelope' : 'esriGeometryPoint',
-                inSR: '4326',
-                outSR: '4326',
-                spatialRel: 'esriSpatialRelIntersects',
-                outFields: 'RISK_SCORE,RISK_RATNG,CFLD_RISKS,CFLD_RISKR,IFLD_RISKS,IFLD_RISKR,RFLD_RISKS,RFLD_RISKR,WFIR_RISKS,WFIR_RISKR,HWAV_RISKS,HWAV_RISKR,HRCN_RISKS,HRCN_RISKR,TRND_RISKS,TRND_RISKR,SWND_RISKS,SWND_RISKR,ERQK_RISKS,ERQK_RISKR,DRGT_RISKS,DRGT_RISKR,HAIL_RISKS,HAIL_RISKR,LTNG_RISKS,LTNG_RISKR,LNDS_RISKS,LNDS_RISKR,TSUN_RISKS,TSUN_RISKR,AVLN_RISKS,AVLN_RISKR,CWAV_RISKS,CWAV_RISKR,ISTM_RISKS,ISTM_RISKR,VLCN_RISKS,VLCN_RISKR,WNTW_RISKS,WNTW_RISKR,TRACTFIPS',
-                f: 'json',
-                returnGeometry: 'false'
+                ...sharedParams,
+                geometry: JSON.stringify({
+                    xmin: cleanLng - bufferDeg, ymin: cleanLat - bufferDeg,
+                    xmax: cleanLng + bufferDeg, ymax: cleanLat + bufferDeg,
+                    spatialReference: { wkid: 4326 }
+                }),
+                geometryType: 'esriGeometryEnvelope',
             });
         };
+
+        const pointParams = new URLSearchParams({
+            ...sharedParams,
+            geometry: JSON.stringify({ x: cleanLng, y: cleanLat, spatialReference: { wkid: 4326 } }),
+            geometryType: 'esriGeometryPoint',
+        });
 
         const logId = await logAPICall({
             user_id: auth?.currentUser?.uid || 'unknown',
@@ -427,13 +434,15 @@ export const fetchFemaRiskIndex = async (
             status: 'pending'
         });
         const start = Date.now();
-        let response = await fetch(`${baseUrl}?${getQueryParams(false).toString()}`);
+        let response = await fetch(`${baseUrl}?${pointParams.toString()}`);
         let data = await response.json();
 
-        // FALLBACK: Try with a small buffer if point intersection yields no features
-        if (!data.features?.length) {
-            console.log(`[FEMA NRI] No point data for ${cleanLat},${cleanLng}. Retrying with buffer...`);
-            response = await fetch(`${baseUrl}?${getQueryParams(true).toString()}`);
+        // Graduated buffer fallback: 0.005° (~550m) then 0.015° (~1.6km)
+        // Needed when property coords land on a census-tract boundary or interior gap.
+        for (const bufferDeg of [0.005, 0.015]) {
+            if (data.features?.length) break;
+            console.log(`[FEMA NRI] No point data for ${cleanLat},${cleanLng}. Retrying with ${bufferDeg}° buffer...`);
+            response = await fetch(`${baseUrl}?${buildEnvelopeParams(bufferDeg).toString()}`);
             data = await response.json();
         }
 

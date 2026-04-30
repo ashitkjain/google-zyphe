@@ -259,6 +259,136 @@ const PlatformHelpTab: React.FC<PlatformHelpTabProps> = ({ hideSidebar, initialC
                     )
                 },
                 {
+                    id: 'gemini_infrastructure_audit',
+                    title: 'Gemini Infrastructure Audit',
+                    icon: 'fa-table-list',
+                    content: (
+                        <div className="prose prose-slate max-w-none">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-indigo-100">
+                                    <i className="fa-solid fa-table-list"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 mb-1">Infrastructure Audit</h1>
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">AI Pipeline Mapping · 3rd Party APIs · Token Governance</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 mb-12">
+                                <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                    <i className="fa-solid fa-circle-nodes text-indigo-500 text-sm"></i>
+                                    Platform Intelligence Mapping
+                                </h2>
+                                <p className="text-slate-600 font-medium leading-relaxed mb-0">
+                                    Zyphe's intelligence engine is powered by a multi-tier Gemini architecture. This audit tracks every active prompt, its trigger function, model specification, and estimated token usage for cost monitoring and performance optimization.
+                                </p>
+                            </section>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-indigo-600 pl-6">1. Core Property Intelligence (Batch)</h3>
+                            <div className="overflow-x-auto mb-12">
+                                <table className="w-full text-left border-collapse bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <th className="px-6 py-4 border-b border-slate-100">Function / Prompt</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">Trigger Logic</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">AI Model</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">Est. Tokens</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-[12px] font-medium text-slate-600">
+                                        {[
+                                            { name: 'Visual AI (Property Images)', trigger: 'intelBatch.js (processOneIntel)', model: 'gemini-2.5-flash', tokens: '15k - 40k' },
+                                            { name: 'Lifestyle Insights (Grounded)', trigger: 'intelBatch.js / Google Search', model: 'gemini-2.5-flash', tokens: '40k - 75k' },
+                                            { name: 'Neighborhood Identity', trigger: 'neighborhoodBatch.js', model: 'gemini-2.5-flash', tokens: '20k - 30k' },
+                                            { name: 'Property Orientation (v30)', trigger: 'orientationBatch.js', model: 'gemini-2.5-flash', tokens: '15k - 25k' },
+                                            { name: 'Investment Analysis', trigger: 'intelBatch.js (Economics)', model: 'gemini-2.5-flash', tokens: '20k - 40k' },
+                                            { name: 'Context Graph Extraction', trigger: 'geminiService.ts (DNA)', model: 'gemini-2.5-flash', tokens: '60k - 100k' },
+                                            { name: 'Street Insights (Street View)', trigger: 'propertyUtils.js', model: 'gemini-2.5-flash', tokens: '12k - 18k' }
+                                        ].map((row, i) => (
+                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4 border-b border-slate-100 font-bold text-slate-900">{row.name}</td>
+                                                <td className="px-6 py-4 border-b border-slate-100 font-mono text-[10px] text-indigo-600">{row.trigger}</td>
+                                                <td className="px-6 py-4 border-b border-slate-100">
+                                                    <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md text-[10px] font-black uppercase">
+                                                        {row.model}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 border-b border-slate-100 font-bold">{row.tokens}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-emerald-500 pl-6">2. Real-Time & UI Intelligence</h3>
+                            <div className="overflow-x-auto mb-12">
+                                <table className="w-full text-left border-collapse bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <th className="px-6 py-4 border-b border-slate-100">Function / API</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">UI Trigger</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">Intelligence Tier</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">Est. Tokens</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-[12px] font-medium text-slate-600">
+                                        {[
+                                            { name: 'Commute Destinations', trigger: 'Narrative Search Bar', model: 'gemini-2.0-flash-lite', tokens: '30k - 50k' },
+                                            { name: 'Zyphe Valuation (ARV)', trigger: 'Valuation Engine Tab', model: 'gemini-2.0-flash-lite', tokens: '15k - 25k' },
+                                            { name: 'Land Utility / Slope', trigger: 'Investment Research Tab', model: 'gemini-2.0-flash-lite', tokens: '10k - 15k' },
+                                            { name: 'Comp Normalization', trigger: 'Comparables Table', model: 'gemini-2.0-flash-lite', tokens: '8k - 12k' },
+                                            { name: 'Lead Reactivation', trigger: 'CRM Communication Hub', model: 'gemini-2.0-flash-lite', tokens: '5k - 10k' },
+                                            { name: 'Interior/Room Summary', trigger: 'Property Overview Tab', model: 'gemini-2.0-flash-lite', tokens: '5k - 10k' }
+                                        ].map((row, i) => (
+                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4 border-b border-slate-100 font-bold text-slate-900">{row.name}</td>
+                                                <td className="px-6 py-4 border-b border-slate-100 font-mono text-[10px] text-emerald-600">{row.trigger}</td>
+                                                <td className="px-6 py-4 border-b border-slate-100">
+                                                    <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-[10px] font-black uppercase">
+                                                        {row.model}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 border-b border-slate-100 font-bold">{row.tokens}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-8 border-l-4 border-rose-500 pl-6">3. External APIs & 3rd Party Sources</h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <th className="px-6 py-4 border-b border-slate-100">Provider / API</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">Backend Implementation</th>
+                                            <th className="px-6 py-4 border-b border-slate-100">Data Utility</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-[12px] font-medium text-slate-600">
+                                        {[
+                                            { name: 'MLS Data (RapidAPI)', impl: 'propertyBatch.js', utility: 'Price history, attributes, taxSqft' },
+                                            { name: 'Google Solar API', impl: 'geminiService.ts', utility: 'Roof geometry & solar production' },
+                                            { name: 'Radar Geocoding', impl: 'propertyUtils.js', utility: 'Address resolution & map centering' },
+                                            { name: 'Google Air Quality', impl: 'propertyUtils.js', utility: 'Pollen, AQI, and health recommendations' },
+                                            { name: 'ArcGIS Parcel API', impl: 'propertyUtils.js', utility: 'Lot boundaries & polygon math' },
+                                            { name: 'FEMA Flood Zones', impl: 'propertyUtils.js', utility: 'Hazard mapping & risk assessment' },
+                                            { name: 'HowLoud Noise', impl: 'functions/proxy', utility: 'Traffic, airport, and local noise scores' },
+                                            { name: 'Google Document AI', impl: 'index.js (Parser)', utility: 'PDF/Table extraction from disclosures' }
+                                        ].map((row, i) => (
+                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4 border-b border-slate-100 font-bold text-slate-900">{row.name}</td>
+                                                <td className="px-6 py-4 border-b border-slate-100 font-mono text-[10px] text-rose-600">{row.impl}</td>
+                                                <td className="px-6 py-4 border-b border-slate-100">{row.utility}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )
+                },
+                {
                     id: 'data_sources',
                     title: '3rd Party APIs & Data Sources',
                     icon: 'fa-globe',

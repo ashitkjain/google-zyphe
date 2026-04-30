@@ -291,6 +291,7 @@ const GUIDE_DATA: GuideCategory[] = [
         count: '4 sections',
         items: [
             { id: 'h1', title: 'Data and Intelligence', slug: 'helpCategory:data_and_intelligence', description: '' },
+            { id: 'h6', title: 'Infrastructure Audit', slug: 'helpCategory:data_and_intelligence:gemini_infrastructure_audit', description: 'Comprehensive audit of all system prompts, models, and 3rd party API infrastructure.' },
             { id: 'h2', title: 'Messaging & SMS', slug: 'helpCategory:messaging', description: '' },
             { id: 'h4', title: 'Distressed Property Finder', slug: 'helpCategory:investment_analysis', description: '' },
             { id: 'h5', title: 'Database Schema', slug: 'helpCategory:db_schema', description: '' },
@@ -588,7 +589,11 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate, showOnlyIds, excludeI
                                 ) : guideContent === VC_INSTRUCTIONS_SENTINEL ? (
                                     <VCHelpTab />
                                 ) : typeof guideContent === 'string' && guideContent.startsWith('helpCategory:') ? (
-                                    <PlatformHelpTab hideSidebar initialCategoryId={guideContent.split(':')[1]} />
+                                    <PlatformHelpTab 
+                                        hideSidebar 
+                                        initialCategoryId={guideContent.split(':')[1]} 
+                                        initialTopicId={guideContent.split(':')[2]} 
+                                    />
                                 ) : typeof guideContent === 'string' ? (
                                     <div className="space-y-12">
 

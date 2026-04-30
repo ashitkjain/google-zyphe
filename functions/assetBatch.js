@@ -78,16 +78,35 @@ exports.runSecureImagesBatchOnCreate = functions
         }
 
         const db = admin.firestore();
-        await snap.ref.update({ 
-            status: 'running', 
-            startedAt: admin.firestore.FieldValue.serverTimestamp() 
+        await snap.ref.update({
+            status: 'running',
+            startedAt: admin.firestore.FieldValue.serverTimestamp()
         });
+
+        const startTime = Date.now();
+        const DEADLINE_MS = (540 - 45) * 1000; // 45s safety buffer before Cloud Function timeout
 
         let results = {};
         let done = 0;
         let failed = 0;
 
-        for (const zpid of zpids) {
+        for (let i = 0; i < zpids.length; i++) {
+            const zpid = zpids[i];
+
+            // Approaching timeout — save progress and exit cleanly
+            if (Date.now() - startTime > DEADLINE_MS) {
+                const remainingZpids = zpids.slice(i);
+                console.log(`[Asset Batch] Approaching timeout. ${done} done, ${remainingZpids.length} remaining. Writing timeout status.`);
+                await snap.ref.update({
+                    status: 'timeout',
+                    done, failed, workingCount: 0,
+                    remainingZpids,
+                    results,
+                    timedOutAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                return null;
+            }
+
             // Check for cancellation
             const freshJob = await snap.ref.get();
             if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
@@ -105,6 +124,8 @@ exports.runSecureImagesBatchOnCreate = functions
 
                 const persistentImages = [];
                 const newMetadata = { ...(cached.imageMetadata || {}) };
+                let skipCount = 0;
+                let newCount = 0;
 
                 for (let idx = 0; idx < imageUrls.length; idx++) {
                     const url = imageUrls[idx];
@@ -113,6 +134,7 @@ exports.runSecureImagesBatchOnCreate = functions
 
                     if (cachedUrl && cachedMeta?.originalUrl === url) {
                         persistentImages.push(cachedUrl);
+                        skipCount++;
                         continue;
                     }
 
@@ -120,6 +142,7 @@ exports.runSecureImagesBatchOnCreate = functions
                     const securedUrl = await _secureOneImage(zpid, url, storagePath);
                     persistentImages.push(securedUrl);
                     newMetadata[securedUrl] = { originalUrl: url };
+                    newCount++;
                 }
 
                 await assetsRef.set({
@@ -129,7 +152,8 @@ exports.runSecureImagesBatchOnCreate = functions
                     lastUpdated: admin.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
-                results[zpid] = { status: 'success', count: persistentImages.length };
+                console.log(`[Asset Batch] ✓ ${zpid}: ${newCount} new, ${skipCount} cached.`);
+                results[zpid] = { status: 'success', count: persistentImages.length, newCount, skipCount };
                 done++;
             } catch (e) {
                 console.error(`[Asset Batch Error] ${zpid}:`, e.message);

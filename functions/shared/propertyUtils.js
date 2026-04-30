@@ -229,10 +229,16 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null)
 
     // Fetch supplemental environmental data (all idempotent — skip if already present)
     try {
-        const existingEnv = await envRef.get();
+        const [existingEnv, femaNriSnap] = await Promise.all([
+            envRef.get(),
+            db.collection('properties').doc(zpid).collection('environmental').doc('fema_nri').get()
+        ]);
         const envData = existingEnv.exists ? existingEnv.data() : {};
         await Promise.all([
-            (force || !envData.historical_disasters || !envData.historical_disasters.femaRiskIndex || envData.historical_disasters.femaRiskIndex.overall === undefined) ? _enrichHistoricalDisasters(zpid, db, lat, lng) : Promise.resolve(),
+            // Run historical disasters if: forced, seismic data missing, OR dedicated fema_nri doc absent.
+            // The old check (thirdparty_data.historical_disasters.femaRiskIndex) is intentionally dropped —
+            // FEMA NRI now lives in fema_nri and may never have been backfilled for older properties.
+            (force || !envData.historical_disasters?.seismicZone || !femaNriSnap.exists) ? _enrichHistoricalDisasters(zpid, db, lat, lng) : Promise.resolve(),
             !envData.google_places       ? _enrichNearbyPlaces(zpid, db, lat, lng, MAPS_API_KEY) : Promise.resolve(),
             !envData.broadband           ? _enrichBroadband(zpid, db, lat, lng) : Promise.resolve(),
             !envData.drought             ? _enrichDrought(zpid, db, lat, lng) : Promise.resolve(),
@@ -530,26 +536,38 @@ async function _enrichHistoricalDisasters(zpid, db, lat, lng) {
 async function _fetchFemaRiskIndex(lat, lng) {
     try {
         const baseUrl = 'https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/National_Risk_Index_Census_Tracts/FeatureServer/0/query';
-        const params = new URLSearchParams({
+        // outFields=* avoids "Invalid query parameters" errors caused by URL length
+        // when all 41 field names are listed explicitly for certain census tracts.
+        const SHARED = { inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outFields: '*', f: 'json', returnGeometry: 'false' };
+
+        const buildEnvelope = (bufDeg) => new URLSearchParams({
+            ...SHARED,
+            geometry: JSON.stringify({ xmin: lng - bufDeg, ymin: lat - bufDeg, xmax: lng + bufDeg, ymax: lat + bufDeg, spatialReference: { wkid: 4326 } }),
+            geometryType: 'esriGeometryEnvelope',
+        });
+
+        const pointParams = new URLSearchParams({
+            ...SHARED,
             geometry: JSON.stringify({ x: lng, y: lat, spatialReference: { wkid: 4326 } }),
             geometryType: 'esriGeometryPoint',
-            spatialRel: 'esriSpatialRelIntersects',
-            outFields: 'RISK_SCORE,RISK_RATNG,CFLD_RISKS,CFLD_RISKR,IFLD_RISKS,IFLD_RISKR,RFLD_RISKS,RFLD_RISKR,WFIR_RISKS,WFIR_RISKR,HWAV_RISKS,HWAV_RISKR,HRCN_RISKS,HRCN_RISKR,TRND_RISKS,TRND_RISKR,SWND_RISKS,SWND_RISKR,ERQK_RISKS,ERQK_RISKR,DRGT_RISKS,DRGT_RISKR,HAIL_RISKS,HAIL_RISKR,LTNG_RISKS,LTNG_RISKR,LNDS_RISKS,LNDS_RISKR,TSUN_RISKS,TSUN_RISKR,AVLN_RISKS,AVLN_RISKR,CWAV_RISKS,CWAV_RISKR,ISTM_RISKS,ISTM_RISKR,VLCN_RISKS,VLCN_RISKR,WNTW_RISKS,WNTW_RISKR,TRACTFIPS',
-            f: 'json',
-            returnGeometry: 'false'
         });
 
         console.log(`   [FEMA NRI] Spatial Query for ${lat},${lng}`);
-        
-        const fullUrl = `${baseUrl}?${params.toString()}`;
-        const res = await fetch(fullUrl, {
-            headers: { 'User-Agent': 'curl/8.7.1' }
-        });
-        if (!res.ok) {
-            console.warn(`   [FEMA NRI] API Error: ${res.status}`);
-            return null;
+
+        const fetchOpts = { headers: { 'User-Agent': 'curl/8.7.1' } };
+        let res = await fetch(`${baseUrl}?${pointParams.toString()}`, fetchOpts);
+        if (!res.ok) { console.warn(`   [FEMA NRI] API Error: ${res.status}`); return null; }
+        let data = await res.json();
+
+        // Graduated buffer fallback: 0.005° (~550m) then 0.015° (~1.6km)
+        for (const bufDeg of [0.005, 0.015]) {
+            if (data.features?.length) break;
+            console.log(`   [FEMA NRI] No point data, retrying with ${bufDeg}° buffer...`);
+            res = await fetch(`${baseUrl}?${buildEnvelope(bufDeg).toString()}`, fetchOpts);
+            if (!res.ok) break;
+            data = await res.json();
         }
-        const data = await res.json();
+
         const attrs = data.features?.[0]?.attributes;
         console.log(`   [FEMA NRI] Attributes Found: ${!!attrs}`);
         if (!attrs) return null;

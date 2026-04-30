@@ -92,6 +92,28 @@ const FaultMap: React.FC<FaultMapProps> = ({ lat, lng, faults }) => {
                     }
                 });
 
+                // Fault name label along the line
+                map.addLayer({
+                    id: `${layerId}-label`,
+                    type: 'symbol',
+                    source: sourceId,
+                    layout: {
+                        'symbol-placement': 'line',
+                        'text-field': ['get', 'name'],
+                        'text-size': 10,
+                        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+                        'text-offset': [0, -0.8],
+                        'text-anchor': 'bottom',
+                        'text-max-angle': 30,
+                        'symbol-spacing': 250,
+                    },
+                    paint: {
+                        'text-color': '#ef4444',
+                        'text-halo-color': '#ffffff',
+                        'text-halo-width': 2,
+                    },
+                });
+
                 // Add hover effect
                 map.on('mouseenter', layerId, () => {
                     map.setPaintProperty(layerId, 'line-opacity', 1);

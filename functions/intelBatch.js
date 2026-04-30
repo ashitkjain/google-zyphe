@@ -674,7 +674,7 @@ exports.runNarrativeBatchOnWrite = functions
                     });
                     if (logger) {
                         logger.logTask('comprehensive_pass');
-                        logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid);
+                        logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'comprehensiveAnalysis.js');
                     }
                     results[zpid] = { status: 'success' };
                 } catch (e) {

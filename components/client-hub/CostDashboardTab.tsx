@@ -15,7 +15,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
 const DEFAULT_PRICING = { input: 0.10 / 1e6, output: 0.40 / 1e6 };
 
 const CostDashboardTab: React.FC = () => {
-    const [timeframe, setTimeframe] = useState<'weekly' | 'monthly'>('weekly');
+    const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -66,11 +66,11 @@ const CostDashboardTab: React.FC = () => {
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin: '0', tracking: '-0.02em' }}>Platform Audit Hub</h1>
-                    <p style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>Auditing trailing {timeframe === 'weekly' ? '7 days' : '30 days'} of intelligence & integration traffic.</p>
+                    <p style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>Auditing trailing {timeframe === 'daily' ? '24 hours' : timeframe === 'weekly' ? '7 days' : '30 days'} of intelligence & integration traffic.</p>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', background: '#e2e8f0', padding: '4px', borderRadius: '14px' }}>
-                    {(['weekly', 'monthly'] as const).map(t => (
+                    {(['daily', 'weekly', 'monthly'] as const).map(t => (
                         <button 
                             key={t}
                             onClick={() => setTimeframe(t)}
@@ -81,7 +81,7 @@ const CostDashboardTab: React.FC = () => {
                                 boxShadow: timeframe === t ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' : 'none',
                                 border: 'none', cursor: 'pointer', letterSpacing: '0.05em'
                             }}
-                        >{t}</button>
+                        >{t === 'daily' ? 'Last 24 Hr' : t}</button>
                     ))}
                 </div>
             </header>
@@ -233,6 +233,15 @@ const Legend: React.FC<{ color: string, label: string }> = ({ color, label }) =>
     </div>
 );
 
-const friendlyName = (path: string) => path.replace('.ts', '').split('/').pop()?.replace(/([A-Z])/g, ' $1').trim() || 'Custom Analysis';
+const friendlyName = (path: string) => {
+    if (path === 'legacy_background_job') return 'Legacy System Logs';
+    if (path === 'background_job') return 'General Background Task';
+    
+    return path.replace('.ts', '').replace('.js', '').split('/').pop()
+        ?.replace(/([a-z])([A-Z])/g, '$1 $2') // pollenAnalysis -> pollen Analysis
+        ?.replace(/[_-]/g, ' ') // background_job -> background job
+        ?.replace(/^\w/, c => c.toUpperCase()) // pollen Analysis -> Pollen Analysis
+        || 'Custom Analysis';
+};
 
 export default CostDashboardTab;

@@ -483,7 +483,7 @@ export async function runChecks(
 
     // Schools data on the property (from RapidAPI)
     const schoolCount = Array.isArray(prop?.schools) ? prop.schools.length : 0;
-    chkWithMeta(checks, 'nearbySchools', 'Nearby Schools Data', 'warn', 'rapidapi', schoolCount > 0,
+    chkWithMeta(checks, 'nearbySchools', 'Nearby Schools Data', 'error', 'rapidapi', schoolCount > 0,
         schoolCount > 0 ? `${schoolCount} schools` : 'no schools on property', rapidapiMeta, 'schools');
 
     // Per-school analysis quality — validate ALL schema-required fields
@@ -525,9 +525,9 @@ export async function runChecks(
             }
         }
 
-        chk(checks, 'schoolAnalyses', 'School Intelligence', 'warn', 'ai_comprehensive', analyzedCount > 0,
+        chk(checks, 'schoolAnalyses', 'School Intelligence', 'error', 'ai_comprehensive', analyzedCount > 0,
             analyzedCount > 0 ? `${analyzedCount}/${schoolCount} analyzed` : 'none analyzed');
-        chk(checks, 'schoolQuality', 'School Analysis Quality', 'warn', 'ai_comprehensive', staleCount === 0,
+        chk(checks, 'schoolQuality', 'School Analysis Quality', 'error', 'ai_comprehensive', staleCount === 0,
             staleCount === 0
                 ? (analyzedCount > 0 ? 'all schools have valid data' : 'no data to check')
                 : `${staleCount} stale: ${staleNames.join(', ')}`);
@@ -638,7 +638,7 @@ export async function runChecks(
 
     // ── 23. Neighborhood Identity (Gemini + ArcGIS) ───────────────────────────
     const nid = prop?.neighborhood_identity;
-    chk(checks, 'neighborhoodIdentity', 'Neighborhood Identity', 'warn', 'ai_comprehensive', !!(nid?.resolved_name),
+    chk(checks, 'neighborhoodIdentity', 'Neighborhood Identity', 'error', 'ai_comprehensive', !!(nid?.resolved_name),
         nid?.resolved_name ? `${nid.resolved_name}${nid.city_plan_data?.specific_plan ? ` (${nid.city_plan_data.specific_plan})` : ''}` : 'not resolved');
 
     // Lifestyle Fit check moved up to 12b for clarity

@@ -201,7 +201,7 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
     }
 };
 
-// ─── Climate Risk Extractor ──────────────────────────────────────────────────
+// ─── Climate Risk Extractor (FEMA NRI & First Street Legacy) ─────────────────
 
 function extractClimateRiskDetail(climate: any) {
     if (!climate) return undefined;

@@ -7,11 +7,32 @@ interface Props {
 }
 
 const ClimateRiskSection: React.FC<Props> = ({ data }) => {
+  const getScore = (type: string) => {
+    if (!data.femaScores) {
+      if (type === 'Wind') return data.windRiskScore;
+      if (type === 'Flood') return data.floodRiskScore;
+      if (type === 'Fire') return data.fireRiskScore;
+      if (type === 'Heat') return data.heatRiskScore;
+      return null;
+    }
+
+    const hazards = data.femaScores.hazards;
+    let rawScore = 0;
+    if (type === 'Wind') rawScore = Math.max(hazards.hurricane, hazards.tornado, hazards.strongwind);
+    if (type === 'Flood') rawScore = hazards.flood;
+    if (type === 'Fire') rawScore = hazards.wildfire;
+    if (type === 'Heat') rawScore = hazards.heatwave;
+
+    // Scale 0-100 to 1-10 (mirroring backend logic for UI consistency)
+    if (rawScore === 0) return 0;
+    return Math.max(1, Math.ceil(rawScore / 10));
+  };
+
   const risks = [
-    { type: 'Wind', score: data.windRiskScore, icon: 'fa-wind' },
-    { type: 'Flood', score: data.floodRiskScore, icon: 'fa-droplet' },
-    { type: 'Fire', score: data.fireRiskScore, icon: 'fa-fire' },
-    { type: 'Heat', score: data.heatRiskScore, icon: 'fa-temperature-high' },
+    { type: 'Wind', score: getScore('Wind'), icon: 'fa-wind' },
+    { type: 'Flood', score: getScore('Flood'), icon: 'fa-droplet' },
+    { type: 'Fire', score: getScore('Fire'), icon: 'fa-fire' },
+    { type: 'Heat', score: getScore('Heat'), icon: 'fa-temperature-high' },
   ];
 
   const getRiskColor = (score?: number) => {
@@ -43,6 +64,11 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
           Climate Risk Assessment
         </div>
         <div className="flex items-center gap-4">
+          {data.femaScores && (
+            <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px] font-bold">
+              Source: FEMA NRI
+            </span>
+          )}
           <span className="hidden sm:inline text-black font-bold">Insurance Est: {data.annualHomeownersInsurance ? `$${data.annualHomeownersInsurance.toLocaleString()}/yr` : 'N/A'}</span>
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>

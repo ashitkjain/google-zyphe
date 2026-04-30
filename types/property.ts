@@ -130,6 +130,26 @@ export interface PropertyData {
     floodRiskScore?: number | null;
     fireRiskScore?: number | null;
     heatRiskScore?: number | null;
+    femaScores?: {
+        overall: number;
+        rating: string;
+        hazards: {
+            flood: number;
+            wildfire: number;
+            heatwave: number;
+            hurricane: number;
+            tornado: number;
+            strongwind: number;
+            earthquake: number;
+            drought: number;
+            hail: number;
+            lightning: number;
+            landslide: number;
+            tsunami: number;
+        };
+        censusTract: string;
+        source: string;
+    } | null;
 
     // Extra climate detail from First Street Foundation (via RapidAPI)
     // Numeric risk scores live in the flat fields above ({type}RiskScore).

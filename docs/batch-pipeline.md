@@ -107,7 +107,7 @@ Core listing (RapidAPI):
   homeType, bedrooms, bathrooms, livingAreaValue, yearBuilt
   price, listPrice, zestimate, description, images[]
   schools[], priceHistory[]
-  floodRiskScore, fireRiskScore, heatRiskScore, windRiskScore   ← First Street via RapidAPI
+  floodRiskScore, fireRiskScore, heatRiskScore, windRiskScore   ← FEMA NRI (Free)
   resoFacts{flooring, rooms, appliances, cooling, heating, ...}
   attribution{listingAgentName, brokerageName, mlsId, ...}
 

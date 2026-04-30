@@ -581,7 +581,7 @@ export const PropertyDashboardLeft: React.FC<PropertyDashboardLeftProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                                <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-3">Risk Factor · First Street</div>
+                                <div className="text-[9px] font-black text-slate-300 uppercase text-right tracking-[0.2em] mt-3">FEMA National Risk Index</div>
                             </div>
                         </div>
 
