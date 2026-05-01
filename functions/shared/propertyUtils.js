@@ -6,6 +6,12 @@ const { fetchParcelFromCounty } = require('./arcgisParcels');
 const { calculateZypheNoiseScore, fetchCityBoundary, computeCityNoiseGridRaw } = require('./osmNoise');
 const { isSupportedState } = require('./config');
 
+// Bump this whenever a new field is added to _enrichEnvironmentalData so that
+// cached env docs from before the field was introduced get re-enriched automatically.
+// v2: noise, broadband, drought, EV, seismic/historical disasters, nearby places
+// v3: solar, air quality, pollen (retry if missing — API may have failed at original fetch time)
+const ENV_SCHEMA_VERSION = 3;
+
 // ─── Gemini tax record schema ────────────────────────────────────────────────
 const TAX_RECORD_LOOKUP_SCHEMA = {
     type: 'object',
@@ -102,12 +108,114 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
                     console.warn(`[Enrichment] Pollen AI healing failed for ${zpid}:`, e.message);
                 }
             }
+
+            // Back-fill any supplemental fields that are missing — either because the schema
+            // version is old, OR because an individual API call failed at original fetch time.
+            const docVersion = existing.__env_version || 0;
+            const hasAnyMissingField =
+                !existing.zypheNoiseScore || !existing.broadband || !existing.google_places ||
+                !existing.drought || !existing.evChargers || !existing.historical_disasters?.seismicZone ||
+                !existing.solarData || !existing.airQuality || !existing.pollen;
+            if (docVersion < ENV_SCHEMA_VERSION || hasAnyMissingField) {
+                console.log(`[Enrichment] Schema v${docVersion}, missing fields=${hasAnyMissingField} — running supplemental enrichments for ${zpid}`);
+                try {
+                    const femaNriSnap = await db.collection('properties').doc(zpid)
+                        .collection('environmental').doc('fema_nri').get();
+                    await Promise.all([
+                        !existing.zypheNoiseScore ? (async () => {
+                            const noiseResult = await calculateZypheNoiseScore(lat, lng);
+                            if (noiseResult) {
+                                await envRef.update({
+                                    zypheNoiseScore: noiseResult.score,
+                                    noiseCharacterization: noiseResult.characterization,
+                                    primaryNoiseSource: noiseResult.primarySource,
+                                    noiseSimulationFetchedAt: new Date().toISOString(),
+                                });
+                            }
+                        })() : Promise.resolve(),
+                        !existing.google_places    ? _enrichNearbyPlaces(zpid, db, lat, lng, MAPS_API_KEY) : Promise.resolve(),
+                        !existing.broadband        ? _enrichBroadband(zpid, db, lat, lng)                  : Promise.resolve(),
+                        !existing.drought          ? _enrichDrought(zpid, db, lat, lng)                    : Promise.resolve(),
+                        !existing.evChargers       ? _enrichEVChargers(zpid, db, lat, lng)                 : Promise.resolve(),
+                        (!existing.historical_disasters?.seismicZone || !femaNriSnap.exists)
+                            ? _enrichHistoricalDisasters(zpid, db, lat, lng)                               : Promise.resolve(),
+                        // v3: retry solar/AQ/pollen if they were missing at original fetch time
+                        !existing.solarData ? (async () => {
+                            try {
+                                const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${MAPS_API_KEY}`;
+                                const res = await fetch(url);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (data.solarPotential) {
+                                        await envRef.update({
+                                            solarData: {
+                                                maxSunshineHoursPerYear: data.solarPotential.maxSunshineHoursPerYear,
+                                                carbonOffsetFactorKgPerMwh: data.solarPotential.carbonOffsetFactorKgPerMwh,
+                                                panelCapacityWatts: data.solarPotential.panelCapacityWatts,
+                                                maxArrayPanelsCount: (data.solarPotential.solarPanels || []).length,
+                                            }
+                                        });
+                                    }
+                                } else if (res.status === 404) {
+                                    await envRef.update({ solarData: { unavailable: true } });
+                                }
+                            } catch (e) { console.warn(`[Enrichment] Solar backfill failed for ${zpid}:`, e.message); }
+                        })() : Promise.resolve(),
+                        !existing.airQuality ? (async () => {
+                            try {
+                                const url = `https://airquality.googleapis.com/v1/currentConditions:lookup?key=${MAPS_API_KEY}`;
+                                const res = await fetch(url, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ location: { latitude: lat, longitude: lng }, languageCode: 'en' })
+                                });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    const uaqi = data.indexes?.find(idx => idx.code === 'uaqi') || data.indexes?.[0];
+                                    if (uaqi) {
+                                        const aqData = { aqi: uaqi.aqi, category: uaqi.category };
+                                        if (data.dominantPollutant !== undefined) aqData.dominantPollutant = data.dominantPollutant;
+                                        await envRef.update({ airQuality: aqData });
+                                    }
+                                }
+                            } catch (e) { console.warn(`[Enrichment] Air Quality backfill failed for ${zpid}:`, e.message); }
+                        })() : Promise.resolve(),
+                        !existing.pollen ? (async () => {
+                            try {
+                                const url = `https://pollen.googleapis.com/v1/forecast:lookup?key=${MAPS_API_KEY}&location.latitude=${lat}&location.longitude=${lng}&days=1`;
+                                const res = await fetch(url);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    const today = data.dailyInfo?.[0];
+                                    if (today) {
+                                        const maxPollen = today.pollenTypeInfo?.reduce((prev, current) =>
+                                            (prev.indexInfo?.value || 0) > (current.indexInfo?.value || 0) ? prev : current);
+                                        await envRef.update({
+                                            pollen: {
+                                                score: maxPollen?.indexInfo?.value ?? null,
+                                                category: maxPollen?.indexInfo?.category ?? null,
+                                                dominantPollenType: maxPollen?.displayName ?? null,
+                                            }
+                                        });
+                                    }
+                                }
+                            } catch (e) { console.warn(`[Enrichment] Pollen backfill failed for ${zpid}:`, e.message); }
+                        })() : Promise.resolve(),
+                    ]);
+                    await envRef.update({ __env_version: ENV_SCHEMA_VERSION });
+                    console.log(`[Enrichment] Supplemental enrichments complete for ${zpid}`);
+                } catch (e) {
+                    console.warn(`[Enrichment] Supplemental enrichment failed for ${zpid}:`, e.message);
+                }
+            }
+
             return existing;
         }
     }
 
     const results = {
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        __env_version: ENV_SCHEMA_VERSION,
     };
 
     // 1. Solar
@@ -127,6 +235,8 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
             } else {
                 console.warn(`[Enrichment] Solar ok but no potential for ${zpid}`);
             }
+        } else if (res.status === 404) {
+            results.solarData = { unavailable: true };
         } else {
             console.warn(`[Enrichment] Solar failed for ${zpid}: ${res.status} ${res.statusText}`);
         }
@@ -147,11 +257,9 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
         if (res.ok) {
             const data = await res.json();
             const uaqi = data.indexes?.find(idx => idx.code === 'uaqi') || data.indexes?.[0];
-            results.airQuality = {
-                aqi: uaqi?.aqi,
-                category: uaqi?.category,
-                dominantPollutant: data.dominantPollutant
-            };
+            const aqData = { aqi: uaqi?.aqi, category: uaqi?.category };
+            if (data.dominantPollutant !== undefined) aqData.dominantPollutant = data.dominantPollutant;
+            results.airQuality = aqData;
         } else {
             console.warn(`[Enrichment] Air Quality failed for ${zpid}: ${res.status} ${res.statusText}`);
         }
@@ -170,9 +278,9 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
                     return (prev.indexInfo?.value || 0) > (current.indexInfo?.value || 0) ? prev : current;
                 });
                 results.pollen = {
-                    score: maxPollen?.indexInfo?.value,
-                    category: maxPollen?.indexInfo?.category,
-                    dominantPollenType: maxPollen?.displayName
+                    score: maxPollen?.indexInfo?.value ?? null,
+                    category: maxPollen?.indexInfo?.category ?? null,
+                    dominantPollenType: maxPollen?.displayName ?? null
                 };
 
                 // Run AI analysis immediately while we have pollen context
@@ -183,10 +291,10 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
                             overallScore: maxPollen?.indexInfo?.value,
                             category: maxPollen?.indexInfo?.category,
                             pollenTypes: today.pollenTypeInfo?.map(p => ({
-                                type: p.displayName,
-                                inSeason: p.inSeason,
-                                indexValue: p.indexInfo?.value,
-                                indexCategory: p.indexInfo?.category
+                                type: p.displayName ?? null,
+                                inSeason: p.inSeason ?? null,
+                                indexValue: p.indexInfo?.value ?? null,
+                                indexCategory: p.indexInfo?.category ?? null
                             })) || []
                         };
                         const { getPollenAnalysisPrompt, POLLEN_ANALYSIS_SCHEMA } = require('../prompts/property/pollenAnalysis.js');
@@ -281,6 +389,7 @@ async function _enrichEnvironmentalData(zpid, db, keys, lat, lng, logger = null,
             !envData.drought             ? _enrichDrought(zpid, db, lat, lng) : Promise.resolve(),
             !envData.evChargers          ? _enrichEVChargers(zpid, db, lat, lng) : Promise.resolve(),
         ]);
+        await envRef.update({ __env_version: ENV_SCHEMA_VERSION });
     } catch (e) {
         console.warn(`[Enrichment] Supplemental environmental enrichment failed for ${zpid}:`, e.message);
     }
@@ -362,6 +471,12 @@ async function _enrichParcelData(zpid, db, lat, lng, logger = null) {
         await db.collection('properties').doc(zpid).set(payload, { merge: true });
         return parcel;
     }
+    // ArcGIS was called but returned no parcel record — mark as source-confirmed not found
+    // so the smoke test can classify this as sourceNull instead of a pipeline gap.
+    await db.collection('properties').doc(zpid).set({
+        parcelNotFound: true,
+        parcelFetchedAt: new Date().toISOString(),
+    }, { merge: true });
     return null;
 }
 
@@ -610,30 +725,32 @@ async function _fetchFemaRiskIndex(lat, lng) {
         if (!attrs) return null;
         console.log(`   [FEMA NRI] Raw Data: ${JSON.stringify(attrs)}`);
 
+        const nri = (key) => attrs[key] ?? null;
         return {
-            overall: attrs.RISK_SCORE,
-            rating: attrs.RISK_RATNG,
+            overall: nri('RISK_SCORE'),
+            rating: nri('RISK_RATNG'),
             hazards: {
-                flood: { score: attrs.RFLD_RISKS, rating: attrs.RFLD_RISKR },
-                coastal_flood: { score: attrs.CFLD_RISKS, rating: attrs.CFLD_RISKR },
-                wildfire: { score: attrs.WFIR_RISKS, rating: attrs.WFIR_RISKR },
-                heatwave: { score: attrs.HWAV_RISKS, rating: attrs.HWAV_RISKR },
-                hurricane: { score: attrs.HRCN_RISKS, rating: attrs.HRCN_RISKR },
-                tornado: { score: attrs.TRND_RISKS, rating: attrs.TRND_RISKR },
-                strongwind: { score: attrs.SWND_RISKS, rating: attrs.SWND_RISKR },
-                earthquake: { score: attrs.ERQK_RISKS, rating: attrs.ERQK_RISKR },
-                drought: { score: attrs.DRGT_RISKS, rating: attrs.DRGT_RISKR },
-                hail: { score: attrs.HAIL_RISKS, rating: attrs.HAIL_RISKR },
-                lightning: { score: attrs.LTNG_RISKS, rating: attrs.LTNG_RISKR },
-                landslide: { score: attrs.LNDS_RISKS, rating: attrs.LNDS_RISKR },
-                tsunami: { score: attrs.TSUN_RISKS, rating: attrs.TSUN_RISKR },
-                avalanche: { score: attrs.AVLN_RISKS, rating: attrs.AVLN_RISKR },
-                coldwave: { score: attrs.CWAV_RISKS, rating: attrs.CWAV_RISKR },
-                icestorm: { score: attrs.ISTM_RISKS, rating: attrs.ISTM_RISKR },
-                volcano: { score: attrs.VLCN_RISKS, rating: attrs.VLCN_RISKR },
-                winterweather: { score: attrs.WNTW_RISKS, rating: attrs.WNTW_RISKR }
+                flood: { score: nri('RFLD_RISKS'), rating: nri('RFLD_RISKR') },
+                coastal_flood: { score: nri('CFLD_RISKS'), rating: nri('CFLD_RISKR') },
+                inland_flood: { score: nri('IFLD_RISKS'), rating: nri('IFLD_RISKR') },
+                wildfire: { score: nri('WFIR_RISKS'), rating: nri('WFIR_RISKR') },
+                heatwave: { score: nri('HWAV_RISKS'), rating: nri('HWAV_RISKR') },
+                hurricane: { score: nri('HRCN_RISKS'), rating: nri('HRCN_RISKR') },
+                tornado: { score: nri('TRND_RISKS'), rating: nri('TRND_RISKR') },
+                strongwind: { score: nri('SWND_RISKS'), rating: nri('SWND_RISKR') },
+                earthquake: { score: nri('ERQK_RISKS'), rating: nri('ERQK_RISKR') },
+                drought: { score: nri('DRGT_RISKS'), rating: nri('DRGT_RISKR') },
+                hail: { score: nri('HAIL_RISKS'), rating: nri('HAIL_RISKR') },
+                lightning: { score: nri('LTNG_RISKS'), rating: nri('LTNG_RISKR') },
+                landslide: { score: nri('LNDS_RISKS'), rating: nri('LNDS_RISKR') },
+                tsunami: { score: nri('TSUN_RISKS'), rating: nri('TSUN_RISKR') },
+                avalanche: { score: nri('AVLN_RISKS'), rating: nri('AVLN_RISKR') },
+                coldwave: { score: nri('CWAV_RISKS'), rating: nri('CWAV_RISKR') },
+                icestorm: { score: nri('ISTM_RISKS'), rating: nri('ISTM_RISKR') },
+                volcano: { score: nri('VLCN_RISKS'), rating: nri('VLCN_RISKR') },
+                winterweather: { score: nri('WNTW_RISKS'), rating: nri('WNTW_RISKR') }
             },
-            censusTract: attrs.TRACTFIPS,
+            censusTract: nri('TRACTFIPS'),
             source: 'FEMA NRI'
         };
     } catch (e) {
@@ -670,14 +787,14 @@ async function _enrichNearbyPlaces(zpid, db, lat, lng, mapsKey) {
             const data = await res.json();
             return (data.places || []).map(p => ({
                 name: p.displayName?.text || 'Unknown',
-                rating: p.rating,
-                userRatingCount: p.userRatingCount,
+                rating: p.rating ?? null,
+                userRatingCount: p.userRatingCount ?? null,
                 types: p.types || [],
-                primaryTypeDisplayName: p.primaryTypeDisplayName?.text,
-                priceLevel: p.priceLevel,
-                googleMapsUri: p.googleMapsUri,
+                primaryTypeDisplayName: p.primaryTypeDisplayName?.text ?? null,
+                priceLevel: p.priceLevel ?? null,
+                googleMapsUri: p.googleMapsUri ?? null,
                 source: 'google',
-                location: p.location
+                location: p.location ?? null
             }));
         };
 
@@ -1478,6 +1595,12 @@ module.exports = {
     _enrichWalkScore,
     _enrichParcelData,
     _enrichSatelliteImage,
+    _enrichNearbyPlaces,
+    _enrichBroadband,
+    _enrichDrought,
+    _enrichEVChargers,
+    _enrichHistoricalDisasters,
     _extractJson,
-    extractNumericValue
+    extractNumericValue,
+    ENV_SCHEMA_VERSION,
 };

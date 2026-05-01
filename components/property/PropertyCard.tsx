@@ -27,6 +27,15 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
     onInfoClick,
     className = "",
 }) => {
+    const [copied, setCopied] = React.useState(false);
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(property.address);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     const displayFactors = Array.from(new Set([...(propFactors || []), ...(match?.factors || [])]));
     const fmt = (n?: number) => n ? `$${n.toLocaleString()}` : '—';
     const sqft = property.livingAreaValue || (property as any).livingArea || property.sqft;
@@ -62,6 +71,17 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
                         <div className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
                             {property.address}
                         </div>
+                        <button
+                            onClick={handleCopy}
+                            className={`w-6 h-6 rounded-md flex items-center justify-center transition-all flex-shrink-0 ${
+                                copied 
+                                    ? 'bg-emerald-500 text-white border-emerald-500' 
+                                    : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-white'
+                            }`}
+                            title="Copy address to clipboard"
+                        >
+                            <i className={`fa-solid ${copied ? 'fa-check' : 'fa-copy'} text-[9px]`}></i>
+                        </button>
                     </div>
                     {property.neighborhood && (
                         <div className="mb-1.5">

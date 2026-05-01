@@ -32,6 +32,8 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
     const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    // true only when the current address value was last changed by the user typing
+    const userTypedRef = useRef(false);
 
     // Handle clicks outside to close dropdown
     useEffect(() => {
@@ -44,9 +46,16 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // When the address changes externally (parent sets it), clear the user-typed flag
+    useEffect(() => {
+        userTypedRef.current = false;
+    }, [address]);
+
     const isPrefixValid = useMemo(() => {
         if (!address || activeTab !== 'search') return true;
         if (/^\d+$/.test(address.trim())) return true; // Allow numeric ZPID input
+        // Only validate against the trie when the user is actively typing
+        if (!userTypedRef.current) return true;
         return searchTrie?.isValidPrefix(address) ?? true;
     }, [address, searchTrie, activeTab]);
 
@@ -56,6 +65,7 @@ const UniversalSearchBox: React.FC<UniversalSearchBoxProps> = ({
     }, [address, searchTrie, activeTab]);
 
     const handleInputChange = (val: string) => {
+        userTypedRef.current = true;
         setAddress(val);
         if (activeTab === 'search' && searchTrie) {
             if (val.length >= 1) {

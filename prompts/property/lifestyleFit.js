@@ -110,16 +110,6 @@ function buildMLSContext(property) {
     return parts.join('\n\n');
 }
 
-function buildContextGraph(factors) {
-    if (!factors) return '';
-    const values = Object.values(factors)
-        .filter(f => f && f.value)
-        .map(f => `• ${f.value}`)
-        .join('\n');
-    if (!values) return '';
-    return `PROPERTY FEATURE INTELLIGENCE (AI-synthesized):\n${values}`;
-}
-
 function buildEnvironmentalContext(env) {
     if (!env) return '';
     const parts = [];
@@ -198,7 +188,7 @@ function buildEnvironmentalContext(env) {
     return parts.join('\n\n');
 }
 
-export const getLifestyleFitPrompt = (property, visual, streetView, envData = null, contextGraph = null, comprehensive = null) => `
+export const getLifestyleFitPrompt = (property, visual, streetView, envData = null, comprehensive = null) => `
 You are an expert residential property analyst who specializes in matching homes to buyer lifestyles. You have been given MLS listing data, AI visual analysis, street view analysis, environmental data, and pre-synthesized property intelligence.
 ${comprehensive ? `\nADDITIONAL CONTEXT (Comprehensive Analysis Summary):\n${comprehensive}\n` : ''}
 
@@ -211,7 +201,7 @@ ${buildMLSContext(property)}
 ${buildVisualContext(visual, streetView)}
 
 ═══════════════════════════════════════════════════════════════════
-${contextGraph ? buildContextGraph(contextGraph) + '\n\n═══════════════════════════════════════════════════════════════════\n' : ''}${envData ? buildEnvironmentalContext(envData) + '\n\n═══════════════════════════════════════════════════════════════════' : ''}
+${envData ? buildEnvironmentalContext(envData) + '\n\n═══════════════════════════════════════════════════════════════════' : ''}
 
 For EACH of the 3 lifestyle categories, produce a structured assessment:
 

@@ -263,6 +263,7 @@ export function useExploreTabData({
     const [cachedVisualAnalysis, setCachedVisualAnalysis] = useState<CustomAIAnalysisResult | null>(null);
     const [cachedCommunityPulse, setCachedCommunityPulse] = useState<any | null>(null);
     const [interiorSummary, setInteriorSummary] = useState<any | null>(null);
+    const [cachedDeepResearch, setCachedDeepResearch] = useState<DeepInvestmentResearchResult | null>(null);
     const [orientationGroundTruth, setOrientationGroundTruth] = useState<{ expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null>(null);
     const [environmentalData, setEnvironmentalData] = useState<any | null>(null);
 
@@ -312,6 +313,7 @@ export function useExploreTabData({
                 if (visualCache?.neighborhood?.map_labels) setCachedMapLabels(visualCache.neighborhood.map_labels);
                 if (deepResearchCache?.structured_report?.market_dynamics) setCachedMarketDynamics(deepResearchCache.structured_report.market_dynamics);
                 if ((deepResearchCache as any)?.key_insights) setCachedKeyInsights((deepResearchCache as any).key_insights);
+                if (deepResearchCache) setCachedDeepResearch(deepResearchCache);
                 if (communityPulseCache) setCachedCommunityPulse(communityPulseCache);
                 if (investmentCache?.ltr_analysis) setCachedLtrAnalysis(investmentCache.ltr_analysis);
                 if (interiorCache) setInteriorSummary(interiorCache);
@@ -430,6 +432,7 @@ export function useExploreTabData({
     const designStyle = customAnalysis?.home_interior?.design_style || cachedDesignStyle || null;
     const marketDynamics = customAnalysis?.deep_investment_research?.structured_report?.market_dynamics || cachedMarketDynamics || null;
     const ltrAnalysis = customAnalysis?.property_investment?.ltr_analysis || cachedLtrAnalysis || null;
+    const deepResearch = customAnalysis?.deep_investment_research || cachedDeepResearch || null;
     const keyInsights = cachedKeyInsights || null;
     const neighborhoodOverview = propertyData?.neighborhood_narrative || customAnalysis?.neighborhood?.overview || cachedNeighborhoodOverview || null;
     const communityPulse = customAnalysis?.community_pulse || cachedCommunityPulse || null;
@@ -474,7 +477,7 @@ export function useExploreTabData({
         // Cache
         cachedVisualAnalysis,
         // Derived
-        designStyle, marketDynamics, ltrAnalysis, keyInsights,
+        designStyle, marketDynamics, ltrAnalysis, deepResearch, keyInsights,
         neighborhoodOverview, communityPulse, visualPoi, mapLabels,
         currentInteriorSummary, analysis,
         orientationGroundTruth,

@@ -39,6 +39,20 @@ const DataHealthTab: React.FC = () => {
     const [selectedZpids, setSelectedZpids] = useState<Set<string>>(new Set());
     const [bulkRunning, setBulkRunning] = useState(false);
     const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+    const [copiedZpids, setCopiedZpids] = useState<Set<string>>(new Set());
+
+    const handleCopyAddress = (e: React.MouseEvent, zpid: string, address: string) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(address);
+        setCopiedZpids(prev => new Set(prev).add(zpid));
+        setTimeout(() => {
+            setCopiedZpids(prev => {
+                const next = new Set(prev);
+                next.delete(zpid);
+                return next;
+            });
+        }, 2000);
+    };
 
     const cities = useMemo(() => {
         const uniqueCities = Array.from(new Set(healthData.map(h => h.city))).sort();
@@ -488,8 +502,23 @@ const DataHealthTab: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div>
-                                                <div className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
-                                                    {prop.address || (prop.zpid ? `Property ${prop.zpid}` : 'Unnamed Property')}
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                                        {prop.address || (prop.zpid ? `Property ${prop.zpid}` : 'Unnamed Property')}
+                                                    </div>
+                                                    {prop.address && (
+                                                        <button
+                                                            onClick={(e) => handleCopyAddress(e, prop.zpid, prop.address)}
+                                                            className={`w-6 h-6 rounded-md flex items-center justify-center transition-all flex-shrink-0 ${
+                                                                copiedZpids.has(prop.zpid) 
+                                                                    ? 'bg-emerald-500 text-white border-emerald-500' 
+                                                                    : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-white'
+                                                            }`}
+                                                            title="Copy address to clipboard"
+                                                        >
+                                                            <i className={`fa-solid ${copiedZpids.has(prop.zpid) ? 'fa-check' : 'fa-copy'} text-[9px]`}></i>
+                                                        </button>
+                                                    )}
                                                 </div>
                                                 <div className="text-[10px] font-mono text-slate-400 mt-1">ZPID: {prop.zpid || 'N/A'}</div>
                                             </div>

@@ -7,7 +7,7 @@
  *   Schools & Family Friendliness · Lifestyle & Convenience · Investment Insights
  *   + Full analysis text from analysis.detailed_analysis.community_pulse
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { CommunityPulseResult, CommunityPulseSection, ComprehensiveAnalysisResult } from '../../../types/ai';
 import { PropertyData } from '../../../types/property';
 import FaultMap from './FaultMap';
@@ -178,6 +178,7 @@ const PulseSectionCard: React.FC<{ cfg: SectionConfig; data: CommunityPulseSecti
 
 export const CommunityPulseSectionPage: React.FC<Props> = ({ communityPulse: cp, analysis, city, propertyData: data }) => {
     const fallbackText = analysis?.detailed_analysis?.community_pulse;
+    const [hasAcousticImage, setHasAcousticImage] = useState<boolean | null>(null);
 
     if (!cp && !fallbackText) {
         return (
@@ -208,7 +209,7 @@ export const CommunityPulseSectionPage: React.FC<Props> = ({ communityPulse: cp,
             )}
 
             {/* ── City-Wide Noise Map ─────────────────────────── */}
-            {city && (
+            {city && hasAcousticImage !== false && (
                 <div className="bg-white rounded-3xl border border-slate-200/60 p-8 shadow-sm space-y-6">
                     <div>
                         <h2 className="text-xl font-black text-slate-900 tracking-tight">City-Wide Acoustic Density</h2>
@@ -223,6 +224,7 @@ export const CommunityPulseSectionPage: React.FC<Props> = ({ communityPulse: cp,
                                 ? { lat: data.coordinates.latitude, lng: data.coordinates.longitude }
                                 : undefined}
                             city={city}
+                            onImageReady={setHasAcousticImage}
                         />
 
                         {/* Legend */}

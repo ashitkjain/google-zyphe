@@ -135,6 +135,22 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
     const [editingGtZpid, setEditingGtZpid] = useState<string | null>(null);
     const [savingGtZpid, setSavingGtZpid] = useState<string | null>(null);
     const [selectedZpids, setSelectedZpids] = useState<Set<string>>(new Set());
+    const [copiedZpids, setCopiedZpids] = useState<Set<string>>(new Set());
+
+    const handleCopyAddress = (e: React.MouseEvent, zpid: string, address: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigator.clipboard.writeText(address);
+        setCopiedZpids(prev => new Set(prev).add(zpid));
+        setTimeout(() => {
+            setCopiedZpids(prev => {
+                const next = new Set(prev);
+                next.delete(zpid);
+                return next;
+            });
+        }, 2000);
+    };
+
     const [activeBatchJob, setActiveBatchJob] = useState<{
         id: string;
         total: number;
@@ -1286,15 +1302,28 @@ const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false 
                                                 <span className="text-[11px] font-black text-slate-300 font-mono">{idx + 1}</span>
                                             </td>
                                             <td className="p-5">
-                                                <a
-                                                    href={`/?zpid=${row.zpid}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-[11px] font-black text-indigo-700 hover:text-indigo-500 hover:underline leading-tight line-clamp-2 transition-colors"
-                                                    title="Open in Explore"
-                                                >
-                                                    {row.address}
-                                                </a>
+                                                <div className="flex items-center gap-2">
+                                                    <a
+                                                        href={`/?zpid=${row.zpid}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[11px] font-black text-indigo-700 hover:text-indigo-500 hover:underline leading-tight line-clamp-2 transition-colors"
+                                                        title="Open in Explore"
+                                                    >
+                                                        {row.address}
+                                                    </a>
+                                                    <button
+                                                        onClick={(e) => handleCopyAddress(e, row.zpid, row.address)}
+                                                        className={`w-6 h-6 rounded-md flex items-center justify-center transition-all flex-shrink-0 ${
+                                                            copiedZpids.has(row.zpid) 
+                                                                ? 'bg-emerald-500 text-white border-emerald-500' 
+                                                                : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-white'
+                                                        }`}
+                                                        title="Copy address to clipboard"
+                                                    >
+                                                        <i className={`fa-solid ${copiedZpids.has(row.zpid) ? 'fa-check' : 'fa-copy'} text-[9px]`}></i>
+                                                    </button>
+                                                </div>
                                                 <div className="text-[9px] font-mono text-slate-400 mt-0.5">{row.zpid}</div>
                                                 {row.status === 'error' && (
                                                     <div className="text-[9px] text-rose-500 font-bold mt-1 truncate max-w-[120px]">{row.error}</div>

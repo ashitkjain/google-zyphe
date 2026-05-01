@@ -36,6 +36,20 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
     const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions' | 'orientation' | 'deprecated' | 'summary'>('audits');
 
     const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
+    const [copiedZpids, setCopiedZpids] = useState<Set<string>>(new Set());
+
+    const handleCopyAddress = (e: React.MouseEvent, zpid: string, address: string) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(address);
+        setCopiedZpids(prev => new Set(prev).add(zpid));
+        setTimeout(() => {
+            setCopiedZpids(prev => {
+                const next = new Set(prev);
+                next.delete(zpid);
+                return next;
+            });
+        }, 2000);
+    };
     const [editingComment, setEditingComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
     const [editingVisualComment, setEditingVisualComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
@@ -632,6 +646,17 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                                     <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
                                                                         {prop.address}
                                                                     </div>
+                                                                    <button
+                                                                        onClick={(e) => handleCopyAddress(e, prop.zpid, prop.address)}
+                                                                        className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${
+                                                                            copiedZpids.has(prop.zpid) 
+                                                                                ? 'bg-emerald-500 text-white border-emerald-500' 
+                                                                                : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-white'
+                                                                        }`}
+                                                                        title="Copy address to clipboard"
+                                                                    >
+                                                                        <i className={`fa-solid ${copiedZpids.has(prop.zpid) ? 'fa-check' : 'fa-copy'} text-[9px]`}></i>
+                                                                    </button>
                                                                     {!prop.hasInterior && (
                                                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-100 text-amber-600 text-[8px] font-black uppercase tracking-widest rounded-lg animate-pulse">
                                                                             <i className="fa-solid fa-hourglass-start text-[7px]"></i> Pending AI Analysis

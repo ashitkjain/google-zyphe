@@ -10,7 +10,7 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { _enrichEnvironmentalData, _extractJson, _enrichStreetInsights } = require('./shared/propertyUtils');
+const { _enrichEnvironmentalData, _extractJson, _enrichStreetInsights, ENV_SCHEMA_VERSION } = require('./shared/propertyUtils');
 const UsageLogger = require('./shared/usageLogger');
 
 const INTEL_CONCURRENCY = 5;
@@ -19,6 +19,28 @@ const MAX_GALLERY_IMAGES = 15;
 const MODEL_NAME = 'gemini-2.5-flash';
 const TIMEOUT_SAFETY_MARGIN_MS = 90000; // 90 seconds safety margin
 const MAX_EXECUTION_TIME_MS = 540000; // 9 minutes
+
+/**
+ * Calls model.generateContent with one automatic retry on failure.
+ * Returns { result, text } on success; throws on permanent failure.
+ */
+async function _geminiCall(model, content, label) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            if (attempt > 0) {
+                console.log(`[Intel] Retrying ${label} (attempt ${attempt + 1})...`);
+                await new Promise(r => setTimeout(r, 3000));
+            }
+            const result = await model.generateContent(content);
+            const text = result.response.text();
+            if (!text?.trim()) throw new Error('Empty response from Gemini');
+            return { result, text };
+        } catch (e) {
+            if (attempt === 1) throw e;
+            console.warn(`[Intel] ${label} failed (attempt ${attempt + 1}): ${e.message}`);
+        }
+    }
+}
 
 /**
  * Optimizes property data for AI context, removing large technical noise.
@@ -57,7 +79,10 @@ function _isVisualComplete(visual) {
     const hasDescription = !!(interior.overall_description && interior.overall_description.length > 50);
     const hasInteriorSummary = !!(interior.interior_summary && interior.interior_summary.length > 20);
     const hasExterior = !!(visual.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
-    return hasDescription && hasInteriorSummary && hasExterior;
+    const hasRooms = Array.isArray(visual.room_highlights) && visual.room_highlights.length > 0;
+    // rooms are required unless the interior was well-described (photos likely all exterior — re-running won't help)
+    const roomsOk = hasRooms || (hasDescription && hasInteriorSummary);
+    return hasDescription && hasInteriorSummary && hasExterior && roomsOk;
 }
 
 function _isCompComplete(comp) {
@@ -110,6 +135,17 @@ function _normalizeComprehensiveData(data) {
 
 
 
+// Gemini-supported image MIME types
+const GEMINI_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']);
+
+function _mimeFromPath(filePath) {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    if (ext === 'png')  return 'image/png';
+    if (ext === 'webp') return 'image/webp';
+    if (ext === 'gif')  return 'image/gif';
+    return 'image/jpeg';
+}
+
 async function _fetchImageAsBase64(url) {
     try {
         // Optimization: If it's a Firebase Storage URL, fetch directly from the bucket
@@ -119,19 +155,18 @@ async function _fetchImageAsBase64(url) {
                 let filePath = '';
 
                 if (url.startsWith('gs://')) {
-                    // gs://bucket-name/path/to/file
                     filePath = url.split('/').slice(3).join('/');
                 } else {
-                    // Extract encoded path: .../o/path%2Fto%2Ffile?alt=media...
                     const pathPart = url.split('/o/')[1].split('?')[0];
                     filePath = decodeURIComponent(pathPart);
                 }
 
                 const [buffer] = await bucket.file(filePath).download();
+                if (buffer.length < 1000) return null; // too small — likely an error stub
                 return {
                     inlineData: {
                         data: buffer.toString('base64'),
-                        mimeType: 'image/jpeg'
+                        mimeType: _mimeFromPath(filePath),
                     }
                 };
             } catch (e) {
@@ -141,12 +176,21 @@ async function _fetchImageAsBase64(url) {
 
         const response = await fetch(url);
         if (!response.ok) return null;
+
+        const rawType = response.headers.get('content-type') || '';
+        const mimeType = rawType.split(';')[0].trim() || 'image/jpeg';
+        if (!GEMINI_IMAGE_TYPES.has(mimeType)) {
+            console.warn(`[Intel] Skipping unsupported image type "${mimeType}": ${url}`);
+            return null;
+        }
+
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+        if (buffer.length < 1000) return null; // too small — probably an error page
         return {
             inlineData: {
                 data: buffer.toString('base64'),
-                mimeType: response.headers.get('content-type') || 'image/jpeg'
+                mimeType,
             }
         };
     } catch (e) {
@@ -155,6 +199,49 @@ async function _fetchImageAsBase64(url) {
     }
 }
 
+
+/**
+ * Re-downloads a gallery image from its original source URL and re-uploads to Firebase Storage,
+ * replacing the corrupt file. Returns a Gemini-ready inlineData part on success, null on failure.
+ */
+async function _healGalleryImage(storageUrl, imageMetadata, bucket) {
+    const originalUrl = imageMetadata?.[storageUrl]?.originalUrl;
+    if (!originalUrl) return null;
+
+    try {
+        const response = await fetch(originalUrl);
+        if (!response.ok) return null;
+
+        const rawType = response.headers.get('content-type') || '';
+        const mimeType = rawType.split(';')[0].trim() || 'image/jpeg';
+        if (!GEMINI_IMAGE_TYPES.has(mimeType)) return null;
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        if (buffer.length < 1000) return null;
+
+        // Derive the Storage path from the URL so we can overwrite the corrupt file
+        let storagePath = null;
+        if (storageUrl.includes('firebasestorage.googleapis.com') && storageUrl.includes('/o/')) {
+            storagePath = decodeURIComponent(storageUrl.split('/o/')[1].split('?')[0]);
+        } else if (storageUrl.startsWith('gs://')) {
+            storagePath = storageUrl.split('/').slice(3).join('/');
+        }
+
+        if (storagePath) {
+            await bucket.file(storagePath).save(buffer, {
+                metadata: { contentType: mimeType },
+                resumable: false,
+            });
+            console.log(`[Intel] Healed corrupt image → ${storagePath}`);
+        }
+
+        return { inlineData: { data: buffer.toString('base64'), mimeType } };
+    } catch (e) {
+        console.warn(`[Intel] Heal failed for ${storageUrl}: ${e.message}`);
+        return null;
+    }
+}
 
 async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, logger = null) {
     try {
@@ -172,20 +259,28 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         const propData = propSnap.data();
         const envData = envSnap.exists ? envSnap.data() : null;
 
+        // Skip land/lot properties — no interior photos, visual pass produces garbage
+        const skipTypes = ['LOT', 'LAND', 'VACANT_LAND', 'LOT_LAND'];
+        if (skipTypes.includes(propData.homeType?.toUpperCase())) {
+            return { status: 'skipped', message: `Skipping LOT/LAND property (homeType=${propData.homeType})` };
+        }
+
         // ─── Phase 1: Refresh Analysis Snaps ─────────────────────────────────
-        const [visualSnap, investSnap, assetsSnap, insightsSnap, fitSnap, contextGraphSnap] = await Promise.all([
+        const [visualSnap, investSnap, assetsSnap, insightsSnap, fitSnap] = await Promise.all([
             analysisRef.doc('visual').get(),
             analysisRef.doc('investment').get(),
             analysisRef.doc('assets').get(),
             analysisRef.doc('lifestyle_insights').get(),
             analysisRef.doc('lifestyle_fit').get(),
-            analysisRef.doc('context_graph').get(),
         ]);
 
         // ── Environmental Data Healing (Google APIs only, no RapidAPI) ────────
         // RapidAPI property data fetching belongs in propertyBatch.js, NOT here.
         // If property data is missing, the user should run "Get Property Data" first.
-        const needsEnvRefresh = !envData || _isStale(envData.lastUpdated);
+        const needsPollenAiHeal = !!(envData?.pollen && !envData.pollen?.analysis?.breathe_easy_summary);
+        const needsEnvRefresh = !envData || _isStale(envData.lastUpdated)
+            || (envData.__env_version || 0) < ENV_SCHEMA_VERSION
+            || needsPollenAiHeal;
 
         console.log(`[Intel] Processing ${zpid}: needsEnv=${needsEnvRefresh}`);
 
@@ -201,6 +296,9 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                 logger
             );
         }
+        // Always use the freshest env data for downstream prompts — merge enrichment results
+        // over the snapshot so Lifestyle Fit sees the newly-fetched solar/AQ/pollen/noise data.
+        const activeEnvData = envResults ? { ...envData, ...envResults } : envData;
 
         const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data()?.lastUpdated);
         const needsInsightsRefresh = force || !insightsSnap.exists || _isStale(insightsSnap.data()?.lastUpdated);
@@ -232,9 +330,16 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
             const galleryTargets = limitedGallery.map(url => ({ url, label: 'Gallery Photo' }));
             const allTargets = [...contextImages, ...galleryTargets];
 
+            const healBucket = admin.storage().bucket();
+            const imageMetadata = assetData.imageMetadata || {};
+
             if (allTargets.length > 0) {
                 const imageParts = await Promise.all(allTargets.map(async (target) => {
-                    const base64 = await _fetchImageAsBase64(target.url);
+                    let base64 = await _fetchImageAsBase64(target.url);
+                    if (!base64 && target.label === 'Gallery Photo') {
+                        // Image missing or corrupt in Storage — attempt one heal from original source
+                        base64 = await _healGalleryImage(target.url, imageMetadata, healBucket);
+                    }
                     if (!base64) return null;
                     return [
                         { text: `--- ${target.label} ---` },
@@ -246,32 +351,41 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
 
                 if (validParts.length > 0) {
                     const { getPropertyImagesPrompt } = await import('./prompts/property/propertyImages.js');
-                    const model = genAI.getGenerativeModel({ 
+                    const model = genAI.getGenerativeModel({
                         model: MODEL_NAME,
                         generationConfig: { responseMimeType: "application/json" }
                     });
                     const prompt = getPropertyImagesPrompt(propData);
 
-                    const result = await model.generateContent([
-                        { text: prompt },
-                        ...validParts
-                    ]);
+                    // Fetch context-only parts as a fallback if the full set has a bad image
+                    const contextOnlyParts = (await Promise.all(contextImages.map(async (target) => {
+                        const base64 = await _fetchImageAsBase64(target.url);
+                        if (!base64) return null;
+                        return [{ text: `--- ${target.label} ---` }, base64];
+                    }))).filter(p => p !== null).flat();
 
-                    const text = result.response.text();
+                    let callResult;
                     try {
-                        if (logger) {
-                            logger.logTask('visual_pass');
-                            logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'propertyImages.js');
+                        callResult = await _geminiCall(model, [{ text: prompt }, ...validParts], `Visual Pass ${zpid}`);
+                    } catch (e) {
+                        if (e.message?.includes('400') && e.message?.includes('image') && contextOnlyParts.length > 0) {
+                            console.warn(`[Intel] Visual Pass ${zpid}: bad image in gallery, retrying with context-only images`);
+                            callResult = await _geminiCall(model, [{ text: prompt }, ...contextOnlyParts], `Visual Pass ${zpid} (context-only)`);
+                        } else {
+                            throw e;
                         }
-                        visualData = _normalizeVisualData(_extractJson(text));
-                    } catch (err) {
-                        console.error(`[Intel JSON Error] Visual Pass malformed for ${zpid}. Raw text:`, text);
-                        throw err;
                     }
+                    const { result, text } = callResult;
+
+                    if (logger) {
+                        logger.logTask('visual_pass');
+                        logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'propertyImages.js');
+                    }
+                    visualData = _normalizeVisualData(_extractJson(text));
                     await analysisRef.doc('visual').set({
                         ...visualData,
                         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                        version: 'batch-v2' // bumped version
+                        version: 'batch-v2'
                     });
                 }
             }
@@ -301,61 +415,49 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
             tasks.push((async () => {
                 console.log(`[Intel] Running Lifestyle Insights for ${zpid}...`);
                 const { getLifestyleInsightsPrompt } = await import('./prompts/property/lifestyleInsights.js');
-                const model = genAI.getGenerativeModel({ 
-                        model: MODEL_NAME,
-                        generationConfig: { responseMimeType: "application/json" }
-                    });
+                const model = genAI.getGenerativeModel({
+                    model: MODEL_NAME,
+                    generationConfig: { responseMimeType: "application/json" }
+                });
                 const prompt = getLifestyleInsightsPrompt(propData);
-                const result = await model.generateContent(prompt);
-                const text = result.response.text();
-                try {
-                    if (logger) {
-                        logger.logTask('lifestyle_insights');
-                        logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'lifestyleInsights.js');
-                    }
-                    const insightsData = _extractJson(text);
-                    await analysisRef.doc('lifestyle_insights').set({
-                        ...insightsData,
-                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                } catch (err) {
-                    console.error(`[Intel JSON Error] Lifestyle Insights malformed for ${zpid}. Raw text:`, text);
+                const { result, text } = await _geminiCall(model, prompt, `Lifestyle Insights ${zpid}`);
+                if (logger) {
+                    logger.logTask('lifestyle_insights');
+                    logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'lifestyleInsights.js');
                 }
+                const insightsData = _extractJson(text);
+                await analysisRef.doc('lifestyle_insights').set({
+                    ...insightsData,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                });
             })());
         }
 
         // 3c. Lifestyle Fit (Property focus)
-        if (force || !fitSnap.exists || _isStale(fitSnap.data().lastUpdated)) {
+        if (needsFitRefresh) {
             tasks.push((async () => {
                 console.log(`[Intel] Running Lifestyle Fit for ${zpid}...`);
                 const { getLifestyleFitPrompt } = await import('./prompts/property/lifestyleFit.js');
-                const model = genAI.getGenerativeModel({ 
-                        model: MODEL_NAME,
-                        generationConfig: { responseMimeType: "application/json" }
-                    });
-                const contextGraphFactors = contextGraphSnap.exists ? contextGraphSnap.data()?.factors : null;
+                const model = genAI.getGenerativeModel({
+                    model: MODEL_NAME,
+                    generationConfig: { responseMimeType: "application/json" }
+                });
                 const prompt = getLifestyleFitPrompt(
                     _optimizeProperty(propData),
                     _optimizeVisual(visualData || {}),
-                    envData?.streetViewAnalysis || null,
-                    envData || null,
-                    contextGraphFactors || null,
+                    activeEnvData?.streetViewAnalysis || null,
+                    activeEnvData || null,
                 );
-                const result = await model.generateContent(prompt);
-                const text = result.response.text();
-                try {
-                    if (logger) {
-                        logger.logTask('lifestyle_fit');
-                        logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'lifestyleFit.js');
-                    }
-                    const fitData = _extractJson(text);
-                    await analysisRef.doc('lifestyle_fit').set({
-                        ...fitData,
-                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                } catch (err) {
-                    console.error(`[Intel JSON Error] Lifestyle Fit malformed for ${zpid}. Raw text:`, text);
+                const { result, text } = await _geminiCall(model, prompt, `Lifestyle Fit ${zpid}`);
+                if (logger) {
+                    logger.logTask('lifestyle_fit');
+                    logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'lifestyleFit.js');
                 }
+                const fitData = _extractJson(text);
+                await analysisRef.doc('lifestyle_fit').set({
+                    ...fitData,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                });
             })());
         }
 
@@ -367,27 +469,22 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         if (force || !investSnap.exists || _isStale(investSnap.data().lastUpdated)) {
             console.log(`[Intel] Running Investment Pass for ${zpid}...`);
             const { getInvestmentResearchPrompt } = await import('./prompts/property/investmentResearch.js');
-            const model = genAI.getGenerativeModel({ 
-                        model: MODEL_NAME,
-                        generationConfig: { responseMimeType: "application/json" }
-                    });
+            const model = genAI.getGenerativeModel({
+                model: MODEL_NAME,
+                generationConfig: { responseMimeType: "application/json" }
+            });
             const optProp = _optimizeProperty(propData);
             const prompt = getInvestmentResearchPrompt(optProp);
-            const result = await model.generateContent(prompt);
-            const text = result.response.text();
-            try {
-                if (logger) {
-                    logger.logTask('investment_pass');
-                    logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'investmentResearch.js');
-                }
-                const investmentData = _extractJson(text);
-                await analysisRef.doc('investment').set({
-                    ...investmentData,
-                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (err) {
-                console.error(`[Intel JSON Error] Investment Pass malformed for ${zpid}. Raw text:`, text);
+            const { result, text } = await _geminiCall(model, prompt, `Investment Pass ${zpid}`);
+            if (logger) {
+                logger.logTask('investment_pass');
+                logger.logLLMCall(MODEL_NAME, result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'investmentResearch.js');
             }
+            const investmentData = _extractJson(text);
+            await analysisRef.doc('investment').set({
+                ...investmentData,
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+            });
         }
 
         return {

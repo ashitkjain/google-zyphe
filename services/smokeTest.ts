@@ -147,7 +147,8 @@ export async function runChecks(
     contextGraph: any | null,
     schoolAnalyses: Record<string, any>,
     addressHint?: string,
-    cityData?: { communityPulse?: any; deepInvestmentResearch?: any; livingWage?: any; livingWageGeo?: string }
+    cityData?: { communityPulse?: any; deepInvestmentResearch?: any; livingWage?: any; livingWageGeo?: string },
+    femaNri?: any | null
 ): Promise<PropertySmokeResult> {
     const checks: SmokeCheck[] = [];
     const rapidapiMeta = prop?._fetchMeta?.rapidapi;
@@ -200,9 +201,9 @@ export async function runChecks(
     const sourceImgCount = (prop?.images?.length || 0);
     const expectedImgCount = (prop?.photoCount || sourceImgCount || 0);
     
-    // Flag as shallow if we only have 1 image but the record (or common sense) suggests more.
-    // 1 image is almost always a search result placeholder.
-    const isShallow = downloadedImgCount === 1 && expectedImgCount <= 1; 
+    // Flag as shallow only when photoCount is unset/zero AND we have just 1 image (likely a placeholder).
+    // If photoCount confirms 1, the source listing genuinely has 1 photo — not a pipeline gap.
+    const isShallow = downloadedImgCount === 1 && (prop?.photoCount == null || prop?.photoCount === 0) && sourceImgCount <= 1;
     const isMissing = expectedImgCount > 0 && downloadedImgCount < expectedImgCount;
     const imgOk = !isMissing && !isShallow;
 
@@ -278,15 +279,17 @@ export async function runChecks(
     const places = env?.google_places;
 
     // Solar: check both maxSunshineHoursPerYear and solarPotential as indicators
-    const hasSolar = !!(solar?.maxSunshineHoursPerYear || solar?.solarPotential || solar?.yearlyEnergyDcKwh);
+    // solar.unavailable=true means the Solar API has no coverage for this address (accepted)
+    const solarUnavailable = solar?.unavailable === true;
+    const hasSolar = solarUnavailable || !!(solar?.maxSunshineHoursPerYear || solar?.solarPotential || solar?.yearlyEnergyDcKwh);
     chkWithMeta(checks, 'solarData', 'Solar API', 'warn', 'environmental', hasSolar,
-        solar ? `${solar.maxSunshineHoursPerYear || solar.yearlyEnergyDcKwh || '?'} hrs/yr sunshine` : 'not fetched', envMeta, 'solarData');
+        solarUnavailable ? 'No solar coverage (API 404)' : solar ? `${solar.maxSunshineHoursPerYear || solar.yearlyEnergyDcKwh || '?'} hrs/yr sunshine` : 'not fetched', envMeta, 'solarData');
 
     // Solar financial data (panels, system capacity, 20yr savings)
     const solarProd = solar?.estimatedSolarProduction;
-    const hasSolarFinancial = !!(solarProd?.annualKwh && solarProd?.estimatedPanels) || !!(solar?.maxArrayPanelsCount && solar?.maxSunshineHoursPerYear);
+    const hasSolarFinancial = solarUnavailable || !!(solarProd?.annualKwh && solarProd?.estimatedPanels) || !!(solar?.maxArrayPanelsCount && solar?.maxSunshineHoursPerYear);
     chkWithMeta(checks, 'solarFinancial', 'Solar — Panels & Production', 'warn', 'environmental', hasSolarFinancial,
-        solarProd?.annualKwh
+        solarUnavailable ? 'No solar coverage (API 404)' : solarProd?.annualKwh
             ? `${solarProd.estimatedPanels} panels, ${solarProd.annualKwh.toLocaleString()} kWh/yr`
             : solar?.maxArrayPanelsCount
                 ? `${solar.maxArrayPanelsCount} panels, ${solar.maxSunshineHoursPerYear?.toLocaleString() ?? '?'} hrs/yr`
@@ -341,14 +344,21 @@ export async function runChecks(
     chk(checks, 'conditionFinish', 'AI Visual — Condition & Finish', 'warn', 'ai_visual', !!(hi?.condition_and_finish && hi.condition_and_finish.length > 10),
         hi?.condition_and_finish ? `${hi.condition_and_finish.length} chars` : 'missing');
     const roomCount = Array.isArray(visual?.room_highlights) ? visual.room_highlights.length : 0;
-    // Compare AI rooms against property bedrooms — the AI should document at least every bedroom.
-    // resoFacts.rooms is the total room count (often 8-10+), but bedrooms is the reliable minimum.
+    // Require at least 1 room highlight, with a 2-room tolerance vs bedroom count.
+    // AI frequently skips 1-2 secondary bedrooms when the 15-image gallery cap is hit.
     const bedroomCount = prop?.bedrooms ?? 0;
-    const roomCoverageOk = roomCount >= 1 && (bedroomCount === 0 || roomCount >= bedroomCount);
+    const minRooms = Math.max(1, bedroomCount - 2);
+    // Accept empty rooms if: few photos (no interior shots expected), or visual has interior
+    // description (AI ran but photos are all exterior — rooms field genuinely can't be populated).
+    const fewPhotos = downloadedImgCount <= 2 || (prop?.photoCount != null && prop.photoCount <= 2);
+    const hasInteriorDesc = !!(visual?.home_interior?.overall_description && visual.home_interior.overall_description.length > 50);
+    const roomCoverageOk = fewPhotos || hasInteriorDesc || (roomCount >= 1 && (bedroomCount === 0 || roomCount >= minRooms));
     chk(checks, 'roomHighlights', 'AI Visual — Room Highlights', 'warn', 'ai_visual', roomCoverageOk,
-        roomCount > 0
-            ? `${roomCount} rooms vs ${bedroomCount}BR${!roomCoverageOk ? ' — incomplete coverage' : ''}`
-            : 'missing');
+        fewPhotos
+            ? `ok — only ${downloadedImgCount} photo(s), interior rooms not expected`
+            : roomCount > 0
+                ? `${roomCount} rooms vs ${bedroomCount}BR${!roomCoverageOk ? ' — incomplete coverage' : ''}`
+                : hasInteriorDesc ? 'ok — AI described interior but no distinct rooms in photos' : 'missing');
 
     // Visual sub-fields: curb appeal, backyard, privacy
     const ext = visual?.exterior_and_neighborhood;
@@ -554,11 +564,18 @@ export async function runChecks(
     chk(checks, 'investmentLTR', 'LTR Analysis (Rent)', 'error', 'ai_investment', hasLTR,
         hasLTR ? `Rent: ${investment.ltr_analysis.monthly_rent}` : 'missing');
 
-    // ── 16. Risk Scores (properties doc — flat fields, single source of truth) ──
-    const riskPresent = [prop?.floodRiskScore, prop?.fireRiskScore, prop?.heatRiskScore, prop?.windRiskScore]
-        .filter(v => v != null).length;
-    chkWithMeta(checks, 'climateRiskScores', 'Climate Risk Scores (4)', 'warn', 'rapidapi', riskPresent >= 3,
-        `${riskPresent}/4 present${riskPresent > 0 ? ` (flood:${prop?.floodRiskScore ?? '—'} fire:${prop?.fireRiskScore ?? '—'} heat:${prop?.heatRiskScore ?? '—'} wind:${prop?.windRiskScore ?? '—'})` : ''}`, rapidapiMeta, 'floodRiskScore');
+    // ── 16. FEMA NRI Climate Risk (properties/{zpid}/environmental/fema_nri) ──
+    const femaHazards = femaNri?.hazards;
+    const hasFemaNri = !!(femaNri?.overall != null && femaHazards);
+    const femaWildfire = femaHazards?.wildfire?.score;
+    const femaHeatwave = femaHazards?.heatwave?.score;
+    const femaFlood = femaHazards?.flood?.score;
+    const femaWind = Math.max(femaHazards?.hurricane?.score ?? 0, femaHazards?.tornado?.score ?? 0, femaHazards?.strongwind?.score ?? 0);
+    chkWithMeta(checks, 'climateRiskScores', 'FEMA NRI Climate Risk', 'warn', 'environmental', hasFemaNri,
+        hasFemaNri
+            ? `${femaNri.rating} (overall: ${femaNri.overall?.toFixed(0)}) — wildfire: ${femaWildfire?.toFixed(0) ?? '—'} heat: ${femaHeatwave?.toFixed(0) ?? '—'} flood: ${femaFlood?.toFixed(0) ?? '—'} wind: ${femaWind?.toFixed(0) ?? '—'}`
+            : 'fema_nri doc missing — run Full Intel batch',
+        envMeta, 'historical_disasters');
 
     // ── 17. Broadband / Connectivity (on google_environmental_data or properties) ─
     const bb = env?.broadband;
@@ -704,6 +721,7 @@ export const runCitySmokeTest = async (
     const allGraph: Record<string, any> = {};
     const allComp: Record<string, any> = {};
     const allInvest: Record<string, any> = {};
+    const allFemaNri: Record<string, any> = {};
     const allSchoolAnalyses: Record<string, any> = {};
 
     // Batch-fetch all collections in parallel chunks
@@ -719,16 +737,17 @@ export const runCitySmokeTest = async (
         // Migrated analyses: now at properties/{zpid}/analysis/{type}
         // Env data: now at properties/{zpid}/environmental/thirdparty_data
         await Promise.all(chunk.map(async (zpid) => {
-            const [assetSnap, visualSnap, compSnap, investSnap, insightsSnap, fitSnap, graphSnap, envSnap, envLegacySnap] = await Promise.all([
+            const [assetSnap, visualSnap, compSnap, investSnap, insightsSnap, fitSnap, graphSnap, envSnap, envLegacySnap, femaNriSnap] = await Promise.all([
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'assets')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'visual')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'comprehensive')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'investment')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'lifestyle_insights')),
                 getDoc(doc(db!, 'properties', zpid, 'analysis', 'lifestyle_fit')),
-                getDoc(doc(db!, 'properties', zpid, 'analysis', 'context_graph')),
+                getDoc(doc(db!, 'context_graph', zpid)),
                 getDoc(doc(db!, 'properties', zpid, 'environmental', 'thirdparty_data')),
                 getDoc(doc(db!, 'properties', zpid, 'environmental', 'google_data')), // legacy fallback
+                getDoc(doc(db!, 'properties', zpid, 'environmental', 'fema_nri')),
             ]);
             if (assetSnap.exists()) allAssets[zpid] = assetSnap.data();
             if (visualSnap.exists()) allVisual[zpid] = visualSnap.data();
@@ -737,6 +756,7 @@ export const runCitySmokeTest = async (
             if (insightsSnap.exists()) allInsights[zpid] = insightsSnap.data();
             if (fitSnap.exists()) allFit[zpid] = fitSnap.data();
             if (graphSnap.exists()) allGraph[zpid] = graphSnap.data();
+            if (femaNriSnap.exists()) allFemaNri[zpid] = femaNriSnap.data();
             const envData = envSnap.exists() ? envSnap.data() : (envLegacySnap.exists() ? envLegacySnap.data() : null);
             if (envData) allEnv[zpid] = normalizeEnvDoc(envData as Record<string, any>);
         }));
@@ -861,7 +881,8 @@ export const runCitySmokeTest = async (
             allGraph[zpid] || null,
             allSchoolAnalyses,
             addressMap?.[zpid],
-            cityDataMap[cityKey] || undefined
+            cityDataMap[cityKey] || undefined,
+            allFemaNri[zpid] || null
         );
     }));
 

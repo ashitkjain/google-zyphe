@@ -92,6 +92,34 @@ const JobTimer: React.FC<{ createdAt: any, status: string, updatedAt?: any }> = 
     );
 };
 
+function computeJobStats(job: any) {
+    const vals: any[] = Object.values(job.results || {});
+    const ran     = vals.filter(r => r.status === 'success').length;
+    const cached  = vals.filter(r => r.status === 'cached').length;
+    const failed  = vals.filter(r => r.status === 'failed').length;
+    const skipped = vals.filter(r => r.status === 'skipped').length;
+
+    // Intel-specific healed breakdown
+    const healedVisual = vals.filter(r => r.healed?.visual).length;
+    const healedEnv    = vals.filter(r => r.healed?.environmental).length;
+    const healedScores = vals.filter(r => r.healed?.scores).length;
+
+    // Asset-specific: total new images secured
+    const newImages = vals.reduce((acc, r) => acc + (r.newCount || 0), 0);
+
+    // Duration
+    const startMs = job.startedAt?.toMillis?.() || job.createdAt?.toMillis?.() || 0;
+    const endMs   = job.completedAt?.toMillis?.() || job.updatedAt?.toMillis?.() || 0;
+    const durationMs = (endMs > startMs) ? endMs - startMs : null;
+    const durationStr = durationMs != null
+        ? durationMs >= 60000
+            ? `${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`
+            : `${Math.floor(durationMs / 1000)}s`
+        : null;
+
+    return { ran, cached, failed, skipped, healedVisual, healedEnv, healedScores, newImages, durationStr };
+}
+
 const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => void }> = ({ onNavigate }) => {
     const [city, setCity] = useState('');
     // State removed as per new API requirements
@@ -207,31 +235,41 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const fetchAllRecentJobs = useCallback(async () => {
         setLoadingJobs(true);
         try {
-            const { getFirestore, collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+            const { getFirestore, collection, query, orderBy, limit, getDocs, deleteDoc, doc } = await import('firebase/firestore');
             const db = getFirestore();
             const collections = [
                 { id: 'full_intel_batch_jobs', label: 'Full Intel' },
                 { id: 'narrative_batch_jobs', label: 'Narrative' },
                 { id: 'orientation_batch_jobs', label: 'Orientation' },
-                { id: 'asset_secure_batch_jobs', label: 'Security' },
+                { id: 'asset_secure_batch_jobs', label: 'Asset Secure' },
                 { id: 'property_data_batch_jobs', label: 'Property Data' }
             ];
-            
+
+            const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+            const cutoff = Date.now() - FIVE_DAYS_MS;
+
             const results: any[] = [];
+            const deletePromises: Promise<void>[] = [];
+
             for (const col of collections) {
-                const q = query(collection(db, col.id), orderBy('createdAt', 'desc'), limit(10));
+                const q = query(collection(db, col.id), orderBy('createdAt', 'desc'), limit(20));
                 const snap = await getDocs(q);
-                snap.forEach(doc => {
-                    results.push({
-                        ...doc.data(),
-                        id: doc.id,
-                        collectionId: col.id,
-                        typeLabel: col.label
-                    });
+                snap.forEach(d => {
+                    const data = d.data();
+                    const createdMs = data.createdAt?.toMillis?.() || 0;
+                    const isTerminal = ['completed', 'failed', 'cancelled'].includes(data.status);
+                    if (isTerminal && createdMs < cutoff) {
+                        deletePromises.push(deleteDoc(doc(db, col.id, d.id)));
+                        return; // Don't include stale jobs in the display list
+                    }
+                    results.push({ ...data, id: d.id, collectionId: col.id, typeLabel: col.label });
                 });
             }
-            
-            // Sort by createdAt desc
+
+            if (deletePromises.length > 0) {
+                await Promise.allSettled(deletePromises);
+            }
+
             setAllJobs(results.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
         } catch (e) {
             console.error('Failed to fetch jobs:', e);
@@ -2687,7 +2725,7 @@ ${JSON.stringify(propertySummaries)}
                                         title="Reconcile and secure property images in background"
                                     >
                                         <i className="fa-solid fa-shield-halved text-blue-500 group-hover:scale-110 transition-transform"></i>
-                                        Secure Assets
+                                        Secure Assets ({visibleSelectedCount})
                                     </button>
 
                                     <button
@@ -2697,7 +2735,7 @@ ${JSON.stringify(propertySummaries)}
                                         title="Fetch Zillow specs & environmental data for selected properties"
                                     >
                                         <i className="fa-solid fa-database text-emerald-500 group-hover:scale-110 transition-transform"></i>
-                                        Property Data
+                                        Property Data ({visibleSelectedCount})
                                     </button>
 
                                     <button
@@ -4682,22 +4720,28 @@ ${JSON.stringify(propertySummaries)}
                         {allJobs.map((job) => {
                             const isRunning = job.status === 'running' || job.status === 'queued';
                             const progress = Math.round(((job.done || 0) / (job.total || 1)) * 100);
-                            
+                            const stats = computeJobStats(job);
+                            const hasResults = Object.keys(job.results || {}).length > 0;
+                            const isIntel = job.typeLabel === 'Full Intel';
+                            const isAsset = job.typeLabel === 'Asset Secure';
+                            const isOrientation = job.typeLabel === 'Orientation';
+
                             return (
                                 <div key={job.id} className={`bg-white border rounded-[2.5rem] p-6 shadow-sm hover:shadow-md transition-all ${isRunning ? 'border-indigo-100 ring-4 ring-indigo-50/30' : 'border-slate-100'}`}>
+                                    {/* ── Header row ── */}
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                         <div className="flex items-center gap-5">
-                                            <div className={`w-14 h-14 rounded-3xl flex items-center justify-center text-xl ${
+                                            <div className={`w-14 h-14 rounded-3xl flex items-center justify-center text-xl flex-shrink-0 ${
                                                 job.status === 'completed' ? 'bg-emerald-50 text-emerald-500' :
                                                 job.status === 'cancelled' ? 'bg-slate-100 text-slate-400' :
                                                 job.status === 'failed' ? 'bg-rose-50 text-rose-500' :
                                                 'bg-indigo-50 text-indigo-500 animate-pulse'
                                             }`}>
                                                 <i className={`fa-solid ${
-                                                    job.typeLabel === 'Full Intel' ? 'fa-brain' :
-                                                    job.typeLabel === 'Orientation' ? 'fa-compass' :
+                                                    isIntel ? 'fa-brain' :
+                                                    isOrientation ? 'fa-compass' :
                                                     job.typeLabel === 'Narrative' ? 'fa-file-signature' :
-                                                    job.typeLabel === 'Security' ? 'fa-shield-halved' : 'fa-database'
+                                                    isAsset ? 'fa-shield-halved' : 'fa-database'
                                                 }`}></i>
                                             </div>
                                             <div>
@@ -4711,13 +4755,19 @@ ${JSON.stringify(propertySummaries)}
                                                     }`}>
                                                         {job.status}
                                                     </span>
-                                                    <JobTimer createdAt={job.createdAt} status={job.status} updatedAt={job.updatedAt} />
+                                                    <JobTimer createdAt={job.createdAt} status={job.status} updatedAt={job.completedAt || job.updatedAt} />
+                                                    {stats.durationStr && !isRunning && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                                            <i className="fa-solid fa-hourglass-end text-[8px]"></i>
+                                                            {stats.durationStr}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <h3 className="text-lg font-black text-slate-900 leading-none mb-1">
                                                     {job.city || 'Global Batch'} <span className="text-slate-300 font-mono text-sm ml-2">{job.id.slice(-6)}</span>
                                                 </h3>
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                                                    Started {job.createdAt?.toDate().toLocaleString()}
+                                                    {job.createdAt?.toDate?.().toLocaleString?.() || '—'}
                                                 </p>
                                             </div>
                                         </div>
@@ -4727,21 +4777,81 @@ ${JSON.stringify(propertySummaries)}
                                                 <span className="text-sm font-black text-slate-900">{job.done || 0} <span className="text-[10px] text-slate-400 uppercase">/ {job.total || 0} Processed</span></span>
                                                 <span className="text-xs font-black text-slate-400">{progress}%</span>
                                             </div>
-                                            <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
-                                                <div 
+                                            <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100 mb-3">
+                                                <div
                                                     className={`h-full transition-all duration-1000 ${
                                                         job.status === 'completed' ? 'bg-emerald-500' :
                                                         job.status === 'failed' ? 'bg-rose-500' :
                                                         'bg-indigo-500'
-                                                    }`} 
+                                                    }`}
                                                     style={{ width: `${progress}%` }}
                                                 ></div>
                                             </div>
+
+                                            {/* ── Stats chips ── */}
+                                            {hasResults && (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {stats.ran > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                                                            <i className="fa-solid fa-bolt text-[7px]"></i>
+                                                            {stats.ran} ran
+                                                        </span>
+                                                    )}
+                                                    {stats.cached > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-50 text-sky-600 text-[9px] font-black uppercase tracking-widest border border-sky-100">
+                                                            <i className="fa-solid fa-rotate text-[7px]"></i>
+                                                            {stats.cached} cached
+                                                        </span>
+                                                    )}
+                                                    {isOrientation && (job.cached || 0) > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-50 text-sky-600 text-[9px] font-black uppercase tracking-widest border border-sky-100">
+                                                            <i className="fa-solid fa-rotate text-[7px]"></i>
+                                                            {job.cached} cached
+                                                        </span>
+                                                    )}
+                                                    {stats.failed > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 text-[9px] font-black uppercase tracking-widest border border-rose-100">
+                                                            <i className="fa-solid fa-triangle-exclamation text-[7px]"></i>
+                                                            {stats.failed} failed
+                                                        </span>
+                                                    )}
+                                                    {stats.skipped > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-50 text-slate-500 text-[9px] font-black uppercase tracking-widest border border-slate-100">
+                                                            <i className="fa-solid fa-forward text-[7px]"></i>
+                                                            {stats.skipped} skipped
+                                                        </span>
+                                                    )}
+                                                    {isIntel && stats.healedVisual > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-violet-50 text-violet-600 text-[9px] font-black uppercase tracking-widest border border-violet-100">
+                                                            <i className="fa-solid fa-eye text-[7px]"></i>
+                                                            {stats.healedVisual} visual
+                                                        </span>
+                                                    )}
+                                                    {isIntel && stats.healedEnv > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-50 text-teal-600 text-[9px] font-black uppercase tracking-widest border border-teal-100">
+                                                            <i className="fa-solid fa-leaf text-[7px]"></i>
+                                                            {stats.healedEnv} env healed
+                                                        </span>
+                                                    )}
+                                                    {isIntel && stats.healedScores > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-600 text-[9px] font-black uppercase tracking-widest border border-amber-100">
+                                                            <i className="fa-solid fa-star text-[7px]"></i>
+                                                            {stats.healedScores} scores healed
+                                                        </span>
+                                                    )}
+                                                    {isAsset && stats.newImages > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase tracking-widest border border-indigo-100">
+                                                            <i className="fa-solid fa-images text-[7px]"></i>
+                                                            {stats.newImages} images secured
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex items-center gap-3">
                                             {isRunning && (
-                                                <button 
+                                                <button
                                                     onClick={() => requestStop(job.id)}
                                                     className="px-6 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-black uppercase tracking-widest rounded-2xl transition-all border border-rose-100"
                                                 >
