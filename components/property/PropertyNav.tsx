@@ -102,15 +102,6 @@ function buildSections(vis: PropertyNavProps['visibility'], cityName?: string, u
             ],
         },
         {
-            id: 'executive-summary',
-            label: 'Executive Summary',
-            icon: 'fa-book-open',
-            isFlat: true,
-            subItems: [
-                { id: 'summary', label: 'Executive Summary', icon: 'fa-book-open', visible: true },
-            ],
-        },
-        {
             id: 'context-graph',
             label: 'Factors - At A Glance',
             icon: 'fa-diagram-project',

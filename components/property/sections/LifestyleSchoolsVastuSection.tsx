@@ -528,6 +528,7 @@ interface LifestyleSchoolsVastuSectionProps {
     setIsSchoolModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
     orientationGroundTruth?: { expected_orientation: string; expected_azimuth_deg: number | null; gt_source: string } | null;
     renderPalette?: () => React.ReactNode;
+    analysis?: any;
 }
 
 export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSectionProps> = ({
@@ -545,6 +546,7 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
     setIsSchoolModalOpen,
     orientationGroundTruth,
     renderPalette,
+    analysis,
 }) => {
     const activePersona = PERSONAS.find(p => p.id === lifestyleFitTab) || PERSONAS[0];
     const fitData = lifestyleFit?.[lifestyleFitTab];
@@ -567,8 +569,46 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
     const showOrientation = !!sat && isTargetForOrientationAnalysis(data).target && isOrientationClear(sat)
         && vastu && displayOrientation !== 'UNCLEAR';
 
+    const renderContent = (text?: string) => {
+        if (!text) return null;
+        if (typeof text !== 'string') return String(text);
+        const parts = text.split(/\*\*(.*?)\*\*/g);
+        return parts.map((part, i) => (
+            i % 2 === 1 ? <strong key={i} className="text-gray-900 font-bold">{part}</strong> : part
+        ));
+    };
+
     return (
         <div className="flex flex-col gap-12 w-full">
+            {/* ── Executive Snapshot ─────────────────────────────────── */}
+            {analysis?.summary && (
+                <div style={{
+                    background: 'linear-gradient(180deg, #4f46e512 0%, #fff 140px)',
+                    borderRadius: 20,
+                    border: '1px solid #e2e8f0',
+                    padding: 32,
+                    marginBottom: -16,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#4f46e518', color: '#4f46e5', display: 'grid', placeItems: 'center', fontSize: 16, flexShrink: 0 }}>
+                            <i className="fa-solid fa-arrow-trend-up"></i>
+                        </div>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
+                                <span style={{ width: 24, height: 1, background: '#4f46e5', display: 'inline-block' }} />
+                                <span style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase' }}>Executive Snapshot</span>
+                            </div>
+                            <h2 style={{ fontFamily: serif, fontSize: 32, lineHeight: 1.05, margin: 0, fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                                The property at a <em style={{ color: '#4f46e5', fontStyle: 'italic' }}>glance</em>
+                            </h2>
+                        </div>
+                    </div>
+                    <p style={{ fontSize: 14.5, color: '#64748b', lineHeight: 1.7, margin: 0 }}>
+                        {renderContent(analysis.summary)}
+                    </p>
+                </div>
+            )}
             {/* ── Page heading ─────────────────────────────────────────────── */}
             <div style={{
                 background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0',
@@ -841,43 +881,36 @@ export const LifestyleSchoolsVastuSection: React.FC<LifestyleSchoolsVastuSection
                         </p>
                     )}
 
-                    {/* Technical Trace Dropdown */}
-                    {(sat.steps?.length > 0 || sat.apis?.length > 0) && (
-                        <details className="mt-6 group border-t border-slate-100 pt-4">
-                            <summary className="list-none cursor-pointer flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">
-                                <i className="fa-solid fa-chevron-right text-[8px] transition-transform group-open:rotate-90" />
-                                <i className="fa-solid fa-microchip" />
-                                Intelligence Execution Trace
-                            </summary>
-                            <div className="mt-4 pl-4 border-l-2 border-slate-50 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                                {sat.steps && (
-                                    <div>
-                                        <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wider mb-2">Pipeline Steps</div>
-                                        <div className="space-y-1.5">
-                                            {sat.steps.map((step: string, i: number) => (
-                                                <div key={i} className="flex gap-2 text-[11px] text-slate-500 font-medium">
-                                                    <span className="text-slate-300">0{i + 1}</span>
-                                                    <span>{step}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {sat.apis && (
-                                    <div>
-                                        <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wider mb-2">Engaged APIs</div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {sat.apis.map((api: string, i: number) => (
-                                                <span key={i} className="px-2 py-0.5 bg-slate-50 text-slate-400 rounded border border-slate-100 text-[10px] font-bold">
-                                                    {api}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                </div>
+            )}
+
+            {/* ── Risk Advisory ────────────────────────────────────── */}
+            {analysis?.risks_considerations && (
+                <div style={{
+                    background: 'linear-gradient(180deg, #e11d4812 0%, #fff 140px)',
+                    borderRadius: 20,
+                    border: '1px solid #e2e8f0',
+                    padding: 32,
+                    marginTop: 12,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#e11d4818', color: '#e11d48', display: 'grid', placeItems: 'center', fontSize: 16, flexShrink: 0 }}>
+                            <i className="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
+                                <span style={{ width: 24, height: 1, background: '#e11d48', display: 'inline-block' }} />
+                                <span style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, color: '#e11d48', textTransform: 'uppercase' }}>Risk Advisory</span>
                             </div>
-                        </details>
-                    )}
+                            <h2 style={{ fontFamily: serif, fontSize: 32, lineHeight: 1.05, margin: 0, fontWeight: 400, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                                <em style={{ color: '#e11d48', fontStyle: 'italic' }}>Critical</em> risks & considerations
+                            </h2>
+                        </div>
+                    </div>
+                    <p style={{ fontSize: 14.5, color: '#64748b', lineHeight: 1.7, margin: 0 }}>
+                        {renderContent(analysis.risks_considerations)}
+                    </p>
                 </div>
             )}
 

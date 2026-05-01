@@ -328,6 +328,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                 setIsSchoolModalOpen={setIsSchoolModalOpen}
                                 orientationGroundTruth={orientationGroundTruth}
                                 renderPalette={renderPalette}
+                                analysis={analysis}
                             />
                         </div>
                     );
@@ -460,55 +461,6 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     );
                 }
 
-                // ────────────────────────────────────────────────────────────────────────
-                // EXECUTIVE SUMMARY
-                // ────────────────────────────────────────────────────────────────────────
-                if (sectionId === 'executive-summary') {
-                    return (
-                        <div className="animate-in fade-in duration-200">
-                            <PageHeader icon="fa-book-open" title="Executive Summary"
-                                color="text-indigo-600" {...headerProps} />
-                            
-                            {props.comprehensiveLoading ? (
-                                <div className="py-32 flex flex-col items-center justify-center gap-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm">
-                                    <div className="relative">
-                                        <div className="w-16 h-16 border-4 border-indigo-50 rounded-full" />
-                                        <div className="absolute inset-0 border-t-4 border-indigo-600 rounded-full animate-spin" />
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-slate-900 font-black text-lg tracking-tight">Synthesizing Report...</p>
-                                        <p className="text-slate-400 text-sm mt-1">Zyphe AI is compiling multi-source property data.</p>
-                                    </div>
-                                </div>
-                            ) : analysis ? (
-                                <ComprehensiveAnalysis
-                                    analysis={analysis}
-                                    loading={props.comprehensiveLoading}
-                                    onBack={() => {}}
-                                    isFavorited={props.isFavorited}
-                                    onToggleFavorite={props.onToggleFavorite}
-                                    hideHeader={true}
-                                />
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2.5rem] border border-dashed border-slate-200 gap-8 text-center shadow-sm">
-                                    <div className="w-20 h-20 rounded-[2rem] bg-indigo-50 flex items-center justify-center">
-                                        <i className="fa-solid fa-scroll text-3xl text-indigo-300"></i>
-                                    </div>
-                                    <div className="max-w-md">
-                                        <p className="text-slate-900 font-black text-2xl tracking-tight">No Summary Available</p>
-                                        <p className="text-slate-500 text-base mt-2 font-medium">Generate a comprehensive report to see the deep-dive narrative for this property.</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => onRunComprehensive?.(false)} 
-                                        className="px-8 py-4 bg-indigo-600 text-white text-[13px] font-black uppercase tracking-widest rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center gap-3 active:scale-95"
-                                    >
-                                        <i className="fa-solid fa-wand-magic-sparkles" /> Run Full Report
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    );
-                }
 
                 // ────────────────────────────────────────────────────────────────────────
                 // INVESTMENT
@@ -567,7 +519,7 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                     if (subId === 'comprehensive') return (
                         <div className="animate-in fade-in duration-200">
                             <ComprehensiveAnalysis
-                                analysis={comprehensiveAnalysis}
+                                analysis={analysis}
                                 loading={props.comprehensiveLoading}
                                 onBack={() => {}}
                                 isFavorited={props.isFavorited}
