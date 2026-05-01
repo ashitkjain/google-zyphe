@@ -45,6 +45,7 @@ interface PropertySectionViewProps {
     communityPulse: any | null;
     ltrAnalysis: { monthly_rent?: string; vacancy_rate?: string; comparison_summary?: string } | null;
     keyInsights: DeepResearchInsights | null;
+    deepResearch: DeepInvestmentResearchResult | null;
     neighborhoodOverview: string | null;
     visualPoi?: NeighborhoodAnalysis['visual_poi'];
     mapLabels?: string[];
@@ -181,7 +182,7 @@ const PageHeader: React.FC<{
 export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) => {
     const {
         sectionId, subId, propertyData: data,
-        customAnalysis, comprehensiveAnalysis: analysis, communityPulse, ltrAnalysis, keyInsights,
+        customAnalysis, comprehensiveAnalysis: analysis, communityPulse, ltrAnalysis, deepResearch, keyInsights,
         neighborhoodOverview, visualPoi, mapLabels, designStyle, currentInteriorSummary,
         census, micro,
         lifestyleFit, lifestyleInsights, lifestyleLoading,
@@ -526,8 +527,8 @@ export const PropertySectionView: React.FC<PropertySectionViewProps> = (props) =
                                     <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
                                     <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Assembling Analysis...</p>
                                 </div>
-                            ) : customAnalysis?.deep_investment_research ? (
-                                <DeepInvestmentView data={customAnalysis.deep_investment_research} />
+                            ) : (customAnalysis?.deep_investment_research || deepResearch) ? (
+                                <DeepInvestmentView data={customAnalysis?.deep_investment_research || deepResearch} />
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 gap-6 text-center">
                                     <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center">

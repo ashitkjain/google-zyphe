@@ -121,7 +121,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         cachedVisualAnalysis,
         designStyle, marketDynamics, ltrAnalysis, keyInsights,
         neighborhoodOverview, communityPulse, visualPoi, mapLabels,
-        currentInteriorSummary, analysis,
+        currentInteriorSummary, analysis, deepResearch,
         handleFullRefresh,
         orientationGroundTruth,
         mergedPropertyData,
@@ -422,6 +422,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                             comprehensiveAnalysis={analysis}
                                             communityPulse={communityPulse}
                                             ltrAnalysis={ltrAnalysis}
+                                            deepResearch={deepResearch}
                                             renderPalette={renderPalette}
                                             keyInsights={keyInsights}
                                             neighborhoodOverview={neighborhoodOverview}

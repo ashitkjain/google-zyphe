@@ -872,12 +872,12 @@ export const getLifestyleInsightsFromCloud = async (zpid: string): Promise<any |
 export const saveLifestyleFitToCloud = async (zpid: string, fit: any) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
-        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        // Canonical path: same doc that intelBatch writes to
+        const fitRef = doc(db, "properties", String(zpid), "analysis", "lifestyle_fit");
         logFirestoreQuery('setDoc', 'properties/analysis', { zpid, type: 'lifestyle_fit' });
-        await setDoc(nestedRef, {
-            lifestyle_fit: sanitizeForFirestore(fit),
-            zpid: String(zpid),
-            timestamp: serverTimestamp()
+        await setDoc(fitRef, {
+            ...sanitizeForFirestore(fit),
+            lastUpdated: serverTimestamp()
         }, { merge: true });
         return { success: true };
     } catch (error) {
@@ -888,16 +888,24 @@ export const saveLifestyleFitToCloud = async (zpid: string, fit: any) => {
 export const getLifestyleFitFromCloud = async (zpid: string): Promise<any | null> => {
     if (!db || !zpid) return null;
     try {
-        // 1. Try new nested path
-        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
+        // 1. Canonical path — written by intelBatch and the frontend save flow
+        const batchRef = doc(db, "properties", String(zpid), "analysis", "lifestyle_fit");
         logFirestoreQuery('getDoc', 'properties/analysis', { zpid, type: 'lifestyle_fit' });
+        const batchSnap = await getDoc(batchRef);
+        if (batchSnap.exists()) {
+            const data = batchSnap.data();
+            if (data?.working_professionals || data?.families_with_kids || data?.seniors) return data;
+        }
+
+        // 2. Legacy nested path (comprehensive doc)
+        const nestedRef = doc(db, "properties", String(zpid), "analysis", "comprehensive");
         const nestedSnap = await getDoc(nestedRef);
         if (nestedSnap.exists()) {
             const data = nestedSnap.data() as ComprehensiveAnalysisResult;
             if (data.lifestyle_fit) return data.lifestyle_fit;
         }
 
-        // 2. Fallback to legacy path
+        // 3. Older legacy collection
         const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
         logFirestoreQuery('getDoc', 'property_analyses_comprehensive (lifestyle_fit)', { zpid });
         const docSnap = await getDoc(docRef);
