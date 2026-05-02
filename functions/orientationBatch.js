@@ -97,21 +97,23 @@ const _dir8 = (az) => ['North', 'Northeast', 'East', 'Southeast', 'South', 'Sout
  * Geocodes address + neighbour 50/100 numbers away to compute the street's bearing.
  * Returns { bearing, streetSide } or null.
  */
-async function _getStreetBearing(address, mapsKey, propLat = null, propLng = null, logger = null) {
+async function _getStreetBearing(address, radarKey, propLat = null, propLng = null, logger = null) {
     const match = address.match(/^(\d+)/);
-    if (!match || !mapsKey) return null;
+    if (!match || !radarKey) return null;
     const houseNum = parseInt(match[1], 10);
 
     const geocode = async (addr) => {
-        if (logger) logger.logAPICall('google_maps', 'geocoding', null);
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${mapsKey}`;
-        const res = await fetch(url).then(r => r.json());
-        const result = res.results?.[0];
-        if (!result) return null;
-        const loc = result.geometry?.location;
-        const road = (result.address_components?.find(c => c.types.includes('route'))?.long_name ?? '')
-            .toLowerCase().replace(/[^a-z0-9]/g, '');
-        return loc ? { lat: loc.lat, lng: loc.lng, road } : null;
+        if (logger) logger.logAPICall('radar', 'geocoding', null);
+        const url = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(addr)}`;
+        const res = await fetch(url, {
+            headers: { 'Authorization': radarKey }
+        }).then(r => r.json());
+        
+        const first = res.addresses?.[0];
+        if (!first) return null;
+        
+        const road = (first.street || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return { lat: first.latitude, lng: first.longitude, road };
     };
 
     try {
@@ -381,17 +383,11 @@ async function _refreshStreetViewUrl(zpid, lat, lng, mapsKey, db, bucket, addres
     const freshUrl = fileMetadata.mediaLink ||
         `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
 
-    // Persist fresh URL + heading to root doc AND mirror to analysis/assets so Intel Batch visual pass can use it.
-    await Promise.all([
-        db.collection('properties').doc(zpid).update({
-            streetView: freshUrl,
-            streetViewHeadingDeg: heading,
-        }),
-        db.collection('properties').doc(zpid).collection('analysis').doc('assets').set(
-            { streetView: freshUrl },
-            { merge: true }
-        )
-    ]);
+    // Root doc is the single source of truth for streetView.
+    await db.collection('properties').doc(zpid).update({
+        streetView: freshUrl,
+        streetViewHeadingDeg: heading,
+    });
     console.log(`[Batch] Street view re-cached for ${zpid} (heading=${heading}°): ${freshUrl.slice(0, 80)}...`);
     return freshUrl;
 }
@@ -412,6 +408,20 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     // Cache check: skip if we already have any orientation result from this version
     const existingAi = prop.orientation_ai || {};
     if (existingAi.final_orientation && existingAi.batch_version === BATCH_VERSION) {
+        // Even when cached, fetch street view if it was never downloaded
+        if (!prop.streetView && mapsKey) {
+            const cachedLat = prop.coordinates?.latitude ?? prop.latitude ?? null;
+            const cachedLng = prop.coordinates?.longitude ?? prop.longitude ?? null;
+            if (cachedLat != null && cachedLng != null) {
+                console.log(`[Batch] ${zpid}: cached orientation but no street view — fetching now.`);
+                try {
+                    const bucket = admin.storage().bucket();
+                    await _refreshStreetViewUrl(zpid, cachedLat, cachedLng, mapsKey, db, bucket, prop.address || '', logger);
+                } catch (e) {
+                    console.warn(`[Batch] ${zpid}: Street view fetch on cached property failed:`, e.message);
+                }
+            }
+        }
         console.log(`[Batch] Skipping ${zpid}: ${BATCH_VERSION} result already exists (${existingAi.final_orientation}).`);
         return {
             status: 'cached',
@@ -432,8 +442,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     // 2. Street bearing via Maps Geocoding API
     // Extract property centroid from satelliteImageUrl (center=lat,lng param) or Firestore fields.
     // Used by _getStreetBearing for cross-product streetSide computation on diagonal roads.
-    let propLat = prop.latitude ?? prop.location?.latitude ?? null;
-    let propLng = prop.longitude ?? prop.location?.longitude ?? null;
+    let propLat = prop.coordinates?.latitude ?? prop.latitude ?? prop.location?.latitude ?? null;
+    let propLng = prop.coordinates?.longitude ?? prop.longitude ?? prop.location?.longitude ?? null;
     if ((propLat == null || propLng == null) && aerialUrl) {
         const m = aerialUrl.match(/[?&]center=([-\d.]+),([-\d.]+)/);
         if (m) { propLat = parseFloat(m[1]); propLng = parseFloat(m[2]); }
@@ -443,8 +453,8 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     let streetBearing = null, streetSide = null;
     try {
         steps.push('Maps Geocoding: Fetching street bearing');
-        apis.push('Google Maps Geocoding');
-        const br = await _getStreetBearing(address, mapsKey, propLat, propLng, logger);
+        apis.push('Radar Geocoding');
+        const br = await _getStreetBearing(address, radarKey, propLat, propLng, logger);
         streetBearing = br?.bearing ?? null;
         streetSide = br?.streetSide ?? null;
         if (streetBearing !== null) steps.push(`Street bearing resolved: ${Math.round(streetBearing)}°`);
@@ -478,8 +488,16 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
             const freshSv = await _refreshStreetViewUrl(zpid, propLat, propLng, mapsKey, db, bucket, address, logger);
             svUrl = freshSv || null;
         } catch (e) { console.warn(`[Batch] ${zpid}: Street view re-fetch failed:`, e.message); svUrl = null; }
-    } else if (!svAlive) {
+    } else if (svUrl && !svAlive) {
         svUrl = null;
+    } else if (!svUrl && propLat != null && mapsKey) {
+        // Street view was never fetched for this property — do the initial download
+        steps.push('Street View: Initial fetch');
+        apis.push('Google Street View (Metadata/Static)');
+        try {
+            const freshSv = await _refreshStreetViewUrl(zpid, propLat, propLng, mapsKey, db, bucket, address, logger);
+            svUrl = freshSv || null;
+        } catch (e) { console.warn(`[Batch] ${zpid}: Initial street view fetch failed:`, e.message); }
     }
 
     // 3b. Download (now using fresh/valid URLs)

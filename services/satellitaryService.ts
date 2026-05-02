@@ -31,6 +31,7 @@ import { db } from './firebase/config';
 import { isTargetForOrientationAnalysis } from '../utils/propertyPolicies';
 
 const getMapsApiKey = () => APP_CONFIG.maps.key;
+const getRadarApiKey = () => APP_CONFIG.radar.key;
 
 /**
  * Removes orientation-related data from a property document and clears its AI run history
@@ -479,13 +480,18 @@ async function getStreetBearing(address: string): Promise<{ bearing: number | nu
     const STABILITY_THRESHOLD_DEG = 30; // if two offsets disagree by more than this, road is curved/ambiguous
     try {
         const geocodeWithRoad = async (addr: string): Promise<{ lat: number; lng: number; road: string } | null> => {
-            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${apiKey}`;
-            const res = await fetch(url).then(r => r.json()) as any;
-            const result = res.results?.[0];
-            if (!result) return null;
-            const loc = result.geometry?.location;
-            const road = (result.address_components?.find((c: any) => c.types.includes('route'))?.long_name ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            return loc ? { lat: loc.lat as number, lng: loc.lng as number, road } : null;
+            try {
+                const { normalizeAddress } = await import('./api/geocoding');
+                const res = await normalizeAddress(addr);
+                return {
+                    lat: res.coordinates.latitude,
+                    lng: res.coordinates.longitude,
+                    road: (res.components.street || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+                };
+            } catch (e) {
+                console.warn(`[Satellitary] geocodeWithRoad failed for ${addr}:`, e);
+                return null;
+            }
         };
 
         const p1 = await geocodeWithRoad(address);
@@ -600,14 +606,14 @@ async function fetchStreetViewHeading(
     /** Reverse-geocode a latlng and return the first road/route name (lower-case). */
     const getRoadName = async (lat: number, lng: number): Promise<string> => {
         try {
-            const url =
-                `https://maps.googleapis.com/maps/api/geocode/json` +
-                `?latlng=${lat},${lng}&result_type=route&key=${apiKey}`;
-            const res = await fetch(url).then(r => r.json()) as any;
-            const name = res.results?.[0]?.address_components?.find(
-                (c: any) => c.types.includes('route')
-            )?.long_name || '';
-            return name.toLowerCase();
+            const radarKey = getRadarApiKey();
+            const url = `https://api.radar.io/v1/geocode/reverse?coordinates=${lat},${lng}`;
+            const res = await fetch(url, {
+                headers: { 'Authorization': radarKey }
+            }).then(r => r.json()) as any;
+            
+            const first = res.addresses?.[0];
+            return (first?.street || '').toLowerCase();
         } catch { return ''; }
     };
 

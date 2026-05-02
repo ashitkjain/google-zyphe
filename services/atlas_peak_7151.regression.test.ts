@@ -13,6 +13,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { runSatellitaryAnalysis } from './satellitaryService';
+import { normalizeAddress } from './api/geocoding';
 import { APP_CONFIG } from '../config';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -55,6 +56,7 @@ beforeAll(async () => {
         const keys = JSON.parse(readFileSync(resolve('./tests/.batch-keys.json'), 'utf-8')) as Record<string, string>;
         if (keys.VITE_GEMINI_API_KEY)      (APP_CONFIG as any).gemini.key = keys.VITE_GEMINI_API_KEY;
         if (keys.VITE_GOOGLE_MAPS_API_KEY) (APP_CONFIG as any).maps.key   = keys.VITE_GOOGLE_MAPS_API_KEY;
+        if (keys.VITE_RADAR_KEY)           (APP_CONFIG as any).radar.key  = keys.VITE_RADAR_KEY;
     } catch { /* fall through to env */ }
 
     (APP_CONFIG as any).models.flash = 'gemini-2.5-flash';
@@ -62,19 +64,19 @@ beforeAll(async () => {
         (APP_CONFIG as any).gemini.key = process.env.VITE_GEMINI_API_KEY;
     if (!APP_CONFIG.maps.key && process.env.VITE_GOOGLE_MAPS_API_KEY)
         (APP_CONFIG as any).maps.key = process.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!APP_CONFIG.radar.key && process.env.VITE_RADAR_KEY)
+        (APP_CONFIG as any).radar.key = process.env.VITE_RADAR_KEY;
 
     if (!APP_CONFIG.gemini.key) throw new Error('Gemini API key not loaded');
     if (!APP_CONFIG.maps.key)   throw new Error('Maps API key not loaded');
 
     // Geocode
-    const geoRes = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(ADDRESS)}&key=${APP_CONFIG.maps.key}`
-    ).then(r => r.json());
-    if (geoRes.status === 'OK') {
-        coords = geoRes.results[0].geometry.location;
-        console.log(`[Setup] Coords: ${coords!.lat}, ${coords!.lng}`);
-    } else {
-        console.warn('[Setup] Geocode failed:', geoRes.status);
+    try {
+        const res = await normalizeAddress(ADDRESS);
+        coords = { lat: res.coordinates.latitude, lng: res.coordinates.longitude };
+        console.log(`[Setup] Coords: ${coords.lat}, ${coords.lng}`);
+    } catch (e) {
+        console.warn('[Setup] Geocode failed:', e);
     }
 }, 30_000);
 

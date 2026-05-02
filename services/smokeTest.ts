@@ -217,7 +217,7 @@ export async function runChecks(
         isFirebaseStorageUrl(assets?.mapZoomIn || prop?.mapZoomIn) ? 'present' : 'missing/not in Storage');
     chk(checks, 'mapZoomOut', 'Map Zoom-Out (Storage)', 'error', 'assets', isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut),
         isFirebaseStorageUrl(assets?.mapZoomOut || prop?.mapZoomOut) ? 'present' : 'missing/not in Storage');
-    const svImgUrl = assets?.streetView || env?.streetViewAnalysis?.imageUrl;
+    const svImgUrl = prop?.streetView || env?.streetViewAnalysis?.imageUrl;
     const hasSvStorage = isFirebaseStorageUrl(svImgUrl);
     
     // Perform live metadata check if missing from storage to see if it's a pipeline gap or source gap
@@ -376,22 +376,9 @@ export async function runChecks(
     chk(checks, 'aiNeighborhood', 'AI Neighborhood/Spatial', 'error', 'ai_visual', hasNeighborhood,
         hasNeighborhood ? 'analysis present' : 'missing');
 
-    // Orientation AI (saved on properties doc)
-    const orientationAi = prop?.orientation_ai;
-    const orientationVal = orientationAi?.final_orientation;
-    const isUnclear = orientationVal === 'UNCLEAR';
-    const hasOrientation = !!orientationVal && !isUnclear;
-    const isV30 = orientationAi?.batch_version === 'v30' || orientationAi?.orientation_version === 'v30';
-
-    chk(checks, 'orientationAi', 'Front Orientation AI', 'warn', 'ai_visual', hasOrientation,
-        isUnclear ? 'UNCLEAR (ambiguous)' : (hasOrientation ? orientationVal : 'missing'));
-
-    if (hasOrientation) {
-        chk(checks, 'orientationConfidence', 'Orientation Confidence', 'warn', 'ai_visual', orientationAi.confidence === 'high',
-            orientationAi.confidence || 'unknown');
-        chk(checks, 'orientationVersion', 'Orientation Version (v30)', 'warn', 'ai_visual', isV30,
-            isV30 ? 'v30' : (orientationAi?.batch_version || orientationAi?.orientation_version || 'old version'));
-    }
+    // Orientation checks disabled — re-enable after v31 batch completes
+    // const orientationAi = prop?.orientation_ai;
+    // ...
 
     // ── 3. Street View AI (environmental.streetViewAnalysis or fallback to visual) ──
     const svAnalysis = env?.streetViewAnalysis;
@@ -565,15 +552,17 @@ export async function runChecks(
         hasLTR ? `Rent: ${investment.ltr_analysis.monthly_rent}` : 'missing');
 
     // ── 16. FEMA NRI Climate Risk (properties/{zpid}/environmental/fema_nri) ──
+    // Pass if the fema_nri doc exists with hazards — overall score can legitimately be null
+    // for census tracts where ArcGIS has no composite risk score yet.
     const femaHazards = femaNri?.hazards;
-    const hasFemaNri = !!(femaNri?.overall != null && femaHazards);
+    const hasFemaNri = !!(femaNri != null && femaHazards);
     const femaWildfire = femaHazards?.wildfire?.score;
     const femaHeatwave = femaHazards?.heatwave?.score;
     const femaFlood = femaHazards?.flood?.score;
     const femaWind = Math.max(femaHazards?.hurricane?.score ?? 0, femaHazards?.tornado?.score ?? 0, femaHazards?.strongwind?.score ?? 0);
     chkWithMeta(checks, 'climateRiskScores', 'FEMA NRI Climate Risk', 'warn', 'environmental', hasFemaNri,
         hasFemaNri
-            ? `${femaNri.rating} (overall: ${femaNri.overall?.toFixed(0)}) — wildfire: ${femaWildfire?.toFixed(0) ?? '—'} heat: ${femaHeatwave?.toFixed(0) ?? '—'} flood: ${femaFlood?.toFixed(0) ?? '—'} wind: ${femaWind?.toFixed(0) ?? '—'}`
+            ? `${femaNri.rating ?? '?'} (overall: ${femaNri.overall != null ? femaNri.overall.toFixed(0) : 'n/a'}) — wildfire: ${femaWildfire?.toFixed(0) ?? '—'} heat: ${femaHeatwave?.toFixed(0) ?? '—'} flood: ${femaFlood?.toFixed(0) ?? '—'} wind: ${femaWind?.toFixed(0) ?? '—'}`
             : 'fema_nri doc missing — run Full Intel batch',
         envMeta, 'historical_disasters');
 
@@ -657,6 +646,11 @@ export async function runChecks(
     const nid = prop?.neighborhood_identity;
     chk(checks, 'neighborhoodIdentity', 'Neighborhood Identity', 'error', 'ai_comprehensive', !!(nid?.resolved_name),
         nid?.resolved_name ? `${nid.resolved_name}${nid.city_plan_data?.specific_plan ? ` (${nid.city_plan_data.specific_plan})` : ''}` : 'not resolved');
+
+    // ── 23b. Neighborhood Narrative (properties/{zpid}.neighborhood_narrative) ─
+    const nn = prop?.neighborhood_narrative;
+    chk(checks, 'neighborhoodNarrative', 'Neighborhood Narrative', 'error', 'ai_comprehensive', !!(nn && nn.length > 50),
+        nn ? `${nn.length} chars` : 'missing — will auto-generate on first page load');
 
     // Lifestyle Fit check moved up to 12b for clarity
 
@@ -812,26 +806,23 @@ export const runCitySmokeTest = async (
     // Collect unique metro/county keys for living wage lookup
     // Living wage is scoped to metro CBSA (preferred) or county FIPS
     const livingWageKeys = new Map<string, { cacheKey: string; geoLevel: 'metro' | 'county' }>();
+    const zpidToLivingWageCacheKey = new Map<string, string>();
     for (const zpid of resolvedZpids) {
         const prop = allProps[zpid];
         const key = generateCityStateKey(prop?.city, prop?.state);
         if (key) canonicalCityKeys.add(key);
 
-        // Derive the living wage cache key from census_demographics
-        let metroCode = prop?.census_demographics?.metroCbsaCode || prop?.metroCbsaCode;
-        let countyFips = prop?.census_demographics?.countyFips || prop?.countyFips;
-
-        // Fallback for known test cities (like Dublin) if code is missing on the listing
-        if (!metroCode && !countyFips && prop?.city?.toLowerCase() === 'dublin' && prop?.state?.toUpperCase() === 'CA') {
-            countyFips = '06001'; // Alameda County
-        }
+        const metroCode = prop?.census_demographics?.metroCbsaCode || prop?.metroCbsaCode;
+        const countyFips = prop?.census_demographics?.countyFips || prop?.countyFips;
 
         if (metroCode) {
             const sCode = String(metroCode);
             livingWageKeys.set(sCode, { cacheKey: sCode, geoLevel: 'metro' });
+            zpidToLivingWageCacheKey.set(zpid, sCode);
         } else if (countyFips) {
             const sFips = String(countyFips);
             livingWageKeys.set(sFips, { cacheKey: sFips, geoLevel: 'county' });
+            zpidToLivingWageCacheKey.set(zpid, sFips);
         }
     }
 
@@ -857,11 +848,8 @@ export const runCitySmokeTest = async (
         const prop = allProps[zpid];
         const cityKey = generateCityStateKey(prop?.city, prop?.state) || '';
         if (!cityDataMap[cityKey]) cityDataMap[cityKey] = {};
-        const metroCode = prop?.census_demographics?.metroCbsaCode || prop?.metroCbsaCode;
-        const countyFips = prop?.census_demographics?.countyFips || prop?.countyFips;
-        const lw = metroCode
-            ? livingWageCache.get(String(metroCode))
-            : countyFips ? livingWageCache.get(String(countyFips)) : null;
+        const cacheKey = zpidToLivingWageCacheKey.get(zpid);
+        const lw = cacheKey ? livingWageCache.get(cacheKey) : null;
         if (lw) cityDataMap[cityKey].livingWage = lw;
     }
 

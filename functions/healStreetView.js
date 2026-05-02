@@ -13,7 +13,7 @@ const admin = require('firebase-admin');
 try { admin.initializeApp({ projectId: 'zyphe-af0bf' }); } catch(e) {}
 const db = admin.firestore();
 
-const MAPS_KEY = 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI';
+const MAPS_KEY = process.env.MAPS_API_KEY || '';
 const CITY = process.argv[2] || 'Pleasanton';
 const CONCURRENCY = 3;
 
@@ -46,10 +46,7 @@ async function fetchAndStoreStreetView(zpid, lat, lng) {
 
     const storageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media`;
     const propRef = db.collection('properties').doc(zpid);
-    await Promise.all([
-        propRef.set({ streetView: storageUrl }, { merge: true }),
-        propRef.collection('analysis').doc('assets').set({ streetView: storageUrl }, { merge: true }),
-    ]);
+    await propRef.set({ streetView: storageUrl }, { merge: true });
     return storageUrl;
 }
 

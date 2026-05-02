@@ -183,14 +183,15 @@ export function usePropertyAnalysis({
 
       // ── Neighborhood Narrative Trigger ──
       if (!mergedData.neighborhood_narrative && mergedData.address) {
+        const narrativeZpid = mergedData.zpid;
         console.log(`[performSearch] Triggering background neighborhood narrative generation...`);
         analyzeNeighborhoodNarrative(mergedData, currentUser?.uid || "unknown")
           .then(res => {
             if (res.data?.narrative) {
               console.log(`[performSearch] Neighborhood narrative generated successfully.`);
-              const updated = { ...mergedData, neighborhood_narrative: res.data.narrative };
-              setPropertyData(updated);
-              if (updated.zpid) savePropertyToCloud(updated.zpid, updated).catch(() => {});
+              // Use functional updater to merge into current state, not the stale mergedData snapshot
+              setPropertyData(prev => prev ? { ...prev, neighborhood_narrative: res.data.narrative } : prev);
+              if (narrativeZpid) savePropertyToCloud(narrativeZpid, { neighborhood_narrative: res.data.narrative }).catch(() => {});
             }
           })
           .catch(e => console.warn(`[performSearch] Neighborhood narrative failed:`, e));

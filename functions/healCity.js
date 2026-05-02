@@ -18,8 +18,8 @@ const CITY       = process.argv[2] || 'Pleasanton';
 const CONCURRENCY = 3; // keep low to avoid rate limiting
 
 const API_KEYS = {
-    google_maps_key: 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI',
-    gemini_key:      'AIzaSyBG_lkm4nbHYUF9deJTkmxS7rng5o2eBw4',
+    google_maps_key: process.env.MAPS_API_KEY || '',
+    gemini_key:      process.env.GEMINI_API_KEY || '',
     bypassCache:     false, // use TTL cache but still apply version-upgrade healing
 };
 

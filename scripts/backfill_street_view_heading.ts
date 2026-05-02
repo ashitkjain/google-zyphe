@@ -43,7 +43,7 @@ const db  = getFirestore(app);
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const MAPS_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY ?? 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI';
+const MAPS_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY ?? '';
 const CONCURRENCY  = 6;
 const SV_RADIUS    = 150; // metres
 

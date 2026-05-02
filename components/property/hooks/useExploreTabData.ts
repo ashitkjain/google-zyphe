@@ -130,6 +130,8 @@ export function useExploreTabData({
     const [lifestyleFit, setLifestyleFit] = useState<any>(null);
     const [lifestyleFitTab, setLifestyleFitTab] = useState<string>('working_professionals');
     const [lifestyleInterestTab, setLifestyleInterestTab] = useState<string>('outdoor');
+    // Guard: prevent infinite retry if auto-triggered lifestyle generation yields no data
+    const lifestyleAutoAttempted = useRef(false);
 
     useEffect(() => {
         setLifestyleInsights(null);
@@ -177,9 +179,13 @@ export function useExploreTabData({
         setLifestyleLoading(false);
     };
 
+    // Reset attempt guard when property changes
+    useEffect(() => { lifestyleAutoAttempted.current = false; }, [propertyData?.zpid]);
+
     // Auto-trigger lifestyle analysis if comprehensive is done but fit is missing
     useEffect(() => {
-        if (comprehensiveAnalysis && !lifestyleFit && !lifestyleLoading && propertyData?.zpid) {
+        if (comprehensiveAnalysis && !lifestyleFit && !lifestyleLoading && propertyData?.zpid && !lifestyleAutoAttempted.current) {
+            lifestyleAutoAttempted.current = true;
             console.log(`[Lifestyle] Auto-triggering fit analysis for ${propertyData.zpid} using comprehensive context...`);
             handleGenerateLifestyle();
         }

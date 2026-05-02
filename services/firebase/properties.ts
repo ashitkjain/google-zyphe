@@ -1636,20 +1636,8 @@ export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<
                     const imagesArr = assetData?.images || propData?.images || [];
                     const imagesSecured = imagesArr.length > 0 && imagesArr[0]?.includes('firebasestorage');
 
-                    // StreetView might be in assets subfolder OR root property doc OR environmental subfolder
-                    let hasStreetView = (!!assetData?.streetView && assetData.streetView.includes('firebasestorage')) ||
-                        (!!propData?.streetViewAnalysis?.imageUrl && propData.streetViewAnalysis.imageUrl.includes('firebasestorage')) ||
-                        (!!propData?.streetView && propData.streetView.includes('firebasestorage'));
-
-                    if (!hasStreetView) {
-                        try {
-                            const envSnap = await getDoc(doc(db, "properties", zpid, "environmental", "thirdparty_data"));
-                            if (envSnap.exists()) {
-                                const envData = envSnap.data();
-                                hasStreetView = !!envData.streetViewAnalysis?.imageUrl?.includes('firebasestorage');
-                            }
-                        } catch (e) { /* ignore */ }
-                    }
+                    // streetView: root doc (prop.streetView) is the single source of truth
+                    const hasStreetView = !!(propData?.streetView && propData.streetView.includes('firebasestorage'));
 
                     canonicalStatuses[zpid].assets = {
                         ...canonicalStatuses[zpid].assets,
@@ -1768,8 +1756,7 @@ export const refreshStreetView = async (zpid: string, address: string): Promise<
             console.log(`[Manual Refresh] Re-running Orientation analysis for ${zpid}...`);
             try {
                 const { runSatellitaryAnalysis } = await import('../satellitaryService');
-                const assetDoc = await getPropertyAssetsFromCloud(zpid);
-                const streetViewUrl = assetDoc?.streetView || null;
+                const streetViewUrl = property?.streetView || null;
 
                 await runSatellitaryAnalysis(
                     property.coordinates.latitude,

@@ -10,7 +10,7 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { _enrichEnvironmentalData, _extractJson, _enrichStreetInsights, ENV_SCHEMA_VERSION } = require('./shared/propertyUtils');
+const { _enrichEnvironmentalData, _extractJson, _enrichStreetInsights, _enrichNeighborhoodIdentity, ENV_SCHEMA_VERSION } = require('./shared/propertyUtils');
 const UsageLogger = require('./shared/usageLogger');
 
 const INTEL_CONCURRENCY = 5;
@@ -24,20 +24,46 @@ const MAX_EXECUTION_TIME_MS = 540000; // 9 minutes
  * Calls model.generateContent with one automatic retry on failure.
  * Returns { result, text } on success; throws on permanent failure.
  */
+const _isTransientError = (e) => {
+    const msg = String(e?.message || '').toLowerCase();
+    // 400 errors are permanent client errors (bad image data, invalid request) — never retry
+    if (msg.includes('400') || msg.includes('bad request') || msg.includes('unable to process input image')) return false;
+    return (
+        msg.includes('error fetching') ||
+        msg.includes('fetch failed') ||
+        msg.includes('network error') ||
+        msg.includes('econnreset') ||
+        msg.includes('econnrefused') ||
+        msg.includes('etimedout') ||
+        msg.includes('socket hang up') ||
+        msg.includes('429') ||
+        msg.includes('resource_exhausted') ||
+        msg.includes('resource exhausted') ||
+        msg.includes('503') ||
+        msg.includes('service unavailable')
+    );
+};
+
 async function _geminiCall(model, content, label) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         try {
             if (attempt > 0) {
-                console.log(`[Intel] Retrying ${label} (attempt ${attempt + 1})...`);
-                await new Promise(r => setTimeout(r, 3000));
+                const delay = Math.pow(2, attempt) * 2000 + Math.random() * 2000;
+                console.log(`[Intel] Retrying ${label} (attempt ${attempt + 1}/${MAX_ATTEMPTS}) in ${Math.round(delay / 1000)}s...`);
+                await new Promise(r => setTimeout(r, delay));
             }
             const result = await model.generateContent(content);
             const text = result.response.text();
             if (!text?.trim()) throw new Error('Empty response from Gemini');
             return { result, text };
         } catch (e) {
-            if (attempt === 1) throw e;
-            console.warn(`[Intel] ${label} failed (attempt ${attempt + 1}): ${e.message}`);
+            const isTransient = _isTransientError(e);
+            if (attempt < MAX_ATTEMPTS - 1 && isTransient) {
+                console.warn(`[Intel] ${label} transient error (attempt ${attempt + 1}): ${e.message}`);
+                continue;
+            }
+            throw e;
         }
     }
 }
@@ -163,10 +189,20 @@ async function _fetchImageAsBase64(url) {
 
                 const [buffer] = await bucket.file(filePath).download();
                 if (buffer.length < 1000) return null; // too small — likely an error stub
+                // Validate magic bytes — reject HTML error pages or corrupt files
+                const magic = buffer.slice(0, 4);
+                const isJpeg = magic[0] === 0xFF && magic[1] === 0xD8;
+                const isPng  = magic[0] === 0x89 && magic[1] === 0x50 && magic[2] === 0x4E && magic[3] === 0x47;
+                const isWebp = magic[0] === 0x52 && magic[1] === 0x49 && magic[2] === 0x46 && magic[3] === 0x46;
+                if (!isJpeg && !isPng && !isWebp) {
+                    console.warn(`[Intel] Skipping non-image file in Storage (bad magic bytes): ${filePath}`);
+                    return null;
+                }
+                const mimeType = isPng ? 'image/png' : isWebp ? 'image/webp' : 'image/jpeg';
                 return {
                     inlineData: {
                         data: buffer.toString('base64'),
-                        mimeType: _mimeFromPath(filePath),
+                        mimeType,
                     }
                 };
             } catch (e) {
@@ -220,6 +256,17 @@ async function _healGalleryImage(storageUrl, imageMetadata, bucket) {
         const buffer = Buffer.from(arrayBuffer);
         if (buffer.length < 1000) return null;
 
+        // Validate magic bytes — content-type header can lie (e.g. Zillow error page)
+        const magic = buffer.slice(0, 4);
+        const isJpeg = magic[0] === 0xFF && magic[1] === 0xD8;
+        const isPng  = magic[0] === 0x89 && magic[1] === 0x50 && magic[2] === 0x4E && magic[3] === 0x47;
+        const isWebp = magic[0] === 0x52 && magic[1] === 0x49 && magic[2] === 0x46 && magic[3] === 0x46;
+        if (!isJpeg && !isPng && !isWebp) {
+            console.warn(`[Intel] Gallery heal: source image also corrupt (bad magic bytes): ${originalUrl}`);
+            return null;
+        }
+        const validMime = isPng ? 'image/png' : isWebp ? 'image/webp' : 'image/jpeg';
+
         // Derive the Storage path from the URL so we can overwrite the corrupt file
         let storagePath = null;
         if (storageUrl.includes('firebasestorage.googleapis.com') && storageUrl.includes('/o/')) {
@@ -230,15 +277,110 @@ async function _healGalleryImage(storageUrl, imageMetadata, bucket) {
 
         if (storagePath) {
             await bucket.file(storagePath).save(buffer, {
-                metadata: { contentType: mimeType },
+                metadata: { contentType: validMime },
                 resumable: false,
             });
             console.log(`[Intel] Healed corrupt image → ${storagePath}`);
         }
 
-        return { inlineData: { data: buffer.toString('base64'), mimeType } };
+        return { inlineData: { data: buffer.toString('base64'), mimeType: validMime } };
     } catch (e) {
         console.warn(`[Intel] Heal failed for ${storageUrl}: ${e.message}`);
+        return null;
+    }
+}
+
+/**
+ * Re-fetches a corrupt/missing context image from its original source API,
+ * overwrites the bad Storage file, updates Firestore, and returns a Gemini-ready
+ * inlineData part. Called when _fetchImageAsBase64 returns null for a context image.
+ */
+async function _healContextImage(zpid, label, propData, apiKeys, db) {
+    const lat = propData.coordinates?.latitude;
+    const lng = propData.coordinates?.longitude;
+    if (!lat || !lng) return null;
+
+    let sourceUrl = null;
+    let storagePath = null;
+
+    if (label === 'Street View') {
+        const mapsKey = apiKeys.google_maps_key;
+        if (!mapsKey) return null;
+        const heading = propData.streetViewHeadingDeg ?? 0;
+        sourceUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x640&location=${lat},${lng}&fov=80&heading=${heading}&pitch=0&key=${mapsKey}`;
+        storagePath = `properties/${zpid}/maps/street_view.jpg`;
+    } else if (label === 'Close-up Parcel Map') {
+        const radarKey = apiKeys.radar_key;
+        if (!radarKey) return null;
+        sourceUrl = `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=20&width=2048&height=2048&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`;
+        storagePath = `properties/${zpid}/maps/zoom_in.png`;
+    } else if (label === 'Neighborhood Context Map') {
+        const radarKey = apiKeys.radar_key;
+        if (!radarKey) return null;
+        sourceUrl = `https://api.radar.io/maps/static?publishableKey=${radarKey}&center=${lat},${lng}&zoom=15&width=1024&height=1024&style=radar-default-v1&scale=1&markers=color:0x000257%7C${lat},${lng}`;
+        storagePath = `properties/${zpid}/maps/location_context.png`;
+    } else if (label === 'Satellite/Radar Imagery') {
+        const mapsKey = apiKeys.google_maps_key;
+        if (!mapsKey) return null;
+        const northLat = Math.round((lat + 0.00027) * 1e7) / 1e7;
+        sourceUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=20&size=640x640&scale=2&maptype=satellite&markers=color:red%7Csize:tiny%7C${lat},${lng}&markers=color:blue%7Csize:tiny%7Clabel:N%7C${northLat},${lng}&key=${mapsKey}`;
+        storagePath = `properties/${zpid}/maps/satellite.jpg`;
+    }
+
+    if (!sourceUrl || !storagePath) return null;
+
+    try {
+        console.log(`[Intel] Healing context image "${label}" for ${zpid}...`);
+        const response = await fetch(sourceUrl);
+        if (!response.ok) {
+            console.warn(`[Intel] Heal fetch failed for "${label}" (${zpid}): HTTP ${response.status}`);
+            return null;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        if (buffer.length < 1000) return null;
+
+        const magic = buffer.slice(0, 4);
+        const isJpeg = magic[0] === 0xFF && magic[1] === 0xD8;
+        const isPng  = magic[0] === 0x89 && magic[1] === 0x50 && magic[2] === 0x4E && magic[3] === 0x47;
+        const isWebp = magic[0] === 0x52 && magic[1] === 0x49 && magic[2] === 0x46 && magic[3] === 0x46;
+        if (!isJpeg && !isPng && !isWebp) {
+            console.warn(`[Intel] Heal: re-fetched image is also corrupt for "${label}" (${zpid})`);
+            return null;
+        }
+        const mimeType = isPng ? 'image/png' : isWebp ? 'image/webp' : 'image/jpeg';
+
+        // Force-overwrite the corrupt Storage file
+        const bucket = admin.storage().bucket();
+        await bucket.file(storagePath).save(buffer, {
+            metadata: { contentType: mimeType },
+            resumable: false,
+        });
+
+        const newUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media`;
+        const propRef = db.collection('properties').doc(zpid);
+        if (label === 'Street View') {
+            // streetView: root doc is single source of truth
+            await propRef.set({ streetView: newUrl }, { merge: true });
+        } else {
+            // Other context images: write to both root doc and assets
+            const fieldMap = {
+                'Close-up Parcel Map': 'mapZoomIn',
+                'Neighborhood Context Map': 'mapZoomOut',
+                'Satellite/Radar Imagery': 'satelliteImageUrl',
+            };
+            const field = fieldMap[label];
+            if (field) {
+                await Promise.all([
+                    propRef.collection('analysis').doc('assets').set({ [field]: newUrl }, { merge: true }),
+                    propRef.set({ [field]: newUrl }, { merge: true }),
+                ]);
+            }
+        }
+        console.log(`[Intel] Context image healed: "${label}" → ${storagePath}`);
+        return { inlineData: { data: buffer.toString('base64'), mimeType } };
+    } catch (e) {
+        console.warn(`[Intel] Context image heal failed for "${label}" (${zpid}): ${e.message}`);
         return null;
     }
 }
@@ -300,6 +442,44 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         // over the snapshot so Lifestyle Fit sees the newly-fetched solar/AQ/pollen/noise data.
         const activeEnvData = envResults ? { ...envData, ...envResults } : envData;
 
+        // ── Neighborhood Identity Healing ─────────────────────────────────────
+        const needsNeighborhoodId = !propData.neighborhood_identity?.resolved_name
+            || propData.neighborhood_identity.resolved_name === 'Unknown';
+        if (needsNeighborhoodId && propData.coordinates?.latitude && apiKeys.gemini_key) {
+            await _enrichNeighborhoodIdentity(
+                zpid, db,
+                propData.address || propData.streetAddress,
+                propData.city, propData.state,
+                propData.coordinates.latitude, propData.coordinates.longitude,
+                propData.description,
+                apiKeys.gemini_key, logger
+            );
+        }
+
+        // ── Neighborhood Narrative Healing ────────────────────────────────────
+        const needsNarrative = !propData.neighborhood_narrative || propData.neighborhood_narrative.length < 50;
+        if (needsNarrative && propData.address && apiKeys.gemini_key) {
+            try {
+                console.log(`[Intel] Generating neighborhood narrative for ${zpid}...`);
+                const { getNeighborhoodNarrativePrompt } = await import('./prompts/property/neighborhoodNarrative.js');
+                const narrativeModel = genAI.getGenerativeModel({
+                    model: 'gemini-2.5-flash-lite',
+                    generationConfig: { responseMimeType: 'application/json' }
+                });
+                const places = activeEnvData?.google_places || null;
+                const prompt = getNeighborhoodNarrativePrompt(propData, places);
+                const { result, text } = await _geminiCall(narrativeModel, prompt, `Neighborhood Narrative ${zpid}`);
+                const narrativeData = _extractJson(text);
+                if (narrativeData?.narrative && narrativeData.narrative.length > 20) {
+                    await propRef.set({ neighborhood_narrative: narrativeData.narrative }, { merge: true });
+                    if (logger) logger.logLLMCall('gemini-2.5-flash-lite', result.response.usageMetadata?.promptTokenCount, result.response.usageMetadata?.candidatesTokenCount, zpid, 'neighborhoodNarrative.js');
+                    console.log(`[Intel] Neighborhood narrative saved for ${zpid}`);
+                }
+            } catch (e) {
+                console.warn(`[Intel] Neighborhood narrative failed for ${zpid}:`, e.message);
+            }
+        }
+
         const needsVisualRefresh = force || !visualSnap.exists || !_isVisualComplete(visualSnap.data()) || _isStale(visualSnap.data()?.lastUpdated);
         const needsInsightsRefresh = force || !insightsSnap.exists || _isStale(insightsSnap.data()?.lastUpdated);
         const needsFitRefresh = force || !fitSnap.exists || !_isFitComplete(fitSnap.data()) || _isStale(fitSnap.data()?.lastUpdated);
@@ -321,7 +501,7 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
             // Build the list of all targets: Maps first for context, then gallery.
             // Prefer assets doc URLs (Storage); fall back to root prop doc (set by Orientation Batch).
             const contextImages = [
-                { url: assetData.streetView || propData.streetView, label: 'Street View' },
+                { url: propData.streetView, label: 'Street View' },
                 { url: assetData.mapZoomIn || propData.mapZoomIn, label: 'Close-up Parcel Map' },
                 { url: assetData.mapZoomOut || propData.mapZoomOut, label: 'Neighborhood Context Map' },
                 { url: assetData.satelliteImageUrl || propData.satelliteImageUrl, label: 'Satellite/Radar Imagery' }
@@ -340,6 +520,10 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                         // Image missing or corrupt in Storage — attempt one heal from original source
                         base64 = await _healGalleryImage(target.url, imageMetadata, healBucket);
                     }
+                    if (!base64 && target.label !== 'Gallery Photo') {
+                        // Context image corrupt or missing — re-fetch from source API and overwrite Storage
+                        base64 = await _healContextImage(zpid, target.label, propData, apiKeys, db);
+                    }
                     if (!base64) return null;
                     return [
                         { text: `--- ${target.label} ---` },
@@ -357,22 +541,56 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
                     });
                     const prompt = getPropertyImagesPrompt(propData);
 
-                    // Fetch context-only parts as a fallback if the full set has a bad image
-                    const contextOnlyParts = (await Promise.all(contextImages.map(async (target) => {
-                        const base64 = await _fetchImageAsBase64(target.url);
-                        if (!base64) return null;
-                        return [{ text: `--- ${target.label} ---` }, base64];
-                    }))).filter(p => p !== null).flat();
+                    // Helper: build context-only parts from Storage (lazy — only called on failure)
+                    const buildContextOnlyParts = async () =>
+                        (await Promise.all(contextImages.map(async (target) => {
+                            const base64 = await _fetchImageAsBase64(target.url);
+                            if (!base64) return null;
+                            return [{ text: `--- ${target.label} ---` }, base64];
+                        }))).filter(p => p !== null).flat();
 
                     let callResult;
                     try {
+                        // Attempt 1: full set (context + gallery from Storage cache)
                         callResult = await _geminiCall(model, [{ text: prompt }, ...validParts], `Visual Pass ${zpid}`);
                     } catch (e) {
-                        if (e.message?.includes('400') && e.message?.includes('image') && contextOnlyParts.length > 0) {
-                            console.warn(`[Intel] Visual Pass ${zpid}: bad image in gallery, retrying with context-only images`);
-                            callResult = await _geminiCall(model, [{ text: prompt }, ...contextOnlyParts], `Visual Pass ${zpid} (context-only)`);
-                        } else {
-                            throw e;
+                        if (!(e.message?.includes('400') && e.message?.includes('image'))) throw e;
+
+                        // Attempt 2: re-fetch gallery from original source URLs + context from Storage
+                        console.warn(`[Intel] Visual Pass ${zpid}: bad image detected — re-fetching gallery from original source...`);
+                        const contextParts = await buildContextOnlyParts();
+                        const healedGalleryParts = (await Promise.all(limitedGallery.map(async (url) => {
+                            const base64 = await _healGalleryImage(url, imageMetadata, healBucket);
+                            if (!base64) return null;
+                            return [{ text: '--- Gallery Photo ---' }, base64];
+                        }))).filter(p => p !== null).flat();
+
+                        try {
+                            const healedFullParts = [...contextParts, ...healedGalleryParts];
+                            if (healedFullParts.length === 0) throw e;
+                            callResult = await _geminiCall(model, [{ text: prompt }, ...healedFullParts], `Visual Pass ${zpid} (healed-gallery)`);
+                        } catch (e2) {
+                            if (!(e2.message?.includes('400') && e2.message?.includes('image'))) throw e2;
+
+                            // Attempt 3: context images only (drop all gallery)
+                            if (contextParts.length === 0) throw e2;
+                            console.warn(`[Intel] Visual Pass ${zpid}: gallery heal failed — retrying with context-only images`);
+                            try {
+                                callResult = await _geminiCall(model, [{ text: prompt }, ...contextParts], `Visual Pass ${zpid} (context-only)`);
+                            } catch (e3) {
+                                if (!(e3.message?.includes('400') && e3.message?.includes('image'))) throw e3;
+
+                                // Attempt 4: force-heal context images from source APIs (bypasses cached Storage)
+                                console.warn(`[Intel] Visual Pass ${zpid}: context-only also failed — force-healing context images from source...`);
+                                const healedContextParts = (await Promise.all(contextImages.map(async (target) => {
+                                    const healed = await _healContextImage(zpid, target.label, propData, apiKeys, db);
+                                    if (healed) return [{ text: `--- ${target.label} ---` }, healed];
+                                    return null;
+                                }))).filter(p => p !== null).flat();
+
+                                if (healedContextParts.length === 0) throw e3;
+                                callResult = await _geminiCall(model, [{ text: prompt }, ...healedContextParts], `Visual Pass ${zpid} (healed-context)`);
+                            }
                         }
                     }
                     const { result, text } = callResult;
@@ -392,12 +610,11 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         }
 
         // 2b. Street Insights healing: run only when visual pass didn't already handle it.
-        // If visual pass ran AND had street view in assets, insights come from the visual output — no re-download.
-        // Only heal when: (a) visual pass was skipped (cached), OR (b) visual pass ran but assets had no street view URL.
-        const assetDataForSv = assetsSnap.exists ? assetsSnap.data() : {};
-        const svUrlForInsights = propData.streetView || assetDataForSv.streetView;
+        // If visual pass ran AND had street view, insights come from the visual output — no re-download.
+        // Only heal when: (a) visual pass was skipped (cached), OR (b) visual pass ran but prop had no street view URL.
+        const svUrlForInsights = propData.streetView;
         const hasStreetInsights = !!(visualData?.exterior_and_neighborhood?.neighborhood_street_insights?.length > 20);
-        const visualPassHandledSv = needsVisualRefresh && !!assetDataForSv.streetView;
+        const visualPassHandledSv = needsVisualRefresh && !!propData.streetView;
         if (svUrlForInsights && !hasStreetInsights && !visualPassHandledSv) {
             try {
                 await _enrichStreetInsights(zpid, db, apiKeys.gemini_key, svUrlForInsights, logger);
@@ -526,6 +743,7 @@ exports.runFullIntelBatchOnWrite = functions
 
         const jobId = context.params.jobId;
         const zpids = jobData.zpids || [];
+        const concurrency = jobData.sequential ? 1 : INTEL_CONCURRENCY;
         const db = admin.firestore();
         const logger = new UsageLogger(change.after.ref);
         await logger.initialize();
@@ -587,7 +805,7 @@ exports.runFullIntelBatchOnWrite = functions
         }
 
         // 2. Process in waves
-        for (let i = 0; i < sortedZpids.length; i += INTEL_CONCURRENCY) {
+        for (let i = 0; i < sortedZpids.length; i += concurrency) {
             // Check for cancellation before each wave
             const freshJob = await change.after.ref.get();
             if (freshJob.exists && freshJob.data()?.status === 'cancelled') {
@@ -595,12 +813,12 @@ exports.runFullIntelBatchOnWrite = functions
                 return null;
             }
 
-            const waveNum = Math.floor(i / INTEL_CONCURRENCY) + 1;
-            const wave = sortedZpids.slice(i, i + INTEL_CONCURRENCY);
+            const waveNum = Math.floor(i / concurrency) + 1;
+            const wave = sortedZpids.slice(i, i + concurrency);
 
             // Skip ZPIDs already in jobData.results
             const workChunk = wave.filter(zpid => !results[zpid]);
-            const totalWaves = Math.ceil(sortedZpids.length / INTEL_CONCURRENCY);
+            const totalWaves = Math.ceil(sortedZpids.length / concurrency);
 
             if (workChunk.length === 0) {
                 console.log(`[Intel Batch] Wave ${waveNum}/${totalWaves}: Skipping (already in results).`);
@@ -674,9 +892,9 @@ exports.runFullIntelBatchOnWrite = functions
                 return null;
             }
 
-            // 3. 2-Second Gap between chunks
-            if (i + INTEL_CONCURRENCY < sortedZpids.length) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
+            // 3. Gap between chunks — longer for sequential retries to ease rate pressure
+            if (i + concurrency < sortedZpids.length) {
+                await new Promise(resolve => setTimeout(resolve, concurrency === 1 ? 4000 : 2000));
             }
         }
 

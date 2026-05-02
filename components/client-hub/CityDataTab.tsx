@@ -351,6 +351,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                 if (data.status === 'completed') {
                     addLog(`Batch ${activeBatchId} complete.`);
+                    if (activeBatchId.startsWith('asset_')) {
+                        setLastRunStats({ ...data, id: snap.id, type: collection });
+                        setShowSummaryModal(true);
+                    }
                 }
             });
         };
@@ -805,7 +809,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
 
 
-    const handleBulkIngest = async (manualZpids?: string[]) => {
+    const handleBulkIngest = async (manualZpids?: string[], sequential = false) => {
         const targetIds = manualZpids ? new Set(manualZpids) : selectedIds;
         if (targetIds.size === 0) return;
 
@@ -814,7 +818,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setError(null);
         setPipelineType('full');
         setViewMode('ingestion');
-        addLog(`Queueing Full Intel Batch for ${targetIds.size} properties (Background/5x Concurrency)...`);
+        addLog(`Queueing Full Intel Batch for ${targetIds.size} properties (${sequential ? 'Sequential/1x' : 'Background/5x'} Concurrency)...`);
 
         const targets = sourceList.filter(l => {
             const id = String(l.zpid);
@@ -836,6 +840,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 done: 0,
                 failed: 0,
                 results: {},
+                sequential,
                 userId: auth?.currentUser?.uid || 'anonymous',
                 createdAt: serverTimestamp(),
             });
@@ -930,7 +935,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             // Map job type to bulk handler
             setTimeout(() => {
                 const type = job.type || '';
-                if (type.includes('intel')) handleBulkIngest(failedZpids);
+                if (type.includes('intel')) handleBulkIngest(failedZpids, true);
                 else if (type.includes('property')) handleBulkPropertyData(failedZpids);
                 else if (type.includes('narrative')) handleBulkNarrative(failedZpids);
                 else if (type.includes('asset')) handleBulkSecureImages(failedZpids);
@@ -962,7 +967,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             // Short timeout to let state update
             setTimeout(() => {
                 if (batchType === 'property') handleBulkPropertyData(failedZpids);
-                else if (batchType === 'intel') handleBulkIngest(failedZpids);
+                else if (batchType === 'intel') handleBulkIngest(failedZpids, true);
                 else if (batchType === 'narrative') handleBulkNarrative(failedZpids);
                 else if (batchType === 'asset') handleBulkSecureImages(failedZpids);
                 else if (batchType === 'orientation') handleBatchOrientation(failedZpids);
@@ -3930,7 +3935,7 @@ ${JSON.stringify(propertySummaries)}
 
 
 
-                    {viewMode === 'ingestion' && (propBatchProgress || intelBatchProgress || orientBatchProgress) && (
+                    {viewMode === 'ingestion' && (propBatchProgress || intelBatchProgress || orientBatchProgress || narrativeBatchProgress || assetBatchProgress) && (
                         <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-100/50 overflow-hidden mb-12 animate-in slide-in-from-top-4 duration-500">
                             <div className="p-8 border-b border-slate-100 bg-slate-50/30">
                                 <div className="flex items-center justify-between mb-8">
@@ -4202,13 +4207,20 @@ ${JSON.stringify(propertySummaries)}
                                 </div>
                                 <div className="space-y-3 max-h-[400px] overflow-y-auto px-2 custom-scrollbar">
                                     {/* Flattened results from all active batches */}
-                                    {Object.entries({
-                                        ...(propBatchProgress?.results || {}),
-                                        ...(intelBatchProgress?.results || {}),
-                                        ...(orientBatchProgress?.results || {}),
-                                        ...(narrativeBatchProgress?.results || {}),
-                                        ...(assetBatchProgress?.results || {})
-                                    })
+                                    {(() => {
+                                        const merged: Record<string, any> = {};
+                                        [propBatchProgress, orientBatchProgress, intelBatchProgress, narrativeBatchProgress, assetBatchProgress].forEach(batch => {
+                                            if (!batch?.results) return;
+                                            Object.entries(batch.results).forEach(([zpid, res]) => {
+                                                const existing = merged[zpid];
+                                                // Priority: failure > success > cached
+                                                if (!existing || res.status === 'failed' || res.status === 'error' || (existing.status !== 'failed' && existing.status !== 'error')) {
+                                                    merged[zpid] = { ...(res as any), zpid };
+                                                }
+                                            });
+                                        });
+                                        return Object.entries(merged);
+                                    })()
                                         .filter(([_, result]: [string, any]) => runResultsFilter === 'all' || result.status === 'failed' || result.status === 'error')
                                         .reverse()
                                         .map(([zpid, result]: [string, any]) => (
@@ -4218,7 +4230,13 @@ ${JSON.stringify(propertySummaries)}
                                                         <div className={`w-2 h-2 rounded-full ${result.status === 'success' || result.status === 'cached' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500'}`}></div>
                                                         <div>
                                                             <p className="text-[11px] font-black text-slate-900 tabular-nums uppercase tracking-widest">{zpid}</p>
-                                                            <p className="text-[10px] font-bold text-slate-500 uppercase">{result.message || (result.status === 'cached' ? 'Pulled from cache' : 'Processing complete')}</p>
+                                                            <p className="text-[10px] font-bold text-slate-500 uppercase">
+                                                                {result.message || (
+                                                                    result.newCount !== undefined 
+                                                                        ? `${result.newCount} new, ${result.skipCount} cached` 
+                                                                        : (result.status === 'cached' ? 'Pulled from cache' : 'Processing complete')
+                                                                )}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
@@ -5461,27 +5479,53 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                     </div>
                                 </div>
 
-                                {/* Estimated Cost */}
-                                <div className="p-6 rounded-2xl bg-indigo-50 border border-indigo-100">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block mb-2">Estimated AI Cost</span>
-                                    <div className="text-3xl font-black text-indigo-600">
-                                        ${Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.estimatedCost || 0) : 0), 0).toFixed(2)}
+                                {/* Estimated Cost / Asset Stats */}
+                                {lastRunStats.type === 'asset_secure_batch_jobs' ? (
+                                    <div className="p-6 rounded-2xl bg-rose-50 border border-rose-100">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 block mb-2">Assets Secured</span>
+                                        <div className="text-3xl font-black text-rose-600">
+                                            {Object.values(lastRunStats.results || {}).reduce((acc: number, res: any) => acc + (res.newCount || 0), 0)}
+                                            <span className="text-sm text-rose-300 ml-2 italic">new images</span>
+                                        </div>
+                                        <div className="mt-2 text-[10px] font-bold text-rose-400 uppercase tracking-tight">
+                                            {Object.values(lastRunStats.results || {}).reduce((acc: number, res: any) => acc + (res.skipCount || 0), 0)} Already Covered
+                                        </div>
                                     </div>
-                                    <div className="mt-2 text-[10px] font-bold text-indigo-400 uppercase tracking-tight">
-                                        Based on Flash Pricing
+                                ) : (
+                                    <div className="p-6 rounded-2xl bg-indigo-50 border border-indigo-100">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block mb-2">Estimated AI Cost</span>
+                                        <div className="text-3xl font-black text-indigo-600">
+                                            ${Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.estimatedCost || 0) : 0), 0).toFixed(2)}
+                                        </div>
+                                        <div className="mt-2 text-[10px] font-bold text-indigo-400 uppercase tracking-tight">
+                                            Based on Flash Pricing
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {/* Total LLM Calls */}
-                                <div className="p-6 rounded-2xl bg-amber-50 border border-amber-100">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block mb-2">Total AI Calls</span>
-                                    <div className="text-3xl font-black text-amber-600">
-                                        {Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.calls || 0) : 0), 0)}
+                                {/* Total LLM Calls / Storage Stats */}
+                                {lastRunStats.type === 'asset_secure_batch_jobs' ? (
+                                    <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Cloud Storage</span>
+                                        <div className="text-3xl font-black text-slate-900">
+                                            {Object.values(lastRunStats.results || {}).reduce((acc: number, res: any) => acc + (res.count || 0), 0)}
+                                            <span className="text-sm text-slate-300 ml-2 italic">Total Files</span>
+                                        </div>
+                                        <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                            Persistent in Firebase
+                                        </div>
                                     </div>
-                                    <div className="mt-2 text-[10px] font-bold text-amber-500 uppercase tracking-tight">
-                                        {Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.inputTokens || 0) : 0), 0).toLocaleString()} Total Tokens
+                                ) : (
+                                    <div className="p-6 rounded-2xl bg-amber-50 border border-amber-100">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block mb-2">Total AI Calls</span>
+                                        <div className="text-3xl font-black text-amber-600">
+                                            {Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.calls || 0) : 0), 0)}
+                                        </div>
+                                        <div className="mt-2 text-[10px] font-bold text-amber-500 uppercase tracking-tight">
+                                            {Object.values(lastRunStats.stats?.gemini || {}).reduce((acc: number, curr: any) => acc + (typeof curr === 'object' ? (curr.inputTokens || 0) : 0), 0).toLocaleString()} Total Tokens
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
 
                             <div className="space-y-8">
@@ -5583,7 +5627,13 @@ const CityNeighborhoodsPanel: React.FC<{ cityHint?: string; stateHint?: string }
                                                     <div className="flex items-center gap-3 overflow-hidden">
                                                         <i className={`fa-solid ${res.status === 'success' || res.status === 'cached' ? 'fa-check-circle text-emerald-400' : 'fa-times-circle text-rose-400'} text-sm flex-shrink-0`}></i>
                                                         <div className="truncate">
-                                                            <span className="text-[11px] font-black text-slate-700 block truncate">{res.message || zpid}</span>
+                                                            <span className="text-[11px] font-black text-slate-700 block truncate">
+                                                                {res.message || (
+                                                                    res.newCount !== undefined 
+                                                                        ? `${res.newCount} new, ${res.skipCount} cached` 
+                                                                        : zpid
+                                                                )}
+                                                            </span>
                                                             <div className="flex items-center gap-2 mt-0.5">
                                                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">ZPID: {zpid}</span>
                                                                 {res.healed && (

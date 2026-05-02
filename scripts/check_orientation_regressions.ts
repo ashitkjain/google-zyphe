@@ -28,7 +28,7 @@ import admin from 'firebase-admin';
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const PROJECT_ID       = 'zyphe-af0bf';
-const MAPS_API_KEY     = process.env.VITE_GOOGLE_MAPS_API_KEY ?? 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI';
+const MAPS_API_KEY     = process.env.VITE_GOOGLE_MAPS_API_KEY ?? '';
 const AZIMUTH_TOLERANCE = 67;  // degrees — same threshold as batch test
 
 if (admin.apps.length === 0) {

@@ -589,11 +589,6 @@ async function _healMapImages(zpid, db, logger = null) {
             const url = await _secureImageToStorage(propData.mapZoomOut, `properties/${zpid}/maps/location_context.png`);
             if (url) { updates.mapZoomOut = url; propUpdates.mapZoomOut = url; }
         }
-        // Mirror streetView URL from root doc to assets doc so Intel Batch visual pass can use it.
-        // streetView is set by Orientation Batch on the root doc but was never copied to assets.
-        if (!isStorage(assetsData.streetView) && isStorage(propData.streetView)) {
-            updates.streetView = propData.streetView;
-        }
 
         if (Object.keys(updates).length > 0) {
             console.log(`[Enrichment] Healing map images for ${zpid}: ${Object.keys(updates).join(', ')}`);
@@ -1425,6 +1420,16 @@ async function _enrichProperty(zpid, db, keys, logger = null) {
 
     await db.collection('properties').doc(zpid).set(mapped, { merge: true });
 
+    // Normalize legacy flat coordinate fields → canonical `coordinates` nested object.
+    // Old docs stored `latitude`/`longitude` at root; clean those up so the smoke test
+    // (which checks `coordinates.latitude`) is the single source of truth.
+    if (coordinates && (root.latitude || root.longitude)) {
+        await db.collection('properties').doc(zpid).update({
+            latitude: admin.firestore.FieldValue.delete(),
+            longitude: admin.firestore.FieldValue.delete(),
+        });
+    }
+
     // Always heal map images — runs regardless of env TTL or isFresh flag.
     // This ensures satellite/zoom images are always in Storage even on cached runs.
     if (coordinates) {
@@ -1600,6 +1605,7 @@ module.exports = {
     _enrichDrought,
     _enrichEVChargers,
     _enrichHistoricalDisasters,
+    _enrichNeighborhoodIdentity,
     _extractJson,
     extractNumericValue,
     ENV_SCHEMA_VERSION,

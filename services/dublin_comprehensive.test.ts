@@ -17,6 +17,7 @@
 
 import { describe, it, beforeAll } from 'vitest';
 import { runSatellitaryAnalysis } from './satellitaryService';
+import { normalizeAddress } from './api/geocoding';
 import { APP_CONFIG } from '../config';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -108,11 +109,12 @@ async function firestoreGet(path: string): Promise<Record<string, any> | null> {
 }
 
 async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
-    const res = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${APP_CONFIG.maps.key}`
-    ).then(r => r.json());
-    if (res.status !== 'OK') return null;
-    return res.results[0].geometry.location;
+    try {
+        const res = await normalizeAddress(address);
+        return { lat: res.coordinates.latitude, lng: res.coordinates.longitude };
+    } catch {
+        return null;
+    }
 }
 
 async function resolveCachedSV(address: string): Promise<{ zpid: string | null; svUrl: string | null; heading: number | null }> {
@@ -179,9 +181,11 @@ beforeAll(async () => {
         const keys = JSON.parse(readFileSync(resolve('./tests/.batch-keys.json'), 'utf-8')) as Record<string, string>;
         if (keys.VITE_GEMINI_API_KEY)      (APP_CONFIG as any).gemini.key = keys.VITE_GEMINI_API_KEY;
         if (keys.VITE_GOOGLE_MAPS_API_KEY) (APP_CONFIG as any).maps.key   = keys.VITE_GOOGLE_MAPS_API_KEY;
+        if (keys.VITE_RADAR_KEY)           (APP_CONFIG as any).radar.key  = keys.VITE_RADAR_KEY;
     } catch { /* env fallback */ }
     if (!APP_CONFIG.gemini.key && process.env.VITE_GEMINI_API_KEY) (APP_CONFIG as any).gemini.key = process.env.VITE_GEMINI_API_KEY;
     if (!APP_CONFIG.maps.key   && process.env.VITE_GOOGLE_MAPS_API_KEY) (APP_CONFIG as any).maps.key = process.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!APP_CONFIG.radar.key  && process.env.VITE_RADAR_KEY) (APP_CONFIG as any).radar.key = process.env.VITE_RADAR_KEY;
     if (!APP_CONFIG.gemini.key) throw new Error('Gemini API key not loaded');
     if (!APP_CONFIG.maps.key)   throw new Error('Maps API key not loaded');
 

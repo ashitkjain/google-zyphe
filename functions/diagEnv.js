@@ -21,8 +21,8 @@ const { _enrichNearbyPlaces, _enrichBroadband, _enrichDrought, _enrichEVChargers
 try { admin.initializeApp({ projectId: 'zyphe-af0bf' }); } catch (e) {}
 const db = admin.firestore();
 
-const MAPS_API_KEY = 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI';
-const GEMINI_KEY   = 'AIzaSyBG_lkm4nbHYUF9deJTkmxS7rng5o2eBw4';
+const MAPS_API_KEY = process.env.MAPS_API_KEY || '';
+const GEMINI_KEY   = process.env.GEMINI_API_KEY || '';
 
 const DEFAULT_ZPIDS = ['25079229', '25079576', '25078136', '25079951'];
 

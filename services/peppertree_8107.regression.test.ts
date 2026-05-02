@@ -13,6 +13,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { runSatellitaryAnalysis } from './satellitaryService';
+import { normalizeAddress } from './api/geocoding';
 import { APP_CONFIG } from '../config';
 
 const ADDRESS  = '8107 Peppertree Rd, Dublin, CA 94568';
@@ -42,11 +43,12 @@ async function firestoreGet(path: string): Promise<Record<string, any> | null> {
 }
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-    const apiKey = APP_CONFIG.googleMapsApiKey;
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
-    const res = await fetch(url).then(r => r.json()) as any;
-    const loc = res.results?.[0]?.geometry?.location;
-    return loc ? { lat: loc.lat, lng: loc.lng } : null;
+    try {
+        const res = await normalizeAddress(address);
+        return { lat: res.coordinates.latitude, lng: res.coordinates.longitude };
+    } catch {
+        return null;
+    }
 }
 
 // ── Find zpid by address ─────────────────────────────────────────────────────

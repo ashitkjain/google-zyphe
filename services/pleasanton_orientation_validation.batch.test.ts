@@ -17,6 +17,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { runSatellitaryAnalysis } from './satellitaryService';
+import { normalizeAddress } from './api/geocoding';
 import { APP_CONFIG } from '../config';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -86,17 +87,10 @@ function matchesExpected(az: number | null, expected: string[]): boolean {
 // ─── Geocoding helper ──────────────────────────────────────────────────────────
 
 async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
-    const key = APP_CONFIG.maps.key;
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${key}`;
     try {
-        const res = await fetch(url).then(r => r.json());
-        if (res.status !== 'OK') {
-            console.warn(`[Geocode] Failed for "${address}": ${res.status}`);
-            return null;
-        }
-        return res.results[0].geometry.location as { lat: number; lng: number };
-    } catch (e) {
-        console.warn(`[Geocode] Error for "${address}":`, e);
+        const res = await normalizeAddress(address);
+        return { lat: res.coordinates.latitude, lng: res.coordinates.longitude };
+    } catch {
         return null;
     }
 }
@@ -168,6 +162,7 @@ beforeAll(async () => {
         const keys = JSON.parse(readFileSync(keysPath, 'utf-8')) as Record<string, string>;
         if (keys.VITE_GEMINI_API_KEY)      (APP_CONFIG as any).gemini.key = keys.VITE_GEMINI_API_KEY;
         if (keys.VITE_GOOGLE_MAPS_API_KEY) (APP_CONFIG as any).maps.key   = keys.VITE_GOOGLE_MAPS_API_KEY;
+        if (keys.VITE_RADAR_KEY)           (APP_CONFIG as any).radar.key  = keys.VITE_RADAR_KEY;
     } catch { /* fall through to env vars */ }
 
     (APP_CONFIG as any).models.flash = 'gemini-2.5-flash';
@@ -176,6 +171,8 @@ beforeAll(async () => {
         (APP_CONFIG as any).gemini.key = process.env.VITE_GEMINI_API_KEY;
     if (!APP_CONFIG.maps.key && process.env.VITE_GOOGLE_MAPS_API_KEY)
         (APP_CONFIG as any).maps.key = process.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!APP_CONFIG.radar.key && process.env.VITE_RADAR_KEY)
+        (APP_CONFIG as any).radar.key = process.env.VITE_RADAR_KEY;
 
     if (!APP_CONFIG.gemini.key) throw new Error('Gemini API key not loaded');
     if (!APP_CONFIG.maps.key)   throw new Error('Maps API key not loaded');
