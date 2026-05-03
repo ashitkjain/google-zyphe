@@ -788,12 +788,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setPipelineType('images'); // reuse ingestion view
         addLog(`Queueing Property Data Batch for ${targetIds.size} properties (Background/20x Concurrency)...`);
 
-        const targets = sourceList.filter(l => {
-            const id = String(l.zpid);
-            return targetIds.has(id);
-        });
-
-        const zpids = targets.map(t => String(t.zpid));
+        // When retrying with explicit zpids, use them directly — don't filter through
+        // sourceList, which may not contain properties that were cleaned from listings.
+        const zpids = manualZpids
+            ? manualZpids
+            : sourceList.filter(l => targetIds.has(String(l.zpid))).map(t => String(t.zpid));
         const batchId = `prop_batch_${Date.now()}`;
 
         try {
@@ -836,12 +835,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setViewMode('ingestion');
         addLog(`Queueing Full Intel Batch for ${targetIds.size} properties (${sequential ? 'Sequential/1x' : 'Background/5x'} Concurrency)...`);
 
-        const targets = sourceList.filter(l => {
-            const id = String(l.zpid);
-            return targetIds.has(id);
-        });
-
-        const zpids = targets.map(t => String(t.zpid));
+        // When retrying with explicit zpids, use them directly — don't filter through
+        // sourceList, which may not contain properties that were cleaned from listings.
+        const zpids = manualZpids
+            ? manualZpids
+            : sourceList.filter(l => targetIds.has(String(l.zpid))).map(t => String(t.zpid));
         const batchId = `intel_batch_${Date.now()}`;
 
         try {
@@ -1025,12 +1023,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         addLog(`Cleaning ${removed.length} unsupported listing(s) from zip ${zip}...`);
                         // Update zip cache synchronously
                         saveZipListings(zip, cachedListings, cityStateKey).catch(console.error);
-                        // Delete from Firestore — fire and forget, non-blocking
+                        // Remove analysis subcollections only — leave the root property doc so
+                        // cloud batch jobs (Intel, Orientation) can still find the property.
                         import('../../services/firebase/properties').then(({ deletePropertyAnalysis }) => {
                             for (const item of removed) {
                                 const zpid = String(item.zpid);
-                                addLog(`  ✗ Deleting (${item.homeType || 'no type'}): ${item.location?.address?.line || zpid}`);
-                                deletePropertyAnalysis(zpid, 'all').catch(() => { });
+                                addLog(`  ✗ Removing analysis for (${item.homeType || 'no type'}): ${item.location?.address?.line || zpid}`);
+                                deletePropertyAnalysis(zpid, 'intelligence').catch(() => { });
                             }
                         });
                     }
@@ -1942,7 +1941,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             await Promise.allSettled(chunk.map(async (zpid) => {
                 const addr = zpidToAddressMap[zpid] || zpid;
                 try {
-                    const ref = doc(firestoreDb!, 'properties', zpid, 'index', 'context_graph');
+                    const ref = doc(firestoreDb!, 'context_graph', zpid);
                     const snap = await getDoc(ref);
                     
                     if (!snap.exists()) {
@@ -1952,19 +1951,19 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     }
 
                     const data = snap.data();
-                    if (!data.data || !data.data.factors || data.data.factors.length === 0) {
+                    if (!data.factors || data.factors.length === 0) {
                         skipped++;
                         addLog(`[Buyer DNA] ⊘ Skip ${addr} — no factors in graph`);
                         return;
                     }
 
-                    if (data.data.buyerDna && !forceGraphRegen) {
+                    if (data.buyerDna && !forceGraphRegen) {
                         skipped++;
                         addLog(`[Buyer DNA] ⊘ Skip ${addr} — already has Buyer DNA`);
                         return;
                     }
 
-                    const factors = data.data.factors;
+                    const factors = data.factors;
                     const prompt = getBuyerDnaCompressionPrompt(factors);
                     
                     const dnaResult = await executeGeminiRequest<any>({
@@ -1981,8 +1980,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                     if (dnaResult.data) {
                         await updateDoc(ref, {
-                            'data.buyerDna': dnaResult.data,
-                            'data.lastUpdated': new Date()
+                            'buyerDna': dnaResult.data,
+                            'lastUpdated': new Date()
                         });
                         done++;
                         addLog(`[Buyer DNA] ✓ Generated and saved for ${addr}`);

@@ -405,6 +405,12 @@ async function _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logge
     const address = prop.address || '';
     const homeType = (prop.homeType || '').toUpperCase();
 
+    const skipTypes = ['LOT', 'LAND', 'VACANT_LAND', 'LOT_LAND'];
+    if (skipTypes.includes(homeType)) {
+        console.log(`[Batch] Skipping ${zpid}: LOT/LAND property (homeType=${prop.homeType})`);
+        return { status: 'skipped', orientation: null, steps: [`Skipped: LOT/LAND property (homeType=${prop.homeType})`], apis: [] };
+    }
+
     // Cache check: skip if we already have any orientation result from this version
     const existingAi = prop.orientation_ai || {};
     if (existingAi.final_orientation && existingAi.batch_version === BATCH_VERSION) {
@@ -1080,7 +1086,7 @@ exports.runOrientationBatchOnCreate = functions
         const logger = new UsageLogger(snap.ref);
         await logger.initialize();
 
-        let done = 0, failed = 0, cached = 0;
+        let done = 0, failed = 0, cached = 0, skipped = 0;
 
         // Process zpids in waves of BATCH_CONCURRENCY (20).
         // Promise.allSettled ensures one failure doesn't cancel the rest of the wave.
@@ -1103,12 +1109,14 @@ exports.runOrientationBatchOnCreate = functions
                     try {
                         const result = await _analyzeOneProperty(zpid, db, geminiKey, mapsKey, radarKey, logger);
                         if (result.status === 'cached') cached++;
+                        else if (result.status === 'skipped') skipped++;
                         else done++;
 
                         const updateData = {
                             done,
                             failed,
                             cached,
+                            skipped,
                             updatedAt: admin.firestore.FieldValue.serverTimestamp()
                         };
                         updateData[`results.${zpid}`] = result;
@@ -1121,6 +1129,7 @@ exports.runOrientationBatchOnCreate = functions
                             done,
                             failed,
                             cached,
+                            skipped,
                             updatedAt: admin.firestore.FieldValue.serverTimestamp()
                         };
                         updateData[`results.${zpid}`] = failResult;
@@ -1132,7 +1141,7 @@ exports.runOrientationBatchOnCreate = functions
         }
 
         await snap.ref.update({
-            status: 'completed', done, failed, cached,
+            status: 'completed', done, failed, cached, skipped,
             completedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 

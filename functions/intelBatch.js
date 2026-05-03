@@ -392,10 +392,18 @@ async function _processOneIntel(zpid, db, genAI, force = false, apiKeys = {}, lo
         const analysisRef = propRef.collection('analysis');
         const envRef = propRef.collection('environmental').doc('thirdparty_data');
 
-        const [propSnap, envSnap] = await Promise.all([
+        let [propSnap, envSnap] = await Promise.all([
             propRef.get(),
             envRef.get()
         ]);
+
+        // Property Data and Full Intel often run in parallel; the property doc may not
+        // exist yet if Property Data is still writing. Retry once after a short delay
+        // before giving up, so a race condition doesn't produce a permanent failure.
+        if (!propSnap.exists) {
+            await new Promise(r => setTimeout(r, 15000));
+            propSnap = await propRef.get();
+        }
 
         if (!propSnap.exists) return { status: 'failed', message: 'Property not found. Run "Full Property Data" first.' };
         const propData = propSnap.data();
